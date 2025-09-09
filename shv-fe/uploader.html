@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Uploader Test — SHOP HUY VÂN</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-3xl mx-auto p-4">
+    <h1 class="text-xl font-semibold mb-4">Uploader Test — SHOP HUY VÂN</h1>
+
+    <label class="block mb-2 text-sm">API base</label>
+    <input id="api" class="w-full border p-2 rounded mb-4"
+           value="https://shv-api.shophuyvan.workers.dev" />
+
+    <label class="block mb-2 text-sm">Folder</label>
+    <input id="folder" class="w-full border p-2 rounded mb-4" value="shv" />
+
+    <label class="block mb-2 text-sm">ADMIN_TOKEN</label>
+    <input id="token" class="w-full border p-2 rounded mb-4" value="" />
+
+    <input id="file" type="file" class="mb-4" />
+    <button id="btn" class="px-3 py-2 rounded bg-blue-600 text-white">Upload</button>
+
+    <pre id="out" class="mt-4 p-3 bg-white border rounded text-sm"></pre>
+    <img id="preview" class="mt-2 max-w-xs rounded border" />
+  </main>
+
+  <script type="module">
+    const $ = (s) => document.querySelector(s);
+    $('#btn').addEventListener('click', async () => {
+      const api    = $('#api').value.trim();
+      const token  = $('#token').value.trim();
+      const folder = $('#folder').value.trim();
+      const file   = $('#file').files[0];
+      $('#out').textContent = 'Uploading...';
+
+      try {
+        const sig = await fetch(`${api}/upload/signature`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder })
+        }).then(r => r.json());
+
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('api_key', sig.api_key);
+        fd.append('timestamp', sig.timestamp);
+        fd.append('signature', sig.signature);
+        fd.append('upload_preset', sig.upload_preset);
+        if (sig.folder) fd.append('folder', sig.folder);
+
+        const up = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloud_name}/auto/upload`, {
+          method: 'POST',
+          body: fd
+        }).then(r => r.json());
+
+        $('#out').textContent = JSON.stringify(up, null, 2);
+        if (up.secure_url) $('#preview').src = up.secure_url;
+      } catch (e) {
+        $('#out').textContent = String(e);
+      }
+    });
+  </script>
+</body>
+</html>
