@@ -64,13 +64,15 @@ searchInput?.addEventListener('keydown', e => {
   }
 });
 
-await loadBanners();
+// ==== BỎ top-level await, đưa hết vào IIFE ====
 (async () => {
   try {
+    await loadBanners();
     await loadNew();
     await loadAll();
   } catch (e) {
     console.error(e);
   }
 })();
+
 
