@@ -87,10 +87,22 @@ function renderRelated(items) {
 }
 
 document.getElementById('add-to-cart')?.addEventListener('click', () => {
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
-  cart.push({ id: product.id, name: product.name, price: pickPrice(product, selectedVariant).base, qty: 1, variant: selectedVariant?.name || null, weight_grams: selectedVariant?.weight_grams ?? product.weight_grams || 0 });
+  const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+  cart.push({
+    id: product.id,
+    name: product.name,
+    price: pickPrice(product, selectedVariant).base,
+    qty: 1,
+    variant: selectedVariant?.name ?? null,
+    // ưu tiên cân nặng biến thể → cân nặng sản phẩm → 0
+    weight_grams: selectedVariant?.weight_grams ?? product.weight_grams ?? 0,
+  });
+
   localStorage.setItem('cart', JSON.stringify(cart));
   alert('Đã thêm vào giỏ');
+});
+
 });
 
 // Load product
