@@ -1,3 +1,4 @@
+@@ -1,14 +1,17 @@
 import { handleAI } from './modules/gemini.js';
 import { handleBanners } from './modules/banners.js';
 import { handleVouchers } from './modules/vouchers.js';
@@ -15,38 +16,11 @@ import { handleProducts } from './modules/products.js';
 // -- headers helper (viết hoa chuẩn, có Vary: Origin)
 const cors = (origin='*') => ({
   'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-  'Access-Control-Max-Age': '86400',
-  'Vary': 'Origin',
-});
-const json = (status, data, headers={}) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...headers }
-  });
-
-function requireAdmin(req, env) {
-  const auth = req.headers.get('authorization') || '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
-  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
-    throw new Response('Unauthorized', { status: 401 });
-  }
-}
-
-export default {
-  async fetch(req, env, ctx) {
-    const origin = req.headers.get('Origin') || '*';
-
-    // 1) CORS preflight
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors(origin) });
-    }
-
-    const url  = new URL(req.url);
+@@ -44,18 +47,33 @@
     const fire = new Fire(env);
 
     try {
+      let res; // <- gom tất cả các return vào biến res
       let res; // gom tất cả các return vào biến res
 
       // ---- health & AI ----
@@ -77,12 +51,7 @@ export default {
       else if (url.pathname.startsWith('/admin/banners')) {
         requireAdmin(req, env);
         res = await handleBanners(req, env, fire);
-      }
-      else if (url.pathname.startsWith('/admin/vouchers')) {
-        requireAdmin(req, env);
-        res = await handleVouchers(req, env, fire);
-      }
-      else if (url.pathname.startsWith('/admin/users')) {
+@@ -68,6 +86,13 @@
         requireAdmin(req, env);
         res = await handleUsers(req, env, fire);
       }
@@ -96,9 +65,7 @@ export default {
       else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
         res = await handlePricing(req, env);
       }
-      else if (url.pathname === '/orders' && req.method === 'POST') {
-        res = await handleOrders(req, env, fire);
-      }
+@@ -77,34 +102,49 @@
       else if (url.pathname.startsWith('/shipping/')) {
         res = await handleShipping(req, env, fire, requireAdmin);
       }
@@ -110,6 +77,7 @@ export default {
       }
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
+        res = json(200, { item: { id, name: 'Demo', description: 'Mô tả', price: 100000, sale_price: null, stock: 10, category: 'default', images: [], image_alts: [], weight_grams: 0 } });
         res = json(200, {
           item: {
             id,
@@ -148,8 +116,3 @@ export default {
       return new Response(r.body, { status: r.status, headers: h });
     }
   },
-
-  async scheduled(controller, env, ctx) {
-    await scheduledCron(env);
-  }
-};
