@@ -65,5 +65,12 @@ searchInput?.addEventListener('keydown', e => {
 });
 
 await loadBanners();
-await loadNew();
-await loadAll();
+(async () => {
+  try {
+    await loadNew();
+    await loadAll();
+  } catch (e) {
+    console.error(e);
+  }
+})();
+
