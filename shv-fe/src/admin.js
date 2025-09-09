@@ -8,6 +8,7 @@ const menuBtn    = $('menu-btn');
 const drawer     = $('drawer');
 const tokenInput = $('admin-token');
 const saveBtn    = $('save-token');
+const csvPicker  = $('csv-picker'); // input file ẩn trong admin.html
 
 // Toggle drawer
 menuBtn?.addEventListener('click', () => {
@@ -35,13 +36,149 @@ export function adminApi(path, init = {}) {
   return api(path, { ...init, headers });
 }
 
-// ====== AI Helper (dùng endpoint /ai/suggest) ======
+function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
+
+// ================= CSV utils =================
+
+/**
+ * CSV parser đơn giản, hỗ trợ ô được bao bởi dấu "..."
+ * Trả về { headers: string[], rows: string[][] }
+ */
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let quote = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const next = text[i + 1];
+
+    if (quote) {
+      if (c === '"' && next === '"') {
+        cur += '"'; i++; // escaped "
+      } else if (c === '"') {
+        quote = false;
+      } else {
+        cur += c;
+      }
+      continue;
+    }
+
+    if (c === '"') { quote = true; continue; }
+    if (c === ',') { row.push(cur); cur = ''; continue; }
+    if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; continue; }
+    if (c === '\r') { continue; }
+
+    cur += c;
+  }
+  row.push(cur);
+  rows.push(row);
+
+  const headers = (rows.shift() || []).map(h => (h || '').trim().toLowerCase());
+  return { headers, rows };
+}
+
+/**
+ * Chuyển 1 object theo headers -> body SP cho API
+ */
+function mapRowToProduct(obj) {
+  // chấp nhận images/image_alts phân tách bằng "," hoặc "|"
+  const splitList = (s) => (s || '')
+    .split(/[|,]/g)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  const toNum = (x) => {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const toNumOrNull = (x) => {
+    if (x === undefined || x === null || String(x).trim() === '') return null;
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const toBool = (x) => {
+    const v = String(x || '').toLowerCase().trim();
+    return v === '1' || v === 'true' || v === 'yes';
+  };
+
+  return {
+    name: obj.name || '',
+    description: obj.description || '',
+    price: toNum(obj.price),
+    sale_price: toNumOrNull(obj.sale_price),
+    stock: toNum(obj.stock),
+    category: obj.category || 'default',
+    weight_grams: toNum(obj.weight_grams),
+    images: splitList(obj.images),
+    image_alts: splitList(obj.image_alts),
+    is_active: toBool(obj.is_active),
+  };
+}
+
+async function importCSVFromFile(file) {
+  const txt = await file.text();
+  const { headers, rows } = parseCSV(txt);
+  if (!headers.length) throw new Error('CSV không có header.');
+
+  // map header -> index
+  const idx = {};
+  headers.forEach((h, i) => idx[h] = i);
+
+  // gợi ý các cột mong muốn
+  // name, description, price, sale_price, stock, category, weight_grams, images, image_alts, is_active
+  let ok = 0, fail = 0;
+  for (const r of rows) {
+    // tạo object từ 1 dòng
+    const obj = {};
+    Object.keys(idx).forEach(k => obj[k] = r[idx[k]]);
+
+    const body = mapRowToProduct(obj);
+    try {
+      await adminApi('/admin/products', { method: 'POST', body });
+      ok++;
+    } catch (e) {
+      console.error('Import row failed:', obj, e);
+      fail++;
+    }
+  }
+  return { ok, fail };
+}
+
+async function deleteAllProducts() {
+  if (!confirm('Bạn chắc chắn xoá TẤT CẢ sản phẩm?')) return;
+
+  // lấy nhiều nhất có thể
+  let cursor = '';
+  let total = 0;
+  do {
+    const res = await adminApi(`/products?limit=100&cursor=${encodeURIComponent(cursor)}`);
+    const items = res.items || [];
+    for (const p of items) {
+      try {
+        await adminApi(`/admin/products/${p.id}`, { method: 'DELETE' });
+        total++;
+      } catch (e) {
+        console.error('Delete failed', p.id, e);
+      }
+    }
+    cursor = res.nextCursor || '';
+  } while (cursor);
+
+  alert(`Đã xoá ${total} sản phẩm.`);
+  location.reload();
+}
+
+// ================= AI helpers =================
 async function callAI(prompt) {
   const r = await api('/ai/suggest', { method: 'POST', body: { prompt } });
   return r.text || r.result || '';
 }
 
-function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
+// ================= RENDER =================
 
 async function render() {
   const hash = (location.hash || '#products').slice(1);
@@ -60,9 +197,7 @@ async function render() {
       <div id="list" class="bg-white border rounded"></div>
     `;
 
-    // NOTE: endpoint public demo /products. Nếu bạn đã có /admin/products (list),
-    // đổi xuống adminApi('/admin/products?limit=50') để có đủ dữ liệu admin.
-    const res = await api('/products?limit=50');
+    const res = await adminApi('/products?limit=50');
     const items = res.items || [];
     $('list').innerHTML = items.map(p => `
       <div class="flex items-center gap-3 p-3 border-b">
@@ -74,14 +209,37 @@ async function render() {
         <a href="#editor?id=${p.id}" class="text-blue-600 underline text-sm">Sửa</a>
       </div>
     `).join('');
+
+    // Nút Import CSV
+    $('import-csv').onclick = () => csvPicker?.click();
+    csvPicker?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      $('import-csv').disabled = true;
+      $('import-csv').textContent = 'Đang import...';
+      try {
+        const { ok, fail } = await importCSVFromFile(file);
+        alert(`Import xong: OK=${ok}, Lỗi=${fail}`);
+        location.reload();
+      } catch (err) {
+        alert('Import lỗi: ' + err.message);
+      } finally {
+        $('import-csv').disabled = false;
+        $('import-csv').textContent = 'Import CSV';
+        csvPicker.value = '';
+      }
+    });
+
+    // Nút Xoá tất cả
+    $('delete-all').onclick = deleteAllProducts;
+
     return;
   }
 
   // ====== Editor (thêm/sửa) ======
   if (hash.startsWith('editor')) {
     const id = new URLSearchParams(hash.split('?')[1]).get('id');
-    // Nếu đã có endpoint admin: dùng adminApi(`/admin/products/${id}`)
-    const item = id ? (await api(`/products/${id}`)).item : null;
+    const item = id ? (await adminApi(`/products/${id}`)).item : null;
 
     routeEl.innerHTML = `
       <h2 class="font-semibold mb-2">${id ? 'Sửa' : 'Thêm'} sản phẩm</h2>
@@ -99,20 +257,22 @@ async function render() {
 
         <input id="images" placeholder="Ảnh (CSV URL)" class="border rounded px-3 py-2"/>
         <input id="image_alts" placeholder="ALT ảnh (CSV)" class="border rounded px-3 py-2"/>
+        <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox"/> Active</label>
 
-        <!-- 👉 Khối “AI trợ giúp” -->
-        <div class="border rounded p-3 bg-sky-50">
-          <div class="text-sm font-medium mb-2">AI trợ giúp</div>
-          <textarea id="aiPrompt" class="border rounded px-3 py-2 w-full" placeholder="Gợi ý thêm cho AI, vd: khách DIY, nhấn mạnh bảo hành 1 đổi 1..."></textarea>
+        <!-- Khối AI trợ giúp -->
+        <div class="mt-3 p-3 border rounded bg-white">
+          <div class="font-medium mb-2">AI trợ giúp</div>
+          <textarea id="aiPrompt" placeholder="Thêm ghi chú/keyword cho AI (tuỳ chọn)" class="border rounded px-3 py-2 w-full"></textarea>
           <div class="flex gap-2 mt-2">
-            <button id="btnAiDesc" class="border rounded px-3 py-1">Tạo mô tả bằng AI</button>
-            <button id="btnAiAlts" class="border rounded px-3 py-1">Tạo ALT ảnh bằng AI</button>
+            <button id="btnAiDesc" class="border px-3 py-1 rounded text-sm">Gợi ý mô tả</button>
+            <button id="btnAiAlts" class="border px-3 py-1 rounded text-sm">Gợi ý ALT ảnh</button>
+          </div>
+          <div class="text-xs text-gray-500 mt-2">
+            * Gợi ý mô tả (120–250 từ) & ALT ảnh (&le;10 từ). Bạn có thể nhập prompt riêng vào ô trên.
           </div>
         </div>
 
-        <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox"/> Active</label>
-
-        <div class="flex gap-2">
+        <div class="flex gap-2 mt-2">
           <button id="save" class="bg-emerald-600 text-white px-4 py-2 rounded w-max">Lưu</button>
           ${id ? `<button id="delete" class="text-rose-600 border px-4 py-2 rounded">Xoá</button>` : ''}
         </div>
@@ -132,54 +292,6 @@ async function render() {
       $('is_active').checked   = !!item.is_active;
     }
 
-    // ====== Nút AI: mô tả
-    $('btnAiDesc').onclick = async () => {
-      try {
-        const btn = $('btnAiDesc');
-        btn.disabled = true; btn.textContent = 'Đang tạo...';
-
-        const name  = $('name').value.trim();
-        const extra = ($('aiPrompt').value || '').trim();
-        const prompt = `Hãy viết mô tả bán hàng hấp dẫn (120–250 từ) cho sản phẩm "${name}". ${extra ? 'Lưu ý: '+extra : ''}`;
-
-        const txt = await callAI(prompt);
-        $('description').value = txt;
-      } catch (e) {
-        alert('AI lỗi: ' + e.message);
-      } finally {
-        const btn = $('btnAiDesc');
-        btn.disabled = false; btn.textContent = 'Tạo mô tả bằng AI';
-      }
-    };
-
-    // ====== Nút AI: ALT ảnh
-    $('btnAiAlts').onclick = async () => {
-      try {
-        const btn = $('btnAiAlts');
-        btn.disabled = true; btn.textContent = 'Đang tạo...';
-
-        const name  = $('name').value.trim();
-        const extra = ($('aiPrompt').value || '').trim();
-        const prompt = `Hãy tạo 5 ALT ảnh ngắn (<=10 từ) cho sản phẩm "${name}". Trả về dạng CSV (alt1, alt2, alt3, alt4, alt5). ${extra ? 'Gợi ý thêm: '+extra : ''}`;
-
-        const raw = await callAI(prompt);
-        const alts = raw
-          .replace(/\n/g, ',')
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean)
-          .slice(0, 5);
-
-        $('image_alts').value = alts.join(', ');
-      } catch (e) {
-        alert('AI lỗi: ' + e.message);
-      } finally {
-        const btn = $('btnAiAlts');
-        btn.disabled = false; btn.textContent = 'Tạo ALT ảnh bằng AI';
-      }
-    };
-
-    // ====== Lưu
     $('save').onclick = async () => {
       const body = {
         id: id || undefined,
@@ -195,22 +307,39 @@ async function render() {
         is_active: $('is_active').checked,
       };
 
-      // Nếu đã có route admin chính thức:
-      // await adminApi('/admin/products', { method:'POST', body });
-
-      // Tạm thời dùng demo /products (nếu chưa có backend thật)
       await adminApi('/admin/products', { method: 'POST', body });
-
       alert('Đã lưu');
       location.hash = '#products';
     };
 
-    // ====== Xoá
     $('delete')?.addEventListener('click', async () => {
       if (!confirm('Xoá sản phẩm này?')) return;
       await adminApi(`/admin/products/${id}`, { method: 'DELETE' });
       alert('Đã xoá');
       location.hash = '#products';
+    });
+
+    // ===== AI buttons =====
+    $('btnAiDesc')?.addEventListener('click', async () => {
+      const name = $('name').value.trim();
+      const extra = $('aiPrompt').value.trim();
+      const prompt =
+        extra
+          ? `${extra}\nHãy viết mô tả bán hàng hấp dẫn (120–250 từ) cho sản phẩm "${name}".`
+          : `Hãy viết mô tả bán hàng hấp dẫn (120–250 từ) cho sản phẩm "${name}".`;
+      const txt = await callAI(prompt);
+      $('description').value = txt;
+    });
+
+    $('btnAiAlts')?.addEventListener('click', async () => {
+      const name = $('name').value.trim();
+      const extra = $('aiPrompt').value.trim();
+      const prompt =
+        extra
+          ? `${extra}\nHãy tạo 5 ALT ảnh ngắn (<=10 từ) cho sản phẩm "${name}". Trả về dạng CSV với dấu phẩy.`
+          : `Hãy tạo 5 ALT ảnh ngắn (<=10 từ) cho sản phẩm "${name}". Trả về dạng CSV với dấu phẩy.`;
+      const txt = await callAI(prompt);
+      $('image_alts').value = (txt || '').replace(/\n/g, ' ').trim();
     });
 
     return;
@@ -227,4 +356,3 @@ async function render() {
 
   routeEl.textContent = '404';
 }
-
