@@ -17,8 +17,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Wrangler
         run: npm i -g wrangler@4
-      # (tùy chọn) kiểm tra đăng nhập: dùng --account (không phải --account-id)
-      - name: Whoami (debug)
-        run: wrangler whoami --account $CLOUDFLARE_ACCOUNT_ID
       - name: Deploy
-        run: wrangler deploy --config wrangler.toml --account-id $CLOUDFLARE_ACCOUNT_ID
+        run: wrangler deploy --config wrangler.toml --verbose
