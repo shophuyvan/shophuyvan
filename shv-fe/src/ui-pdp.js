@@ -104,9 +104,9 @@ document.getElementById('add-to-cart')?.addEventListener('click', () => {
   });
   localStorage.setItem('cart', JSON.stringify(cart));
   alert('Đã thêm vào giỏ');
-});
+}); // <-- chỉ đóng 1 lần cho event listener
 
-// ==== Bọc các lệnh await vào IIFE để không còn top-level await ====
+// ==== Load data ====
 (async () => {
   // Load product
   const res = await api(`/products/${id}`);
@@ -125,6 +125,5 @@ document.getElementById('add-to-cart')?.addEventListener('click', () => {
 
   // Countdown
   tickCountdown();
-})().catch(err => {
-  console.error(err);
-});
+})().catch(console.error); // <-- kết thúc IIFE, KHÔNG có thêm `});` nào sau dòng này
+
