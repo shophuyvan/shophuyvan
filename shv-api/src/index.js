@@ -9,6 +9,9 @@ import { handleShipping } from './modules/shipping/index.js';
 import { scheduledCron } from './modules/cron.js';
 import { Fire } from './modules/firestore.js';
 
+// >>> thêm module products
+import { handleProducts } from './modules/products.js';
+
 // -- headers helper (viết hoa chuẩn, có Vary: Origin)
 const cors = (origin='*') => ({
   'Access-Control-Allow-Origin': origin,
@@ -44,18 +47,33 @@ export default {
     const fire = new Fire(env);
 
     try {
-      let res; // <- gom tất cả các return vào biến res
+      let res; // gom tất cả các return vào biến res
 
+      // ---- health & AI ----
       if (url.pathname === '/ai/health' && req.method === 'GET') {
         res = json(200, { ok: true });
       }
       else if (url.pathname === '/ai/suggest' && req.method === 'POST') {
         res = await handleAI(req, env);
       }
+
+      // ---- upload signature (admin) ----
       else if (url.pathname === '/upload/signature' && req.method === 'POST') {
         requireAdmin(req, env);
         res = await handleUpload(req, env);
       }
+
+      // ---- PUBLIC banners cho FE (không cần token) ----
+      else if (url.pathname === '/banners' && req.method === 'GET') {
+        const rs = await fire.list('banners', {
+          where: ['is_active', '==', true],
+          orderBy: ['order', 'asc'],
+          limit: 20
+        });
+        res = json(200, { items: rs.items || [] });
+      }
+
+      // ---- admin modules (yêu cầu token) ----
       else if (url.pathname.startsWith('/admin/banners')) {
         requireAdmin(req, env);
         res = await handleBanners(req, env, fire);
@@ -68,6 +86,13 @@ export default {
         requireAdmin(req, env);
         res = await handleUsers(req, env, fire);
       }
+      // >>> thêm route admin products
+      else if (url.pathname.startsWith('/admin/products')) {
+        requireAdmin(req, env);
+        res = await handleProducts(req, env, fire);
+      }
+
+      // ---- pricing / orders / shipping ----
       else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
         res = await handlePricing(req, env);
       }
@@ -77,13 +102,28 @@ export default {
       else if (url.pathname.startsWith('/shipping/')) {
         res = await handleShipping(req, env, fire, requireAdmin);
       }
+
+      // ---- demo products public (giữ nguyên như bạn đang dùng) ----
       else if (url.pathname === '/products' && req.method === 'GET') {
         // demo
         res = json(200, { items: [], nextCursor: null });
       }
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
-        res = json(200, { item: { id, name: 'Demo', description: 'Mô tả', price: 100000, sale_price: null, stock: 10, category: 'default', images: [], image_alts: [], weight_grams: 0 } });
+        res = json(200, {
+          item: {
+            id,
+            name: 'Demo',
+            description: 'Mô tả',
+            price: 100000,
+            sale_price: null,
+            stock: 10,
+            category: 'default',
+            images: [],
+            image_alts: [],
+            weight_grams: 0
+          }
+        });
       }
       else {
         res = json(404, { error: 'Not Found' });
