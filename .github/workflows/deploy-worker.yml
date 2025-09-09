@@ -1,8 +1,7 @@
 name: Deploy Worker
 on:
   push:
-    paths:
-      - 'shv-api/**'
+    paths: ['shv-api/**']
   workflow_dispatch:
 
 jobs:
@@ -11,24 +10,14 @@ jobs:
     defaults:
       run:
         working-directory: shv-api
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Wrangler
         run: npm i -g wrangler@3
-
-      - name: Put secrets
-        run: |
-          echo "${{ secrets.GEMINI_API_KEY }}" | wrangler secret put GEMINI_API_KEY --config wrangler.toml
-          echo "${{ secrets.FIREBASE_PROJECT_ID }}" | wrangler secret put FIREBASE_PROJECT_ID --config wrangler.toml
-          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON --config wrangler.toml
-          echo "${{ secrets.ADMIN_TOKEN }}" | wrangler secret put ADMIN_TOKEN --config wrangler.toml
-          echo "${{ secrets.CLOUDINARY_API_KEY }}" | wrangler secret put CLOUDINARY_API_KEY --config wrangler.toml
-          echo "${{ secrets.CLOUDINARY_API_SECRET }}" | wrangler secret put CLOUDINARY_API_SECRET --config wrangler.toml
-          echo "${{ secrets.CLOUDINARY_CLOUD_NAME }}" | wrangler secret put CLOUDINARY_CLOUD_NAME --config wrangler.toml
-          echo "${{ secrets.CLOUDINARY_UPLOAD_PRESET }}" | wrangler secret put CLOUDINARY_UPLOAD_PRESET --config wrangler.toml
-
+      - name: Whoami (debug)
+        run: wrangler whoami --account-id $CLOUDFLARE_ACCOUNT_ID
       - name: Publish
-        run: wrangler publish --account-id ${{ secrets.CLOUDFLARE_ACCOUNT_ID }} --config wrangler.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: wrangler publish --account-id $CLOUDFLARE_ACCOUNT_ID --config wrangler.toml
