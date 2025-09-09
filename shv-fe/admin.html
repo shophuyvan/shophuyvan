@@ -7,42 +7,50 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50">
-<header class="border-b bg-white sticky top-0 z-50">
-  <div class="px-4 py-3 flex items-center gap-2">
-    <button id="menu-btn" class="md:hidden border rounded px-3 py-1">☰</button>
-    <div class="font-bold">Admin</div>
-    <div class="ml-auto text-xs">
-      <label>Token</label>
-      <input id="admin-token" class="border rounded px-2 py-1" placeholder="ADMIN_TOKEN" />
-      <button id="save-token" class="border rounded px-2 py-1">Lưu</button>
+  <!-- Cho FE biết URL của Cloudflare Worker -->
+  <input id="api-base" type="hidden" value="https://shv-api.shophuyvan.workers.dev" />
+  <!-- Input ẩn để import CSV (admin.js sẽ gọi click vào input này) -->
+  <input id="csv-picker" type="file" accept=".csv" class="hidden" />
+
+  <header class="border-b bg-white sticky top-0 z-50">
+    <div class="px-4 py-3 flex items-center gap-2">
+      <button id="menu-btn" class="md:hidden border rounded px-3 py-1">☰</button>
+      <div class="font-bold">Admin</div>
+      <div class="ml-auto text-xs flex items-center gap-2">
+        <label for="admin-token" class="opacity-70">Token</label>
+        <input id="admin-token" class="border rounded px-2 py-1" placeholder="ADMIN_TOKEN" />
+        <button id="save-token" class="border rounded px-2 py-1">Lưu</button>
+      </div>
     </div>
+  </header>
+
+  <div class="flex">
+    <!-- Drawer menu -->
+    <aside
+      id="drawer"
+      class="fixed md:static inset-y-0 left-0 w-72 bg-white border-r transform -translate-x-full md:translate-x-0 transition-transform"
+    >
+      <nav class="p-3 space-y-2 text-sm">
+        <a href="#products"  class="block px-3 py-2 rounded hover:bg-gray-100">Sản phẩm</a>
+        <a href="#editor"    class="block px-3 py-2 rounded hover:bg-gray-100">Thêm/Chỉnh sửa</a>
+        <a href="#banners"   class="block px-3 py-2 rounded hover:bg-gray-100">Banner</a>
+        <a href="#vouchers"  class="block px-3 py-2 rounded hover:bg-gray-100">Voucher</a>
+        <a href="#orders"    class="block px-3 py-2 rounded hover:bg-gray-100">Đơn hàng</a>
+        <a href="#shipping"  class="block px-3 py-2 rounded hover:bg-gray-100">Vận chuyển</a>
+        <a href="#users"     class="block px-3 py-2 rounded hover:bg-gray-100">Người dùng</a>
+        <a href="#analytics" class="block px-3 py-2 rounded hover:bg-gray-100">Thống kê</a>
+        <a href="#marketing" class="block px-3 py-2 rounded hover:bg-gray-100">Marketing</a>
+        <a href="#settings"  class="block px-3 py-2 rounded hover:bg-gray-100">Cài đặt</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-4 space-y-6 md:ml-0 ml-0">
+      <div id="route"></div>
+    </main>
   </div>
-</header>
 
-<div class="flex">
-  <!-- Drawer menu -->
-  <aside id="drawer" class="fixed md:static inset-y-0 left-0 w-72 bg-white border-r transform -translate-x-full md:translate-x-0 transition-transform">
-    <nav class="p-3 space-y-2 text-sm">
-      <a href="#products" class="block px-3 py-2 rounded hover:bg-gray-100">Sản phẩm</a>
-      <a href="#editor" class="block px-3 py-2 rounded hover:bg-gray-100">Thêm/Chỉnh sửa</a>
-      <a href="#banners" class="block px-3 py-2 rounded hover:bg-gray-100">Banner</a>
-      <a href="#vouchers" class="block px-3 py-2 rounded hover:bg-gray-100">Voucher</a>
-      <a href="#orders" class="block px-3 py-2 rounded hover:bg-gray-100">Đơn hàng</a>
-      <a href="#shipping" class="block px-3 py-2 rounded hover:bg-gray-100">Vận chuyển</a>
-      <a href="#users" class="block px-3 py-2 rounded hover:bg-gray-100">Người dùng</a>
-      <a href="#analytics" class="block px-3 py-2 rounded hover:bg-gray-100">Thống kê</a>
-      <a href="#marketing" class="block px-3 py-2 rounded hover:bg-gray-100">Marketing</a>
-      <a href="#settings" class="block px-3 py-2 rounded hover:bg-gray-100">Cài đặt</a>
-    </nav>
-  </aside>
-
-  <main class="flex-1 p-4 space-y-6 md:ml-0 ml-0">
-    <div id="route"></div>
-  </main>
-</div>
-
-<script type="module" src="/src/admin.js"></script>
-<script type="module" src="/src/tracking.js"></script>
-<script type="module" src="/src/frontend.js"></script>
+  <!-- Chỉ cần admin.js; giữ tracking nếu bạn muốn theo dõi hành vi ở trang admin -->
+  <script type="module" src="/src/admin.js"></script>
+  <script type="module" src="/src/tracking.js"></script>
 </body>
 </html>
