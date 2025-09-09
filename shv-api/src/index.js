@@ -104,91 +104,22 @@ export default {
         res = await handleShipping(req, env, fire, requireAdmin);
       }
 
-      // ---- PUBLIC products (đọc từ Fire + hỗ trợ q, category, paging) ----
+      // ---- PUBLIC products (đọc Firestore thay vì demo) ----
       else if (url.pathname === '/products' && req.method === 'GET') {
-        const limit = Math.max(1, Math.min(200, Number(url.searchParams.get('limit') || 50)));
-        const cursor = url.searchParams.get('cursor') || null;
-        const category = (url.searchParams.get('category') || '').trim();
-        const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-
-        const where = [['is_active', '==', true]];
-        if (category) where.push(['category', '==', category]);
-
-        let rs;
-        if (q && typeof fire.search === 'function') {
-          rs = await fire.search('products', {
-            q, where, limit, cursor, orderBy: ['updated_at', 'desc']
-          });
-        } else {
-          rs = await fire.list('products', {
-            where, orderBy: ['updated_at', 'desc'], limit, cursor
-          });
-          if (q) {
-            const ql = q.toLowerCase();
-            const contains = (s) => (String(s || '').toLowerCase().includes(ql));
-            rs.items = (rs.items || []).filter(it =>
-              contains(it.name) ||
-              contains(it.description) ||
-              contains(it.brand) ||
-              contains(it.origin)
-            );
-          }
-        }
-
-        res = json(200, {
-          items: (rs.items || []).map(it => ({
-            id: it.id,
-            name: it.name,
-            description: it.description,
-            price: it.price,
-            sale_price: it.sale_price ?? null,
-            stock: it.stock,
-            category: it.category,
-            weight_grams: it.weight_grams,
-            images: it.images || [],
-            image_alts: it.image_alts || [],
-            is_active: it.is_active === true,
-            brand: it.brand || '',
-            origin: it.origin || '',
-            variants: it.variants || [],
-            seo: it.seo || { title: '', description: '', keywords: '' },
-            created_at: it.created_at,
-            updated_at: it.updated_at,
-          })),
-          nextCursor: rs.nextCursor ?? null,
+        const rs = await fire.list('products', {
+          where: ['is_active', '==', true],
+          orderBy: ['created_at', 'desc'],
+          limit: 50,
         });
+        res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
       }
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
-
-        const item = await (typeof fire.get === 'function'
-          ? fire.get('products', id)
-          : (await fire.list('products', { where: [['id', '==', id]], limit: 1 }))?.items?.[0]);
-
-        if (!item || item.is_active !== true) {
+        const item = await fire.get('products', id);
+        if (!item) {
           res = json(404, { error: 'Not Found' });
         } else {
-          res = json(200, {
-            item: {
-              id: item.id,
-              name: item.name,
-              description: item.description,
-              price: item.price,
-              sale_price: item.sale_price ?? null,
-              stock: item.stock,
-              category: item.category,
-              weight_grams: item.weight_grams,
-              images: item.images || [],
-              image_alts: item.image_alts || [],
-              is_active: true,
-              brand: item.brand || '',
-              origin: item.origin || '',
-              variants: item.variants || [],
-              seo: item.seo || { title: '', description: '', keywords: '' },
-              created_at: item.created_at,
-              updated_at: item.updated_at,
-            }
-          });
+          res = json(200, { item });
         }
       }
       else {
