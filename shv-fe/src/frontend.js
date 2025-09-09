@@ -12,14 +12,16 @@ let allCache = [];
 
 // ----- Banners -----
 async function loadBanners() {
-  const res = await api('/admin/banners', { admin: false });
+  // Trước đây gọi /admin/banners -> 401
+  const res = await api('/banners'); // public
   const banners = (res.items || []).filter(b => b.is_active);
-  bannerWrap && (bannerWrap.innerHTML = banners.map(b => `
+  bannerWrap.innerHTML = banners.map(b => `
     <a href="${b.link_url}" class="block rounded overflow-hidden border">
-      <img src="${b.image_url}" alt="${b.title || ''}" class="w-full h-48 object-cover" />
+      <img src="${b.image_url}" alt="${b.title||''}" class="w-full h-48 object-cover" />
     </a>
-  `).join(''));
+  `).join('');
 }
+
 
 // ----- Product card -----
 function productCard(p) {
