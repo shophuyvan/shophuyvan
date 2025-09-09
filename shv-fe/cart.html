@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Giỏ hàng - Shop Huy Vân</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+<header class="border-b bg-white">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+    <a href="/" class="flex items-center gap-2"><img src="/public/logo.png" class="w-7 h-7"/><span class="font-bold">SHOP HUY VÂN</span></a>
+    <a href="checkout.html" class="ml-auto border rounded px-3 py-1">Thanh toán</a>
+  </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-4 py-6">
+  <h1 class="font-semibold text-lg mb-3">Giỏ hàng</h1>
+  <div id="cart-list" class="bg-white border rounded"></div>
+</main>
+
+<script type="module" src="/src/cart.js"></script>
+<script src="/src/tracking.js"></script>
+</body>
+</html>

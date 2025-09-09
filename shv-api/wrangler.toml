@@ -1,0 +1,6 @@
+name = "shv-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 0 * * *"]
