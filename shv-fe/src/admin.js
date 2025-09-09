@@ -35,6 +35,12 @@ export function adminApi(path, init = {}) {
   return api(path, { ...init, headers });
 }
 
+// ====== AI Helper (dùng endpoint /ai/suggest) ======
+async function callAI(prompt) {
+  const r = await api('/ai/suggest', { method: 'POST', body: { prompt } });
+  return r.text || r.result || '';
+}
+
 function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
 
 async function render() {
@@ -54,7 +60,9 @@ async function render() {
       <div id="list" class="bg-white border rounded"></div>
     `;
 
-    const res = await adminApi('/products?limit=50');
+    // NOTE: endpoint public demo /products. Nếu bạn đã có /admin/products (list),
+    // đổi xuống adminApi('/admin/products?limit=50') để có đủ dữ liệu admin.
+    const res = await api('/products?limit=50');
     const items = res.items || [];
     $('list').innerHTML = items.map(p => `
       <div class="flex items-center gap-3 p-3 border-b">
@@ -72,7 +80,8 @@ async function render() {
   // ====== Editor (thêm/sửa) ======
   if (hash.startsWith('editor')) {
     const id = new URLSearchParams(hash.split('?')[1]).get('id');
-    const item = id ? (await adminApi(`/products/${id}`)).item : null;
+    // Nếu đã có endpoint admin: dùng adminApi(`/admin/products/${id}`)
+    const item = id ? (await api(`/products/${id}`)).item : null;
 
     routeEl.innerHTML = `
       <h2 class="font-semibold mb-2">${id ? 'Sửa' : 'Thêm'} sản phẩm</h2>
@@ -90,6 +99,17 @@ async function render() {
 
         <input id="images" placeholder="Ảnh (CSV URL)" class="border rounded px-3 py-2"/>
         <input id="image_alts" placeholder="ALT ảnh (CSV)" class="border rounded px-3 py-2"/>
+
+        <!-- 👉 Khối “AI trợ giúp” -->
+        <div class="border rounded p-3 bg-sky-50">
+          <div class="text-sm font-medium mb-2">AI trợ giúp</div>
+          <textarea id="aiPrompt" class="border rounded px-3 py-2 w-full" placeholder="Gợi ý thêm cho AI, vd: khách DIY, nhấn mạnh bảo hành 1 đổi 1..."></textarea>
+          <div class="flex gap-2 mt-2">
+            <button id="btnAiDesc" class="border rounded px-3 py-1">Tạo mô tả bằng AI</button>
+            <button id="btnAiAlts" class="border rounded px-3 py-1">Tạo ALT ảnh bằng AI</button>
+          </div>
+        </div>
+
         <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox"/> Active</label>
 
         <div class="flex gap-2">
@@ -112,6 +132,54 @@ async function render() {
       $('is_active').checked   = !!item.is_active;
     }
 
+    // ====== Nút AI: mô tả
+    $('btnAiDesc').onclick = async () => {
+      try {
+        const btn = $('btnAiDesc');
+        btn.disabled = true; btn.textContent = 'Đang tạo...';
+
+        const name  = $('name').value.trim();
+        const extra = ($('aiPrompt').value || '').trim();
+        const prompt = `Hãy viết mô tả bán hàng hấp dẫn (120–250 từ) cho sản phẩm "${name}". ${extra ? 'Lưu ý: '+extra : ''}`;
+
+        const txt = await callAI(prompt);
+        $('description').value = txt;
+      } catch (e) {
+        alert('AI lỗi: ' + e.message);
+      } finally {
+        const btn = $('btnAiDesc');
+        btn.disabled = false; btn.textContent = 'Tạo mô tả bằng AI';
+      }
+    };
+
+    // ====== Nút AI: ALT ảnh
+    $('btnAiAlts').onclick = async () => {
+      try {
+        const btn = $('btnAiAlts');
+        btn.disabled = true; btn.textContent = 'Đang tạo...';
+
+        const name  = $('name').value.trim();
+        const extra = ($('aiPrompt').value || '').trim();
+        const prompt = `Hãy tạo 5 ALT ảnh ngắn (<=10 từ) cho sản phẩm "${name}". Trả về dạng CSV (alt1, alt2, alt3, alt4, alt5). ${extra ? 'Gợi ý thêm: '+extra : ''}`;
+
+        const raw = await callAI(prompt);
+        const alts = raw
+          .replace(/\n/g, ',')
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+          .slice(0, 5);
+
+        $('image_alts').value = alts.join(', ');
+      } catch (e) {
+        alert('AI lỗi: ' + e.message);
+      } finally {
+        const btn = $('btnAiAlts');
+        btn.disabled = false; btn.textContent = 'Tạo ALT ảnh bằng AI';
+      }
+    };
+
+    // ====== Lưu
     $('save').onclick = async () => {
       const body = {
         id: id || undefined,
@@ -127,11 +195,17 @@ async function render() {
         is_active: $('is_active').checked,
       };
 
+      // Nếu đã có route admin chính thức:
+      // await adminApi('/admin/products', { method:'POST', body });
+
+      // Tạm thời dùng demo /products (nếu chưa có backend thật)
       await adminApi('/admin/products', { method: 'POST', body });
+
       alert('Đã lưu');
       location.hash = '#products';
     };
 
+    // ====== Xoá
     $('delete')?.addEventListener('click', async () => {
       if (!confirm('Xoá sản phẩm này?')) return;
       await adminApi(`/admin/products/${id}`, { method: 'DELETE' });
@@ -153,3 +227,4 @@ async function render() {
 
   routeEl.textContent = '404';
 }
+
