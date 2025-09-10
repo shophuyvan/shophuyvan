@@ -185,7 +185,7 @@ function mapRowToProduct(rowObj) {
     weight_grams: toNum(pick('weight_grams', 'weight', 'khoi_luong', 'khoiluong', 'gram', 'grams')),
     images,
     image_alts,
-    is_active: ( (()=>{const r=pick('is_active','active','published','enabled'); return r==='' ? true : toBool(r);})() ),
+    is_active: toBool(pick('is_active', 'active', 'published', 'enabled')),
   };
 }
 
@@ -341,6 +341,100 @@ async function callAI(prompt) {
   return r.text || r.result || '';
 }
 
+
+// ---- AI helpers ----
+async function aiSuggest(payload) {
+  try { return await api('/ai/suggest', { method:'POST', body: payload }); }
+  catch (e){ console.error(e); return {}; }
+}
+const VN_NAMES = ['Ngọc','Tú','Anh','Huyền','Lan','Minh','Hải','Phúc','Dũng','Trang','Quân','Vy','Hạnh','Thảo','Dương'];
+function avatarDataURI(name='K'){
+  const ch = (name||'')[0] || 'K';
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'>
+    <rect width='100%' height='100%' fill='#e5e7eb'/>
+    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
+          font-family='sans-serif' font-size='18' fill='#374151'>${ch}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+function safeImg(url){
+  if (url && String(url).trim()) return url;
+  const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#9ca3af">No Image</text></svg>');
+  return `data:image/svg+xml;utf8,${svg}`;
+}
+
+// ---- FAQ DOM helpers ----
+function addFaqRow(item={q:'',a:''}){
+  const wrap = document.getElementById('faq-list');
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-1 md:grid-cols-2 gap-2';
+  row.innerHTML = `<input class="border rounded px-3 py-2" placeholder="Câu hỏi" value="${item.q||''}"/>
+                   <input class="border rounded px-3 py-2" placeholder="Trả lời" value="${item.a||''}"/>`;
+  wrap.appendChild(row);
+}
+function readFaq(){
+  const wrap = document.getElementById('faq-list');
+  const rows = wrap ? Array.from(wrap.children) : [];
+  return rows.map(r => ({ q: r.children[0].value.trim(), a: r.children[1].value.trim() })).filter(x => x.q || x.a);
+}
+
+// ---- Review DOM helpers ----
+function addReviewRow(item={name:'',rating:5,content:'',avatar:''}){
+  const wrap = document.getElementById('reviews-list');
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-1 md:grid-cols-4 gap-2 items-center';
+  row.innerHTML = `
+    <img src="${item.avatar||avatarDataURI(item.name)}" class="w-10 h-10 rounded-full border"/>
+    <input class="border rounded px-3 py-2" placeholder="Tên" value="${item.name||''}"/>
+    <select class="border rounded px-3 py-2">
+      ${[5,4,3,2,1].map(v=>`<option ${v===(item.rating||5)?'selected':''}>${v}</option>`).join('')}
+    </select>
+    <input class="border rounded px-3 py-2 md:col-span-2" placeholder="Nội dung" value="${item.content||''}"/>
+  `;
+  wrap.appendChild(row);
+}
+function readReviews(){
+  const wrap = document.getElementById('reviews-list');
+  const rows = wrap ? Array.from(wrap.children) : [];
+  return rows.map(r => ({
+    avatar: r.querySelector('img').src,
+    name: r.children[1].value.trim() || VN_NAMES[Math.floor(Math.random()*VN_NAMES.length)],
+    rating: Number(r.children[2].value)||5,
+    content: r.children[3].value.trim()
+  })).filter(x => x.content);
+}
+
+// ---- Variant DOM helpers ----
+function addVariantRow(v={image:'',name:'',sku:'',stock:0,weight_grams:0,price:0,sale_price:null}){
+  const tbody = document.getElementById('variants-body');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="p-1 border"><input class="border rounded px-2 py-1 w-28" placeholder="URL ảnh" value="${v.image||''}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="Tên" value="${v.name||''}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="SKU" value="${v.sku||''}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Tồn" value="${v.stock||0}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="gram" value="${v.weight_grams||0}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá gốc" value="${v.price||0}"/></td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá sale" value="${v.sale_price ?? ''}"/></td>
+    <td class="p-1 border"><button class="text-rose-600 text-xs">Xoá</button></td>
+  `;
+  tr.querySelector('button').onclick = () => tr.remove();
+  tbody.appendChild(tr);
+}
+function readVariants(){
+  const tbody = document.getElementById('variants-body');
+  const rows = tbody ? Array.from(tbody.children) : [];
+  return rows.map(r => ({
+    image: r.children[0].querySelector('input').value.trim(),
+    name: r.children[1].querySelector('input').value.trim(),
+    sku: r.children[2].querySelector('input').value.trim(),
+    stock: Number(r.children[3].querySelector('input').value)||0,
+    weight_grams: Number(r.children[4].querySelector('input').value)||0,
+    price: Number(r.children[5].querySelector('input').value)||0,
+    sale_price: r.children[6].querySelector('input').value ? Number(r.children[6].querySelector('input').value) : null,
+  })).filter(v => v.name);
+}
+
 // ================= RENDER =================
 
 async function render() {
@@ -365,6 +459,39 @@ async function render() {
 
     // hiển thị preview nếu đang có buffer
     renderImportPreview();
+
+    // Bind AI & section buttons (editor)
+    if (document.getElementById('faq-add')) {
+      document.getElementById('faq-add').onclick = () => addFaqRow();
+      document.getElementById('reviews-add').onclick = () => addReviewRow();
+      document.getElementById('variant-add').onclick = () => addVariantRow();
+      document.getElementById('btnAiTitle').onclick = async () => {
+        const r = await aiSuggest({ mode:'title', title:$('name').value.trim(), description:$('description').value.trim() });
+        const list = (r.suggestions||[]).slice(0,5).map(s => s.slice(0,120));
+        const box = document.getElementById('aiSuggestions');
+        box.innerHTML = list.map(s => `<button class='border rounded px-2 py-1 mr-1 mb-1' data-v='${s.replace(/'/g, "&apos;")}' title='${s.length} ký tự'>${s}</button>`).join('');
+        box.querySelectorAll('button').forEach(b => b.onclick = () => { $('name').value = b.dataset.v; });
+      };
+      document.getElementById('btnAiSeo').onclick = async () => {
+        const r = await aiSuggest({ mode:'seo', title:$('name').value.trim(), description:$('description').value.trim() });
+        $('seo_title').value       = (r.seo_title||'').slice(0,150);
+        $('seo_description').value = r.seo_description || '';
+        $('seo_keywords').value    = r.seo_keywords || '';
+      };
+      document.getElementById('btnAiFaq').onclick = async () => {
+        const r = await aiSuggest({ mode:'faq', title:$('name').value.trim(), description:$('description').value.trim() });
+        const items = (r.items||[]);
+        document.getElementById('faq-list').innerHTML='';
+        (items.length?items:[{q:'Chính sách bảo hành?',a:'Theo quy định của shop.'}]).forEach(addFaqRow);
+      };
+      document.getElementById('btnAiReviews').onclick = async () => {
+        const r = await aiSuggest({ mode:'reviews', title:$('name').value.trim(), description:$('description').value.trim() });
+        const items = (r.items||[]);
+        document.getElementById('reviews-list').innerHTML='';
+        (items.length?items:[...Array(5)].map((_,i)=>({name:VN_NAMES[i%VN_NAMES.length],rating:5,content:'Hài lòng',avatar:avatarDataURI(VN_NAMES[i%VN_NAMES.length])}))).forEach(addReviewRow);
+      };
+    }
+    
 
     // List admin (để thấy cả inactive)
     const res = await adminApi('/admin/products?limit=50');
@@ -423,6 +550,57 @@ async function render() {
         <input id="images" placeholder="Ảnh (CSV URL)" class="border rounded px-3 py-2"/>
         <input id="image_alts" placeholder="ALT ảnh (CSV)" class="border rounded px-3 py-2"/>
         <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox" checked/> Active</label>
+        <!-- SEO fields -->
+        <div class="grid gap-2 mt-3">
+          <input id="seo_title" placeholder="SEO tiêu đề" class="border rounded px-3 py-2"/>
+          <textarea id="seo_description" placeholder="SEO mô tả" class="border rounded px-3 py-2"></textarea>
+          <input id="seo_keywords" placeholder="SEO từ khoá (phẩy , cách)" class="border rounded px-3 py-2"/>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <button id="btnAiTitle" class="border px-3 py-1 rounded">AI gợi ý tiêu đề (3–5)</button>
+            <button id="btnAiSeo" class="border px-3 py-1 rounded">AI tạo SEO</button>
+            <button id="btnAiFaq" class="border px-3 py-1 rounded">AI tạo FAQ</button>
+            <button id="btnAiReviews" class="border px-3 py-1 rounded">AI tạo đánh giá</button>
+          </div>
+          <div id="aiSuggestions" class="text-sm text-gray-600"></div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="mt-3 p-3 border rounded bg-white">
+          <div class="font-medium mb-2">FAQ</div>
+          <div id="faq-list" class="space-y-2"></div>
+          <button id="faq-add" class="border px-3 py-1 rounded text-sm mt-2">+ Thêm Q/A</button>
+        </div>
+
+        <!-- Đánh giá khách hàng -->
+        <div class="mt-3 p-3 border rounded bg-white">
+          <div class="font-medium mb-2">Đánh giá khách hàng</div>
+          <div id="reviews-list" class="space-y-2"></div>
+          <button id="reviews-add" class="border px-3 py-1 rounded text-sm mt-2">+ Thêm đánh giá</button>
+        </div>
+
+        <!-- Video URLs -->
+        <input id="videos" placeholder="Video (CSV URL)" class="border rounded px-3 py-2 mt-3"/>
+
+        <!-- Variants -->
+        <div class="mt-3 p-3 border rounded bg-white">
+          <div class="font-medium mb-2">Biến thể</div>
+          <table class="w-full text-sm border">
+            <thead><tr class="bg-gray-50">
+              <th class="p-2 border">Ảnh</th>
+              <th class="p-2 border">Tên phân loại</th>
+              <th class="p-2 border">SKU</th>
+              <th class="p-2 border">Tồn</th>
+              <th class="p-2 border">Cân nặng (g)</th>
+              <th class="p-2 border">Giá gốc</th>
+              <th class="p-2 border">Giá sale</th>
+              <th class="p-2 border"></th>
+            </tr></thead>
+            <tbody id="variants-body"></tbody>
+          </table>
+          <button id="variant-add" class="border px-3 py-1 rounded text-sm mt-2">+ Thêm biến thể</button>
+          <div class="text-xs text-gray-500 mt-1">Giá sale sẽ hiển thị <s>giá gốc</s> <b class="text-rose-600">giá sale</b></div>
+        </div>
+
 
         <!-- Khối AI trợ giúp -->
         <div class="mt-3 p-3 border rounded bg-white">
@@ -470,6 +648,12 @@ async function render() {
         images: ($('images').value || '').split(',').map(s => s.trim()).filter(Boolean),
         image_alts: ($('image_alts').value || '').split(',').map(s => s.trim()).filter(Boolean),
         is_active: $('is_active').checked,
+
+        , seo: { title: $('seo_title').value.trim(), description: $('seo_description').value.trim(), keywords: $('seo_keywords').value.trim() }
+        , faq: readFaq()
+        , reviews: readReviews()
+        , videos: ($('videos').value || '').split(',').map(s=>s.trim()).filter(Boolean)
+        , variants: readVariants()
       };
 
       await adminApi('/admin/products', { method: 'POST', body });
