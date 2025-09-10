@@ -409,39 +409,16 @@ function addVariantRow(v={image:'',name:'',sku:'',stock:0,weight_grams:0,price:0
   const tbody = document.getElementById('variants-body');
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td class="p-1 border">
-      <div class="flex gap-1 items-center">
-        <input class="border rounded px-2 py-1 w-28" placeholder="URL ảnh" value="${v.image||''}"/>
-        <button class="border rounded px-2 py-1 text-xs btnVarUpload">Up</button>
-      </div>
-    </td>
+    <td class="p-1 border"><input class="border rounded px-2 py-1 w-28" placeholder="URL ảnh" value="${v.image||''}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="Tên" value="${v.name||''}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="SKU" value="${v.sku||''}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Tồn" value="${v.stock||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="gram" value="${v.weight_grams||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá gốc" value="${v.price||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá sale" value="${v.sale_price ?? ''}"/></td>
-    <td class="p-1 border"><button class="text-rose-600 text-xs btnVarDel">Xoá</button></td>
+    <td class="p-1 border"><button class="text-rose-600 text-xs">Xoá</button></td>
   `;
-  tr.querySelector('.btnVarDel').onclick = () => tr.remove();
-
-  // Upload ảnh cho từng biến thể
-  const upBtn = tr.querySelector('.btnVarUpload');
-  if (typeof createPicker === 'function' && upBtn){
-    const picker = createPicker('image/*', false);
-    upBtn.onclick = (e) => { e.preventDefault(); picker.click(); };
-    picker.onchange = async () => {
-      try {
-        const sig = await getSignature('variants');
-        const file = picker.files[0];
-        const r = await uploadToCloudinary(file, sig, 'image');
-        tr.querySelector('input').value = r.secure_url || r.url;
-      } catch (e) {
-        console.error(e); alert('Upload ảnh biến thể lỗi');
-      }
-    };
-  }
-
+  tr.querySelector('button').onclick = () => tr.remove();
   tbody.appendChild(tr);
 }
 function readVariants(){
@@ -565,7 +542,63 @@ async function render() {
 
     // Bind AI & section buttons (editor)
 
-    // (upload helpers moved to global)
+    // Upload media via Cloudinary (signed)
+    function createPicker(accept, multiple=true){
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = accept; input.multiple = multiple;
+      return input;
+    }
+    async function getSignature(){
+      return await adminApi('/upload/signature', { method:'POST', body: { folder: 'products' } });
+    }
+    async function uploadToCloudinary(file, sig, type='auto'){
+      const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/${type}/upload`;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('timestamp', sig.timestamp);
+      fd.append('api_key', sig.api_key);
+      fd.append('signature', sig.signature);
+      if (sig.folder) fd.append('folder', sig.folder);
+      if (sig.upload_preset) fd.append('upload_preset', sig.upload_preset);
+      const res = await fetch(endpoint, { method:'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      return await res.json();
+    }
+    // Buttons
+    const imgPicker = createPicker('image/*', true);
+    document.getElementById('btnUploadImages')?.addEventListener('click', () => imgPicker.click());
+    imgPicker.onchange = async () => {
+      const sig = await getSignature();
+      const urls = [];
+      for (const f of Array.from(imgPicker.files)){
+        const r = await uploadToCloudinary(f, sig, 'image');
+        urls.push(r.secure_url || r.url);
+      }
+      const cur = $('images').value ? $('images').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      $('images').value = [...cur, ...urls].join(',');
+      // ALT gợi ý cho ảnh mới
+      try {
+        const r = await aiSuggest({ mode:'alt', title:$('name').value.trim() });
+        const alts = (r.items||[]);
+        if (alts.length){
+          const curAlt = $('image_alts').value ? $('image_alts').value.split(',').map(s=>s.trim()) : [];
+          $('image_alts').value = [...curAlt, ...alts.slice(0, urls.length)].join(',');
+        }
+      } catch {}
+    };
+
+    const vidPicker = createPicker('video/*', true);
+    document.getElementById('btnUploadVideos')?.addEventListener('click', () => vidPicker.click());
+    vidPicker.onchange = async () => {
+      const sig = await getSignature();
+      const urls = [];
+      for (const f of Array.from(vidPicker.files)){
+        const r = await uploadToCloudinary(f, sig, 'video');
+        urls.push(r.secure_url || r.url);
+      }
+      const cur = $('videos').value ? $('videos').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      $('videos').value = [...cur, ...urls].join(',');
+    };
 
     if (document.getElementById('faq-add')) {
       document.getElementById('faq-add').onclick = () => addFaqRow();
@@ -898,3 +931,158 @@ async function deleteAllProducts() {
   alert(`Đã xoá ${total} sản phẩm.`);
   location.reload();
 }
+
+// === shv-patch v6 ===
+// Helpers: Cloudinary upload (global)
+function createPicker(accept, multiple=true) { const el=document.createElement('input'); el.type='file'; el.accept=accept; el.multiple=multiple; return el; }
+async function getSignature(folder='products'){ return await adminApi('/upload/signature', { method:'POST', body:{ folder } }); }
+async function uploadToCloudinary(file, sig, type='image'){
+  const url = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/${type}/upload`;
+  const fd = new FormData();
+  fd.append('file', file); fd.append('timestamp', sig.timestamp);
+  fd.append('api_key', sig.api_key); fd.append('signature', sig.signature);
+  if (sig.folder) fd.append('folder', sig.folder);
+  if (sig.upload_preset) fd.append('upload_preset', sig.upload_preset);
+  const r = await fetch(url, { method:'POST', body: fd });
+  if (!r.ok) throw new Error('Upload failed'); return await r.json();
+}
+
+// Install AI buttons next to fields + event delegation (robust after re-render)
+function installAiUI(){
+  const $ = (id)=>document.getElementById(id);
+  const ensure = (id, html) => { if (!document.getElementById(id)) { const node = document.createElement('div'); node.id=id; node.className='mt-2 flex flex-wrap gap-2'; node.innerHTML=html; return node; } return null; };
+
+  // Title
+  const name = $('name');
+  if (name) {
+    const box = ensure('ai-row-title', `<button data-ai="title" class="border px-2 py-1 rounded text-sm">AI tiêu đề</button><span id="ai-title-sug" class="flex gap-1 flex-wrap"></span>`);
+    if (box) name.parentElement.appendChild(box);
+  }
+
+  // Description
+  const desc = $('description');
+  if (desc) {
+    const box = ensure('ai-row-desc', `<button data-ai="desc" class="border px-2 py-1 rounded text-sm">AI mô tả</button>`);
+    if (box) desc.parentElement.appendChild(box);
+  }
+
+  // Images
+  const images = $('images');
+  if (images) {
+    const box = ensure('ai-row-images', `<button id="btnUploadImages" class="border px-2 py-1 rounded text-sm">Upload ảnh…</button> <button data-ai="alt" class="border px-2 py-1 rounded text-sm">Gợi ý ALT</button>`);
+    if (box) images.parentElement.appendChild(box);
+  }
+
+  // Videos
+  const videos = $('videos');
+  if (videos) {
+    const box = ensure('ai-row-videos', `<button id="btnUploadVideos" class="border px-2 py-1 rounded text-sm">Upload video…</button>`);
+    if (box) videos.parentElement.appendChild(box);
+  }
+
+  // SEO (đặt ngay tại 3 ô)
+  const seoT = $('seo_title'); const seoD=$('seo_description'); const seoK=$('seo_keywords');
+  if (seoK) {
+    const box = ensure('ai-row-seo', `<button data-ai="seo" class="border px-2 py-1 rounded text-sm">AI SEO (tiêu đề 100–120)</button>`);
+    if (box) seoK.parentElement.appendChild(box);
+  }
+}
+
+// Event delegation (one-time)
+if (!window.__aiHandlersBound) {
+  window.__aiHandlersBound = true;
+  document.addEventListener('click', async (e)=>{
+    const $ = (id)=>document.getElementById(id);
+    const t = e.target;
+
+    // AI: Title
+    if (t && t.matches('[data-ai="title"]')) {
+      e.preventDefault();
+      try {
+        const r = await adminApi('/ai/suggest', { method:'POST', body: { mode:'title', title:$('name')?.value?.trim()||'', description:$('description')?.value?.trim()||'' } });
+        const list = (r.suggestions||[]).slice(0,5).map(s=>s.slice(0,120));
+        const wrap = document.getElementById('ai-title-sug');
+        if (wrap) { wrap.innerHTML = list.map(s=>`<button class='border rounded px-2 py-1 text-xs' data-apply-title='${s.replace(/'/g,"&apos;")}'>${s}</button>`).join(''); }
+      } catch(err) { console.error(err); alert('AI tiêu đề lỗi'); }
+    }
+    if (t && t.hasAttribute('data-apply-title')) {
+      e.preventDefault(); const v = t.getAttribute('data-apply-title'); const el = $('name'); if (el) el.value = v;
+    }
+
+    // AI: Description (rewrite, không xoá nội dung nếu thất bại)
+    if (t && t.matches('[data-ai="desc"]')) {
+      e.preventDefault();
+      const el = $('description'); if (!el) return;
+      const current = el.value.trim();
+      try {
+        const r = await adminApi('/ai/suggest', { method:'POST', body: { mode:'desc', title:$('name')?.value?.trim()||'', description: current } });
+        const text = r.text || r.description || current;
+        el.value = text; // không bao giờ set rỗng
+      } catch(err) { console.error(err); alert('AI mô tả lỗi'); el.value = current; }
+    }
+
+    // AI: SEO (tiêu đề 100–120)
+    if (t && t.matches('[data-ai="seo"]')) {
+      e.preventDefault();
+      try {
+        const r = await adminApi('/ai/suggest', { method:'POST', body: { mode:'seo', title:$('name')?.value?.trim()||'', description:$('description')?.value?.trim()||'' } });
+        $('seo_title').value       = r.seo_title || $('seo_title').value;
+        $('seo_description').value = r.seo_description || $('seo_description').value;
+        $('seo_keywords').value    = r.seo_keywords || $('seo_keywords').value;
+      } catch(err) { console.error(err); alert('AI SEO lỗi'); }
+    }
+
+    // AI: ALT ảnh
+    if (t && t.matches('[data-ai="alt"]')) {
+      e.preventDefault();
+      try {
+        const r = await adminApi('/ai/suggest', { method:'POST', body: { mode:'alt', title:$('name')?.value?.trim()||'', description:$('description')?.value?.trim()||'' } });
+        const alts = (r.items||[]);
+        if (alts.length) { const cur= ($('image_alts').value||'').split(',').map(s=>s.trim()).filter(Boolean); $('image_alts').value=[...cur, ...alts].join(','); }
+      } catch(err) { console.error(err); alert('AI ALT lỗi'); }
+    }
+
+    // Upload ảnh chính
+    if (t && t.id === 'btnUploadImages') {
+      e.preventDefault();
+      const picker = createPicker('image/*', true); picker.click();
+      picker.onchange = async () => {
+        try {
+          const sig = await getSignature('products');
+          const urls=[]; for (const f of Array.from(picker.files)) { const u = await uploadToCloudinary(f, sig, 'image'); urls.push(u.secure_url||u.url); }
+          const cur = ($('images').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+          $('images').value = [...cur, ...urls].join(',');
+        } catch(err) { console.error(err); alert('Upload ảnh lỗi'); }
+      };
+    }
+
+    // Upload video
+    if (t && t.id === 'btnUploadVideos') {
+      e.preventDefault();
+      const picker = createPicker('video/*', true); picker.click();
+      picker.onchange = async () => {
+        try {
+          const sig = await getSignature('products');
+          const urls=[]; for (const f of Array.from(picker.files)) { const u = await uploadToCloudinary(f, sig, 'video'); urls.push(u.secure_url||u.url); }
+          const cur = ($('videos').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+          $('videos').value = [...cur, ...urls].join(',');
+        } catch(err) { console.error(err); alert('Upload video lỗi'); }
+      };
+    }
+
+    // Upload ảnh từng biến thể (nút 'Up' trong bảng)
+    if (t && t.classList.contains('btnVarUpload')) {
+      e.preventDefault();
+      const tr = t.closest('tr'); if (!tr) return;
+      const input = tr.querySelector('td input'); if (!input) return;
+      const picker = createPicker('image/*', false); picker.click();
+      picker.onchange = async () => {
+        try { const sig = await getSignature('variants'); const f=picker.files[0]; const u = await uploadToCloudinary(f, sig, 'image'); input.value = u.secure_url||u.url; }
+        catch(err) { console.error(err); alert('Upload ảnh biến thể lỗi'); }
+      };
+    }
+  });
+}
+
+// Call installer after route changes (safe)
+setTimeout(installAiUI, 100);
