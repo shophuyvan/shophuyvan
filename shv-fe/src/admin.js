@@ -66,6 +66,41 @@ window.adminApi = adminApi;
 
 function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
 
+// ================= Helpers ping / settings =================
+
+// LẤY API BASE từ admin.html
+function getApiBase() {
+  const el = document.querySelector('#api-base');
+  if (!el) throw new Error('#api-base not found in admin.html');
+  return el.value.trim().replace(/\/+$/, '');
+}
+
+// Ping public: GET /ai/health
+async function pingPublic() {
+  const base = getApiBase();
+  const t0 = performance.now();
+  const res = await fetch(`${base}/ai/health`, { method: 'GET' });
+  const dt = Math.round(performance.now() - t0);
+  const body = await res.text().catch(() => '');
+  let json = null;
+  try { json = JSON.parse(body); } catch {}
+  return { ok: res.ok, status: res.status, ms: dt, json, raw: body };
+}
+
+// Ping admin: GET /admin/products?limit=1 (yêu cầu token)
+async function pingAdmin() {
+  const t0 = performance.now();
+  try {
+    await adminApi('/admin/products?limit=1', { method: 'GET' });
+    const dt = Math.round(performance.now() - t0);
+    return { ok: true, status: 200, ms: dt, auth: true };
+  } catch (e) {
+    const dt = Math.round(performance.now() - t0);
+    const is401 = /HTTP\s+401/.test(String(e?.message || ''));
+    return { ok: false, status: is401 ? 401 : 0, ms: dt, auth: false, error: String(e?.message || e) };
+  }
+}
+
 // ================= CSV utils =================
 
 /**
@@ -371,6 +406,79 @@ async function render() {
       const txt = await callAI(prompt);
       $('image_alts').value = (txt || '').replace(/\n/g, ' ').trim();
     });
+
+    return;
+  }
+
+  // ====== Cài đặt / Kiểm tra kết nối ======
+  if (hash === 'settings') {
+    const base = getApiBase();
+    const token = (localStorage.getItem('ADMIN_TOKEN') || '').trim();
+    const tokenMask = token ? `${token.slice(0,4)}…${token.slice(-4)}` : '(chưa có)';
+
+    routeEl.innerHTML = `
+      <h2 class="font-semibold mb-2">Cài đặt & Kiểm tra kết nối</h2>
+      <div class="grid gap-3">
+        <div class="p-3 border rounded bg-white text-sm">
+          <div><b>API Base:</b> <code>${base}</code></div>
+          <div><b>ADMIN_TOKEN:</b> <code>${tokenMask}</code> <span class="text-xs text-gray-500">(đổi ở góc trên cùng)</span></div>
+        </div>
+
+        <div class="p-3 border rounded bg-white text-sm space-y-2">
+          <div class="font-medium">Ping nhanh</div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btnPingPublic" class="border rounded px-3 py-1">Ping public (/ai/health)</button>
+            <button id="btnPingAdmin" class="border rounded px-3 py-1">Ping admin (/admin/products)</button>
+          </div>
+          <pre id="diag" class="mt-2 p-2 bg-gray-50 border rounded text-xs whitespace-pre-wrap"></pre>
+        </div>
+
+        <div class="p-3 border rounded bg-white text-sm space-y-2">
+          <div class="font-medium">Test qua cURL</div>
+          <div class="space-y-2">
+            <div>
+              <div class="text-xs opacity-70 mb-1">Public health</div>
+              <pre class="p-2 bg-gray-50 border rounded text-xs overflow-auto">curl -i "${base}/ai/health"</pre>
+            </div>
+            <div>
+              <div class="text-xs opacity-70 mb-1">Admin list (cần token)</div>
+              <pre class="p-2 bg-gray-50 border rounded text-xs overflow-auto">curl -i -H "Authorization: Bearer ${token || '<ADMIN_TOKEN>'}" "${base}/admin/products?limit=1"</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const diag = $('diag');
+
+    $('btnPingPublic').onclick = async () => {
+      diag.textContent = 'Đang ping public...';
+      try {
+        const r = await pingPublic();
+        diag.textContent =
+          `Public /ai/health: ${r.ok ? 'OK ✅' : 'Fail ⛔'}  ` +
+          `(HTTP ${r.status}, ${r.ms}ms)\n` +
+          (r.json ? JSON.stringify(r.json, null, 2) : r.raw || '');
+      } catch (e) {
+        diag.textContent = 'Lỗi public: ' + String(e.message || e);
+      }
+    };
+
+    $('btnPingAdmin').onclick = async () => {
+      diag.textContent = 'Đang ping admin...';
+      try {
+        const r = await pingAdmin();
+        if (r.ok) {
+          diag.textContent = `Admin /admin/products: OK ✅ (HTTP 200, ${r.ms}ms)`;
+        } else if (r.status === 401) {
+          diag.textContent = `Admin /admin/products: 401 Unauthorized ⛔ (token sai/thiếu)\n${r.error || ''}`;
+        } else {
+          diag.textContent = `Admin /admin/products: Lỗi ⛔ (${r.ms}ms)\n${r.error || ''}`;
+        }
+      } catch (e) {
+        diag.textContent = 'Lỗi admin: ' + String(e.message || e);
+      }
+    };
 
     return;
   }
