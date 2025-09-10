@@ -10,7 +10,7 @@ import { handleShipping } from './modules/shipping/index.js';
 import { scheduledCron } from './modules/cron.js';
 import { Fire } from './modules/firestore.js';
 
-// >>> admin products
+// Admin products
 import { handleProducts } from './modules/products.js';
 
 // ---- helpers ----
@@ -40,7 +40,7 @@ export default {
     const origin = req.headers.get('Origin') || '*';
     const url = new URL(req.url);
 
-    // ✅ Preflight cho tất cả (đặc biệt /admin/*)
+    // Preflight cho tất cả
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
@@ -48,7 +48,7 @@ export default {
     const fire = new Fire(env);
 
     try {
-      let res; // gom tất cả các return vào biến res
+      let res;
 
       // ---- health & AI ----
       if (url.pathname === '/ai/health' && req.method === 'GET') {
@@ -64,7 +64,7 @@ export default {
         res = await handleUpload(req, env);
       }
 
-      // ---- PUBLIC banners cho FE ----
+      // ---- PUBLIC banners ----
       else if (url.pathname === '/banners' && req.method === 'GET') {
         const rs = await fire.list('banners', {
           where: ['is_active', '==', true],
@@ -74,7 +74,7 @@ export default {
         res = json(200, { items: rs.items || [] });
       }
 
-      // ---- admin modules (yêu cầu token) ----
+      // ---- ADMIN modules (cần token) ----
       else if (url.pathname.startsWith('/admin/banners')) {
         requireAdmin(req, env);
         res = await handleBanners(req, env, fire);
@@ -87,7 +87,6 @@ export default {
         requireAdmin(req, env);
         res = await handleUsers(req, env, fire);
       }
-      // >>> admin products
       else if (url.pathname.startsWith('/admin/products')) {
         requireAdmin(req, env);
         res = await handleProducts(req, env, fire);
@@ -104,32 +103,38 @@ export default {
         res = await handleShipping(req, env, fire, requireAdmin);
       }
 
-      // ---- PUBLIC products (đọc Firestore thay vì demo) ----
+      // ---- PUBLIC products (đọc Fire) ----
       else if (url.pathname === '/products' && req.method === 'GET') {
+        const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+        const cursor = url.searchParams.get('cursor') || '';
         const rs = await fire.list('products', {
           where: ['is_active', '==', true],
           orderBy: ['created_at', 'desc'],
-          limit: 50,
+          limit,
+          cursor,
         });
         res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
       }
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
         const item = await fire.get('products', id);
-        if (!item) {
+        if (!item || !item.is_active) {
           res = json(404, { error: 'Not Found' });
         } else {
           res = json(200, { item });
         }
       }
+
+      // ---- 404 ----
       else {
         res = json(404, { error: 'Not Found' });
       }
 
-      // 🔗 Gắn CORS cho mọi response
+      // Gắn CORS cho mọi response
       const headers = new Headers(res.headers);
       Object.entries(cors(origin)).forEach(([k, v]) => headers.set(k, v));
       return new Response(res.body, { status: res.status, headers });
+
     } catch (e) {
       if (e instanceof Response) {
         const headers = new Headers(e.headers);
@@ -144,7 +149,7 @@ export default {
     }
   },
 
-  // Cron của bạn
+  // Cron
   async scheduled(event, env, ctx) {
     try {
       await scheduledCron(env, ctx);
