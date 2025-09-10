@@ -1,4 +1,4 @@
-// shv-api/src/modules/gemini.js (v6)
+// shv-api/src/modules/gemini.js (v6.1)
 async function callGeminiJSON(apiKey, model, sysPrompt, userPrompt) {
   const endpoint = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
   const payload = { contents: [{ role: "user", parts: [{ text: `${sysPrompt}\n\n${userPrompt}` }]}], generationConfig: { temperature: 0.6, maxOutputTokens: 2048 } };
