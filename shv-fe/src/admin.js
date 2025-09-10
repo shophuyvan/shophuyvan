@@ -64,6 +64,28 @@ export function adminApi(path, init = {}) {
 // Expose để test nhanh trong Console
 window.adminApi = adminApi;
 
+// Ping helpers (dùng ở trang Cài đặt)
+async function pingPublic() {
+  const base = document.querySelector('#api-base')?.value?.trim().replace(/\/+$/, '');
+  const url  = `${base}/ai/health`;
+  const t0 = performance.now();
+  const res = await fetch(url);
+  const ms = Math.round(performance.now() - t0);
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, ms, body };
+}
+
+async function pingAdminList() {
+  const base = document.querySelector('#api-base')?.value?.trim().replace(/\/+$/, '');
+  const url  = `${base}/admin/products?limit=1`;
+  const token = localStorage.getItem('ADMIN_TOKEN') || '';
+  const t0 = performance.now();
+  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+  const ms = Math.round(performance.now() - t0);
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, ms, body };
+}
+
 // ================= CSV utils =================
 
 /**
@@ -106,48 +128,69 @@ function parseCSV(text) {
 }
 
 /**
- * Chuyển 1 object theo headers -> body SP cho API
+ * Chuẩn hoá 1 dòng CSV -> body sản phẩm cho API
+ * (Hỗ trợ nhiều alias tên cột thực tế)
  */
-function mapRowToProduct(obj) {
-  // chấp nhận images/image_alts phân tách bằng "," hoặc "|"
-  const splitList = (s) => (s || '')
-    .split(/[|,]/g)
-    .map(x => x.trim())
-    .filter(Boolean);
+function mapRowToProduct(rowObj) {
+  const pick = (...keys) => {
+    for (const k of keys) {
+      const v = rowObj[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  };
 
   const toNum = (x) => {
-    const n = Number(x);
+    const s = String(x ?? '').replace(/[^\d.-]/g, '');
+    const n = Number(s);
     return Number.isFinite(n) ? n : 0;
   };
-
   const toNumOrNull = (x) => {
-    if (x === undefined || x === null || String(x).trim() === '') return null;
-    const n = Number(x);
+    const s = String(x ?? '').replace(/[^\d.-]/g, '');
+    if (s === '') return null;
+    const n = Number(s);
     return Number.isFinite(n) ? n : null;
   };
-
   const toBool = (x) => {
-    const v = String(x || '').toLowerCase().trim();
-    return v === '1' || v === 'true' || v === 'yes';
+    const v = String(x ?? '').toLowerCase().trim();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'y' || v === 'active' || v === 'published';
   };
+  const splitList = (s) => String(s ?? '')
+    .split(/[\n|,;]+/g)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  // gom ảnh từ nhiều kiểu cột
+  const images = (() => {
+    const list = splitList(
+      pick('images', 'image_urls', 'imgs', 'pictures', 'photos', 'image')
+    );
+    for (let i = 1; i <= 10; i++) {
+      const v = rowObj[`image${i}`];
+      if (v) list.push(String(v).trim());
+    }
+    return Array.from(new Set(list)).filter(Boolean);
+  })();
+
+  const image_alts = splitList(pick('image_alts', 'alts', 'alt', 'image_alts_csv'));
 
   return {
-    id: obj.id || undefined, // cho phép CSV có cột id để update
-    name: obj.name || '',
-    description: obj.description || '',
-    price: toNum(obj.price),
-    sale_price: toNumOrNull(obj.sale_price),
-    stock: toNum(obj.stock),
-    category: obj.category || 'default',
-    weight_grams: toNum(obj.weight_grams),
-    images: splitList(obj.images),
-    image_alts: splitList(obj.image_alts),
-    is_active: toBool(obj.is_active),
+    id: pick('id', 'sku', 'product_id') || undefined, // cho phép update theo id/sku
+    name: pick('name', 'product_name', 'title', 'ten', 'tên', 'product'),
+    description: pick('description', 'desc', 'mo_ta', 'mota', 'content', 'details', 'specs'),
+    price: toNum(pick('price', 'gia', 'giá', 'price_vnd', 'price_vnd_numeric')),
+    sale_price: toNumOrNull(pick('sale_price', 'gia_khuyen_mai', 'giakhuyenmai', 'discount_price')),
+    stock: toNum(pick('stock', 'ton', 'tồn', 'inventory', 'quantity', 'qty', 'stock_qty')),
+    category: pick('category', 'danh_muc', 'danhmuc', 'category_name') || 'default',
+    weight_grams: toNum(pick('weight_grams', 'weight', 'khoi_luong', 'khoiluong', 'gram', 'grams')),
+    images,
+    image_alts,
+    is_active: toBool(pick('is_active', 'active', 'published', 'enabled')),
   };
 }
 
 // ============= Import Preview (chọn & Active hàng loạt) =============
-let importBuffer = []; // mảng các product đã parse
+let importBuffer = [];        // mảng các product đã parse
 let importSelected = new Set(); // index các dòng đang chọn
 
 function renderImportPreview() {
@@ -206,8 +249,7 @@ function renderImportPreview() {
         </table>
       </div>
       <div class="text-xs text-gray-500 mt-2">
-        * Lưu ý: Khi bấm “Xác nhận Active…”, các dòng được chọn sẽ được <b>upsert</b> (tạo mới hoặc cập nhật)
-        với <code>is_active = true</code>.
+        * Khi bấm “Xác nhận Active…”, các dòng được chọn sẽ được <b>upsert</b> với <code>is_active = true</code>.
       </div>
     </div>
   `;
@@ -468,6 +510,65 @@ async function render() {
     return;
   }
 
+  // ====== CÀI ĐẶT & KIỂM TRA KẾT NỐI ======
+  if (hash === 'settings') {
+    const base = document.querySelector('#api-base')?.value?.trim() || '';
+    const token = localStorage.getItem('ADMIN_TOKEN') || '';
+
+    routeEl.innerHTML = `
+      <div class="space-y-4">
+        <div class="border rounded bg-white p-3">
+          <h2 class="font-semibold mb-2">Cài đặt & Kiểm tra kết nối</h2>
+          <div class="text-sm">
+            <div><b>API Base:</b> <code>${base}</code></div>
+            <div><b>ADMIN_TOKEN:</b> <code>${token ? (token.slice(0,4) + '…' + token.slice(-4)) : '(chưa có)'}</code> <span class="text-xs opacity-60">(đổi ở góc trên cùng)</span></div>
+          </div>
+        </div>
+
+        <div class="border rounded bg-white p-3">
+          <div class="flex items-center gap-2">
+            <button id="btnPingPublic" class="border rounded px-3 py-1 text-sm">Ping public (/ai/health)</button>
+            <button id="btnPingAdmin" class="border rounded px-3 py-1 text-sm">Ping admin (/admin/products)</button>
+          </div>
+          <pre id="pingLog" class="mt-3 bg-gray-50 p-2 rounded text-xs overflow-auto"></pre>
+        </div>
+
+        <div class="border rounded bg-white p-3">
+          <div class="font-medium mb-2">Test qua cURL</div>
+          <div class="text-xs">Public health</div>
+          <pre class="bg-gray-50 p-2 rounded text-xs overflow-auto mb-3">curl -i "${base}/ai/health"</pre>
+          <div class="text-xs">Admin list (cần token)</div>
+          <pre class="bg-gray-50 p-2 rounded text-xs overflow-auto">curl -i -H "Authorization: Bearer ${token || 'YOUR_ADMIN_TOKEN'}" "${base}/admin/products?limit=1"</pre>
+        </div>
+      </div>
+    `;
+
+    const $log = $('pingLog');
+    const write = (txt) => $log.textContent = String(txt);
+
+    $('btnPingPublic')?.addEventListener('click', async () => {
+      write('Đang ping public…');
+      try {
+        const r = await pingPublic();
+        write(`Public /ai/health: ${r.ok ? 'OK ✅' : 'FAIL ⛔'} (HTTP ${r.status}, ${r.ms}ms)\n\n${r.body}`);
+      } catch (e) {
+        write('Lỗi: ' + e.message);
+      }
+    });
+
+    $('btnPingAdmin')?.addEventListener('click', async () => {
+      write('Đang ping admin…');
+      try {
+        const r = await pingAdminList();
+        write(`Admin /admin/products: ${r.ok ? 'OK ✅' : 'FAIL ⛔'} (HTTP ${r.status}, ${r.ms}ms)\n\n${r.body}`);
+      } catch (e) {
+        write('Lỗi: ' + e.message);
+      }
+    });
+
+    return;
+  }
+
   // ====== Các trang placeholder khác ======
   if (hash === 'banners')   { routeEl.innerHTML = `<h2 class="font-semibold mb-2">Banner</h2><div class="text-sm">CRUD (dùng API /admin/banners)</div>`; return; }
   if (hash === 'vouchers')  { routeEl.innerHTML = `<h2 class="font-semibold mb-2">Voucher</h2><div class="text-sm">CRUD + Test mã bằng /pricing/preview</div>`; return; }
@@ -480,7 +581,7 @@ async function render() {
   routeEl.textContent = '404';
 }
 
-// ====== Delete all helper (không đổi) ======
+// ====== Delete all helper ======
 async function deleteAllProducts() {
   if (!confirm('Bạn chắc chắn xoá TẤT CẢ sản phẩm?')) return;
 
