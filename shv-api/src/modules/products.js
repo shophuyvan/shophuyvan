@@ -85,7 +85,6 @@ async function getProductById(fire, id) {
   if (typeof fire.get === 'function') {
     return await fire.get('products', id);
   }
-  // Fallback nếu wrapper không có get
   const rs = await fire.list('products', { where: [['id', '==', id]], limit: 1 });
   return rs?.items?.[0] || null;
 }
@@ -101,7 +100,7 @@ export async function handleProducts(req, env, fire) {
     const cursor = url.searchParams.get('cursor') || null;
     const q      = (url.searchParams.get('q') || '').trim().toLowerCase();
 
-    // OrderBy updated_at desc để bản mới nhất lên đầu
+    // Order theo updated_at để bản mới nhất lên đầu
     let rs = await fire.list('products', { orderBy: ['updated_at', 'desc'], limit, cursor });
 
     if (q) {
