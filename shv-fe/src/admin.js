@@ -435,6 +435,86 @@ function readVariants(){
   })).filter(v => v.name);
 }
 
+
+// Attach handlers for editor extras (AI, FAQ, Reviews, Variants, Upload buttons)
+function attachEditorExtras(){
+  const has = document.getElementById('btnAiTitle');
+  if (!has) return;
+
+  // Nút thêm dòng
+  document.getElementById('faq-add').onclick = () => addFaqRow();
+  document.getElementById('reviews-add').onclick = () => addReviewRow();
+  document.getElementById('variant-add').onclick = () => addVariantRow();
+
+  // Upload buttons (if injected)
+  if (typeof createPicker === 'function'){
+    const imgPicker = createPicker('image/*', true);
+    document.getElementById('btnUploadImages')?.addEventListener('click', () => imgPicker.click());
+    imgPicker.onchange = async () => {
+      try{
+        const sig = await adminApi('/upload/signature', { method:'POST', body: { folder: 'products' } });
+        const urls = [];
+        for (const f of Array.from(imgPicker.files)){
+          const r = await uploadToCloudinary(f, sig, 'image');
+          urls.push(r.secure_url || r.url);
+        }
+        const cur = $('images').value ? $('images').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        $('images').value = [...cur, ...urls].join(',');
+        // gợi ý ALT
+        try { const r = await aiSuggest({ mode:'alt', title:$('name').value.trim() }); const alts=(r.items||[]);
+          if (alts.length){
+            const curAlt = $('image_alts').value ? $('image_alts').value.split(',').map(s=>s.trim()) : [];
+            $('image_alts').value = [...curAlt, ...alts.slice(0, urls.length)].join(',');
+          }
+        } catch {}
+      }catch(e){ console.error(e); alert('Upload ảnh lỗi'); }
+    };
+
+    const vidPicker = createPicker('video/*', true);
+    document.getElementById('btnUploadVideos')?.addEventListener('click', () => vidPicker.click());
+    vidPicker.onchange = async () => {
+      try{
+        const sig = await adminApi('/upload/signature', { method:'POST', body: { folder: 'products' } });
+        const urls = [];
+        for (const f of Array.from(vidPicker.files)){
+          const r = await uploadToCloudinary(f, sig, 'video');
+          urls.push(r.secure_url || r.url);
+        }
+        const cur = $('videos').value ? $('videos').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        $('videos').value = [...cur, ...urls].join(',');
+      }catch(e){ console.error(e); alert('Upload video lỗi'); }
+    };
+  }
+
+  // AI Buttons
+  document.getElementById('btnAiTitle').onclick = async () => {
+    const r = await aiSuggest({ mode:'title', title:$('name').value.trim(), description:$('description').value.trim() });
+    const list = (r.suggestions||[]).slice(0,5).map(s => s.slice(0,120));
+    const box = document.getElementById('aiSuggestions');
+    box.innerHTML = list.map(s => `<button class='border rounded px-2 py-1 mr-1 mb-1' data-v='${s.replace(/'/g, "&apos;")}' title='${s.length} ký tự'>${s}</button>`).join('');
+    box.querySelectorAll('button').forEach(b => b.onclick = () => { $('name').value = b.dataset.v; });
+  };
+  document.getElementById('btnAiSeo').onclick = async () => {
+    const r = await aiSuggest({ mode:'seo', title:$('name').value.trim(), description:$('description').value.trim() });
+    $('seo_title').value       = (r.seo_title||'').slice(0,150);
+    $('seo_description').value = r.seo_description || '';
+    $('seo_keywords').value    = r.seo_keywords || '';
+  };
+  document.getElementById('btnAiFaq').onclick = async () => {
+    const r = await aiSuggest({ mode:'faq', title:$('name').value.trim(), description:$('description').value.trim() });
+    const items = (r.items||[]);
+    document.getElementById('faq-list').innerHTML='';
+    (items.length?items:[{q:'Chính sách bảo hành?',a:'Theo quy định của shop.'}]).forEach(addFaqRow);
+  };
+  document.getElementById('btnAiReviews').onclick = async () => {
+    const r = await aiSuggest({ mode:'reviews', title:$('name').value.trim(), description:$('description').value.trim() });
+    const items = (r.items||[]);
+    document.getElementById('reviews-list').innerHTML='';
+    (items.length?items:[...Array(5)].map((_,i)=>({name:VN_NAMES[i%VN_NAMES.length],rating:5,content:'Hài lòng',avatar:avatarDataURI(VN_NAMES[i%VN_NAMES.length])}))).forEach(addReviewRow);
+  };
+}
+
+
 // ================= RENDER =================
 
 async function render() {
@@ -682,6 +762,8 @@ async function render() {
         </div>
       </div>
     `;
+      attachEditorExtras();
+
 
     if (item) {
       $('name').value          = item.name || '';
