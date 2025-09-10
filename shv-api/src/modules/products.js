@@ -1,6 +1,5 @@
 // shv-api/src/modules/products.js
 
-// Helper trả JSON
 function j(status, data, headers) {
   return new Response(JSON.stringify(data), {
     status,
@@ -8,12 +7,9 @@ function j(status, data, headers) {
   });
 }
 
-// Chuẩn hoá dữ liệu product từ body FE
+// Chuẩn hóa dữ liệu product
 function normalizeProduct(input = {}) {
-  const toNum = (x) => {
-    const n = Number(x);
-    return Number.isFinite(n) ? n : 0;
-  };
+  const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
   const toNumOrNull = (x) => {
     if (x === undefined || x === null || String(x).trim?.() === '') return null;
     const n = Number(x);
@@ -22,7 +18,7 @@ function normalizeProduct(input = {}) {
   const toArr = (v) => (Array.isArray(v) ? v : []);
 
   const now = new Date().toISOString();
-  const id = input.id || crypto.randomUUID();
+  const id = input.id || (crypto?.randomUUID?.() || String(Date.now()));
 
   return {
     id,
@@ -35,12 +31,11 @@ function normalizeProduct(input = {}) {
     weight_grams: toNum(input.weight_grams),
     images: toArr(input.images),
     image_alts: toArr(input.image_alts),
-    is_active: !!input.is_active,
+    is_active: !!input.is_active, // CSV rỗng sẽ là false
 
-    // mở rộng
     brand: String(input.brand || ''),
     origin: String(input.origin || ''),
-    variants: toArr(input.variants || []),
+    variants: toArr(input.variants),
 
     seo: typeof input.seo === 'object'
       ? {
@@ -59,7 +54,6 @@ function normalizeProduct(input = {}) {
   };
 }
 
-// Tầng lưu trữ qua wrapper Fire
 async function upsertProduct(fire, product) {
   if (typeof fire.set === 'function') {
     await fire.set('products', product.id, product);
@@ -69,6 +63,7 @@ async function upsertProduct(fire, product) {
     throw new Error('Fire: missing set/upsert(products)');
   }
 }
+
 async function removeProduct(fire, id) {
   if (!id) throw new Error('Missing id');
   if (typeof fire.remove === 'function') {
@@ -80,33 +75,46 @@ async function removeProduct(fire, id) {
   }
 }
 
-// Router cho /admin/products* (cần token đã check ngoài index.js)
+// Router cho /admin/products*
 export async function handleProducts(req, env, fire) {
   const url = new URL(req.url);
-  const { pathname } = url;
+  const { pathname, searchParams } = url;
 
-  // ===== ADMIN: GET list (cả active & inactive)
+  // ------- GET LIST (admin) -------
+  // GET /admin/products?limit=&cursor=&q=
   if (req.method === 'GET' && pathname === '/admin/products') {
-    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
-    const cursor = url.searchParams.get('cursor') || '';
-    // nếu Fire của bạn hỗ trợ where/orderBy/cursor như banners:
+    const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
+    const cursor = searchParams.get('cursor') || undefined;
+    const q = (searchParams.get('q') || '').trim().toLowerCase();
+
+    // Lấy tất cả sản phẩm (kể cả inactive)
     const rs = await fire.list('products', {
       orderBy: ['created_at', 'desc'],
       limit,
       cursor,
     });
-    return j(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+
+    let items = rs.items || [];
+    if (q) {
+      items = items.filter(p =>
+        String(p.name || '').toLowerCase().includes(q) ||
+        String(p.category || '').toLowerCase().includes(q)
+      );
+    }
+    return j(200, { items, nextCursor: rs.nextCursor || null });
   }
 
-  // ===== ADMIN: GET 1 item
+  // ------- GET ONE (admin) -------
+  // GET /admin/products/:id
   if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
     const id = pathname.split('/').pop();
     const item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Not found' });
+    if (!item) return j(404, { error: 'Not Found' });
     return j(200, { item });
   }
 
-  // ===== ADMIN: POST upsert 1 item
+  // ------- CREATE/UPDATE -------
+  // POST /admin/products  — body: Product
   if (req.method === 'POST' && pathname === '/admin/products') {
     let body;
     try { body = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
@@ -115,10 +123,12 @@ export async function handleProducts(req, env, fire) {
     return j(200, { ok: true, item: product });
   }
 
-  // ===== ADMIN: BULK upsert
+  // ------- BULK UPSERT -------
+  // POST /admin/products/bulk — body: { items: Product[] }
   if (req.method === 'POST' && pathname === '/admin/products/bulk') {
     let payload;
     try { payload = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
+
     const items = Array.isArray(payload?.items) ? payload.items : [];
     let ok = 0, fail = 0, details = [];
     for (let i = 0; i < items.length; i++) {
@@ -133,7 +143,8 @@ export async function handleProducts(req, env, fire) {
     return j(200, { ok, fail, details });
   }
 
-  // ===== ADMIN: DELETE 1 item
+  // ------- DELETE -------
+  // DELETE /admin/products/:id
   if (req.method === 'DELETE' && pathname.startsWith('/admin/products/')) {
     const id = pathname.split('/').pop();
     await removeProduct(fire, id);
