@@ -61,45 +61,8 @@ export function adminApi(path, init = {}) {
   });
 }
 
-// Expose để test nhanh trong Console: adminApi('/admin/products', {...})
+// Expose để test nhanh trong Console
 window.adminApi = adminApi;
-
-function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
-
-// ================= Helpers ping / settings =================
-
-// LẤY API BASE từ admin.html
-function getApiBase() {
-  const el = document.querySelector('#api-base');
-  if (!el) throw new Error('#api-base not found in admin.html');
-  return el.value.trim().replace(/\/+$/, '');
-}
-
-// Ping public: GET /ai/health
-async function pingPublic() {
-  const base = getApiBase();
-  const t0 = performance.now();
-  const res = await fetch(`${base}/ai/health`, { method: 'GET' });
-  const dt = Math.round(performance.now() - t0);
-  const body = await res.text().catch(() => '');
-  let json = null;
-  try { json = JSON.parse(body); } catch {}
-  return { ok: res.ok, status: res.status, ms: dt, json, raw: body };
-}
-
-// Ping admin: GET /admin/products?limit=1 (yêu cầu token)
-async function pingAdmin() {
-  const t0 = performance.now();
-  try {
-    await adminApi('/admin/products?limit=1', { method: 'GET' });
-    const dt = Math.round(performance.now() - t0);
-    return { ok: true, status: 200, ms: dt, auth: true };
-  } catch (e) {
-    const dt = Math.round(performance.now() - t0);
-    const is401 = /HTTP\s+401/.test(String(e?.message || ''));
-    return { ok: false, status: is401 ? 401 : 0, ms: dt, auth: false, error: String(e?.message || e) };
-  }
-}
 
 // ================= CSV utils =================
 
@@ -169,6 +132,7 @@ function mapRowToProduct(obj) {
   };
 
   return {
+    id: obj.id || undefined, // cho phép CSV có cột id để update
     name: obj.name || '',
     description: obj.description || '',
     price: toNum(obj.price),
@@ -182,7 +146,126 @@ function mapRowToProduct(obj) {
   };
 }
 
-async function importCSVFromFile(file) {
+// ============= Import Preview (chọn & Active hàng loạt) =============
+let importBuffer = []; // mảng các product đã parse
+let importSelected = new Set(); // index các dòng đang chọn
+
+function renderImportPreview() {
+  const box = $('import-preview');
+  if (!box) return;
+
+  if (!importBuffer.length) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+
+  const rows = importBuffer.map((p, i) => `
+    <tr class="border-b">
+      <td class="p-2 text-center">
+        <input type="checkbox" class="row-chk" data-i="${i}" ${importSelected.has(i) ? 'checked' : ''}/>
+      </td>
+      <td class="p-2">${p.name || ''}</td>
+      <td class="p-2">${p.category || ''}</td>
+      <td class="p-2">${p.price ?? 0}</td>
+      <td class="p-2">${p.stock ?? 0}</td>
+      <td class="p-2">${p.is_active ? '✅' : '⛔'}</td>
+    </tr>
+  `).join('');
+
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="border rounded bg-white p-3">
+      <div class="flex items-center justify-between">
+        <div class="font-medium">Preview CSV (${importBuffer.length} dòng)</div>
+        <div class="text-sm">
+          <label class="inline-flex items-center gap-2 mr-3">
+            <input id="chk-all" type="checkbox" ${importSelected.size === importBuffer.length ? 'checked' : ''}/>
+            Chọn tất cả
+          </label>
+          <button id="btn-activate-selected" class="bg-emerald-600 text-white px-3 py-1 rounded text-sm">
+            Xác nhận Active các dòng đã chọn
+          </button>
+          <button id="btn-clear-preview" class="ml-2 border px-3 py-1 rounded text-sm">Đóng preview</button>
+        </div>
+      </div>
+
+      <div class="overflow-auto mt-2">
+        <table class="min-w-[700px] w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b">
+              <th class="p-2 w-12 text-center">✔</th>
+              <th class="p-2 text-left">Tên</th>
+              <th class="p-2 text-left">Danh mục</th>
+              <th class="p-2 text-left">Giá</th>
+              <th class="p-2 text-left">Tồn</th>
+              <th class="p-2 text-left">Active?</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="text-xs text-gray-500 mt-2">
+        * Lưu ý: Khi bấm “Xác nhận Active…”, các dòng được chọn sẽ được <b>upsert</b> (tạo mới hoặc cập nhật)
+        với <code>is_active = true</code>.
+      </div>
+    </div>
+  `;
+
+  // events
+  $('chk-all')?.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      importSelected = new Set(importBuffer.map((_, i) => i));
+    } else {
+      importSelected = new Set();
+    }
+    renderImportPreview();
+  });
+
+  box.querySelectorAll('.row-chk').forEach(chk => {
+    chk.addEventListener('change', (e) => {
+      const i = Number(e.target.getAttribute('data-i'));
+      if (e.target.checked) importSelected.add(i);
+      else importSelected.delete(i);
+    });
+  });
+
+  $('btn-clear-preview')?.addEventListener('click', () => {
+    importBuffer = [];
+    importSelected = new Set();
+    renderImportPreview();
+  });
+
+  $('btn-activate-selected')?.addEventListener('click', async () => {
+    if (!importSelected.size) {
+      alert('Bạn chưa chọn dòng nào.');
+      return;
+    }
+    if (!confirm(`Active ${importSelected.size} sản phẩm?`)) return;
+
+    // lấy items đã chọn và ép is_active = true
+    const items = [...importSelected].map(i => ({
+      ...importBuffer[i],
+      is_active: true,
+    }));
+
+    try {
+      const r = await adminApi('/admin/products/bulk', { method: 'POST', body: { items } });
+      alert(`Bulk xong: OK=${r.ok ?? 0}, Lỗi=${r.fail ?? 0}`);
+      // clear preview & reload list
+      importBuffer = [];
+      importSelected = new Set();
+      renderImportPreview();
+      location.hash = '#products';
+      await render();
+    } catch (e) {
+      alert('Bulk lỗi: ' + e.message);
+    }
+  });
+}
+
+// ============= Import CSV từ file =============
+async function importCSVFromFileToPreview(file) {
   const txt = await file.text();
   const { headers, rows } = parseCSV(txt);
   if (!headers.length) throw new Error('CSV không có header.');
@@ -191,47 +274,22 @@ async function importCSVFromFile(file) {
   const idx = {};
   headers.forEach((h, i) => idx[h] = i);
 
-  // name, description, price, sale_price, stock, category, weight_grams, images, image_alts, is_active
-  let ok = 0, fail = 0;
+  // reset buffer
+  importBuffer = [];
+  importSelected = new Set();
+
+  // parse toàn bộ vào buffer
   for (const r of rows) {
     const obj = {};
     Object.keys(idx).forEach(k => obj[k] = r[idx[k]]);
-
     const body = mapRowToProduct(obj);
-    try {
-      await adminApi('/admin/products', { method: 'POST', body });
-      ok++;
-    } catch (e) {
-      console.error('Import row failed:', obj, e);
-      fail++;
-    }
+    importBuffer.push(body);
   }
-  return { ok, fail };
-}
 
-async function deleteAllProducts() {
-  if (!confirm('Bạn chắc chắn xoá TẤT CẢ sản phẩm?')) return;
+  // mặc định tick tất cả
+  importSelected = new Set(importBuffer.map((_, i) => i));
 
-  // lấy nhiều nhất có thể
-  let cursor = '';
-  let total = 0;
-  do {
-    // List từ admin để thấy cả inactive
-    const res = await adminApi(`/admin/products?limit=100&cursor=${encodeURIComponent(cursor)}`);
-    const items = res.items || [];
-    for (const p of items) {
-      try {
-        await adminApi(`/admin/products/${p.id}`, { method: 'DELETE' });
-        total++;
-      } catch (e) {
-        console.error('Delete failed', p.id, e);
-      }
-    }
-    cursor = res.nextCursor || '';
-  } while (cursor);
-
-  alert(`Đã xoá ${total} sản phẩm.`);
-  location.reload();
+  renderImportPreview();
 }
 
 // ================= AI helpers =================
@@ -252,15 +310,21 @@ async function render() {
       <div class="flex items-center justify-between">
         <h2 class="font-semibold">Sản phẩm</h2>
         <div class="flex gap-2">
-          <button id="import-csv" class="border rounded px-3 py-1 text-sm">Import CSV</button>
+          <button id="import-csv" class="border rounded px-3 py-1 text-sm">Import CSV ▶ Preview</button>
           <button id="delete-all" class="border rounded px-3 py-1 text-sm text-rose-600">Xoá tất cả</button>
         </div>
       </div>
+
+      <div id="import-preview" class="hidden"></div>
+
       <input id="search" placeholder="Tìm..." class="border rounded px-3 py-1 my-3 w-full"/>
       <div id="list" class="bg-white border rounded"></div>
     `;
 
-    // Dùng admin list để thấy cả sản phẩm chưa Active
+    // hiển thị preview nếu đang có buffer
+    renderImportPreview();
+
+    // List admin (để thấy cả inactive)
     const res = await adminApi('/admin/products?limit=50');
     const items = res.items || [];
     $('list').innerHTML = items.map(p => `
@@ -274,22 +338,16 @@ async function render() {
       </div>
     `).join('');
 
-    // Nút Import CSV
+    // Nút Import CSV -> Preview
     $('import-csv').onclick = () => csvPicker?.click();
     csvPicker?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      $('import-csv').disabled = true;
-      $('import-csv').textContent = 'Đang import...';
       try {
-        const { ok, fail } = await importCSVFromFile(file);
-        alert(`Import xong: OK=${ok}, Lỗi=${fail}`);
-        location.reload();
+        await importCSVFromFileToPreview(file);
       } catch (err) {
         alert('Import lỗi: ' + err.message);
       } finally {
-        $('import-csv').disabled = false;
-        $('import-csv').textContent = 'Import CSV';
         csvPicker.value = '';
       }
     });
@@ -410,79 +468,6 @@ async function render() {
     return;
   }
 
-  // ====== Cài đặt / Kiểm tra kết nối ======
-  if (hash === 'settings') {
-    const base = getApiBase();
-    const token = (localStorage.getItem('ADMIN_TOKEN') || '').trim();
-    const tokenMask = token ? `${token.slice(0,4)}…${token.slice(-4)}` : '(chưa có)';
-
-    routeEl.innerHTML = `
-      <h2 class="font-semibold mb-2">Cài đặt & Kiểm tra kết nối</h2>
-      <div class="grid gap-3">
-        <div class="p-3 border rounded bg-white text-sm">
-          <div><b>API Base:</b> <code>${base}</code></div>
-          <div><b>ADMIN_TOKEN:</b> <code>${tokenMask}</code> <span class="text-xs text-gray-500">(đổi ở góc trên cùng)</span></div>
-        </div>
-
-        <div class="p-3 border rounded bg-white text-sm space-y-2">
-          <div class="font-medium">Ping nhanh</div>
-          <div class="flex flex-wrap gap-2">
-            <button id="btnPingPublic" class="border rounded px-3 py-1">Ping public (/ai/health)</button>
-            <button id="btnPingAdmin" class="border rounded px-3 py-1">Ping admin (/admin/products)</button>
-          </div>
-          <pre id="diag" class="mt-2 p-2 bg-gray-50 border rounded text-xs whitespace-pre-wrap"></pre>
-        </div>
-
-        <div class="p-3 border rounded bg-white text-sm space-y-2">
-          <div class="font-medium">Test qua cURL</div>
-          <div class="space-y-2">
-            <div>
-              <div class="text-xs opacity-70 mb-1">Public health</div>
-              <pre class="p-2 bg-gray-50 border rounded text-xs overflow-auto">curl -i "${base}/ai/health"</pre>
-            </div>
-            <div>
-              <div class="text-xs opacity-70 mb-1">Admin list (cần token)</div>
-              <pre class="p-2 bg-gray-50 border rounded text-xs overflow-auto">curl -i -H "Authorization: Bearer ${token || '<ADMIN_TOKEN>'}" "${base}/admin/products?limit=1"</pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const diag = $('diag');
-
-    $('btnPingPublic').onclick = async () => {
-      diag.textContent = 'Đang ping public...';
-      try {
-        const r = await pingPublic();
-        diag.textContent =
-          `Public /ai/health: ${r.ok ? 'OK ✅' : 'Fail ⛔'}  ` +
-          `(HTTP ${r.status}, ${r.ms}ms)\n` +
-          (r.json ? JSON.stringify(r.json, null, 2) : r.raw || '');
-      } catch (e) {
-        diag.textContent = 'Lỗi public: ' + String(e.message || e);
-      }
-    };
-
-    $('btnPingAdmin').onclick = async () => {
-      diag.textContent = 'Đang ping admin...';
-      try {
-        const r = await pingAdmin();
-        if (r.ok) {
-          diag.textContent = `Admin /admin/products: OK ✅ (HTTP 200, ${r.ms}ms)`;
-        } else if (r.status === 401) {
-          diag.textContent = `Admin /admin/products: 401 Unauthorized ⛔ (token sai/thiếu)\n${r.error || ''}`;
-        } else {
-          diag.textContent = `Admin /admin/products: Lỗi ⛔ (${r.ms}ms)\n${r.error || ''}`;
-        }
-      } catch (e) {
-        diag.textContent = 'Lỗi admin: ' + String(e.message || e);
-      }
-    };
-
-    return;
-  }
-
   // ====== Các trang placeholder khác ======
   if (hash === 'banners')   { routeEl.innerHTML = `<h2 class="font-semibold mb-2">Banner</h2><div class="text-sm">CRUD (dùng API /admin/banners)</div>`; return; }
   if (hash === 'vouchers')  { routeEl.innerHTML = `<h2 class="font-semibold mb-2">Voucher</h2><div class="text-sm">CRUD + Test mã bằng /pricing/preview</div>`; return; }
@@ -493,4 +478,29 @@ async function render() {
   if (hash === 'marketing') { routeEl.innerHTML = `<h2 class="font-semibold mb-2">Marketing</h2>`; return; }
 
   routeEl.textContent = '404';
+}
+
+// ====== Delete all helper (không đổi) ======
+async function deleteAllProducts() {
+  if (!confirm('Bạn chắc chắn xoá TẤT CẢ sản phẩm?')) return;
+
+  // lấy nhiều nhất có thể (từ admin list để xóa cả inactive)
+  let cursor = '';
+  let total = 0;
+  do {
+    const res = await adminApi(`/admin/products?limit=100&cursor=${encodeURIComponent(cursor)}`);
+    const items = res.items || [];
+    for (const p of items) {
+      try {
+        await adminApi(`/admin/products/${p.id}`, { method: 'DELETE' });
+        total++;
+      } catch (e) {
+        console.error('Delete failed', p.id, e);
+      }
+    }
+    cursor = res.nextCursor || '';
+  } while (cursor);
+
+  alert(`Đã xoá ${total} sản phẩm.`);
+  location.reload();
 }
