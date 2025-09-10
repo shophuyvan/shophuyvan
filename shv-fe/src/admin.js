@@ -28,13 +28,41 @@ document.addEventListener('DOMContentLoaded', () => {
   render();
 });
 
-// Helper gọi API admin: tự gắn Bearer token
+// ================= API helpers =================
+
+// Helper gọi API admin: GHÉP base từ #api-base + tự gắn Bearer + stringify JSON.
+// Gọi fetch trực tiếp để không bị rơi headers (Authorization) khi đi qua lib/api.js.
 export function adminApi(path, init = {}) {
-  const token = localStorage.getItem('ADMIN_TOKEN') || '';
+  const baseEl = document.querySelector('#api-base');
+  if (!baseEl) throw new Error('#api-base not found in admin.html');
+
+  const base = baseEl.value.trim().replace(/\/+$/, '');
+  const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+
+  const token   = localStorage.getItem('ADMIN_TOKEN') || '';
   const headers = new Headers(init.headers || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  return api(path, { ...init, headers });
+
+  // stringify body nếu là object (trừ FormData)
+  let body = init.body;
+  const isFormData = (typeof FormData !== 'undefined') && (body instanceof FormData);
+  if (body && typeof body === 'object' && !isFormData) {
+    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    body = JSON.stringify(body);
+  }
+
+  return fetch(url, { ...init, headers, body }).then(async (res) => {
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} at ${url}\n${text}`);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('application/json') ? res.json() : res.text();
+  });
 }
+
+// Expose để test nhanh trong Console: adminApi('/admin/products', {...})
+window.adminApi = adminApi;
 
 function navLink(h, label){ return `<a href="#${h}" class="underline">${label}</a>`; }
 
@@ -128,11 +156,9 @@ async function importCSVFromFile(file) {
   const idx = {};
   headers.forEach((h, i) => idx[h] = i);
 
-  // gợi ý các cột mong muốn
   // name, description, price, sale_price, stock, category, weight_grams, images, image_alts, is_active
   let ok = 0, fail = 0;
   for (const r of rows) {
-    // tạo object từ 1 dòng
     const obj = {};
     Object.keys(idx).forEach(k => obj[k] = r[idx[k]]);
 
@@ -174,6 +200,7 @@ async function deleteAllProducts() {
 
 // ================= AI helpers =================
 async function callAI(prompt) {
+  // /ai/suggest là public, vẫn dùng helper api() dùng chung
   const r = await api('/ai/suggest', { method: 'POST', body: { prompt } });
   return r.text || r.result || '';
 }
