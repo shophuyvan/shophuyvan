@@ -61,8 +61,6 @@ function normalizeProduct(input = {}) {
 
 // Tầng lưu trữ qua wrapper Fire của bạn
 async function upsertProduct(fire, product) {
-  // Fire trong dự án của bạn đã dùng fire.list/ fire.get ở banners,
-  // thường cũng có fire.set(collection, id, data)
   if (typeof fire.set === 'function') {
     await fire.set('products', product.id, product);
   } else if (typeof fire.upsert === 'function') {
@@ -83,10 +81,46 @@ async function removeProduct(fire, id) {
   }
 }
 
+async function getProductById(fire, id) {
+  if (typeof fire.get === 'function') {
+    return await fire.get('products', id);
+  }
+  // Fallback nếu wrapper không có get
+  const rs = await fire.list('products', { where: [['id', '==', id]], limit: 1 });
+  return rs?.items?.[0] || null;
+}
+
 // Router cho /admin/products*
 export async function handleProducts(req, env, fire) {
   const url = new URL(req.url);
   const { pathname } = url;
+
+  // GET /admin/products —— list tất cả (không lọc is_active)
+  if (req.method === 'GET' && pathname === '/admin/products') {
+    const limit  = Math.max(1, Math.min(200, Number(url.searchParams.get('limit') || 50)));
+    const cursor = url.searchParams.get('cursor') || null;
+    const q      = (url.searchParams.get('q') || '').trim().toLowerCase();
+
+    // OrderBy updated_at desc để bản mới nhất lên đầu
+    let rs = await fire.list('products', { orderBy: ['updated_at', 'desc'], limit, cursor });
+
+    if (q) {
+      const needle = q.toLowerCase();
+      const hit = (s) => String(s || '').toLowerCase().includes(needle);
+      rs.items = (rs.items || []).filter(p =>
+        hit(p.name) || hit(p.description) || hit(p.brand) || hit(p.origin));
+    }
+
+    return j(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+  }
+
+  // GET /admin/products/:id —— lấy 1 item (kể cả inactive)
+  if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
+    const id = pathname.split('/').pop();
+    const item = await getProductById(fire, id);
+    if (!item) return j(404, { error: 'Not Found' });
+    return j(200, { item });
+  }
 
   // POST /admin/products  — tạo/cập nhật 1 sản phẩm
   if (req.method === 'POST' && pathname === '/admin/products') {
