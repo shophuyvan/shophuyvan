@@ -181,7 +181,8 @@ async function deleteAllProducts() {
   let cursor = '';
   let total = 0;
   do {
-    const res = await adminApi(`/products?limit=100&cursor=${encodeURIComponent(cursor)}`);
+    // List từ admin để thấy cả inactive
+    const res = await adminApi(`/admin/products?limit=100&cursor=${encodeURIComponent(cursor)}`);
     const items = res.items || [];
     for (const p of items) {
       try {
@@ -224,7 +225,8 @@ async function render() {
       <div id="list" class="bg-white border rounded"></div>
     `;
 
-    const res = await adminApi('/products?limit=50');
+    // Dùng admin list để thấy cả sản phẩm chưa Active
+    const res = await adminApi('/admin/products?limit=50');
     const items = res.items || [];
     $('list').innerHTML = items.map(p => `
       <div class="flex items-center gap-3 p-3 border-b">
@@ -266,7 +268,8 @@ async function render() {
   // ====== Editor (thêm/sửa) ======
   if (hash.startsWith('editor')) {
     const id = new URLSearchParams(hash.split('?')[1]).get('id');
-    const item = id ? (await adminApi(`/products/${id}`)).item : null;
+    // Lấy item từ admin route để có cả inactive
+    const item = id ? (await adminApi(`/admin/products/${id}`)).item : null;
 
     routeEl.innerHTML = `
       <h2 class="font-semibold mb-2">${id ? 'Sửa' : 'Thêm'} sản phẩm</h2>
