@@ -9,6 +9,18 @@ function j(status, data, headers) {
 
 // Chuẩn hóa dữ liệu product
 function normalizeProduct(input = {}) {
+  function normalizeVariants(arr){
+    if (!Array.isArray(arr)) return [];
+    return arr.map(v => ({
+      image: String(v.image||'').trim(),
+      name: String(v.name||'').trim(),
+      sku: String(v.sku||'').trim(),
+      stock: Number(v.stock||0),
+      weight_grams: Number(v.weight_grams||0),
+      price: Number(v.price||0),
+      sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==='') ? null : Number(v.sale_price)
+    })).filter(v => v.name);
+  }
   const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
   const toNumOrNull = (x) => {
     if (x === undefined || x === null || String(x).trim?.() === '') return null;
@@ -31,11 +43,14 @@ function normalizeProduct(input = {}) {
     weight_grams: toNum(input.weight_grams),
     images: toArr(input.images),
     image_alts: toArr(input.image_alts),
-    is_active: !!input.is_active, // CSV rỗng sẽ là false
+    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '') ? true : !!input.is_active, // CSV rỗng sẽ là false
 
     brand: String(input.brand || ''),
     origin: String(input.origin || ''),
     variants: normalizeVariants(input.variants),
+    videos: toArr(input.videos),
+    faq: toArr(input.faq),
+    reviews: toArr(input.reviews),
 
     seo: typeof input.seo === 'object'
       ? {
