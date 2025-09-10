@@ -4,3 +4,16 @@ compatibility_date = "2025-01-01"
 
 [triggers]
 crons = ["0 0 * * *"]
+
+[[kv_namespaces]]
+binding = "PRODUCTS_KV"
+id = "dbbe5e2f36e8492f94ba0213ccfaf550"
+
+# preview_id = "<preview_id nếu có>"
+
+# Optional: enable KV for persistence
+# After creating a KV namespace (e.g. PRODUCTS_KV), add its binding here.
+# Example:
+# [[kv_namespaces]]
+# binding = "PRODUCTS_KV"
+# id = "your_namespace_id"
