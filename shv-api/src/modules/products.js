@@ -1,6 +1,6 @@
 // shv-api/src/modules/products.js
 
-// Trả JSON tiện dụng
+// Helper trả JSON
 function j(status, data, headers) {
   return new Response(JSON.stringify(data), {
     status,
@@ -8,7 +8,7 @@ function j(status, data, headers) {
   });
 }
 
-// Chuẩn hoá dữ liệu product từ body
+// Chuẩn hoá dữ liệu product từ body FE
 function normalizeProduct(input = {}) {
   const toNum = (x) => {
     const n = Number(x);
@@ -37,10 +37,10 @@ function normalizeProduct(input = {}) {
     image_alts: toArr(input.image_alts),
     is_active: !!input.is_active,
 
-    // mở rộng (nếu FE có gửi)
+    // mở rộng
     brand: String(input.brand || ''),
     origin: String(input.origin || ''),
-    variants: toArr(input.variants), // [{name, sku, price, sale_price, stock, weight_grams, image}, ...]
+    variants: toArr(input.variants || []),
 
     seo: typeof input.seo === 'object'
       ? {
@@ -59,7 +59,7 @@ function normalizeProduct(input = {}) {
   };
 }
 
-// Tầng lưu trữ qua wrapper Fire của bạn
+// Tầng lưu trữ qua wrapper Fire
 async function upsertProduct(fire, product) {
   if (typeof fire.set === 'function') {
     await fire.set('products', product.id, product);
@@ -69,7 +69,6 @@ async function upsertProduct(fire, product) {
     throw new Error('Fire: missing set/upsert(products)');
   }
 }
-
 async function removeProduct(fire, id) {
   if (!id) throw new Error('Missing id');
   if (typeof fire.remove === 'function') {
@@ -81,64 +80,47 @@ async function removeProduct(fire, id) {
   }
 }
 
-async function getProductById(fire, id) {
-  if (typeof fire.get === 'function') {
-    return await fire.get('products', id);
-  }
-  const rs = await fire.list('products', { where: [['id', '==', id]], limit: 1 });
-  return rs?.items?.[0] || null;
-}
-
-// Router cho /admin/products*
+// Router cho /admin/products* (cần token đã check ngoài index.js)
 export async function handleProducts(req, env, fire) {
   const url = new URL(req.url);
   const { pathname } = url;
 
-  // GET /admin/products —— list tất cả (không lọc is_active)
+  // ===== ADMIN: GET list (cả active & inactive)
   if (req.method === 'GET' && pathname === '/admin/products') {
-    const limit  = Math.max(1, Math.min(200, Number(url.searchParams.get('limit') || 50)));
-    const cursor = url.searchParams.get('cursor') || null;
-    const q      = (url.searchParams.get('q') || '').trim().toLowerCase();
-
-    // Order theo updated_at để bản mới nhất lên đầu
-    let rs = await fire.list('products', { orderBy: ['updated_at', 'desc'], limit, cursor });
-
-    if (q) {
-      const needle = q.toLowerCase();
-      const hit = (s) => String(s || '').toLowerCase().includes(needle);
-      rs.items = (rs.items || []).filter(p =>
-        hit(p.name) || hit(p.description) || hit(p.brand) || hit(p.origin));
-    }
-
+    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+    const cursor = url.searchParams.get('cursor') || '';
+    // nếu Fire của bạn hỗ trợ where/orderBy/cursor như banners:
+    const rs = await fire.list('products', {
+      orderBy: ['created_at', 'desc'],
+      limit,
+      cursor,
+    });
     return j(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
   }
 
-  // GET /admin/products/:id —— lấy 1 item (kể cả inactive)
+  // ===== ADMIN: GET 1 item
   if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
     const id = pathname.split('/').pop();
-    const item = await getProductById(fire, id);
-    if (!item) return j(404, { error: 'Not Found' });
+    const item = await fire.get('products', id);
+    if (!item) return j(404, { error: 'Not found' });
     return j(200, { item });
   }
 
-  // POST /admin/products  — tạo/cập nhật 1 sản phẩm
+  // ===== ADMIN: POST upsert 1 item
   if (req.method === 'POST' && pathname === '/admin/products') {
     let body;
     try { body = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-
     const product = normalizeProduct(body);
     await upsertProduct(fire, product);
     return j(200, { ok: true, item: product });
   }
 
-  // POST /admin/products/bulk  — nhận { items: Product[] }
+  // ===== ADMIN: BULK upsert
   if (req.method === 'POST' && pathname === '/admin/products/bulk') {
     let payload;
     try { payload = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-
     const items = Array.isArray(payload?.items) ? payload.items : [];
     let ok = 0, fail = 0, details = [];
-
     for (let i = 0; i < items.length; i++) {
       try {
         const p = normalizeProduct(items[i]);
@@ -151,14 +133,12 @@ export async function handleProducts(req, env, fire) {
     return j(200, { ok, fail, details });
   }
 
-  // DELETE /admin/products/:id
+  // ===== ADMIN: DELETE 1 item
   if (req.method === 'DELETE' && pathname.startsWith('/admin/products/')) {
     const id = pathname.split('/').pop();
-    if (!id) return j(400, { error: 'Missing id' });
     await removeProduct(fire, id);
     return j(200, { ok: true });
   }
 
-  // Nếu path/method không khớp
   return j(405, { error: 'Method Not Allowed' });
 }
