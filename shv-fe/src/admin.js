@@ -709,8 +709,7 @@ async function render() {
         images: ($('images').value || '').split(',').map(s => s.trim()).filter(Boolean),
         image_alts: ($('image_alts').value || '').split(',').map(s => s.trim()).filter(Boolean),
         is_active: $('is_active').checked,
-
-        , seo: { title: $('seo_title').value.trim(), description: $('seo_description').value.trim(), keywords: $('seo_keywords').value.trim() }
+        seo: { title: $('seo_title').value.trim(), description: $('seo_description').value.trim(), keywords: $('seo_keywords').value.trim() }
         , faq: readFaq()
         , reviews: readReviews()
         , videos: ($('videos').value || '').split(',').map(s=>s.trim()).filter(Boolean)
