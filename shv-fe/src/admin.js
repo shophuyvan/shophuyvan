@@ -409,16 +409,39 @@ function addVariantRow(v={image:'',name:'',sku:'',stock:0,weight_grams:0,price:0
   const tbody = document.getElementById('variants-body');
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td class="p-1 border"><input class="border rounded px-2 py-1 w-28" placeholder="URL ảnh" value="${v.image||''}"/></td>
+    <td class="p-1 border">
+      <div class="flex gap-1 items-center">
+        <input class="border rounded px-2 py-1 w-28" placeholder="URL ảnh" value="${v.image||''}"/>
+        <button class="border rounded px-2 py-1 text-xs btnVarUpload">Up</button>
+      </div>
+    </td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="Tên" value="${v.name||''}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" placeholder="SKU" value="${v.sku||''}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Tồn" value="${v.stock||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="gram" value="${v.weight_grams||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá gốc" value="${v.price||0}"/></td>
     <td class="p-1 border"><input class="border rounded px-2 py-1" type="number" placeholder="Giá sale" value="${v.sale_price ?? ''}"/></td>
-    <td class="p-1 border"><button class="text-rose-600 text-xs">Xoá</button></td>
+    <td class="p-1 border"><button class="text-rose-600 text-xs btnVarDel">Xoá</button></td>
   `;
-  tr.querySelector('button').onclick = () => tr.remove();
+  tr.querySelector('.btnVarDel').onclick = () => tr.remove();
+
+  // Upload ảnh cho từng biến thể
+  const upBtn = tr.querySelector('.btnVarUpload');
+  if (typeof createPicker === 'function' && upBtn){
+    const picker = createPicker('image/*', false);
+    upBtn.onclick = (e) => { e.preventDefault(); picker.click(); };
+    picker.onchange = async () => {
+      try {
+        const sig = await getSignature('variants');
+        const file = picker.files[0];
+        const r = await uploadToCloudinary(file, sig, 'image');
+        tr.querySelector('input').value = r.secure_url || r.url;
+      } catch (e) {
+        console.error(e); alert('Upload ảnh biến thể lỗi');
+      }
+    };
+  }
+
   tbody.appendChild(tr);
 }
 function readVariants(){
@@ -542,63 +565,7 @@ async function render() {
 
     // Bind AI & section buttons (editor)
 
-    // Upload media via Cloudinary (signed)
-    function createPicker(accept, multiple=true){
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = accept; input.multiple = multiple;
-      return input;
-    }
-    async function getSignature(){
-      return await adminApi('/upload/signature', { method:'POST', body: { folder: 'products' } });
-    }
-    async function uploadToCloudinary(file, sig, type='auto'){
-      const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/${type}/upload`;
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('timestamp', sig.timestamp);
-      fd.append('api_key', sig.api_key);
-      fd.append('signature', sig.signature);
-      if (sig.folder) fd.append('folder', sig.folder);
-      if (sig.upload_preset) fd.append('upload_preset', sig.upload_preset);
-      const res = await fetch(endpoint, { method:'POST', body: fd });
-      if (!res.ok) throw new Error('Upload failed');
-      return await res.json();
-    }
-    // Buttons
-    const imgPicker = createPicker('image/*', true);
-    document.getElementById('btnUploadImages')?.addEventListener('click', () => imgPicker.click());
-    imgPicker.onchange = async () => {
-      const sig = await getSignature();
-      const urls = [];
-      for (const f of Array.from(imgPicker.files)){
-        const r = await uploadToCloudinary(f, sig, 'image');
-        urls.push(r.secure_url || r.url);
-      }
-      const cur = $('images').value ? $('images').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
-      $('images').value = [...cur, ...urls].join(',');
-      // ALT gợi ý cho ảnh mới
-      try {
-        const r = await aiSuggest({ mode:'alt', title:$('name').value.trim() });
-        const alts = (r.items||[]);
-        if (alts.length){
-          const curAlt = $('image_alts').value ? $('image_alts').value.split(',').map(s=>s.trim()) : [];
-          $('image_alts').value = [...curAlt, ...alts.slice(0, urls.length)].join(',');
-        }
-      } catch {}
-    };
-
-    const vidPicker = createPicker('video/*', true);
-    document.getElementById('btnUploadVideos')?.addEventListener('click', () => vidPicker.click());
-    vidPicker.onchange = async () => {
-      const sig = await getSignature();
-      const urls = [];
-      for (const f of Array.from(vidPicker.files)){
-        const r = await uploadToCloudinary(f, sig, 'video');
-        urls.push(r.secure_url || r.url);
-      }
-      const cur = $('videos').value ? $('videos').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
-      $('videos').value = [...cur, ...urls].join(',');
-    };
+    // (upload helpers moved to global)
 
     if (document.getElementById('faq-add')) {
       document.getElementById('faq-add').onclick = () => addFaqRow();
