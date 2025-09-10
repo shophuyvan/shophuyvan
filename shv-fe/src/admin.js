@@ -185,7 +185,7 @@ function mapRowToProduct(rowObj) {
     weight_grams: toNum(pick('weight_grams', 'weight', 'khoi_luong', 'khoiluong', 'gram', 'grams')),
     images,
     image_alts,
-    is_active: toBool(pick('is_active', 'active', 'published', 'enabled')),
+    is_active: ( (()=>{const r=pick('is_active','active','published','enabled'); return r==='' ? true : toBool(r);})() ),
   };
 }
 
@@ -422,7 +422,7 @@ async function render() {
 
         <input id="images" placeholder="Ảnh (CSV URL)" class="border rounded px-3 py-2"/>
         <input id="image_alts" placeholder="ALT ảnh (CSV)" class="border rounded px-3 py-2"/>
-        <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox"/> Active</label>
+        <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox" checked/> Active</label>
 
         <!-- Khối AI trợ giúp -->
         <div class="mt-3 p-3 border rounded bg-white">
