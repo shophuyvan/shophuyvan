@@ -31,11 +31,14 @@ function normalizeProduct(input = {}) {
     weight_grams: toNum(input.weight_grams),
     images: toArr(input.images),
     image_alts: toArr(input.image_alts),
-    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '') ? true : !!input.is_active, // default TRUE if missing/blank
+    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '') ? true : !!input.is_active, // CSV rỗng sẽ là false
 
     brand: String(input.brand || ''),
     origin: String(input.origin || ''),
     variants: toArr(input.variants),
+    videos: toArr(input.videos),
+    faq: toArr(input.faq),
+    reviews: toArr(input.reviews),
 
     seo: typeof input.seo === 'object'
       ? {
