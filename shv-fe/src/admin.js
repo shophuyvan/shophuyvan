@@ -461,6 +461,65 @@ async function render() {
     renderImportPreview();
 
     // Bind AI & section buttons (editor)
+
+    // Upload media via Cloudinary (signed)
+    function createPicker(accept, multiple=true){
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = accept; input.multiple = multiple;
+      return input;
+    }
+    async function getSignature(){
+      return await adminApi('/upload/signature', { method:'POST', body: { folder: 'products' } });
+    }
+    async function uploadToCloudinary(file, sig, type='auto'){
+      const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/${type}/upload`;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('timestamp', sig.timestamp);
+      fd.append('api_key', sig.api_key);
+      fd.append('signature', sig.signature);
+      if (sig.folder) fd.append('folder', sig.folder);
+      if (sig.upload_preset) fd.append('upload_preset', sig.upload_preset);
+      const res = await fetch(endpoint, { method:'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      return await res.json();
+    }
+    // Buttons
+    const imgPicker = createPicker('image/*', true);
+    document.getElementById('btnUploadImages')?.addEventListener('click', () => imgPicker.click());
+    imgPicker.onchange = async () => {
+      const sig = await getSignature();
+      const urls = [];
+      for (const f of Array.from(imgPicker.files)){
+        const r = await uploadToCloudinary(f, sig, 'image');
+        urls.push(r.secure_url || r.url);
+      }
+      const cur = $('images').value ? $('images').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      $('images').value = [...cur, ...urls].join(',');
+      // ALT gợi ý cho ảnh mới
+      try {
+        const r = await aiSuggest({ mode:'alt', title:$('name').value.trim() });
+        const alts = (r.items||[]);
+        if (alts.length){
+          const curAlt = $('image_alts').value ? $('image_alts').value.split(',').map(s=>s.trim()) : [];
+          $('image_alts').value = [...curAlt, ...alts.slice(0, urls.length)].join(',');
+        }
+      } catch {}
+    };
+
+    const vidPicker = createPicker('video/*', true);
+    document.getElementById('btnUploadVideos')?.addEventListener('click', () => vidPicker.click());
+    vidPicker.onchange = async () => {
+      const sig = await getSignature();
+      const urls = [];
+      for (const f of Array.from(vidPicker.files)){
+        const r = await uploadToCloudinary(f, sig, 'video');
+        urls.push(r.secure_url || r.url);
+      }
+      const cur = $('videos').value ? $('videos').value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      $('videos').value = [...cur, ...urls].join(',');
+    };
+
     if (document.getElementById('faq-add')) {
       document.getElementById('faq-add').onclick = () => addFaqRow();
       document.getElementById('reviews-add').onclick = () => addReviewRow();
@@ -498,7 +557,7 @@ async function render() {
     const items = res.items || [];
     $('list').innerHTML = items.map(p => `
       <div class="flex items-center gap-3 p-3 border-b">
-        <img src="${(p.images?.[0]) || 'https://via.placeholder.com/80'}" class="w-16 h-16 object-cover rounded"/>
+        <img src="${safeImg(p.images?.[0])}" class="w-16 h-16 object-cover rounded"/>
         <div class="flex-1 text-sm">
           <div class="font-medium">${p.name}</div>
           <div>Giá: ${(p.sale_price ?? p.price)} | Tồn: ${p.stock} | Active: ${p.is_active ? '✅' : '⛔'}</div>
@@ -548,6 +607,7 @@ async function render() {
         </div>
 
         <input id="images" placeholder="Ảnh (CSV URL)" class="border rounded px-3 py-2"/>
+        <button id="btnUploadImages" class="border px-3 py-1 rounded text-sm w-max">Upload ảnh…</button>
         <input id="image_alts" placeholder="ALT ảnh (CSV)" class="border rounded px-3 py-2"/>
         <label class="inline-flex items-center gap-2 text-sm"><input id="is_active" type="checkbox" checked/> Active</label>
         <!-- SEO fields -->
@@ -580,6 +640,7 @@ async function render() {
 
         <!-- Video URLs -->
         <input id="videos" placeholder="Video (CSV URL)" class="border rounded px-3 py-2 mt-3"/>
+        <button id="btnUploadVideos" class="border px-3 py-1 rounded text-sm w-max mt-1">Upload video…</button>
 
         <!-- Variants -->
         <div class="mt-3 p-3 border rounded bg-white">
