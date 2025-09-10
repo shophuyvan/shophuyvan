@@ -10,6 +10,9 @@ const gallery   = document.getElementById('gallery');
 const countdown = document.getElementById('countdown');
 const descEl    = document.getElementById('description');
 const relatedEl = document.getElementById('related');
+const faqEl = document.getElementById('faq');
+const reviewsEl = document.getElementById('reviews');
+const videosEl = document.getElementById('videos');
 
 let product, selectedVariant = null;
 
@@ -118,6 +121,9 @@ document.getElementById('add-to-cart')?.addEventListener('click', () => {
   renderGallery();
   renderBadges();
   renderSEO();
+  renderFAQ();
+  renderReviews();
+  renderVideos();
 
   // Related
   const rel = await api(`/products?category=${encodeURIComponent(product.category)}&limit=8`);
@@ -127,3 +133,41 @@ document.getElementById('add-to-cart')?.addEventListener('click', () => {
   tickCountdown();
 })().catch(console.error); // <-- kết thúc IIFE, KHÔNG có thêm `});` nào sau dòng này
 
+
+
+function renderFAQ() {
+  if (!faqEl || !product.faq || !product.faq.length) return;
+  faqEl.innerHTML = product.faq.map(it => `
+    <div class="p-3">
+      <div class="font-medium">Q: ${it.q||''}</div>
+      <div class="text-gray-700 mt-1">A: ${it.a||''}</div>
+    </div>`).join('');
+}
+
+function star(r){ return '★★★★★☆☆☆☆☆'.slice(5 - Math.max(0, Math.min(5, Number(r)||5)), 10 - Math.max(0, Math.min(5, Number(r)||5))); }
+
+function renderReviews() {
+  if (!reviewsEl || !product.reviews || !product.reviews.length) return;
+  reviewsEl.innerHTML = product.reviews.map(rv => `
+    <div class="bg-white border rounded p-3 flex gap-3">
+      <img src="${rv.avatar || ''}" class="w-10 h-10 rounded-full border" alt="${rv.name||''}"/>
+      <div>
+        <div class="font-medium">${rv.name || 'Khách hàng'} <span class="text-amber-500">${'★'.repeat(Number(rv.rating)||5)}</span></div>
+        <div class="text-gray-700">${rv.content || ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderVideos() {
+  if (!videosEl || !product.videos || !product.videos.length) return;
+  videosEl.innerHTML = product.videos.map(url => {
+    const u = String(url||'').trim();
+    // If YouTube link
+    if (/youtube\.com|youtu\.be/.test(u)) {
+      let id = u.split('v=')[1] || u.split('/').pop();
+      id = (id||'').split('&')[0];
+      return `<div class="aspect-video bg-black"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen></iframe></div>`;
+    }
+    return `<video class="w-full rounded border" controls src="${u}"></video>`;
+  }).join('');
+}
