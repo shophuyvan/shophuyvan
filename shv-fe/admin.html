@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shop Huy Vân — Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{ --bg:#0b1220; --card:#0f172a; --muted:#64748b; --brand:#4f46e5 }
     html,body{ height:100%; }
-    body{ font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif; background:#0b1220; color:#e2e8f0; }
+    body{ font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif; background:#0b1220; color:#e2e8f0; }
     .sidebar{ background:#0f172a }
     .card{ background:#0f172a; border:1px solid #1f2937 }
     .muted{ color:#94a3b8 }
@@ -28,7 +25,6 @@
 </head>
 <body>
   <div class="h-full grid grid-cols-[240px_1fr]">
-    <!-- SIDEBAR -->
     <aside class="sidebar p-4 flex flex-col gap-2">
       <div class="text-xl font-bold tracking-wide">Admin</div>
       <nav class="mt-2 flex flex-col gap-1">
@@ -36,14 +32,9 @@
         <button class="ghost-btn text-left" onclick="UI.showEditor()">Thêm/Chỉnh sửa</button>
         <button class="ghost-btn text-left" onclick="UI.openSettings()">Cài đặt</button>
       </nav>
-      <div class="mt-auto text-xs muted">
-        Built for Shop Huy Vân
-      </div>
+      <div class="mt-auto text-xs muted">Built for Shop Huy Vân</div>
     </aside>
-
-    <!-- MAIN -->
     <main class="p-6 overflow-y-auto">
-      <!-- Header -->
       <header class="flex flex-wrap items-center gap-2 justify-between mb-5">
         <div class="font-semibold text-lg">Quản lý sản phẩm</div>
         <div class="flex items-center gap-2">
@@ -53,27 +44,20 @@
         </div>
       </header>
 
-      <!-- LIST VIEW -->
       <section id="listView" class="hidden">
         <div class="flex items-center gap-3 mb-4">
           <input id="searchBox" class="input w-80" placeholder="Tìm theo tên…">
           <button class="btn btn-secondary" onclick="UI.showEditor()">+ Thêm sản phẩm</button>
         </div>
-
-        <div id="productsGrid" class="grid gap-3">
-          <!-- Cards injected here -->
-        </div>
-
+        <div id="productsGrid" class="grid gap-3"></div>
         <div class="mt-4 flex items-center gap-2">
           <button class="btn btn-secondary" onclick="API.loadMore()">Tải thêm</button>
           <span id="nextCursor" class="muted text-xs"></span>
         </div>
       </section>
 
-      <!-- EDITOR VIEW -->
       <section id="editorView" class="hidden">
         <div class="grid lg:grid-cols-3 gap-4">
-          <!-- LEFT form -->
           <div class="lg:col-span-2 card rounded-2xl p-4">
             <div class="flex items-center justify-between mb-3">
               <div class="text-lg font-semibold">Thông tin sản phẩm</div>
@@ -82,7 +66,6 @@
                 <button class="btn" onclick="Editor.save()">Lưu</button>
               </div>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="muted text-sm">Tên</label>
@@ -96,39 +79,20 @@
                 <label class="muted text-sm">Danh mục</label>
                 <input id="category" class="input mt-1" placeholder="vd: default">
               </div>
-
               <div class="md:col-span-2">
                 <label class="muted text-sm">Mô tả</label>
                 <textarea id="description" class="input mt-1" rows="5" placeholder="Mô tả chi tiết…"></textarea>
-                <div class="toolbar">
-                  <button class="chip" onclick="AI.desc()">AI mô tả</button>
-                </div>
+                <div class="toolbar"><button class="chip" onclick="AI.desc()">AI mô tả</button></div>
               </div>
             </div>
-
             <div class="divider my-4"></div>
-
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <label class="muted text-sm">Giá</label>
-                <input id="price" class="input mt-1" type="number" min="0" step="1000">
-              </div>
-              <div>
-                <label class="muted text-sm">Giá sale</label>
-                <input id="sale_price" class="input mt-1" type="number" min="0" step="1000" placeholder="để trống nếu không sale">
-              </div>
-              <div>
-                <label class="muted text-sm">Tồn</label>
-                <input id="stock" class="input mt-1" type="number" min="0">
-              </div>
-              <div>
-                <label class="muted text-sm">Khối lượng (gram)</label>
-                <input id="weight_grams" class="input mt-1" type="number" min="0">
-              </div>
+              <div><label class="muted text-sm">Giá</label><input id="price" class="input mt-1" type="number" min="0" step="1000"></div>
+              <div><label class="muted text-sm">Giá sale</label><input id="sale_price" class="input mt-1" type="number" min="0" step="1000" placeholder="để trống nếu không sale"></div>
+              <div><label class="muted text-sm">Tồn</label><input id="stock" class="input mt-1" type="number" min="0"></div>
+              <div><label class="muted text-sm">Khối lượng (gram)</label><input id="weight_grams" class="input mt-1" type="number" min="0"></div>
             </div>
-
             <div class="divider my-4"></div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="muted text-sm">Ảnh (CSV URL)</label>
@@ -145,35 +109,20 @@
                 <div class="toolbar"><button class="chip" onclick="Upload.videos()">Upload video…</button></div>
               </div>
             </div>
-
             <div class="divider my-4"></div>
-
             <div>
               <div class="font-medium mb-2">Biến thể</div>
               <div id="variantsWrap" class="flex flex-col gap-2"></div>
               <button class="btn btn-secondary mt-2" onclick="Editor.addVariant()">+ Thêm biến thể</button>
             </div>
-
             <div class="divider my-4"></div>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label class="muted text-sm">SEO tiêu đề</label>
-                <input id="seo_title" class="input mt-1" placeholder="100–120 ký tự">
-              </div>
-              <div>
-                <label class="muted text-sm">SEO mô tả</label>
-                <input id="seo_description" class="input mt-1">
-              </div>
-              <div>
-                <label class="muted text-sm">SEO từ khóa</label>
-                <input id="seo_keywords" class="input mt-1" placeholder="phẩy, cách">
-              </div>
+              <div><label class="muted text-sm">SEO tiêu đề</label><input id="seo_title" class="input mt-1" placeholder="100–120 ký tự"></div>
+              <div><label class="muted text-sm">SEO mô tả</label><input id="seo_description" class="input mt-1"></div>
+              <div><label class="muted text-sm">SEO từ khóa</label><input id="seo_keywords" class="input mt-1" placeholder="phẩy, cách"></div>
               <div class="md:col-span-3 toolbar"><button class="chip" onclick="AI.seo()">AI SEO (100–120)</button></div>
             </div>
-
             <div class="divider my-4"></div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <div class="font-medium mb-2">FAQ</div>
@@ -193,8 +142,6 @@
               </div>
             </div>
           </div>
-
-          <!-- RIGHT meta -->
           <div class="card rounded-2xl p-4">
             <div class="text-lg font-semibold mb-3">Tóm tắt</div>
             <div class="text-sm muted">ID</div>
@@ -223,7 +170,7 @@ const UI = {
   init(){
     document.getElementById('tokenInput').value = localStorage.getItem('admin_token') || '';
     this.showList();
-    API.list();
+    API.list(true);
     document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList());
   },
   showList(){ document.getElementById('listView').classList.remove('hidden'); document.getElementById('editorView').classList.add('hidden'); },
@@ -265,27 +212,13 @@ const UI = {
 
 const API = {
   token(){ return localStorage.getItem('admin_token') || ''; },
-  headers(method){
-  const h = {};
-  if (method && method !== 'GET') h['content-type'] = 'application/json';
-  return h;
-},
-headersJSON(){ return { 'content-type':'application/json' }; };
-  },
   url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
+  headersJSON(){ return { 'content-type':'application/json' }; },
   async list(reset){
     if(reset){ STATE.nextCursor=null; STATE.list=[]; }
     const url = this.url(`/admin/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
-    const r = await fetch(url);
-    if (!r.ok){ console.warn('fallback list'); return this.listFallback(reset); }
-    const data = await r.json();
-    STATE.nextCursor = data.cursor || null;
-    STATE.list = reset ? (data.items||[]) : (STATE.list||[]).concat(data.items||[]);
-    UI.renderList();
-  },
-  async listFallback(reset){
-    const url = this.url(`/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
-    const r = await fetch(url);
+    let r = await fetch(url);
+    if (!r.ok){ r = await fetch(this.url(`/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`)); }
     const data = await r.json();
     STATE.nextCursor = data.cursor || null;
     STATE.list = reset ? (data.items||[]) : (STATE.list||[]).concat(data.items||[]);
@@ -392,29 +325,26 @@ const Editor = {
     setInput('seo_keywords', p.seo_keywords||'');
     document.getElementById('is_active').checked = !!p.is_active;
     document.getElementById('btnDelete').disabled = false;
-    // variants
     document.getElementById('variantsWrap').innerHTML='';
     (p.variants||[]).forEach(v=>Editor.addVariant(v));
-    // faq
     document.getElementById('faqWrap').innerHTML='';
     (p.faq||[]).forEach(q=>Editor.addFAQ(q));
-    // reviews
     document.getElementById('reviewsWrap').innerHTML='';
     (p.reviews||[]).forEach(r=>Editor.addReview(r));
     renderThumbs();
     UI.showEditor();
   },
   collect(){
-    const body = {
+    return {
       id: STATE.editing || undefined,
       name: gv('name'),
       title: gv('name'),
       category: gv('category')||'default',
       description: gv('description'),
-      price: num(gv('price')),
-      sale_price: gv('sale_price')===''? null : num(gv('sale_price')),
-      stock: num(gv('stock')),
-      weight_grams: num(gv('weight_grams')),
+      price: Number(gv('price')||0),
+      sale_price: gv('sale_price')===''? null : Number(gv('sale_price')||0),
+      stock: Number(gv('stock')||0),
+      weight_grams: Number(gv('weight_grams')||0),
       images: csvToArr(gv('images')),
       videos: csvToArr(gv('videos')),
       image_alts: csvToArr(gv('image_alts')),
@@ -426,7 +356,6 @@ const Editor = {
       faq: collectFAQ(),
       reviews: collectReviews()
     };
-    return body;
   },
   async save(){
     try{
@@ -445,7 +374,6 @@ const Editor = {
   },
   addVariant(v){
     const wrap = document.getElementById('variantsWrap');
-    const id = 'v_'+Math.random().toString(36).slice(2);
     const el = document.createElement('div');
     el.className = 'card rounded-xl p-3 grid grid-cols-1 md:grid-cols-6 gap-2';
     el.innerHTML = `
@@ -552,11 +480,9 @@ const AI = {
   }
 };
 
-/* helpers */
 function gv(id){ return (document.getElementById(id).value||'').trim(); }
 function setInput(id, v){ document.getElementById(id).value = (v==null?'':v); }
 function setVal(id, v){ document.getElementById(id).textContent = v; }
-function num(x){ return Number(x||0); }
 function csvToArr(s){ return (s||'').split(',').map(t=>t.trim()).filter(Boolean); }
 function collectVariants(){
   const out=[];
@@ -598,7 +524,12 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp
 function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 function fmt(n){ n=Number(n||0); return n.toLocaleString('vi-VN')+' đ'; }
 
-window.addEventListener('load', UI.init);
+window.addEventListener('load', ()=>{ 
+  document.getElementById('tokenInput').value = localStorage.getItem('admin_token')||''; 
+  UI.showList(); 
+  API.list(true); 
+  document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList()); 
+});
 </script>
 </body>
 </html>
