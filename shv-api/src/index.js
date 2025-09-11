@@ -166,7 +166,7 @@ export default {
         }
       }
 
-      else if      else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
+      else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
         res = await handlePricing(req, env);
       }
       else if (url.pathname.startsWith('/orders')) {
