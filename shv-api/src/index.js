@@ -13,28 +13,6 @@ import { Fire } from './modules/firestore.js';
 // Admin products
 import { handleProducts } from './modules/products.js';
 
-// --- small response cache helper for GETs ---
-async function cacheJSON(keyReq, builder, ttlSec = Number(env.CACHE_TTL || 60)) {
-  try {
-    const cache = caches.default;
-    let hit = await cache.match(keyReq);
-    if (hit) return hit;
-    const { status = 200, data = {}, headers = {} } = await builder();
-    const h = new Headers({ 'Content-Type':'application/json',
-                            'Cache-Control': `public, max-age=${ttlSec}`,
-                            ...headers });
-    const res = new Response(JSON.stringify(data), { status, headers: h });
-    await cache.put(keyReq, res.clone());
-    return res;
-  } catch (e) {
-    // fallback: just build once without cache
-    const { status = 200, data = {}, headers = {} } = await builder();
-    const h = new Headers({ 'Content-Type':'application/json', ...headers });
-    return new Response(JSON.stringify(data), { status, headers: h });
-  }
-}
-
-
 // ---- helpers ----
 const cors = (origin = '*') => ({
   'Access-Control-Allow-Origin': origin,
@@ -50,16 +28,37 @@ const json = (status, data, headers) =>
   });
 
 function getAdminToken(req, url){
-  const auth = req.headers.get('Authorization') || '';
+  const auth   = req.headers.get('Authorization') || '';
   const bearer = auth.replace(/^Bearer\s+/i, '').trim();
-  const x = req.headers.get('x-token') || '';
-  const q = (url && url.searchParams.get('token')) || '';
+  const x      = req.headers.get('x-token') || '';
+  const q      = (url && url.searchParams.get('token')) || '';
   return x || bearer || q || '';
 }
 function requireAdmin(req, env, url) {
   const token = getAdminToken(req, url);
   if (!token || token !== env.ADMIN_TOKEN) {
     throw json(401, { error: 'Unauthorized' });
+  }
+}
+
+
+// --- Response cache for GET endpoints (Cloudflare caches.default) ---
+async function cacheJSON(keyReq, builder, ttlSec = Number(env.CACHE_TTL || 60)) {
+  try {
+    const cache = caches.default;
+    const cached = await cache.match(keyReq);
+    if (cached) return cached;
+    const { status = 200, data = {}, headers = {} } = await builder();
+    const h = new Headers({ 'Content-Type': 'application/json',
+                            'Cache-Control': `public, max-age=${ttlSec}`,
+                            ...headers });
+    const res = new Response(JSON.stringify(data), { status, headers: h });
+    await cache.put(keyReq, res.clone());
+    return res;
+  } catch (e) {
+    const { status = 200, data = {}, headers = {} } = await builder();
+    const h = new Headers({ 'Content-Type': 'application/json', ...headers });
+    return new Response(JSON.stringify(data), { status, headers: h });
   }
 }
 
@@ -135,27 +134,26 @@ export default {
       else if (url.pathname === '/products' && req.method === 'GET') {
         const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
         const cursor = url.searchParams.get('cursor') || '';
-        const rs = await fire.list('products', {
-          where: ['is_active', '==', true],
-          orderBy: ['created_at', 'desc'],
-          limit,
-          cursor,
+        res = await cacheJSON(req, async () => {
+          const rs = await fire.list('products', {
+            where: ['is_active', '==', true],
+            orderBy: ['created_at', 'desc'],
+            limit,
+            cursor,
+          });
+          return { status: 200, data: { items: rs.items || [], nextCursor: rs.nextCursor || null } };
         });
-        res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
       }
-      
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
         res = await cacheJSON(req, async () => {
           const item = await fire.get('products', id);
           if (!item || !item.is_active) {
             return { status: 404, data: { error: 'Not Found' } };
-          } else {
-            return { status: 200, data: { item } };
           }
+          return { status: 200, data: { item } };
         });
       }
-
 
       // ---- 404 ----
       else {
