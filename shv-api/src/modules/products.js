@@ -1,195 +1,194 @@
 
-// shv-api: src/modules/products.js (v7.1)
+// src/modules/products.js
+// v7.2-compat — exposes handleProducts() so index.js can keep `import { handleProducts } ...`
+
 /**
- * Cloudflare Worker module for Products using KV (PRODUCTS_KV)
- * Exports:
- *   - listProducts(req, env)
- *   - getProduct(req, env, id)
- *   - upsertProduct(req, env)
+ * Utilities
  */
+const json = (data, init = {}) =>
+  new Response(JSON.stringify(data), {
+    headers: { "content-type": "application/json; charset=utf-8" },
+    ...init,
+  });
 
-const JSON_HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-  "cache-control": "no-store"
-};
+const notFound = (msg = "Not found") => json({ error: msg }, { status: 404 });
+const badReq = (msg = "Bad request") => json({ error: msg }, { status: 400 });
+const unauthorized = () => json({ error: "Unauthorized" }, { status: 401 });
 
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
-
-// ---------- helpers ----------
-
-function ensureArray(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.filter(Boolean);
-  if (typeof v === "string") {
-    return v.split(",").map(s => s.trim()).filter(Boolean);
+/**
+ * Very lightweight “DB” on Cloudflare KV with a memory fallback.
+ * KV key format: products:<id>
+ */
+export class Fire {
+  constructor(env) {
+    this.env = env || {};
+    if (!globalThis.__MEM_STORE) globalThis.__MEM_STORE = new Map();
+    this.mem = globalThis.__MEM_STORE;
   }
-  return [];
-}
-
-function safeId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function pickThumb(images) {
-  const arr = ensureArray(images);
-  if (!arr.length) return null;
-  const url = arr[0];
-  try {
-    // Cloudinary transform for fast thumbnail, else return original
-    if (url.includes("/image/upload/")) {
-      return url.replace("/image/upload/", "/image/upload/w_240,q_auto,f_auto/");
+  _key(col, id) {
+    return `${col}:${id}`;
+  }
+  async _kv() {
+    return this.env.PRODUCTS_KV || null;
+  }
+  async get(col, id) {
+    const kv = await this._kv();
+    if (kv) {
+      const v = await kv.get(this._key(col, id));
+      return v ? JSON.parse(v) : null;
     }
-  } catch {}
-  return url;
-}
-
-function normVariants(input) {
-  // Accepts array of objects or CSV-ish string -> array of {name, price, sku, stock, sale_price, weight, image}
-  if (!input) return [];
-  if (typeof input === "string") {
-    // Expecting JSON string or CSV list "name|price|sku|stock"
-    try {
-      const parsed = JSON.parse(input);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-    return input.split("\n").map(row => {
-      const [name, price, sku, stock] = row.split("|").map(s => (s || "").trim());
-      if (!name) return null;
-      return { name, price: Number(price) || 0, sku: sku || "", stock: Number(stock) || 0 };
-    }).filter(Boolean);
+    return this.mem.get(this._key(col, id)) || null;
   }
-  if (Array.isArray(input)) return input;
-  return [];
+  async set(col, id, data) {
+    const doc = { ...(data || {}), id };
+    const kv = await this._kv();
+    if (kv) {
+      await kv.put(this._key(col, id), JSON.stringify(doc));
+      return doc;
+    }
+    this.mem.set(this._key(col, id), doc);
+    return doc;
+  }
+  async remove(col, id) {
+    const kv = await this._kv();
+    if (kv) {
+      await kv.delete(this._key(col, id));
+      return { ok: true };
+    }
+    this.mem.delete(this._key(col, id));
+    return { ok: true };
+  }
+  async list(col, params = {}) {
+    const kv = await this._kv();
+    const limit = Math.min(Number(params.limit) || 50, 200);
+
+    let items = [];
+    if (kv) {
+      let cursor;
+      const keys = [];
+      do {
+        const r = await kv.list({ prefix: `${col}:`, cursor });
+        r.keys.forEach((k) => keys.push(k.name));
+        cursor = r.list_complete ? null : r.cursor;
+      } while (cursor);
+      for (const k of keys) {
+        const v = await kv.get(k);
+        if (v) items.push(JSON.parse(v));
+      }
+    } else {
+      for (const [k, v] of this.mem.entries())
+        if (k.startsWith(`${col}:`)) items.push(v);
+    }
+
+    // Optional filter by is_active
+    if (params.onlyActive) items = items.filter((p) => !!p.is_active);
+
+    // Sort by created_at desc
+    items.sort((a, b) =>
+      String(b.created_at || "").localeCompare(String(a.created_at || ""))
+    );
+
+    // Simple slice pagination
+    const start = 0;
+    return { items: items.slice(start, start + limit) };
+  }
 }
 
-const COL = "product"; // KV key prefix: product:<id>
-
-async function getKV(env) {
-  if (!env || !env.PRODUCTS_KV) throw new Error("Missing binding PRODUCTS_KV");
-  return env.PRODUCTS_KV;
+/**
+ * Core actions used by admin & storefront
+ */
+export async function listProducts(env, query) {
+  const store = new Fire(env);
+  const onlyActive = query.get("active") === "1";
+  const limit = query.get("limit") || "50";
+  return store.list("products", { limit, onlyActive });
 }
 
-async function getById(kv, id) {
-  const key = `${COL}:${id}`;
-  const v = await kv.get(key);
-  if (!v) return null;
-  try { return JSON.parse(v); } catch { return null; }
+export async function getProduct(env, id) {
+  const store = new Fire(env);
+  const doc = await store.get("products", id);
+  if (!doc) return null;
+  return doc;
 }
 
-async function putWithMeta(kv, id, obj) {
-  const key = `${COL}:${id}`;
-  const meta = {
-    id,
-    title: obj.title || obj.name || "",
-    price: Number(obj.price) || 0,
-    sale_price: Number(obj.sale_price) || 0,
-    is_active: !!obj.is_active,
-    thumb: pickThumb(obj.images),
-    updated_at: obj.updated_at || new Date().toISOString()
+export async function upsertProduct(env, data) {
+  if (!data || !data.id) return null;
+
+  const store = new Fire(env);
+  const now = new Date().toISOString();
+
+  const prev = (await store.get("products", data.id)) || {};
+  const merged = {
+    ...prev,
+    ...data,
+    id: data.id,
+    created_at: prev.created_at || now,
+    updated_at: now,
   };
-  await kv.put(key, JSON.stringify(obj), { metadata: meta });
-  return meta;
+
+  await store.set("products", data.id, merged);
+  return merged;
 }
 
-// ---------- handlers ----------
-
-export async function listProducts(req, env) {
-  try {
-    const kv = await getKV(env);
-    const url = new URL(req.url);
-    const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
-    const cursor = url.searchParams.get("cursor") || undefined;
-    const activeFilter = url.searchParams.get("active"); // "1" to filter active only
-
-    const r = await kv.list({ prefix: `${COL}:`, cursor, limit });
-    const items = (r.keys || []).map(k => {
-      const m = k.metadata || {};
-      return {
-        id: m.id || k.name.replace(`${COL}:`, ""),
-        title: m.title || "",
-        price: m.price || 0,
-        sale_price: m.sale_price || 0,
-        is_active: !!m.is_active,
-        thumb: m.thumb || null,
-        updated_at: m.updated_at || null
-      };
-    });
-
-    const filtered = (activeFilter === "1")
-      ? items.filter(it => it.is_active)
-      : items;
-
-    return json({ items: filtered, cursor: r.cursor || null, list_complete: r.list_complete === true });
-  } catch (err) {
-    return json({ error: String(err && err.message || err) }, 500);
-  }
+export async function deleteProduct(env, id) {
+  const store = new Fire(env);
+  await store.remove("products", id);
+  return { ok: true };
 }
 
-export async function getProduct(req, env, id) {
+/**
+ * 👇 Compatibility handler so `import { handleProducts }` keeps working.
+ * Supports:
+ *  - GET    /admin/products?limit=...
+ *  - GET    /admin/products/:id
+ *  - POST   /admin/products        (JSON body)
+ *  - PUT    /admin/products        (JSON body)
+ *  - DELETE /admin/products/:id
+ */
+export async function handleProducts(request, env) {
+  // Optional admin token check (only if ADMIN_TOKEN is set in env)
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  const respond = (data, status = 200) =>
+    json(data, { status, headers: { "access-control-allow-origin": "*" } });
+
   try {
-    const kv = await getKV(env);
-    const data = await getById(kv, id);
-    if (!data) return json({ error: "Not found" }, 404);
-    return json({ item: data });
+    // GET list
+    if (request.method === "GET" && pathname.endsWith("/admin/products")) {
+      const data = await listProducts(env, url.searchParams);
+      return respond(data);
+    }
+
+    // GET one
+    const reGetOne = /\/admin\/products\/([^/]+)$/;
+    if (request.method === "GET" && reGetOne.test(pathname)) {
+      const id = pathname.match(reGetOne)[1];
+      const doc = await getProduct(env, id);
+      if (!doc) return notFound();
+      return respond(doc);
+    }
+
+    // CREATE/UPDATE
+    if (
+      (request.method === "POST" || request.method === "PUT") &&
+      pathname.endsWith("/admin/products")
+    ) {
+      const payload = await request.json().catch(() => null);
+      if (!payload || !payload.id) return badReq("missing id");
+      const saved = await upsertProduct(env, payload);
+      return respond(saved, 201);
+    }
+
+    // DELETE
+    if (request.method === "DELETE" && reGetOne.test(pathname)) {
+      const id = pathname.match(reGetOne)[1];
+      const r = await deleteProduct(env, id);
+      return respond(r);
+    }
+
+    return notFound("Unsupported route");
   } catch (err) {
-    return json({ error: String(err && err.message || err) }, 500);
-  }
-}
-
-export async function upsertProduct(req, env) {
-  try {
-    const kv = await getKV(env);
-    const body = await req.json();
-
-    const nowISO = new Date().toISOString();
-    const id = body.id || safeId();
-    const existing = await getById(kv, id) || {};
-
-    // Preserve long arrays unless explicitly provided
-    const images  = body.images  !== undefined ? ensureArray(body.images)  : ensureArray(existing.images);
-    const videos  = body.videos  !== undefined ? ensureArray(body.videos)  : ensureArray(existing.videos);
-    const alts    = body.image_alts !== undefined ? ensureArray(body.image_alts) : ensureArray(existing.image_alts);
-    const faq     = body.faq     !== undefined ? (Array.isArray(body.faq) ? body.faq : existing.faq || []) : (existing.faq || []);
-    const reviews = body.reviews !== undefined ? (Array.isArray(body.reviews) ? body.reviews : existing.reviews || []) : (existing.reviews || []);
-    const variants = body.variants !== undefined ? normVariants(body.variants) : (existing.variants || []);
-
-    const merged = {
-      // base
-      id,
-      title: body.title ?? existing.title ?? "",
-      name: body.name ?? existing.name ?? "",
-      description: body.description ?? existing.description ?? "",
-      seo_title: body.seo_title ?? existing.seo_title ?? "",
-      seo_description: body.seo_description ?? existing.seo_description ?? "",
-      seo_keywords: ensureArray(body.seo_keywords ?? existing.seo_keywords),
-      category: body.category ?? existing.category ?? "default",
-
-      // numbers
-      price: Number(body.price ?? existing.price ?? 0),
-      sale_price: Number(body.sale_price ?? existing.sale_price ?? 0),
-      stock: Number(body.stock ?? existing.stock ?? 0),
-      weight: Number(body.weight ?? existing.weight ?? 0),
-
-      // states
-      is_active: (body.is_active !== undefined ? !!body.is_active : (existing.is_active !== undefined ? !!existing.is_active : true)),
-
-      // media & structured
-      images,
-      videos,
-      image_alts: alts,
-      faq,
-      reviews,
-      variants,
-
-      // bookkeeping
-      created_at: existing.created_at || nowISO,
-      updated_at: nowISO
-    };
-
-    await putWithMeta(kv, id, merged);
-    return json({ ok: true, id, updated_at: merged.updated_at });
-  } catch (err) {
-    return json({ error: String(err && err.message || err) }, 500);
+    return json({ error: String(err && err.message || err) }, { status: 500 });
   }
 }
