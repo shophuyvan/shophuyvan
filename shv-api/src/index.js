@@ -11,11 +11,13 @@ import { scheduledCron } from './modules/cron.js';
 import { Fire } from './modules/firestore.js';
 
 // Admin products
+import { handleProducts } from './modules/products.js';
+
 // ---- helpers ----
 const cors = (origin = '*') => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type,x-token',
+  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
   'Vary': 'Origin',
 });
 
@@ -25,39 +27,12 @@ const json = (status, data, headers) =>
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
   });
 
-function getAdminToken(req, url){
-  const auth   = req.headers.get('Authorization') || '';
-  const bearer = auth.replace(/^Bearer\s+/i, '').trim();
-  const x      = req.headers.get('x-token') || '';
-  const q      = (url && url.searchParams.get('token')) || '';
-  return x || bearer || q || '';
-}
-function requireAdmin(req, env, url) {
-  const token = getAdminToken(req, url);
+function requireAdmin(req, env) {
+  const auth = req.headers.get('Authorization') || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (!token || token !== env.ADMIN_TOKEN) {
-    throw json(401, { error: 'Unauthorized' }, Number(env.CACHE_TTL || 60));
-      }
-}
-
-
-// --- Response cache for GET endpoints (Cloudflare caches.default) ---
-async function cacheJSON(keyReq, builder, ttlSec = 60) {
-  try {
-    const cache = caches.default;
-    const cached = await cache.match(keyReq);
-    if (cached) return cached;
-    const { status = 200, data = {}, headers = {} } = await builder();
-    const h = new Headers({ 'Content-Type': 'application/json',
-                            'Cache-Control': `public, max-age=${ttlSec}`,
-                            ...headers });
-    const res = new Response(JSON.stringify(data), { status, headers: h });
-    await cache.put(keyReq, res.clone());
-    return res;
-  } catch (e) {
-    const { status = 200, data = {}, headers = {} } = await builder();
-    const h = new Headers({ 'Content-Type': 'application/json', ...headers });
-    return new Response(JSON.stringify(data), { status, headers: h }, Number(env.CACHE_TTL || 60));
-      }
+    throw json(401, { error: 'Unauthorized' });
+  }
 }
 
 export default {
@@ -85,7 +60,7 @@ export default {
 
       // ---- upload signature (admin) ----
       else if (url.pathname === '/upload/signature' && req.method === 'POST') {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleUpload(req, env);
       }
 
@@ -101,86 +76,79 @@ export default {
 
       // ---- ADMIN modules (cần token) ----
       else if (url.pathname.startsWith('/admin/banners')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleBanners(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/vouchers')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleVouchers(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/users')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleUsers(req, env, fire);
       }
-      
-            else if (url.pathname.startsWith('/admin/products')) {
-        requireAdmin(req, env, url);
+      else if (url.pathname.startsWith('/admin/products')) {
+  requireAdmin(req, env, url);
 
-        const parts = url.pathname.split('/').filter(Boolean); // ["admin","products",":id"?]
-        const idFromPath = parts.length >= 3 ? parts[2] : null;
-        const idFromQuery = url.searchParams.get('id');
-        const pid = idFromPath || idFromQuery || null;
+  const parts = url.pathname.split('/').filter(Boolean);
+  const idFromPath = parts.length >= 3 ? parts[2] : null;
+  const pid = idFromPath || url.searchParams.get('id') || null;
 
-        if (req.method === 'GET') {
-          if (pid) {
-            const item = await fire.get('products', pid);
-            if (!item) return json(404, { error: 'not_found' });
-            res = json(200, { item });
-          } else {
-            const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
-            const cursor = url.searchParams.get('cursor') || '';
-            const rs = await fire.list('products', { orderBy: ['created_at', 'desc'], limit, cursor });
-            res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
-          }
-        }
-        else if (req.method === 'POST' || req.method === 'PUT') {
-          const body = await req.json().catch(() => ({}));
-          const id = (body.id || pid || crypto.randomUUID()).toString();
-          const now = new Date().toISOString();
-          const prev = await fire.get('products', id);
+  if (req.method === 'GET') {
+    if (pid) {
+      const item = await fire.get('products', pid);
+      if (!item) return json(404, { error: 'not_found' });
+      res = json(200, { item });
+    } else {
+      const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+      const cursor = url.searchParams.get('cursor') || '';
+      const rs = await fire.list('products', { orderBy: ['created_at','desc'], limit, cursor });
+      res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+    }
+  }
+  else if (req.method === 'POST' || req.method === 'PUT') {
+    const body = await req.json().catch(() => ({}));
+    const id = (body.id || pid || crypto.randomUUID()).toString();
+    const now = new Date().toISOString();
+    const prev = await fire.get('products', id);
 
-          const item = {
-            ...(prev || {}),
-            id,
-            name: body.name ?? prev?.name ?? '',
-            description: body.description ?? prev?.description ?? '',
-            category: body.category ?? prev?.category ?? 'default',
-            price: Number(body.price ?? prev?.price ?? 0),
-            sale_price: Number(body.sale_price ?? prev?.sale_price ?? 0),
-            stock: Number(body.stock ?? prev?.stock ?? 0),
-            weight: Number(body.weight ?? prev?.weight ?? 0),
-            images: Array.isArray(body.images) ? body.images : (prev?.images || []),
-            videos: Array.isArray(body.videos) ? body.videos : (prev?.videos || []),
-            alt_images: Array.isArray(body.alt_images) ? body.alt_images : (prev?.alt_images || []),
-            variants: Array.isArray(body.variants) ? body.variants : (prev?.variants || []),
-            seo: body.seo ?? prev?.seo ?? {},
-            faq: Array.isArray(body.faq) ? body.faq : (prev?.faq || []),
-            reviews: Array.isArray(body.reviews) ? body.reviews : (prev?.reviews || []),
-            is_active: body.is_active != null ? !!body.is_active : !!prev?.is_active,
-            created_at: prev?.created_at || now,
-            updated_at: now,
-          };
-          await fire.set('products', id, item);
-          res = json(200, { ok: true, item });
-        }
-        else if (req.method === 'DELETE') {
-          const body = await req.json().catch(() => ({}));
-          const id = pid || body.id;
-          if (!id) return json(400, { error: 'missing_id' });
-          await fire.remove('products', id);
-          res = json(200, { ok: true });
-        }
-        else {
-          res = json(405, { error: 'Method Not Allowed' });
-        }
-      }
+    const item = {
+      ...(prev || {}),
+      id,
+      name: body.name ?? prev?.name ?? '',
+      description: body.description ?? prev?.description ?? '',
+      category: body.category ?? prev?.category ?? 'default',
+      price: Number(body.price ?? prev?.price ?? 0),
+      sale_price: Number(body.sale_price ?? prev?.sale_price ?? 0),
+      stock: Number(body.stock ?? prev?.stock ?? 0),
+      weight: Number(body.weight ?? prev?.weight ?? 0),
+      images: Array.isArray(body.images) ? body.images : (prev?.images || []),
+      videos: Array.isArray(body.videos) ? body.videos : (prev?.videos || []),
+      alt_images: Array.isArray(body.alt_images) ? body.alt_images : (prev?.alt_images || []),
+      variants: Array.isArray(body.variants) ? body.variants : (prev?.variants || []),
+      seo: body.seo ?? prev?.seo ?? {},
+      faq: Array.isArray(body.faq) ? body.faq : (prev?.faq || []),
+      reviews: Array.isArray(body.reviews) ? body.reviews : (prev?.reviews || []),
+      is_active: body.is_active != null ? !!body.is_active : !!prev?.is_active,
+      created_at: prev?.created_at || now,
+      updated_at: now,
+    };
+    await fire.set('products', id, item);
+    res = json(200, { ok: true, item });
+  }
+  else if (req.method === 'DELETE') {
+    const body = await req.json().catch(() => ({}));
+    const id = pid || body.id;
+    if (!id) return json(400, { error: 'missing_id' });
+    await fire.remove('products', id);
+    res = json(200, { ok: true });
+  }
+  else {
+    res = json(405, { error: 'Method Not Allowed' });
+  }
+}
 
-      else if
-
-      else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
-        res = await handlePricing(req, env);
-      }
-      else if (url.pathname.startsWith('/orders')) {
+else if (url.pathname.startsWith('/orders')) {
         res = await handleOrders(req, env, fire, requireAdmin);
       }
       else if (url.pathname.startsWith('/shipping/')) {
@@ -191,25 +159,22 @@ export default {
       else if (url.pathname === '/products' && req.method === 'GET') {
         const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
         const cursor = url.searchParams.get('cursor') || '';
-        res = await cacheJSON(req, async () => {
-          const rs = await fire.list('products', {
-            where: ['is_active', '==', true],
-            orderBy: ['created_at', 'desc'],
-            limit,
-            cursor,
-          });
-          return { status: 200, data: { items: rs.items || [], nextCursor: rs.nextCursor || null } };
+        const rs = await fire.list('products', {
+          where: ['is_active', '==', true],
+          orderBy: ['created_at', 'desc'],
+          limit,
+          cursor,
         });
+        res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
       }
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
-        res = await cacheJSON(req, async () => {
-          const item = await fire.get('products', id);
-          if (!item || !item.is_active) {
-            return { status: 404, data: { error: 'Not Found' } };
-          }
-          return { status: 200, data: { item } };
-        });
+        const item = await fire.get('products', id);
+        if (!item || !item.is_active) {
+          res = json(404, { error: 'Not Found' });
+        } else {
+          res = json(200, { item });
+        }
       }
 
       // ---- 404 ----
