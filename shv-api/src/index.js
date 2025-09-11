@@ -35,13 +35,13 @@ function getAdminToken(req, url){
 function requireAdmin(req, env, url) {
   const token = getAdminToken(req, url);
   if (!token || token !== env.ADMIN_TOKEN) {
-    throw json(401, { error: 'Unauthorized' });
-  }
+    throw json(401, { error: 'Unauthorized' }, Number(env.CACHE_TTL || 60));
+      }
 }
 
 
 // --- Response cache for GET endpoints (Cloudflare caches.default) ---
-async function cacheJSON(keyReq, builder, ttlSec = Number(env.CACHE_TTL || 60)) {
+async function cacheJSON(keyReq, builder, ttlSec = 60) {
   try {
     const cache = caches.default;
     const cached = await cache.match(keyReq);
@@ -56,8 +56,8 @@ async function cacheJSON(keyReq, builder, ttlSec = Number(env.CACHE_TTL || 60)) 
   } catch (e) {
     const { status = 200, data = {}, headers = {} } = await builder();
     const h = new Headers({ 'Content-Type': 'application/json', ...headers });
-    return new Response(JSON.stringify(data), { status, headers: h });
-  }
+    return new Response(JSON.stringify(data), { status, headers: h }, Number(env.CACHE_TTL || 60));
+      }
 }
 
 export default {
@@ -113,51 +113,60 @@ export default {
         res = await handleUsers(req, env, fire);
       }
       
-      else if (url.pathname.startsWith('/admin/products')) {
+            else if (url.pathname.startsWith('/admin/products')) {
         requireAdmin(req, env, url);
 
-        if (req.method === 'GET' && url.pathname === '/admin/products') {
-          const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
-          const cursor = url.searchParams.get('cursor') || '';
-          const rs = await fire.list('products', { orderBy: ['created_at', 'desc'], limit, cursor });
-          res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+        const parts = url.pathname.split('/').filter(Boolean); // ["admin","products",":id"?]
+        const idFromPath = parts.length >= 3 ? parts[2] : null;
+        const idFromQuery = url.searchParams.get('id');
+        const pid = idFromPath || idFromQuery || null;
+
+        if (req.method === 'GET') {
+          if (pid) {
+            const item = await fire.get('products', pid);
+            if (!item) return json(404, { error: 'not_found' });
+            res = json(200, { item });
+          } else {
+            const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+            const cursor = url.searchParams.get('cursor') || '';
+            const rs = await fire.list('products', { orderBy: ['created_at', 'desc'], limit, cursor });
+            res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+          }
         }
-        else if (req.method === 'POST' && url.pathname === '/admin/products') {
-          const body = await req.json();
-          const id = (body.id || crypto.randomUUID()).toString();
+        else if (req.method === 'POST' || req.method === 'PUT') {
+          const body = await req.json().catch(() => ({}));
+          const id = (body.id || pid || crypto.randomUUID()).toString();
           const now = new Date().toISOString();
+          const prev = await fire.get('products', id);
+
           const item = {
+            ...(prev || {}),
             id,
-            name: body.name || '',
-            description: body.description || '',
-            category: body.category || 'default',
-            price: Number(body.price || 0),
-            sale_price: Number(body.sale_price || 0),
-            stock: Number(body.stock || 0),
-            weight: Number(body.weight || 0),
-            images: Array.isArray(body.images) ? body.images : [],
-            videos: Array.isArray(body.videos) ? body.videos : [],
-            alt_images: Array.isArray(body.alt_images) ? body.alt_images : [],
-            variants: Array.isArray(body.variants) ? body.variants : [],
-            seo: body.seo || {},
-            faq: Array.isArray(body.faq) ? body.faq : [],
-            reviews: Array.isArray(body.reviews) ? body.reviews : [],
-            is_active: !!body.is_active,
-            created_at: now,
+            name: body.name ?? prev?.name ?? '',
+            description: body.description ?? prev?.description ?? '',
+            category: body.category ?? prev?.category ?? 'default',
+            price: Number(body.price ?? prev?.price ?? 0),
+            sale_price: Number(body.sale_price ?? prev?.sale_price ?? 0),
+            stock: Number(body.stock ?? prev?.stock ?? 0),
+            weight: Number(body.weight ?? prev?.weight ?? 0),
+            images: Array.isArray(body.images) ? body.images : (prev?.images || []),
+            videos: Array.isArray(body.videos) ? body.videos : (prev?.videos || []),
+            alt_images: Array.isArray(body.alt_images) ? body.alt_images : (prev?.alt_images || []),
+            variants: Array.isArray(body.variants) ? body.variants : (prev?.variants || []),
+            seo: body.seo ?? prev?.seo ?? {},
+            faq: Array.isArray(body.faq) ? body.faq : (prev?.faq || []),
+            reviews: Array.isArray(body.reviews) ? body.reviews : (prev?.reviews || []),
+            is_active: body.is_active != null ? !!body.is_active : !!prev?.is_active,
+            created_at: prev?.created_at || now,
             updated_at: now,
           };
           await fire.set('products', id, item);
           res = json(200, { ok: true, item });
         }
-        else if (req.method === 'PUT') {
-          const id = url.pathname.split('/').pop();
-          const body = await req.json();
-          body.updated_at = new Date().toISOString();
-          const item = await fire.upsert('products', id, body);
-          res = json(200, { ok: true, item });
-        }
         else if (req.method === 'DELETE') {
-          const id = url.pathname.split('/').pop();
+          const body = await req.json().catch(() => ({}));
+          const id = pid || body.id;
+          if (!id) return json(400, { error: 'missing_id' });
           await fire.remove('products', id);
           res = json(200, { ok: true });
         }
@@ -165,6 +174,8 @@ export default {
           res = json(405, { error: 'Method Not Allowed' });
         }
       }
+
+      else if
 
       else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
         res = await handlePricing(req, env);
