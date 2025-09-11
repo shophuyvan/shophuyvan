@@ -265,14 +265,18 @@ const UI = {
 
 const API = {
   token(){ return localStorage.getItem('admin_token') || ''; },
-  headers(){
-    return { 'content-type':'application/json', 'x-token': this.token() };
+  headers(method){
+  const h = {};
+  if (method && method !== 'GET') h['content-type'] = 'application/json';
+  return h;
+},
+headersJSON(){ return { 'content-type':'application/json' }; };
   },
   url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
   async list(reset){
     if(reset){ STATE.nextCursor=null; STATE.list=[]; }
     const url = this.url(`/admin/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
-    const r = await fetch(url, { headers:this.headers() });
+    const r = await fetch(url);
     if (!r.ok){ console.warn('fallback list'); return this.listFallback(reset); }
     const data = await r.json();
     STATE.nextCursor = data.cursor || null;
@@ -281,29 +285,29 @@ const API = {
   },
   async listFallback(reset){
     const url = this.url(`/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
-    const r = await fetch(url, { headers:this.headers() });
+    const r = await fetch(url);
     const data = await r.json();
     STATE.nextCursor = data.cursor || null;
     STATE.list = reset ? (data.items||[]) : (STATE.list||[]).concat(data.items||[]);
     UI.renderList();
   },
   async getOne(id){
-    let r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { headers:this.headers() });
-    if (!r.ok){ r = await fetch(this.url(`/products?id=${encodeURIComponent(id)}`), { headers:this.headers() }); }
+    let r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`));
+    if (!r.ok){ r = await fetch(this.url(`/products?id=${encodeURIComponent(id)}`)); }
     if (!r.ok) throw new Error('not found');
     return await r.json();
   },
   async save(body){
-    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headers(), body: JSON.stringify(body) });
+    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headersJSON(), body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     return await r.json();
   },
   async remove(id){
-    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headers() });
+    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headersJSON() });
     return r.ok;
   },
   async ai(body){
-    const r = await fetch(this.url(`/ai/suggest`), { method:'POST', headers:this.headers(), body: JSON.stringify(body) });
+    const r = await fetch(this.url(`/ai/suggest`), { method:'POST', headers:this.headersJSON(), body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     return await r.json();
   },
