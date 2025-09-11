@@ -13,11 +13,33 @@ import { Fire } from './modules/firestore.js';
 // Admin products
 import { handleProducts } from './modules/products.js';
 
+// --- small response cache helper for GETs ---
+async function cacheJSON(keyReq, builder, ttlSec = Number(env.CACHE_TTL || 60)) {
+  try {
+    const cache = caches.default;
+    let hit = await cache.match(keyReq);
+    if (hit) return hit;
+    const { status = 200, data = {}, headers = {} } = await builder();
+    const h = new Headers({ 'Content-Type':'application/json',
+                            'Cache-Control': `public, max-age=${ttlSec}`,
+                            ...headers });
+    const res = new Response(JSON.stringify(data), { status, headers: h });
+    await cache.put(keyReq, res.clone());
+    return res;
+  } catch (e) {
+    // fallback: just build once without cache
+    const { status = 200, data = {}, headers = {} } = await builder();
+    const h = new Headers({ 'Content-Type':'application/json', ...headers });
+    return new Response(JSON.stringify(data), { status, headers: h });
+  }
+}
+
+
 // ---- helpers ----
 const cors = (origin = '*') => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization,Content-Type,x-token',
   'Vary': 'Origin',
 });
 
@@ -27,9 +49,15 @@ const json = (status, data, headers) =>
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
   });
 
-function requireAdmin(req, env) {
+function getAdminToken(req, url){
   const auth = req.headers.get('Authorization') || '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  const bearer = auth.replace(/^Bearer\s+/i, '').trim();
+  const x = req.headers.get('x-token') || '';
+  const q = (url && url.searchParams.get('token')) || '';
+  return x || bearer || q || '';
+}
+function requireAdmin(req, env, url) {
+  const token = getAdminToken(req, url);
   if (!token || token !== env.ADMIN_TOKEN) {
     throw json(401, { error: 'Unauthorized' });
   }
@@ -60,7 +88,7 @@ export default {
 
       // ---- upload signature (admin) ----
       else if (url.pathname === '/upload/signature' && req.method === 'POST') {
-        requireAdmin(req, env);
+        requireAdmin(req, env, url);
         res = await handleUpload(req, env);
       }
 
@@ -76,19 +104,19 @@ export default {
 
       // ---- ADMIN modules (cần token) ----
       else if (url.pathname.startsWith('/admin/banners')) {
-        requireAdmin(req, env);
+        requireAdmin(req, env, url);
         res = await handleBanners(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/vouchers')) {
-        requireAdmin(req, env);
+        requireAdmin(req, env, url);
         res = await handleVouchers(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/users')) {
-        requireAdmin(req, env);
+        requireAdmin(req, env, url);
         res = await handleUsers(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/products')) {
-        requireAdmin(req, env);
+        requireAdmin(req, env, url);
         res = await handleProducts(req, env, fire);
       }
 
@@ -115,15 +143,19 @@ export default {
         });
         res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
       }
+      
       else if (url.pathname.startsWith('/products/') && req.method === 'GET') {
         const id = url.pathname.split('/').pop();
-        const item = await fire.get('products', id);
-        if (!item || !item.is_active) {
-          res = json(404, { error: 'Not Found' });
-        } else {
-          res = json(200, { item });
-        }
+        res = await cacheJSON(req, async () => {
+          const item = await fire.get('products', id);
+          if (!item || !item.is_active) {
+            return { status: 404, data: { error: 'Not Found' } };
+          } else {
+            return { status: 200, data: { item } };
+          }
+        });
       }
+
 
       // ---- 404 ----
       else {
