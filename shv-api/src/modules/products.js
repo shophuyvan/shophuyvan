@@ -1,82 +1,195 @@
 
-// shv-api/src/modules/products.js (v7.1)
-// Upsert merge (không mất variants/images/videos/faq/reviews), KV metadata cho list nhanh
-export function json(body, status=200, headers={}){
-  return new Response(JSON.stringify(body), { status, headers: { "content-type":"application/json; charset=utf-8", ...headers }});
-}
-const toArrCSV = (x)=>{
-  if (!x) return [];
-  if (Array.isArray(x)) return x.map(s=>typeof s==="string"?s.trim():s).filter(Boolean);
-  if (typeof x==="string") return x.split(",").map(s=>s.trim()).filter(Boolean);
-  return [];
-};
-const normVariants = (arr)=>{
-  if (!Array.isArray(arr)) return [];
-  return arr.map(v=>({
-    image: String(v.image||"").trim(),
-    name: String(v.name||"").trim(),
-    sku: String(v.sku||"").trim(),
-    stock: Number(v.stock||0),
-    weight_grams: Number(v.weight_grams||0),
-    price: Number(v.price||0),
-    sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==="") ? null : Number(v.sale_price)
-  })).filter(v=>v.name);
-};
-async function putWithMeta(kv, key, data){
-  const updated_at = data.updated_at || new Date().toISOString();
-  const thumb = (Array.isArray(data.images) && data.images[0] ? data.images[0] : "").replace("/upload/","/upload/w_240,f_auto,q_auto/");
-  const meta = { id: data.id, title: data.title||data.name||"", price: Number(data.price||0), sale_price: data.sale_price ?? null, is_active: !!data.is_active, thumb, updated_at };
-  await kv.put(key, JSON.stringify({ ...data, updated_at }), { metadata: meta });
-}
-export async function listProducts(req, env){
-  const url = new URL(req.url);
-  const limit  = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
-  const cursor = url.searchParams.get("cursor") || null;
-  const activeOnly = url.searchParams.get("active") === "1";
-  const r = await env.PRODUCTS_KV.list({ prefix: "products:", cursor, limit });
-  let items = r.keys.map(k=>k.metadata).filter(Boolean);
-  if (activeOnly) items = items.filter(m => !!m.is_active);
-  items.sort((a,b)=> String(b.updated_at||"").localeCompare(String(a.updated_at||"")));
-  return json({ items, cursor: r.list_complete ? null : r.cursor });
-}
-export async function getProduct(req, env, id){
-  const v = await env.PRODUCTS_KV.get(`products:${id}`);
-  if (!v) return json({ error:"not_found" }, 404);
-  return json(JSON.parse(v));
-}
-export async function upsertProduct(req, env){
-  let body={}; try{ body=await req.json(); }catch{}
-  const name = String(body.name || body.title || "").trim();
-  const id = (String(body.id||"").trim() ||
-             name.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-]/g,"").slice(0,80) ||
-             crypto.randomUUID());
-  const kv = env.PRODUCTS_KV;
+// shv-api: src/modules/products.js (v7.1)
+/**
+ * Cloudflare Worker module for Products using KV (PRODUCTS_KV)
+ * Exports:
+ *   - listProducts(req, env)
+ *   - getProduct(req, env, id)
+ *   - upsertProduct(req, env)
+ */
 
-  // Merge with existing
-  let existing={}; try{ const cur=await kv.get(`products:${id}`); existing=cur?JSON.parse(cur):{}; }catch{}
-  const incoming = {
+const JSON_HEADERS = {
+  "content-type": "application/json; charset=utf-8",
+  "cache-control": "no-store"
+};
+
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
+
+// ---------- helpers ----------
+
+function ensureArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean);
+  if (typeof v === "string") {
+    return v.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function safeId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function pickThumb(images) {
+  const arr = ensureArray(images);
+  if (!arr.length) return null;
+  const url = arr[0];
+  try {
+    // Cloudinary transform for fast thumbnail, else return original
+    if (url.includes("/image/upload/")) {
+      return url.replace("/image/upload/", "/image/upload/w_240,q_auto,f_auto/");
+    }
+  } catch {}
+  return url;
+}
+
+function normVariants(input) {
+  // Accepts array of objects or CSV-ish string -> array of {name, price, sku, stock, sale_price, weight, image}
+  if (!input) return [];
+  if (typeof input === "string") {
+    // Expecting JSON string or CSV list "name|price|sku|stock"
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+    return input.split("\n").map(row => {
+      const [name, price, sku, stock] = row.split("|").map(s => (s || "").trim());
+      if (!name) return null;
+      return { name, price: Number(price) || 0, sku: sku || "", stock: Number(stock) || 0 };
+    }).filter(Boolean);
+  }
+  if (Array.isArray(input)) return input;
+  return [];
+}
+
+const COL = "product"; // KV key prefix: product:<id>
+
+async function getKV(env) {
+  if (!env || !env.PRODUCTS_KV) throw new Error("Missing binding PRODUCTS_KV");
+  return env.PRODUCTS_KV;
+}
+
+async function getById(kv, id) {
+  const key = `${COL}:${id}`;
+  const v = await kv.get(key);
+  if (!v) return null;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+async function putWithMeta(kv, id, obj) {
+  const key = `${COL}:${id}`;
+  const meta = {
     id,
-    title: existing.title || name,
-    name,
-    description: typeof body.description==="string" ? body.description : (existing.description||""),
-    images: toArrCSV(body.images?.length ? body.images : existing.images),
-    videos: toArrCSV(body.videos?.length ? body.videos : existing.videos),
-    image_alts: toArrCSV(body.image_alts?.length ? body.image_alts : existing.image_alts),
-    price: Number(body.price ?? existing.price ?? 0),
-    sale_price: (body.sale_price===undefined ? existing.sale_price : (body.sale_price===""? null : Number(body.sale_price))),
-    stock: Number(body.stock ?? existing.stock ?? 0),
-    is_active: (body.is_active!==undefined ? !!body.is_active : !!existing.is_active),
-    category: body.category || existing.category || "default",
-    weight_grams: Number(body.weight_grams ?? existing.weight_grams ?? 0),
-    seo_title: (body.seo_title!==undefined ? body.seo_title : (existing.seo_title || "")),
-    seo_description: (body.seo_description!==undefined ? body.seo_description : (existing.seo_description || "")),
-    seo_keywords: (body.seo_keywords!==undefined ? body.seo_keywords : (existing.seo_keywords || "")),
-    faq: Array.isArray(body.faq) ? body.faq : (existing.faq||[]),
-    reviews: Array.isArray(body.reviews) ? body.reviews : (existing.reviews||[]),
-    variants: normVariants(body.variants && body.variants.length ? body.variants : (existing.variants || [])),
-    created_at: existing.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    title: obj.title || obj.name || "",
+    price: Number(obj.price) || 0,
+    sale_price: Number(obj.sale_price) || 0,
+    is_active: !!obj.is_active,
+    thumb: pickThumb(obj.images),
+    updated_at: obj.updated_at || new Date().toISOString()
   };
-  await putWithMeta(kv, `products:${id}`, incoming);
-  return json({ ok:true, id });
+  await kv.put(key, JSON.stringify(obj), { metadata: meta });
+  return meta;
+}
+
+// ---------- handlers ----------
+
+export async function listProducts(req, env) {
+  try {
+    const kv = await getKV(env);
+    const url = new URL(req.url);
+    const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
+    const cursor = url.searchParams.get("cursor") || undefined;
+    const activeFilter = url.searchParams.get("active"); // "1" to filter active only
+
+    const r = await kv.list({ prefix: `${COL}:`, cursor, limit });
+    const items = (r.keys || []).map(k => {
+      const m = k.metadata || {};
+      return {
+        id: m.id || k.name.replace(`${COL}:`, ""),
+        title: m.title || "",
+        price: m.price || 0,
+        sale_price: m.sale_price || 0,
+        is_active: !!m.is_active,
+        thumb: m.thumb || null,
+        updated_at: m.updated_at || null
+      };
+    });
+
+    const filtered = (activeFilter === "1")
+      ? items.filter(it => it.is_active)
+      : items;
+
+    return json({ items: filtered, cursor: r.cursor || null, list_complete: r.list_complete === true });
+  } catch (err) {
+    return json({ error: String(err && err.message || err) }, 500);
+  }
+}
+
+export async function getProduct(req, env, id) {
+  try {
+    const kv = await getKV(env);
+    const data = await getById(kv, id);
+    if (!data) return json({ error: "Not found" }, 404);
+    return json({ item: data });
+  } catch (err) {
+    return json({ error: String(err && err.message || err) }, 500);
+  }
+}
+
+export async function upsertProduct(req, env) {
+  try {
+    const kv = await getKV(env);
+    const body = await req.json();
+
+    const nowISO = new Date().toISOString();
+    const id = body.id || safeId();
+    const existing = await getById(kv, id) || {};
+
+    // Preserve long arrays unless explicitly provided
+    const images  = body.images  !== undefined ? ensureArray(body.images)  : ensureArray(existing.images);
+    const videos  = body.videos  !== undefined ? ensureArray(body.videos)  : ensureArray(existing.videos);
+    const alts    = body.image_alts !== undefined ? ensureArray(body.image_alts) : ensureArray(existing.image_alts);
+    const faq     = body.faq     !== undefined ? (Array.isArray(body.faq) ? body.faq : existing.faq || []) : (existing.faq || []);
+    const reviews = body.reviews !== undefined ? (Array.isArray(body.reviews) ? body.reviews : existing.reviews || []) : (existing.reviews || []);
+    const variants = body.variants !== undefined ? normVariants(body.variants) : (existing.variants || []);
+
+    const merged = {
+      // base
+      id,
+      title: body.title ?? existing.title ?? "",
+      name: body.name ?? existing.name ?? "",
+      description: body.description ?? existing.description ?? "",
+      seo_title: body.seo_title ?? existing.seo_title ?? "",
+      seo_description: body.seo_description ?? existing.seo_description ?? "",
+      seo_keywords: ensureArray(body.seo_keywords ?? existing.seo_keywords),
+      category: body.category ?? existing.category ?? "default",
+
+      // numbers
+      price: Number(body.price ?? existing.price ?? 0),
+      sale_price: Number(body.sale_price ?? existing.sale_price ?? 0),
+      stock: Number(body.stock ?? existing.stock ?? 0),
+      weight: Number(body.weight ?? existing.weight ?? 0),
+
+      // states
+      is_active: (body.is_active !== undefined ? !!body.is_active : (existing.is_active !== undefined ? !!existing.is_active : true)),
+
+      // media & structured
+      images,
+      videos,
+      image_alts: alts,
+      faq,
+      reviews,
+      variants,
+
+      // bookkeeping
+      created_at: existing.created_at || nowISO,
+      updated_at: nowISO
+    };
+
+    await putWithMeta(kv, id, merged);
+    return json({ ok: true, id, updated_at: merged.updated_at });
+  } catch (err) {
+    return json({ error: String(err && err.message || err) }, 500);
+  }
 }
