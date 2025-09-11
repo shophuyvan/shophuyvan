@@ -1,3 +1,29 @@
+
+// === SHIM: ensure unsigned uploads even if code calls `uploadToCloudinary` (signed) ===
+(function(){
+  const CLOUD_NAME = 'dtemskptf';
+  const PRESET = 'shophuyvan';
+  async function _unsigned(file, folder='products', type='image'){
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${type}/upload`;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', PRESET);
+    if (folder) fd.append('folder', folder);
+    const r = await fetch(url, { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  }
+  if (typeof window !== 'undefined') {
+    // export global
+    window.uploadToCloudinaryUnsigned = window.uploadToCloudinaryUnsigned || _unsigned;
+    // Backward compatible: any legacy call to signed function will route to unsigned
+    window.uploadToCloudinary = window.uploadToCloudinary || (async function(file, _sig, type='image'){
+      return window.uploadToCloudinaryUnsigned(file, 'products', type);
+    });
+  }
+})();
+// === END SHIM ===
+
 // shv-fe/src/admin.js
 import { api } from './lib/api.js';
 
