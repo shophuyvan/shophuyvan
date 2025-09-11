@@ -1,56 +1,600 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin - Shop Huy Vân</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop Huy Vân — Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0b1220; --card:#0f172a; --muted:#64748b; --brand:#4f46e5 }
+    html,body{ height:100%; }
+    body{ font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif; background:#0b1220; color:#e2e8f0; }
+    .sidebar{ background:#0f172a }
+    .card{ background:#0f172a; border:1px solid #1f2937 }
+    .muted{ color:#94a3b8 }
+    .input{ background:#0b1220; border:1px solid #1f2937; border-radius:.6rem; padding:.6rem .75rem; width:100% }
+    .btn{ background:#1d4ed8; border-radius:.65rem; padding:.55rem .9rem; font-weight:600 }
+    .btn-secondary{ background:#0b1220; border:1px solid #1f2937 }
+    .chip{ background:#0b1220; border:1px dashed #334155; border-radius:.6rem; padding:.35rem .6rem; font-size:.8rem }
+    .toolbar{ display:flex; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 }
+    .divider{ height:1px; background:#1f2937 }
+    .pill{ padding:.15rem .45rem; border-radius:.5rem; font-size:.75rem; border:1px solid #334155; background:#0b1220 }
+    .thumb{ width:56px; height:56px; border-radius:.5rem; object-fit:cover; background:#0b1220; border:1px solid #1f2937 }
+    .ghost-btn{ padding:.4rem .6rem; border:1px solid #334155; border-radius:.6rem; }
+  </style>
 </head>
-<body class="bg-gray-50">
-  <!-- FE biết URL của Cloudflare Worker -->
-  <input id="api-base" type="hidden" value="https://shv-api.shophuyvan.workers.dev" />
-  <!-- Input ẩn để import CSV (admin.js sẽ click vào input này) -->
-  <input id="csv-picker" type="file" accept=".csv" class="hidden" />
-
-  <header class="border-b bg-white sticky top-0 z-50">
-    <div class="px-4 py-3 flex items-center gap-2">
-      <button id="menu-btn" class="md:hidden border rounded px-3 py-1">☰</button>
-      <div class="font-bold">Admin</div>
-      <div class="ml-auto text-xs flex items-center gap-2">
-        <label for="admin-token" class="opacity-70">Token</label>
-        <input id="admin-token" class="border rounded px-2 py-1" placeholder="ADMIN_TOKEN" />
-        <button id="save-token" class="border rounded px-2 py-1">Lưu</button>
-      </div>
-    </div>
-  </header>
-
-  <div class="flex">
-    <!-- Drawer menu -->
-    <aside
-      id="drawer"
-      class="fixed md:static inset-y-0 left-0 w-72 bg-white border-r transform -translate-x-full md:translate-x-0 transition-transform"
-    >
-      <nav class="p-3 space-y-2 text-sm">
-        <a href="#products"  class="block px-3 py-2 rounded hover:bg-gray-100">Sản phẩm</a>
-        <a href="#editor"    class="block px-3 py-2 rounded hover:bg-gray-100">Thêm/Chỉnh sửa</a>
-        <a href="#banners"   class="block px-3 py-2 rounded hover:bg-gray-100">Banner</a>
-        <a href="#vouchers"  class="block px-3 py-2 rounded hover:bg-gray-100">Voucher</a>
-        <a href="#orders"    class="block px-3 py-2 rounded hover:bg-gray-100">Đơn hàng</a>
-        <a href="#shipping"  class="block px-3 py-2 rounded hover:bg-gray-100">Vận chuyển</a>
-        <a href="#users"     class="block px-3 py-2 rounded hover:bg-gray-100">Người dùng</a>
-        <a href="#analytics" class="block px-3 py-2 rounded hover:bg-gray-100">Thống kê</a>
-        <a href="#marketing" class="block px-3 py-2 rounded hover:bg-gray-100">Marketing</a>
-        <a href="#settings"  class="block px-3 py-2 rounded hover:bg-gray-100">Cài đặt</a>
+<body>
+  <div class="h-full grid grid-cols-[240px_1fr]">
+    <!-- SIDEBAR -->
+    <aside class="sidebar p-4 flex flex-col gap-2">
+      <div class="text-xl font-bold tracking-wide">Admin</div>
+      <nav class="mt-2 flex flex-col gap-1">
+        <button class="ghost-btn text-left" onclick="UI.showList()">Sản phẩm</button>
+        <button class="ghost-btn text-left" onclick="UI.showEditor()">Thêm/Chỉnh sửa</button>
+        <button class="ghost-btn text-left" onclick="UI.openSettings()">Cài đặt</button>
       </nav>
+      <div class="mt-auto text-xs muted">
+        Built for Shop Huy Vân
+      </div>
     </aside>
 
-    <main class="flex-1 p-4 space-y-6 md:ml-0 ml-0">
-      <div id="route"></div>
+    <!-- MAIN -->
+    <main class="p-6 overflow-y-auto">
+      <!-- Header -->
+      <header class="flex flex-wrap items-center gap-2 justify-between mb-5">
+        <div class="font-semibold text-lg">Quản lý sản phẩm</div>
+        <div class="flex items-center gap-2">
+          <input id="tokenInput" class="input w-64" placeholder="Token admin…" />
+          <button class="btn btn-secondary" onclick="UI.saveToken()">Lưu token</button>
+          <button class="btn" onclick="UI.refresh()">Làm mới</button>
+        </div>
+      </header>
+
+      <!-- LIST VIEW -->
+      <section id="listView" class="hidden">
+        <div class="flex items-center gap-3 mb-4">
+          <input id="searchBox" class="input w-80" placeholder="Tìm theo tên…">
+          <button class="btn btn-secondary" onclick="UI.showEditor()">+ Thêm sản phẩm</button>
+        </div>
+
+        <div id="productsGrid" class="grid gap-3">
+          <!-- Cards injected here -->
+        </div>
+
+        <div class="mt-4 flex items-center gap-2">
+          <button class="btn btn-secondary" onclick="API.loadMore()">Tải thêm</button>
+          <span id="nextCursor" class="muted text-xs"></span>
+        </div>
+      </section>
+
+      <!-- EDITOR VIEW -->
+      <section id="editorView" class="hidden">
+        <div class="grid lg:grid-cols-3 gap-4">
+          <!-- LEFT form -->
+          <div class="lg:col-span-2 card rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-lg font-semibold">Thông tin sản phẩm</div>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="is_active"> Active</label>
+                <button class="btn" onclick="Editor.save()">Lưu</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="muted text-sm">Tên</label>
+                <input id="name" class="input mt-1" placeholder="Tên sản phẩm">
+                <div class="toolbar">
+                  <button class="chip" onclick="AI.title()">AI tiêu đề</button>
+                  <span id="titleSuggest" class="flex flex-wrap gap-1"></span>
+                </div>
+              </div>
+              <div>
+                <label class="muted text-sm">Danh mục</label>
+                <input id="category" class="input mt-1" placeholder="vd: default">
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="muted text-sm">Mô tả</label>
+                <textarea id="description" class="input mt-1" rows="5" placeholder="Mô tả chi tiết…"></textarea>
+                <div class="toolbar">
+                  <button class="chip" onclick="AI.desc()">AI mô tả</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label class="muted text-sm">Giá</label>
+                <input id="price" class="input mt-1" type="number" min="0" step="1000">
+              </div>
+              <div>
+                <label class="muted text-sm">Giá sale</label>
+                <input id="sale_price" class="input mt-1" type="number" min="0" step="1000" placeholder="để trống nếu không sale">
+              </div>
+              <div>
+                <label class="muted text-sm">Tồn</label>
+                <input id="stock" class="input mt-1" type="number" min="0">
+              </div>
+              <div>
+                <label class="muted text-sm">Khối lượng (gram)</label>
+                <input id="weight_grams" class="input mt-1" type="number" min="0">
+              </div>
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="muted text-sm">Ảnh (CSV URL)</label>
+                <input id="images" class="input mt-1" placeholder="url1,url2,…">
+                <div class="toolbar">
+                  <button class="chip" onclick="Upload.images()">Upload ảnh…</button>
+                  <button class="chip" onclick="AI.alt()">AI ảnh ALT</button>
+                </div>
+                <div id="imagesThumbs" class="mt-2 flex gap-2 flex-wrap"></div>
+              </div>
+              <div>
+                <label class="muted text-sm">Video (CSV URL)</label>
+                <input id="videos" class="input mt-1" placeholder="url1,url2,…">
+                <div class="toolbar"><button class="chip" onclick="Upload.videos()">Upload video…</button></div>
+              </div>
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div>
+              <div class="font-medium mb-2">Biến thể</div>
+              <div id="variantsWrap" class="flex flex-col gap-2"></div>
+              <button class="btn btn-secondary mt-2" onclick="Editor.addVariant()">+ Thêm biến thể</button>
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="muted text-sm">SEO tiêu đề</label>
+                <input id="seo_title" class="input mt-1" placeholder="100–120 ký tự">
+              </div>
+              <div>
+                <label class="muted text-sm">SEO mô tả</label>
+                <input id="seo_description" class="input mt-1">
+              </div>
+              <div>
+                <label class="muted text-sm">SEO từ khóa</label>
+                <input id="seo_keywords" class="input mt-1" placeholder="phẩy, cách">
+              </div>
+              <div class="md:col-span-3 toolbar"><button class="chip" onclick="AI.seo()">AI SEO (100–120)</button></div>
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div class="font-medium mb-2">FAQ</div>
+                <div id="faqWrap" class="flex flex-col gap-2"></div>
+                <div class="toolbar">
+                  <button class="chip" onclick="Editor.addFAQ()">+ Thêm Q/A</button>
+                  <button class="chip" onclick="AI.faq()">AI tạo FAQ</button>
+                </div>
+              </div>
+              <div>
+                <div class="font-medium mb-2">Đánh giá</div>
+                <div id="reviewsWrap" class="flex flex-col gap-2"></div>
+                <div class="toolbar">
+                  <button class="chip" onclick="Editor.addReview()">+ Thêm đánh giá</button>
+                  <button class="chip" onclick="AI.reviews()">AI đánh giá (5–10)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT meta -->
+          <div class="card rounded-2xl p-4">
+            <div class="text-lg font-semibold mb-3">Tóm tắt</div>
+            <div class="text-sm muted">ID</div>
+            <div id="id" class="text-sm mb-2 pill inline-block">mới</div>
+            <div class="text-sm muted">ALT ảnh (CSV)</div>
+            <input id="image_alts" class="input mt-1" placeholder="alt1,alt2,…">
+            <div class="divider my-4"></div>
+            <button class="btn w-full" onclick="Editor.save()">Lưu thay đổi</button>
+            <button class="btn btn-secondary w-full mt-2" onclick="Editor.new()">Tạo mới</button>
+            <button id="btnDelete" class="btn btn-secondary w-full mt-2" onclick="Editor.remove()">Xóa sản phẩm</button>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
-  <!-- Scripts -->
-  <script type="module" src="/src/admin.js"></script>
-  <script type="module" src="/src/tracking.js"></script>
+<script>
+const CFG = {
+  API_BASE: localStorage.getItem('api_base') || 'https://shv-api.shophuyvan.workers.dev',
+  CLOUD_NAME: localStorage.getItem('cloud_name') || 'dtemskptf',
+  UPLOAD_PRESET: localStorage.getItem('upload_preset') || 'shophuyvan',
+};
+let STATE = { nextCursor:null, editing:null, list:[] };
+
+const UI = {
+  init(){
+    document.getElementById('tokenInput').value = localStorage.getItem('admin_token') || '';
+    this.showList();
+    API.list();
+    document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList());
+  },
+  showList(){ document.getElementById('listView').classList.remove('hidden'); document.getElementById('editorView').classList.add('hidden'); },
+  showEditor(id){
+    document.getElementById('listView').classList.add('hidden');
+    document.getElementById('editorView').classList.remove('hidden');
+    if (id){ API.getOne(id).then(Editor.load).catch(()=>{}); } else { Editor.new(); }
+  },
+  saveToken(){ const t=document.getElementById('tokenInput').value.trim(); localStorage.setItem('admin_token',t); alert('Đã lưu token'); },
+  refresh(){ API.list(true); },
+  openSettings(){
+    const api = prompt('API base:', CFG.API_BASE) || CFG.API_BASE;
+    const cloud = prompt('Cloudinary Cloud Name:', CFG.CLOUD_NAME) || CFG.CLOUD_NAME;
+    const preset = prompt('Cloudinary Upload Preset:', CFG.UPLOAD_PRESET) || CFG.UPLOAD_PRESET;
+    localStorage.setItem('api_base', api); localStorage.setItem('cloud_name', cloud); localStorage.setItem('upload_preset', preset);
+    alert('Đã lưu, F5 để áp dụng.');
+  },
+  renderList(){
+    const q = (document.getElementById('searchBox').value||'').toLowerCase();
+    const wrap = document.getElementById('productsGrid'); wrap.innerHTML='';
+    (STATE.list||[]).filter(p => !q || (p.title||p.name||'').toLowerCase().includes(q)).forEach(p=>{
+      const thumb = (p.thumb || (p.images && p.images[0]) || '').replace('/upload/','/upload/w_120,f_auto,q_auto/');
+      const el = document.createElement('div');
+      el.className = 'card rounded-2xl p-3 flex items-center gap-3';
+      el.innerHTML = `
+        <img class="thumb" src="${thumb||''}" onerror="this.src='';">
+        <div class="flex-1">
+          <div class="font-medium">${escapeHtml(p.title||p.name||'Không tên')}</div>
+          <div class="muted text-xs">Giá: ${fmt(p.price)} ${p.sale_price!=null?'<span class="ml-2">Sale: <b>'+fmt(p.sale_price)+'</b></span>':''}</div>
+        </div>
+        <span class="pill ${p.is_active?'':'!bg-transparent'}">${p.is_active?'Active':'Ẩn'}</span>
+        <button class="ghost-btn" onclick="UI.showEditor('${p.id}')">Sửa</button>
+      `;
+      wrap.appendChild(el);
+    });
+    document.getElementById('nextCursor').textContent = STATE.nextCursor ? ('cursor: '+STATE.nextCursor) : '';
+  }
+};
+
+const API = {
+  token(){ return localStorage.getItem('admin_token') || ''; },
+  headers(){
+    return { 'content-type':'application/json', 'x-token': this.token() };
+  },
+  url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
+  async list(reset){
+    if(reset){ STATE.nextCursor=null; STATE.list=[]; }
+    const url = this.url(`/admin/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
+    const r = await fetch(url, { headers:this.headers() });
+    if (!r.ok){ console.warn('fallback list'); return this.listFallback(reset); }
+    const data = await r.json();
+    STATE.nextCursor = data.cursor || null;
+    STATE.list = reset ? (data.items||[]) : (STATE.list||[]).concat(data.items||[]);
+    UI.renderList();
+  },
+  async listFallback(reset){
+    const url = this.url(`/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
+    const r = await fetch(url, { headers:this.headers() });
+    const data = await r.json();
+    STATE.nextCursor = data.cursor || null;
+    STATE.list = reset ? (data.items||[]) : (STATE.list||[]).concat(data.items||[]);
+    UI.renderList();
+  },
+  async getOne(id){
+    let r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { headers:this.headers() });
+    if (!r.ok){ r = await fetch(this.url(`/products?id=${encodeURIComponent(id)}`), { headers:this.headers() }); }
+    if (!r.ok) throw new Error('not found');
+    return await r.json();
+  },
+  async save(body){
+    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headers(), body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  },
+  async remove(id){
+    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headers() });
+    return r.ok;
+  },
+  async ai(body){
+    const r = await fetch(this.url(`/ai/suggest`), { method:'POST', headers:this.headers(), body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  },
+  async loadMore(){ if (!STATE.nextCursor) return; this.list(false); }
+};
+
+const Upload = {
+  async images(){
+    const input = document.createElement('input'); input.type='file'; input.accept='image/*'; input.multiple=true; input.click();
+    input.onchange = async () => {
+      try{
+        const urls=[];
+        for (const f of Array.from(input.files||[])){
+          const u = await Upload._cloudinary(f,'image');
+          urls.push(u.secure_url||u.url);
+        }
+        const el = document.getElementById('images'); const cur = (el.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+        el.value = cur.concat(urls).join(','); renderThumbs();
+      }catch(err){ alert('Upload ảnh lỗi'); console.error(err); }
+    };
+  },
+  async videos(){
+    const input = document.createElement('input'); input.type='file'; input.accept='video/*'; input.multiple=true; input.click();
+    input.onchange = async () => {
+      try{
+        const urls=[];
+        for (const f of Array.from(input.files||[])){
+          const u = await Upload._cloudinary(f,'video');
+          urls.push(u.secure_url||u.url);
+        }
+        const el = document.getElementById('videos'); const cur = (el.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+        el.value = cur.concat(urls).join(',');
+      }catch(err){ alert('Upload video lỗi'); console.error(err); }
+    };
+  },
+  async _cloudinary(file, type){
+    const url = `https://api.cloudinary.com/v1_1/${CFG.CLOUD_NAME}/${type}/upload`;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', CFG.UPLOAD_PRESET);
+    fd.append('folder', 'products');
+    const r = await fetch(url, { method:'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  }
+};
+
+function renderThumbs(){
+  const wrap = document.getElementById('imagesThumbs'); wrap.innerHTML='';
+  (csvToArr(document.getElementById('images').value)).slice(0,8).forEach(u=>{
+    const img = document.createElement('img'); img.className='thumb'; img.src=u.replace('/upload/','/upload/w_120,f_auto,q_auto/'); wrap.appendChild(img);
+  });
+}
+
+const Editor = {
+  new(){
+    STATE.editing = null;
+    setVal('id','mới');
+    ['name','category','description','price','sale_price','stock','weight_grams','images','videos','image_alts','seo_title','seo_description','seo_keywords'].forEach(k=>setInput(k,''));
+    document.getElementById('is_active').checked = true;
+    document.getElementById('btnDelete').disabled = true;
+    document.getElementById('variantsWrap').innerHTML='';
+    document.getElementById('faqWrap').innerHTML='';
+    document.getElementById('reviewsWrap').innerHTML='';
+    UI.showEditor();
+  },
+  load(p){
+    STATE.editing = p.id;
+    setVal('id', p.id);
+    setInput('name', p.name||p.title||'');
+    setInput('category', p.category||'default');
+    setInput('description', p.description||'');
+    setInput('price', p.price||0);
+    setInput('sale_price', p.sale_price==null?'':p.sale_price);
+    setInput('stock', p.stock||0);
+    setInput('weight_grams', p.weight_grams||0);
+    setInput('images', (p.images||[]).join(','));
+    setInput('videos', (p.videos||[]).join(','));
+    setInput('image_alts', (p.image_alts||[]).join(','));
+    setInput('seo_title', p.seo_title||'');
+    setInput('seo_description', p.seo_description||'');
+    setInput('seo_keywords', p.seo_keywords||'');
+    document.getElementById('is_active').checked = !!p.is_active;
+    document.getElementById('btnDelete').disabled = false;
+    // variants
+    document.getElementById('variantsWrap').innerHTML='';
+    (p.variants||[]).forEach(v=>Editor.addVariant(v));
+    // faq
+    document.getElementById('faqWrap').innerHTML='';
+    (p.faq||[]).forEach(q=>Editor.addFAQ(q));
+    // reviews
+    document.getElementById('reviewsWrap').innerHTML='';
+    (p.reviews||[]).forEach(r=>Editor.addReview(r));
+    renderThumbs();
+    UI.showEditor();
+  },
+  collect(){
+    const body = {
+      id: STATE.editing || undefined,
+      name: gv('name'),
+      title: gv('name'),
+      category: gv('category')||'default',
+      description: gv('description'),
+      price: num(gv('price')),
+      sale_price: gv('sale_price')===''? null : num(gv('sale_price')),
+      stock: num(gv('stock')),
+      weight_grams: num(gv('weight_grams')),
+      images: csvToArr(gv('images')),
+      videos: csvToArr(gv('videos')),
+      image_alts: csvToArr(gv('image_alts')),
+      seo_title: gv('seo_title'),
+      seo_description: gv('seo_description'),
+      seo_keywords: gv('seo_keywords'),
+      is_active: document.getElementById('is_active').checked,
+      variants: collectVariants(),
+      faq: collectFAQ(),
+      reviews: collectReviews()
+    };
+    return body;
+  },
+  async save(){
+    try{
+      const payload = Editor.collect();
+      const r = await API.save(payload);
+      alert('Đã lưu!'); UI.refresh();
+      if (r && r.id){ const p = await API.getOne(r.id); Editor.load(p); }
+    }catch(err){ console.error(err); alert('Lưu thất bại'); }
+  },
+  async remove(){
+    if (!STATE.editing) return;
+    if (!confirm('Xóa sản phẩm này?')) return;
+    const ok = await API.remove(STATE.editing);
+    if (ok){ alert('Đã xóa'); UI.showList(); UI.refresh(); }
+    else alert('Xóa thất bại');
+  },
+  addVariant(v){
+    const wrap = document.getElementById('variantsWrap');
+    const id = 'v_'+Math.random().toString(36).slice(2);
+    const el = document.createElement('div');
+    el.className = 'card rounded-xl p-3 grid grid-cols-1 md:grid-cols-6 gap-2';
+    el.innerHTML = `
+      <input class="input md:col-span-2" placeholder="Tên phân loại" data-k="name" value="${escapeAttr(v&&v.name||'')}">
+      <input class="input" placeholder="SKU" data-k="sku" value="${escapeAttr(v&&v.sku||'')}">
+      <input class="input" placeholder="Giá" type="number" min="0" step="1000" data-k="price" value="${escapeAttr(v&&v.price||0)}">
+      <input class="input" placeholder="Giá sale (trống nếu không)" type="number" min="0" step="1000" data-k="sale_price" value="${v&&v.sale_price!=null?escapeAttr(v.sale_price):''}">
+      <input class="input" placeholder="Tồn" type="number" min="0" data-k="stock" value="${escapeAttr(v&&v.stock||0)}">
+      <input class="input" placeholder="Khối lượng(gram)" type="number" min="0" data-k="weight_grams" value="${escapeAttr(v&&v.weight_grams||0)}">
+      <div class="md:col-span-5 grid grid-cols-[1fr_auto] gap-2">
+        <input class="input" placeholder="Ảnh phân loại URL" data-k="image" value="${escapeAttr(v&&v.image||'')}">
+        <button class="btn btn-secondary" onclick="UploadVariantImage(this)">Upload</button>
+      </div>
+      <div class="md:col-span-1"><button class="ghost-btn w-full" onclick="this.parentElement.parentElement.remove()">Xóa</button></div>
+    `;
+    wrap.appendChild(el);
+  },
+  addFAQ(it){
+    const wrap = document.getElementById('faqWrap');
+    const el = document.createElement('div');
+    el.className = 'card rounded-xl p-3 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2';
+    el.innerHTML = `
+      <input class="input" placeholder="Câu hỏi" data-k="q" value="${escapeAttr(it&&it.q||'')}">
+      <input class="input" placeholder="Trả lời" data-k="a" value="${escapeAttr(it&&it.a||'')}">
+      <button class="ghost-btn" onclick="this.parentElement.remove()">Xóa</button>
+    `;
+    wrap.appendChild(el);
+  },
+  addReview(it){
+    const wrap = document.getElementById('reviewsWrap');
+    const el = document.createElement('div');
+    el.className = 'card rounded-xl p-3 grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-2';
+    el.innerHTML = `
+      <input class="input" placeholder="Tên" data-k="name" value="${escapeAttr(it&&it.name||'')}">
+      <input class="input" placeholder="Sao (1-5)" type="number" min="1" max="5" data-k="rating" value="${escapeAttr(it&&it.rating||5)}">
+      <input class="input" placeholder="Nội dung" data-k="content" value="${escapeAttr(it&&it.content||'')}">
+      <button class="ghost-btn" onclick="this.parentElement.remove()">Xóa</button>
+    `;
+    wrap.appendChild(el);
+  }
+};
+
+async function UploadVariantImage(btn){
+  try{
+    const input = document.createElement('input'); input.type='file'; input.accept='image/*'; input.click();
+    input.onchange = async ()=>{
+      const row = btn.closest('.grid'); const imgEl = row.querySelector('[data-k="image"]');
+      if (!input.files || !input.files[0]) return;
+      const u = await Upload._cloudinary(input.files[0],'image');
+      imgEl.value = u.secure_url || u.url || '';
+    };
+  }catch(e){ alert('Upload lỗi'); }
+}
+
+const AI = {
+  async title(){
+    try{
+      const r = await API.ai({ mode:'title', title: gv('name'), description: gv('description') });
+      const wrap = document.getElementById('titleSuggest'); wrap.innerHTML='';
+      (r.suggestions||[]).slice(0,5).forEach(s=>{
+        const b = document.createElement('button');
+        b.className='chip'; b.textContent=s.slice(0,120);
+        b.onclick = ()=> setInput('name', s.slice(0,120));
+        wrap.appendChild(b);
+      });
+    }catch(e){ alert('AI lỗi'); }
+  },
+  async desc(){
+    try{
+      const before = gv('description');
+      const r = await API.ai({ mode:'desc', title: gv('name'), description: before });
+      const txt = (r && (r.text||r.description)) ? (r.text||r.description).trim() : '';
+      if (txt) setInput('description', txt); else alert('AI không trả mô tả.');
+    }catch(e){ alert('AI lỗi'); }
+  },
+  async seo(){
+    try{
+      const r = await API.ai({ mode:'seo', title: gv('name'), description: gv('description') });
+      if (r.seo_title) setInput('seo_title', r.seo_title);
+      if (r.seo_description) setInput('seo_description', r.seo_description);
+      if (r.seo_keywords) setInput('seo_keywords', r.seo_keywords);
+    }catch(e){ alert('AI lỗi'); }
+  },
+  async faq(){
+    try{
+      const r = await API.ai({ mode:'faq', title: gv('name'), description: gv('description') });
+      (r.items||[]).forEach(it=> Editor.addFAQ(it));
+    }catch(e){ alert('AI lỗi'); }
+  },
+  async reviews(){
+    try{
+      const r = await API.ai({ mode:'reviews', title: gv('name'), description: gv('description') });
+      (r.items||[]).forEach(it=> Editor.addReview(it));
+    }catch(e){ alert('AI lỗi'); }
+  },
+  async alt(){
+    try{
+      const r = await API.ai({ mode:'alt', title: gv('name'), description: gv('description') });
+      const el = document.getElementById('image_alts');
+      const cur = csvToArr(el.value);
+      el.value = cur.concat(r.items||[]).join(',');
+      alert('Đã thêm ALT');
+    }catch(e){ alert('AI lỗi'); }
+  }
+};
+
+/* helpers */
+function gv(id){ return (document.getElementById(id).value||'').trim(); }
+function setInput(id, v){ document.getElementById(id).value = (v==null?'':v); }
+function setVal(id, v){ document.getElementById(id).textContent = v; }
+function num(x){ return Number(x||0); }
+function csvToArr(s){ return (s||'').split(',').map(t=>t.trim()).filter(Boolean); }
+function collectVariants(){
+  const out=[];
+  document.querySelectorAll('#variantsWrap .grid').forEach(row=>{
+    const get = k => (row.querySelector('[data-k="'+k+'"]')||{}).value||'';
+    const v = {
+      name: get('name').trim(),
+      sku: get('sku').trim(),
+      price: Number(get('price')||0),
+      sale_price: get('sale_price')===''? null : Number(get('sale_price')||0),
+      stock: Number(get('stock')||0),
+      weight_grams: Number(get('weight_grams')||0),
+      image: get('image').trim()
+    };
+    if (v.name) out.push(v);
+  });
+  return out;
+}
+function collectFAQ(){
+  const out=[];
+  document.querySelectorAll('#faqWrap .card').forEach(row=>{
+    const q = (row.querySelector('[data-k="q"]')||{}).value||'';
+    const a = (row.querySelector('[data-k="a"]')||{}).value||'';
+    if (q && a) out.push({q:q.trim(), a:a.trim()});
+  });
+  return out;
+}
+function collectReviews(){
+  const out=[];
+  document.querySelectorAll('#reviewsWrap .card').forEach(row=>{
+    const name = (row.querySelector('[data-k="name"]')||{}).value||'';
+    const rating = Number((row.querySelector('[data-k="rating"]')||{}).value||5);
+    const content = (row.querySelector('[data-k="content"]')||{}).value||'';
+    if (name && content) out.push({ name:name.trim(), rating:rating, content:content.trim(), avatar:'' });
+  });
+  return out;
+}
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+function fmt(n){ n=Number(n||0); return n.toLocaleString('vi-VN')+' đ'; }
+
+window.addEventListener('load', UI.init);
+</script>
 </body>
 </html>
