@@ -1158,80 +1158,47 @@ setTimeout(installAiUI, 120);
 // === end shv-patch v6.2-unsigned ===
 
 
-// === SHV ADDON v7.1-compat (no optional chaining) ===
+// === SHV EDITOR PREFILL FIX v7.1 ===
 (function(){
-  if (window.__shv_v71c) return; window.__shv_v71c = true;
+  if (window.__shv_editor_fix_v71) return; window.__shv_editor_fix_v71 = true;
   function $(id){ return document.getElementById(id); }
-  function val(el){ return el && typeof el.value !== 'undefined' ? String(el.value).trim() : ""; }
-  function text(t){ return (t||"").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-  var CLOUD_NAME='dtemskptf', PRESET='shophuyvan';
-  function uploadUnsigned(file, folder, type){
-    folder = folder || 'products'; type = type || 'image';
-    var url='https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/'+type+'/upload';
-    var fd=new FormData(); fd.append('file',file); fd.append('upload_preset',PRESET); if(folder) fd.append('folder',folder);
-    return fetch(url,{method:'POST',body:fd}).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error(t)}); return r.json(); });
+  function getParam(k){
+    try{
+      var u1 = new URLSearchParams(location.search); if (u1.has(k)) return u1.get(k);
+      if (location.hash && location.hash.indexOf('?')>-1){
+        var qs = location.hash.split('?')[1]; var u2 = new URLSearchParams(qs); if (u2.has(k)) return u2.get(k);
+      }
+    }catch(e){}
+    return null;
   }
-  window.uploadToCloudinaryUnsigned = window.uploadToCloudinaryUnsigned || uploadUnsigned;
-  window.uploadToCloudinary = window.uploadToCloudinary || function(file,_sig,type){ return uploadUnsigned(file,'products',type||'image'); };
-  window.adminApi = window.adminApi || function(path,opt){
-    opt=opt||{}; var headers={'content-type':'application/json'}; var body=(typeof opt.body!=='undefined')?JSON.stringify(opt.body):undefined;
-    return fetch(path,{method:opt.method||'GET',headers:headers,body:body}).then(function(r){ if(!r.ok) throw new Error(String(r.status)); return r.json().catch(function(){return {}}); });
-  };
-  if(!document.getElementById('shv-v71c-style')){ var s=document.createElement('style'); s.id='shv-v71c-style'; s.textContent='.ai-toolbar{display:flex;gap:.5rem;flex-wrap:wrap;margin:.25rem 0}.ai-btn{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}.ai-btn:hover{background:#eef2ff;border-color:#c7d2fe}.ai-suggest button{background:#fff;border:1px dashed #d1d5db;border-radius:8px;padding:4px 8px;margin:2px;font-size:12px;cursor:pointer}.ai-suggest button:hover{background:#f3f4f6}'; document.head.appendChild(s); }
-  function ensureAfter(target,id,html){ if(!target||document.getElementById(id)) return; var box=document.createElement('div'); box.id=id; box.className='ai-toolbar'; box.innerHTML=html; target.insertAdjacentElement('afterend',box); }
-  function install(){ var name=$('name')||$('title'); ensureAfter(name,'ai-row-title','<button class="ai-btn" data-ai="title">AI tiêu đề</button><span id="ai-title-sug" class="ai-suggest"></span>');
-    var desc=$('description')||$('desc'); ensureAfter(desc,'ai-row-desc','<button class="ai-btn" data-ai="desc">AI mô tả</button>');
-    var imgs=$('images')||$('image_urls'); ensureAfter(imgs,'ai-row-images','<button class="ai-btn" id="btnUploadImages">Upload ảnh…</button><button class="ai-btn" data-ai="alt">AI ảnh ALT</button>');
-    var vids=$('videos')||$('video_urls'); ensureAfter(vids,'ai-row-videos','<button class="ai-btn" id="btnUploadVideos">Upload video…</button>');
-    var seoK=$('seo_keywords')||$('keywords'); ensureAfter(seoK,'ai-row-seo','<button class="ai-btn" data-ai="seo">AI SEO (tiêu đề 100–120)</button>');
-    var faqAdd=document.querySelector('#faq-add, button#faq_add, button[aria-controls="faq"], button[data-action="add-faq"]'); if(faqAdd&&!document.getElementById('ai-row-faq')) faqAdd.insertAdjacentHTML('afterend','<span id="ai-row-faq" class="ai-toolbar"><button class="ai-btn" data-ai="faq">AI FAQ (4–5 câu)</button></span>');
-    var revAdd=document.querySelector('#reviews-add, button#reviews_add, button[data-action="add-review"]'); if(revAdd&&!document.getElementById('ai-row-reviews')) revAdd.insertAdjacentHTML('afterend','<span id="ai-row-reviews" class="ai-toolbar"><button class="ai-btn" data-ai="reviews">AI đánh giá (5–10)</button></span>');
-  } setTimeout(install,300);
-  if(!window.__aiHandlers_v71c){ window.__aiHandlers_v71c=true; document.addEventListener('click',function(e){ var t=e.target;
-      if(t.matches&&t.matches('[data-ai="title"]')){ e.preventDefault();
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'title',title:val($('name')||$('title')),description:val($('description')||$('desc'))}})
-        .then(function(r){ var wrap=$('ai-title-sug'); if(!wrap) return; var list=(r&&r.suggestions?r.suggestions:[]).slice(0,5);
-          wrap.innerHTML=list.map(function(s){ s=String(s).slice(0,120); return '<button data-apply-title="'+text(s)+'">'+text(s)+'</button>'; }).join(''); })
-        .catch(function(err){ console.error(err); alert('AI tiêu đề lỗi'); });
-      }
-      if(t&&t.hasAttribute&&t.hasAttribute('data-apply-title')){ e.preventDefault(); var elTitle=$('name')||$('title'); if(elTitle) elTitle.value=t.getAttribute('data-apply-title'); }
-      if(t.matches&&t.matches('[data-ai="desc"]')){ e.preventDefault(); var elDesc=$('description')||$('desc'); if(!elDesc) return; var before=elDesc.value;
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'desc',title:val($('name')||$('title')),description:before}})
-        .then(function(r){ var next=r&&(r.text||r.description)?String(r.text||r.description).trim():""; if(next) elDesc.value=next; else alert('AI không trả nội dung mô tả.'); })
-        .catch(function(err){ console.error(err); alert('AI mô tả lỗi'); });
-      }
-      if(t.matches&&t.matches('[data-ai="seo"]')){ e.preventDefault();
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'seo',title:val($('name')||$('title')),description:val($('description')||$('desc'))}})
-        .then(function(r){ if($('seo_title')) $('seo_title').value=r.seo_title||$('seo_title').value; if($('seoTitle')) $('seoTitle').value=r.seo_title||$('seoTitle').value;
-                           if($('seo_description')) $('seo_description').value=r.seo_description||$('seo_description').value; if($('seoDesc')) $('seoDesc').value=r.seo_description||$('seoDesc').value;
-                           if($('seo_keywords')) $('seo_keywords').value=r.seo_keywords||$('seo_keywords').value; if($('keywords')) $('keywords').value=r.seo_keywords||$('keywords').value; })
-        .catch(function(err){ console.error(err); alert('AI SEO lỗi'); });
-      }
-      if(t.matches&&t.matches('[data-ai="faq"]')){ e.preventDefault();
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'faq',title:val($('name')||$('title')),description:val($('description')||$('desc'))}})
-        .then(function(r){ var items=r&&r.items&&r.items.length?r.items:[]; if(window.addFAQ&&items.length){ items.forEach(function(it){ window.addFAQ(it.q,it.a); }); }
-                           else if(items.length){ if(navigator.clipboard){ navigator.clipboard.writeText(items.map(function(it){return 'Q: '+it.q+'\nA: '+it.a;}).join('\n\n')); } alert('Đã copy FAQ, bấm +Thêm Q/A rồi dán.'); }})
-        .catch(function(err){ console.error(err); alert('AI FAQ lỗi'); });
-      }
-      if(t.matches&&t.matches('[data-ai="reviews"]')){ e.preventDefault();
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'reviews',title:val($('name')||$('title')),description:val($('description')||$('desc'))}})
-        .then(function(r){ var items=r&&r.items&&r.items.length?r.items:[]; if(window.addReview&&items.length){ items.forEach(function(it){ window.addReview(it); }); }
-                           else if(items.length){ if(navigator.clipboard){ navigator.clipboard.writeText(JSON.stringify(items,null,2)); } alert('Đã copy đánh giá để dán.'); }})
-        .catch(function(err){ console.error(err); alert('AI đánh giá lỗi'); });
-      }
-      if(t.matches&&t.matches('[data-ai="alt"]')){ e.preventDefault();
-        adminApi('/ai/suggest',{method:'POST',body:{mode:'alt',title:val($('name')||$('title')),description:val($('description')||$('desc'))}})
-        .then(function(r){ var alts=(r&&r.items)?r.items:[]; var elAlts=$('image_alts')||$('alts')||$('imageAlts'); if(alts.length&&elAlts){ var cur=(elAlts.value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); elAlts.value=cur.concat(alts).join(','); alert('Đã thêm ALT'); } else alert('AI không trả ALT'); })
-        .catch(function(err){ console.error(err); alert('AI ALT lỗi'); });
-      }
-      if(t&&t.id==='btnUploadImages'){ e.preventDefault(); var input=document.createElement('input'); input.type='file'; input.accept='image/*'; input.multiple=true; input.click();
-        input.onchange=function(){ var files=[].slice.call(input.files||[]), p=Promise.resolve(), urls=[]; files.forEach(function(f){ p=p.then(function(){ return uploadUnsigned(f,'products','image').then(function(u){ urls.push(u.secure_url||u.url||''); }); }); });
-          p.then(function(){ var el=$('images')||$('image_urls'); if(el){ var cur=(el.value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); el.value=cur.concat(urls.filter(Boolean)).join(','); } }).catch(function(err){ console.error(err); alert('Upload ảnh lỗi'); }); };
-      }
-      if(t&&t.id==='btnUploadVideos'){ e.preventDefault(); var inputV=document.createElement('input'); inputV.type='file'; inputV.accept='video/*'; inputV.multiple=true; inputV.click();
-        inputV.onchange=function(){ var files=[].slice.call(inputV.files||[]), p=Promise.resolve(), urls=[]; files.forEach(function(f){ p=p.then(function(){ return uploadUnsigned(f,'products','video').then(function(u){ urls.push(u.secure_url||u.url||''); }); }); });
-          p.then(function(){ var el=$('videos')||$('video_urls'); if(el){ var cur=(el.value||'').split(',').map(function(s){return s.trim();}).filter(Boolean); el.value=cur.concat(urls.filter(Boolean)).join(','); } }).catch(function(err){ console.error(err); alert('Upload video lỗi'); }); };
-      }
-  }); }
-})(); // === END SHV ADDON v7.1-compat ===
+  function setIfEmpty(id, val){ var el=$(id); if (!el) return; if (!el.value) el.value = val||''; }
+  function csv(a){ if (!a) return ''; if (Array.isArray(a)) return a.join(','); return String(a||''); }
+  function safeApi(url){ return window.adminApi ? window.adminApi(url) : fetch(url).then(function(r){return r.json();}); }
+  function getOne(id){
+    return safeApi('/admin/products?id='+encodeURIComponent(id))
+      .catch(function(){ return safeApi('/products?id='+encodeURIComponent(id)); });
+  }
+  function prefill(p){
+    if (!p) return;
+    setIfEmpty('name', p.name || p.title || '');
+    setIfEmpty('title', p.title || p.name || '');
+    setIfEmpty('description', p.description || '');
+    setIfEmpty('images', csv(p.images));
+    setIfEmpty('videos', csv(p.videos));
+    setIfEmpty('image_alts', csv(p.image_alts));
+    setIfEmpty('seo_title', p.seo_title || '');
+    setIfEmpty('seo_description', p.seo_description || '');
+    setIfEmpty('seo_keywords', p.seo_keywords || '');
+    if (window.loadVariants && p.variants && p.variants.length) try{ window.loadVariants(p.variants); }catch(e){}
+    if (window.loadFAQ && p.faq && p.faq.length) try{ window.loadFAQ(p.faq); }catch(e){}
+    if (window.loadReviews && p.reviews && p.reviews.length) try{ window.loadReviews(p.reviews); }catch(e){}
+  }
+  function run(){
+    var id = getParam('id'); if (!id) return;
+    getOne(id).then(function(p){ setTimeout(function(){ prefill(p); }, 250); }).catch(function(e){ console.warn('editor prefill failed', e); });
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(run, 150);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 150); });
+})();
+// === END SHV EDITOR PREFILL FIX v7.1 ===
 
