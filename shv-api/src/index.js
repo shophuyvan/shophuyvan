@@ -11,8 +11,6 @@ import { scheduledCron } from './modules/cron.js';
 import { Fire } from './modules/firestore.js';
 
 // Admin products
-import { handleProducts } from './modules/products.js';
-
 // ---- helpers ----
 const cors = (origin = '*') => ({
   'Access-Control-Allow-Origin': origin,
@@ -114,13 +112,61 @@ export default {
         requireAdmin(req, env, url);
         res = await handleUsers(req, env, fire);
       }
+      
       else if (url.pathname.startsWith('/admin/products')) {
         requireAdmin(req, env, url);
-        res = await handleProducts(req, env, fire);
+
+        if (req.method === 'GET' && url.pathname === '/admin/products') {
+          const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+          const cursor = url.searchParams.get('cursor') || '';
+          const rs = await fire.list('products', { orderBy: ['created_at', 'desc'], limit, cursor });
+          res = json(200, { items: rs.items || [], nextCursor: rs.nextCursor || null });
+        }
+        else if (req.method === 'POST' && url.pathname === '/admin/products') {
+          const body = await req.json();
+          const id = (body.id || crypto.randomUUID()).toString();
+          const now = new Date().toISOString();
+          const item = {
+            id,
+            name: body.name || '',
+            description: body.description || '',
+            category: body.category || 'default',
+            price: Number(body.price || 0),
+            sale_price: Number(body.sale_price || 0),
+            stock: Number(body.stock || 0),
+            weight: Number(body.weight || 0),
+            images: Array.isArray(body.images) ? body.images : [],
+            videos: Array.isArray(body.videos) ? body.videos : [],
+            alt_images: Array.isArray(body.alt_images) ? body.alt_images : [],
+            variants: Array.isArray(body.variants) ? body.variants : [],
+            seo: body.seo || {},
+            faq: Array.isArray(body.faq) ? body.faq : [],
+            reviews: Array.isArray(body.reviews) ? body.reviews : [],
+            is_active: !!body.is_active,
+            created_at: now,
+            updated_at: now,
+          };
+          await fire.set('products', id, item);
+          res = json(200, { ok: true, item });
+        }
+        else if (req.method === 'PUT') {
+          const id = url.pathname.split('/').pop();
+          const body = await req.json();
+          body.updated_at = new Date().toISOString();
+          const item = await fire.upsert('products', id, body);
+          res = json(200, { ok: true, item });
+        }
+        else if (req.method === 'DELETE') {
+          const id = url.pathname.split('/').pop();
+          await fire.remove('products', id);
+          res = json(200, { ok: true });
+        }
+        else {
+          res = json(405, { error: 'Method Not Allowed' });
+        }
       }
 
-      // ---- pricing / orders / shipping ----
-      else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
+      else if      else if (url.pathname === '/pricing/preview' && req.method === 'POST') {
         res = await handlePricing(req, env);
       }
       else if (url.pathname.startsWith('/orders')) {
