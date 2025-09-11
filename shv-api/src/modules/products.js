@@ -1,185 +1,82 @@
-// shv-api/src/modules/products.js
 
-function j(status, data, headers) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-  });
+// shv-api/src/modules/products.js (v7.1)
+// Upsert merge (không mất variants/images/videos/faq/reviews), KV metadata cho list nhanh
+export function json(body, status=200, headers={}){
+  return new Response(JSON.stringify(body), { status, headers: { "content-type":"application/json; charset=utf-8", ...headers }});
 }
-
-// Chuẩn hóa 1 product & ép kiểu an toàn
-function normalizeProduct(input = {}) {
-  function normalizeVariants(arr){
-    if (!Array.isArray(arr)) return [];
-    return arr.map(v => ({
-      image: String(v.image||'').trim(),
-      name:  String(v.name||'').trim(),
-      sku:   String(v.sku||'').trim(),
-      stock: Number(v.stock||0),
-      weight_grams: Number(v.weight_grams||0),
-      price: Number(v.price||0),
-      // sale_price cho phép null
-      sale_price:
-        (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==='')
-          ? null : Number(v.sale_price),
-    })).filter(v => v.name);
-  }
-
-  const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-  const toNumOrNull = (x) => {
-    if (x === undefined || x === null || String(x).trim?.() === '') return null;
-    const n = Number(x);
-    return Number.isFinite(n) ? n : null;
-  };
-  const toArr = (v) => (Array.isArray(v) ? v : []);
-
-  const now = new Date().toISOString();
-  const id  = input.id || (crypto?.randomUUID?.() || String(Date.now()));
-
-  return {
-    id,
-    name: String(input.name || '').trim(),
-    description: String(input.description || ''),
-    price: toNum(input.price),
-    sale_price: toNumOrNull(input.sale_price),
-    stock: toNum(input.stock),
-    category: String(input.category || 'default'),
-    weight_grams: toNum(input.weight_grams),
-
-    images: toArr(input.images),
-    image_alts: toArr(input.image_alts),
-
-    // CSV rỗng => để true (không tự tắt sản phẩm)
-    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '')
-      ? true : !!input.is_active,
-
-    brand:  String(input.brand || ''),
-    origin: String(input.origin || ''),
-
-    variants: normalizeVariants(input.variants),
-    videos:   toArr(input.videos),
-    faq:      toArr(input.faq),
-    reviews:  toArr(input.reviews),
-
-    seo: typeof input.seo === 'object'
-      ? {
-          title:       String(input.seo.title || input.seo_title || ''),
-          description: String(input.seo.description || input.seo_description || ''),
-          keywords:    String(input.seo.keywords || input.seo_keywords || ''),
-        }
-      : {
-          title:       String(input.seo_title || ''),
-          description: String(input.seo_description || ''),
-          keywords:    String(input.seo_keywords || ''),
-        },
-
-    created_at: input.created_at || now,
-    updated_at: now,
-  };
+const toArrCSV = (x)=>{
+  if (!x) return [];
+  if (Array.isArray(x)) return x.map(s=>typeof s==="string"?s.trim():s).filter(Boolean);
+  if (typeof x==="string") return x.split(",").map(s=>s.trim()).filter(Boolean);
+  return [];
+};
+const normVariants = (arr)=>{
+  if (!Array.isArray(arr)) return [];
+  return arr.map(v=>({
+    image: String(v.image||"").trim(),
+    name: String(v.name||"").trim(),
+    sku: String(v.sku||"").trim(),
+    stock: Number(v.stock||0),
+    weight_grams: Number(v.weight_grams||0),
+    price: Number(v.price||0),
+    sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==="") ? null : Number(v.sale_price)
+  })).filter(v=>v.name);
+};
+async function putWithMeta(kv, key, data){
+  const updated_at = data.updated_at || new Date().toISOString();
+  const thumb = (Array.isArray(data.images) && data.images[0] ? data.images[0] : "").replace("/upload/","/upload/w_240,f_auto,q_auto/");
+  const meta = { id: data.id, title: data.title||data.name||"", price: Number(data.price||0), sale_price: data.sale_price ?? null, is_active: !!data.is_active, thumb, updated_at };
+  await kv.put(key, JSON.stringify({ ...data, updated_at }), { metadata: meta });
 }
-
-// Upsert “an toàn”: nếu env hỗ trợ upsert thì dùng, không thì set
-async function upsertProduct(fire, product) {
-  if (typeof fire.upsert === 'function') {
-    await fire.upsert('products', product.id, product);
-  } else if (typeof fire.set === 'function') {
-    await fire.set('products', product.id, product);
-  } else {
-    throw new Error('Fire: missing set/upsert(products)');
-  }
-}
-
-async function removeProduct(fire, id) {
-  if (!id) throw new Error('Missing id');
-  if (typeof fire.remove === 'function') {
-    await fire.remove('products', id);
-  } else if (typeof fire.delete === 'function') {
-    await fire.delete('products', id);
-  } else {
-    throw new Error('Fire: missing remove/delete(products)');
-  }
-}
-
-// Router /admin/products*
-export async function handleProducts(req, env, fire) {
+export async function listProducts(req, env){
   const url = new URL(req.url);
-  const { pathname, searchParams } = url;
+  const limit  = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
+  const cursor = url.searchParams.get("cursor") || null;
+  const activeOnly = url.searchParams.get("active") === "1";
+  const r = await env.PRODUCTS_KV.list({ prefix: "products:", cursor, limit });
+  let items = r.keys.map(k=>k.metadata).filter(Boolean);
+  if (activeOnly) items = items.filter(m => !!m.is_active);
+  items.sort((a,b)=> String(b.updated_at||"").localeCompare(String(a.updated_at||"")));
+  return json({ items, cursor: r.list_complete ? null : r.cursor });
+}
+export async function getProduct(req, env, id){
+  const v = await env.PRODUCTS_KV.get(`products:${id}`);
+  if (!v) return json({ error:"not_found" }, 404);
+  return json(JSON.parse(v));
+}
+export async function upsertProduct(req, env){
+  let body={}; try{ body=await req.json(); }catch{}
+  const name = String(body.name || body.title || "").trim();
+  const id = (String(body.id||"").trim() ||
+             name.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-]/g,"").slice(0,80) ||
+             crypto.randomUUID());
+  const kv = env.PRODUCTS_KV;
 
-  // ------- GET LIST (admin) -------
-  // GET /admin/products?limit=&cursor=&q=
-  if (req.method === 'GET' && pathname === '/admin/products') {
-    const limit  = Math.min(Number(searchParams.get('limit')) || 50, 200);
-    const cursor = searchParams.get('cursor') || undefined;
-    const q      = (searchParams.get('q') || '').trim().toLowerCase();
-
-    const rs = await fire.list('products', {
-      orderBy: ['created_at', 'desc'],
-      limit, cursor,
-    });
-
-    let items = rs.items || [];
-    if (q) {
-      items = items.filter(p =>
-        String(p.name || '').toLowerCase().includes(q) ||
-        String(p.category || '').toLowerCase().includes(q)
-      );
-    }
-    return j(200, { items, nextCursor: rs.nextCursor || null });
-  }
-
-  // ------- GET ONE (admin) -------
-  // GET /admin/products/:id
-  if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    const item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Not Found' });
-    return j(200, { item });
-  }
-
-  // ------- CREATE/UPDATE -------
-  // POST /admin/products  — body: Product
-  if (req.method === 'POST' && pathname === '/admin/products') {
-    let body;
-    try { body = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-
-    // **MERGE** với dữ liệu cũ để không xoá mảng/field nếu client gửi thiếu
-    const current = body?.id ? (await fire.get('products', body.id)) || {} : {};
-    const merged  = { ...current, ...body };
-    const product = normalizeProduct(merged);
-
-    await upsertProduct(fire, product);
-    return j(200, { ok: true, item: product });
-  }
-
-  // ------- BULK UPSERT -------
-  // POST /admin/products/bulk — body: { items: Product[] }
-  if (req.method === 'POST' && pathname === '/admin/products/bulk') {
-    let payload;
-    try { payload = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-
-    const items = Array.isArray(payload?.items) ? payload.items : [];
-    let ok = 0, fail = 0, details = [];
-    for (let i = 0; i < items.length; i++) {
-      try {
-        const id  = items[i]?.id;
-        const cur = id ? (await fire.get('products', id)) || {} : {};
-        const p   = normalizeProduct({ ...cur, ...items[i] });
-        await upsertProduct(fire, p);
-        ok++;
-      } catch (e) {
-        fail++; details.push({ i, error: String(e?.message || e) });
-      }
-    }
-    return j(200, { ok, fail, details });
-  }
-
-  // ------- DELETE -------
-  // DELETE /admin/products/:id
-  if (req.method === 'DELETE' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    await removeProduct(fire, id);
-    return j(200, { ok: true });
-  }
-
-  return j(405, { error: 'Method Not Allowed' });
+  // Merge with existing
+  let existing={}; try{ const cur=await kv.get(`products:${id}`); existing=cur?JSON.parse(cur):{}; }catch{}
+  const incoming = {
+    id,
+    title: existing.title || name,
+    name,
+    description: typeof body.description==="string" ? body.description : (existing.description||""),
+    images: toArrCSV(body.images?.length ? body.images : existing.images),
+    videos: toArrCSV(body.videos?.length ? body.videos : existing.videos),
+    image_alts: toArrCSV(body.image_alts?.length ? body.image_alts : existing.image_alts),
+    price: Number(body.price ?? existing.price ?? 0),
+    sale_price: (body.sale_price===undefined ? existing.sale_price : (body.sale_price===""? null : Number(body.sale_price))),
+    stock: Number(body.stock ?? existing.stock ?? 0),
+    is_active: (body.is_active!==undefined ? !!body.is_active : !!existing.is_active),
+    category: body.category || existing.category || "default",
+    weight_grams: Number(body.weight_grams ?? existing.weight_grams ?? 0),
+    seo_title: (body.seo_title!==undefined ? body.seo_title : (existing.seo_title || "")),
+    seo_description: (body.seo_description!==undefined ? body.seo_description : (existing.seo_description || "")),
+    seo_keywords: (body.seo_keywords!==undefined ? body.seo_keywords : (existing.seo_keywords || "")),
+    faq: Array.isArray(body.faq) ? body.faq : (existing.faq||[]),
+    reviews: Array.isArray(body.reviews) ? body.reviews : (existing.reviews||[]),
+    variants: normVariants(body.variants && body.variants.length ? body.variants : (existing.variants || [])),
+    created_at: existing.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  await putWithMeta(kv, `products:${id}`, incoming);
+  return json({ ok:true, id });
 }
