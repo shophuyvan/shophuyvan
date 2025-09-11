@@ -167,12 +167,6 @@ const CFG = {
 let STATE = { nextCursor:null, editing:null, list:[] };
 
 const UI = {
-  init(){
-    document.getElementById('tokenInput').value = localStorage.getItem('admin_token') || '';
-    this.showList();
-    API.list(true);
-    document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList());
-  },
   showList(){ document.getElementById('listView').classList.remove('hidden'); document.getElementById('editorView').classList.add('hidden'); },
   showEditor(id){
     document.getElementById('listView').classList.add('hidden');
@@ -213,7 +207,11 @@ const UI = {
 const API = {
   token(){ return localStorage.getItem('admin_token') || ''; },
   url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
-  headersJSON(){ return { 'content-type':'application/json' }; },
+  headersJSON(auth = false){
+    const h = { 'content-type': 'application/json' };
+    if (auth) h['x-token'] = this.token();
+    return h;
+  },
   async list(reset){
     if(reset){ STATE.nextCursor=null; STATE.list=[]; }
     const url = this.url(`/admin/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
@@ -231,12 +229,12 @@ const API = {
     return await r.json();
   },
   async save(body){
-    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headersJSON(), body: JSON.stringify(body) });
+    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headersJSON(true), body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     return await r.json();
   },
   async remove(id){
-    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headersJSON() });
+    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headersJSON(true) });
     return r.ok;
   },
   async ai(body){
@@ -524,11 +522,11 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp
 function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 function fmt(n){ n=Number(n||0); return n.toLocaleString('vi-VN')+' đ'; }
 
-window.addEventListener('load', ()=>{ 
-  document.getElementById('tokenInput').value = localStorage.getItem('admin_token')||''; 
-  UI.showList(); 
-  API.list(true); 
-  document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList()); 
+window.addEventListener('load', ()=>{
+  document.getElementById('tokenInput').value = localStorage.getItem('admin_token')||'';
+  UI.showList();
+  API.list(true);
+  document.getElementById('searchBox').addEventListener('input', ()=>UI.renderList());
 });
 </script>
 </body>
