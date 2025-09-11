@@ -209,7 +209,7 @@ const API = {
   url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
   headersJSON(auth = false){
     const h = { 'content-type': 'application/json' };
-    if (auth) h['x-token'] = this.token();
+    // removed x-token to avoid CORS
     return h;
   },
   async list(reset){
@@ -229,12 +229,12 @@ const API = {
     return await r.json();
   },
   async save(body){
-    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headersJSON(true), body: JSON.stringify(body) });
+    const r = await fetch(this.url(`/admin/products`), { method:'POST', headers:this.headersJSON(), body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     return await r.json();
   },
   async remove(id){
-    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headersJSON(true) });
+    const r = await fetch(this.url(`/admin/products?id=${encodeURIComponent(id)}`), { method:'DELETE', headers:this.headersJSON() });
     return r.ok;
   },
   async ai(body){
