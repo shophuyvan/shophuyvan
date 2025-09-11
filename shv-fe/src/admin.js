@@ -1,427 +1,390 @@
-/* shv admin v7.1 patched
- * - Fix: click "Sửa" không xoá dữ liệu form (prefill ổn định)
- * - Fix: chặn đệ quy showEditor gây "Maximum call stack size exceeded"
- * - Fix: không gửi x‑token trong fetch (dùng Authorization duy nhất)
- * - Gemini/Cloudinary hooks giữ nguyên hành vi bạn đang có
- *
- * Lưu ý: thay file này vào FE /src/admin.js
- */
+/* =========================
+ *  Admin FE – no custom headers
+ *  All admin endpoints pass token via query string.
+ *  POST uses URLSearchParams (form-encoded) to avoid CORS preflight.
+ * ========================= */
 
-const $ = (sel, p=document) => p.querySelector(sel);
-const $$ = (sel, p=document) => [...p.querySelectorAll(sel)];
+const apiBase = 'https://shv-api.shophuyvan.workers.dev';
 
-const apiBase = (typeof window !== "undefined" && window.__API_BASE__) || "https://shv-api.shophuyvan.workers.dev";
+// ---------- DOM refs ----------
+const $ = (s) => document.querySelector(s);
+const listEl = $('#list');
 
-// ---- thin client api (no x-token) ----
-const adminApi = {
-  async listProducts({limit=50, cursor=""}={}){
-    const url = new URL(`${apiBase}/admin/products`);
-    if (limit) url.searchParams.set("limit", limit);
-    if (cursor) url.searchParams.set("cursor", cursor);
-    const r = await fetch(url, {
-      headers: authHeader(),
-      method: "GET",
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  },
-  async getProduct(id){
-    const r = await fetch(`${apiBase}/admin/products?id=${encodeURIComponent(id)}`, {
-      headers: authHeader(),
-      method: "GET",
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  },
-  async upsertProduct(it){
-    const r = await fetch(`${apiBase}/admin/products`, {
-      method: "POST",
-      headers: {...authHeader(), "content-type": "application/json"},
-      body: JSON.stringify(it),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  },
-  async deleteProduct(id){
-    const r = await fetch(`${apiBase}/admin/products?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: authHeader(),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  },
-  // AI endpoints — server sẽ đọc Authorization nếu cần
-  async aiSuggest(body){
-    const r = await fetch(`${apiBase}/ai/suggest`, {
-      method: "POST",
-      headers: {...authHeader(), "content-type": "application/json"},
-      body: JSON.stringify(body||{}),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  },
+const f = {
+  id: $('#pid'),
+  name: $('#name'),
+  category: $('#category'),
+  desc: $('#description'),
+  price: $('#price'),
+  sale: $('#sale_price'),
+  stock: $('#stock'),
+  weight: $('#weight'),
+  images: $('#images'),
+  videos: $('#videos'),
+  alts: $('#alts'),
+  isActive: $('#is_active'),
+  seoTitle: $('#seo_title'),
+  seoDesc: $('#seo_description'),
+  seoKeywords: $('#seo_keywords'),
+  faq: $('#faq'),
+  variants: $('#variants'),
+  token: $('#token'),
+  cldName: $('#cld_name'),
+  cldPreset: $('#cld_preset'),
+  thumbs: $('#thumbs'),
+
+  btnSaveToken: $('#btnSaveToken'),
+  btnReload: $('#btnReload'),
+  btnSave: $('#btnSave'),
+  btnNew: $('#btnNew'),
+  btnDelete: $('#btnDelete'),
+
+  btnUploadImg: $('#btnUploadImg'),
+  fileImg: $('#fileImg'),
+  btnUploadVid: $('#btnUploadVid'),
+  fileVid: $('#fileVid'),
+
+  aiTitle: $('#aiTitle'),
+  aiDesc: $('#aiDesc'),
+  aiSEO: $('#aiSEO'),
+  aiFAQ: $('#aiFAQ'),
+  aiReview: $('#aiReview'),
+  aiAlt: $('#aiAlt'),
+  search: $('#search'),
 };
 
-function authHeader(){
-  const token = ($("#token")?.value || $(".token-input")?.value || "").trim();
-  const h = {};
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
-
-// ---------- UI ----------
-const state = {
-  pageCursor: null,
-  cache: new Map(),   // id -> product
-  busy: false,
+// --------- State ----------
+let STATE = {
+  items: [],
+  cache: new Map(),
+  editingId: null,
+  loadingList: false,
 };
 
-function toast(msg){ alert(msg); }
+// --------- Storage helpers ----------
+const store = {
+  get(k, d = '') { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
 
-function qid(id){ return document.getElementById(id); }
+f.token.value = store.get('admin_token', '');
+f.cldName.value = store.get('cld_name', '');
+f.cldPreset.value = store.get('cld_preset', '');
 
-function html(strings, ...vals){
-  const out = strings.reduce((a, s, i)=> a + s + (i<vals.length?(vals[i]??""):""), "");
-  const tpl = document.createElement("template");
-  tpl.innerHTML = out.trim();
-  return tpl.content;
+// --------- API helpers (NO custom header, NO JSON body) ----------
+const qs = (obj={}) => new URLSearchParams(obj).toString();
+
+async function apiGET(path, params = {}) {
+  params.token = store.get('admin_token', '');
+  const url = `${apiBase}${path}?${qs(params)}`;
+  const r = await fetch(url, { method: 'GET' });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
-// render list
-async function renderList(){
-  if (state.busy) return;
-  state.busy = true;
-  const wrap = qid("list");
-  wrap.innerHTML = `<div class="p-4 text-slate-400">Đang tải...</div>`;
-  try{
-    const {items} = await adminApi.listProducts({limit:100});
-    wrap.innerHTML = "";
-    items.forEach(it => {
-      state.cache.set(it.id, it);
-      wrap.append(
-        html`
-        <div class="item flex items-center gap-3 py-3 border-b border-slate-800">
-          <img class="w-14 h-14 object-cover rounded bg-slate-800" src="${(it.images?.[0]||"").replace(/^,/, "")||"/public/logo.png"}" onerror="this.src='/public/logo.png'"/>
-          <div class="flex-1">
-            <div class="text-slate-100">${it.name||"Không tên"}</div>
-            <div class="text-xs text-slate-500">Giá: ${it.price||0} • Tồn: ${it.stock||0} ${it.is_active? "• Active ✓" : ""}</div>
-          </div>
-          <button class="btn-edit px-3 py-1 bg-sky-600/20 text-sky-300 rounded" data-id="${it.id}">Sửa</button>
-        </div>
-        `
-      );
-    });
-    // attach
-    wrap.querySelectorAll(".btn-edit").forEach(b => b.addEventListener("click", onEdit));
-  }catch(e){
-    wrap.innerHTML = `<div class="p-4 text-red-400">Lỗi tải sản phẩm: ${e.message}</div>`;
-  }finally{
-    state.busy = false;
-  }
+async function apiPOST(path, data = {}, params = {}) {
+  params.token = store.get('admin_token', '');
+  const url = `${apiBase}${path}?${qs(params)}`;
+  // form-encoded body to avoid preflight
+  const body = new URLSearchParams({ data: JSON.stringify(data) });
+  const r = await fetch(url, { method: 'POST', body });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
-// single flight guard to avoid recursive showEditor
-let showing = false;
-
-async function onEdit(ev){
-  const id = ev.currentTarget.getAttribute("data-id");
-  if (!id) return;
-  if (showing) return; // guard
-  showing = true;
-  try{
-    // fetch from cache first
-    let it = state.cache.get(id);
-    if (!it) {
-      const r = await adminApi.getProduct(id);
-      it = r?.item || r || null;
-      if (it) state.cache.set(it.id, it);
-    }
-    // show editor with the loaded data
-    showEditor(it || {id, is_active:true});
-  }catch(e){
-    toast("Lỗi mở editor: "+e.message);
-  }finally{
-    showing = false;
-  }
+async function aiSuggest(payload) {
+  // POST form-encoded, no headers
+  const url = `${apiBase}/ai/suggest`;
+  const body = new URLSearchParams({ data: JSON.stringify(payload), token: store.get('admin_token','') });
+  const r = await fetch(url, { method: 'POST', body });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
-function collectForm(){
-  const v = (sel)=> ($(sel)?.value||"").trim();
-  const nums = s => (s? Number(s.replace(/[^\d.-]/g,""))||0 : 0);
-  const csv = s => (s||"").split(",").map(x=>x.trim()).filter(Boolean);
+// ---------- UI helpers ----------
+function toast(msg) { alert(msg); }
 
-  // variants block (if you have)
-  let variants = [];
-  $$(".variant-row").forEach(row => {
-    variants.push({
-      name: $(".v-name", row)?.value?.trim()||"",
-      price: Number($(".v-price", row)?.value||0),
-      sale_price: Number($(".v-sale", row)?.value||0),
-      compare_at_price: Number($(".v-compare", row)?.value||0),
-      weight: Number($(".v-weight", row)?.value||0),
-      sku: $(".v-sku", row)?.value?.trim()||"",
-      stock: Number($(".v-stock", row)?.value||0),
-      image: $(".v-image", row)?.value?.trim()||""
-    });
+function csv(arr) { return Array.isArray(arr) ? arr.join(',') : (arr || ''); }
+function parseCSV(input) {
+  if (!input) return [];
+  return input.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function renderThumbs() {
+  f.thumbs.innerHTML = '';
+  parseCSV(f.images.value).forEach(u => {
+    const img = document.createElement('img');
+    img.src = u; img.className = 'thumb';
+    f.thumbs.appendChild(img);
+  });
+}
+
+function productToForm(p) {
+  STATE.editingId = p.id || null;
+  f.id.textContent = p.id || 'mới';
+
+  f.name.value   = p.name || '';
+  f.category.value = p.category || 'default';
+  f.desc.value   = p.description || '';
+  f.price.value  = p.price ?? '';
+  f.sale.value   = p.sale_price ?? '';
+  f.stock.value  = p.stock ?? '';
+  f.weight.value = p.weight ?? '';
+  f.images.value = csv(p.images);
+  f.videos.value = csv(p.videos);
+  f.alts.value   = csv(p.alts);
+  f.isActive.checked = !!p.is_active;
+
+  f.seoTitle.value = p.seo?.title || '';
+  f.seoDesc.value  = p.seo?.description || '';
+  f.seoKeywords.value = csv(p.seo?.keywords);
+
+  f.faq.value = (p.faq || []).map(x => `${x.q}|${x.a}`).join('\n');
+
+  f.variants.value = (p.variants || []).map(v =>
+    `${v.name||''}|${v.price||''}|${v.sale_price||''}|${v.origin_price||''}|${v.weight||''}|${v.sku||''}|${v.stock||''}|${v.image||''}`
+  ).join('\n');
+
+  renderThumbs();
+}
+
+function formToProduct() {
+  const variants = (f.variants.value || '').split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+    const [name, price, sale, origin, weight, sku, stock, image] = line.split('|').map(s => s?.trim() ?? '');
+    return { name, price: +price || 0, sale_price: +sale || 0, origin_price: +origin || 0, weight: +weight || 0, sku, stock: +stock || 0, image };
   });
 
-  const item = {
-    id: qid("id")?.textContent?.trim() || "mới",
-    name: v("#name"),
-    category: v("#category") || "default",
-    description: v("#description"),
-    price: nums("#price"),
-    sale_price: nums("#sale_price"),
-    stock: nums("#stock"),
-    weight: nums("#weight"),
-    alt_images: csv("#alt_csv"),
-    images: csv("#img_csv"),
-    videos: csv("#video_csv"),
-    seo_title: v("#seo_title"),
-    seo_description: v("#seo_desc"),
-    seo_keywords: v("#seo_kw"),
-    is_active: $("#active")?.checked ?? true,
-    faq: readFAQ(),
-    reviews: readReviews(),
+  const faq = (f.faq.value || '').split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+    const [q, a] = line.split('|');
+    return { q: q?.trim() ?? '', a: a?.trim() ?? '' };
+  });
+
+  return {
+    id: STATE.editingId || undefined,
+    name: f.name.value.trim(),
+    category: f.category.value.trim() || 'default',
+    description: f.desc.value.trim(),
+    price: +f.price.value || 0,
+    sale_price: +f.sale.value || 0,
+    stock: +f.stock.value || 0,
+    weight: +f.weight.value || 0,
+    images: parseCSV(f.images.value),
+    videos: parseCSV(f.videos.value),
+    alts: parseCSV(f.alts.value),
+    is_active: !!f.isActive.checked,
+    seo: {
+      title: f.seoTitle.value.trim(),
+      description: f.seoDesc.value.trim(),
+      keywords: parseCSV(f.seoKeywords.value),
+    },
+    faq,
     variants,
   };
-  return item;
 }
 
-// prefill form (idempotent)
-function fillForm(it){
-  $("#name").value = it.name||"";
-  $("#category").value = it.category||"default";
-  $("#description").value = it.description||"";
-  $("#price").value = it.price||0;
-  $("#sale_price").value = it.sale_price||"";
-  $("#stock").value = it.stock||0;
-  $("#weight").value = it.weight||"";
-  $("#alt_csv").value = (it.alt_images||[]).join(",");
-  $("#img_csv").value = (it.images||[]).join(",");
-  $("#video_csv").value = (it.videos||[]).join(",");
-  $("#seo_title").value = it.seo_title||"";
-  $("#seo_desc").value = it.seo_description||"";
-  $("#seo_kw").value = (it.seo_keywords||[]).join(", ");
-  $("#active").checked = !!it.is_active;
-  qid("id").textContent = it.id||"mới";
-
-  // FAQ / Reviews / Variants render (safe replace)
-  renderFAQ(it.faq||[]);
-  renderReviews(it.reviews||[]);
-  renderVariants(it.variants||[]);
-}
-
-function showEditor(it){
-  // important: DO NOT rebind recursive listeners within itself — only rebind once in init()
-  fillForm(it||{});
-}
-
-// ----- FAQ / Reviews / Variants (very lite, same structure you had) -----
-function renderFAQ(list){
-  const box = qid("faq");
-  box.innerHTML = "";
-  (list||[]).forEach((f,i)=>{
-    box.append(html`
-      <div class="faq-row grid grid-cols-1 gap-1 mb-2">
-        <input class="faq-q border rounded px-2 py-1 bg-slate-800/50" placeholder="Câu hỏi" value="${f.q||""}"/>
-        <textarea class="faq-a border rounded px-2 py-1 bg-slate-800/50" placeholder="Trả lời">${f.a||""}</textarea>
+function renderList(items) {
+  listEl.innerHTML = '';
+  items.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'flex gap-3 items-center p-2 rounded hover:bg-white/5 cursor-pointer';
+    row.innerHTML = `
+      <img class="w-12 h-12 object-cover rounded border border-white/10" src="${(p.images?.[0]) || 'https://via.placeholder.com/80x80?text=No+Image'}">
+      <div class="flex-1">
+        <div class="font-medium">${p.name || '(Tên...)'}</div>
+        <div class="text-xs opacity-70">Giá: ${p.price ?? 0} • Tồn: ${p.stock ?? 0} • ID: ${p.id || ''}</div>
       </div>
-    `);
-  });
-}
-function readFAQ(){
-  const out=[];
-  $$("#faq .faq-row").forEach(r => out.push({q: $(".faq-q", r).value.trim(), a: $(".faq-a", r).value.trim()}));
-  return out.filter(x=>x.q||x.a);
-}
-
-function renderReviews(list){
-  const box = qid("reviews");
-  box.innerHTML = "";
-  (list||[]).forEach(rv=>{
-    box.append(html`
-      <div class="rv-row flex gap-2 mb-2">
-        <input class="rv-name border rounded px-2 py-1 bg-slate-800/50" placeholder="Tên" value="${rv.name||""}"/>
-        <input class="rv-avatar border rounded px-2 py-1 bg-slate-800/50" placeholder="Avatar URL" value="${rv.avatar||""}"/>
-        <input class="rv-stars border rounded px-2 py-1 bg-slate-800/50 w-16" placeholder="5" value="${rv.stars||5}"/>
-        <input class="rv-text border rounded px-2 py-1 bg-slate-800/50 flex-1" placeholder="Nội dung" value="${rv.text||""}"/>
-      </div>
-    `);
-  });
-}
-function readReviews(){
-  const out=[];
-  $$("#reviews .rv-row").forEach(r => out.push({
-    name: $(".rv-name", r).value.trim(),
-    avatar: $(".rv-avatar", r).value.trim(),
-    stars: Number($(".rv-stars", r).value||5),
-    text: $(".rv-text", r).value.trim(),
-  }));
-  return out.filter(x=>x.text);
-}
-
-function renderVariants(list){
-  const box = qid("variants");
-  box.innerHTML = "";
-  (list||[]).forEach(v => {
-    box.append(html`
-      <div class="variant-row grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-        <input class="v-name border rounded px-2 py-1 bg-slate-800/50" placeholder="Tên phân loại" value="${v.name||""}"/>
-        <input class="v-image border rounded px-2 py-1 bg-slate-800/50" placeholder="Ảnh" value="${v.image||""}"/>
-        <input class="v-price border rounded px-2 py-1 bg-slate-800/50" placeholder="Giá" value="${v.price||0}"/>
-        <input class="v-sale border rounded px-2 py-1 bg-slate-800/50" placeholder="Giá sale" value="${v.sale_price||""}"/>
-        <input class="v-compare border rounded px-2 py-1 bg-slate-800/50" placeholder="Giá gốc" value="${v.compare_at_price||""}"/>
-        <input class="v-weight border rounded px-2 py-1 bg-slate-800/50" placeholder="Cân nặng" value="${v.weight||""}"/>
-        <input class="v-sku border rounded px-2 py-1 bg-slate-800/50" placeholder="SKU" value="${v.sku||""}"/>
-        <input class="v-stock border rounded px-2 py-1 bg-slate-800/50" placeholder="Tồn kho" value="${v.stock||0}"/>
-      </div>
-    `);
+      <button class="btn text-sm">Sửa</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => showEditor(p));
+    listEl.appendChild(row);
   });
 }
 
-// ---------- AI buttons next to fields ----------
-function bindAI(){
-  $("#btn-ai-title")?.addEventListener("click", async ()=>{
-    try{
-      const name = $("#name").value.trim();
-      const r = await adminApi.aiSuggest({type:"title", name, maxLen:120});
-      if (Array.isArray(r?.titles)) {
-        // pick the longest not exceeding 120 chars
-        const p = r.titles.sort((a,b)=>b.length-a.length).find(s=>s.length<=120) || r.titles[0];
-        $("#name").value = p || $("#name").value;
-      }
-    }catch(e){ toast("AI tiêu đề lỗi: "+e.message); }
-  });
-  $("#btn-ai-desc")?.addEventListener("click", async ()=>{
-    try{
-      const name = $("#name").value.trim();
-      const description = $("#description").value.trim();
-      const r = await adminApi.aiSuggest({type:"desc", name, description});
-      if (r?.description) $("#description").value = r.description;
-    }catch(e){ toast("AI mô tả lỗi: "+e.message); }
-  });
-  $("#btn-ai-seo")?.addEventListener("click", async ()=>{
-    try{
-      const name = $("#name").value.trim();
-      const description = $("#description").value.trim();
-      const r = await adminApi.aiSuggest({type:"seo", name, description});
-      if (r?.seo){
-        $("#seo_title").value = r.seo.title||"";
-        $("#seo_desc").value = r.seo.description||"";
-        $("#seo_kw").value = (r.seo.keywords||[]).join(", ");
-      }
-    }catch(e){ toast("AI SEO lỗi: "+e.message); }
-  });
-  $("#btn-ai-faq")?.addEventListener("click", async ()=>{
-    try{
-      const name = $("#name").value.trim();
-      const description = $("#description").value.trim();
-      const r = await adminApi.aiSuggest({type:"faq", name, description});
-      if (Array.isArray(r?.faq)) renderFAQ(r.faq);
-    }catch(e){ toast("AI FAQ lỗi: "+e.message); }
-  });
-  $("#btn-ai-reviews")?.addEventListener("click", async ()=>{
-    try{
-      const name = $("#name").value.trim();
-      const r = await adminApi.aiSuggest({type:"reviews", name});
-      if (Array.isArray(r?.reviews)) renderReviews(r.reviews);
-    }catch(e){ toast("AI đánh giá lỗi: "+e.message); }
-  });
-}
-
-// ---------- Cloudinary unsigned upload (if preset provided in Settings) ----------
-async function uploadToCloudinary(file, folder="products"){
-  // expect window.CLOUDINARY (url or {cloud_name, api_key, upload_preset})
-  const cfg = window.CLOUDINARY || {};
-  let url = "";
-  if (typeof cfg === "string"){
-    url = cfg; // cloudinary://<key>:<secret>@<cloud_name>/<preset>
-  }else if (cfg.cloud_name && cfg.upload_preset){
-    url = `https://api.cloudinary.com/v1_1/${cfg.cloud_name}/upload`;
+let showing = false;
+function showEditor(p) {
+  if (showing) return;       // guard tránh đệ quy
+  showing = true;
+  try {
+    // lấy từ cache trước
+    const cache = STATE.cache.get(p.id);
+    productToForm(cache || p);
+    if (!cache && p.id) {
+      // cập nhật cache (nếu cần) nhưng không clear form
+      // (giữ trải nghiệm không "mất dữ liệu")
+      STATE.cache.set(p.id, p);
+    }
+  } finally {
+    setTimeout(() => (showing = false), 0);
   }
-  if (!url) throw new Error("Thiếu cấu hình Cloudinary");
-  const fd = new FormData();
-  if (cfg.upload_preset) fd.append("upload_preset", cfg.upload_preset);
-  fd.append("folder", folder);
-  fd.append("file", file);
-  const r = await fetch(url, { method:"POST", body: fd });
-  if (!r.ok) throw new Error((await r.text()).slice(0,300));
-  const j = await r.json();
-  return j.secure_url || j.url;
 }
 
-function bindUploads(){
-  $("#btn-up-images")?.addEventListener("change", async (ev)=>{
-    const files = [...(ev.currentTarget.files||[])];
-    if (!files.length) return;
-    try{
-      const out = [];
-      for (const f of files){
-        const u = await uploadToCloudinary(f, "products");
-        out.push(u);
-      }
-      const csv = $("#img_csv").value.trim();
-      $("#img_csv").value = (csv? csv.split(",").map(s=>s.trim()).filter(Boolean): []).concat(out).join(",");
-    }catch(e){ toast("Upload ảnh lỗi: "+e.message); }
-  });
-  $("#btn-up-video")?.addEventListener("change", async (ev)=>{
-    const files = [...(ev.currentTarget.files||[])];
-    if (!files.length) return;
-    try{
-      const out = [];
-      for (const f of files){
-        const u = await uploadToCloudinary(f, "videos");
-        out.push(u);
-      }
-      const csv = $("#video_csv").value.trim();
-      $("#video_csv").value = (csv? csv.split(",").map(s=>s.trim()).filter(Boolean): []).concat(out).join(",");
-    }catch(e){ toast("Upload video lỗi: "+e.message); }
-  });
+// ---------- Load list ----------
+async function loadList() {
+  if (STATE.loadingList) return;
+  STATE.loadingList = true;
+  try {
+    const { items = [] } = await apiGET('/admin/products', { limit: 50 });
+    STATE.items = items;
+    items.forEach(i => STATE.cache.set(i.id, i));
+    renderList(items.filter(filterBySearch));
+  } catch (e) {
+    console.error(e);
+    toast('Không tải được danh sách sản phẩm. Kiểm tra token/CORS.');
+  } finally {
+    STATE.loadingList = false;
+  }
+}
+function filterBySearch(p) {
+  const q = (f.search.value || '').toLowerCase();
+  if (!q) return true;
+  return (p.name || '').toLowerCase().includes(q) || String(p.id || '').includes(q);
 }
 
-// ---------- init ----------
-function bindCommon(){
-  $("#btn-save")?.addEventListener("click", async ()=>{
-    try{
-      const it = collectForm();
-      const ok = await adminApi.upsertProduct(it);
-      toast("Đã lưu!");
-      if (ok?.item) {
-        state.cache.set(ok.item.id, ok.item);
-        showEditor(ok.item); // refresh current form
-        renderList(); // refresh list
-      }else{
-        renderList();
-      }
-    }catch(e){ toast("Lưu thất bại: "+e.message); }
-  });
-  $("#btn-new")?.addEventListener("click", ()=> showEditor({id:"mới", is_active:true}));
-  $("#btn-delete")?.addEventListener("click", async ()=>{
-    const id = qid("id").textContent.trim();
-    if (!id || id==="mới") return;
-    if (!confirm("Xoá sản phẩm này?")) return;
-    try{
-      await adminApi.deleteProduct(id);
-      toast("Đã xoá");
-      showEditor({id:"mới", is_active:true});
-      renderList();
-    }catch(e){ toast("Xoá thất bại: "+e.message); }
-  });
-  $("#btn-ai-title")&&bindAI();
-  bindUploads();
+// ---------- Save / Delete ----------
+async function saveProduct() {
+  const data = formToProduct();
+  try {
+    const res = await apiPOST('/admin/products', data); // POST form-encoded
+    toast('Lưu thành công!');
+    if (res?.item) {
+      STATE.cache.set(res.item.id, res.item);
+      await loadList();
+      // chọn lại item vừa lưu
+      showEditor(res.item);
+    } else {
+      await loadList();
+    }
+  } catch (e) {
+    console.error(e);
+    toast('Lưu thất bại!');
+  }
 }
 
-function init(){
-  // token field
-  const tokenInput = $("#token");
-  tokenInput?.addEventListener("change", ()=> localStorage.setItem("ADMIN_TOKEN", tokenInput.value.trim()));
-  const mem = localStorage.getItem("ADMIN_TOKEN");
-  if (mem && tokenInput) tokenInput.value = mem;
-
-  bindCommon();
-  renderList();
-  showEditor({id:"mới", is_active:true}); // default blank
+async function deleteProduct() {
+  if (!STATE.editingId) return toast('Chưa có sản phẩm để xóa');
+  if (!confirm('Xóa sản phẩm này?')) return;
+  try {
+    await apiPOST('/admin/products', { id: STATE.editingId, _delete: true });
+    toast('Đã xóa');
+    STATE.editingId = null;
+    productToForm({}); // clear form
+    await loadList();
+  } catch (e) {
+    console.error(e);
+    toast('Xóa thất bại');
+  }
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// ---------- Cloudinary unsigned ----------
+async function cldUpload(files, type='image') {
+  const cloud = f.cldName.value.trim();
+  const preset = f.cldPreset.value.trim();
+  if (!cloud || !preset) return toast('Nhập Cloudinary cloud_name + upload_preset');
+
+  const out = [];
+  for (const file of files) {
+    const url = `https://api.cloudinary.com/v1_1/${cloud}/${type}/upload`;
+    const fd = new FormData();
+    fd.append('upload_preset', preset);
+    fd.append('file', file);
+    // có thể fd.append('folder','diagnostics') nếu muốn
+    const r = await fetch(url, { method:'POST', body: fd });
+    const j = await r.json();
+    if (j.secure_url) out.push(j.secure_url);
+  }
+  return out;
+}
+
+// ---------- AI buttons ----------
+async function doAiTitle() {
+  try {
+    const j = await aiSuggest({ type:'title', name: f.name.value, description: f.desc.value });
+    // pick 1 đề xuất ~ 110 ký tự
+    const best = (j.titles || []).map(s => s.trim()).find(s => s.length >= 100 && s.length <= 120) || j.titles?.[0];
+    if (best) f.name.value = best;
+  } catch (e) { toast('AI tiêu đề lỗi'); }
+}
+async function doAiDesc() {
+  try {
+    const j = await aiSuggest({ type:'description', name: f.name.value, description: f.desc.value });
+    if (j.description) f.desc.value = j.description;
+  } catch (e) { toast('AI mô tả lỗi'); }
+}
+async function doAiSEO() {
+  try {
+    const j = await aiSuggest({ type:'seo', name: f.name.value, description: f.desc.value });
+    if (j.title) f.seoTitle.value = j.title;
+    if (j.description) f.seoDesc.value = j.description;
+    if (j.keywords) f.seoKeywords.value = j.keywords.join(',');
+  } catch (e) { toast('AI SEO lỗi'); }
+}
+async function doAiFAQ() {
+  try {
+    const j = await aiSuggest({ type:'faq', name: f.name.value, description: f.desc.value });
+    if (Array.isArray(j.faq)) f.faq.value = j.faq.map(x => `${x.q}|${x.a}`).join('\n');
+  } catch (e) { toast('AI FAQ lỗi'); }
+}
+async function doAiReview() {
+  try {
+    const j = await aiSuggest({ type:'reviews', name: f.name.value });
+    if (Array.isArray(j.reviews)) {
+      // gắn review vào cuối mô tả cho nhanh
+      const lines = j.reviews.map(r => `• ${r.name}: ${r.text}`).join('\n');
+      f.desc.value = (f.desc.value ? f.desc.value + '\n\n' : '') + lines;
+    }
+  } catch (e) { toast('AI Đánh giá lỗi'); }
+}
+async function doAiAlt() {
+  try {
+    const j = await aiSuggest({ type:'alt', name: f.name.value, description: f.desc.value, images: parseCSV(f.images.value) });
+    if (Array.isArray(j.alts)) f.alts.value = j.alts.join(',');
+  } catch (e) { toast('AI ALT lỗi'); }
+}
+
+// ---------- Events ----------
+f.btnSaveToken.addEventListener('click', () => {
+  store.set('admin_token', f.token.value.trim());
+  store.set('cld_name', f.cldName.value.trim());
+  store.set('cld_preset', f.cldPreset.value.trim());
+  toast('Đã lưu token/Cld');
+  loadList();
+});
+f.btnReload.addEventListener('click', loadList);
+f.btnNew.addEventListener('click', () => { STATE.editingId=null; productToForm({ is_active:true, category:'default' }); });
+f.btnSave.addEventListener('click', saveProduct);
+f.btnDelete.addEventListener('click', deleteProduct);
+
+f.btnUploadImg.addEventListener('click', () => f.fileImg.click());
+f.fileImg.addEventListener('change', async (e) => {
+  const urls = await cldUpload(e.target.files,'image');
+  if (urls?.length) {
+    const current = parseCSV(f.images.value);
+    f.images.value = csv([...current, ...urls]);
+    renderThumbs();
+  }
+});
+f.btnUploadVid.addEventListener('click', () => f.fileVid.click());
+f.fileVid.addEventListener('change', async (e) => {
+  const urls = await cldUpload(e.target.files,'video');
+  if (urls?.length) {
+    const current = parseCSV(f.videos.value);
+    f.videos.value = csv([...current, ...urls]);
+  }
+});
+
+f.aiTitle.addEventListener('click', doAiTitle);
+f.aiDesc.addEventListener('click', doAiDesc);
+f.aiSEO.addEventListener('click', doAiSEO);
+f.aiFAQ.addEventListener('click', doAiFAQ);
+f.aiReview.addEventListener('click', doAiReview);
+f.aiAlt.addEventListener('click', doAiAlt);
+
+f.images.addEventListener('input', renderThumbs);
+f.search.addEventListener('input', () => renderList(STATE.items.filter(filterBySearch)));
+
+// ---------- Init ----------
+(function init() {
+  if (!f.token.value) f.token.value = store.get('admin_token','');
+  loadList();
+  productToForm({ is_active:true, category:'default' });
+})();
