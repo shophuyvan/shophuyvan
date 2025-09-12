@@ -14,10 +14,11 @@ import { Fire } from './modules/firestore.js';
 import { handleProducts } from './modules/products.js';
 
 // ---- helpers ----
-const cors = () => ({
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+const cors = (origin = '*') => ({
+  'Access-Control-Allow-Origin': origin,
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
+  'Vary': 'Origin',
 });
 
 const json = (status, data, headers) =>
@@ -26,16 +27,14 @@ const json = (status, data, headers) =>
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
   });
 
-function requireAdmin(req, env, urlObj) {
-  const url = urlObj || new URL(req.url);
-  const tokenFromQuery = url.searchParams.get('token') || '';
+function requireAdmin(req, env) {
   const auth = req.headers.get('Authorization') || '';
-  const tokenFromHeader = auth.replace(/^Bearer\s+/i, '').trim();
-  const token = tokenFromQuery || tokenFromHeader;
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (!token || token !== env.ADMIN_TOKEN) {
     throw json(401, { error: 'Unauthorized' });
   }
 }
+
 export default {
   async fetch(req, env, ctx) {
     const origin = req.headers.get('Origin') || '*';
@@ -61,7 +60,7 @@ export default {
 
       // ---- upload signature (admin) ----
       else if (url.pathname === '/upload/signature' && req.method === 'POST') {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleUpload(req, env);
       }
 
@@ -77,15 +76,15 @@ export default {
 
       // ---- ADMIN modules (cần token) ----
       else if (url.pathname.startsWith('/admin/banners')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleBanners(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/vouchers')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleVouchers(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/users')) {
-        requireAdmin(req, env, url);
+        requireAdmin(req, env);
         res = await handleUsers(req, env, fire);
       }
       else if (url.pathname.startsWith('/admin/products')) {
