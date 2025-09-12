@@ -702,3 +702,51 @@ document.addEventListener('DOMContentLoaded', ()=>{
           }, {passive:true});
         })();
         
+
+    /* admin view router */
+    (function(){
+      function routeTo(view){
+        try{ if(typeof showEditor==='function') showEditor(view); }catch(e){}
+        const secs = document.querySelectorAll('[id^="view-"]');
+        secs.forEach(n=>n.hidden=true);
+        const sec = document.getElementById('view-'+view);
+        if (sec) sec.hidden=false;
+      }
+      function handler(evt){
+        const el = evt.target.closest && evt.target.closest('[data-view]');
+        if(!el) return;
+        const v = el.getAttribute('data-view');
+        if(!v) return;
+        evt.preventDefault();
+        routeTo(v);
+      }
+      // capture to ignore other listeners that block
+      ['click','touchend'].forEach(ev=>{
+        document.addEventListener(ev, handler, {capture:true});
+      });
+    })();
+    
+
+    /* choose cover image */
+    (function(){
+      function findMainInput(){
+        return document.querySelector('#image_url, input[name="image"], input[name="cover"], textarea[name="image"]');
+      }
+      document.addEventListener('click', function(e){
+        const img = e.target.closest && e.target.closest('img');
+        if(!img) return;
+        // Only act inside editor area
+        const editor = e.target.closest('#editor, .editor, form');
+        if(!editor) return;
+        // require cloudinary/http(s) URL
+        const src = img.getAttribute('src') || '';
+        if(!/^https?:\/\//.test(src)) return;
+        const main = findMainInput();
+        if(!main) return;
+        main.value = src;
+        // Visual highlight on selected thumb
+        document.querySelectorAll('img.is-cover').forEach(el=>el.classList.remove('is-cover'));
+        img.classList.add('is-cover');
+      }, {capture:true});
+    })();
+    

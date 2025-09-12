@@ -210,3 +210,16 @@ load();
           box.parentNode && box.parentNode.appendChild(btn);
         })();
         
+
+// pdp description toggle
+(function(){
+  const box = document.querySelector('.product-description');
+  if(!box) return;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-sm mt-2';
+  let collapsed = true;
+  function apply(){ box.classList.toggle('desc-collapsed', collapsed); btn.textContent = collapsed ? 'Xem thêm' : 'Thu gọn'; }
+  apply();
+  btn.addEventListener('click', ()=>{ collapsed=!collapsed; apply(); });
+  box.parentNode && box.parentNode.appendChild(btn);
+})();

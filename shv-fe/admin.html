@@ -47,7 +47,23 @@
           .card{ padding:12px !important; }
         }
         </style>
-        </head>
+        
+    <style>
+    /* admin stabilizer */
+    .sidebar{ position:relative; z-index:60; }
+    .sidebar [data-view]{ cursor:pointer; }
+    /* prevent accidental overlay from blocking clicks */
+    .modal-backdrop, .drawer-backdrop, .overlay{ pointer-events:none !important; }
+    .modal-backdrop.show, .drawer.open, .overlay.active{ pointer-events:auto !important; }
+    @media (max-width: 768px){
+      .admin-grid{ display:flex; flex-direction:column; gap:12px; }
+      .admin-main{ padding:8px !important; }
+      .card{ padding:12px !important; }
+    }
+    /* highlight for chosen cover */
+    .is-cover{ outline:2px solid #60a5fa; border-radius:6px; }
+    </style>
+    </head>
 <body>
   <div id="backdrop" class="hidden md:hidden fixed inset-0 bg-black/50 z-40"></div>
   <div class="h-full grid grid-cols-[240px_1fr]">
