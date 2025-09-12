@@ -6,7 +6,14 @@ export async function api(path, init = {}) {
   const el = document.querySelector('#api-base');
   const fallback = 'https://shv-api.shophuyvan.workers.dev';
   const base = (el?.value || fallback).trim().replace(/\/+$/, '');
-  const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+  let url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+  const t = (typeof localStorage !== 'undefined' && (localStorage.getItem('admin_token') || ''))
+           || (document.querySelector('#tokenInput')?.value || '');
+  if (t) {
+    const u = new URL(url, typeof location !== 'undefined' ? location.href : 'https://dummy');
+    u.searchParams.set('token', t);
+    url = u.toString();
+  }
 
   const headers = new Headers(init.headers || {});
   // stringify body nếu là object (không phải FormData/Blob)
