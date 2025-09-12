@@ -1,16 +1,5 @@
-
-function pickMedia(p){
-  let imgs = [];
-  if (Array.isArray(p.images) && p.images.length) imgs = p.images;
-  else if (Array.isArray(p.gallery)) imgs = p.gallery.map(x=>x.url||x.src||x).filter(Boolean);
-  else if (Array.isArray(p.variants)) imgs = p.variants.map(v=>v.image).filter(Boolean);
-  else if (p.image) imgs = [p.image];
-
-  let vids = [];
-  if (Array.isArray(p.videos) && p.videos.length) vids = p.videos;
-  else if (Array.isArray(p.video_urls)) vids = p.video_urls;
-  return { imgs, vids };
-}
+// shv-fe/src/ui-pdp.js
+// PDP media & details renderer (robust image-picker + simple slider + video autoplay)
 
 import { api } from './lib/api.js';
 import { formatPrice, pickPrice } from './lib/price.js';
@@ -18,137 +7,158 @@ import { formatPrice, pickPrice } from './lib/price.js';
 const qs = new URLSearchParams(location.search);
 const id = qs.get('id');
 
-const titleEl = document.getElementById('title');
-const priceEl = document.getElementById('price');
-const variantsEl = document.getElementById('variants');
+const titleEl   = document.getElementById('title');
+const priceEl   = document.getElementById('price');
+const variantsEl= document.getElementById('variants');
 const galleryEl = document.getElementById('gallery');
-const descEl = document.getElementById('description');
+const descEl    = document.getElementById('description');
 
-let product = null;
+let product   = null;
 let currentVariant = null;
-let slides = [];
-let slideIdx = 0;
-let slideTimer = null;
+
+// ---------- helpers ----------
+function toArr(x){
+  if (!x) return [];
+  if (Array.isArray(x)) return x;
+  if (typeof x === 'string') {
+    return x.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  if (typeof x === 'object') {
+    const c = [x.url, x.src, x.image, x.image_url, x.img];
+    return c.filter(Boolean);
+  }
+  return [];
+}
 
 function cloudify(u, transform='w_800,q_auto,f_auto'){
-  if (!u) return '';
+  if (!u) return u;
   try {
-    const url = new URL(u);
-    if (url.hostname.includes('res.cloudinary.com') && url.pathname.includes('/upload/')) {
-      url.pathname = url.pathname.replace('/upload/', `/upload/${transform}/`);
-      return url.toString();
-    }
-    return u;
-  } catch { return u; }
+    const url = new URL(String(u));
+    if (url.hostname !== 'res.cloudinary.com') return u;
+    if (!/\/upload\//.test(url.pathname)) return u;
+    url.pathname = url.pathname.replace('/upload/', `/upload/${transform}/`);
+    return url.toString();
+  } catch(e){ return u; }
 }
 
-function renderPrice(){
-  if (!product) return;
+function pickMedia(p){
+  // gather images
+  let imgs = [];
+  imgs = imgs.concat(toArr(p.images));
+  imgs = imgs.concat(toArr(p.gallery));
+  if (Array.isArray(p.gallery_map)) {
+    imgs = imgs.concat(p.gallery_map.map(v => v?.url || v?.src).filter(Boolean));
+  }
+  if (typeof p.alt_images === 'string') {
+    imgs = imgs.concat(toArr(p.alt_images));
+  }
+  if (Array.isArray(p.variants)) {
+    imgs = imgs.concat(p.variants.map(v => v?.image || v?.image_url || v?.img || v?.src || v?.url).filter(Boolean));
+  }
+  if (p.image) imgs.push(p.image);
+  imgs = imgs.map(x => cloudify(x)).filter(Boolean);
+
+  // videos
+  let vids = [];
+  vids = vids.concat(toArr(p.videos));
+  vids = vids.concat(toArr(p.video_urls));
+  vids = vids.map(String).filter(Boolean);
+  return { imgs: [...new Set(imgs)], vids: [...new Set(vids)] };
+}
+
+function setHTML(el, html=''){
+  if (!el) return;
+  el.innerHTML = html;
+}
+
+// Simple slider: swap img src every 3s
+function renderMedia(imgs, vids){
+  if (!galleryEl) return;
+  if ((!imgs || imgs.length===0) && (!vids || vids.length===0)){
+    setHTML(galleryEl, `<img class="w-full h-auto block" src="/assets/no-image.png" alt="No image"/>`);
+    return;
+  }
+
+  let html = '';
+  if (vids && vids.length){
+    const v = vids[0];
+    html += `<video id="pdp-video" class="w-full h-auto mb-3 rounded" src="${v}" autoplay muted playsinline loop controls></video>`;
+  }
+  const firstImg = imgs && imgs.length ? imgs[0] : null;
+  html += `<img id="pdp-img" class="w-full h-auto rounded" src="${firstImg || '/assets/no-image.png'}" alt="Ảnh sản phẩm"/>`;
+
+  setHTML(galleryEl, html);
+
+  if (imgs && imgs.length > 1){
+    let i = 0;
+    const imgEl = document.getElementById('pdp-img');
+    setInterval(()=>{
+      i = (i + 1) % imgs.length;
+      if (imgEl) imgEl.src = imgs[i];
+    }, 3000);
+  }
+}
+
+function renderPrice() {
+  if (!product || !priceEl) return;
   const { base, original } = pickPrice(product, currentVariant);
-  if (original > base) {
-    priceEl.innerHTML = `<span class="text-rose-600 font-semibold text-xl mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400">${formatPrice(original)}</span>`;
-  } else {
-    priceEl.innerHTML = `<span class="text-rose-600 font-semibold text-xl">${formatPrice(base)}</span>`;
+  const priceHTML = (original > base)
+    ? `<span class="text-rose-600 font-semibold text-xl mr-2">${formatPrice(base)}</span>
+       <span class="line-through text-gray-400">${formatPrice(original)}</span>`
+    : `<span class="text-rose-600 font-semibold text-xl">${formatPrice(base)}</span>`;
+  setHTML(priceEl, priceHTML);
+}
+
+async function main(){
+  try{
+    const rs = await api(`/products?id=${encodeURIComponent(id)}`);
+    const p = rs?.items?.[0] || rs?.item || rs;
+    product = p || null;
+
+    // expose for debug
+    window.__pdp = { product };
+
+    if (!product) {
+      console.warn('No product found for id', id);
+      return;
+    }
+
+    // title
+    if (titleEl) titleEl.textContent = product.name || 'Sản phẩm';
+
+    // description
+    if (descEl) descEl.setAttribute('content', (product.description || '').slice(0, 160));
+
+    // media
+    const { imgs, vids } = pickMedia(product);
+    window.__pdp.imgs = imgs; window.__pdp.vids = vids;
+    renderMedia(imgs, vids);
+
+    // price
+    renderPrice();
+
+    // variants (if any) -> create simple buttons
+    if (variantsEl && Array.isArray(product.variants) && product.variants.length){
+      const btns = product.variants.map((v, idx) => {
+        const label = (v.name || v.sku || `#${idx+1}`);
+        return `<button data-vid="${idx}" class="px-3 py-1 rounded border mr-2 mb-2 hover:bg-gray-100">${label}</button>`;
+      }).join('');
+      setHTML(variantsEl, btns);
+      variantsEl.addEventListener('click', (e)=>{
+        const b = e.target.closest('button[data-vid]');
+        if (!b) return;
+        const idx = Number(b.getAttribute('data-vid'));
+        currentVariant = product.variants[idx];
+        // if variant has its own image -> push on top
+        const { imgs, vids } = pickMedia({ ...product, images: [currentVariant?.image || currentVariant?.image_url || product.images?.[0]].filter(Boolean), videos: product.videos });
+        renderMedia(imgs, vids);
+        renderPrice();
+      });
+    }
+
+  }catch(e){
+    console.error(e);
   }
 }
 
-function renderVariants(){
-  const vars = product.variants || [];
-  if (!vars.length) { variantsEl.innerHTML = ''; return; }
-  variantsEl.innerHTML = `<div class="text-sm mb-1">Phân loại:</div><div class="flex flex-wrap gap-2" id="variant-chips"></div>`;
-  const chips = variantsEl.querySelector('#variant-chips');
-  vars.forEach((v, i)=>{
-    const b = document.createElement('button');
-    b.className = 'border rounded px-3 py-1 text-sm hover:bg-gray-50';
-    b.textContent = v.name || (`Loại ${i+1}`);
-    b.onclick = ()=>selectVariant(i);
-    chips.appendChild(b);
-  });
-  selectVariant(0);
-}
-
-function buildSlides(){
-  slides = [];
-  const m = pickMedia(product);
-  const imgs = (m.imgs||[]).map(u=>({type:'img', src: cloudify(u)}));
-  const vids = (m.vids||[]).map(u=>({type:'video', src: u}));
-  slides = vids.concat(imgs); // video trước giống Shopee
-  if (!slides.length) slides = [{type:'img', src: 'https://dummyimage.com/800x800/eee/aaa&text=No+image'}];
-}
-
-
-function applySlide(idx){
-  if (!slides.length) return;
-  slideIdx = (idx + slides.length) % slides.length;
-  const s = slides[slideIdx];
-  if (s.type === 'video') {
-    galleryEl.innerHTML = `<video class="w-full rounded border" autoplay muted playsinline loop src="${s.src}"></video>`;
-  } else {
-    galleryEl.innerHTML = `<img class="w-full rounded border object-contain" src="${s.src}" alt="${product.name||''}">`;
-  }
-}
-
-function startAuto(){
-  if (slideTimer) clearInterval(slideTimer);
-  slideTimer = setInterval(()=>applySlide(slideIdx+1), 3000);
-}
-
-function selectVariant(i){
-  currentVariant = (product.variants||[])[i] || null;
-  variantsEl.querySelectorAll('button').forEach((b, idx)=>{
-    b.classList.toggle('bg-black/80', idx===i);
-    b.classList.toggle('text-white', idx===i);
-  });
-  renderPrice();
-  if (currentVariant && currentVariant.image) {
-    const vimg = cloudify(currentVariant.image);
-    const vi = slides.findIndex(s => s.type==='img' && s.src===vimg);
-    if (vi >= 0) applySlide(vi);
-    else { slides.unshift({type:'img', src: vimg}); applySlide(0); }
-  }
-}
-
-function renderDescription(){
-  const text = String(product.description||'').trim();
-  if (!text){ descEl.innerHTML = '<div class="text-gray-500">Chưa có mô tả</div>'; return; }
-  const html = text.split('\n\n').map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
-  descEl.innerHTML = html;
-}
-
-
-function renderFAQ(){
-  const wrap = document.getElementById('faq');
-  if (!wrap) return;
-  const arr = Array.isArray(product.faq)? product.faq : [];
-  wrap.innerHTML = !arr.length ? '<div class="text-gray-500">Chưa có câu hỏi</div>' :
-    arr.map(q => `<details class="border rounded p-3"><summary class="font-medium">${q.question||q.q||''}</summary><div class="mt-2 text-sm">${q.answer||q.a||''}</div></details>`).join('');
-}
-
-function renderReviews(){
-  const wrap = document.getElementById('reviews');
-  if (!wrap) return;
-  const arr = Array.isArray(product.reviews)? product.reviews : [];
-  wrap.innerHTML = !arr.length ? '<div class="text-gray-500">Chưa có đánh giá</div>' :
-    arr.map(r => `<div class="border rounded p-3"><div class="font-medium">${r.name||'Khách hàng'}</div><div class="text-yellow-500 text-sm">${'★'.repeat(Number(r.rating||5))}</div><div class="text-sm mt-1">${r.comment||''}</div></div>`).join('');
-}
-async function load(){
-  let data; try{ data = await api(`/products?id=${encodeURIComponent(id)}`);}catch(e){ console.error('Fetch product failed', e); return;}
-  product = data.item || data; window.__pdp = product;
-  if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
-  if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
-
-  if (titleEl) titleEl.textContent = product.name || product.title || 'Sản phẩm';
-  (() => { const el = document.getElementById('seo-title'); if (el) el.textContent = (product.name||'') + ' - Shop Huy Vân'; })();
-(() => { const el = document.getElementById('seo-desc'); if (el) el.setAttribute('content', (product.description||'').slice(0,160)); })();
-
-  renderPrice();
-  renderVariants();
-  buildSlides();
-  applySlide(0);
-  startAuto();
-  renderDescription();
-  renderFAQ();
-  renderReviews();
-}
-
-load();
+document.addEventListener('DOMContentLoaded', main);
