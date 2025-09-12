@@ -169,7 +169,26 @@
         <button class="btn btn-secondary" onclick="Editor.new()">Mới</button>
       </div>
     </div>
-    </main>
+    
+<!-- Banners view -->
+<section id="view-banners" class="hidden">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">Banner</h2>
+    <button class="btn" id="btn-add-banner">+ Thêm banner</button>
+  </div>
+  <div id="banners-list" class="space-y-2"></div>
+</section>
+
+<!-- Vouchers view -->
+<section id="view-vouchers" class="hidden">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">Voucher</h2>
+    <button class="btn" id="btn-add-voucher">+ Thêm voucher</button>
+  </div>
+  <div id="vouchers-list" class="space-y-2"></div>
+</section>
+
+</main>
   </div>
 
 <script>
@@ -570,6 +589,157 @@ window.addEventListener('load', ()=>{
     </div>
   </div>
 </div>
+
+<script>
+function openModal(title, contentHTML, onOk){
+  const m = document.getElementById('modal');
+  document.getElementById('modal-title').textContent = title || 'Chỉnh sửa';
+  document.getElementById('modal-body').innerHTML = contentHTML || '';
+  m.classList.remove('hidden'); m.classList.add('flex');
+  const cleanup = ()=>{ m.classList.add('hidden'); m.classList.remove('flex'); document.getElementById('modal-ok').onclick=null; };
+  document.getElementById('modal-backdrop').onclick = cleanup;
+  document.getElementById('modal-cancel').onclick = cleanup;
+  document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ cleanup(); document.removeEventListener('keydown', esc); } });
+  document.getElementById('modal-ok').onclick = async ()=>{ try{ await onOk?.(); cleanup(); }catch(e){ alert(e.message||e); } };
+}
+
+const Banners = {
+  async list(){
+    const r = await fetch(API.url('/admin/banners'));
+    const data = await r.json();
+    const items = data.items || [];
+    const wrap = document.getElementById('banners-list');
+    wrap.innerHTML = items.map(b => `
+      <div class="card p-3 flex items-center gap-3">
+        <img src="${b.image||b.image_url||''}" class="w-24 h-14 object-cover rounded border" />
+        <div class="flex-1">
+          <div class="font-medium">${b.title||''}</div>
+          <div class="text-xs muted">${b.link||b.link_url||''}</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn" onclick="Banners.edit('${b.id}')">Sửa</button>
+          <button class="btn btn-secondary" onclick="Banners.remove('${b.id}')">Xóa</button>
+        </div>
+      </div>
+    `).join('');
+  },
+  async edit(id){
+    const r = await fetch(API.url('/admin/banners?id='+encodeURIComponent(id)));
+    const data = await r.json(); const b = data.item||{};
+    const body = `
+      <label class='block text-sm'>Tiêu đề<input id='m-title' class='input w-full mt-1' value="${(b.title||'').replace(/"/g,'&quot;')}"></label>
+      <label class='block text-sm'>Image URL<input id='m-image' class='input w-full mt-1' value="${(b.image||b.image_url||'').replace(/"/g,'&quot;')}"></label>
+      <label class='block text-sm'>Link<input id='m-link' class='input w-full mt-1' value="${(b.link||b.link_url||'').replace(/"/g,'&quot;')}"></label>
+      <label class='block text-sm'>Thứ tự<input id='m-order' class='input w-full mt-1' type='number' value="${Number(b.order||0)}"></label>
+      <label class='inline-flex items-center gap-2 mt-1'><input id='m-active' type='checkbox' ${b.is_active?'checked':''}> Active</label>`;
+    openModal('Sửa banner', body, async ()=>{
+      const payload = { id, title:document.getElementById('m-title').value, image:document.getElementById('m-image').value, link:document.getElementById('m-link').value, order:Number(document.getElementById('m-order').value||0), is_active:document.getElementById('m-active').checked };
+      await fetch(API.url('/admin/banners'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      await Banners.list();
+    });
+  },
+  async new(){
+    const body = `
+      <label class='block text-sm'>Tiêu đề<input id='m-title' class='input w-full mt-1'></label>
+      <label class='block text-sm'>Image URL<input id='m-image' class='input w-full mt-1'></label>
+      <label class='block text-sm'>Link<input id='m-link' class='input w-full mt-1'></label>
+      <label class='block text-sm'>Thứ tự<input id='m-order' class='input w-full mt-1' type='number' value='0'></label>
+      <label class='inline-flex items-center gap-2 mt-1'><input id='m-active' type='checkbox' checked> Active</label>`;
+    openModal('Thêm banner', body, async ()=>{
+      const payload = { title:document.getElementById('m-title').value, image:document.getElementById('m-image').value, link:document.getElementById('m-link').value, order:Number(document.getElementById('m-order').value||0), is_active:document.getElementById('m-active').checked };
+      await fetch(API.url('/admin/banners'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      await Banners.list();
+    });
+  },
+  async remove(id){
+    if (!confirm('Xóa banner?')) return;
+    await fetch(API.url('/admin/banners?id='+encodeURIComponent(id)), { method:'DELETE' });
+    await Banners.list();
+  }
+};
+window.Banners = Banners;
+
+const Vouchers = {
+  async list(){
+    const r = await fetch(API.url('/admin/vouchers'));
+    const data = await r.json();
+    const items = data.items || [];
+    const wrap = document.getElementById('vouchers-list');
+    wrap.innerHTML = items.map(v => `
+      <div class="card p-3 flex items-center gap-3">
+        <div class="flex-1">
+          <div class="font-semibold">${v.code}</div>
+          <div class="text-xs muted">Loại: ${v.type} | Giá trị: ${v.value} | Min: ${v.min_order||0}</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn" onclick="Vouchers.edit('${v.id}')">Sửa</button>
+          <button class="btn btn-secondary" onclick="Vouchers.remove('${v.id}')">Xóa</button>
+        </div>
+      </div>
+    `).join('');
+  },
+  async edit(id){
+    const r = await fetch(API.url('/admin/vouchers?id='+encodeURIComponent(id))); const data = await r.json(); const v = data.item||{};
+    const body = `
+      <label class='block text-sm'>Mã<input id='v-code' class='input w-full mt-1' value="${(v.code||v.id||'').replace(/"/g,'&quot;')}"></label>
+      <label class='block text-sm'>Loại<select id='v-type' class='input w-full mt-1'><option value='amount' ${v.type==='amount'?'selected':''}>Giảm tiền</option><option value='percent' ${v.type==='percent'?'selected':''}>Giảm %</option><option value='ship' ${v.type==='ship'?'selected':''}>Miễn phí ship</option></select></label>
+      <label class='block text-sm'>Giá trị<input id='v-value' class='input w-full mt-1' type='number' value="${Number(v.value||0)}"></label>
+      <label class='block text-sm'>Đơn tối thiểu<input id='v-min' class='input w-full mt-1' type='number' value="${Number(v.min_order||0)}"></label>
+      <label class='block text-sm'>Product IDs (CSV)<input id='v-pids' class='input w-full mt-1' value="${(v.product_ids||[]).join(',').replace(/"/g,'&quot;')}"></label>
+      <label class='inline-flex items-center gap-2 mt-1'><input id='v-active' type='checkbox' ${v.is_active?'checked':''}> Active</label>`;
+    openModal('Sửa voucher', body, async ()=>{
+      const payload = { id:document.getElementById('v-code').value.trim().toUpperCase(), code:document.getElementById('v-code').value.trim().toUpperCase(), type:document.getElementById('v-type').value, value:Number(document.getElementById('v-value').value||0), min_order:Number(document.getElementById('v-min').value||0), product_ids:document.getElementById('v-pids').value.split(',').map(s=>s.trim()).filter(Boolean), is_active:document.getElementById('v-active').checked };
+      await fetch(API.url('/admin/vouchers'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      await Vouchers.list();
+    });
+  },
+  async new(){
+    const body = `
+      <label class='block text-sm'>Mã<input id='v-code' class='input w-full mt-1'></label>
+      <label class='block text-sm'>Loại<select id='v-type' class='input w-full mt-1'><option value='amount'>Giảm tiền</option><option value='percent'>Giảm %</option><option value='ship'>Miễn phí ship</option></select></label>
+      <label class='block text-sm'>Giá trị<input id='v-value' class='input w-full mt-1' type='number' value='0'></label>
+      <label class='block text-sm'>Đơn tối thiểu<input id='v-min' class='input w-full mt-1' type='number' value='0'></label>
+      <label class='block text-sm'>Product IDs (CSV)<input id='v-pids' class='input w-full mt-1'></label>
+      <label class='inline-flex items-center gap-2 mt-1'><input id='v-active' type='checkbox' checked> Active</label>`;
+    openModal('Thêm voucher', body, async ()=>{
+      const payload = { id:document.getElementById('v-code').value.trim().toUpperCase(), code:document.getElementById('v-code').value.trim().toUpperCase(), type:document.getElementById('v-type').value, value:Number(document.getElementById('v-value').value||0), min_order:Number(document.getElementById('v-min').value||0), product_ids:document.getElementById('v-pids').value.split(',').map(s=>s.trim()).filter(Boolean), is_active:document.getElementById('v-active').checked };
+      await fetch(API.url('/admin/vouchers'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      await Vouchers.list();
+    });
+  },
+  async remove(id){
+    if (!confirm('Xóa voucher?')) return;
+    await fetch(API.url('/admin/vouchers?id='+encodeURIComponent(id)), { method:'DELETE' });
+    await Vouchers.list();
+  }
+};
+window.Vouchers = Vouchers;
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const views = {
+    products: document.getElementById('view-products'),
+    editor: document.getElementById('view-editor'),
+    banners: document.getElementById('view-banners'),
+    vouchers: document.getElementById('view-vouchers')
+  };
+  // Sidebar nav
+  document.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const v = btn.getAttribute('data-view');
+      Object.values(views).forEach(el=> el && el.classList.add('hidden'));
+      const el = views[v]; if (el) el.classList.remove('hidden');
+      if (v==='banners') Banners.list();
+      if (v==='vouchers') Vouchers.list();
+    });
+  });
+  // Default stay on products
+  document.querySelector('[data-view="products"]').click();
+
+  document.getElementById('btn-add-banner')?.addEventListener('click', ()=>Banners.new());
+  document.getElementById('btn-add-voucher')?.addEventListener('click', ()=>Vouchers.new());
+});
+</script>
+
 </body>
 </html>
 <script>
