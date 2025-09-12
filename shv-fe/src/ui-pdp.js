@@ -1,173 +1,121 @@
 import { api } from './lib/api.js';
 import { formatPrice, pickPrice } from './lib/price.js';
 
-const params = new URLSearchParams(location.search);
-const id = params.get('id');
+const qs = new URLSearchParams(location.search);
+const id = qs.get('id');
 
-const titleEl   = document.getElementById('title');
-const priceEl   = document.getElementById('price');
-const gallery   = document.getElementById('gallery');
-const countdown = document.getElementById('countdown');
-const descEl    = document.getElementById('description');
-const relatedEl = document.getElementById('related');
-const faqEl = document.getElementById('faq');
-const reviewsEl = document.getElementById('reviews');
-const videosEl = document.getElementById('videos');
+const titleEl = document.getElementById('title');
+const priceEl = document.getElementById('price');
+const variantsEl = document.getElementById('variants');
+const galleryEl = document.getElementById('gallery');
+const descEl = document.getElementById('description');
 
-let product, selectedVariant = null;
+let product = null;
+let currentVariant = null;
+let slides = [];
+let slideIdx = 0;
+let slideTimer = null;
 
-function renderPrice() {
-  const { base, original } = pickPrice(product, selectedVariant);
-  priceEl.innerHTML =
-    original && original !== base
-      ? `<span class="line-through text-gray-400 mr-2">${formatPrice(original)}</span><span class="text-rose-600 font-semibold">${formatPrice(base)}</span>`
-      : `<span class="font-semibold">${formatPrice(base)}</span>`;
-}
-
-function renderVariants() {
-  const box = document.getElementById('variants');
-  if (!product.variants || !product.variants.length) { box.innerHTML = ''; return; }
-  box.innerHTML = `<div class="text-sm mb-1">Phân loại</div><div id="vlist" class="flex flex-wrap gap-2"></div>`;
-  const vlist = box.querySelector('#vlist');
-  product.variants.forEach(v => {
-    const btn = document.createElement('button');
-    btn.textContent = v.name;
-    btn.className = 'border rounded px-2 py-1 text-sm';
-    btn.onclick = () => { selectedVariant = v; renderPrice(); };
-    vlist.appendChild(btn);
-  });
-}
-
-function renderGallery() {
-  const imgs = product.images?.length ? product.images : ['https://via.placeholder.com/600?text=Image'];
-  gallery.innerHTML = `<img src="${imgs[0]}" alt="${product.image_alts?.[0] || product.name}" class="w-full h-full object-cover rounded" />`;
-}
-
-function renderBadges() {
-  const badges = [];
-  if (product.flash_end && product.flash_end > Date.now()) badges.push('Flash Sale');
-  if (product.freeship_xtra) badges.push('XTRA Freeship');
-  document.getElementById('badges').innerHTML =
-    badges.map(b => `<span class="border rounded px-2 py-1">${b}</span>`).join('');
-}
-
-function tickCountdown() {
-  if (!product.flash_end) return;
-  const ms = product.flash_end - Date.now();
-  if (ms <= 0) { countdown.textContent = ''; return; }
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  countdown.textContent = `Kết thúc sau ${h}h ${m}m ${s}s`;
-  requestAnimationFrame(tickCountdown);
-}
-
-function renderSEO() {
-  document.getElementById('seo-title').textContent =
-    product.seo_title || product.name;
-  document.getElementById('seo-desc')
-    .setAttribute('content', product.seo_description || product.description?.slice(0, 120) || '');
-  const ldj = {
-    "@context": "https://schema.org/",
-    "@type": "Product",
-    name: product.name,
-    image: product.images,
-    description: product.seo_description || product.description || '',
-    sku: product.variants?.[0]?.sku || '',
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "VND",
-      price: (pickPrice(product, selectedVariant).base || 0) / 1,
-      availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+function cloudify(u, transform='w_800,q_auto,f_auto'){
+  if (!u) return '';
+  try {
+    const url = new URL(u);
+    if (url.hostname.includes('res.cloudinary.com') && url.pathname.includes('/upload/')) {
+      url.pathname = url.pathname.replace('/upload/', `/upload/${transform}/`);
+      return url.toString();
     }
-  };
-  document.getElementById('ld-product').textContent = JSON.stringify(ldj);
+    return u;
+  } catch { return u; }
 }
 
-function renderRelated(items) {
-  relatedEl.innerHTML = items.map(p => `
-    <a href="product.html?id=${p.id}" class="bg-white border rounded p-3 block">
-      <img src="${(p.images?.[0]) || 'https://via.placeholder.com/400'}" class="w-full aspect-square object-cover rounded" />
-      <div class="mt-2 text-sm line-clamp-2">${p.name}</div>
-      <div class="text-sm">${formatPrice(p.sale_price ?? p.price)}</div>
-    </a>
-  `).join('');
+function renderPrice(){
+  if (!product) return;
+  const { base, original } = pickPrice(product, currentVariant);
+  if (original > base) {
+    priceEl.innerHTML = `<span class="text-rose-600 font-semibold text-xl mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400">${formatPrice(original)}</span>`;
+  } else {
+    priceEl.innerHTML = `<span class="text-rose-600 font-semibold text-xl">${formatPrice(base)}</span>`;
+  }
 }
 
-document.getElementById('add-to-cart')?.addEventListener('click', () => {
-  const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-  cart.push({
-    id: product.id,
-    name: product.name,
-    price: pickPrice(product, selectedVariant).base,
-    qty: 1,
-    variant: selectedVariant?.name ?? null,
-    // ưu tiên cân nặng biến thể → cân nặng sản phẩm → 0
-    weight_grams: selectedVariant?.weight_grams ?? product.weight_grams ?? 0,
+function renderVariants(){
+  const vars = product.variants || [];
+  if (!vars.length) { variantsEl.innerHTML = ''; return; }
+  variantsEl.innerHTML = `<div class="text-sm mb-1">Phân loại:</div><div class="flex flex-wrap gap-2" id="variant-chips"></div>`;
+  const chips = variantsEl.querySelector('#variant-chips');
+  vars.forEach((v, i)=>{
+    const b = document.createElement('button');
+    b.className = 'border rounded px-3 py-1 text-sm hover:bg-gray-50';
+    b.textContent = v.name || (`Loại ${i+1}`);
+    b.onclick = ()=>selectVariant(i);
+    chips.appendChild(b);
   });
-  localStorage.setItem('cart', JSON.stringify(cart));
-  alert('Đã thêm vào giỏ');
-}); // <-- chỉ đóng 1 lần cho event listener
+  selectVariant(0);
+}
 
-// ==== Load data ====
-(async () => {
-  // Load product
-  const res = await api(`/products/${id}`);
-  product = res.item;
+function buildSlides(){
+  slides = [];
+  const imgs = (product.images || []).map(u=>({type:'img', src: cloudify(u)}));
+  const vids = (product.videos || []).map(u=>({type:'video', src: u}));
+  slides = vids.concat(imgs); // video trước giống Shopee
+  if (!slides.length) slides = [{type:'img', src: 'https://dummyimage.com/800x800/eee/aaa&text=No+image'}];
+}
 
-  titleEl.textContent = product.name;
+function applySlide(idx){
+  if (!slides.length) return;
+  slideIdx = (idx + slides.length) % slides.length;
+  const s = slides[slideIdx];
+  if (s.type === 'video') {
+    galleryEl.innerHTML = `<video class="w-full rounded border" autoplay muted playsinline loop src="${s.src}"></video>`;
+  } else {
+    galleryEl.innerHTML = `<img class="w-full rounded border object-contain" src="${s.src}" alt="${product.name||''}">`;
+  }
+}
+
+function startAuto(){
+  if (slideTimer) clearInterval(slideTimer);
+  slideTimer = setInterval(()=>applySlide(slideIdx+1), 3000);
+}
+
+function selectVariant(i){
+  currentVariant = (product.variants||[])[i] || null;
+  variantsEl.querySelectorAll('button').forEach((b, idx)=>{
+    b.classList.toggle('bg-black/80', idx===i);
+    b.classList.toggle('text-white', idx===i);
+  });
+  renderPrice();
+  if (currentVariant && currentVariant.image) {
+    const vimg = cloudify(currentVariant.image);
+    const vi = slides.findIndex(s => s.type==='img' && s.src===vimg);
+    if (vi >= 0) applySlide(vi);
+    else { slides.unshift({type:'img', src: vimg}); applySlide(0); }
+  }
+}
+
+function renderDescription(){
+  const text = String(product.description||'').trim();
+  if (!text){ descEl.innerHTML = '<div class="text-gray-500">Chưa có mô tả</div>'; return; }
+  const html = text.split('\n\n').map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+  descEl.innerHTML = html;
+}
+
+async function load(){
+  const r = await api(`/products?id=${encodeURIComponent(id)}`);
+  const data = await r.json();
+  product = data.item || data;
+  if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
+  if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
+
+  titleEl.textContent = product.name || 'Sản phẩm';
+  document.getElementById('seo-title')?.textContent = (product.name||'') + ' - Shop Huy Vân';
+  document.getElementById('seo-desc')?.setAttribute('content', (product.description||'').slice(0,160));
+
   renderPrice();
   renderVariants();
-  renderGallery();
-  renderBadges();
-  renderSEO();
-  renderFAQ();
-  renderReviews();
-  renderVideos();
-
-  // Related
-  const rel = await api(`/products?category=${encodeURIComponent(product.category)}&limit=8`);
-  renderRelated(rel.items || []);
-
-  // Countdown
-  tickCountdown();
-})().catch(console.error); // <-- kết thúc IIFE, KHÔNG có thêm `});` nào sau dòng này
-
-
-
-function renderFAQ() {
-  if (!faqEl || !product.faq || !product.faq.length) return;
-  faqEl.innerHTML = product.faq.map(it => `
-    <div class="p-3">
-      <div class="font-medium">Q: ${it.q||''}</div>
-      <div class="text-gray-700 mt-1">A: ${it.a||''}</div>
-    </div>`).join('');
+  buildSlides();
+  applySlide(0);
+  startAuto();
+  renderDescription();
 }
 
-function star(r){ return '★★★★★☆☆☆☆☆'.slice(5 - Math.max(0, Math.min(5, Number(r)||5)), 10 - Math.max(0, Math.min(5, Number(r)||5))); }
-
-function renderReviews() {
-  if (!reviewsEl || !product.reviews || !product.reviews.length) return;
-  reviewsEl.innerHTML = product.reviews.map(rv => `
-    <div class="bg-white border rounded p-3 flex gap-3">
-      <img src="${rv.avatar || ''}" class="w-10 h-10 rounded-full border" alt="${rv.name||''}"/>
-      <div>
-        <div class="font-medium">${rv.name || 'Khách hàng'} <span class="text-amber-500">${'★'.repeat(Number(rv.rating)||5)}</span></div>
-        <div class="text-gray-700">${rv.content || ''}</div>
-      </div>
-    </div>`).join('');
-}
-
-function renderVideos() {
-  if (!videosEl || !product.videos || !product.videos.length) return;
-  videosEl.innerHTML = product.videos.map(url => {
-    const u = String(url||'').trim();
-    // If YouTube link
-    if (/youtube\.com|youtu\.be/.test(u)) {
-      let id = u.split('v=')[1] || u.split('/').pop();
-      id = (id||'').split('&')[0];
-      return `<div class="aspect-video bg-black"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen></iframe></div>`;
-    }
-    return `<video class="w-full rounded border" controls src="${u}"></video>`;
-  }).join('');
-}
+load();
