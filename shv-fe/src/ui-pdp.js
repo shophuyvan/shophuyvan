@@ -116,7 +116,7 @@ function renderReviews(){
     arr.map(r => `<div class="border rounded p-3"><div class="font-medium">${r.name||'Khách hàng'}</div><div class="text-yellow-500 text-sm">${'★'.repeat(Number(r.rating||5))}</div><div class="text-sm mt-1">${r.comment||''}</div></div>`).join('');
 }
 async function load(){
-  const data = await api(`/products?id=${encodeURIComponent(id)}`);
+  let data; try{ data = await api(`/products?id=${encodeURIComponent(id)}`);}catch(e){ console.error('Fetch product failed', e); return;}
   product = data.item || data;
   if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
   if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
