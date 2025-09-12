@@ -336,10 +336,10 @@ const Editor = {
     setInput('weight_grams', p.weight_grams||0);
     setInput('images', (p.images||[]).join(','));
     setInput('videos', (p.videos||[]).join(','));
-    setInput('image_alts', (p.image_alts||[]).join(','));
-    setInput('seo_title', p.seo_title||'');
-    setInput('seo_description', p.seo_description||'');
-    setInput('seo_keywords', p.seo_keywords||'');
+    setInput('image_alts', (p.alt_images||p.image_alts||[]).join(','));
+    setInput('seo_title', (p.seo&&p.seo.title)||p.seo_title||'');
+    setInput('seo_description', (p.seo&&p.seo.description)||p.seo_description||'');
+    setInput('seo_keywords', (p.seo&&p.seo.keywords)||p.seo_keywords||'');
     document.getElementById('is_active').checked = !!p.is_active;
     document.getElementById('btnDelete').disabled = false;
     document.getElementById('variantsWrap').innerHTML='';
@@ -362,12 +362,11 @@ const Editor = {
       sale_price: gv('sale_price')===''? null : Number(gv('sale_price')||0),
       stock: Number(gv('stock')||0),
       weight_grams: Number(gv('weight_grams')||0),
+      weight: Number(gv('weight_grams')||0),
       images: csvToArr(gv('images')),
       videos: csvToArr(gv('videos')),
-      image_alts: csvToArr(gv('image_alts')),
-      seo_title: gv('seo_title'),
-      seo_description: gv('seo_description'),
-      seo_keywords: gv('seo_keywords'),
+      alt_images: csvToArr(gv('image_alts')),
+      seo: { title: gv('seo_title'), description: gv('seo_description'), keywords: gv('seo_keywords') },
       is_active: document.getElementById('is_active').checked,
       variants: collectVariants(),
       faq: collectFAQ(),
