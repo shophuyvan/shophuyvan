@@ -570,3 +570,99 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   // default stay on products view
 });
+
+
+    // sidebar delegation fix
+    (function(){
+      const sb = document.getElementById('sidebar') || document.querySelector('.sidebar');
+      if (sb && !sb.__bound_view_clicks) {
+        sb.addEventListener('click', (e)=>{
+          const el = e.target.closest('[data-view]');
+          if (!el) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const view = el.getAttribute('data-view');
+          if (typeof showEditor === 'function') showEditor(view); __toggleViewFallback(view);
+        });
+        sb.__bound_view_clicks = true;
+      }
+    })();
+    
+
+    // cloudinary settings ui
+    (function(){
+      function getEl(id){ return document.getElementById(id); }
+      function getCfg(){
+        const cfg = JSON.parse(localStorage.getItem('cloudinary_cfg')||'{}');
+        return cfg;
+      }
+      function setCfg(cfg){
+        localStorage.setItem('cloudinary_cfg', JSON.stringify(cfg));
+      }
+      function fill(){
+        const c = getCfg();
+        (getEl('cld_cloud_name')||{}).value = c.cloud_name||'';
+        (getEl('cld_upload_preset')||{}).value = c.upload_preset||'';
+        (getEl('cld_folder')||{}).value = c.folder||'';
+        (getEl('cld_api_key')||{}).value = c.api_key||'';
+        (getEl('cld_signature')||{}).value = c.signature||'';
+        (getEl('cld_timestamp')||{}).value = c.timestamp||'';
+      }
+      function save(){
+        const cfg = {
+          cloud_name: (getEl('cld_cloud_name')||{}).value || '',
+          upload_preset: (getEl('cld_upload_preset')||{}).value || '',
+          folder: (getEl('cld_folder')||{}).value || '',
+          api_key: (getEl('cld_api_key')||{}).value || '',
+          signature: (getEl('cld_signature')||{}).value || '',
+          timestamp: (getEl('cld_timestamp')||{}).value || ''
+        };
+        setCfg(cfg);
+        const out = getEl('cloudinary_result');
+        if (out) out.textContent = 'Đã lưu cấu hình.';
+      }
+      async function ping(){
+        const out = getEl('cloudinary_result');
+        const cfg = getCfg();
+        if (!cfg.cloud_name || (!cfg.upload_preset && !cfg.signature)) {
+          if (out) out.textContent = 'Thiếu cloud_name và upload_preset (unsigned) hoặc signature (signed).';
+          return;
+        }
+        // Tiny transparent PNG
+        const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4z8DwHwAFgwJ/9kJ4vwAAAABJRU5ErkJggg==';
+        const url = `https://api.cloudinary.com/v1_1/${cfg.cloud_name}/auto/upload`;
+        const form = new FormData();
+        form.append('file', tiny);
+        if (cfg.upload_preset) form.append('upload_preset', cfg.upload_preset);
+        if (cfg.folder) form.append('folder', cfg.folder);
+        if (cfg.api_key) form.append('api_key', cfg.api_key);
+        if (cfg.signature && cfg.timestamp) {
+          form.append('signature', cfg.signature);
+          form.append('timestamp', cfg.timestamp);
+        }
+        try {
+          const res = await fetch(url, { method:'POST', body: form });
+          const txt = await res.text();
+          if (out) out.textContent = `Status ${res.status}: ${txt.slice(0,500)}`;
+        } catch (err){
+          if (out) out.textContent = 'Ping lỗi: ' + (err && err.message || err);
+        }
+      }
+      document.addEventListener('DOMContentLoaded', ()=>{
+        fill();
+        const sbtn = document.getElementById('btn_save_cloudinary');
+        const pbtn = document.getElementById('btn_ping_cloudinary');
+        if (sbtn) sbtn.addEventListener('click', save);
+        if (pbtn) pbtn.addEventListener('click', ping);
+      });
+    })();
+    
+
+    /* delegation fallback toggle */
+    function __toggleViewFallback(view){
+      const all = document.querySelectorAll('[id^="view-"]');
+      all.forEach(el=>{ el.hidden = true; });
+      const sec = document.getElementById('view-'+view);
+      if (sec) sec.hidden = false;
+    }
+    
