@@ -69,11 +69,13 @@ function renderVariants(){
 
 function buildSlides(){
   slides = [];
-  const imgs = (product.images || []).map(u=>({type:'img', src: cloudify(u)}));
-  const vids = (product.videos || []).map(u=>({type:'video', src: u}));
+  const m = pickMedia(product);
+  const imgs = (m.imgs||[]).map(u=>({type:'img', src: cloudify(u)}));
+  const vids = (m.vids||[]).map(u=>({type:'video', src: u}));
   slides = vids.concat(imgs); // video trước giống Shopee
   if (!slides.length) slides = [{type:'img', src: 'https://dummyimage.com/800x800/eee/aaa&text=No+image'}];
 }
+
 
 function applySlide(idx){
   if (!slides.length) return;
@@ -131,7 +133,7 @@ function renderReviews(){
 }
 async function load(){
   let data; try{ data = await api(`/products?id=${encodeURIComponent(id)}`);}catch(e){ console.error('Fetch product failed', e); return;}
-  product = data.item || data;
+  product = data.item || data; window.__pdp = product;
   if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
   if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
 
