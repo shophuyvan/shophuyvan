@@ -99,9 +99,24 @@ function renderDescription(){
   descEl.innerHTML = html;
 }
 
+
+function renderFAQ(){
+  const wrap = document.getElementById('faq');
+  if (!wrap) return;
+  const arr = Array.isArray(product.faq)? product.faq : [];
+  wrap.innerHTML = !arr.length ? '<div class="text-gray-500">Chưa có câu hỏi</div>' :
+    arr.map(q => `<details class="border rounded p-3"><summary class="font-medium">${q.question||q.q||''}</summary><div class="mt-2 text-sm">${q.answer||q.a||''}</div></details>`).join('');
+}
+
+function renderReviews(){
+  const wrap = document.getElementById('reviews');
+  if (!wrap) return;
+  const arr = Array.isArray(product.reviews)? product.reviews : [];
+  wrap.innerHTML = !arr.length ? '<div class="text-gray-500">Chưa có đánh giá</div>' :
+    arr.map(r => `<div class="border rounded p-3"><div class="font-medium">${r.name||'Khách hàng'}</div><div class="text-yellow-500 text-sm">${'★'.repeat(Number(r.rating||5))}</div><div class="text-sm mt-1">${r.comment||''}</div></div>`).join('');
+}
 async function load(){
-  const r = await api(`/products?id=${encodeURIComponent(id)}`);
-  const data = await r.json();
+  const data = await api(`/products?id=${encodeURIComponent(id)}`);
   product = data.item || data;
   if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
   if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
@@ -116,6 +131,8 @@ async function load(){
   applySlide(0);
   startAuto();
   renderDescription();
+  renderFAQ();
+  renderReviews();
 }
 
 load();
