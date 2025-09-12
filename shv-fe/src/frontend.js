@@ -25,19 +25,32 @@ async function loadBanners() {
 
 // ----- Product card -----
 function productCard(p) {
-  const price = p.sale_price ?? p.price;
-  const priceHtml = p.sale_price
-    ? `<div><span class="line-through text-gray-400 mr-2">${p.price.toLocaleString()}đ</span><span class="text-rose-600 font-semibold">${price.toLocaleString()}đ</span></div>`
-    : `<div class="font-semibold">${price.toLocaleString()}đ</div>`;
+  function minPriceOf(p){
+    const arr = Array.isArray(p.variants)? p.variants : [];
+    if (!arr.length) return {base: p.sale_price ?? p.price, original: p.price};
+    let base = Infinity, orig = Infinity;
+    for (const v of arr){
+      const b = (v.sale_price==null||v.sale_price==='') ? Number(v.price||0) : Number(v.sale_price||0);
+      const o = Number(v.price||0);
+      if (b < base) base = b;
+      if (o < orig) orig = o;
+    }
+    if (!isFinite(base)) base = p.sale_price ?? p.price; if (!isFinite(orig)) orig = p.price; return {base, original: orig};
+  }
+  const {base, original} = minPriceOf(p);
+  const priceHtml = (original>base)
+    ? `<div><span class=\"line-through text-gray-400 mr-2\">${original.toLocaleString()}đ</span><span class=\"text-rose-600 font-semibold\">${base.toLocaleString()}đ</span></div>`
+    : `<div class=\"font-semibold\">${base.toLocaleString()}đ</div>`;
   const img = (p.images && p.images[0]) || 'https://via.placeholder.com/400x400?text=Image';
   return `
-    <a href="product.html?id=${p.id}" class="bg-white border rounded p-3 block">
-      <img src="${img}" alt="${(p.image_alts||[])[0]||p.name}" class="w-full aspect-square object-cover rounded" />
-      <div class="mt-2 text-sm line-clamp-2">${p.name}</div>
+    <a href=\"product.html?id=${p.id}\" class=\"bg-white border rounded p-3 block\">
+      <img src=\"${img}\" alt=\"${(p.alt_images||p.image_alts||[])[0]||p.name}\" class=\"w-full aspect-square object-cover rounded\" />
+      <div class=\"mt-2 text-sm line-clamp-2\">${p.name}</div>
       ${priceHtml}
     </a>
   `;
 }
+
 
 // ----- Sections -----
 async function loadNew() {
