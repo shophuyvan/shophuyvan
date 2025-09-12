@@ -1,9 +1,23 @@
-# SHV R6 FULL (Home + Banner/Voucher Admin)
 
-- `index.html` — Trang chủ: giá thấp nhất theo biến thể, banner slider, placeholder nội bộ.
-- `src/ui-home.js` — Logic trang chủ.
-- `src/lib/price.js` — `pickLowestPrice` + `formatPrice`.
-- `admin-bv.html` + `src/ui-admin-bv.js` — Admin Banner/Voucher độc lập, không đụng admin cũ.
-- `src/lib/api.js` — Helper API (để gói tự chạy).
+SHV R6.1 – Merge Banner/Voucher into current Admin page
+=======================================================
 
-Nếu Worker chưa có `/settings`, dữ liệu Banner/Voucher sẽ lưu tạm `localStorage` và trang chủ vẫn đọc được.
+Files you care about:
+- src/lib/api.js            → exports BOTH named + default `api` (fixes import error)
+- src/ui-pdp.js             → example shows using default import
+- src/ui-admin-bv.js        → injects Banner/Voucher sections into your EXISTING admin.html
+
+How to apply
+------------
+1) Copy the entire `src/lib/api.js` and replace your existing file.
+2) Include `<script type="module" src="src/ui-admin-bv.js"></script>` at the bottom of your current admin.html (same page).
+3) In the product page script where you import the api, change:
+   `import { api } from './lib/api.js'` → `import api from './lib/api.js'`
+   OR keep the named import because the new api.js now exports both.
+4) Deploy.
+
+Notes
+-----
+- Script will try Worker endpoint: `admin/settings?token=...`. If unreachable, it stores data in `localStorage` under key `shv_settings`.
+- Sidebar buttons `Cài đặt Banner / Cài đặt Voucher` are injected automatically.
+- The UI is Tailwind-friendly but doesn't require Tailwind to function.
