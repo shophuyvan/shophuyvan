@@ -733,7 +733,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
   // Default stay on products
-  document.querySelector('[data-view="products"]').click();
+  document.querySelector('[data-view="products"]')?.click();
 
   document.getElementById('btn-add-banner')?.addEventListener('click', ()=>Banners.new());
   document.getElementById('btn-add-voucher')?.addEventListener('click', ()=>Vouchers.new());
