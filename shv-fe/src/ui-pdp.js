@@ -149,7 +149,7 @@ async function load(){
   renderVariants();
   buildSlides();
   applySlide(0);
-  startAuto();
+  // startAuto deferred to video-ended if first slide is video
   renderDescription();
   renderFAQ();
   renderReviews();
@@ -239,4 +239,36 @@ load();
       vid.addEventListener('ended', startCarousel, {once:true});
     }
   };
+})();
+
+// defer carousel until video end
+(function(){
+  try{
+    // If first slide is video, wait for ended
+    const firstIsVideo = (slides && slides[0] && slides[0].type === 'video');
+    if (firstIsVideo){
+      const g = document.getElementById('gallery');
+      const v = g && g.querySelector('video');
+      if (v){
+        v.addEventListener('ended', ()=> startAuto(), {once:true});
+      }
+    }else{
+      // no video -> start immediately
+      if (typeof startAuto==='function') startAuto();
+    }
+  }catch(e){}
+})();
+
+// mobile-friendly description collapse for #description
+(function(){
+  const box = document.getElementById('description');
+  if(!box) return;
+  if (!box.classList.contains('desc-collapsed')) box.classList.add('desc-collapsed');
+  const btn = document.createElement('button');
+  btn.className = 'border rounded px-3 py-1 text-sm mt-2';
+  let opened = false;
+  function apply(){ box.classList.toggle('desc-collapsed', !opened); btn.textContent = opened ? 'Thu gọn' : 'Xem thêm'; }
+  apply();
+  btn.addEventListener('click', ()=>{ opened=!opened; apply(); });
+  box.parentNode && box.parentNode.appendChild(btn);
 })();

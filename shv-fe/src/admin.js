@@ -338,7 +338,7 @@ async function uploadToCloudinary(file, folder="products"){
   if (typeof cfg === "string"){
     url = cfg; // cloudinary://<key>:<secret>@<cloud_name>/<preset>
   }else if (cfg.cloud_name && cfg.upload_preset){
-    url = `https://api.cloudinary.com/v1_1/${cfg.cloud_name}/upload`;
+    url = `https://api.cloudinary.com/v1_1/${cfg.cloud_name}/auto/upload`;
   }
   if (!url) throw new Error("Thiếu cấu hình Cloudinary");
   const fd = new FormData();
@@ -773,3 +773,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   }catch(e){}
 })();
+
+// click thumbnails in #imagesThumbs to set cover
+document.addEventListener('click', function(e){
+  const img = e.target.closest('#imagesThumbs img');
+  if(!img) return;
+  const src = img.getAttribute('src') || '';
+  if(!/^https?:\/\//.test(src)) return;
+  const main = document.querySelector('#image_url, input[name="image"], input[name="cover"], textarea[name="image"]');
+  if (main) main.value = src;
+  document.querySelectorAll('#imagesThumbs img.is-cover').forEach(el=>el.classList.remove('is-cover'));
+  img.classList.add('is-cover');
+}, {capture:true});
