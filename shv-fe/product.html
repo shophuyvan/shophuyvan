@@ -1,61 +1,68 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chi tiết sản phẩm</title>
-  <link rel="preconnect" href="https://res.cloudinary.com" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>SHOP HUY VÂN - Sản phẩm</title>
+  <link rel="stylesheet" href="https://cdn.tailwindcss.com" />
+  <style>
+    .box{border:1px solid #eee;border-radius:8px;padding:16px}
+    .muted{color:#6b7280}
+  </style>
 </head>
 <body class="bg-white">
-  <header class="border-b">
-    <div class="container mx-auto px-4 py-3 font-semibold">SHOP HUY VÂN</div>
+  <header class="px-6 py-4 border-b">
+    <h1 class="font-semibold text-lg">SHOP HUY VÂN</h1>
   </header>
 
-  <main class="container mx-auto px-4 py-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div id="gallery"
-           class="relative w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden
-                  flex items-center justify-center text-gray-400 select-none">
-        Ảnh/Video
+  <main class="px-6 py-8 grid grid-cols-1 md:grid-cols-12 gap-8">
+    <!-- Media -->
+    <section class="md:col-span-6">
+      <img id="gallery" alt="Ảnh/Video" class="w-full aspect-[1.1/1] object-contain rounded-lg border" />
+    </section>
+
+    <!-- Info -->
+    <section class="md:col-span-6">
+      <h2 id="title" class="text-2xl font-semibold mb-2">Sản phẩm</h2>
+      <div id="price" class="text-rose-600 font-semibold text-xl mb-4">0đ</div>
+
+      <div class="flex gap-3 mb-6">
+        <button class="px-4 py-2 rounded-md bg-rose-600 text-white">Thêm giỏ</button>
+        <button class="px-4 py-2 rounded-md bg-amber-500 text-white">Mua ngay</button>
+        <a class="px-4 py-2 rounded-md border" href="https://zalo.me/0933190000" target="_blank">Zalo</a>
       </div>
 
-      <div>
-        <h1 id="title" class="text-2xl font-semibold mb-4">Tên sản phẩm</h1>
-        <div id="price" class="text-red-600 font-bold text-xl mb-3">0đ</div>
-        <div id="variants" class="mb-4"></div>
+      <div id="variants" class="mb-6"></div>
 
-        <div class="flex gap-3 mb-4">
-          <button class="px-4 py-2 rounded bg-rose-600 text-white">Thêm giỏ</button>
-          <button class="px-4 py-2 rounded bg-amber-500 text-white">Mua ngay</button>
-          <a class="px-4 py-2 rounded border" href="https://zalo.me/0933190000" target="_blank" rel="noopener">Zalo</a>
-        </div>
-
-        <section class="mt-6">
-          <h2 class="font-semibold mb-2">Mô tả</h2>
-          <div id="description" class="prose prose-sm">Chưa có mô tả</div>
-        </section>
-
-        <section class="mt-6">
-          <h2 class="font-semibold mb-2">Voucher</h2>
-          <div id="voucher" class="text-sm"><span class="inline-flex items-center gap-2"><span class="text-amber-500">🎁</span> Freeship 150K</span></div>
-        </section>
-
-        <section class="mt-6">
-          <h2 class="font-semibold mb-2">FAQ</h2>
-          <div id="faq" class="text-sm text-gray-600">Chưa có câu hỏi</div>
-        </section>
-
-        <section class="mt-6">
-          <h2 class="font-semibold mb-2">Đánh giá</h2>
-          <div id="reviews" class="text-sm text-gray-600">Chưa có đánh giá</div>
-        </section>
+      <div class="box mb-6">
+        <h3 class="font-medium mb-2">Mô tả</h3>
+        <div id="description" class="muted">Chưa có mô tả</div>
       </div>
-    </div>
+
+      <div class="box mb-6">
+        <h3 class="font-medium mb-2">Voucher</h3>
+        <div id="voucher" class="muted">Chưa có voucher</div>
+      </div>
+
+      <div class="box mb-6">
+        <h3 class="font-medium mb-2">FAQ</h3>
+        <div id="faq" class="muted">Chưa có câu hỏi</div>
+      </div>
+
+      <div class="box mb-6">
+        <h3 class="font-medium mb-2">Đánh giá</h3>
+        <div id="reviews" class="muted">Chưa có đánh giá</div>
+      </div>
+    </section>
   </main>
 
-  <input id="api-base" type="hidden" value="https://shv-api.shophuyvan.workers.dev" />
-  <script type="module" src="/src/ui-pdp.js"></script>
-  <script type="module" src="/src/hotfix/fallback.js"></script>
+  <!-- Nơi helper api đọc base -->
+  <input id="api-base" type="hidden" value="" />
+
+  <!-- Gộp import dưới 1 khối type=module để chắc chắn đường dẫn /src/ tồn tại -->
+  <script type="module">
+    import '/src/ui-pdp.js';
+    import '/src/lib/fallback.js';
+  </script>
 </body>
 </html>
