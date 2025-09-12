@@ -1,3 +1,17 @@
+
+function pickMedia(p){
+  let imgs = [];
+  if (Array.isArray(p.images) && p.images.length) imgs = p.images;
+  else if (Array.isArray(p.gallery)) imgs = p.gallery.map(x=>x.url||x.src||x).filter(Boolean);
+  else if (Array.isArray(p.variants)) imgs = p.variants.map(v=>v.image).filter(Boolean);
+  else if (p.image) imgs = [p.image];
+
+  let vids = [];
+  if (Array.isArray(p.videos) && p.videos.length) vids = p.videos;
+  else if (Array.isArray(p.video_urls)) vids = p.video_urls;
+  return { imgs, vids };
+}
+
 import { api } from './lib/api.js';
 import { formatPrice, pickPrice } from './lib/price.js';
 
@@ -121,7 +135,7 @@ async function load(){
   if (typeof product.images === 'string') product.images = product.images.split(',').map(s=>s.trim()).filter(Boolean);
   if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
 
-  titleEl.textContent = product.name || 'Sản phẩm';
+  if (titleEl) titleEl.textContent = product.name || product.title || 'Sản phẩm';
   (() => { const el = document.getElementById('seo-title'); if (el) el.textContent = (product.name||'') + ' - Shop Huy Vân'; })();
 (() => { const el = document.getElementById('seo-desc'); if (el) el.setAttribute('content', (product.description||'').slice(0,160)); })();
 
