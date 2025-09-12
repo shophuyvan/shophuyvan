@@ -618,6 +618,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           timestamp: (getEl('cld_timestamp')||{}).value || ''
         };
         setCfg(cfg);
+        try{ window.CLOUDINARY = cfg; }catch(_){}
         const out = getEl('cloudinary_result');
         if (out) out.textContent = 'Đã lưu cấu hình.';
       }
@@ -750,3 +751,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }, {capture:true});
     })();
     
+
+// CLOUDINARY bootstrap: load from localStorage at startup
+(function(){
+  try{
+    const cfg = JSON.parse(localStorage.getItem('cloudinary_cfg')||'{}');
+    if (cfg && (cfg.cloud_name || cfg.upload_preset || cfg.signature)) {
+      window.CLOUDINARY = cfg;
+    }
+    // If missing, auto-open Settings view once
+    if (!cfg || !cfg.cloud_name || (!cfg.upload_preset && !cfg.signature)) {
+      const openSettings = ()=>{
+        const sec = document.getElementById('view-settings');
+        if (sec) {
+          document.querySelectorAll('[id^="view-"]').forEach(n=>n.hidden=true);
+          sec.hidden = false;
+        }
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', openSettings);
+      else openSettings();
+    }
+  }catch(e){}
+})();

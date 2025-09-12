@@ -82,9 +82,9 @@ function applySlide(idx){
   slideIdx = (idx + slides.length) % slides.length;
   const s = slides[slideIdx];
   if (s.type === 'video') {
-    galleryEl.innerHTML = `<video class="w-full rounded border" autoplay muted playsinline loop src="${s.src}"></video>`;
+    galleryEl.innerHTML = `<video class="pdp-video" autoplay muted playsinline src="${s.src}"></video>`;
   } else {
-    galleryEl.innerHTML = `<img class="w-full rounded border object-contain" src="${s.src}" alt="${product.name||''}">`;
+    galleryEl.innerHTML = `<img class="w-full rounded border object-contain slide-img" src="${s.src}" alt="${product.name||''}">`;
   }
 }
 
@@ -222,4 +222,21 @@ load();
   apply();
   btn.addEventListener('click', ()=>{ collapsed=!collapsed; apply(); });
   box.parentNode && box.parentNode.appendChild(btn);
+})();
+
+// pdp video-first autoplay strict
+(function(){
+  const galleryEl = document.getElementById('gallery');
+  const origApply = applySlide;
+  applySlide = function(idx){
+    origApply(idx);
+    const vid = galleryEl && galleryEl.querySelector('video, .pdp-video');
+    if (vid){
+      try{ vid.removeAttribute('loop'); }catch(_){}
+      const startCarousel = ()=>{
+        if (typeof startAuto==='function'){ startAuto(); }
+      };
+      vid.addEventListener('ended', startCarousel, {once:true});
+    }
+  };
 })();
