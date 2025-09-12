@@ -6,7 +6,23 @@
   <title id="seo-title">Tên sản phẩm - Shop Huy Vân</title>
   <meta id="seo-desc" name="description" content="Mô tả sản phẩm" />
   <script src="https://cdn.tailwindcss.com"></script>
-</head>
+
+        <style>
+        /* pdp media css */
+        .pdp-media{ position:relative; }
+        .pdp-media video{ width:100%; height:auto; max-height:70vh; display:block; object-fit:contain; background:#000; border-radius:8px; }
+        .pdp-gallery{ overflow:hidden; position:relative; }
+        .pdp-gallery .slide{ display:none; }
+        .pdp-gallery .slide.active{ display:block; }
+        /* mobile description */
+        .desc-collapsed{ max-height:220px; overflow:hidden; position:relative; }
+        .desc-collapsed:after{ content:""; position:absolute; left:0; right:0; bottom:0; height:64px; background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1)); }
+        .desc-toggle{ display:inline-block; margin-top:8px; }
+        @media (max-width:768px){
+          .pdp-layout{ display:flex; flex-direction:column; gap:16px; }
+        }
+        </style>
+        </head>
 <body class="bg-gray-50">
 <header class="border-b bg-white">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">

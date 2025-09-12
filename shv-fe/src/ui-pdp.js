@@ -156,3 +156,57 @@ async function load(){
 }
 
 load();
+
+
+        // pdp video-first autoplay
+        (function(){
+          const v = document.querySelector('.pdp-media video');
+          const slides = Array.from(document.querySelectorAll('.pdp-gallery .slide'));
+          let idx = 0, timer = null;
+          function show(i){
+            slides.forEach((s, k)=> s.classList.toggle('active', k===i));
+            idx = i;
+          }
+          function startCarousel(){
+            clearInterval(timer);
+            if (slides.length <= 1) return;
+            timer = setInterval(()=>{
+              show((idx+1)%slides.length);
+            }, 3500);
+          }
+          if (v){
+            // Place video as first, then slides run after ended
+            v.addEventListener('ended', ()=>{
+              show(0);
+              startCarousel();
+            }, {once:true});
+          } else {
+            startCarousel();
+          }
+          // Init: prefer video visible
+          if (slides.length) show(0);
+        })();
+        
+
+        // pdp description collapse
+        (function(){
+          const box = document.querySelector('.product-description');
+          if (!box) return;
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-sm desc-toggle';
+          btn.textContent = 'Xem thêm';
+          let collapsed = true;
+          function apply(){
+            if (collapsed){
+              box.classList.add('desc-collapsed');
+              btn.textContent = 'Xem thêm';
+            } else {
+              box.classList.remove('desc-collapsed');
+              btn.textContent = 'Thu gọn';
+            }
+          }
+          apply();
+          btn.addEventListener('click', ()=>{ collapsed = !collapsed; apply(); });
+          box.parentNode && box.parentNode.appendChild(btn);
+        })();
+        

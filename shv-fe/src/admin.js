@@ -666,3 +666,39 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if (sec) sec.hidden = false;
     }
     
+
+        /* unify data-view clicks */
+        (function(){
+          function onViewClick(e){
+            const el = e.target.closest('[data-view]');
+            if(!el) return;
+            e.preventDefault();
+            const view = el.getAttribute('data-view');
+            try{ if (typeof showEditor==='function') showEditor(view); }catch(_){}
+            // Fallback visibility toggle:
+            const all = document.querySelectorAll('[id^="view-"]');
+            all.forEach(n=>n.hidden=true);
+            const sec = document.getElementById('view-'+view);
+            if (sec) sec.hidden=false;
+          }
+          // Bind at document level to survive DOM reloads
+          document.addEventListener('click', onViewClick, {capture:false});
+        })();
+        
+
+        // choose cover image
+        (function(){
+          // delegate on preview strip
+          document.addEventListener('click', (e)=>{
+            const thumb = e.target.closest('[data-img-url]');
+            if(!thumb) return;
+            const url = thumb.getAttribute('data-img-url');
+            const input = document.querySelector('input[name="images"], textarea[name="images"], #images');
+            const main = document.querySelector('input[name="image"], #image_url');
+            if (main) { main.value = url; }
+            // highlight selection
+            document.querySelectorAll('[data-img-url].is-cover').forEach(el=>el.classList.remove('is-cover'));
+            thumb.classList.add('is-cover');
+          }, {passive:true});
+        })();
+        
