@@ -107,8 +107,8 @@ async function load(){
   if (typeof product.videos === 'string') product.videos = product.videos.split(',').map(s=>s.trim()).filter(Boolean);
 
   titleEl.textContent = product.name || 'Sản phẩm';
-  document.getElementById('seo-title')?.textContent = (product.name||'') + ' - Shop Huy Vân';
-  document.getElementById('seo-desc')?.setAttribute('content', (product.description||'').slice(0,160));
+  (() => { const el = document.getElementById('seo-title'); if (el) el.textContent = (product.name||'') + ' - Shop Huy Vân'; })();
+(() => { const el = document.getElementById('seo-desc'); if (el) el.setAttribute('content', (product.description||'').slice(0,160)); })();
 
   renderPrice();
   renderVariants();
