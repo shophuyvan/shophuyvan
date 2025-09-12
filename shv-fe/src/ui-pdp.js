@@ -272,3 +272,44 @@ load();
   btn.addEventListener('click', ()=>{ opened=!opened; apply(); });
   box.parentNode && box.parentNode.appendChild(btn);
 })();
+
+// ---- Video-first then carousel ----
+function startCarouselAfterVideo(){
+  const v = document.querySelector('video, .pdp-video');
+  const carousel = document.querySelector('[data-carousel]');
+  if (!carousel){ return; }
+  const startCarousel = ()=>{
+    if (window.__pdpCarouselTimer) clearInterval(window.__pdpCarouselTimer);
+    const imgs = carousel.querySelectorAll('img');
+    if (imgs.length<2) return;
+    let i = 0;
+    window.__pdpCarouselTimer = setInterval(()=>{
+      i = (i+1)%imgs.length;
+      imgs.forEach((im,idx)=>{
+        im.style.display = (idx===i)?'block':'none';
+      });
+    }, 3200);
+  };
+  if (v){
+    v.addEventListener('ended', startCarousel, {once:true});
+    // If video fails to load, fallback to carousel
+    v.addEventListener('error', startCarousel, {once:true});
+    // Do not auto start carousel until video ends
+  } else {
+    startCarousel();
+  }
+}
+document.addEventListener('DOMContentLoaded', startCarouselAfterVideo);
+
+// ---- Description collapse on mobile ----
+document.addEventListener('DOMContentLoaded', ()=>{
+  const desc = document.querySelector('.desc, #description, .product-description');
+  const btn = document.getElementById('descToggle');
+  if (!desc || !btn) return;
+  const isMobile = window.matchMedia('(max-width:768px)').matches;
+  if (isMobile) desc.classList.add('collapsed');
+  btn.addEventListener('click', ()=>{
+    desc.classList.toggle('collapsed');
+    btn.textContent = desc.classList.contains('collapsed') ? 'Xem thêm' : 'Thu gọn';
+  });
+});

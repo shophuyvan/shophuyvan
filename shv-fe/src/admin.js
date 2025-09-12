@@ -785,3 +785,126 @@ document.addEventListener('click', function(e){
   document.querySelectorAll('#imagesThumbs img.is-cover').forEach(el=>el.classList.remove('is-cover'));
   img.classList.add('is-cover');
 }, {capture:true});
+
+
+// ---- Robust event delegation for [data-view] ----
+function handleViewNav(ev){
+  const t = ev.target.closest('[data-view]');
+  if (!t) return;
+  ev.preventDefault();
+  const view = t.getAttribute('data-view');
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  const el = document.getElementById('view-'+view) || document.querySelector('#view-'+view+', [data-view-id="'+view+'"]');
+  if (el) el.classList.remove('hidden');
+}
+['click','touchend'].forEach(evt=>document.addEventListener(evt, handleViewNav, {capture:true}));
+
+
+// ---- Unsigned upload (Cloudinary) ----
+async function doUnsignedUpload(file, resource_type='image'){
+  const cfg = window.CLOUDINARY || {};
+  if (!cfg.cloud_name || !cfg.upload_preset) throw new Error('Thiếu cấu hình Cloudinary');
+  const url = `https://api.cloudinary.com/v1_1/${cfg.cloud_name}/${resource_type}/upload`;
+  const fd = new FormData();
+  fd.append('upload_preset', cfg.upload_preset);
+  if (cfg.folder) fd.append('folder', cfg.folder);
+  fd.append('file', file);
+  const r = await fetch(url, { method:'POST', body: fd });
+  if (!r.ok) throw new Error('Upload thất bại');
+  return await r.json();
+}
+function toast(msg, ok=true){
+  try{
+    const el = document.createElement('div');
+    el.className = 'toast ' + (ok?'ok':'err');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(()=>{ el.remove(); }, 2500);
+  }catch(_){ alert(msg); }
+}
+document.addEventListener('change', async (ev)=>{
+  const upImg = ev.target.closest('[data-upload="image"]');
+  const upVid = ev.target.closest('[data-upload="video"]');
+  if (!upImg && !upVid) return;
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  try{
+    const res = await doUnsignedUpload(file, upVid?'video':'image');
+    const url = res.secure_url || res.url;
+    // find target textarea/input for CSV
+    const targetSelector = ev.target.getAttribute('data-target') || '#imagesCsv';
+    const input = document.querySelector(targetSelector);
+    if (input){
+      const cur = input.value.trim();
+      input.value = cur ? (cur + ',' + url) : url;
+    }
+    toast('Upload thành công');
+  }catch(e){
+    console.error(e);
+    toast('Upload thất bại', false);
+  } finally {
+    ev.target.value='';
+  }
+});
+// Save/Test config buttons
+document.addEventListener('click', async (ev)=>{
+  if (ev.target.id === 'btnSaveCld'){
+    const cfg = {
+      cloud_name: document.getElementById('cld_name')?.value?.trim(),
+      upload_preset: document.getElementById('cld_preset')?.value?.trim(),
+      folder: document.getElementById('cld_folder')?.value?.trim(),
+    };
+    localStorage.setItem('cloudinary_cfg', JSON.stringify(cfg));
+    window.CLOUDINARY = cfg;
+    toast('Đã lưu cấu hình');
+  }
+  if (ev.target.id === 'btnTestCld'){
+    try{
+      const blob = new Blob(['hello shv'], {type:'text/plain'});
+      const file = new File([blob], 'test.txt', {type:'text/plain'});
+      const res = await doUnsignedUpload(file, 'raw');
+      if (res && (res.secure_url||res.url)) toast('Kiểm tra OK');
+      else throw new Error('No URL');
+    }catch(e){ console.error(e); toast('Kiểm tra thất bại', false); }
+  }
+});
+
+// ---- Token via query helper ----
+function getTokenFromQuery(){
+  const u = new URL(location.href);
+  return u.searchParams.get('token')||'';
+}
+function withToken(url){
+  const t = getTokenFromQuery();
+  if (!t) return url;
+  const u = new URL(url, location.origin);
+  if (!u.searchParams.has('token')) u.searchParams.set('token', t);
+  return u.toString();
+}
+
+async function apiFetch(path, opts={}){
+  const base = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+  const url = withToken(base.replace(/\/$/, '') + '/' + path.replace(/^\//,'') );
+  if (opts && opts.headers){
+    const h = new Headers(opts.headers);
+    h.delete('Authorization');
+    opts.headers = h;
+  }
+  const r = await fetch(url, Object.assign({ method:'GET' }, opts));
+  if (r.status === 401) throw new Error('401 Unauthorized');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const ct = r.headers.get('content-type')||'';
+  return ct.includes('application/json') ? r.json() : r.text();
+}
+
+// ---- Banner CRUD ----
+async function loadBanners(){ return await apiFetch('/banners'); }
+async function createBanner(data){ return await apiFetch('/banners', {method:'POST', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
+async function updateBanner(id,data){ return await apiFetch('/banners/'+id, {method:'PUT', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
+async function deleteBanner(id){ return await apiFetch('/banners/'+id, {method:'DELETE'});}
+
+// ---- Voucher CRUD ----
+async function loadVouchers(){ return await apiFetch('/vouchers'); }
+async function createVoucher(data){ return await apiFetch('/vouchers', {method:'POST', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
+async function updateVoucher(id,data){ return await apiFetch('/vouchers/'+id, {method:'PUT', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
+async function deleteVoucher(id){ return await apiFetch('/vouchers/'+id, {method:'DELETE'});}

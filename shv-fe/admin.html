@@ -26,7 +26,8 @@
 @media (max-width: 768px){
   #sidebar.open{ display:block !important; position:fixed; left:0; top:0; bottom:0; width:240px; padding:1rem; background:#0f172a; z-index:50; overflow:auto; }
 }
-  </style>
+  .hidden{display:none!important}
+</style>
 
     <style>
     /* admin clickability fix */
@@ -35,7 +36,8 @@
     /* Prevent any overlay blocking clicks */
     .overlay, .drawer, .modal-backdrop { pointer-events: none; }
     .overlay.active, .drawer.open, .modal-backdrop.show { pointer-events: auto; }
-    </style>
+    .hidden{display:none!important}
+</style>
     
         <style>
         /* admin mobile fix */
@@ -46,7 +48,8 @@
           .admin-main{ padding:8px !important; }
           .card{ padding:12px !important; }
         }
-        </style>
+        .hidden{display:none!important}
+</style>
         
     <style>
     /* admin stabilizer */
@@ -62,7 +65,8 @@
     }
     /* highlight for chosen cover */
     .is-cover{ outline:2px solid #60a5fa; border-radius:6px; }
-    </style>
+    .hidden{display:none!important}
+</style>
     </head>
 <body>
   <div id="backdrop" class="hidden md:hidden fixed inset-0 bg-black/50 z-40"></div>

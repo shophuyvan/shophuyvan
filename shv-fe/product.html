@@ -21,7 +21,14 @@
         @media (max-width:768px){
           .pdp-layout{ display:flex; flex-direction:column; gap:16px; }
         }
+        
+        .pdp-video{ width:100%; height:56vw; max-height:420px; object-fit:contain; background:#000; }
+        @media (min-width:769px){ .pdp-video{ height:480px; } }
+        .desc.collapsed{ max-height: 120px; overflow:hidden; }
+        .desc-toggle{ display:none; margin:8px 0; }
+        @media (max-width:768px){ .desc-toggle{ display:block; } }
         </style>
+        
         
         <style>
         /* pdp media guard */
@@ -32,7 +39,14 @@
         #description.desc-collapsed{ max-height:240px; overflow:hidden; position:relative; }
         #description.desc-collapsed:after{ content:""; position:absolute; left:0; right:0; bottom:0; height:64px; background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1)); }
         @media (max-width: 768px){ .pdp-layout{ display:flex; flex-direction:column; gap:16px; } }
+        
+        .pdp-video{ width:100%; height:56vw; max-height:420px; object-fit:contain; background:#000; }
+        @media (min-width:769px){ .pdp-video{ height:480px; } }
+        .desc.collapsed{ max-height: 120px; overflow:hidden; }
+        .desc-toggle{ display:none; margin:8px 0; }
+        @media (max-width:768px){ .desc-toggle{ display:block; } }
         </style>
+        
         </head>
 <body class="bg-gray-50">
 <header class="border-b bg-white">
@@ -103,5 +117,8 @@
 <script type="module" src="/src/ui-pdp.js"></script>
 <script type="module" src="/src/tracking.js"></script>
 
-</body>
+
+        <button type="button" id="descToggle" class="desc-toggle">Xem thêm</button>
+        </body>
+        
 </html>
