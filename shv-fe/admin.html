@@ -34,10 +34,12 @@
     <aside class="sidebar p-4 flex flex-col gap-2">
       <div class="text-xl font-bold tracking-wide">Admin</div>
       <nav class="mt-2 flex flex-col gap-1">
-        <button class="ghost-btn text-left" onclick="UI.showList()">Sản phẩm</button>
-        <button class="ghost-btn text-left" onclick="UI.showEditor()">Thêm/Chỉnh sửa</button>
-        <button class="ghost-btn text-left" onclick="UI.openSettings()">Cài đặt</button>
-      </nav>
+        <button class="ghost-btn text-left" data-view="products">Sản phẩm</button>
+        <button class="ghost-btn text-left" data-view="editor">Thêm/Chỉnh sửa</button>
+        <button class="ghost-btn text-left" data-view="banners">Banner</button>
+        <button class="ghost-btn text-left" data-view="vouchers">Voucher</button>
+        <div class="h-px bg-white/10 my-2"></div>
+        </nav>
       <div class="mt-auto text-xs muted">Built for Shop Huy Vân</div>
     </aside>
     <main class="p-6 overflow-y-auto">
@@ -637,11 +639,17 @@ const Banners = {
       await fetch(API.url('/admin/banners'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
       await Banners.list();
     });
+    (function(){
+      const f=document.getElementById('m-image-file'); const b=document.getElementById('m-image-up'); if (f && b){
+        b.onclick=()=>f.click();
+        f.onchange=async()=>{ const file=f.files&&f.files[0]; if(!file) return; const res=await __uploadBannerFile(file); document.getElementById('m-image').value = res.secure_url || res.url || ''; };
+      }
+    })();
   },
   async new(){
     const body = `
       <label class='block text-sm'>Tiêu đề<input id='m-title' class='input w-full mt-1'></label>
-      <label class='block text-sm'>Image URL<input id='m-image' class='input w-full mt-1'></label>
+      <label class='block text-sm'>Image URL<input id='m-image' class='input w-full mt-1'><div class='mt-2 flex items-center gap-2'><input id='m-image-file' type='file' accept='image/*' class='hidden'><button id='m-image-up' class='btn btn-secondary' type='button'>Tải ảnh từ máy</button></div></label>
       <label class='block text-sm'>Link<input id='m-link' class='input w-full mt-1'></label>
       <label class='block text-sm'>Thứ tự<input id='m-order' class='input w-full mt-1' type='number' value='0'></label>
       <label class='inline-flex items-center gap-2 mt-1'><input id='m-active' type='checkbox' checked> Active</label>`;
@@ -650,6 +658,12 @@ const Banners = {
       await fetch(API.url('/admin/banners'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
       await Banners.list();
     });
+    (function(){
+      const f=document.getElementById('m-image-file'); const b=document.getElementById('m-image-up'); if (f && b){
+        b.onclick=()=>f.click();
+        f.onchange=async()=>{ const file=f.files&&f.files[0]; if(!file) return; const res=await __uploadBannerFile(file); document.getElementById('m-image').value = res.secure_url || res.url || ''; };
+      }
+    })();
   },
   async remove(id){
     if (!confirm('Xóa banner?')) return;
@@ -741,6 +755,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 
   <script src="/src/uploader.js"></script>
+
+<script>
+async function __uploadBannerFile(file){
+  try{
+    // Read Cloudinary config from localStorage (set via UI.openSettings)
+    const cloud = localStorage.getItem('cloud_name') || (window.CFG && CFG.CLOUD_NAME) || '';
+    const preset = localStorage.getItem('upload_preset') || (window.CFG && CFG.UPLOAD_PRESET) || '';
+    if (!cloud || !preset) { alert('Thiếu cấu hình Cloudinary'); throw new Error('Missing Cloudinary config'); }
+    const url = `https://api.cloudinary.com/v1_1/${cloud}/upload`;
+    const fd = new FormData();
+    fd.append('upload_preset', preset);
+    fd.append('folder', 'banners');
+    fd.append('file', file);
+    const r = await fetch(url, { method:'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  }catch(e){ console.error(e); alert('Upload lỗi'); throw e; }
+}
+</script>
+
 </body>
 </html>
 <script>
