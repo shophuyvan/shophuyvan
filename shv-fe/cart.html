@@ -17,10 +17,22 @@
 <main class="max-w-4xl mx-auto px-4 py-6">
   <h1 class="font-semibold text-lg mb-3">Giỏ hàng</h1>
   <div id="cart-list" class="bg-white border rounded"></div>
+
+  <section class="bg-white border rounded p-4">
+    <h2 class="font-semibold mb-2">Mã khuyến mãi</h2>
+    <div class="flex gap-2">
+      <input id="voucher" class="border rounded px-3 py-2 flex-1" placeholder="Nhập mã voucher (miễn phí ship / giảm giá)">
+      <button id="apply-voucher" class="bg-rose-600 text-white px-4 py-2 rounded">Áp dụng</button>
+    </div>
+    <div id="voucher-result" class="text-sm mt-2"></div>
+    <div id="cart-summary" class="text-sm mt-2"></div>
+  </section>
+
 </main>
 
 <script type="module" src="/src/cart.js"></script>
 <script type="module" src="/src/tracking.js"></script>
 <script type="module" src="/src/frontend.js"></script>
+<script type="module" src="/src/voucher-ui.js"></script>
 </body>
 </html>
