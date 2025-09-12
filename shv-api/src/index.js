@@ -14,11 +14,10 @@ import { Fire } from './modules/firestore.js';
 import { handleProducts } from './modules/products.js';
 
 // ---- helpers ----
-const cors = (origin = '*') => ({
-  'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
-  'Vary': 'Origin',
+const cors = () => ({
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 });
 
 const json = (status, data, headers) =>
@@ -27,14 +26,22 @@ const json = (status, data, headers) =>
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
   });
 
-function requireAdmin(req, env) {
+function requireAdmin(req, env, urlObj) {
+  const url = urlObj || new URL(req.url);
+  const tokenFromQuery = (url.searchParams.get('token') || '').trim();
   const auth = req.headers.get('Authorization') || '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
-  if (!token || token !== env.ADMIN_TOKEN) {
-    throw json(401, { error: 'Unauthorized' });
+  const tokenFromHeader = auth.replace(/^Bearer\s+/i, '').trim();
+  const token = tokenFromQuery || tokenFromHeader;
+
+  const adminSecret = (env && env.ADMIN_TOKEN) ? String(env.ADMIN_TOKEN) : '';
+  if (adminSecret) {
+    if (!token || token !== adminSecret) {
+      throw json(401, { error: 'Unauthorized' });
+    }
+  } else {
+    // permissive mode when no ADMIN_TOKEN configured
   }
 }
-
 export default {
   async fetch(req, env, ctx) {
     const origin = req.headers.get('Origin') || '*';
