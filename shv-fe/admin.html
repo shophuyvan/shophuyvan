@@ -21,11 +21,17 @@
     .pill{ padding:.15rem .45rem; border-radius:.5rem; font-size:.75rem; border:1px solid #334155; background:#0b1220 }
     .thumb{ width:56px; height:56px; border-radius:.5rem; object-fit:cover; background:#0b1220; border:1px solid #1f2937 }
     .ghost-btn{ padding:.4rem .6rem; border:1px solid #334155; border-radius:.6rem; }
+  
+/* Mobile sidebar toggle */
+@media (max-width: 768px){
+  #sidebar.open{ display:block !important; position:fixed; left:0; top:0; bottom:0; width:240px; padding:1rem; background:#0f172a; z-index:50; overflow:auto; }
+}
+
   </style>
 </head>
 <body>
-  <div class="h-full grid grid-cols-[240px_1fr]">
-    <aside class="sidebar p-4 flex flex-col gap-2">
+  <div class="min-h-screen grid grid-cols-1 md:grid-cols-[240px_1fr]">
+    <aside id="sidebar" class="sidebar p-4 flex flex-col gap-2 hidden md:flex">
       <div class="text-xl font-bold tracking-wide">Admin</div>
       <nav class="mt-2 flex flex-col gap-1">
         <button class="ghost-btn text-left" onclick="UI.showList()">Sản phẩm</button>
@@ -35,10 +41,10 @@
       <div class="mt-auto text-xs muted">Built for Shop Huy Vân</div>
     </aside>
     <main class="p-6 overflow-y-auto">
-      <header class="flex flex-wrap items-center gap-2 justify-between mb-5">
+      <header class="flex flex-wrap items-center gap-2 justify-between mb-5 flex items-center justify-between">
         <div class="font-semibold text-lg">Quản lý sản phẩm</div>
         <div class="flex items-center gap-2">
-          <input id="tokenInput" class="input w-64" placeholder="Token admin…" />
+          <input id="tokenInput" class="input w-full md:w-64" placeholder="Token admin…" />
           <button class="btn btn-secondary" onclick="UI.saveToken()">Lưu token</button>
           <button class="btn" onclick="UI.refresh()">Làm mới</button>
         </div>
@@ -46,10 +52,10 @@
 
       <section id="listView" class="hidden">
         <div class="flex items-center gap-3 mb-4">
-          <input id="searchBox" class="input w-80" placeholder="Tìm theo tên…">
+          <input id="searchBox" class="input w-full md:w-80" placeholder="Tìm theo tên…">
           <button class="btn btn-secondary" onclick="UI.showEditor()">+ Thêm sản phẩm</button>
         </div>
-        <div id="productsGrid" class="grid gap-3"></div>
+        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
         <div class="mt-4 flex items-center gap-2">
           <button class="btn btn-secondary" onclick="API.loadMore()">Tải thêm</button>
           <span id="nextCursor" class="muted text-xs"></span>
@@ -223,10 +229,7 @@ const API = {
       return full + (t ? (sep+'token='+encodeURIComponent(t)) : '');
     }
   },
-  headersJSON(){ return { 'content-type': 'application/json' }; };
-    // removed x-token to avoid CORS
-    return h;
-  },
+  headersJSON(){ return { 'content-type': 'application/json' }; },
   async list(reset){
     if(reset){ STATE.nextCursor=null; STATE.list=[]; }
     const url = this.url(`/admin/products?limit=50${STATE.nextCursor?('&cursor='+encodeURIComponent(STATE.nextCursor)):""}`);
@@ -546,6 +549,8 @@ function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 function fmt(n){ n=Number(n||0); return n.toLocaleString('vi-VN')+' đ'; }
 
 window.addEventListener('load', ()=>{
+  document.getElementById('btnMenu')?.addEventListener('click', ()=>document.getElementById('sidebar')?.classList.toggle('open'));
+
   document.getElementById('tokenInput').value = localStorage.getItem('admin_token')||'';
   UI.showList();
   API.list(true);
