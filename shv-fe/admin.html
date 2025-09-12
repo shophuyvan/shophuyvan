@@ -21,9 +21,15 @@
     .pill{ padding:.15rem .45rem; border-radius:.5rem; font-size:.75rem; border:1px solid #334155; background:#0b1220 }
     .thumb{ width:56px; height:56px; border-radius:.5rem; object-fit:cover; background:#0b1220; border:1px solid #1f2937 }
     .ghost-btn{ padding:.4rem .6rem; border:1px solid #334155; border-radius:.6rem; }
+  
+/* Mobile sidebar toggle/backdrop */
+@media (max-width: 768px){
+  #sidebar.open{ display:block !important; position:fixed; left:0; top:0; bottom:0; width:240px; padding:1rem; background:#0f172a; z-index:50; overflow:auto; }
+}
   </style>
 </head>
 <body>
+  <div id="backdrop" class="hidden md:hidden fixed inset-0 bg-black/50 z-40"></div>
   <div class="h-full grid grid-cols-[240px_1fr]">
     <aside class="sidebar p-4 flex flex-col gap-2">
       <div class="text-xl font-bold tracking-wide">Admin</div>
@@ -155,6 +161,14 @@
           </div>
         </div>
       </section>
+    
+    <!-- Mobile sticky action bar -->
+    <div id="mobileBar" class="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-[#0f172a]/95 border-t border-slate-700 backdrop-blur z-30">
+      <div class="flex gap-2">
+        <button class="btn flex-1" onclick="Editor.save()">Lưu</button>
+        <button class="btn btn-secondary" onclick="Editor.new()">Mới</button>
+      </div>
+    </div>
     </main>
   </div>
 
@@ -188,18 +202,7 @@ const UI = {
   },
   renderList(){
     const q = (document.getElementById('searchBox').value||'').toLowerCase();
-    const wrap = document.getElementById('productsGrid');
-    wrap.innerHTML='';
-    if (STATE.loading) {
-      for (let i=0;i<6;i++){
-        const sk = document.createElement('div');
-        sk.className = 'card rounded-2xl p-3 animate-pulse';
-        sk.innerHTML = `<div class="h-16 w-16 rounded bg-slate-700 mb-2"></div><div class="h-3 bg-slate-700 rounded w-3/4 mb-1"></div><div class="h-3 bg-slate-800 rounded w-1/2"></div>`;
-        wrap.appendChild(sk);
-      }
-      return;
-    }
-
+    const wrap = document.getElementById('productsGrid'); wrap.innerHTML='';
     (STATE.list||[]).filter(p => !q || (p.title||p.name||'').toLowerCase().includes(q)).forEach(p=>{
       const thumb = (p.thumb || (p.images && p.images[0]) || '').replace('/upload/','/upload/w_120,f_auto,q_auto/');
       const el = document.createElement('div');
@@ -319,7 +322,7 @@ const Editor = {
     document.getElementById('variantsWrap').innerHTML='';
     document.getElementById('faqWrap').innerHTML='';
     document.getElementById('reviewsWrap').innerHTML='';
-    UI.showEditor();
+    if (!window.__openingEditor) UI.showEditor();
   },
   load(p){
     STATE.editing = p.id;
@@ -547,6 +550,10 @@ function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 function fmt(n){ n=Number(n||0); return n.toLocaleString('vi-VN')+' đ'; }
 
 window.addEventListener('load', ()=>{
+  const sb=document.getElementById('sidebar'); const bd=document.getElementById('backdrop');
+  bd?.addEventListener('click', ()=>{ sb?.classList.remove('open'); bd?.classList.add('hidden'); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ sb?.classList.remove('open'); bd?.classList.add('hidden'); } });
+
   document.getElementById('tokenInput').value = localStorage.getItem('admin_token')||'';
   UI.showList();
   API.list(true);
