@@ -163,6 +163,33 @@ else if (url.pathname.startsWith('/orders')) {
       }
 
       // ---- PUBLIC products (đọc Fire) ----
+            // ---- CART: apply voucher ----
+      else if (url.pathname === '/cart/apply-voucher' && req.method === 'POST') {
+        const body = await req.json().catch(()=>({}));
+        const codeV = String(body.code||'').trim().toUpperCase();
+        const items = Array.isArray(body.items) ? body.items : [];
+        const shipFee = Number(body.shipping_fee || 0);
+        if (!codeV) return json(400, { error: 'missing_code' });
+        const v = await fire.get('vouchers', codeV);
+        if (!v || v.is_active === false) return json(400, { error: 'invalid' });
+        const now = Date.now();
+        if ((v.starts_at && now < v.starts_at) || (v.ends_at && now > v.ends_at)) {
+          return json(400, { error: 'expired' });
+        }
+        const sub = items.reduce((s, it)=> s + (Number(it.price||0) * Number(it.qty||1)), 0);
+        if (v.min_order && sub < v.min_order) return json(400, { error: 'min_order' });
+        if (Array.isArray(v.product_ids) && v.product_ids.length) {
+          const ids = new Set(items.map(it=>String(it.id||it.product_id||'').trim()));
+          const ok = v.product_ids.some(x => ids.has(String(x).trim()));
+          if (!ok) return json(400, { error: 'no_match' });
+        }
+        let discount = 0, ship_discount = 0;
+        if (v.type === 'percent') discount = Math.round(sub * Math.min(100, Math.max(0, Number(v.value||0))) / 100);
+        else if (v.type === 'amount') discount = Math.min(sub, Math.max(0, Number(v.value||0)));
+        else if (v.type === 'ship') ship_discount = shipFee;
+        return json(200, { ok: true, code: codeV, discount, ship_discount });
+      }
+
       else if (url.pathname === '/products' && req.method === 'GET') {
         const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 200);
         const cursor = url.searchParams.get('cursor') || '';
