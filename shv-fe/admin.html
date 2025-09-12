@@ -210,9 +210,20 @@ const UI = {
 
 const API = {
   token(){ return localStorage.getItem('admin_token') || ''; },
-  url(path){ const t=this.token(); const sep = path.includes('?') ? '&' : '?'; return CFG.API_BASE + path + sep + 'token=' + encodeURIComponent(t); },
-  headersJSON(auth = false){
-    const h = { 'content-type': 'application/json' };
+  url(path){
+    const t = (localStorage.getItem('admin_token')||'').trim();
+    const base = (localStorage.getItem('api_base')||CFG.API_BASE).replace(/\/+$/, '');
+    const full = base + (path.startsWith('/')?'':'/') + path;
+    try {
+      const u = new URL(full);
+      if (t) u.searchParams.set('token', t);
+      return u.toString();
+    } catch(e) {
+      const sep = full.includes('?') ? '&' : '?';
+      return full + (t ? (sep+'token='+encodeURIComponent(t)) : '');
+    }
+  },
+  headersJSON(){ return { 'content-type': 'application/json' }; };
     // removed x-token to avoid CORS
     return h;
   },
@@ -307,7 +318,7 @@ const Editor = {
     document.getElementById('variantsWrap').innerHTML='';
     document.getElementById('faqWrap').innerHTML='';
     document.getElementById('reviewsWrap').innerHTML='';
-    UI.showEditor();
+    if (!window.__openingEditor) UI.showEditor();
   },
   load(p){
     STATE.editing = p.id;
