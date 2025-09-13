@@ -7,13 +7,3 @@
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Vary: *
   X-Robots-Tag: noindex
-
-/admin_debug*
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Vary: *
-  X-Robots-Tag: noindex
-
-/admin_v*
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Vary: *
-  X-Robots-Tag: noindex

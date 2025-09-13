@@ -1,10 +1,7 @@
 <!doctype html>
-<html lang="vi">
-<head>
-<meta charset="utf-8"/>
+<html lang="vi"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Admin • SHV (marker v4)</title>
-<!-- SHV-PATCH v4: if you can see this in View Source, file is updated -->
+<title>Admin • SHV</title>
 <style id="shv-mobile-fix">
 @media (max-width:768px){
   .admin-main{ width:100vw !important; max-width:100vw !important; margin:0 !important; padding:12px !important; }
@@ -15,34 +12,43 @@
 #backdrop{ position:fixed !important; inset:0 !important; background:rgba(0,0,0,.45) !important; z-index:100 !important; }
 #backdrop.hidden{ pointer-events:none !important; opacity:0 !important; visibility:hidden !important; }
 .hidden{ display:none !important; }
-.sidebar [data-view]{ min-height:44px }
 </style>
 </head>
 <body>
-<!-- fallback hamburger/backdrop -->
-<button id="btnOpenMenu" class="md:hidden menu-toggle" aria-label="Mở menu" style="position:fixed;left:14px;top:14px;z-index:120;background:#0f172a;color:#fff;border:0;border-radius:10px;padding:10px 12px">☰</button>
+<button id="btnOpenMenu" aria-label="Mở menu" style="position:fixed;left:14px;top:14px;z-index:120;background:#0f172a;color:#fff;border:0;border-radius:10px;padding:10px 12px">☰</button>
 <div id="backdrop" class="hidden"></div>
-
-<main class="admin-main" style="min-height:100vh;padding-top:56px">
-  <h1 id="bigTitle" style="color:white">SHV Admin (marker v4)</h1>
-  <p style="color:#9ca3af">Nếu bạn thấy tiêu đề này → đang chạy file mới.</p>
-  <div class="view" id="view-settings" style="color:#e5e7eb;margin-top:12px">[Nội dung giả lập]</div>
+<aside class="sidebar">
+  <nav>
+    <button data-view="settings" type="button" role="tab" tabindex="0">Cài đặt</button>
+    <button data-view="banners"  type="button" role="tab" tabindex="0">Banner</button>
+    <button data-view="vouchers" type="button" role="tab" tabindex="0">Voucher</button>
+  </nav>
+</aside>
+<main class="admin-main">
+  <h2 style="color:#e5e7eb">Bảng quản trị</h2>
+  <section id="view-settings" class="view">
+    <div style="color:#9ca3af;margin:8px 0 12px">Bạn đang ở tab Cài đặt</div>
+    <div><label>Token hệ thống <input id="admin_token" placeholder="(đã tự điền sau đăng nhập)" style="padding:8px;border-radius:8px;border:1px solid #263144;background:#0b1324;color:#e5e7eb"/></label></div>
+  </section>
+  <section id="view-banners" class="view hidden" style="color:#e5e7eb">[Banners]</section>
+  <section id="view-vouchers" class="view hidden" style="color:#e5e7eb">[Vouchers]</section>
 </main>
-
-<script id="shv-inline-badge">
+<script>
 (function(){
-  const b = document.createElement('div');
-  b.id='shvPatchBadge'; b.textContent='SHV PATCH ACTIVE v4';
-  Object.assign(b.style,{position:'fixed',right:'8px',bottom:'8px',padding:'6px 10px',background:'#0ea5e9',color:'#fff',borderRadius:'8px',fontSize:'12px',zIndex:9999,opacity:.95});
-  document.addEventListener('DOMContentLoaded', ()=>{ document.body.appendChild(b); setTimeout(()=>b.remove(), 6000); console.debug('SHV v4 badge mounted'); });
   function qs(s){return document.querySelector(s)}
-  function openDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); bd.classList.add('show'); } }
-  function closeDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } }
-  document.addEventListener('click',(e)=>{ const t=e.target; if(t && (t.id==='btnOpenMenu'||t.classList.contains('menu-toggle'))){ e.preventDefault(); openDrawer(); } if(t && t.id==='backdrop'){ e.preventDefault(); closeDrawer(); } }, {capture:true});
-  function showView(view){ document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden')); const el=document.getElementById('view-'+view)||document.querySelector('[data-view-id="'+view+'"]'); if(el) el.classList.remove('hidden'); closeDrawer(); }
-  document.addEventListener('click',(e)=>{ const b=e.target.closest('[data-view]'); if(!b) return; e.preventDefault(); showView(b.getAttribute('data-view')); }, {capture:true});
-  window.SHV_DBG = { openDrawer, closeDrawer, showView };
+  function openDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); } }
+  function closeDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); } }
+  document.addEventListener('click',(e)=>{const t=e.target;if(t && t.id==='btnOpenMenu'){e.preventDefault();openDrawer();}if(t && t.id==='backdrop'){e.preventDefault();closeDrawer();}}, {capture:true});
+  document.addEventListener('click',(e)=>{const b=e.target.closest('[data-view]'); if(!b) return; e.preventDefault(); document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden')); const el=qs('#view-'+b.getAttribute('data-view')); if(el) el.classList.remove('hidden'); closeDrawer();},{capture:true});
+  // badge confirm patch
+  const b=document.createElement('div'); b.textContent='SHV ADMIN PATCH'; Object.assign(b.style,{position:'fixed',right:'8px',bottom:'8px',background:'#0ea5e9',color:'#fff',padding:'6px 10px',borderRadius:'8px',zIndex:9999}); document.addEventListener('DOMContentLoaded',()=>{document.body.appendChild(b); setTimeout(()=>b.remove(), 4000);});
+  // ensure token field is filled from localStorage or URL; if missing -> redirect login
+  document.addEventListener('DOMContentLoaded',()=>{
+    const urlT = new URL(location.href).searchParams.get('token'); if(urlT) try{localStorage.setItem('admin_token', urlT);}catch(_){}
+    const t = localStorage.getItem('admin_token');
+    const inp = qs('#admin_token'); if(inp){inp.value = t||'';}
+    if(!t){ location.replace('/admin_login'); }
+  });
 })();
 </script>
-</body>
-</html>
+</body></html>
