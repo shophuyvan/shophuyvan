@@ -1,31 +1,29 @@
 
-// === SHV drawer + nav fix ===
+// === SHV DIAG drawer + nav ===
 (function(){
+  const log=(...a)=>{ try{console.debug('[SHV]',...a)}catch(_){}};
   function $(s){return document.querySelector(s)}
-  function openDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); bd.classList.add('show'); } }
-  function closeDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } }
-  // ensure backdrop starts hidden
-  document.addEventListener('DOMContentLoaded', ()=>{ const bd=$('#backdrop'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } });
-  // hamburger + backdrop
+  function openDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); log('openDrawer',!!sb,!!bd); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); bd.classList.add('show'); } }
+  function closeDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); log('closeDrawer',!!sb,!!bd); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } }
+  document.addEventListener('DOMContentLoaded', ()=>{ const bd=$('#backdrop'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } log('DOM ready - sidebar?',!!$('.sidebar')); });
   document.addEventListener('click', (ev)=>{
-    const t = ev.target;
-    if (t && (t.id==='btnOpenMenu' || t.classList.contains('menu-toggle'))){ ev.preventDefault(); openDrawer(); }
-    if (t && t.id==='backdrop'){ ev.preventDefault(); closeDrawer(); }
+    const t=ev.target;
+    if (t && (t.id==='btnOpenMenu' || t.classList.contains('menu-toggle'))){ ev.preventDefault(); log('hamburger click'); openDrawer(); }
+    if (t && t.id==='backdrop'){ ev.preventDefault(); log('backdrop click'); closeDrawer(); }
   }, {capture:true});
-  // tab switcher
   function showView(view){
-    // hide only known .view panels
+    log('showView',view);
     document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
-    const el = document.getElementById('view-'+view) || document.querySelector('[data-view-id="'+view+'"]');
+    const el=document.getElementById('view-'+view)||document.querySelector('[data-view-id="'+view+'"]');
     if (el) el.classList.remove('hidden');
     closeDrawer();
   }
-  document.addEventListener('click', (ev)=>{ const b=ev.target.closest('[data-view]'); if(!b) return; ev.preventDefault(); showView(b.getAttribute('data-view')); }, {capture:true});
-  document.addEventListener('keydown', (ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); showView(ev.target.getAttribute('data-view')); } }, {capture:true});
-  // export for other modules
-  window.__shvDrawer = {open: openDrawer, close: closeDrawer, showView};
+  document.addEventListener('click',(ev)=>{ const b=ev.target.closest('[data-view]'); if(!b) return; ev.preventDefault(); showView(b.getAttribute('data-view')); }, {capture:true});
+  document.addEventListener('keydown',(ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); showView(ev.target.getAttribute('data-view')); } }, {capture:true});
+  // expose for console testing
+  window.SHV_DBG = { openDrawer, closeDrawer, showView };
 })();
-// === end SHV block ===
+// === END DIAG ===
 
 let __lastTapTS=0;function allowTap(){const n=Date.now();if(n-__lastTapTS<180)return false;__lastTapTS=n;return true;}
 /* shv admin v7.1 patched

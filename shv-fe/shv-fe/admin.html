@@ -27,21 +27,6 @@
   #sidebar.open{ display:block !important; position:fixed; left:0; top:0; bottom:0; width:240px; padding:1rem; background:#0f172a; z-index:50; overflow:auto; }
 }
   .hidden{display:none!important}
-
-/* === SHV mobile drawer + width fix === */
-@media (max-width:768px){
-  .admin-grid{display:flex;gap:0}
-  .sidebar{position:fixed;top:0;left:0;height:100vh;width:84vw;max-width:360px;background:#0f172a;transform:translateX(-100%);transition:transform .24s ease;z-index:110;overflow:auto;-webkit-overflow-scrolling:touch;padding:16px}
-  .sidebar.open{transform:translateX(0)}
-  .admin-main{padding:12px;width:100vw;max-width:100vw;margin:0}
-}
-#backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100}
-#backdrop.hidden{pointer-events:none!important;opacity:0!important;visibility:hidden!important}
-.hidden{display:none!important}
-/* tap targets */
-.sidebar [data-view]{min-height:44px}
-/* === end SHV block === */
-
 </style>
 
     <style>
@@ -99,18 +84,32 @@
 .btn, .ghost-btn, [data-view][role="tab"]{ min-height:44px; }
 </style>
 
+
+<style id="shv-mobile-fix">
+/* HARD OVERRIDE (wins by order + !important) */
+@media (max-width: 768px){
+  .sidebar{ position:fixed !important; top:0; left:0; height:100vh; width:84vw; max-width:360px; background:#0f172a; transform:translateX(-100%) !important; transition:transform .24s ease; z-index:110; overflow:auto; -webkit-overflow-scrolling:touch; padding:16px; }
+  .sidebar.open{ transform:translateX(0) !important; }
+  .admin-main{ width:100vw !important; max-width:100vw !important; margin:0 !important; padding:12px !important; }
+}
+#backdrop{ position:fixed !important; inset:0 !important; background:rgba(0,0,0,.45) !important; z-index:100 !important; }
+#backdrop.hidden{ pointer-events:none !important; opacity:0 !important; visibility:hidden !important; }
+.hidden{ display:none !important; }
+.sidebar [data-view]{ min-height:44px }
+</style>
+
 </head>
 <body><button id="btnOpenMenu" class="md:hidden" aria-label="Mở menu" style="position:fixed;left:14px;top:14px;z-index:120;background:#0f172a;color:#fff;border:0;border-radius:10px;padding:10px 12px">☰</button> data-js-ready="0">
   <div id="backdrop" class="hidden md:hidden fixed inset-0 bg-black/50 z-40"></div>
   <div class="h-full grid grid-cols-[240px_1fr]">
     <aside id="sidebar" class="sidebar p-4 flex flex-col gap-2">
-<button type="button" class="btn btn-ghost w-full text-left" data-view="settings" type="button" role="tab" tabindex="0" role="tab" tabindex="0" type="button">Cài đặt</button>
+<button type="button" class="btn btn-ghost w-full text-left" data-view="settings" role="tab" tabindex="0" type="button">Cài đặt</button>
       <div class="text-xl font-bold tracking-wide">Admin</div>
       <nav class="mt-2 flex flex-col gap-1">
-        <button class="ghost-btn text-left" data-view="products" type="button" role="tab" tabindex="0" role="tab" tabindex="0" type="button" type="button">Sản phẩm</button>
-        <button class="ghost-btn text-left" data-view="editor" type="button" role="tab" tabindex="0" role="tab" tabindex="0" type="button" type="button">Thêm/Chỉnh sửa</button>
-        <button class="ghost-btn text-left" data-view="banners" type="button" role="tab" tabindex="0" role="tab" tabindex="0" type="button" type="button">Banner</button>
-        <button class="ghost-btn text-left" data-view="vouchers" type="button" role="tab" tabindex="0" role="tab" tabindex="0" type="button" type="button">Voucher</button>
+        <button class="ghost-btn text-left" data-view="products" role="tab" tabindex="0" type="button" type="button">Sản phẩm</button>
+        <button class="ghost-btn text-left" data-view="editor" role="tab" tabindex="0" type="button" type="button">Thêm/Chỉnh sửa</button>
+        <button class="ghost-btn text-left" data-view="banners" role="tab" tabindex="0" type="button" type="button">Banner</button>
+        <button class="ghost-btn text-left" data-view="vouchers" role="tab" tabindex="0" type="button" type="button">Voucher</button>
         <div class="h-px bg-white/10 my-2"></div>
         </nav>
       <div class="mt-auto text-xs muted">Built for Shop Huy Vân</div>
