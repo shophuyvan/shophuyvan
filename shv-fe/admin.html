@@ -1,10 +1,17 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-shv-auth="checking">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shop Huy Vân — Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  
+    <!-- SHV token handler -->
+    <script defer src="/admin_real.js"
+            data-api-base="/api"
+            data-login-path="/admin_login.html"
+            data-patch-fetch="true"
+            data-validate="true"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root{ --bg:#0b1220; --card:#0f172a; --muted:#64748b; --brand:#4f46e5 }
     html,body{ height:100%; }
@@ -92,6 +99,11 @@
 }
 </style>
 
+
+    <style>/*__SHV_CSS_MARK__*/
+      html[data-shv-auth="checking"] body{opacity:0;pointer-events:none}
+      html[data-shv-auth="ok"] body{opacity:1;pointer-events:auto;transition:opacity .2s ease}
+    </style>
 </head>
 <body><button id="btnOpenMenu" class="md:hidden" aria-label="Mở menu" style="position:fixed;left:14px;top:14px;z-index:120;background:#0f172a;color:#fff;border:0;border-radius:10px;padding:10px 12px">☰</button> data-js-ready="0">
   <div id="backdrop" class="hidden md:hidden fixed inset-0 bg-black/50 z-40"></div>
