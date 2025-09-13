@@ -1,29 +1,79 @@
 
-// === SHV DIAG drawer + nav ===
+// === SHV admin login + clickability ===
 (function(){
-  const log=(...a)=>{ try{console.debug('[SHV]',...a)}catch(_){}};
-  function $(s){return document.querySelector(s)}
-  function openDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); log('openDrawer',!!sb,!!bd); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); bd.classList.add('show'); } }
-  function closeDrawer(){ const sb=$('.sidebar'), bd=$('#backdrop'); log('closeDrawer',!!sb,!!bd); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } }
-  document.addEventListener('DOMContentLoaded', ()=>{ const bd=$('#backdrop'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } log('DOM ready - sidebar?',!!$('.sidebar')); });
-  document.addEventListener('click', (ev)=>{
-    const t=ev.target;
-    if (t && (t.id==='btnOpenMenu' || t.classList.contains('menu-toggle'))){ ev.preventDefault(); log('hamburger click'); openDrawer(); }
-    if (t && t.id==='backdrop'){ ev.preventDefault(); log('backdrop click'); closeDrawer(); }
-  }, {capture:true});
-  function showView(view){
-    log('showView',view);
-    document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
-    const el=document.getElementById('view-'+view)||document.querySelector('[data-view-id="'+view+'"]');
-    if (el) el.classList.remove('hidden');
-    closeDrawer();
+  function qs(s){return document.querySelector(s)}
+  function withToken(url){
+    const u = new URL(url, location.origin);
+    const t = localStorage.getItem('admin_token') || new URL(location.href).searchParams.get('token') || '';
+    if (t && !u.searchParams.get('token')) u.searchParams.set('token', t);
+    return u.toString();
   }
-  document.addEventListener('click',(ev)=>{ const b=ev.target.closest('[data-view]'); if(!b) return; ev.preventDefault(); showView(b.getAttribute('data-view')); }, {capture:true});
-  document.addEventListener('keydown',(ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); showView(ev.target.getAttribute('data-view')); } }, {capture:true});
-  // expose for console testing
-  window.SHV_DBG = { openDrawer, closeDrawer, showView };
+  // Drawer helpers (if layout has .sidebar / #backdrop)
+  function openDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.add('open'); if(bd){ bd.classList.remove('hidden'); bd.classList.add('show'); } }
+  function closeDrawer(){ const sb=qs('.sidebar'), bd=qs('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.add('hidden'); bd.classList.remove('show'); } }
+  document.addEventListener('click', (ev)=>{
+    const t = ev.target;
+    if (t && (t.id==='btnOpenMenu' || t.classList.contains('menu-toggle'))){ ev.preventDefault(); openDrawer(); }
+    if (t && t.id==='backdrop'){ ev.preventDefault(); closeDrawer(); }
+  }, {capture:true});
+
+  // Replace manual token with username/password login
+  async function doLogin(u,p){
+    const base = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const url = base.replace(/\/$/,'') + `/admin/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}`;
+    const r = await fetch(url, { method:'GET' }); // no headers -> no preflight
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    if (!j || !j.token) throw new Error('Token rỗng');
+    localStorage.setItem('admin_token', j.token);
+    // also reflect onto current URL so existing links work without reloads elsewhere
+    try{ const u2 = new URL(location.href); u2.searchParams.set('token', j.token); history.replaceState({}, '', u2.toString()); }catch(_){}
+    return j.token;
+  }
+  function bindLoginUI(){
+    const modal = qs('#loginModal');
+    if (!modal) return;
+    const user = qs('#lg_user'); const pass = qs('#lg_pass'); const btn = qs('#lg_btn'); const msg = qs('#lg_msg');
+    const tryLogin = async ()=>{
+      msg.textContent='';
+      btn.disabled = true;
+      try{
+        const t = await doLogin(user.value.trim(), pass.value.trim());
+        msg.style.color = '#86efac'; msg.textContent = 'Đăng nhập thành công';
+        setTimeout(()=>{ modal.remove(); }, 300);
+      }catch(e){
+        console.error(e); msg.style.color = '#fca5a5'; msg.textContent = 'Đăng nhập thất bại';
+        btn.disabled = false;
+      }
+    };
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); tryLogin(); });
+    [user,pass].forEach(i=> i && i.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); tryLogin(); } }));
+  }
+
+  // If đã có token -> ẩn modal; nếu chưa có -> yêu cầu đăng nhập
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const has = (localStorage.getItem('admin_token') || new URL(location.href).searchParams.get('token'));
+    const modal = qs('#loginModal');
+    if (has && modal) modal.remove();
+    else bindLoginUI();
+    // Ensure token field (if any) becomes editable and auto-fill
+    const tk = document.querySelector('#admin_token, #token, input[name="token"]');
+    if (tk){ tk.removeAttribute('readonly'); tk.removeAttribute('disabled'); tk.value = localStorage.getItem('admin_token')||''; }
+  });
+
+  // Global fetch wrapper (optional): if code calls window.apiFetch, patch it to auto-append token
+  const origApiFetch = window.apiFetch;
+  window.apiFetch = async function(path, opts){
+    const base = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const url = withToken(base.replace(/\/$/, '') + '/' + path.replace(/^\//,''));
+    return fetch(url, Object.assign({ method:'GET' }, opts||{})).then(async r=>{
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      const ct = r.headers.get('content-type')||'';
+      return ct.includes('application/json') ? r.json() : r.text();
+    });
+  };
 })();
-// === END DIAG ===
+// === end SHV patch ===
 
 let __lastTapTS=0;function allowTap(){const n=Date.now();if(n-__lastTapTS<180)return false;__lastTapTS=n;return true;}
 /* shv admin v7.1 patched
