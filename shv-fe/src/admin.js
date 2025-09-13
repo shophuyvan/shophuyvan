@@ -1,3 +1,46 @@
+
+// ---- Mobile drawer bootstrap (runtime, no HTML injection) ----
+(function(){
+  function ensureEl(id, tag, attrs){
+    let el = document.getElementById(id);
+    if (!el){
+      el = document.createElement(tag||'div');
+      el.id = id;
+      Object.assign(el.style, {});
+      if (attrs) Object.keys(attrs).forEach(k=>el.setAttribute(k, attrs[k]));
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    const bd = ensureEl('backdrop', 'div', {});
+    bd.classList.add('hidden');
+    bd.addEventListener('click', function(e){ e.preventDefault(); closeDrawer(); }, {capture:true});
+
+    const hb = document.getElementById('btnOpenMenu') || (function(){
+      const b = document.createElement('button');
+      b.id='btnOpenMenu'; b.type='button'; b.setAttribute('aria-label','Mở menu');
+      Object.assign(b.style, {position:'fixed',left:'14px',top:'14px',zIndex:'120'});
+      b.textContent='☰';
+      document.body.appendChild(b);
+      return b;
+    })();
+    hb.addEventListener('click', function(e){ e.preventDefault(); openDrawer(); }, {capture:true});
+  });
+})();
+
+function qs(s){return document.querySelector(s);}
+function openDrawer(){
+  const sb = qs('.sidebar'); const bd = qs('#backdrop');
+  if (sb){ sb.classList.add('open'); }
+  if (bd){ bd.classList.remove('hidden'); bd.classList.add('show'); }
+}
+function closeDrawer(){
+  const sb = qs('.sidebar'); const bd = qs('#backdrop');
+  if (sb){ sb.classList.remove('open'); }
+  if (bd){ bd.classList.add('hidden'); bd.classList.remove('show'); bd.style.pointerEvents='none'; }
+}
+
 let __lastTapTS=0;function allowTap(){const n=Date.now();if(n-__lastTapTS<180)return false;__lastTapTS=n;return true;}
 /* shv admin v7.1 patched
  * - Fix: click "Sửa" không xoá dữ liệu form (prefill ổn định)
@@ -919,3 +962,9 @@ function __handleViewChange(view){ if(!view) return; document.querySelectorAll('
 document.addEventListener('click',(ev)=>{ const btn=ev.target.closest('[data-view]'); if(!btn) return; ev.preventDefault(); if(!allowTap()) return; const v=btn.getAttribute('data-view'); __handleViewChange(v); }, {capture:true});
 document.addEventListener('keydown',(ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); __handleViewChange(ev.target.getAttribute('data-view')); } }, {capture:true});
 try{closeDrawer();}catch(_){}
+
+document.addEventListener('DOMContentLoaded', function(){
+  try{ closeDrawer(); }catch(_){}
+  var bd = document.getElementById('backdrop');
+  if (bd){ bd.classList.add('hidden'); bd.classList.remove('show'); bd.style.pointerEvents='none'; }
+});
