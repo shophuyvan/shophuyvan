@@ -23,7 +23,7 @@ p#msg{min-height:18px;margin:10px 0 0;color:#fca5a5}
   </div>
 <script>
 (function(){
-  const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+  const API_BASE = window.API_BASE || '/api';
   const q = (s)=>document.querySelector(s);
   async function login(u,p){
     const url = API_BASE.replace(/\/$/,'') + '/admin/login?u='+encodeURIComponent(u)+'&p='+encodeURIComponent(p);
