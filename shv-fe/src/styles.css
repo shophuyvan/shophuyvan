@@ -5,8 +5,3 @@
 .admin-nav-secondary{display:flex;gap:8px;margin:.5rem 0}
 .grid.two{display:grid;grid-template-columns:1fr 1fr; gap:10px}
 @media (max-width:768px){ .grid.two{ grid-template-columns:1fr; } }
-
-/* runtime drawer helpers */
-.backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; }
-.backdrop.show{ opacity:1; visibility:visible; pointer-events:auto; }
-.sidebar.open{ transform:translateX(0) !important; }

@@ -1,46 +1,12 @@
 
-// ---- Mobile drawer bootstrap (runtime, no HTML injection) ----
-(function(){
-  function ensureEl(id, tag, attrs){
-    let el = document.getElementById(id);
-    if (!el){
-      el = document.createElement(tag||'div');
-      el.id = id;
-      Object.assign(el.style, {});
-      if (attrs) Object.keys(attrs).forEach(k=>el.setAttribute(k, attrs[k]));
-      document.body.appendChild(el);
-    }
-    return el;
-  }
-  document.addEventListener('DOMContentLoaded', function(){
-    const bd = ensureEl('backdrop', 'div', {});
-    bd.classList.add('hidden');
-    bd.addEventListener('click', function(e){ e.preventDefault(); closeDrawer(); }, {capture:true});
-
-    const hb = document.getElementById('btnOpenMenu') || (function(){
-      const b = document.createElement('button');
-      b.id='btnOpenMenu'; b.type='button'; b.setAttribute('aria-label','Mở menu');
-      Object.assign(b.style, {position:'fixed',left:'14px',top:'14px',zIndex:'120'});
-      b.textContent='☰';
-      document.body.appendChild(b);
-      return b;
-    })();
-    hb.addEventListener('click', function(e){ e.preventDefault(); openDrawer(); }, {capture:true});
-  });
-})();
-
-function qs(s){return document.querySelector(s);}
-function openDrawer(){
-  const sb = qs('.sidebar'); const bd = qs('#backdrop');
-  if (sb){ sb.classList.add('open'); }
-  if (bd){ bd.classList.remove('hidden'); bd.classList.add('show'); }
+function getAdminToken(){
+  const q = new URL(location.href).searchParams.get('token');
+  if (q) return q;
+  try{ return localStorage.getItem('admin_token')||''; }catch(_){ return ''; }
 }
-function closeDrawer(){
-  const sb = qs('.sidebar'); const bd = qs('#backdrop');
-  if (sb){ sb.classList.remove('open'); }
-  if (bd){ bd.classList.add('hidden'); bd.classList.remove('show'); bd.style.pointerEvents='none'; }
+function saveAdminToken(t){
+  try{ localStorage.setItem('admin_token', t||''); }catch(_){}
 }
-
 let __lastTapTS=0;function allowTap(){const n=Date.now();if(n-__lastTapTS<180)return false;__lastTapTS=n;return true;}
 /* shv admin v7.1 patched
  * - Fix: click "Sửa" không xoá dữ liệu form (prefill ổn định)
@@ -958,13 +924,44 @@ function openDrawer(){ const sb=qs('.sidebar'); const bd=qs('#backdrop'); if(sb)
 function closeDrawer(){ const sb=qs('.sidebar'); const bd=qs('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.remove('show'); bd.classList.add('hidden'); } }
 document.addEventListener('click',(ev)=>{ const t=ev.target; if(t && t.id==='btnOpenMenu'){ ev.preventDefault(); if(!allowTap()) return; openDrawer(); } if(t && t.id==='backdrop'){ ev.preventDefault(); if(!allowTap()) return; closeDrawer(); } }, {capture:true});
 
-function __handleViewChange(view){ if(!view) return; document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden')); const el=document.getElementById('view-'+view)||document.querySelector('[data-view-id="'+view+'"]'); if(el) el.classList.remove('hidden'); closeDrawer(); }
+
+function __handleViewChange(view){
+  const views = Array.from(document.querySelectorAll('.view'));
+  // hide all known views
+  views.forEach(v=>v.classList.add('hidden'));
+  // show if exists
+  const el = document.getElementById('view-'+view) || document.querySelector('[data-view-id="'+view+'"]');
+  if (el){ el.classList.remove('hidden'); }
+  // if products/editor chosen but no view container, keep main content as-is
+  // no-op, just close drawer for UX
+  try{ closeDrawer(); }catch(_){}
+}
+
 document.addEventListener('click',(ev)=>{ const btn=ev.target.closest('[data-view]'); if(!btn) return; ev.preventDefault(); if(!allowTap()) return; const v=btn.getAttribute('data-view'); __handleViewChange(v); }, {capture:true});
 document.addEventListener('keydown',(ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); __handleViewChange(ev.target.getAttribute('data-view')); } }, {capture:true});
 try{closeDrawer();}catch(_){}
 
-document.addEventListener('DOMContentLoaded', function(){
-  try{ closeDrawer(); }catch(_){}
-  var bd = document.getElementById('backdrop');
-  if (bd){ bd.classList.add('hidden'); bd.classList.remove('show'); bd.style.pointerEvents='none'; }
+document.addEventListener('click', async (ev)=>{
+  if (ev.target && ev.target.id==='btnSaveToken'){
+    const t = document.getElementById('admin_token')?.value?.trim()||'';
+    saveAdminToken(t);
+    alert('Đã lưu token');
+  }
+  if (ev.target && ev.target.id==='btnPingAll'){
+    const base = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const urls = ['/products?limit=1','/banners','/vouchers'].map(p=>withToken(base.replace(/\/$/,'')+p));
+    const results = await Promise.all(urls.map(u=>fetch(u).then(r=>r.status).catch(_=>0)));
+    alert('Ping: products='+results[0]+'; banners='+results[1]+'; vouchers='+results[2]);
+  }
+}, {capture:true});
+
+document.addEventListener('DOMContentLoaded', function autoOpenSettingsIfMissing(){
+  const t = getAdminToken();
+  if (!t){
+    const btn = document.querySelector('[data-view="settings"]');
+    if (btn){ btn.click(); }
+  } else {
+    const inp = document.getElementById('admin_token');
+    if (inp) inp.value = t;
+  }
 });
