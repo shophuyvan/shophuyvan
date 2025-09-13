@@ -1,8 +1,12 @@
-
 name = "shv-api"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
+# Khai báo 2 KV đang dùng
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "kv_id_placeholder"
+id = "2c956aa203dc4dd89488551c3b772882"
+
+[[kv_namespaces]]
+binding = "PRODUCTS_KV"
+id = "dbbe5e2f36e8492f94ba0213ccfaf550"
