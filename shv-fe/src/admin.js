@@ -1,3 +1,4 @@
+let __lastTapTS=0;function allowTap(){const n=Date.now();if(n-__lastTapTS<180)return false;__lastTapTS=n;return true;}
 /* shv admin v7.1 patched
  * - Fix: click "Sửa" không xoá dữ liệu form (prefill ổn định)
  * - Fix: chặn đệ quy showEditor gây "Maximum call stack size exceeded"
@@ -908,3 +909,13 @@ async function loadVouchers(){ return await apiFetch('/vouchers'); }
 async function createVoucher(data){ return await apiFetch('/vouchers', {method:'POST', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
 async function updateVoucher(id,data){ return await apiFetch('/vouchers/'+id, {method:'PUT', body: JSON.stringify(data), headers:{'Content-Type':'application/json'}});}
 async function deleteVoucher(id){ return await apiFetch('/vouchers/'+id, {method:'DELETE'});}
+
+function qs(s){return document.querySelector(s);}
+function openDrawer(){ const sb=qs('.sidebar'); const bd=qs('#backdrop'); if(sb) sb.classList.add('open'); if(bd){ bd.classList.add('show'); bd.classList.remove('hidden'); } }
+function closeDrawer(){ const sb=qs('.sidebar'); const bd=qs('#backdrop'); if(sb) sb.classList.remove('open'); if(bd){ bd.classList.remove('show'); bd.classList.add('hidden'); } }
+document.addEventListener('click',(ev)=>{ const t=ev.target; if(t && t.id==='btnOpenMenu'){ ev.preventDefault(); if(!allowTap()) return; openDrawer(); } if(t && t.id==='backdrop'){ ev.preventDefault(); if(!allowTap()) return; closeDrawer(); } }, {capture:true});
+
+function __handleViewChange(view){ if(!view) return; document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden')); const el=document.getElementById('view-'+view)||document.querySelector('[data-view-id="'+view+'"]'); if(el) el.classList.remove('hidden'); closeDrawer(); }
+document.addEventListener('click',(ev)=>{ const btn=ev.target.closest('[data-view]'); if(!btn) return; ev.preventDefault(); if(!allowTap()) return; const v=btn.getAttribute('data-view'); __handleViewChange(v); }, {capture:true});
+document.addEventListener('keydown',(ev)=>{ if((ev.key==='Enter'||ev.key===' ') && ev.target && ev.target.matches('[data-view][role="tab"]')){ ev.preventDefault(); __handleViewChange(ev.target.getAttribute('data-view')); } }, {capture:true});
+try{closeDrawer();}catch(_){}
