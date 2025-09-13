@@ -11,7 +11,7 @@ button{background:#2563eb;border-color:#2563eb}</style></head><body><main>
 <p style="font-size:12px;color:#94a3b8">Login dùng POST trước (form-encoded/text/plain để tránh preflight). Nếu thất bại, sẽ thử GET/JSON.</p>
 </div>
 <script type="module">
-const API='/api';
+const API='https://shv-api.shophuyvan.workers.dev';
 const attempts = [
   // ƯU TIÊN: POST x-www-form-urlencoded (KHÔNG preflight)
   { method:'POST', path:'/admin/login', body:(u,p)=>`u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}`, headers:{'content-type':'application/x-www-form-urlencoded'} },
