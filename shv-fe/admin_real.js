@@ -1,138 +1,19 @@
-/*! Shop Huy Van - admin_real.js (v3, root) */
-(function () {
-  const SCRIPT = document.currentScript;
-  const API_BASE = (window.SHV_API_BASE || (SCRIPT && SCRIPT.dataset.apiBase)) || '/api';
-  const LOGIN_PATH = (window.SHV_LOGIN_PATH || (SCRIPT && SCRIPT.dataset.loginPath)) || '/admin_login.html';
-  const STORAGE_KEY = (window.SHV_TOKEN_KEY || (SCRIPT && SCRIPT.dataset.tokenKey)) || 'shv_admin_token';
-  const PATCH_FETCH = (SCRIPT && SCRIPT.dataset.patchFetch === 'true') || true;
-  const SHOULD_VALIDATE = !((SCRIPT && SCRIPT.dataset.validate === 'false'));
-
-  if (window.__SHV_AUTH_INIT__) return;
-  window.__SHV_AUTH_INIT__ = true;
-
-  function getTokenFromUrl() {
-    try { const url = new URL(location.href); const t = url.searchParams.get('token'); if (t && t.length > 5) return t; } catch (e) {}
-    return null;
-  }
-  function saveToken(t){ try{ localStorage.setItem(STORAGE_KEY,t);}catch(e){} }
-  function getToken(){ try{ return localStorage.getItem(STORAGE_KEY)||'';}catch(e){ return ''; } }
-  function clearToken(){ try{ localStorage.removeItem(STORAGE_KEY);}catch(e){} }
-
-  function removeTokenFromUrl(){
-    try{ const url=new URL(location.href); if(!url.searchParams.has('token')) return;
-      url.searchParams.delete('token'); history.replaceState({}, document.title, url.toString());
-    }catch(e){}
-  }
-
-  function loginUrl(){
-    try{ if(/^https?:\/\//.test(LOGIN_PATH)) return LOGIN_PATH; return new URL(LOGIN_PATH, location.origin).toString(); }
-    catch(e){ return '/admin_login.html'; }
-  }
-  function gotoLogin(){ location.replace(loginUrl()); }
-
-  function normalizeApi(pathOrUrl){
-    const base=(API_BASE||'').replace(/\/+$/, '');
-    if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
-    return base + '/' + String(pathOrUrl||'').replace(/^\/+/, '');
-  }
-  function sameOrigin(a,b){
-    try{ const A=new URL(a, location.origin); const B=new URL(b, location.origin); return A.origin===B.origin; }catch(e){ return false; }
-  }
-  function appendTokenParam(u, token){
-    try{
-      const url=new URL(u, location.origin);
-      if (sameOrigin(url, API_BASE)) {
-        if (!url.searchParams.has('token')) url.searchParams.set('token', token||'');
-      }
-      return url.toString();
-    }catch(e){ return u; }
-  }
-
-  async function validateToken(token){
-    const meUrl = appendTokenParam(normalizeApi('/admin/me'), token);
-    try {
-      const res = await fetch(meUrl, { method:'GET', mode:'cors', credentials:'omit', cache:'no-store' });
-      if (!res.ok) return 'invalid';
-      try {
-        const data = await res.json();
-        if (data && data.ok === false) return 'invalid';
-      } catch (_) {}
-      return 'ok';
-    } catch (err) {
-      console.warn('[SHV] /admin/me check skipped due to CORS/network:', err);
-      return 'network'; // soft-pass
-    }
-  }
-
-  async function shvApiFetch(pathOrUrl, opts){
-    const token=getToken(); const url=appendTokenParam(normalizeApi(pathOrUrl), token);
-    return fetch(url, Object.assign({ mode:'cors', credentials:'omit' }, opts));
-  }
-
-  function exposeGlobals(token){
-    try{
-      window.SHV_AUTH={ token, API_BASE, LOGIN_PATH, STORAGE_KEY, getToken, clearToken,
-        logout:function(){ clearToken(); gotoLogin(); }, gotoLogin, shvApiFetch };
-      document.documentElement.setAttribute('data-shv-auth','ok');
-      document.dispatchEvent(new CustomEvent('shv:auth-ok',{ detail:{ token } }));
-    }catch(e){}
-  }
-
-  function maybePatchFetch(){
-    if (!PATCH_FETCH) return;
-    const nativeFetch=window.fetch;
-    window.fetch=function(input, init){
-      try{
-        const token=getToken();
-        if (typeof input === 'string') {
-          input = appendTokenParam(input, token);
-        } else if (input && typeof input.url === 'string') {
-          const newUrl = appendTokenParam(input.url, token);
-          input = new Request(newUrl, input);
-        }
-      }catch(e){}
-      return nativeFetch(input, Object.assign({ mode:'cors' }, init));
-    };
-  }
-
-  function bannerWarn(msg){
-    try{
-      const el=document.createElement('div');
-      el.textContent=msg;
-      el.style.cssText='position:fixed;left:12px;bottom:12px;right:12px;padding:10px;font:12px/1.4 system-ui;background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;z-index:99999';
-      document.body.appendChild(el);
-      setTimeout(()=>{ el.remove(); }, 6000);
-    }catch(e){}
-  }
-
-  (async function main(){
-    document.documentElement.setAttribute('data-shv-auth','checking');
-
-    let loginPath = LOGIN_PATH || '/admin_login.html';
-    try { loginPath = new URL(loginUrl()).pathname; } catch (e) {}
-    const isLoginPage = location.pathname === loginPath || location.pathname.endsWith('/admin_login');
-
-    const urlToken = getTokenFromUrl();
-    if (urlToken) { saveToken(urlToken); removeTokenFromUrl(); }
-
-    if (isLoginPage) { document.documentElement.removeAttribute('data-shv-auth'); return; }
-
-    const token = getToken();
-    if (!token) { gotoLogin(); return; }
-
-    maybePatchFetch();
-
-    if (SHOULD_VALIDATE) {
-      const status = await validateToken(token);
-      if (status === 'invalid') { clearToken(); gotoLogin(); return; }
-      if (status === 'network') { bannerWarn('Không kiểm tra được token do CORS/network. Vẫn tiếp tục vào Admin. Hãy sửa CORS/API hoặc dùng proxy /api.'); }
-    }
-
-    exposeGlobals(token);
-
-    try {
-      const boot = window.startAdminApp || window.bootAdmin || window.initAdmin;
-      if (typeof boot === 'function') boot();
-    } catch (e) { console.warn('Admin boot error:', e); }
-  })();
+/* SHV Admin bootstrap / token handler (hotfix v10) */
+(function(){
+  const LS_KEY='shv_admin_token', SS_REDIRECT_FLAG='shv_login_redirected_once';
+  const s=document.currentScript||document.querySelector('script[src*="admin_real.js"]');
+  const d=s?s.dataset:{}; const API_BASE=(d.apiBase||'/api').replace(/\/+$/,''); const LOGIN_PATH=d.loginPath||'/admin_login.html';
+  const PATCH_FETCH=String(d.patchFetch||'true')!=='false'; const DO_VALIDATE=String(d.validate||'true')!=='false';
+  const here=new URL(location.href); const urlToken=here.searchParams.get('token'); if(urlToken){try{localStorage.setItem(LS_KEY,urlToken);}catch{}; history.replaceState(null,'',location.pathname+location.hash||'/admin/');}
+  let token=null; try{token=localStorage.getItem(LS_KEY)||'';}catch{}
+  if(PATCH_FETCH&&window.fetch){const _f=window.fetch.bind(window); window.fetch=(input,init={})=>{try{const req=new Request(input,init); const u=new URL(req.url,location.origin);
+      const isApi=(u.origin===location.origin&&u.pathname.startsWith('/api/'))||u.href.startsWith(API_BASE+'/'); const isLogin=u.pathname.includes('/admin/login');
+      if(isApi&&!isLogin){if(!u.searchParams.has('token')&&token){u.searchParams.set('token',token);} input=u.toString(); init=Object.assign({cache:'no-store',credentials:'omit',mode:'cors'},init);} }catch(e){}
+      return _f(input,init);};
+    window.SHV_AUTH={tokenGetter:()=>token,setToken:(t)=>{token=t;try{localStorage.setItem(LS_KEY,t);}catch{}},logout:()=>{try{localStorage.removeItem(LS_KEY);}catch{};location.href=LOGIN_PATH;},shvApiFetch:(p,init={})=>fetch(API_BASE+'/'+String(p).replace(/^\/+/,''),init)};}
+  async function softValidate(){if(!DO_VALIDATE)return ok('skip'); if(!token)return goLogin('no-token'); const url=API_BASE+'/admin/me?token='+encodeURIComponent(token);
+    try{const res=await fetch(url,{cache:'no-store',credentials:'omit',mode:'cors'}); if(res.status===401||res.status===403)return goLogin('unauthorized'); if(res.ok)return ok('validated'); if(res.status===404)return warn('me-404'); return warn('status-'+res.status);}catch(e){return warn('network');}}
+  function ok(r){setTimeout(()=>document.dispatchEvent(new CustomEvent('shv:auth-ok',{detail:{r}})),0);} function warn(r){console.warn('[SHV]/admin/me skipped:',r); ok(r);}
+  function goLogin(r){if(location.pathname===LOGIN_PATH)return; try{if(sessionStorage.getItem(SS_REDIRECT_FLAG))return; sessionStorage.setItem(SS_REDIRECT_FLAG,'1');}catch{} location.href=LOGIN_PATH;}
+  softValidate();
 })();

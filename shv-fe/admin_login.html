@@ -1,52 +1,62 @@
-<!doctype html>
-<html lang="vi"><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Đăng nhập quản trị</title>
-<style>
-body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b1324;color:#e5e7eb;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center}
-.card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:22px;width:min(92vw,380px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
-h1{margin:0 0 12px;color:#93c5fd;font-size:20px}
-input{width:100%;padding:12px;border-radius:12px;border:1px solid #263144;background:#0b1324;color:#e5e7eb}
-input+input{margin-top:12px}
-button{width:100%;margin-top:14px;padding:12px;border-radius:12px;border:0;background:#2563eb;color:#fff;font-weight:600}
-p#msg{min-height:18px;margin:10px 0 0;color:#fca5a5}
-.small{opacity:.7;font-size:12px;margin-top:10px}
-</style></head>
-<body>
-  <div class="card">
-    <h1>Đăng nhập quản trị</h1>
-    <input id="u" autocomplete="username" placeholder="Tài khoản"/>
-    <input id="p" type="password" autocomplete="current-password" placeholder="Mật khẩu"/>
-    <button id="go" type="button">Đăng nhập</button>
-    <p id="msg"></p>
-    <div class="small">Sau khi đăng nhập thành công, bạn sẽ được chuyển vào trang Admin.</div>
-  </div>
-<script>
-(function(){
-  const API_BASE = window.API_BASE || '/api';
-  const q = (s)=>document.querySelector(s);
-  async function login(u,p){
-    const url = API_BASE.replace(/\/$/,'') + '/admin/login?u='+encodeURIComponent(u)+'&p='+encodeURIComponent(p);
-    const r = await fetch(url, {method:'GET'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    if(!j || !j.token) throw new Error('Thiếu token');
-    localStorage.setItem('admin_token', j.token);
-    const go = new URL('/admin', location.origin);
-    go.searchParams.set('token', j.token);
-    location.href = go.toString();
+<!doctype html><html lang="vi"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Đăng nhập Admin</title>
+<style>body{margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+main{max-width:420px;margin:60px auto;padding:0 16px}.card{background:#0b1222;border:1px solid #1f2a44;border-radius:12px;padding:18px}
+input,button{width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#111827;color:#e2e8f0;margin-top:10px}
+button{background:#2563eb;border-color:#2563eb}</style></head><body><main>
+<div class="card"><h2>Đăng nhập quản trị</h2>
+<input id="u" placeholder="Tài khoản" value="admin" autocomplete="username"/><input id="p" placeholder="Mật khẩu" type="password" autocomplete="current-password"/>
+<button id="btn">Đăng nhập</button><p id="msg"></p>
+<p style="font-size:12px;color:#94a3b8">Nếu 404, hệ thống sẽ tự thử các endpoint dự phòng.</p>
+</div>
+<script type="module">
+const API='/api';
+const tryList = [
+  { method:'GET',  path:(u,p)=>`/admin/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+  { method:'GET',  path:(u,p)=>`/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+  { method:'GET',  path:(u,p)=>`/admin_login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+  { method:'POST', path:()=>`/admin/login`,    body:(u,p)=>JSON.stringify({u,p}), headers:{'content-type':'application/json'} },
+  { method:'POST', path:()=>`/login`,          body:(u,p)=>JSON.stringify({u,p}), headers:{'content-type':'application/json'} },
+];
+async function attempt(u, p){
+  for await (const opt of tryList){
+    const url = API + opt.path(u,p);
+    try{
+      const res = await fetch(url, {
+        method: opt.method,
+        mode:'cors', credentials:'omit', cache:'no-store',
+        headers: opt.headers || {},
+        body: opt.method==='POST' ? (opt.body?opt.body(u,p):undefined) : undefined
+      });
+      if (res.status === 404) { msg.textContent = 'Đang thử endpoint khác...'; continue; }
+      if (res.status === 401 || res.status === 403) { msg.textContent = 'Sai tài khoản hoặc mật khẩu'; return null; }
+      const ct = res.headers.get('content-type') || '';
+      let token = '';
+      if (ct.includes('application/json')) {
+        const j = await res.json().catch(()=>null);
+        token = (j && (j.token || j.t || j.id)) ? (j.token || j.t || j.id) : '';
+      } else {
+        token = (await res.text()).trim();
+      }
+      if (res.ok && token && token.length > 8) return token;
+      if (token && token.length > 8) return token;
+    }catch(e){
+      console.warn('Login attempt failed on', url, e);
+      continue;
+    }
   }
-  q('#go').addEventListener('click', async ()=>{
-    q('#msg').textContent='';
-    try{ await login(q('#u').value.trim(), q('#p').value.trim()); }
-    catch(e){ console.error(e); q('#msg').textContent='Đăng nhập thất bại'; }
-  });
-  ['u','p'].forEach(id=>q('#'+id).addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); q('#go').click(); } }));
-  // nếu đã có token thì vào thẳng admin
-  try{
-    const t = localStorage.getItem('admin_token') || new URL(location.href).searchParams.get('token');
-    if(t){ const go = new URL('/admin', location.origin); go.searchParams.set('token', t); location.replace(go.toString()); }
-  }catch(_){}
-})();
-</script>
-</body></html>
+  return null;
+}
+btn.onclick = async () => {
+  msg.textContent = 'Đang đăng nhập...';
+  const user = u.value.trim();
+  const pass = p.value;
+  const token = await attempt(user, pass);
+  if (token){
+    location.href = '/admin/?token=' + encodeURIComponent(token);
+  } else {
+    msg.textContent = 'Đăng nhập thất bại (404/không khớp). Kiểm tra endpoint login trong Worker.';
+  }
+};
+</script></main></body></html>
