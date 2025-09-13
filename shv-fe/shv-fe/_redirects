@@ -1,3 +1,4 @@
-/admin /admin.html 200
-/admin_debug /admin_debug.html 200
-/admin_v4 /admin_v4.html 200
+/admin        /admin.html        200
+/admin_debug  /admin_debug.html  200
+/admin_v4     /admin_v4.html     200
+/admin_v5     /admin_v5.html     200
