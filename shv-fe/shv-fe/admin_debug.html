@@ -24,7 +24,7 @@
 <div id="backdrop" class="hidden"></div>
 
 <main class="admin-main" style="min-height:100vh;padding-top:56px">
-  <h1 id="bigTitle" style="color:white">SHV Admin (marker v4)</h1>
+  <h1 id="bigTitle" style="color:white">SHV Admin DEBUG PAGE (marker v4)</h1>
   <p style="color:#9ca3af">Nếu bạn thấy tiêu đề này → đang chạy file mới.</p>
   <div class="view" id="view-settings" style="color:#e5e7eb;margin-top:12px">[Nội dung giả lập]</div>
 </main>
@@ -32,7 +32,7 @@
 <script id="shv-inline-badge">
 (function(){
   const b = document.createElement('div');
-  b.id='shvPatchBadge'; b.textContent='SHV PATCH ACTIVE v4';
+  b.id='shvPatchBadge'; b.textContent='SHV PATCH ACTIVE v4 (DEBUG)';
   Object.assign(b.style,{position:'fixed',right:'8px',bottom:'8px',padding:'6px 10px',background:'#0ea5e9',color:'#fff',borderRadius:'8px',fontSize:'12px',zIndex:9999,opacity:.95});
   document.addEventListener('DOMContentLoaded', ()=>{ document.body.appendChild(b); setTimeout(()=>b.remove(), 6000); console.debug('SHV v4 badge mounted'); });
   function qs(s){return document.querySelector(s)}
