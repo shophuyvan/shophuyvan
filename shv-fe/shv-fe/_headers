@@ -1,9 +1,0 @@
-/admin*.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Vary: *
-  X-Robots-Tag: noindex
-
-/admin*
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Vary: *
-  X-Robots-Tag: noindex
