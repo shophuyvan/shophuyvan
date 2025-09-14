@@ -1,81 +1,25 @@
-<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quản trị khuyến mại | SHV Admin</title>
-  <link rel="icon" href="/favicon.ico" />
-  <style>
-    :root { --bg:#0f172a; --card:#0b1222; --muted:#a7b0c3; --primary:#2563eb; --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
-    *{ box-sizing:border-box; }
-    body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          margin:0; background:#0f172a; color:#e2e8f0; }
-    header{ padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2a44; }
-    header a{ color:#a7b0c3; text-decoration:none; }
-    header a:hover{ color:#fff; }
-    .brand{ font-weight:700; letter-spacing:.4px; }
-    main{ max-width:980px; margin:24px auto; padding:0 16px 60px; }
-    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-    button{ background:#1e293b; border:1px solid #334155; color:#e2e8f0; border-radius:10px; padding:8px 12px; cursor:pointer; }
-    button.primary{ background:var(--primary); border-color:var(--primary); }
-    button.ok{ background:var(--ok); border-color:var(--ok); }
-    button.warn{ background:var(--warn); border-color:var(--warn); color:#111827; }
-    button.danger{ background:var(--danger); border-color:var(--danger); }
-    .grid{ display:grid; gap:10px; grid-template-columns: 64px 1fr 1.5fr 90px 140px; align-items:center;
-           padding:10px; background:#0b1222; border:1px solid #1f2a44; border-radius:12px; }
-    .grid.header{ background:transparent; border-color:transparent; color:#a7b0c3; }
-    input[type="text"], textarea{ width:100%; background:#0b1222; border:1px solid #25304a; color:#e2e8f0; padding:8px 10px; border-radius:8px; }
-    textarea{ min-height:44px; resize:vertical; }
-    .row{ margin-bottom:8px; }
-    .muted{ color:#94a3b8; font-size:12px; }
-    .pill{ font-size:12px; padding:3px 8px; border-radius:999px; background:#1f2a44; border:1px solid #2b3a5c; color:#c7d2fe; }
-    .right{ text-align:right; }
-    .flex{ display:flex; gap:8px; align-items:center; }
-    .emoji{ font-size:24px; text-align:center; }
-    .footer{ position:fixed; left:0; right:0; bottom:0; background:#0b1222; border-top:1px solid #1f2a44; padding:10px 16px; display:flex; gap:8px; justify-content:center; }
-    .toast{ position:fixed; right:16px; bottom:70px; background:#0b1222; border:1px solid #1f2a44; padding:10px 12px; border-radius:10px; }
-    .hidden{ display:none; }
-  </style>
-  <script defer src="/admin_real.js"
-          data-api-base="/api"
-          data-login-path="/admin_login.html"
-          data-patch-fetch="true"
-          data-validate="true"></script>
-  <script defer src="/admin_promos.js"></script>
-</head>
-<body>
-  <header>
-    <a href="/admin/" class="brand">← Trang Admin</a>
-    <span class="pill">Quản trị khuyến mại</span>
-    <span class="muted">Sử dụng token hiện tại để đọc/ghi.</span>
-  </header>
-
-  <main>
-    <div class="toolbar">
-      <button class="ok" id="btnReload">Nạp lại</button>
-      <button class="primary" id="btnAdd">Thêm khuyến mại</button>
-      <button class="warn" id="btnExport">Xuất JSON</button>
-      <label class="pill" style="cursor:pointer">
-        <input id="fileImport" type="file" accept="application/json" class="hidden" /> Nhập JSON
-      </label>
-      <span class="muted">Các trường: Biểu tượng (emoji), Tiêu đề, Mô tả, Bật/Tắt, Thứ tự.</span>
-    </div>
-
-    <div class="grid header">
-      <div>Biểu tượng</div>
-      <div>Tiêu đề</div>
-      <div>Mô tả</div>
-      <div class="right">Bật</div>
-      <div class="right">Thao tác</div>
-    </div>
-    <div id="rows"></div>
-  </main>
-
-  <div class="footer">
-    <button class="primary" id="btnSave">Lưu thay đổi</button>
-    <button class="danger" id="btnClear">Xoá tất cả (ẩn)</button>
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Quản trị khuyến mại | SHV Admin</title>
+<script defer src="/admin_real.js" data-api-base="https://shv-api.shophuyvan.workers.dev" data-login-path="/admin_login.html" data-patch-fetch="true" data-validate="true"></script>
+<script defer src="/admin_promos.js"></script>
+<style>
+  body{margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:980px;margin:24px auto;padding:0 16px 60px}
+  .row{display:grid;grid-template-columns:140px 1fr 80px 1fr auto;gap:8px;align-items:center;margin:8px 0}
+  input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid #334155;background:#111827;color:#e2e8f0}
+  .toolbar{display:flex;gap:8px;margin:10px 0}
+  button{background:#2563eb;border:1px solid #2563eb;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+  .muted{color:#94a3b8;font-size:12px}
+</style></head><body>
+<main>
+  <h2>Quản trị khuyến mại</h2>
+  <div class="toolbar">
+    <button id="btnAdd">+ Thêm dòng</button>
+    <button id="btnSave">Lưu</button>
+    <span id="status" class="muted"></span>
   </div>
-
-  <div id="toast" class="toast hidden"></div>
-</body>
-</html>
+  <div id="rows"></div>
+  <p class="muted">Nếu danh sách trống, bấm <b>+ Thêm dòng</b> để thêm mục mới rồi bấm <b>Lưu</b>.</p>
+</main>
+</body></html>

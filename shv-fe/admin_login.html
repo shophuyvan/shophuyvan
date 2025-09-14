@@ -8,55 +8,12 @@ button{background:#2563eb;border-color:#2563eb}</style></head><body><main>
 <div class="card"><h2>Đăng nhập quản trị</h2>
 <input id="u" placeholder="Tài khoản" value="admin" autocomplete="username"/><input id="p" placeholder="Mật khẩu" type="password" autocomplete="current-password"/>
 <button id="btn">Đăng nhập</button><p id="msg"></p>
-<p style="font-size:12px;color:#94a3b8">Nếu 404, hệ thống sẽ tự thử các endpoint dự phòng.</p>
+<p style="font-size:12px;color:#94a3b8">API: <code>https://shv-api.shophuyvan.workers.dev</code></p>
 </div>
 <script type="module">
-const API='/api';
-const tryList = [
-  { method:'GET',  path:(u,p)=>`/admin/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
-  { method:'GET',  path:(u,p)=>`/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
-  { method:'GET',  path:(u,p)=>`/admin_login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
-  { method:'POST', path:()=>`/admin/login`,    body:(u,p)=>JSON.stringify({u,p}), headers:{'content-type':'application/json'} },
-  { method:'POST', path:()=>`/login`,          body:(u,p)=>JSON.stringify({u,p}), headers:{'content-type':'application/json'} },
-];
-async function attempt(u, p){
-  for await (const opt of tryList){
-    const url = API + opt.path(u,p);
-    try{
-      const res = await fetch(url, {
-        method: opt.method,
-        mode:'cors', credentials:'omit', cache:'no-store',
-        headers: opt.headers || {},
-        body: opt.method==='POST' ? (opt.body?opt.body(u,p):undefined) : undefined
-      });
-      if (res.status === 404) { msg.textContent = 'Đang thử endpoint khác...'; continue; }
-      if (res.status === 401 || res.status === 403) { msg.textContent = 'Sai tài khoản hoặc mật khẩu'; return null; }
-      const ct = res.headers.get('content-type') || '';
-      let token = '';
-      if (ct.includes('application/json')) {
-        const j = await res.json().catch(()=>null);
-        token = (j && (j.token || j.t || j.id)) ? (j.token || j.t || j.id) : '';
-      } else {
-        token = (await res.text()).trim();
-      }
-      if (res.ok && token && token.length > 8) return token;
-      if (token && token.length > 8) return token;
-    }catch(e){
-      console.warn('Login attempt failed on', url, e);
-      continue;
-    }
-  }
-  return null;
-}
-btn.onclick = async () => {
-  msg.textContent = 'Đang đăng nhập...';
-  const user = u.value.trim();
-  const pass = p.value;
-  const token = await attempt(user, pass);
-  if (token){
-    location.href = '/admin/?token=' + encodeURIComponent(token);
-  } else {
-    msg.textContent = 'Đăng nhập thất bại (404/không khớp). Kiểm tra endpoint login trong Worker.';
-  }
-};
+const API='https://shv-api.shophuyvan.workers.dev';
+async function doLogin(u,p){
+  const r=await fetch(API+'/admin/login',{method:'POST',mode:'cors',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify({u,p})});
+  if(!r.ok) throw new Error(String(r.status)); const ct=r.headers.get('content-type')||''; let t=''; if(ct.includes('application/json')){const j=await r.json().catch(()=>null); t=(j&&(j.token||j.t||j.id))||'';} else { t=(await r.text()).trim(); } if(!t||t.length<8) throw new Error('bad'); return t;}
+btn.onclick=async()=>{msg.textContent='Đang đăng nhập...'; try{const tk=await doLogin(u.value.trim(),p.value); location.href='/admin/?token='+encodeURIComponent(tk);}catch(e){msg.textContent='Đăng nhập thất bại ('+e.message+').';}};
 </script></main></body></html>
