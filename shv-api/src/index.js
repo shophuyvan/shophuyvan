@@ -1,19 +1,4 @@
 
-// SHV API minimal catalog (KV: SHV). Endpoints:
-// - OPTIONS * (CORS)
-// - GET /me
-// - POST/GET /admin/login   (env.ADMIN_TOKEN)
-// - GET  /admin/me
-// - POST /admin/products/upsert   (body: product)  [fallback: /admin/product]
-// - GET  /admin/products           (list)
-// - GET  /products                 (public list, status!=0)
-// - GET  /product?id=              (public detail)
-// - POST /admin/banners/upsert     [fallback: /admin/banner]
-// - GET  /admin/banners
-// - GET  /banners                  (public)
-// - POST /admin/upload | /admin/files  (multipart/form-data)
-// - GET  /file/:id                 (serve uploaded file)
-
 function corsHeaders(req){
   const origin = req.headers.get('Origin') || '*';
   const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'authorization,content-type,x-token,x-requested-with';
@@ -42,11 +27,72 @@ async function adminOK(req, env){
 async function getJSON(env, key, def){ try{ const v = await env.SHV.get(key); return v? JSON.parse(v): (def??null);}catch{return def??null;} }
 async function putJSON(env, key, obj){ await env.SHV.put(key, JSON.stringify(obj)); }
 
+function slugify(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+// naive AI generators (no external API)
+function suggestTitle(p){
+  const name = p.title||p.name||'Sản phẩm';
+  const base = [name, (p.keywords||[]).slice(0,3).join(' '), (p.sale||p.price)? 'Giá tốt' : ''];
+  return [
+    `${name} chính hãng – ${p.sale||p.price||''}đ`,
+    `${name} chất lượng, bảo hành – Mua ngay`,
+    `${name} đa dụng | Ship nhanh toàn quốc`,
+    `${name} ${base[1]}`.trim()
+  ].filter(Boolean);
+}
+function suggestDesc(p){
+  const name = p.title||p.name||'Sản phẩm';
+  return [
+    `${name} thiết kế nhỏ gọn, chất liệu bền bỉ. Dễ dùng – phù hợp gia đình & văn phòng.`,
+    `${name} hiệu năng ổn định, tiết kiệm năng lượng. Bảo hành chính hãng.`,
+    `${name} giá tốt, giao nhanh. Đặt hàng hôm nay để nhận ưu đãi!`
+  ];
+}
+function suggestSEO(p){
+  const name = p.title||p.name||'Sản phẩm';
+  const s = slugify(name);
+  return [
+    { title: `${name} | Giá tốt, giao nhanh`, slug: s, desc: `${name} chính hãng, giá tốt, giao nhanh toàn quốc.` },
+    { title: `Mua ${name} chính hãng`, slug: s, desc: `Ưu đãi ${name}. Bảo hành đầy đủ.` },
+    { title: `${name} chất lượng`, slug: s, desc: `Đặt mua ${name} – Ship nhanh, đổi trả dễ dàng.` }
+  ];
+}
+function suggestFAQ(p){
+  const name = p.title||p.name||'sản phẩm';
+  return [
+    `Sản phẩm ${name} có bảo hành không? – Có, bảo hành theo chính sách cửa hàng.`,
+    `${name} có đổi trả không? – Có, trong 7 ngày nếu còn nguyên trạng.`,
+    `Thời gian giao hàng của ${name}? – 1-3 ngày tuỳ khu vực.`
+  ];
+}
+function suggestReviews(p){
+  const name = p.title||p.name||'Sản phẩm';
+  return [
+    `Rất hài lòng về ${name}, chất lượng vượt mong đợi!`,
+    `${name} dùng ổn, giao nhanh, đóng gói kỹ.`,
+    `Giá hợp lý, sẽ ủng hộ thêm.`,
+    `${name} đúng mô tả, nhân viên hỗ trợ nhiệt tình.`,
+    `Đóng gói cẩn thận, sản phẩm đẹp.`
+  ];
+}
+
 export default {
   async fetch(req, env, ctx){
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+
+      if((p==='/' || p==='') && req.method==='GET'){
+        return json({
+          ok:true,
+          service:'SHV API',
+          endpoints:{
+            health:'GET /me',
+            public:['GET /products','GET /product?id=','GET /banners','GET /file/:id'],
+            admin:['POST /admin/login','GET /admin/me','POST /admin/products/upsert','GET /admin/products','POST /admin/products/delete','POST /admin/banners/upsert','GET /admin/banners','POST /admin/banners/delete','POST /admin/upload','POST /admin/ai/*']
+          }
+        }, {}, req);
+      }
 
       if(p==='/me' && req.method==='GET') return json({ok:true,msg:'worker alive'}, {}, req);
 
@@ -60,7 +106,7 @@ export default {
 
       if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
 
-      // ===== Files upload & serve =====
+      // Files
       if(p.startsWith('/file/') && req.method==='GET'){
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
@@ -85,7 +131,7 @@ export default {
         return json({ok:true, urls}, {}, req);
       }
 
-      // ===== Banners =====
+      // Banners
       if((p==='/admin/banners/upsert' || p==='/admin/banner') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const b = await readBody(req)||{}; b.id = b.id || crypto.randomUUID().replace(/-/g,'');
@@ -95,14 +141,22 @@ export default {
         return json({ok:true, data:b}, {}, req);
       }
       if(p==='/admin/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list}, {}, req); }
-      if(p==='/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list}, {}, req); }
+      if(p==='/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list.filter(x=>x.on!==false)}, {}, req); }
+      if((p==='/admin/banners/delete' || p==='/admin/banner/delete') && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const b = await readBody(req)||{}; const id = b.id;
+        const list = await getJSON(env,'banners:list',[])||[];
+        const next = list.filter(x=>x.id!==id);
+        await putJSON(env, 'banners:list', next);
+        return json({ok:true, deleted:id}, {}, req);
+      }
 
-      // ===== Products =====
+      // Products
       if((p==='/admin/products/upsert' || p==='/admin/product') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const prod = await readBody(req)||{}; prod.id = prod.id || crypto.randomUUID().replace(/-/g,''); prod.updatedAt = Date.now();
         const list = await getJSON(env,'products:list',[])||[];
-        const summary = { id:prod.id, name: prod.name||prod.title||'', sku: prod.sku||'', price: prod.price||0, price_sale: prod.price_sale||0, stock: prod.stock||0, images: prod.images||[], status: (prod.status===0?0:1) };
+        const summary = { id:prod.id, title:prod.title||prod.name||'', name: prod.title||prod.name||'', slug: prod.slug||slugify(prod.title||prod.name||''), sku: prod.sku||'', price: prod.price||0, price_sale: prod.price_sale||0, stock: prod.stock||0, images: prod.images||[], status: (prod.status===0?0:1) };
         const idx = list.findIndex(x=>x.id===prod.id); if(idx>=0) list[idx]=summary; else list.unshift(summary);
         await putJSON(env, 'products:list', list);
         await putJSON(env, 'product:'+prod.id, prod);
@@ -111,6 +165,24 @@ export default {
       if(p==='/admin/products' && req.method==='GET'){ const list = await getJSON(env,'products:list',[])||[]; return json({ok:true, items:list}, {}, req); }
       if(p==='/products' && req.method==='GET'){ const list = await getJSON(env,'products:list',[])||[]; return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req); }
       if(p==='/product' && req.method==='GET'){ const id = url.searchParams.get('id'); if(!id) return json({ok:false,error:'missing id'},{status:400},req); const prod = await getJSON(env,'product:'+id,null); if(!prod) return json({ok:false,error:'not found'},{status:404},req); return json({ok:true, data:prod}, {}, req); }
+      if(p==='/admin/products/delete' && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const b = await readBody(req)||{}; const id=b.id;
+        const list = await getJSON(env,'products:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'products:list',next); await env.SHV.delete('product:'+id);
+        return json({ok:true, deleted:id}, {}, req);
+      }
+
+      // AI endpoints
+      if(p.startsWith('/admin/ai/')){
+        // allow both GET and POST
+        const kind = p.split('/').pop();
+        let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
+        // no auth barrier for AI read -> but keep header route preflight allowed
+        const gen = { title:suggestTitle, desc:suggestDesc, seo:suggestSEO, faq:suggestFAQ, reviews:suggestReviews }[kind];
+        if(!gen) return json({ok:false,error:'unknown ai endpoint'}, {status:404}, req);
+        const items = gen(body||{});
+        return json({ok:true, items, options:items}, {}, req);
+      }
 
       return json({ok:false, error:'not found'}, {status:404}, req);
     }catch(e){
