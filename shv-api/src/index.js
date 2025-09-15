@@ -359,7 +359,128 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       if(p==='/admin/orders/print' && req.method==='GET'){ const id = new URL(req.url).searchParams.get('id'); const o = await getJSON(env,'order:'+id,null); if(!o) return json({ok:false,error:'not found'},{status:404},req); const rows=(o.items||[]).map(it=>`<tr><td>${it.title||it.name||it.id}</td><td>${it.qty||1}</td><td>${Number(it.price||0).toLocaleString('vi-VN')}</td></tr>`).join(''); const html=`<!doctype html><html><head><meta charset="utf-8"/><title>In đơn ${id}</title><style>table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style></head><body><h3>ĐƠN HÀNG ${id}</h3><p>KH: ${o.customer?.name||''} - ${o.customer?.phone||''} - ${o.customer?.address||''}</p><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá</th></tr></thead><tbody>${rows}</tbody></table><p>Tổng hàng: ${o.subtotal.toLocaleString('vi-VN')}đ - Ship: ${Number(o.shipping_fee||0).toLocaleString('vi-VN')}đ</p></body></html>`; return json({ok:true, html}, {}, req); }
       if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}, req); }
 
-      return json({ok:false, error:'not found'}, {status:404}, req);
+      
+      // Public order create -> create order and store to KV
+      if(p==='/public/order-create' && req.method==='POST'){
+        const body = await readBody(req)||{};
+        const id = (body.id || crypto.randomUUID().replace(/-/g,''));
+        const createdAt = Date.now();
+        const items = Array.isArray(body.items)? body.items : [];
+        const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
+        const subtotal = items.reduce((s,it)=> s + Number(it.price||0) * Number(it.qty||it.quantity||1), 0);
+        const cost     = items.reduce((s,it)=> s + Number(it.cost||0)  * Number(it.qty||it.quantity||1), 0);
+        const revenue  = subtotal - shipping_fee;
+        const profit   = revenue - cost;
+        const o = { id, status: body.status || 'mới', name: body.name, phone: body.phone, address: body.address, note: body.note||body.notes, items, subtotal, shipping_fee, total: subtotal + shipping_fee, revenue, profit, createdAt };
+        const list = await getJSON(env,'orders:list',[])||[];
+        list.unshift(o);
+        await putJSON(env,'orders:list', list);
+        await putJSON(env,'order:'+id, o);
+        return json({ok:true, id, data:o}, {}, req);
+      }
+
+      // Admin: GET /admin/orders?from=&to=
+      if(p==='/admin/orders' && req.method==='GET'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const { searchParams } = new URL(req.url);
+        const from = Number(searchParams.get('from')||0) || 0;
+        const to   = Number(searchParams.get('to')||0)   || 0;
+        let list = await getJSON(env,'orders:list',[])||[];
+        if(from||to){
+          list = list.filter(o=>{
+            const t = Number(o.createdAt||0);
+            if(from && t < from) return false;
+            if(to   && t > to)   return false;
+            return true;
+          });
+        }
+        return json({ok:true, items:list}, {}, req);
+      }
+
+      // Stats with granularity day|month|year
+      if(p==='/admin/stats' && req.method==='GET'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const { searchParams } = new URL(req.url);
+        const gran = (searchParams.get('granularity')||'all').toLowerCase();
+        const list = await getJSON(env,'orders:list',[])||[];
+        const groupKey = (t)=>{
+          const d = new Date(Number(t||0));
+          if(gran==='day')   return d.toISOString().slice(0,10);
+          if(gran==='month') return d.toISOString().slice(0,7);
+          if(gran==='year')  return String(d.getUTCFullYear());
+          return 'all';
+        };
+        const groups = {};
+        let revenue=0, profit=0;
+        for(const o of list){
+          const k = groupKey(o.createdAt);
+          groups[k] = groups[k]||{orders:0,revenue:0,profit:0};
+          groups[k].orders += 1;
+          groups[k].revenue += Number(o.revenue||0);
+          groups[k].profit  += Number(o.profit||0);
+          revenue += Number(o.revenue||0);
+          profit  += Number(o.profit||0);
+        }
+        // top products
+        const map = {};
+        for(const o of list){
+          for(const it of (o.items||[])){
+            const key = it.sku||it.id||it.title||it.name||'unknown';
+            if(!map[key]) map[key] = {title: it.title||it.name||key, qty:0, revenue:0};
+            map[key].qty += Number(it.qty||it.quantity||1);
+            map[key].revenue += Number(it.price||0) * Number(it.qty||it.quantity||1);
+          }
+        }
+        const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10);
+        return json({ok:true, revenue, profit, groups, top_products: top}, {}, req);
+      }
+
+      // Settings: upsert (pixels/shipping credentials etc.) to KV
+      if(p==='/admin/settings/upsert' && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const body = await readBody(req)||{};
+        const all = await getJSON(env,'settings',{})||{};
+        const path = String(body.path||'').split('.').filter(Boolean);
+        let cur = all;
+        while(path.length>1){ const k=path.shift(); cur[k]=cur[k]||{}; cur=cur[k]; }
+        if(path.length){ cur[path[0]] = body.value; }
+        else if(body.data && typeof body.data==='object'){ Object.assign(all, body.data); }
+        await putJSON(env,'settings', all);
+        return json({ok:true, settings: all}, {}, req);
+      }
+      if(p==='/public/settings' && req.method==='GET'){
+        const all = await getJSON(env,'settings',{})||{};
+        return json({ok:true, settings: all}, {}, req);
+      }
+
+      // Shipping credentials
+      if(p==='/admin/shipping/credentials' && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const body = await readBody(req)||{};
+        const all = await getJSON(env,'settings',{})||{};
+        all.shipping = all.shipping || {}; all.shipping.credentials = all.shipping.credentials || {};
+        if(body.provider && body.credentials){ all.shipping.credentials[body.provider] = body.credentials; }
+        await putJSON(env,'settings', all);
+        return json({ok:true}, {}, req);
+      }
+      // Shipping quote (stub logic)
+      if(p==='/admin/shipping/quote' && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const body = await readBody(req)||{};
+        const weight = Number(body.weight||0);
+        const subtotal = (Array.isArray(body.items)?body.items:[]).reduce((s,it)=>s+Number(it.price||0)*(Number(it.qty||1)),0);
+        const fee = Math.max(15000, Math.round(15000 + weight*100 + subtotal*0.02));
+        return json({ok:true, provider: body.provider||'stub', fee, eta:'1-3 ngày'}, {}, req);
+      }
+      // Shipping create (stub) -> returns tracking code
+      if(p==='/admin/shipping/create' && req.method==='POST'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const body = await readBody(req)||{}; const id = body.order_id || crypto.randomUUID().replace(/-/g,'');
+        const tracking = (body.provider||'SHIP') + '-' + id.slice(-8).toUpperCase();
+        await putJSON(env, 'shipment:'+id, {id, provider:body.provider||'stub', tracking, createdAt:Date.now(), body});
+        return json({ok:true, tracking, id}, {}, req);
+      }
+return json({ok:false, error:'not found'}, {status:404}, req);
 
     }catch(e){
       return json({ok:false, error: (e && e.message) || String(e)}, {status:500}, req);
