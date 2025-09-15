@@ -67,8 +67,8 @@ function card(p){
 
 (async function init(){
   try{
-    const s = await api('/settings?key=banners');
-    banners = Array.isArray(s?.value) ? s.value : [];
+    const s = await api('/banners');
+    banners = Array.isArray(s?.items) ? s.items : (Array.isArray(s?.value)? s.value:[]);
   }catch{ banners = []; }
   renderBanner(0); startBanner();
   bannerStage.addEventListener('mouseenter', stopBanner);
