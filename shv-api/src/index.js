@@ -1,16 +1,15 @@
 
 function buildCors(req) {
   const origin = req.headers.get('Origin') || '*';
-  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'authorization,content-type,x-token,x-requested-with';
+  const reqHdr = req.headers.get('Access-Control-Request-Headers');
   return {
     'Access-Control-Allow-Origin': origin,
     'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Headers': reqHdr,
+    'Access-Control-Allow-Headers': reqHdr || 'authorization,content-type,x-token,x-requested-with',
     'Access-Control-Expose-Headers': 'x-token'
   };
-};
 }
 function json(data, init = {}, req) {
   return new Response(JSON.stringify(data), {
