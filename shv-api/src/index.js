@@ -29,7 +29,35 @@ async function putJSON(env, key, obj){ await env.SHV.put(key, JSON.stringify(obj
 
 function slugify(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
-// AI generators
+// Build product summary
+function toSummary(prod){
+  return { id:prod.id, title: prod.title||prod.name||'', name: prod.title||prod.name||'', slug: prod.slug||slugify(prod.title||prod.name||''), sku: prod.sku||'', price: prod.price||0, price_sale: prod.price_sale||0, stock: prod.stock||0, images: prod.images||[], status: (prod.status===0?0:1) };
+}
+
+// Fallback build list from legacy keys: product:* (full JSON)
+async function listProducts(env){
+  let list = await getJSON(env,'products:list',null);
+  if(list && list.length) return list;
+
+  const items = [];
+  let cursor;
+  do{
+    const res = await env.SHV.list({ prefix: 'product:', cursor });
+    for(const k of res.keys){
+      const prod = await getJSON(env, k.name, null);
+      if(prod){
+        prod.id = prod.id || k.name.slice('product:'.length);
+        items.push(toSummary(prod));
+      }
+    }
+    cursor = res.list_complete ? null : res.cursor;
+  } while(cursor);
+
+  if(items.length) await putJSON(env, 'products:list', items);
+  return items;
+}
+
+// AI (same as v3)
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
@@ -107,18 +135,7 @@ export default {
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
 
-      if((p==='/' || p==='') && req.method==='GET'){
-        return json({
-          ok:true,
-          service:'SHV API',
-          endpoints:{
-            health:'GET /me',
-            public:['GET /products','GET /product?id=','GET /banners','GET /file/:id'],
-            admin:['POST /admin/login','GET /admin/me','POST /admin/products/upsert','GET /admin/products','POST /admin/products/delete','POST /admin/banners/upsert','GET /admin/banners','POST /admin/banners/delete','POST /admin/upload','POST /admin/ai/*']
-          }
-        }, {}, req);
-      }
-
+      if(p==='/' || p===''){ return json({ok:true, msg:'SHV API v3.1', hint:'GET /products, /admin/products, /banners, /admin/ai/*'}, {}, req); }
       if(p==='/me' && req.method==='GET') return json({ok:true,msg:'worker alive'}, {}, req);
 
       if(p==='/admin/login'){
@@ -131,7 +148,7 @@ export default {
 
       if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
 
-      // Files
+      // File
       if(p.startsWith('/file/') && req.method==='GET'){
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
@@ -180,24 +197,42 @@ export default {
       if((p==='/admin/products/upsert' || p==='/admin/product') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const prod = await readBody(req)||{}; prod.id = prod.id || crypto.randomUUID().replace(/-/g,''); prod.updatedAt = Date.now();
-        const list = await getJSON(env,'products:list',[])||[];
-        const summary = { id:prod.id, title:prod.title||prod.name||'', name: prod.title||prod.name||'', slug: prod.slug||slugify(prod.title||prod.name||''), sku: prod.sku||'', price: prod.price||0, price_sale: prod.price_sale||0, stock: prod.stock||0, images: prod.images||[], status: (prod.status===0?0:1) };
+        const list = await listProducts(env);
+        const summary = toSummary(prod);
         const idx = list.findIndex(x=>x.id===prod.id); if(idx>=0) list[idx]=summary; else list.unshift(summary);
         await putJSON(env, 'products:list', list);
         await putJSON(env, 'product:'+prod.id, prod);
+        await putJSON(env, 'products:'+prod.id, summary); // keep legacy-compat style
         return json({ok:true, data:prod}, {}, req);
       }
-      if(p==='/admin/products' && req.method==='GET'){ const list = await getJSON(env,'products:list',[])||[]; return json({ok:true, items:list}, {}, req); }
-      if(p==='/products' && req.method==='GET'){ const list = await getJSON(env,'products:list',[])||[]; return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req); }
-      if(p==='/product' && req.method==='GET'){ const id = url.searchParams.get('id'); if(!id) return json({ok:false,error:'missing id'},{status:400},req); const prod = await getJSON(env,'product:'+id,null); if(!prod) return json({ok:false,error:'not found'},{status:404},req); return json({ok:true, data:prod}, {}, req); }
+      if(p==='/admin/products' && req.method==='GET'){
+        const list = await listProducts(env);
+        return json({ok:true, items:list}, {}, req);
+      }
+      if(p==='/products' && req.method==='GET'){
+        const list = await listProducts(env);
+        return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req);
+      }
+      if(p==='/product' && req.method==='GET'){
+        const id = url.searchParams.get('id'); const slug = url.searchParams.get('slug');
+        if(!id && !slug) return json({ok:false,error:'missing id or slug'},{status:400},req);
+        let prod=null;
+        if(id) prod = await getJSON(env,'product:'+id,null);
+        if(!prod && slug){
+          const list=await listProducts(env); const item=list.find(x=>x.slug===slug);
+          if(item) prod = await getJSON(env, 'product:'+item.id, null);
+        }
+        if(!prod) return json({ok:false,error:'not found'},{status:404},req);
+        return json({ok:true, data:prod}, {}, req);
+      }
       if(p==='/admin/products/delete' && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const b = await readBody(req)||{}; const id=b.id;
-        const list = await getJSON(env,'products:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'products:list',next); await env.SHV.delete('product:'+id);
+        const list = await listProducts(env); const next=list.filter(x=>x.id!==id); await putJSON(env,'products:list',next); await env.SHV.delete('product:'+id);
         return json({ok:true, deleted:id}, {}, req);
       }
 
-      // AI endpoints
+      // AI
       if(p.startsWith('/admin/ai/')){
         const kind = p.split('/').pop();
         let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
@@ -205,7 +240,6 @@ export default {
         const gen = map[kind];
         if(!gen) return json({ok:false,error:'unknown ai endpoint'}, {status:404}, req);
         const items = gen(body||{});
-        // 'seo' returns objects; others arrays of strings/objects
         return json({ok:true, items, options:items}, {}, req);
       }
 
