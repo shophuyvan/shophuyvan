@@ -29,50 +29,75 @@ async function putJSON(env, key, obj){ await env.SHV.put(key, JSON.stringify(obj
 
 function slugify(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
-// naive AI generators (no external API)
-function suggestTitle(p){
-  const name = p.title||p.name||'Sản phẩm';
-  const base = [name, (p.keywords||[]).slice(0,3).join(' '), (p.sale||p.price)? 'Giá tốt' : ''];
-  return [
-    `${name} chính hãng – ${p.sale||p.price||''}đ`,
-    `${name} chất lượng, bảo hành – Mua ngay`,
-    `${name} đa dụng | Ship nhanh toàn quốc`,
-    `${name} ${base[1]}`.trim()
-  ].filter(Boolean);
+// AI generators
+function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
+function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
+function keywordsFrom(title, desc){
+  const stop = new Set(['san','pham','chinh','hang','bao','hanh','gia','tot','chat','luong','mua','ngay','giao','nhanh','quoc','te','toan','quoc','hang','ship','uu','dai','khach','hang']);
+  const bag = dedupe([...words(title||''), ...words(desc||'')]).filter(w=>!stop.has(w)).slice(0,12);
+  return bag;
 }
-function suggestDesc(p){
+function aiTitle(p){
   const name = p.title||p.name||'Sản phẩm';
-  return [
-    `${name} thiết kế nhỏ gọn, chất liệu bền bỉ. Dễ dùng – phù hợp gia đình & văn phòng.`,
-    `${name} hiệu năng ổn định, tiết kiệm năng lượng. Bảo hành chính hãng.`,
-    `${name} giá tốt, giao nhanh. Đặt hàng hôm nay để nhận ưu đãi!`
+  const price = p.sale||p.price||'';
+  const opts = [
+    `${name} chính hãng – Mua ngay`,
+    `${name} giá tốt | Ship nhanh toàn quốc`,
+    `${name} chất lượng, bảo hành đầy đủ`,
+    `${name} giảm giá chỉ ${price}đ`,
+    `Mua ${name} – Ưu đãi hôm nay`
+  ].map(s=>s.slice(0,120));
+  return dedupe(opts).slice(0,5);
+}
+function aiDesc(p){
+  const name = p.title||p.name||'Sản phẩm';
+  const base = `${name} thiết kế gọn đẹp, chất liệu bền bỉ. Dễ dùng, phù hợp gia đình & văn phòng. `+
+               `Hiệu năng ổn định, tiết kiệm năng lượng. Giao nhanh, đổi trả linh hoạt.`;
+  const opts = [
+    base,
+    `${name} chính hãng – Thông số được tinh gọn để hiển thị tốt trên mobile. `+
+    `Gợi ý: tách riêng mục kích thước/chất liệu/thuộc tính vào danh sách để người mua dễ đọc.`,
+    `Mô tả ${name}: tập trung lợi ích cốt lõi, hướng dẫn sử dụng ngắn gọn, chèn ảnh minh hoạ thông số nếu có.`
   ];
+  return dedupe(opts).slice(0,5);
 }
-function suggestSEO(p){
+function aiSEO(p){
   const name = p.title||p.name||'Sản phẩm';
-  const s = slugify(name);
-  return [
-    { title: `${name} | Giá tốt, giao nhanh`, slug: s, desc: `${name} chính hãng, giá tốt, giao nhanh toàn quốc.` },
-    { title: `Mua ${name} chính hãng`, slug: s, desc: `Ưu đãi ${name}. Bảo hành đầy đủ.` },
-    { title: `${name} chất lượng`, slug: s, desc: `Đặt mua ${name} – Ship nhanh, đổi trả dễ dàng.` }
+  const kws = keywordsFrom(p.title, p.desc);
+  const slug = slugify(name);
+  const items = [
+    { title: `${name} | Giá tốt, giao nhanh`, slug, desc: `${name} chính hãng, bảo hành đầy đủ. Giao nhanh toàn quốc.`, keywords:kws.slice(0,8) },
+    { title: `Mua ${name} chính hãng – Ưu đãi hôm nay`, slug, desc: `Đặt ${name} với nhiều ưu đãi. Chất lượng đảm bảo.`, keywords:kws.slice(0,8) },
+    { title: `${name} chất lượng – Ship nhanh`, slug, desc: `Sản phẩm ${name} bền bỉ, trải nghiệm tốt.`, keywords:kws.slice(0,8) },
   ];
+  return items;
 }
-function suggestFAQ(p){
-  const name = p.title||p.name||'sản phẩm';
-  return [
-    `Sản phẩm ${name} có bảo hành không? – Có, bảo hành theo chính sách cửa hàng.`,
-    `${name} có đổi trả không? – Có, trong 7 ngày nếu còn nguyên trạng.`,
-    `Thời gian giao hàng của ${name}? – 1-3 ngày tuỳ khu vực.`
+function aiFAQ(p){
+  const name = p.title||'sản phẩm';
+  const items = [
+    {q:`${name} có bảo hành không?`, a:'Có, theo chính sách của cửa hàng.'},
+    {q:`Có được đổi trả ${name} không?`, a:'Đổi trả trong 7 ngày nếu còn nguyên trạng.'},
+    {q:`Thời gian giao hàng ${name}?`, a:'1–3 ngày tuỳ khu vực.'},
+    {q:`${name} có phù hợp làm quà tặng?`, a:'Có, đóng gói đẹp và an toàn.'},
+    {q:`Có hỗ trợ xuất hoá đơn cho ${name}?`, a:'Có, vui lòng để lại thông tin khi đặt hàng.'}
   ];
+  return items;
 }
-function suggestReviews(p){
-  const name = p.title||p.name||'Sản phẩm';
+const VI_NAMES = ['Minh','An','Anh','Bình','Duy','Huy','Khoa','Khôi','Long','Nam','Phong','Quân','Sơn','Tiến','Trung','Tú','Vinh','Vy','Linh','Trang','Thu','Ngọc','Quỳnh','Hương','Mai','Lan','Hà','Nga','Thảo'];
+function randName(){ return VI_NAMES[Math.floor(Math.random()*VI_NAMES.length)]+' '+(Math.random()<0.5?'Nguyễn':'Trần'); }
+function avatar(seed){ const s = seed||Math.random().toString(36).slice(2,8); return `https://api.dicebear.com/7.x/thumbs/svg?seed=${s}`; }
+function aiReviews(p){
+  const name = p.title||'Sản phẩm';
+  const items = Array.from({length: Math.floor(Math.random()*6)+5}).map(()=>({name: randName(), text: `${name} dùng rất ổn, giao nhanh, đóng gói chắc chắn. Sẽ ủng hộ tiếp.`, stars:5, avatar: avatar()}));
+  return items;
+}
+function aiAlt(p){
+  const base = (p.title||'Sản phẩm') + ' ' + (p.filename||'hinh-anh');
   return [
-    `Rất hài lòng về ${name}, chất lượng vượt mong đợi!`,
-    `${name} dùng ổn, giao nhanh, đóng gói kỹ.`,
-    `Giá hợp lý, sẽ ủng hộ thêm.`,
-    `${name} đúng mô tả, nhân viên hỗ trợ nhiệt tình.`,
-    `Đóng gói cẩn thận, sản phẩm đẹp.`
+    `${base} nhìn từ góc nghiêng`,
+    `${base} cận cảnh chi tiết`,
+    `${base} phụ kiện kèm theo`,
+    `${base} sử dụng thực tế`
   ];
 }
 
@@ -125,7 +150,7 @@ export default {
           const id = crypto.randomUUID().replace(/-/g,'');
           const buf = await f.arrayBuffer();
           await env.SHV.put('file:'+id, buf);
-          await putJSON(env, 'file:'+id+':meta', {name:f.name, type:f.type, size:f.size});
+          await env.SHV.put('file:'+id+':meta', JSON.stringify({name:f.name, type:f.type, size:f.size}));
           urls.push(url.origin+'/file/'+id);
         }
         return json({ok:true, urls}, {}, req);
@@ -174,13 +199,13 @@ export default {
 
       // AI endpoints
       if(p.startsWith('/admin/ai/')){
-        // allow both GET and POST
         const kind = p.split('/').pop();
         let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
-        // no auth barrier for AI read -> but keep header route preflight allowed
-        const gen = { title:suggestTitle, desc:suggestDesc, seo:suggestSEO, faq:suggestFAQ, reviews:suggestReviews }[kind];
+        const map = { title: aiTitle, desc: aiDesc, seo: aiSEO, faq: aiFAQ, reviews: aiReviews, alt: aiAlt };
+        const gen = map[kind];
         if(!gen) return json({ok:false,error:'unknown ai endpoint'}, {status:404}, req);
         const items = gen(body||{});
+        // 'seo' returns objects; others arrays of strings/objects
         return json({ok:true, items, options:items}, {}, req);
       }
 
