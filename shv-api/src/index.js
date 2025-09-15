@@ -58,7 +58,33 @@ async function listProducts(env){
 }
 
 // AI
-      // AI (same as v3)
+async function geminiGen(env, prompt){
+  try{
+    if(!(env && env.GEMINI_API_KEY)) return null;
+    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
+    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (text||'').trim();
+  }catch(e){ return null; }
+}
+
+      // AI
+async function geminiGen(env, prompt){
+  try{
+    if(!(env && env.GEMINI_API_KEY)) return null;
+    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
+    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (text||'').trim();
+  }catch(e){ return null; }
+}
+ (same as v3)
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
@@ -66,15 +92,19 @@ function keywordsFrom(title, desc){
   const bag = dedupe([...words(title||''), ...words(desc||'')]).filter(w=>!stop.has(w)).slice(0,12);
   return bag;
 }
-function aiTitle(p){
+async function aiTitle(p, env){
   const name = p.title||p.name||'Sản phẩm';
-  const price = p.sale||p.price||'';
+  const price = p.price_sale||p.sale||p.price||'';
+  const prompt = `Đặt 5 tiêu đề ngắn cho sản phẩm (≤120 ký tự), tiếng Việt, thuyết phục, không emoji. Tên: "${name}". Giá sale: "${price}". Trả đúng mỗi dòng 1 tiêu đề.`;
+  const g = await geminiGen(env, prompt);
+  if(g){ return g.split(/
++/).map(s=>s.trim()).filter(Boolean).slice(0,5).map(s=>s.slice(0,120)); }
   const opts = [
     `${name} chính hãng – Mua ngay`,
     `${name} giá tốt | Ship nhanh toàn quốc`,
-    `${name} chất lượng, bảo hành đầy đủ`,
-    `${name} giảm giá chỉ ${price}đ`,
-    `Mua ${name} – Ưu đãi hôm nay`
+    `${name} giảm chỉ còn ${price}đ`,
+    `Mua ${name} – Ưu đãi hôm nay`,
+    `${name} chất lượng, bảo hành`
   ].map(s=>s.slice(0,120));
   return dedupe(opts).slice(0,5);
 }
@@ -90,35 +120,46 @@ function aiDesc(p){
   ];
   return dedupe(opts).slice(0,5);
 }
-function aiSEO(p){
+async function aiSEO(p, env){
   const name = p.title||p.name||'Sản phẩm';
+  const prompt = `Viết SEO Title, SEO Description (≤160 ký tự), và 8-12 Keywords cho sản phẩm "${name}". Trả đúng JSON với keys: title, desc, keywords (mảng).`;
+  const g = await geminiGen(env, prompt);
+  if(g){
+    try{ const j = JSON.parse(g); if(j && (j.title||j.desc)) return [{title:j.title||name, desc:j.desc||'', keywords:j.keywords||[]}]; }catch{}
+  }
   const kws = keywordsFrom(p.title, p.desc);
-  const slug = slugify(name);
-  const items = [
-    { title: `${name} | Giá tốt, giao nhanh`, slug, desc: `${name} chính hãng, bảo hành đầy đủ. Giao nhanh toàn quốc.`, keywords:kws.slice(0,8) },
-    { title: `Mua ${name} chính hãng – Ưu đãi hôm nay`, slug, desc: `Đặt ${name} với nhiều ưu đãi. Chất lượng đảm bảo.`, keywords:kws.slice(0,8) },
-    { title: `${name} chất lượng – Ship nhanh`, slug, desc: `Sản phẩm ${name} bền bỉ, trải nghiệm tốt.`, keywords:kws.slice(0,8) },
-  ];
+  const items = [{ title: `${name} | Giá tốt, Giao nhanh`, desc: `${name} chính hãng, chất lượng. Mua ngay giao nhanh.`, keywords: kws }];
   return items;
 }
-function aiFAQ(p){
-  const name = p.title||'sản phẩm';
-  const items = [
-    {q:`${name} có bảo hành không?`, a:'Có, theo chính sách của cửa hàng.'},
-    {q:`Có được đổi trả ${name} không?`, a:'Đổi trả trong 7 ngày nếu còn nguyên trạng.'},
-    {q:`Thời gian giao hàng ${name}?`, a:'1–3 ngày tuỳ khu vực.'},
-    {q:`${name} có phù hợp làm quà tặng?`, a:'Có, đóng gói đẹp và an toàn.'},
-    {q:`Có hỗ trợ xuất hoá đơn cho ${name}?`, a:'Có, vui lòng để lại thông tin khi đặt hàng.'}
+async function aiFAQ(p, env){
+  const name = p.title||p.name||'Sản phẩm';
+  const prompt = `Tạo 5 câu Hỏi/Đáp ngắn gọn cho "${name}". Trả JSON mảng [{q,a}].`;
+  const g = await geminiGen(env, prompt);
+  if(g){ try{ const arr = JSON.parse(g); return arr; }catch{} }
+  return [
+    {q:'Dùng có bền không?', a:'Thiết kế chắc chắn, dùng bền mỗi ngày.'},
+    {q:'Bảo hành thế nào?', a:'Hỗ trợ bảo hành theo chính sách cửa hàng.'},
+    {q:'Có dễ lắp đặt không?', a:'Có hướng dẫn chi tiết, ai cũng có thể tự lắp.'},
+    {q:'Giao hàng bao lâu?', a:'1–3 ngày tùy khu vực, có hỗ trợ theo dõi đơn.'},
+    {q:'Có đổi trả không?', a:'Đổi trả trong 7 ngày theo điều kiện đi kèm.'}
+  ];
+}
   ];
   return items;
 }
 const VI_NAMES = ['Minh','An','Anh','Bình','Duy','Huy','Khoa','Khôi','Long','Nam','Phong','Quân','Sơn','Tiến','Trung','Tú','Vinh','Vy','Linh','Trang','Thu','Ngọc','Quỳnh','Hương','Mai','Lan','Hà','Nga','Thảo'];
 function randName(){ return VI_NAMES[Math.floor(Math.random()*VI_NAMES.length)]+' '+(Math.random()<0.5?'Nguyễn':'Trần'); }
 function avatar(seed){ const s = seed||Math.random().toString(36).slice(2,8); return `https://api.dicebear.com/7.x/thumbs/svg?seed=${s}`; }
-function aiReviews(p){
-  const name = p.title||'Sản phẩm';
-  const items = Array.from({length: Math.floor(Math.random()*6)+5}).map(()=>({name: randName(), text: `${name} dùng rất ổn, giao nhanh, đóng gói chắc chắn. Sẽ ủng hộ tiếp.`, stars:5, avatar: avatar()}));
-  return items;
+async function aiReviews(p, env){
+  const name = p.title||p.name||'Sản phẩm';
+  const prompt = `Sinh 6 nhận xét tiếng Việt tích cực cho "${name}", mỗi nhận xét gồm: name, stars (4-5), text; trả JSON mảng.`;
+  const g = await geminiGen(env, prompt);
+  if(g){ try{ const arr = JSON.parse(g); return arr; }catch{} }
+  return [
+    {name:'Minh Khoa', stars:5, text:'Hàng tốt, đúng mô tả.'},
+    {name:'Hồng Nhung', stars:5, text:'Đẹp và chắc chắn.'},
+    {name:'Tuấn An', stars:4, text:'Đáng tiền, giao nhanh.'}
+  ];
 }
 function aiAlt(p){
   const base = (p.title||'Sản phẩm') + ' ' + (p.filename||'hinh-anh');
@@ -136,6 +177,19 @@ export default {
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
       // AI
+async function geminiGen(env, prompt){
+  try{
+    if(!(env && env.GEMINI_API_KEY)) return null;
+    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
+    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (text||'').trim();
+  }catch(e){ return null; }
+}
+
       if(p==='/admin/ai/ping'){
         return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
       }
@@ -168,8 +222,10 @@ export default {
       }
       // Public products list
       if(p==='/public/products' && req.method==='GET'){
+        const cat = url.searchParams.get('category')||url.searchParams.get('cat');
+
         const limit = Number(url.searchParams.get('limit')||'24');
-        const items = (await listProducts(env)) || [];
+        let items = (await listProducts(env)) || []; if(cat){ items = items.filter(x=> (x.categories||x.cats||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
         return json({items: items.slice(0, limit)}, {}, req);
       }
 
@@ -231,7 +287,13 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         return json({ok:true, urls}, {}, req);
       }
 
-      // Banners
+      
+// Categories
+if(p==='/admin/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list}, {}, req); }
+if(p==='/admin/categories/upsert' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401},req); const b=await readBody(req)||{}; const it={ id:b.id||crypto.randomUUID(), name:b.name||'', slug:b.slug||(b.name||'').toLowerCase().replace(/\s+/g,'-'), parent:b.parent||'', order:Number(b.order||0) }; const list=await getJSON(env,'cats:list',[])||[]; const i=list.findIndex(x=>x.id===it.id); if(i>=0) list[i]=it; else list.push(it); await putJSON(env,'cats:list',list); return json({ok:true,item:it}, {}, req); }
+if(p==='/admin/categories/delete' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401},req); const b=await readBody(req)||{}; const id=b.id; const list=(await getJSON(env,'cats:list',[])||[]).filter(x=>x.id!==id); await putJSON(env,'cats:list',list); return json({ok:true,deleted:id}, {}, req); }
+if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list.sort((a,b)=>Number(a.order||0)-Number(b.order||0))}, {}, req); }
+// Banners
       if(p==='/admin/banners' && req.method==='POST'){ req = new Request(new URL('/admin/banners/upsert', req.url), req); }
       // Banners
       if((p==='/admin/banners/upsert' || p==='/admin/banner') && req.method==='POST'){
@@ -293,7 +355,33 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
       }
 
       // AI
+async function geminiGen(env, prompt){
+  try{
+    if(!(env && env.GEMINI_API_KEY)) return null;
+    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
+    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (text||'').trim();
+  }catch(e){ return null; }
+}
+
       // AI
+async function geminiGen(env, prompt){
+  try{
+    if(!(env && env.GEMINI_API_KEY)) return null;
+    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
+    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return (text||'').trim();
+  }catch(e){ return null; }
+}
+
       if(p.startsWith('/admin/ai/')){
         const kind = p.split('/').pop();
         let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
