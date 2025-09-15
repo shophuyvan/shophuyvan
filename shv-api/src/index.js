@@ -58,9 +58,6 @@ async function listProducts(env){
 }
 
 // AI
-      if(p==='/admin/ai/ping'){
-        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
-      }
       // AI (same as v3)
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
@@ -138,6 +135,11 @@ export default {
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+      // AI
+      if(p==='/admin/ai/ping'){
+        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
+      }
+
       // REST-style product get: /products/{id} and public alias
       if(p.startsWith('/products/') && req.method==='GET'){
         const id = decodeURIComponent(p.split('/')[2]||'').trim();
@@ -291,9 +293,6 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
       }
 
       // AI
-      if(p==='/admin/ai/ping'){
-        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
-      }
       // AI
       if(p.startsWith('/admin/ai/')){
         const kind = p.split('/').pop();
