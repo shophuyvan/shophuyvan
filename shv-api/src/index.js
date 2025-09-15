@@ -72,18 +72,6 @@ async function geminiGen(env, prompt){
 }
 
       // AI
-async function geminiGen(env, prompt){
-  try{
-    if(!(env && env.GEMINI_API_KEY)) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
-    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
-    const j = await r.json();
-    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return (text||'').trim();
-  }catch(e){ return null; }
-}
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
@@ -172,18 +160,6 @@ export default {
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
       // AI
-async function geminiGen(env, prompt){
-  try{
-    if(!(env && env.GEMINI_API_KEY)) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
-    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
-    const j = await r.json();
-    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return (text||'').trim();
-  }catch(e){ return null; }
-}
 
       if(p==='/admin/ai/ping'){
         return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
@@ -350,32 +326,8 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       }
 
       // AI
-async function geminiGen(env, prompt){
-  try{
-    if(!(env && env.GEMINI_API_KEY)) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
-    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
-    const j = await r.json();
-    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return (text||'').trim();
-  }catch(e){ return null; }
-}
 
       // AI
-async function geminiGen(env, prompt){
-  try{
-    if(!(env && env.GEMINI_API_KEY)) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-1.5-flash-latest').trim();
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-    const body = { contents:[{ role:'user', parts:[{text: prompt}]}], generationConfig:{ temperature:0.7 } };
-    const r = await fetch(endpoint, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
-    const j = await r.json();
-    const text = j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('\n') || j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return (text||'').trim();
-  }catch(e){ return null; }
-}
 
       if(p.startsWith('/admin/ai/')){
         const kind = p.split('/').pop();
