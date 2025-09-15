@@ -38,7 +38,6 @@ async function getJSON(env, key, defVal=null) { const v = await env.SHV.get(key)
 
 export default {
   async fetch(req, env, ctx) {
-    try {
     const pre = await maybeHandlePreflight(req); if (pre) return pre;
     const url = new URL(req.url);
     const p = url.pathname;
