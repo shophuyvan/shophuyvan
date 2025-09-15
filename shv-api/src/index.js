@@ -96,8 +96,7 @@ async function aiTitle(p, env){
   const price = p.price_sale||p.sale||p.price||'';
   const prompt = `Đặt 5 tiêu đề ngắn cho sản phẩm (≤120 ký tự), tiếng Việt, thuyết phục, không emoji. Tên: "${name}". Giá sale: "${price}". Trả đúng mỗi dòng 1 tiêu đề.`;
   const g = await geminiGen(env, prompt);
-  if(g){ return g.split(/
-+/).map(s=>s.trim()).filter(Boolean).slice(0,5).map(s=>s.slice(0,120)); }
+  if(g){ return g.split(/\r?\n+/).map(s=>s.trim()).filter(Boolean).slice(0,5).map(s=>s.slice(0,120)); }
   const opts = [
     `${name} chính hãng – Mua ngay`,
     `${name} giá tốt | Ship nhanh toàn quốc`,
