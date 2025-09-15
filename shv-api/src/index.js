@@ -84,7 +84,6 @@ async function geminiGen(env, prompt){
     return (text||'').trim();
   }catch(e){ return null; }
 }
- (same as v3)
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
