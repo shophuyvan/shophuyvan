@@ -57,7 +57,11 @@ async function listProducts(env){
   return items;
 }
 
-// AI (same as v3)
+// AI
+      if(p==='/admin/ai/ping'){
+        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
+      }
+      // AI (same as v3)
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
 function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
@@ -226,6 +230,8 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
       }
 
       // Banners
+      if(p==='/admin/banners' && req.method==='POST'){ req = new Request(new URL('/admin/banners/upsert', req.url), req); }
+      // Banners
       if((p==='/admin/banners/upsert' || p==='/admin/banner') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const b = await readBody(req)||{}; b.id = b.id || crypto.randomUUID().replace(/-/g,'');
@@ -265,7 +271,7 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const list = await listProducts(env);
         return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req);
       }
-      if(p==='/product' && req.method==='GET'){
+      if((p==='/admin/products/get' || p==='/product') && req.method==='GET'){
         const id = url.searchParams.get('id'); const slug = url.searchParams.get('slug');
         if(!id && !slug) return json({ok:false,error:'missing id or slug'},{status:400},req);
         let prod=null;
@@ -285,6 +291,10 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
       }
 
       // AI
+      if(p==='/admin/ai/ping'){
+        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
+      }
+      // AI
       if(p.startsWith('/admin/ai/')){
         const kind = p.split('/').pop();
         let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
@@ -295,7 +305,28 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         return json({ok:true, items, options:items}, {}, req);
       }
 
+      
+      // Orders upsert
+      if((p==='/admin/orders/upsert') && (req.method==='POST')){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const o = await readBody(req)||{}; o.id = o.id || crypto.randomUUID().replace(/-/g,''); o.createdAt = o.createdAt || Date.now();
+        const list = await getJSON(env,'orders:list',[])||[];
+        // compute subtotal, revenue, profit
+        const items = o.items||[];
+        const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+        const cost     = items.reduce((s,it)=> s + Number(it.cost||0)*Number(it.qty||1), 0);
+        o.subtotal = subtotal; o.revenue = subtotal - Number(o.shipping_fee||0); o.profit = o.revenue - cost;
+        const idxExist = list.findIndex(x=>x.id===o.id); if(idxExist>=0) list[idxExist]=o; else list.unshift(o);
+        await putJSON(env,'orders:list', list); await putJSON(env,'order:'+o.id, o);
+        return json({ok:true, id:o.id, data:o}, {}, req);
+      }
+      if(p==='/admin/orders' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; return json({ok:true, items:list}, {}, req); }
+      if(p==='/admin/orders/delete' && req.method==='POST'){ if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req); const b=await readBody(req)||{}; const id=b.id; const list=await getJSON(env,'orders:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'orders:list', next); return json({ok:true, deleted:id}, {}, req); }
+      if(p==='/admin/orders/print' && req.method==='GET'){ const id = new URL(req.url).searchParams.get('id'); const o = await getJSON(env,'order:'+id,null); if(!o) return json({ok:false,error:'not found'},{status:404},req); const rows=(o.items||[]).map(it=>`<tr><td>${it.title||it.name||it.id}</td><td>${it.qty||1}</td><td>${Number(it.price||0).toLocaleString('vi-VN')}</td></tr>`).join(''); const html=`<!doctype html><html><head><meta charset="utf-8"/><title>In đơn ${id}</title><style>table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style></head><body><h3>ĐƠN HÀNG ${id}</h3><p>KH: ${o.customer?.name||''} - ${o.customer?.phone||''} - ${o.customer?.address||''}</p><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá</th></tr></thead><tbody>${rows}</tbody></table><p>Tổng hàng: ${o.subtotal.toLocaleString('vi-VN')}đ - Ship: ${Number(o.shipping_fee||0).toLocaleString('vi-VN')}đ</p></body></html>`; return json({ok:true, html}, {}, req); }
+      if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}, req); }
+
       return json({ok:false, error:'not found'}, {status:404}, req);
+
     }catch(e){
       return json({ok:false, error: (e && e.message) || String(e)}, {status:500}, req);
     }
