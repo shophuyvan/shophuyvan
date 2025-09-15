@@ -1,14 +1,15 @@
 
 function buildCors(req) {
+  const origin = req.headers.get('Origin') || '*';
+  const reqHdr = req.headers.get('Access-Control-Request-Headers');
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin,
+    'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Headers': req.headers.get('Access-Control-Request-Headers') || '*',
-    'Access-Control-Expose-Headers': 'x-token',
-    'Vary': 'Origin'
+    'Access-Control-Allow-Headers': reqHdr || 'authorization,content-type,x-token,x-requested-with',
+    'Access-Control-Expose-Headers': 'x-token'
   };
-};
 }
 function json(data, init = {}, req) {
   return new Response(JSON.stringify(data), {
@@ -118,6 +119,12 @@ export default {
         const list = await getJSON(env, 'banners:list', []);
         return json({ ok:true, items:list }, {}, req);
       });
+
+    // Public banners endpoint for storefront
+    if (p === '/banners' && req.method === 'GET') {
+      const list = await getJSON(env, 'banners:list', []);
+      return json({ ok:true, items:list }, {}, req);
+    }
     }
 
     if (p === '/admin/vouchers/upsert' && req.method === 'POST') {
