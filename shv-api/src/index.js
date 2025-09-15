@@ -8,7 +8,7 @@ function corsHeaders(req){
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Max-Age': '86400',
     'Access-Control-Allow-Headers': reqHdr,
-    'Access-Control-Expose-Headers': 'x-token'
+    'Access-Control-Expose-Headers': 'x-token', 'Access-Control-Allow-Credentials': 'true'
   };
 }
 function json(data, init={}, req){ return new Response(JSON.stringify(data||{}), {status: init.status||200, headers: {...corsHeaders(req), 'content-type':'application/json; charset=utf-8'}}); }
@@ -134,19 +134,71 @@ export default {
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+      // REST-style product get: /products/{id} and public alias
+      if(p.startsWith('/products/') && req.method==='GET'){
+        const id = decodeURIComponent(p.split('/')[2]||'').trim();
+        if(!id) return json({error:'No id'}, {status:400}, req);
+        if(env && env.SHV){
+          const obj = await getJSON(env, 'product:'+id, null);
+          if(obj) return json({item: obj}, {}, req);
+        }
+        // fallback to list then find
+        const lst = await listProducts(env);
+        const found = (lst||[]).find(x=>String(x.id||x.key||'')===id);
+        if(found) return json({item: found}, {}, req);
+        return json({error:'Not Found'}, {status:404}, req);
+      }
+      if(p.startsWith('/public/products/') && req.method==='GET'){
+        const id = decodeURIComponent(p.split('/')[3]||'').trim();
+        if(!id) return json({error:'No id'}, {status:400}, req);
+        if(env && env.SHV){
+          const obj = await getJSON(env, 'product:'+id, null);
+          if(obj) return json({item: obj}, {}, req);
+        }
+        const lst = await listProducts(env);
+        const found = (lst||[]).find(x=>String(x.id||x.key||'')===id);
+        if(found) return json({item: found}, {}, req);
+        return json({error:'Not Found'}, {status:404}, req);
+      }
+      // Public products list
+      if(p==='/public/products' && req.method==='GET'){
+        const limit = Number(url.searchParams.get('limit')||'24');
+        const items = (await listProducts(env)) || [];
+        return json({items: items.slice(0, limit)}, {}, req);
+      }
+
 
       if(p==='/' || p===''){ return json({ok:true, msg:'SHV API v3.1', hint:'GET /products, /admin/products, /banners, /admin/ai/*'}, {}, req); }
       if(p==='/me' && req.method==='GET') return json({ok:true,msg:'worker alive'}, {}, req);
 
       if(p==='/admin/login'){
-        let u='', pw=''; if(req.method==='POST'){ const b=await readBody(req)||{}; u=b.u||''; pw=b.p||''; } else { u=url.searchParams.get('u')||''; pw=url.searchParams.get('p')||''; }
-        if(!env || !env.ADMIN_TOKEN) return json({ok:false, error:'ADMIN_TOKEN not set'}, {status:500}, req);
-        if(!(u==='admin' && pw===env.ADMIN_TOKEN)) return json({ok:false,error:'bad credentials'},{status:401},req);
-        let token=''; if(env.SHV){ token=crypto.randomUUID().replace(/-/g,''); await env.SHV.put('admin_token', token, {expirationTtl:60*60*24*7}); } else { token=await expectedToken(env); }
+        let u='', pw='';
+        if(req.method==='POST'){ const b=await readBody(req)||{}; u=b.user||b.username||b.u||''; pw=b.pass||b.password||b.p||''; }
+        else { u=url.searchParams.get('u')||''; pw=url.searchParams.get('p')||''; }
+        // accept ADMIN_TOKEN from env or admin_pass/admin_token from KV
+        let pass = (env && env.ADMIN_TOKEN) ? env.ADMIN_TOKEN : '';
+        if(!pass && env && env.SHV){ pass = (await env.SHV.get('admin_pass')) || (await env.SHV.get('admin_token')) || ''; }
+        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401},req);
+        let token='';
+        if(env && env.SHV){ token = crypto.randomUUID().replace(/-/g,''); await env.SHV.put('admin_token', token, { expirationTtl: 60*60*24*7 }); }
+        else { token = await expectedToken(env); }
         return json({ok:true, token}, {}, req);
       }
 
-      if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
+      // Aliases for compatibility
+      if(p==='/login' || p==='/admin_auth/login'){
+        let u='', pw='';
+        if(req.method==='POST'){ const b=await readBody(req)||{}; u=b.user||b.username||b.u||''; pw=b.pass||b.password||b.p||''; }
+        else { u=url.searchParams.get('u')||''; pw=url.searchParams.get('p')||''; }
+        let pass = (env && env.ADMIN_TOKEN) ? env.ADMIN_TOKEN : '';
+        if(!pass && env && env.SHV){ pass = (await env.SHV.get('admin_pass')) || (await env.SHV.get('admin_token')) || ''; }
+        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401},req);
+        let token='';
+        if(env && env.SHV){ token = crypto.randomUUID().replace(/-/g,''); await env.SHV.put('admin_token', token, { expirationTtl: 60*60*24*7 }); }
+        else { token = await expectedToken(env); }
+        return json({ok:true, token}, {}, req);
+      }
+if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
 
       // File
       if(p.startsWith('/file/') && req.method==='GET'){
