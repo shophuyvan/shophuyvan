@@ -159,6 +159,73 @@ export default {
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+
+// --- SHV v22: vouchers, settings, orders, stats ---
+if(p==='/vouchers' && req.method==='GET'){
+  const list = await getJSON(env,'vouchers',[]) || [];
+  return json({items:list}, {}, req);
+}
+if(p==='/admin/vouchers/list' && req.method==='GET'){
+  const list = await getJSON(env,'vouchers',[]) || [];
+  return json({items:list}, {}, req);
+}
+if(p==='/admin/vouchers/upsert' && req.method==='POST'){
+  const body = await req.json().catch(()=>({}));
+  const list = await getJSON(env,'vouchers',[]) || [];
+  const idx = list.findIndex(x=> (x.code||'').toUpperCase()===String(body.code||'').toUpperCase());
+  if(idx>=0) list[idx] = {...list[idx], ...body};
+  else list.push({code: body.code||'', off: Number(body.off||0), on: String(body.on||'ON')});
+  await putJSON(env,'vouchers',list);
+  return json({ok:true, items:list}, {}, req);
+}
+if(p==='/public/settings' && req.method==='GET'){
+  const s = await getJSON(env,'settings',{}) || {};
+  return json(s, {}, req);
+}
+if(p==='/admin/settings/upsert' && req.method==='POST'){
+  const body = await req.json().catch(()=>({}));
+  const cur = await getJSON(env,'settings',{}) || {};
+  // body: {path:'ads.fb', value:'...'} -> deep set
+  function set(obj, path, value){
+    const parts = String(path||'').split('.').filter(Boolean);
+    let o=obj;
+    while(parts.length>1){ const k=parts.shift(); o[k]=o[k]||{}; o=o[k]; }
+    o[parts[0]] = value;
+    return obj;
+  }
+  set(cur, body.path, body.value);
+  await putJSON(env,'settings',cur);
+  return json({ok:true, settings:cur}, {}, req);
+}
+// Orders & stats (basic, safe)
+if(p==='/admin/orders' && req.method==='GET'){
+  const orders = await getJSON(env,'orders',[]) || [];
+  return json({items:orders}, {}, req);
+}
+if(p==='/admin/stats' && req.method==='GET'){
+  const orders = await getJSON(env,'orders',[]) || [];
+  const gran = (url.searchParams.get('granularity')||'day').toLowerCase();
+  const sum = orders.reduce((acc,o)=>{
+    const amount = Number(o.total||o.amount||0);
+    const cost = Number(o.cost||0);
+    acc.orders += 1;
+    acc.revenue += amount;
+    acc.profit += (amount - cost);
+    // aggregate top products
+    (o.items||[]).forEach(it=>{
+      const key = it.name || it.title || it.id || 'unknown';
+      const k = String(key);
+      if(!acc.map[k]) acc.map[k] = {name:k, qty:0, revenue:0};
+      acc.map[k].qty += Number(it.qty||it.quantity||1);
+      acc.map[k].revenue += Number(it.total||it.price||0);
+    });
+    return acc;
+  }, {orders:0,revenue:0,profit:0,map:{}});
+  const top = Object.values(sum.map).sort((a,b)=>b.qty-a.qty).slice(0,10);
+  return json({orders:sum.orders, revenue:sum.revenue, profit:sum.profit, top_products:top, granularity:gran}, {}, req);
+}
+
+
       // AI
 
       if(p==='/admin/ai/ping'){
