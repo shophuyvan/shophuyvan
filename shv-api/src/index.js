@@ -260,11 +260,26 @@ if(p==='/admin/stats' && req.method==='GET'){
       }
       // Public products list
       if(p==='/public/products' && req.method==='GET'){
+        const idQ = url.searchParams.get('id');
+        if(idQ){
+          let prod = await getJSON(env, 'product:'+idQ, null);
+          if(!prod){
+            const list = await listProducts(env);
+            prod = (list||[]).find(x=>String(x.id||x.key||'')===String(idQ)) || null;
+            if(prod){
+              const cached = await getJSON(env, 'product:'+prod.id, null);
+              if(cached) prod = cached;
+            }
+          }
+          if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
+          return json({ok:true, item: prod}, {}, req);
+        }
         const cat = url.searchParams.get('category')||url.searchParams.get('cat');
-
         const limit = Number(url.searchParams.get('limit')||'24');
-        let items = (await listProducts(env)) || []; if(cat){ items = items.filter(x=> (x.categories||x.cats||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
+        let items = (await listProducts(env)) || [];
+        if(cat){ items = items.filter(x=> (x.categories||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
         return json({items: items.slice(0, limit)}, {}, req);
+      }
       }
 
 
@@ -370,6 +385,21 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
         return json({ok:true, items:list}, {}, req);
       }
       if(p==='/products' && req.method==='GET'){
+        const idQ = url.searchParams.get('id');
+        if(idQ){
+          // public single-get by query ?id=...
+          let prod = await getJSON(env, 'product:'+idQ, null);
+          if(!prod){
+            const list = await listProducts(env);
+            prod = (list||[]).find(x=>String(x.id||x.key||'')===String(idQ)) || null;
+            if(prod){
+              const cached = await getJSON(env, 'product:'+prod.id, null);
+              if(cached) prod = cached;
+            }
+          }
+          if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
+          return json({ok:true, item: prod}, {}, req);
+        }
         const list = await listProducts(env);
         return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req);
       }
@@ -407,7 +437,46 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       }
 
       
-      // Orders upsert
+      
+
+      // AI - unified endpoint: POST /admin/ai/generate  {type, ctx}
+      if(p==='/admin/ai/generate' && req.method==='POST'){
+        try{
+          let body = await readBody(req)||{};
+          const type = (body.type||'').toLowerCase();
+          const ctx  = body.ctx||{};
+          const map = { title: aiTitle, desc: aiDesc, seo: aiSEO, faq: aiFAQ, reviews: aiReviews, alt: aiAlt };
+          const gen = map[type];
+          if(!gen) return json({ok:false, error:'unknown type'}, {status:400}, req);
+          const items = await gen(ctx, env);
+          // For SEO/FAQ return structured value
+          return json({ok:true, items, value: items}, {}, req);
+        }catch(e){
+          return json({ok:false, error:String(e)}, {status:500}, req);
+        }
+      }
+
+      // Public checkout: POST /public/orders/create
+      if(p==='/public/orders/create' && req.method==='POST'){
+        const body = await readBody(req)||{};
+        const id = (body.id)|| crypto.randomUUID().replace(/-/g,'');
+        const created_at = body.created_at || Date.now();
+        const order = {
+          id, created_at,
+          items: body.items||[],
+          customer: body.customer||{},
+          totals: body.totals||{},
+          note: body.note||'',
+          source: body.source||'fe',
+        };
+        // persist KV items
+        await putJSON(env, 'order:'+id, order);
+        const list = await getJSON(env,'orders:list',[])||[];
+        list.unshift({ id, created_at, customer: order.customer, totals: order.totals });
+        await putJSON(env,'orders:list', list.slice(0,500));
+        return json({ok:true, id}, {}, req);
+      }
+// Orders upsert
       if((p==='/admin/orders/upsert') && (req.method==='POST')){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const o = await readBody(req)||{}; o.id = o.id || crypto.randomUUID().replace(/-/g,''); o.createdAt = o.createdAt || Date.now();
