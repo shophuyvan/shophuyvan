@@ -270,7 +270,6 @@ if(p==='/admin/stats' && req.method==='GET'){
               const cached = await getJSON(env, 'product:'+prod.id, null);
               if(cached) prod = cached;
             }
-          }
           if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
           return json({ok:true, item: prod}, {}, req);
         }
@@ -279,7 +278,6 @@ if(p==='/admin/stats' && req.method==='GET'){
         let items = (await listProducts(env)) || [];
         if(cat){ items = items.filter(x=> (x.categories||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
         return json({items: items.slice(0, limit)}, {}, req);
-      }
       }
 
 
