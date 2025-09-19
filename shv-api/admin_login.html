@@ -1,0 +1,67 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Đăng nhập Admin</title>
+<style>body{margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+main{max-width:420px;margin:60px auto;padding:0 16px}.card{background:#0b1222;border:1px solid #1f2a44;border-radius:12px;padding:18px}
+input,button{width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#111827;color:#e2e8f0;margin-top:10px}
+button{background:#2563eb;border-color:#2563eb}</style></head><body><main>
+<div class="card"><h2>Đăng nhập quản trị</h2>
+<input id="u" placeholder="Tài khoản" value="admin" autocomplete="username"/><input id="p" placeholder="Mật khẩu" type="password" autocomplete="current-password"/>
+<button id="btn">Đăng nhập</button><p id="msg"></p>
+<p style="font-size:12px;color:#94a3b8">Login dùng POST trước (form-encoded/text/plain để tránh preflight). Nếu thất bại, sẽ thử GET/JSON.</p>
+</div>
+<script type="module">
+const API='https://shv-api.shophuyvan.workers.dev';
+const attempts = [
+  // ƯU TIÊN: POST x-www-form-urlencoded (KHÔNG preflight)
+  { method:'POST', path:'/admin/login', body:(u,p)=>`u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}`, headers:{'content-type':'application/x-www-form-urlencoded'} },
+  // Dự phòng: POST text/plain (thường không preflight)
+  { method:'POST', path:'/admin/login', body:(u,p)=>`u=${u}&p=${p}`, headers:{'content-type':'text/plain'} },
+  // Dự phòng: POST JSON (có thể preflight)
+  { method:'POST', path:'/admin/login', body:(u,p)=>JSON.stringify({u,p}), headers:{'content-type':'application/json'} },
+  // Cuối cùng mới thử GET các biến thể
+  { method:'GET',  path:(u,p)=>`/admin/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+  { method:'GET',  path:(u,p)=>`/login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+  { method:'GET',  path:(u,p)=>`/admin_login?u=${encodeURIComponent(u)}&p=${encodeURIComponent(p)}` },
+];
+
+async function tryOne(opt, u, p){
+  const url = API + (typeof opt.path === 'function' ? opt.path(u,p) : opt.path);
+  const init = {
+    method: opt.method,
+    mode: 'cors',
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: opt.headers || {}
+  };
+  if (opt.method === 'POST') init.body = (typeof opt.body === 'function') ? opt.body(u,p) : opt.body;
+  const res = await fetch(url, init);
+  if (res.status === 401 || res.status === 403) { throw new Error('unauthorized'); }
+  if (res.status === 404 || res.status === 405) { throw new Error('not_found'); }
+  const ct = res.headers.get('content-type') || '';
+  let token = '';
+  if (ct.includes('application/json')) {
+    const j = await res.json().catch(()=>null);
+    token = (j && (j.token || j.t || j.id)) ? (j.token || j.t || j.id) : '';
+  } else {
+    token = (await res.text()).trim();
+  }
+  if (token && token.length > 8) return token;
+  throw new Error('bad_body');
+}
+
+btn.onclick = async () => {
+  msg.textContent = 'Đang đăng nhập...';
+  const user = u.value.trim();
+  const pass = p.value;
+  for (const opt of attempts){
+    try {
+      const token = await tryOne(opt, user, pass);
+      if (token){ location.href = '/admin/?token=' + encodeURIComponent(token); return; }
+    } catch (e) {
+      continue;
+    }
+  }
+  msg.textContent = 'Đăng nhập thất bại (404/405/không khớp). Kiểm tra endpoint login trong Worker.';
+};
+</script></main></body></html>
