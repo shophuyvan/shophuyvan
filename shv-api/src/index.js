@@ -616,7 +616,7 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       }
 return json({ok:false, error:'not found'}, {status:404}, req);
 
-    }catch(e){
+    try{}catch(e){
       return json({ok:false, error: (e && e.message) || String(e)}, {status:500}, req);
     }
   }
