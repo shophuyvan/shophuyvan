@@ -1,0 +1,33 @@
+name: Deploy Admin (Pages - adminshophuyvan)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/pages-admin.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bust cache version
+        run: |
+          cd apps/admin/dist
+          for f in $(find . -name '*.html'); do
+            sed -E -i.bak "s/(\.(css|js))(\?v=[a-zA-Z0-9]+)?/\1?v=${GITHUB_SHA::7}/g" "$f"
+            rm -f "$f.bak"
+          done
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          projectName: adminshophuyvan
+          directory: apps/admin/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
