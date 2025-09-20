@@ -1,0 +1,35 @@
+name: Deploy Worker (API)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/worker-api.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install Wrangler
+        run: pnpm i -g wrangler@3
+
+      # Nếu cần build TypeScript, thêm bước pnpm i && pnpm build ở đây.
+
+      - name: Deploy to Cloudflare Workers
+        run: wrangler deploy --config wrangler.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
