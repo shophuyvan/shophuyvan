@@ -1,0 +1,6 @@
+Changes:
+- shv-fe/admin.html: add Settings tab, buttons type=button, styles
+- shv-fe/src/admin.js: bootstrap Cloudinary, robust delegation, unsigned upload, CRUD with token query, thumb cover
+- shv-fe/product.html: video contain CSS, desc toggle button, responsive tweaks
+- shv-fe/src/ui-pdp.js: video-first then carousel, description collapse/expand
+- shv-fe/src/styles.css: toast styles, grid responsive
