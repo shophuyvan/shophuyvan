@@ -1,0 +1,16 @@
+{
+  "name": "fe-static",
+  "private": true,
+  "scripts": {
+    "lint": "eslint \"dist/**/*.{js,ts}\" --max-warnings=0 || true",
+    "format": "prettier -w \"dist/**/*.{html,css,js,json}\""
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.10.3",
+    "eslint-plugin-promise": "^6.6.0",
+    "prettier": "^3.3.3"
+  }
+}

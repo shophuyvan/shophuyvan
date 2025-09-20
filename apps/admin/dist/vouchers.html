@@ -1,0 +1,47 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Vouchers</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
+</head>
+<body><div class="container">
+  <div class="header">
+    <div class="title">Voucher</div>
+    <div class="nav">
+      <a href="./products.html" class="badge">Sản phẩm</a>
+      <a href="./banners.html" class="badge">Banner</a>
+      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <span class="badge">API: <span data-api-base></span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="col"><label>Mã</label><input id="code" class="input" placeholder="HUYVAN10"/></div>
+      <div class="col"><label>Giảm (%)</label><input id="off" class="input" type="number" min="0" max="100" value="10"/></div>
+      <div class="col"><label>ON</label><select id="on" class="input"><option value="true">ON</option><option value="false">OFF</option></select></div>
+      <div><label>&nbsp;</label><button class="btn primary" id="save">Lưu</button></div>
+    </div>
+  </div>
+
+  <h3>Danh sách</h3>
+  <table class="table"><thead><tr><th>Mã</th><th>Giảm</th><th>ON</th></tr></thead><tbody id="list"></tbody></table>
+</div>
+<script>
+const $ = s=>document.querySelector(s);
+$('#save').onclick = async ()=>{
+  const body = { code: $('#code').value.trim(), off: Number($('#off').value||0), on: $('#on').value==='true' };
+  let r = await Admin.req('/admin/vouchers/upsert', { method:'POST', body });
+  if(!(r && r.ok)) r = await Admin.req('/admin/voucher', { method:'POST', body });
+  if(r && r.ok){ Admin.toast('Đã lưu'); load(); } else alert('Lưu thất bại');
+};
+async function load(){
+  const r = await Admin.tryPaths(['/vouchers','/admin/vouchers/list','/admin/vouchers']);
+  const items = r.items || r.vouchers || r.data || [];
+  const tb = $('#list'); tb.innerHTML='';
+  items.forEach(v=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${v.code}</td><td>${v.off||v.percent||0}%</td><td>${(v.on===undefined?true:v.on)?'ON':'OFF'}</td>`;
+    tb.appendChild(tr);
+  });
+}
+load();
+</script>
+</body></html>

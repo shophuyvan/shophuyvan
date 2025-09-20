@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop Huy Vân</title>
+  <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+<!-- build:16 -->
+  <script type="module" src="/src/pixels.js?v=36"></script>
+  <script type="module" src="/src/cat-menu.js?v=36"></script>
+</head>
+<body class="bg-slate-50 text-gray-900">
+  <header class="border-b bg-white sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="/" class="flex items-center gap-2"><img src="/public/logo.png?v=23" alt="SHOP HUY VÂN" class="w-8 h-8"/><h1 class="text-lg font-bold">SHOP HUY VÂN</h1></a>
+      <button id="mobile-menu-btn" class="md:hidden border rounded px-2 py-1 text-sm">☰ Menu</button><nav id="main-nav" class="ml-6 hidden md:flex gap-4 text-sm">
+        <a href="/" class="hover:text-blue-600">Trang chủ</a>
+        <a href="#" class="hover:text-blue-600">Danh mục</a>
+        <a href="policy.html" class="hover:text-blue-600">Chính sách</a>
+        <a href="about.html" class="hover:text-blue-600">Thông tin shop</a>
+      </nav>
+      <div id="mobile-menu" class="md:hidden hidden px-2 py-2 border rounded bg-white absolute top-14 left-4 right-4 z-50 shadow">
+        <a href="/" class="block py-1">Trang chủ</a>
+        <a href="#" class="block py-1" id="mobile-cat">Danh mục</a>
+        <a href="policy.html" class="block py-1">Chính sách</a>
+        <a href="about.html" class="block py-1">Thông tin shop</a>
+        <a href="guide.html" class="block py-1">Hướng dẫn sử dụng</a>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <input id="shv-search" placeholder="Tìm kiếm..." class="border rounded px-3 py-1 text-sm w-40 md:w-64" />
+        <a href="cart.html" class="relative inline-flex items-center text-sm px-3 py-1 border rounded hover:bg-gray-100">🛒 Giỏ</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="bg-amber-50 border-y">
+    <div class="max-w-6xl mx-auto px-4 py-2 whitespace-nowrap overflow-hidden">
+      <marquee>⚡ Freeship đơn từ 150.000đ | Cam Kết Gía Rẻ Hơn Mua ở Sàn Từ 10-30% | Tư vấn nhanh Qua Zalo 0933190000 | Giao Hàng Siêu Tốc Từ 1-3 Ngày Tuỳ Tỉnh Thành</marquee>
+    </div>
+  </div>
+
+  <!-- Banner slider -->
+  <section class="max-w-6xl mx-auto px-4 py-4" id="banner" class="hero">
+    <div id="banner-wrap" class="grid grid-cols-1 gap-3"></div>
+  </section>
+
+  <!-- USP -->
+  <section class="max-w-6xl mx-auto px-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white border rounded p-3">🚚 Vận Chuyển Nhanh Chóng Từ </div>
+      <div class="bg-white border rounded p-3">✅ Cam Kết Gía Rẻ Hơn Các Sàn Từ 10-30%</div>
+      <div class="bg-white border rounded p-3">💬 Tư vấn Nhanh Qua Zalo 0933190000</div>
+      <div class="bg-white border rounded p-3">🎁 Đơn Hàng Từ 150K Miễn Phí Ship</div>
+    </div>
+  </section>
+
+  <!-- New products -->
+  <section class="max-w-6xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Sản phẩm mới</h2>
+      <a href="#all" class="text-sm text-blue-600 hover:underline">Xem tất cả</a>
+    </div>
+    <div id="new-products" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3"></div>
+  </section>
+
+  <!-- All products -->
+  <section class="max-w-6xl mx-auto px-4 pb-10" id="all">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Tất cả sản phẩm</h2>
+      <div class="flex items-center gap-2">
+        <input id="quick-filter" placeholder="Lọc nhanh..." class="border rounded px-3 py-1 text-sm" />
+        <button id="load-more" class="text-sm border rounded px-3 py-1 hover:bg-gray-100">Tải thêm</button>
+      </div>
+    </div>
+    <div id="all-products" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3"></div>
+  </section>
+
+  <footer class="border-t bg-white">
+    <div class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-4 text-sm">
+      <div id="about">
+        <div class="font-semibold">Shop Huy Vân</div>
+        <div>Địa chỉ: 91/6 Liên Khu 5-11-12, P. Bình Trị Đông, TP.HCM</div>
+        <div>Điện thoại: 0933 190 000 (lẻ) · 0909 128 999 (sỉ)</div>
+      </div>
+      <div id="policy">
+        <div class="font-semibold">Chính sách</div>
+        <ul class="list-disc ml-5">
+          <li>Đổi trả 7 ngày</li>
+          <li>Bảo hành theo hãng</li>
+          <li>Freeship theo quy định</li>
+        </ul>
+      </div>
+      <div>
+        <div class="font-semibold">Bản đồ</div>
+        <iframe class="w-full h-40 border rounded" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=91/6%20Li%C3%AAn%20Khu%205-11-12%2C%20B%C3%ACnh%20Tr%E1%BB%8B%20%C4%90%C3%B4ng%2C%20H%E1%BB%93%20Ch%C3%AD%20Minh&output=embed"></iframe>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating buttons -->
+  <div class="fixed right-3 bottom-3 flex flex-col gap-2">
+    <a href="https://zalo.me/0933190000" target="_blank" class="bg-blue-500 text-white px-3 py-2 rounded shadow">Zalo</a>
+    <a href="https://www.facebook.com/people/Shop-Huy-V%C3%A2n/100063603093253/" target="_blank" class="bg-blue-600 text-white px-3 py-2 rounded shadow">Facebook</a>
+    <a href="tel:+84933190000" class="bg-emerald-600 text-white px-3 py-2 rounded shadow">Gọi</a>
+  </div>
+<script type="module" src="/src/tracking.js?v=36"></script>
+<script type="module" src="/src/frontend.js?v=36"></script>
+<script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script></body>
+</html>
