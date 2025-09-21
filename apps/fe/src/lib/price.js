@@ -1,30 +1,47 @@
-export function formatPrice(v){ return (v||0).toLocaleString('vi-VN') + 'đ'; }
+export function formatPrice(v){ return (Number(v)||0).toLocaleString('vi-VN') + 'đ'; }
 
 // Pricing priority: variant (sale|price) > product (sale|price)
+// Return shape expected by UIs: { base, original } and keep aliases { sale, regular } for backwards-compat.
 export function pickPrice(product, variant){
   if (variant) {
-    const base = (variant.sale_price ?? variant.price) ?? (product.sale_price ?? product.price) ?? 0;
-    const original = variant.sale_price ? variant.price : (product.sale_price ? product.price : base);
-    return { base, original };
+    const sale = num(variant.sale_price ?? variant.price_sale);
+    const price = num(variant.price);
+    const base = sale>0 ? sale : (price>0 ? price : 0);
+    const original = (sale>0 && price>sale) ? price : null;
+    return { base, original, sale: base, regular: original };
   }
-  const base = (product.sale_price ?? product.price) ?? 0;
-  const original = product.sale_price ? product.price : base;
-  return { base, original };
+  const pSale = num(product.sale_price ?? product.price_sale);
+  const pPrice = num(product.price);
+  const base = pSale>0 ? pSale : (pPrice>0 ? pPrice : 0);
+  const original = (pSale>0 && pPrice>pSale) ? pPrice : null;
+  return { base, original, sale: base, regular: original };
 }
 
+function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).replace(/\./g,'').replace(/,/g,'.'))||0; }catch{ return 0; } }
 
 export function pickLowestPrice(product){
   const vs = Array.isArray(product?.variants) ? product.variants : [];
-  let best = { sale: null, regular: null };
+  let best = null;
+
   for(const v of vs){
-    const s = (v.sale_price ?? v.price_sale ?? null);
-    const r = (v.price ?? null);
-    if (s!=null) best.sale = (best.sale==null) ? s : Math.min(best.sale, s);
-    if (r!=null) best.regular = (best.regular==null) ? r : Math.min(best.regular, r);
+    const sale = num(v?.sale_price ?? v?.price_sale);
+    const price = num(v?.price);
+    let base = sale>0 ? sale : (price>0 ? price : 0);
+    if(base<=0) continue;
+    let original = (sale>0 && price>sale) ? price : null;
+    if(!best || base < best.base){
+      best = { base, original };
+    }
   }
-  if (best.sale==null && best.regular==null){
-    best.sale = (product.sale_price ?? product.price_sale ?? null);
-    best.regular = (product.price ?? null);
+
+  if(!best){
+    const pSale = num(product?.sale_price ?? product?.price_sale);
+    const pPrice = num(product?.price);
+    const base = pSale>0 ? pSale : (pPrice>0 ? pPrice : 0);
+    const original = (pSale>0 && pPrice>pSale) ? pPrice : null;
+    best = { base, original };
   }
-  return best;
+
+  // Backward compatibility aliases
+  return { ...best, sale: best.base, regular: best.original };
 }

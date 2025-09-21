@@ -85,7 +85,7 @@ function renderVariants(){
   box.innerHTML = html;
   $$('button[data-k]', box).forEach(btn=>btn.addEventListener('click', e=>{
     const k = +btn.dataset.k;
-    CURRENT = list[k]; renderPriceStock(); renderMedia(CURRENT);
+    CURRENT = list[k]; renderPriceStock(); renderMedia(CURRENT); updateStickyCTA();
   }));
 }
 function renderMedia(prefer){
@@ -178,6 +178,115 @@ async function fetchProduct(id){
     const item = await fetchProduct(id);
     if(!item){ console.warn('Product not found'); return; }
     PRODUCT = item; CURRENT = null;
-    renderTitle(); renderPriceStock(); renderVariants(); renderMedia(); renderDesc(); renderFAQ(); renderReviews(); attachCart();
+    renderTitle(); renderPriceStock(); renderVariants(); renderMedia(); renderDesc(); renderFAQ(); renderReviews(); attachCart(); injectFloatingCart(); injectStickyCTA(); updateStickyCTA(); try{ getSettings().then(s=>{ const pdp=s?.pdp||s; if(pdp?.countdown_until){ const t=Number(pdp.countdown_until); if(t>Date.now()) renderCountdown(t); } if(Array.isArray(pdp?.badges)) renderBadges(pdp.badges); }); }catch{}
   }catch(e){ console.error(e); }
 })();
+
+// ===== Extra PDP UX (Ladipage-like) =====
+async function getSettings(){
+  // Try public settings first, then legacy
+  try{ const s = await api('/public/settings'); return s?.settings || s || {}; }catch{}
+  try{ const s = await api('/settings'); return s || {}; }catch{}
+  return {};
+}
+function cartCount(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]').length }catch{ return 0 } }
+function goCart(){ location.href = '/cart.html'; }
+
+function injectFloatingCart(){
+  if(document.getElementById('shv-float-cart')) return;
+  const btn = document.createElement('a');
+  btn.id = 'shv-float-cart';
+  btn.href = '/cart.html';
+  btn.setAttribute('aria-label','Giỏ hàng');
+  btn.style.cssText = 'position:fixed;right:14px;bottom:90px;z-index:60;background:#111827;color:#fff;width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.2)';
+  btn.innerHTML = '<span style="font-size:22px;line-height:1">🛒</span><span id="shv-float-cart-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:12px;font-weight:700;">0</span>';
+  document.body.appendChild(btn);
+  const upd=()=>{ const c=cartCount(); const b=document.getElementById('shv-float-cart-badge'); if(b) b.textContent=String(c) };
+  upd(); setInterval(upd, 1500);
+}
+
+function injectStickyCTA(){
+  if(document.getElementById('shv-sticky-cta')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'shv-sticky-cta';
+  wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:50;background:#ffffff;box-shadow:0 -4px 18px rgba(0,0,0,.08);border-top:1px solid #e5e7eb';
+  wrap.innerHTML = `
+    <div style="max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px">
+      <img id="shv-cta-thumb" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb" />
+      <div style="flex:1;min-width:0">
+        <div id="shv-cta-title" style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="shv-cta-price" style="font-size:16px;font-weight:700;color:#dc2626"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="shv-cta-dec" aria-label="Giảm" style="width:32px;height:32px;border-radius:6px;border:1px solid #e5e7eb;background:#fff">−</button>
+        <input id="shv-cta-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
+        <button id="shv-cta-inc" aria-label="Tăng" style="width:32px;height:32px;border-radius:6px;border:1px solid #e5e7eb;background:#fff">+</button>
+      </div>
+      <button id="shv-cta-buy" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-weight:700">MUA NGAY</button>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const dec = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)-1); inp.value=String(v); };
+  const inc = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
+  document.getElementById('shv-cta-dec').onclick = dec;
+  document.getElementById('shv-cta-inc').onclick = inc;
+  document.getElementById('shv-cta-buy').onclick = ()=>{
+    const qty = Math.max(1, parseInt(document.getElementById('shv-cta-qty').value||'1',10));
+    const src = CURRENT || PRODUCT;
+    const item = {
+      id: String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()),
+      title: PRODUCT.title || PRODUCT.name || '',
+      image: (imagesOf(src||PRODUCT)[0]||''),
+      variant: (CURRENT && (CURRENT.name||CURRENT.sku||'')) || '',
+      price: pricePair(src).base || 0,
+      qty
+    };
+    try{
+      const cart = JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item);
+      localStorage.setItem('CART', JSON.stringify(cart));
+      goCart();
+    }catch(e){ alert('Không thể thêm giỏ: '+e.message); }
+  };
+}
+function updateStickyCTA(){
+  const t=document.getElementById('shv-cta-title');
+  const p=document.getElementById('shv-cta-price');
+  const im=document.getElementById('shv-cta-thumb');
+  if(!t||!p||!im) return;
+  const src = CURRENT || PRODUCT || {};
+  t.textContent = (PRODUCT.title || PRODUCT.name || 'Sản phẩm');
+  const pr = pricePair(src);
+  p.textContent = (pr.base||0).toLocaleString('vi-VN') + 'đ';
+  im.src = (imagesOf(src)[0] || imagesOf(PRODUCT)[0] || '');
+}
+
+function renderCountdown(untilMs){
+  const holder = document.createElement('div');
+  holder.id = 'shv-countdown';
+  holder.style.cssText = 'margin-top:6px;font-size:13px;color:#dc2626;font-weight:600';
+  function tick(){
+    const now = Date.now();
+    const left = Math.max(0, untilMs - now);
+    const h = Math.floor(left/3600000);
+    const m = Math.floor((left%3600000)/60000);
+    const s = Math.floor((left%60000)/1000);
+    holder.textContent = left>0 ? `⚡️ Flash sale còn ${h}h ${m}m ${s}s` : '⚡️ Flash sale đã kết thúc';
+  }
+  tick(); setInterval(tick, 1000);
+  const priceEl = document.getElementById('p-price');
+  if(priceEl && !document.getElementById('shv-countdown')) priceEl.appendChild(holder);
+}
+
+function renderBadges(badges){
+  if(!Array.isArray(badges) || !badges.length) return;
+  const box = document.createElement('div');
+  box.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:8px';
+  badges.forEach(txt=>{
+    const el=document.createElement('span');
+    el.textContent = String(txt);
+    el.style.cssText = 'font-size:12px;padding:4px 8px;border:1px solid #e5e7eb;border-radius:999px;background:#f9fafb;color:#374151';
+    box.appendChild(el);
+  });
+  const priceEl = document.getElementById('p-price');
+  if(priceEl) priceEl.parentElement.insertBefore(box, priceEl.nextSibling);
+}
