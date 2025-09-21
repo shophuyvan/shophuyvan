@@ -133,7 +133,8 @@ function renderReviews(){
 }
 function attachCart(){
   const btn = $('#btn-add'); if(!btn) return;
-  btn.addEventListener('click', ()=>{
+  btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
+
     const src = CURRENT || PRODUCT;
     const item = {
       id: String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()),
@@ -217,6 +218,7 @@ function injectStickyCTA(){
         <div id="shv-cta-title" style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         <div id="shv-cta-price" style="font-size:16px;font-weight:700;color:#dc2626"></div>
       </div>
+      <a id="shv-cta-zalo" href="#" style="display:flex;align-items:center;gap:6px;border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:8px 10px;text-decoration:none;font-weight:600">Zalo</a>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="shv-cta-dec" aria-label="Giảm" style="width:32px;height:32px;border-radius:6px;border:1px solid #e5e7eb;background:#fff">−</button>
         <input id="shv-cta-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
@@ -230,6 +232,9 @@ function injectStickyCTA(){
   const inc = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
   document.getElementById('shv-cta-dec').onclick = dec;
   document.getElementById('shv-cta-inc').onclick = inc;
+  const zHref = (document.getElementById('btn-zalo') && document.getElementById('btn-zalo').href) || 'https://zalo.me/';
+  document.getElementById('shv-cta-zalo').href = zHref;
+  // Open variant modal for sticky buy
   document.getElementById('shv-cta-buy').onclick = ()=>{
     const qty = Math.max(1, parseInt(document.getElementById('shv-cta-qty').value||'1',10));
     const src = CURRENT || PRODUCT;
@@ -289,4 +294,222 @@ function renderBadges(badges){
   });
   const priceEl = document.getElementById('p-price');
   if(priceEl) priceEl.parentElement.insertBefore(box, priceEl.nextSibling);
+}
+
+
+// --- Modal primitives ---
+function mkMask(id='shv-mask'){
+  let m = document.getElementById(id);
+  if(!m){ m = document.createElement('div'); m.id=id; m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:flex;align-items:flex-end;justify-content:center'; document.body.appendChild(m); }
+  m.innerHTML=''; return m;
+}
+function closeMask(id='shv-mask'){ const m=document.getElementById(id); if(m) m.remove(); }
+
+// Variant choose modal
+function openVariantModal(mode){ // mode: 'cart' | 'buy'
+  const m = mkMask();
+  const vs = variantsOf(PRODUCT);
+  const imgs = imagesOf(PRODUCT);
+  const current = CURRENT || vs[0] || null;
+  const html = `
+  <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
+    <div style="display:flex;gap:10px">
+      <img src="${(imagesOf(current)[0]||imgs[0]||'')}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #eee;background:#f8fafc" />
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:16px;margin-bottom:4px">${PRODUCT.title||PRODUCT.name||''}</div>
+        <div id="vm-price" style="color:#dc2626;font-weight:800"></div>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-weight:600;margin-bottom:6px">Chọn phân loại</div>
+      <div id="vm-variants" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+      <span style="min-width:76px;display:inline-block">Số lượng</span>
+      <button id="vm-dec" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">−</button>
+      <input id="vm-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
+      <button id="vm-inc" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
+    </div>
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;gap:10px">
+      <button id="vm-add" style="flex:1;border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:12px 16px;font-weight:700">Thêm Vào Giỏ Hàng</button>
+      <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">Mua Ngay</button>
+    </div>
+    <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+  </div>`;
+  m.innerHTML = html;
+
+  // Render variants buttons
+  function renderVBtns(active){
+    const box = m.querySelector('#vm-variants');
+    const arr = variantsOf(PRODUCT);
+    box.innerHTML = arr.map((v,i)=>{
+      const {base}=pricePair(v); const img = imagesOf(v)[0]||'';
+      const name = (v.name||v.sku||('Loại '+(i+1)));
+      const act = (active===i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
+      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:cover;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
+    }).join('');
+    box.querySelectorAll('button[data-k]').forEach(btn=>btn.onclick=()=>{ 
+      const k=+btn.dataset.k; CURRENT = arr[k]; renderVBtns(k); updPrice(); 
+    });
+  }
+  function updPrice(){
+    const src = CURRENT || PRODUCT;
+    const pr = pricePair(src);
+    m.querySelector('#vm-price').textContent = (pr.base||0).toLocaleString('vi-VN')+'đ';
+    const im = m.querySelector('img'); im.src = (imagesOf(src)[0] || im.src);
+  }
+  renderVBtns((vs.indexOf(current)>=0)?vs.indexOf(current):0); updPrice();
+
+  // Qty
+  const dec = ()=>{ const inp=m.querySelector('#vm-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)-1); inp.value=String(v); };
+  const inc = ()=>{ const inp=m.querySelector('#vm-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
+  m.querySelector('#vm-dec').onclick = dec;
+  m.querySelector('#vm-inc').onclick = inc;
+
+  // Actions
+  function addSelectedToCart(){
+    const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
+    const src = CURRENT || PRODUCT;
+    const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title:PRODUCT.title||PRODUCT.name||'', image:(imagesOf(src||PRODUCT)[0]||''), variant:(CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
+    try{ const cart=JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item); localStorage.setItem('CART', JSON.stringify(cart)); }catch(e){}
+  }
+
+  m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); openCartModal(); };
+  m.querySelector('#vm-buy').onclick = ()=>{ addSelectedToCart(); closeMask(); openCheckoutModal(); };
+  m.querySelector('#vm-close').onclick = ()=> closeMask();
+
+  if(mode==='buy'){/* nothing extra */}
+}
+
+// Cart modal bottom sheet
+function cartItems(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]'); }catch{ return []; } }
+function setCartItems(arr){ localStorage.setItem('CART', JSON.stringify(arr)); }
+function calcTotal(){ return cartItems().reduce((s,it)=>s + (Number(it.price)||0)*(Number(it.qty)||1), 0); }
+
+function openCartModal(){
+  const m = mkMask('shv-cart-mask');
+  const items = cartItems();
+  const html = `
+  <div style="width:100%;max-width:560px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:12px 12px 80px 12px;position:relative">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px">
+      <div style="font-weight:800">GIỎ HÀNG (${items.length})</div>
+      <button id="cm-close" style="border:none;background:transparent;font-size:22px">✕</button>
+    </div>
+    <div id="cm-list"></div>
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-weight:700">Tổng: <span id="cm-total" style="color:#dc2626"></span></div>
+      <button id="cm-checkout" style="flex:0 0 auto;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">ĐẶT HÀNG NGAY</button>
+    </div>
+  </div>`;
+  m.innerHTML = html;
+  const list = m.querySelector('#cm-list');
+  function render(){
+    const arr = cartItems();
+    list.innerHTML = arr.map((it,idx)=>`
+      <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
+        <img src="${it.image||''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #eee">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+          ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
+          <div style="font-weight:700;color:#ef4444">${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button data-dec="${idx}" style="width:28px;height:28px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">−</button>
+          <span>${it.qty||1}</span>
+          <button data-inc="${idx}" style="width:28px;height:28px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
+          <button data-del="${idx}" style="margin-left:8px;border:none;background:transparent">🗑️</button>
+        </div>
+      </div>`).join('') || '<div style="padding:12px;color:#6b7280">Giỏ hàng trống</div>';
+    const total = calcTotal(); m.querySelector('#cm-total').textContent = total.toLocaleString('vi-VN')+'đ';
+    list.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; const arr=cartItems(); arr[i].qty=Math.max(1,(arr[i].qty||1)-1); setCartItems(arr); render(); });
+    list.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const arr=cartItems(); arr[i].qty=(arr[i].qty||1)+1; setCartItems(arr); render(); });
+    list.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.del; const arr=cartItems(); arr.splice(i,1); setCartItems(arr); render(); });
+  }
+  render();
+  m.querySelector('#cm-close').onclick=()=>closeMask('shv-cart-mask');
+  m.querySelector('#cm-checkout').onclick=()=>{ closeMask('shv-cart-mask'); openCheckoutModal(); };
+}
+
+// Checkout modal
+function openCheckoutModal(){
+  const m = mkMask('shv-co-mask');
+  const html = `
+  <div style="width:100%;max-width:640px;max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:14px 14px 80px 14px;position:relative">
+    <div style="display:flex;align-items:center;gap:6px;padding-bottom:10px">
+      <button id="co-back" style="border:none;background:transparent;font-size:22px">←</button>
+      <div style="font-weight:800">HOÀN TẤT ĐƠN HÀNG</div>
+      <button id="co-close" style="margin-left:auto;border:none;background:transparent;font-size:22px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <input id="co-name" placeholder="Họ và tên" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-phone" placeholder="Số điện thoại" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-addr" placeholder="Số nhà, thôn, xóm,.." style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-province" placeholder="Tỉnh/Thành" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-district" placeholder="Quận/Huyện" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-ward" placeholder="Phường/Xã" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <textarea id="co-note" placeholder="Để lại lời nhắn cho chúng tôi" style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;min-height:80px"></textarea>
+    </div>
+
+    <div style="margin-top:12px;border-top:1px solid #f3f4f6;padding-top:10px" id="co-items"></div>
+
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;justify-content:center">
+      <button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800">ĐẶT HÀNG</button>
+    </div>
+  </div>`;
+  m.innerHTML = html;
+  m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
+  m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
+
+  const list = cartItems();
+  const box = m.querySelector('#co-items');
+  const total = calcTotal();
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>` + list.map(it=>`
+    <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
+      <img src="${it.image}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+        ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
+      </div>
+      <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+    </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
+
+  m.querySelector('#co-submit').onclick = async ()=>{
+    const customer = {
+      name: m.querySelector('#co-name').value.trim(),
+      phone: m.querySelector('#co-phone').value.trim(),
+      address: m.querySelector('#co-addr').value.trim(),
+      province: m.querySelector('#co-province').value.trim(),
+      district: m.querySelector('#co-district').value.trim(),
+      ward: m.querySelector('#co-ward').value.trim(),
+      note: m.querySelector('#co-note').value.trim(),
+    };
+    try{
+      const body = { items: cartItems(), customer, totals:{ amount: calcTotal() }, source:'pdp' };
+      const r = await api.post('/public/orders/create', body);
+      if(r && r.ok){ setCartItems([]); closeMask('shv-co-mask'); openSuccessModal(r.id, customer); }
+      else { alert('Đặt hàng lỗi'); }
+    }catch(e){ alert('Đặt hàng lỗi: '+e.message); }
+  };
+}
+
+// Success modal
+function openSuccessModal(orderId, customer){
+  const m = mkMask('shv-succ-mask');
+  const zHref = (document.getElementById('btn-zalo') && document.getElementById('btn-zalo').href) || 'https://zalo.me/';
+  const html = `
+  <div style="width:100%;max-width:540px;background:#fff;border-radius:12px;padding:20px;position:relative">
+    <div style="font-size:40px;line-height:1">✅</div>
+    <div style="font-weight:800;font-size:18px;margin:6px 0 2px">Đã gửi đơn hàng</div>
+    <div style="color:#374151;margin-bottom:10px">Chúng tôi sẽ liên hệ để xác nhận và giao hàng sớm nhất.</div>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div><b>${customer?.name||''}</b> • ${customer?.phone||''}</div>
+      <div style="font-size:13px;color:#6b7280">${[customer?.address, customer?.ward, customer?.district, customer?.province].filter(Boolean).join(', ')}</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <a href="/" style="border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none">Đặt lại đơn hàng</a>
+      <a href="${zHref}" target="_blank" rel="noopener" style="border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Liên hệ với Shop</a>
+    </div>
+    <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+  </div>`;
+  m.innerHTML = html;
 }
