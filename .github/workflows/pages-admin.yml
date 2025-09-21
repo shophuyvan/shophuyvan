@@ -1,33 +1,37 @@
-name: Deploy Admin (Pages - adminshophuyvan)
-
+name: Deploy Admin to Cloudflare Pages
 on:
   push:
     branches: [ main ]
     paths:
-      - "apps/admin/**"
-      - ".github/workflows/pages-admin.yml"
-  workflow_dispatch:
-
+      - "admin/**"
+      - ".github/workflows/deploy-pages-admin.yml"
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: admin/pnpm-lock.yaml
 
-      - name: Bust cache version
+      - name: Install
+        working-directory: admin
         run: |
-          cd apps/admin/dist
-          for f in $(find . -name '*.html'); do
-            sed -E -i.bak "s/(\.(css|js))(\?v=[a-zA-Z0-9]+)?/\1?v=${GITHUB_SHA::7}/g" "$f"
-            rm -f "$f.bak"
-          done
+          pnpm i --frozen-lockfile || pnpm i
 
-      - name: Publish to Cloudflare Pages
+      - name: Build
+        working-directory: admin
+        run: pnpm run -C . build || echo "skip build"
+
+      - name: Publish to Pages (adminshophuyvan)
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: adminshophuyvan
-          directory: apps/admin/dist
+          directory: admin/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
