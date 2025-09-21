@@ -1,10 +1,11 @@
+# .github/workflows/deploy-admin.yml
 name: Deploy Admin to Cloudflare Pages
-
 on:
-  workflow_dispatch:
   push:
     paths:
-      - "apps/admin/**"
+      - 'apps/admin/**'
+      - '.github/workflows/deploy-admin.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -12,16 +13,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # - name: Install & Build
-      #   working-directory: apps/admin
-      #   run: |
-      #     npm ci
-      #     npm run build
+      - uses: pnpm/action-setup@v3
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
 
-      - name: Publish to Cloudflare Pages
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/admin
+
+      - name: Build
+        run: pnpm build
+        working-directory: apps/admin   # output: apps/admin/dist
+
+      - name: Publish to Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: adminshophuyvan
           directory: apps/admin/dist
