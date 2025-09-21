@@ -1,3 +1,4 @@
+location.replace('/');
 import { formatPrice } from './lib/price.js';
 
 const list = document.getElementById('cart-list');

@@ -51,8 +51,33 @@ function renderTitle(){
   $('#p-sold')  && ($('#p-sold').textContent  = (num(PRODUCT.sold||PRODUCT.sold_count||0))+' đã bán');
   $('#p-rating')&& ($('#p-rating').textContent= String(PRODUCT.rating||'5★'));
 }
+
 function renderPriceStock(){
-  const src = CURRENT || PRODUCT || {};
+  const el = $('#p-price'); const stockEl = $('#p-stock');
+  if(!el && !stockEl) return;
+  // compute price from CURRENT or min variant
+  let src = CURRENT || null;
+  if(!src){
+    const vs = variantsOf(PRODUCT);
+    if(vs.length){
+      let best=null;
+      for(const v of vs){ const pr = pricePair(v); if(pr.base>0 && (!best || pr.base<best.base)) best=pr; }
+      if(best){ el && (el.innerHTML = best.original ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div><div class='line-through text-gray-400'>${formatPrice(best.original)}</div>` : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div>`); }
+    }
+  }
+  if(src){
+    const {base, original} = pricePair(src);
+    if(el){
+      el.innerHTML = original ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div><div class='line-through text-gray-400'>${formatPrice(original)}</div>` : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div>`;
+    }
+  }
+  if(stockEl){
+    let stk = 0;
+    const vs = variantsOf(PRODUCT); if(vs.length){ stk = vs.map(v=> (v.stock||v.qty||v.quantity||0) ).reduce((a,b)=>a+(+b||0),0); }
+    stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
+  }
+}
+;
   const {base, original} = pricePair(src);
   const priceEl = $('#p-price'); const stockEl = $('#p-stock');
   if(priceEl){
@@ -71,10 +96,7 @@ function renderPriceStock(){
     stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
   }
 }
-function renderVariants(){
-  const box = $('#p-variants'); if(!box) return;
-  const list = variantsOf(PRODUCT);
-  if(!list.length){ box.innerHTML = ''; return; }
+function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
   const html = list.map((v,i)=>{
     const {base} = pricePair(v);
     const name = htmlEscape(v.name || v.sku || ('Phân loại '+(i+1)));
@@ -88,12 +110,8 @@ function renderVariants(){
     CURRENT = list[k]; renderPriceStock(); renderMedia(CURRENT); updateStickyCTA();
   }));
 }
-function renderMedia(prefer){
-  const main = $('#media-main'); const thumbs = $('#media-thumbs');
-  if(!main || !thumbs) return;
-  const imgs = imagesOf(prefer||PRODUCT);
-  const video = (prefer||PRODUCT)?.video || (prefer||PRODUCT)?.video_url || '';
-  const media = [...(video?[{type:'video',src:video}]:[]), ...imgs.map(s=>({type:'img',src:s}))];
+function renderMedia(prefer){ const main=$('#media-main'); const thumbs=$('#media-thumbs'); if(thumbs){ thumbs.innerHTML=''; thumbs.style.display='none'; }
+  if(!main) return; const img=(imagesOf(prefer||PRODUCT)[0]||''); main.innerHTML = img? `<img src="${img}" class="w-full h-auto rounded">` : ''; }]:[]), ...imgs.map(s=>({type:'img',src:s}))];
   if(!media.length){ main.innerHTML=''; thumbs.innerHTML=''; return; }
   let idx=0;
   function show(i){
@@ -192,7 +210,7 @@ async function getSettings(){
   return {};
 }
 function cartCount(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]').length }catch{ return 0 } }
-function goCart(){ location.href = '/cart.html'; }
+function goCart(){ try{ openCartModal(); }catch(e){ /* no-op */ } }
 
 function injectFloatingCart(){
   if(document.getElementById('shv-float-cart')) return;
@@ -202,7 +220,7 @@ function injectFloatingCart(){
   btn.setAttribute('aria-label','Giỏ hàng');
   btn.style.cssText = 'position:fixed;right:14px;bottom:90px;z-index:60;background:#111827;color:#fff;width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.2)';
   btn.innerHTML = '<span style="font-size:22px;line-height:1">🛒</span><span id="shv-float-cart-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:12px;font-weight:700;">0</span>';
-  document.body.appendChild(btn);
+  document.body.appendChild(btn); btn.addEventListener('click', function(e){ e.preventDefault(); try{ openCartModal(); }catch{} });
   const upd=()=>{ const c=cartCount(); const b=document.getElementById('shv-float-cart-badge'); if(b) b.textContent=String(c) };
   upd(); setInterval(upd, 1500);
 }
@@ -213,15 +231,10 @@ function injectStickyCTA(){
   wrap.id = 'shv-sticky-cta';
   wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:50;background:#ffffff;box-shadow:0 -4px 18px rgba(0,0,0,.08);border-top:1px solid #e5e7eb';
   wrap.innerHTML = `
-    <div style="max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px">
-      <img id="shv-cta-thumb" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb" />
-      <div style="flex:1;min-width:0">
-        <div id="shv-cta-title" style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="shv-cta-price" style="font-size:16px;font-weight:700;color:#dc2626"></div>
-      </div>
-      <a id="shv-cta-zalo" href="#" style="display:flex;align-items:center;gap:6px;border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Zalo</a>
-      <button id="shv-cta-add" style="border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:10px 12px;font-weight:700">Thêm giỏ hàng</button>
-      <button id="shv-cta-buy" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:10px 12px;font-weight:700">MUA NGAY</button>
+    <div style="max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:flex-end">
+      <a id="shv-cta-zalo" href="#" style="display:flex;align-items:center;gap:6px;border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:12px;padding:12px 14px;text-decoration:none;font-weight:700">Zalo</a>
+      <button id="shv-cta-add" style="border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:12px;padding:12px 14px;font-weight:700">Thêm giỏ hàng</button>
+      <button id="shv-cta-buy" style="background:#ef4444;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-weight:800">MUA NGAY</button>
     </div>`;
   document.body.appendChild(wrap);
 
@@ -235,12 +248,7 @@ function injectStickyCTA(){
   document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
 }
   /* legacy (direct add) fully removed */
-function updateStickyCTA(){
-  const t=document.getElementById('shv-cta-title');
-  const p=document.getElementById('shv-cta-price');
-  const im=document.getElementById('shv-cta-thumb');
-  if(!t||!p||!im) return;
-  const src = CURRENT || PRODUCT || {};
+function updateStickyCTA(){};
   t.textContent = (PRODUCT.title || PRODUCT.name || 'Sản phẩm');
   const pr = pricePair(src);
   p.textContent = (pr.base||0).toLocaleString('vi-VN') + 'đ';
