@@ -34,7 +34,9 @@ jobs:
           test -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" || (echo "❌ Missing CLOUDFLARE_ACCOUNT_ID" && exit 1)
 
       - name: Publish Worker
-        uses: cloudflare/wrangler-action@3
+        uses: cloudflare/wrangler-action@v3
+# hoặc pin: cloudflare/wrangler-action@v3.7.0
+
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
