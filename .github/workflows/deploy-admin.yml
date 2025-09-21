@@ -1,12 +1,12 @@
 name: Deploy Admin to Cloudflare Pages
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - "apps/admin/**"
       - ".github/workflows/deploy-admin.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,31 +15,38 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/admin
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # 1) CÀI PNPM TRƯỚC
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
+      # 2) SAU KHI CÓ PNPM, MỚI DÙNG setup-node + cache pnpm
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
+          cache-dependency-path: apps/admin/pnpm-lock.yaml
 
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 8
-          run_install: true
+      - name: Install
+        working-directory: apps/admin
+        run: pnpm install --frozen-lockfile
 
       - name: Build
+        working-directory: apps/admin
         run: pnpm run build
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ secrets.ADMIN_PROJECT_NAME }}  # <-- đặt secret = adminshophuyvan
-          directory: dist
-          branch: main
+          projectName: adminshophuyvan
+          directory: apps/admin/dist
