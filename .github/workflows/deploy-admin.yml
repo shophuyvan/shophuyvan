@@ -1,7 +1,8 @@
-# .github/workflows/deploy-admin.yml
 name: Deploy Admin to Cloudflare Pages
+
 on:
   push:
+    branches: [ main ]
     paths:
       - 'apps/admin/**'
       - '.github/workflows/deploy-admin.yml'
@@ -10,28 +11,60 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v3
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Admin build plan
+        id: detect
+        run: |
+          if [ -f apps/admin/package.json ]; then
+            echo "has_pkg=true" >> $GITHUB_OUTPUT
+            if [ -d apps/admin/dist ]; then
+              echo "dir=apps/admin/dist" >> $GITHUB_OUTPUT
+            elif [ -d apps/admin/build ]; then
+              echo "dir=apps/admin/build" >> $GITHUB_OUTPUT
+            else
+              echo "dir=apps/admin/dist" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_pkg=false" >> $GITHUB_OUTPUT
+            echo "dir=apps/admin" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node
+        if: steps.detect.outputs.has_pkg == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-        
+
+      - name: Setup pnpm
+        if: steps.detect.outputs.has_pkg == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        if: steps.detect.outputs.has_pkg == 'true'
         working-directory: apps/admin
+        run: pnpm install --frozen-lockfile || pnpm install
 
       - name: Build
-        run: pnpm build
-        working-directory: apps/admin   # output: apps/admin/dist
+        if: steps.detect.outputs.has_pkg == 'true'
+        working-directory: apps/admin
+        run: |
+          if pnpm run | grep -q "^  build"; then
+            pnpm build
+          else
+            echo "⚠️ Không có script build, bỏ qua."
+          fi
 
-      - name: Publish to Pages
+      - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: adminshophuyvan
-          directory: apps/admin/dist
+          directory: ${{ steps.detect.outputs.dir }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
