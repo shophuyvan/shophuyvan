@@ -30,6 +30,8 @@ function hideHeader(){
     if(h1) h1.style.display = 'none';
     const h2 = document.querySelector('.site-header');
     if(h2) h2.style.display = 'none';
+    const h3=document.querySelector('nav'); if(h3) h3.style.display='none';
+    const st=document.createElement('style'); st.textContent='body>header{display:none!important}'; document.head.appendChild(st);
   }catch{}
 }
 function imagesOf(p){
@@ -352,7 +354,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
   const m = mkMask();
   const vs = variantsOf(PRODUCT);
   const imgs = imagesOf(PRODUCT);
-  const current = CURRENT || vs[0] || null;
+  const current = null;
   const html = `
   <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
     <div style="display:flex;gap:10px">
@@ -396,7 +398,13 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
   }
   function updPrice(){
     const src = CURRENT || PRODUCT;
-    const pr = pricePair(src);
+    let pr = null;
+    if(src){ pr = pricePair(src); }
+    else {
+      const arr = variantsOf(PRODUCT);
+      let best = null; for(const v of arr){ const p=pricePair(v); if(p.base>0 && (!best || p.base<best.base)) best=p; }
+      pr = best || { base: 0 };
+    }
     m.querySelector('#vm-price').textContent = (pr.base||0).toLocaleString('vi-VN')+'đ';
     const im = m.querySelector('img'); im.src = (imagesOf(src)[0] || im.src);
   }
@@ -482,7 +490,7 @@ function openCheckoutModal(){
       <div style="font-weight:800">HOÀN TẤT ĐƠN HÀNG</div>
       <button id="co-close" style="margin-left:auto;border:none;background:transparent;font-size:22px">✕</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div id="co-form" style="display:grid;grid-template-columns:1fr;gap:10px">
       <input id="co-name" placeholder="Họ và tên" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-phone" placeholder="Số điện thoại" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-addr" placeholder="Số nhà, thôn, xóm,.." style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
@@ -502,10 +510,57 @@ function openCheckoutModal(){
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
+
+  function renderTotals(){
+    const sub = calcTotal();
+    const grand = sub + (shipFee||0);
+    const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
+    const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
+    const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
+  }
+  renderTotals(); setTimeout(refreshShip, 0);
+
   const list = cartItems();
   const box = m.querySelector('#co-items');
   const total = calcTotal();
-  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>` + list.map(it=>`
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>`
+  // Responsive columns
+  const formBox = m.querySelector('#co-form');
+  function applyCols(){ formBox.style.gridTemplateColumns = (window.innerWidth>=640?'1fr 1fr':'1fr'); }
+  applyCols(); window.addEventListener('resize', applyCols);
+
+  // Shipping quote
+  let shipFee = 0; let chosenShip = null;
+  const shipWrap = document.createElement('div');
+  shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
+  m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
+  async function refreshShip(){
+    try{
+      const prov = (m.querySelector('#co-province')?.value||'').trim();
+      const dist = (m.querySelector('#co-district')?.value||'').trim();
+      if(!prov || !dist) return;
+      const items = cartItems();
+      const weight = items.reduce((s,it)=> s + (Number(it.weight)||200)*(Number(it.qty)||1), 0);
+      const qs = `/shipping/quote?to_province=${encodeURIComponent(prov)}&to_district=${encodeURIComponent(dist)}&weight=${weight}&cod=0`;
+      const res = await api.get(qs);
+      const arr = (res?.items||res||[]);
+      const list = m.querySelector('#co-ship-list');
+      list.innerHTML = arr.map((o,i)=>`<label style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer">
+        <input type="radio" name="ship" value="${o.provider||o.carrier}:${o.service_code||o.service}" ${i===0?'checked':''}/>
+        <div style="flex:1"><div style="font-weight:600">${o.provider||o.carrier||'ĐVVC'} - ${o.name||o.service_name||o.service||''}</div>
+        <div style="font-size:12px;color:#6b7280">Thời gian: ${o.leadtime_text||o.leadtime||''}</div></div>
+        <div style="white-space:nowrap">${(Number(o.fee||o.price||0)).toLocaleString('vi-VN')}đ</div>
+      </label>`).join('');
+      const first = list.querySelector('input[name=ship]');
+      if(first){ first.dispatchEvent(new Event('change')); }
+      list.querySelectorAll('input[name=ship]').forEach(r=> r.onchange = ()=>{
+        const fee = Number((r.closest('label').querySelector('div[style*="white-space"]').textContent||'0').replace(/[^0-9]/g,''));
+        shipFee = fee; chosenShip = r.value; renderTotals();
+      });
+    }catch(e){/*silent*/}
+  }
+  ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
+ + list.map(it=>`
     <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
       <img src="${it.image}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
       <div style="flex:1;min-width:0">
@@ -526,7 +581,7 @@ function openCheckoutModal(){
       note: m.querySelector('#co-note').value.trim(),
     };
     try{
-      const body = { items: cartItems(), customer, totals:{ amount: calcTotal() }, source:'pdp' };
+      const body = { items: cartItems(), customer, totals:{ amount: calcTotal(), shipping_fee: shipFee }, shipping: { method: chosenShip, fee: shipFee }, source:'pdp' };
       const r = await api.post('/public/orders/create', body);
       if(r && r.ok){ setCartItems([]); closeMask('shv-co-mask'); openSuccessModal(r.id, customer); }
       else { alert('Đặt hàng lỗi'); }
