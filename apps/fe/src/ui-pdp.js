@@ -31,8 +31,6 @@ function hideHeader(){
     if(h2) h2.style.display = 'none';
   }catch{}
 }
- : {base: (reg>0?reg:0), original:null};
-}
 function imagesOf(p){
   const A = [];
   if (Array.isArray(p?.images)) A.push(...p.images);
@@ -66,13 +64,7 @@ function variantsOf(p){
   return [];
 }
 function htmlEscape(s){ return String(s||'').replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
-function mdToHTML(raw){
-  if(!raw) return '';
-  const lines = String(raw).split(/\r?\n/);
-  const out=[]; let list=[];
-  const flush=()=>{ if(list.length){ out.push('<ul>'+list.map(li=>'<li>'+htmlEscape(li)+'</li>').join('')+'</ul>'); list=[]; } };
-  for(const L of lines){
-    const t=L.trim(); if(!t) { flush(); continue; }
+function mdToHTML(raw){ if(!raw) return ''; const lines=String(raw).split(/\r?\n/); const out=[]; let list=[]; const flush=()=>{ if(list.length){ out.push('<ul>'+list.map(li=>'<'+'li>'+htmlEscape(li)+'</li>').join('')+'</ul>'); list=[]; } }; for(const L of lines){ const t=L.trim(); if(!t){ flush(); continue; } if(/^[-*•]\s+/.test(t)){ list.push(t.replace(/^[-*•]\s+/,'')); continue; } const h=t.match(/^#{1,6}\s+(.*)$/); if(h){ flush(); const lvl=t.match(/^#{1,6}/)[0].length; out.push(`<h${lvl}>${htmlEscape(h[1])}</h${lvl}>`); continue; } out.push('<p>'+htmlEscape(t)+'</p>'); } flush(); return out.join(''); }
     if(/^[-*•]\s+/.test(t)){ list.push(t.replace(/^[-*•]\s+/,'')); continue; }
     const h=t.match(/^#{1,6}\s+(.*)$/); if(h){ flush(); const lvl=t.match(/^#{1,6}/)[0].length; out.push(`<h${lvl}>${htmlEscape(h[1])}</h${lvl}>`); continue; }
     out.push('<p>'+htmlEscape(t)+'</p>');
@@ -123,53 +115,31 @@ function renderPriceStock(){
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
 
 
+
 function renderMedia(prefer){
   const main=$('#media-main'); let thumbs=$('#media-thumbs');
   if(!main) return;
-  hideHeader();
-
   const items = mediaList(prefer||PRODUCT);
   let idx = 0;
-
   function show(i){
-    idx = (i + items.length) % items.length;
+    if(items.length===0){ main.innerHTML=''; return; }
+    idx = (i+items.length)%items.length;
     const it = items[idx];
-    if(!it){ main.innerHTML=''; return; }
     if(it.type==='video'){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
-      const v = main.querySelector('#pdp-video');
-      v.src = it.src; v.load();
+      const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
       main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
     }
-    drawArrows();
+    draw();
   }
-
-  function drawArrows(){
-    const left = document.createElement('button');
-    const right= document.createElement('button');
-    [left,right].forEach(b=>{ b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.35);color:#fff;border:none;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center'; });
-    left.style.left='8px'; right.style.right='8px';
-    left.textContent='‹'; right.textContent='›';
-    left.onclick=()=>{ show(idx-1); resetAuto(); };
-    right.onclick=()=>{ show(idx+1); resetAuto(); };
+  function draw(){
     Array.from(main.querySelectorAll('.pdp-arrow')).forEach(n=>n.remove());
-    left.className='pdp-arrow'; right.className='pdp-arrow';
-    main.appendChild(left); main.appendChild(right);
+    const mk=(dir)=>{const b=document.createElement('button'); b.className='pdp-arrow'; b.textContent=dir==='left'?'‹':'›'; b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);'+(dir==='left'?'left:8px;':'right:8px;')+'background:rgba(0,0,0,.35);color:#fff;border:none;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center'; return b;};
+    const L=mk('left'), R=mk('right'); L.onclick=()=>{show(idx-1); reset();}; R.onclick=()=>{show(idx+1); reset();}; main.appendChild(L); main.appendChild(R);
   }
-
-  let timer=null;
-  function resetAuto(){
-    if(timer){ clearInterval(timer); timer=null; }
-    timer = setInterval(()=>{
-      const v = main.querySelector('video');
-      if(v && !v.paused && !v.ended){ return; }
-      show(idx+1);
-    }, 3500);
-  }
-
-  show(0); resetAuto();
-
+  let timer=null; function reset(){ if(timer){clearInterval(timer);} timer=setInterval(()=>{ const v=main.querySelector('video'); if(v && !v.paused && !v.ended) return; show(idx+1); }, 3500); }
+  show(0); reset();
   if(thumbs){
     const vs = variantsOf(PRODUCT);
     const pricePairs = vs.map(v=> pricePair(v)).filter(p=>p.base>0);
@@ -188,15 +158,11 @@ function renderMedia(prefer){
         <span style="font-size:13px">${name}</span>
       </button>`;
     }).join('');
-
     thumbs.style.display='block';
     thumbs.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
     thumbs.innerHTML = (countHTML ? `<div style="grid-column:1/-1">${countHTML}</div>` : '') + list + (priceHTML? `<div style="grid-column:1/-1">${priceHTML}</div>`:'');
     thumbs.querySelectorAll('button[data-vidx]').forEach(btn=>{
-      btn.onclick=()=>{
-        const v = vs[Number(btn.getAttribute('data-vidx'))];
-        if(v){ CURRENT=v; renderPriceStock(); }
-      };
+      btn.onclick=()=>{ const v=vs[Number(btn.getAttribute('data-vidx'))]; if(v){ CURRENT=v; renderPriceStock(); } };
     });
   }
 }
