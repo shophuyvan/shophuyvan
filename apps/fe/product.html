@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDP • Shop Huy Vân</title>
+  <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+<!-- build:16 -->
+  <script type="module" src="/src/pixels.js?v=44"></script>
+  <script type="module" src="/src/cat-menu.js?v=44"></script>
+</head>
+<body class="bg-slate-50 text-gray-900">
+  <header class="border-b bg-white">
+    <div class="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 gap-4 items-center">
+      <a href="/" class="font-semibold text-lg">SHOP HUY VÂN</a>
+      <input id="search" class="border rounded px-3 py-2 w-full" placeholder="Tìm kiếm..."/>
+      <a href="/cart" class="justify-self-end text-sm border rounded px-3 py-2">Giỏ</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-12 gap-6">
+    <section class="md:col-span-6 space-y-2">
+      <div id="media-main" class="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden"></div>
+      <div id="media-thumbs" class="grid grid-cols-6 gap-2"></div>
+    </section>
+    <section class="md:col-span-6 space-y-4">
+      <h1 id="p-title" class="text-xl md:text-2xl font-semibold"></h1>
+      <div class="flex items-center gap-3 text-sm text-gray-600">
+        <span id="p-sold">0 đã bán</span><span>•</span><span id="p-rating">5★</span>
+      </div>
+      <div id="p-price" class="text-2xl font-semibold"></div>
+      <div id="p-stock" class="text-sm text-gray-500"></div>
+      <div id="p-variants" class="space-y-2"></div>
+      <div class="flex items-center gap-3">
+        <button id="btn-add" class="bg-rose-600 hover:bg-rose-700 text-white rounded px-4 py-2">Thêm giỏ</button>
+        <a id="btn-zalo" target="_blank" rel="noopener" href="https://zalo.me/" class="border rounded px-4 py-2">Zalo</a>
+      </div>
+    </section>
+    <section class="md:col-span-8">
+      <h2 class="font-semibold mb-2">Mô tả</h2>
+      <article id="p-desc" class="prose prose-sm max-w-none"></article>
+    </section>
+    <section class="md:col-span-4">
+      <h2 class="font-semibold mb-2">Câu hỏi thường gặp (FAQ)</h2>
+      <div id="p-faq" class="space-y-2"></div>
+    </section>
+    <section class="md:col-span-12">
+      <h2 class="font-semibold mb-2">Đánh giá khách hàng</h2>
+      <div id="p-reviews" class="space-y-3"></div>
+    </section>
+  </main>
+
+  <script type="application/ld+json" id="id-product"></script>
+  <script type="module" src="/src/ui-pdp.js?v=66"></script>
+</body>
+</html>
