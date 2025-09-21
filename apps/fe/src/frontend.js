@@ -48,7 +48,7 @@ async function loadCategories(){
 }
 
 // New arrivals (last 8)
-async function loadNew() {
+async function loadNew(){ if(!newWrap) return; 
   let data = await api('/products?limit=8');
   if (!data || data.ok===false) data = await api('/public/products?limit=8');
   const items = (data.items || data.products || data.data || []).slice(0,8);
@@ -56,7 +56,7 @@ async function loadNew() {
 }
 
 // All products with pagination
-async function loadAll() {
+async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
   let data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : ''));
   if (!data || data.ok===false) data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + (new URL(location.href).searchParams.get('cat') ? '&category='+encodeURIComponent(new URL(location.href).searchParams.get('cat')) : ''));
   const items = data.items || data.products || data.data || [];
@@ -66,7 +66,7 @@ async function loadAll() {
   loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
 }
 
-function renderAll() {
+function renderAll(){ if(!allWrap) return; 
   const q = (searchInput?.value || '').toLowerCase();
   const f = (filterInput?.value || '').toLowerCase();
   const filtered = allCache.filter(p => {

@@ -132,6 +132,7 @@ function renderReviews(){
   }).join('');
 }
 function attachCart(){
+  try{ const a=$('#btn-add'); const z=$('#btn-zalo'); const group=(a&&a.parentElement)|| (z&&z.parentElement); if(group){ group.style.display='none'; } }catch{}
   const btn = $('#btn-add'); if(!btn) return;
   btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
 
@@ -218,13 +219,9 @@ function injectStickyCTA(){
         <div id="shv-cta-title" style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         <div id="shv-cta-price" style="font-size:16px;font-weight:700;color:#dc2626"></div>
       </div>
-      <a id="shv-cta-zalo" href="#" style="display:flex;align-items:center;gap:6px;border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:8px 10px;text-decoration:none;font-weight:600">Zalo</a>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button id="shv-cta-dec" aria-label="Giảm" style="width:32px;height:32px;border-radius:6px;border:1px solid #e5e7eb;background:#fff">−</button>
-        <input id="shv-cta-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
-        <button id="shv-cta-inc" aria-label="Tăng" style="width:32px;height:32px;border-radius:6px;border:1px solid #e5e7eb;background:#fff">+</button>
-      </div>
-      <button id="shv-cta-buy" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-weight:700">MUA NGAY</button>
+      <a id="shv-cta-zalo" href="#" style="display:flex;align-items:center;gap:6px;border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Zalo</a>
+      <button id="shv-cta-add" style="border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:10px 12px;font-weight:700">Thêm giỏ hàng</button>
+      <button id="shv-cta-buy" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:10px 12px;font-weight:700">MUA NGAY</button>
     </div>`;
   document.body.appendChild(wrap);
 
@@ -234,8 +231,9 @@ function injectStickyCTA(){
   document.getElementById('shv-cta-inc').onclick = inc;
   const zHref = (document.getElementById('btn-zalo') && document.getElementById('btn-zalo').href) || 'https://zalo.me/';
   document.getElementById('shv-cta-zalo').href = zHref;
-  // Open variant modal for sticky buy
-  document.getElementById('shv-cta-buy').onclick = ()=>{
+  document.getElementById('shv-cta-add').onclick = ()=> openVariantModal('cart');
+  document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
+  /* legacy (direct add) disabled */
     const qty = Math.max(1, parseInt(document.getElementById('shv-cta-qty').value||'1',10));
     const src = CURRENT || PRODUCT;
     const item = {
