@@ -132,7 +132,7 @@ function renderReviews(){
   }).join('');
 }
 function attachCart(){
-  try{ const a=$('#btn-add'); const z=$('#btn-zalo'); const group=(a&&a.parentElement)|| (z&&z.parentElement); if(group){ group.style.display='none'; } }catch{}
+  try{ const a=$('#btn-add'); const z=$('#btn-zalo'); if(a) a.style.display='none'; if(z) z.style.display='none'; const group=(a&&a.parentElement===z?.parentElement ? a.parentElement : (a&&a.parentElement)|| (z&&z.parentElement)); if(group){ group.style.display='none'; } }catch{}
   const btn = $('#btn-add'); if(!btn) return;
   btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
 
@@ -227,24 +227,14 @@ function injectStickyCTA(){
 
   const dec = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)-1); inp.value=String(v); };
   const inc = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
-  document.getElementById('shv-cta-dec').onclick = dec;
-  document.getElementById('shv-cta-inc').onclick = inc;
+  var _decEl=document.getElementById('shv-cta-dec'); if(_decEl) _decEl.onclick = dec;
+  var _incEl=document.getElementById('shv-cta-inc'); if(_incEl) _incEl.onclick = inc;
   const zHref = (document.getElementById('btn-zalo') && document.getElementById('btn-zalo').href) || 'https://zalo.me/';
   document.getElementById('shv-cta-zalo').href = zHref;
   document.getElementById('shv-cta-add').onclick = ()=> openVariantModal('cart');
   document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
-  /* legacy (direct add) disabled */
-    const qty = Math.max(1, parseInt(document.getElementById('shv-cta-qty').value||'1',10));
-    const src = CURRENT || PRODUCT;
-    const item = {
-      id: String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()),
-      title: PRODUCT.title || PRODUCT.name || '',
-      image: (imagesOf(src||PRODUCT)[0]||''),
-      variant: (CURRENT && (CURRENT.name||CURRENT.sku||'')) || '',
-      price: pricePair(src).base || 0,
-      qty
-    };
-    try{
+  /* legacy (direct add) fully removed */
+try{
       const cart = JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item);
       localStorage.setItem('CART', JSON.stringify(cart));
       goCart();
