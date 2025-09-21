@@ -1,39 +1,3 @@
-
-// AUTO-BUST-PDP v2: replace PDP module script with fresh ?v using DOM operations
-(function(){
-  try{
-    if (window.__pdpAutov2) return; window.__pdpAutov2 = true;
-    var tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
-    if(!tag) return;
-    var u = new URL(tag.getAttribute('src'), document.baseURI);
-    u.searchParams.set('v', String(Date.now()));
-    var fresh = document.createElement('script');
-    fresh.type = 'module';
-    fresh.src = u.pathname + '?' + u.searchParams.toString();
-    tag.parentNode.insertBefore(fresh, tag);
-    tag.parentNode.removeChild(tag);
-  }catch(e){}
-})();
-
-// AUTO-BUST-PDP: ensure ui-pdp.js always has a fresh ?v and is swapped before it loads
-(function(){
-  try{
-    if (window.__pdpAutov) return; // only once
-    window.__pdpAutov = true;
-    var tags = document.querySelectorAll('script[type="module"][src*="/src/ui-pdp.js"]');
-    if(tags && tags.length){
-      var tag = tags[0];
-      var u = new URL(tag.getAttribute('src'), document.baseURI);
-      u.searchParams.set('v', String(Date.now()));
-      // Remove original tag and inject new one now so parser loads fresh file
-      tag.setAttribute('data-autov','1');
-      tag.parentNode.removeChild(tag);
-      document.write('<script type="module" src="'+u.pathname+'?'+u.searchParams.toString()+'"><'+'/script>');
-    }
-  }catch(e){/*silent*/}
-})();
-
-
 // --- build cache-buster (auto ?v for ui-pdp.js) ---
 (function(){
   try{
@@ -91,4 +55,20 @@ import api from './lib/api.js';
       inject(`<script src="https://sp.zalo.me/plugins/sdk.js"></script>`);
     }
   } catch (e) { console.warn('pixels err', e); }
+})();
+
+// AUTO-BUST-PDP SAFE: swap ui-pdp.js with fresh ?v using DOM ops (no document.write)
+(function(){
+  try{
+    if (window.__pdpAutoSafe) return; window.__pdpAutoSafe = true;
+    var tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
+    if(!tag) return;
+    var u = new URL(tag.getAttribute('src'), document.baseURI);
+    u.searchParams.set('v', String(Date.now()));
+    var fresh = document.createElement('script');
+    fresh.type = 'module';
+    fresh.src = u.pathname + '?' + u.searchParams.toString();
+    tag.parentNode.insertBefore(fresh, tag);
+    tag.parentNode.removeChild(tag);
+  }catch(e){}
 })();
