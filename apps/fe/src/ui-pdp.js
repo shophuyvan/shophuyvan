@@ -52,23 +52,29 @@ function renderTitle(){
   $('#p-rating')&& ($('#p-rating').textContent= String(PRODUCT.rating||'5★'));
 }
 
+
 function renderPriceStock(){
   const el = $('#p-price'); const stockEl = $('#p-stock');
   if(!el && !stockEl) return;
-  // compute price from CURRENT or min variant
   let src = CURRENT || null;
   if(!src){
     const vs = variantsOf(PRODUCT);
     if(vs.length){
       let best=null;
       for(const v of vs){ const pr = pricePair(v); if(pr.base>0 && (!best || pr.base<best.base)) best=pr; }
-      if(best){ el && (el.innerHTML = best.original ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div><div class='line-through text-gray-400'>${formatPrice(best.original)}</div>` : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div>`); }
+      if(best){
+        el && (el.innerHTML = best.original
+          ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div><div class='line-through text-gray-400'>${formatPrice(best.original)}</div>`
+          : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div>`);
+      }
     }
   }
   if(src){
     const {base, original} = pricePair(src);
     if(el){
-      el.innerHTML = original ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div><div class='line-through text-gray-400'>${formatPrice(original)}</div>` : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div>`;
+      el.innerHTML = original
+        ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div><div class='line-through text-gray-400'>${formatPrice(original)}</div>`
+        : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div>`;
     }
   }
   if(stockEl){
@@ -77,56 +83,15 @@ function renderPriceStock(){
     stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
   }
 }
-;
-  const {base, original} = pricePair(src);
-  const priceEl = $('#p-price'); const stockEl = $('#p-stock');
-  if(priceEl){
-    if(original && original>base){
-      priceEl.innerHTML = `<span class="text-rose-600">${formatPrice(base)}</span> <s class="text-gray-400 text-base">${formatPrice(original)}</s>`;
-    }else{
-      priceEl.innerHTML = `<span class="text-rose-600">${formatPrice(base)}</span>`;
-    }
-  }
-  if(stockEl){
-    let stk = num(src.stock ?? src.qty ?? src.quantity ?? PRODUCT.stock ?? 0);
-    if(!stk){
-      const vs = variantsOf(PRODUCT);
-      if(vs.length){ stk = vs.map(v=>num(v.stock||v.qty||v.quantity)).reduce((a,b)=>a+b,0); }
-    }
-    stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
-  }
-}
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
-  const html = list.map((v,i)=>{
-    const {base} = pricePair(v);
-    const name = htmlEscape(v.name || v.sku || ('Phân loại '+(i+1)));
-    const ptxt = base ? ` – ${formatPrice(base)}` : '';
-    const active = (CURRENT && (CURRENT===v)) ? ' ring-2 ring-rose-600 ' : '';
-    return `<button data-k="${i}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 ${active}">${name}${ptxt}</button>`;
-  }).join('');
-  box.innerHTML = html;
-  $$('button[data-k]', box).forEach(btn=>btn.addEventListener('click', e=>{
-    const k = +btn.dataset.k;
-    CURRENT = list[k]; renderPriceStock(); renderMedia(CURRENT); updateStickyCTA();
-  }));
-}
-function renderMedia(prefer){ const main=$('#media-main'); const thumbs=$('#media-thumbs'); if(thumbs){ thumbs.innerHTML=''; thumbs.style.display='none'; }
-  if(!main) return; const img=(imagesOf(prefer||PRODUCT)[0]||''); main.innerHTML = img? `<img src="${img}" class="w-full h-auto rounded">` : ''; }]:[]), ...imgs.map(s=>({type:'img',src:s}))];
-  if(!media.length){ main.innerHTML=''; thumbs.innerHTML=''; return; }
-  let idx=0;
-  function show(i){
-    idx=(i+media.length)%media.length;
-    const m=media[idx];
-    if(m.type==='video'){
-      main.innerHTML = `<video controls playsinline muted class="w-full h-full object-contain bg-white"><source src="${m.src}"></video>`;
-      setTimeout(()=>{ const v=$('#media-main video'); try{ v.play().catch(()=>{});}catch{} },50);
-    }else{
-      main.innerHTML = `<img loading="eager" class="w-full h-full object-contain bg-white" src="${m.src}" alt="">`;
-    }
-    thumbs.innerHTML = media.map((t,k)=>`<button data-k="${k}" class="w-16 h-16 border rounded overflow-hidden ${k===idx?'ring-2 ring-rose-600':''}">${t.type==='img'?`<img class="w-full h-full object-cover" src="${t.src}">`:'<span class="text-xs px-1">VIDEO</span>'}</button>`).join('');
-    $$('button[data-k]', thumbs).forEach(b=>b.onclick=()=>show(+b.dataset.k));
-  }
-  show(0);
+function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
+
+function renderMedia(prefer){
+  const main=$('#media-main'); const thumbs=$('#media-thumbs');
+  if(thumbs){ thumbs.innerHTML=''; thumbs.style.display='none'; }
+  if(!main) return;
+  const img=(imagesOf(prefer||PRODUCT)[0]||'');
+  main.innerHTML = img ? `<img src="${img}" class="w-full h-auto rounded">` : '';
 }
 function renderDesc(){
   const el = $('#p-desc'); if(!el) return;
@@ -248,13 +213,7 @@ function injectStickyCTA(){
   document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
 }
   /* legacy (direct add) fully removed */
-function updateStickyCTA(){};
-  t.textContent = (PRODUCT.title || PRODUCT.name || 'Sản phẩm');
-  const pr = pricePair(src);
-  p.textContent = (pr.base||0).toLocaleString('vi-VN') + 'đ';
-  im.src = (imagesOf(src)[0] || imagesOf(PRODUCT)[0] || '');
-}
-
+function updateStickyCTA(){}
 function renderCountdown(untilMs){
   const holder = document.createElement('div');
   holder.id = 'shv-countdown';
