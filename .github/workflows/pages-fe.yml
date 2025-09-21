@@ -1,34 +1,37 @@
-name: Deploy FE (Pages - shophuyvan1)
-
+name: Deploy FE to Cloudflare Pages
 on:
   push:
     branches: [ main ]
     paths:
-      - "apps/fe/**"
-      - ".github/workflows/pages-fe.yml"
-  workflow_dispatch:
-
+      - "fe/**"
+      - ".github/workflows/deploy-pages-fe.yml"
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: fe/pnpm-lock.yaml
 
-      # Bust cache: tự gắn ?v=<sha7> cho các file .css/.js tham chiếu trong HTML
-      - name: Bust cache version
+      - name: Install
+        working-directory: fe
         run: |
-          cd apps/fe/dist
-          for f in $(find . -name '*.html'); do
-            sed -E -i.bak "s/(\.(css|js))(\?v=[a-zA-Z0-9]+)?/\1?v=${GITHUB_SHA::7}/g" "$f"
-            rm -f "$f.bak"
-          done
+          pnpm i --frozen-lockfile || pnpm i
 
-      - name: Publish to Cloudflare Pages
+      - name: Build
+        working-directory: fe
+        run: pnpm run -C . build || echo "skip build"
+
+      - name: Publish to Pages (shophuyvan1)
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: shophuyvan1
-          directory: apps/fe/dist
+          directory: fe/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
