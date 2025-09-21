@@ -84,7 +84,6 @@ function renderPriceStock(){
   }
 }
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
-function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
 
 function renderMedia(prefer){
   const main=$('#media-main'); const thumbs=$('#media-thumbs');
