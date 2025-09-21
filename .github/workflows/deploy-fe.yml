@@ -12,46 +12,18 @@ permissions:
   contents: read
   deployments: write
 
-env:
-  WORKDIR: apps/fe
-  CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CF_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  CF_PROJECT:    shophuyvan1        # tên project Pages (đúng như trong Cloudflare)
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          # đường dẫn lockfile TƯƠNG ĐỐI tới root repo
-          cache-dependency-path: apps/fe/pnpm-lock.yaml
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          run_install: false
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-        working-directory: ${{ env.WORKDIR }}
-
-      - name: Build
-        run: pnpm run build
-        working-directory: ${{ env.WORKDIR }}
+      - uses: actions/checkout@v4
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:  ${{ env.CF_API_TOKEN }}
-          accountId: ${{ env.CF_ACCOUNT_ID }}
-          projectName: ${{ env.CF_PROJECT }}
-          directory: ${{ env.WORKDIR }}/dist
+          apiToken:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: shophuyvan1
+          directory:  apps/fe
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
