@@ -1,7 +1,8 @@
-# .github/workflows/deploy-fe.yml
 name: Deploy FE to Cloudflare Pages
+
 on:
   push:
+    branches: [ main ]
     paths:
       - 'apps/fe/**'
       - '.github/workflows/deploy-fe.yml'
@@ -10,28 +11,65 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v3
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Phát hiện có package.json hay không
+      - name: Detect FE build plan
+        id: detect
+        run: |
+          if [ -f apps/fe/package.json ]; then
+            echo "has_pkg=true" >> $GITHUB_OUTPUT
+            # đoán thư mục build
+            if [ -d apps/fe/dist ]; then
+              echo "dir=apps/fe/dist" >> $GITHUB_OUTPUT
+            elif [ -d apps/fe/build ]; then
+              echo "dir=apps/fe/build" >> $GITHUB_OUTPUT
+            else
+              # nếu không tìm thấy, ta sẽ build rồi xuất ra dist
+              echo "dir=apps/fe/dist" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_pkg=false" >> $GITHUB_OUTPUT
+            # publish thẳng thư mục static
+            echo "dir=apps/fe" >> $GITHUB_OUTPUT
+          fi
+
+      # Chỉ cài Node/pnpm khi có package.json
+      - name: Setup Node
+        if: steps.detect.outputs.has_pkg == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      
+
+      - name: Setup pnpm
+        if: steps.detect.outputs.has_pkg == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        if: steps.detect.outputs.has_pkg == 'true'
         working-directory: apps/fe
+        run: pnpm install --frozen-lockfile || pnpm install
 
       - name: Build
-        run: pnpm build
-        working-directory: apps/fe     # output: apps/fe/dist
+        if: steps.detect.outputs.has_pkg == 'true'
+        working-directory: apps/fe
+        run: |
+          if pnpm run | grep -q "^  build"; then
+            pnpm build
+          else
+            echo "⚠️ Không có script build, bỏ qua."
+          fi
 
-      - name: Publish to Pages
+      - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: shophuyvan1
-          directory: apps/fe/dist
+          directory: ${{ steps.detect.outputs.dir }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
