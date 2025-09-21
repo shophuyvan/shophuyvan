@@ -65,16 +65,34 @@ function card(p){
   </a>`;
 }
 
+
 (async function init(){
   try{
-    const s = await api('/settings?key=banners');
-    banners = Array.isArray(s?.value) ? s.value : [];
+    // Try multiple endpoints/shapes for settings → banners
+    let bannersData = [];
+    try {
+      const s1 = await api('/public/settings');
+      const cfg = s1?.settings || s1 || {};
+      const val = cfg.banners || cfg?.value || [];
+      if (Array.isArray(val)) bannersData = val;
+    } catch {}
+    if (!bannersData.length) {
+      try {
+        const s2 = await api('/settings?key=banners');
+        const val = s2?.value || s2?.banners || [];
+        if (Array.isArray(val)) bannersData = val;
+      } catch {}
+    }
+    banners = Array.isArray(bannersData) ? bannersData : [];
   }catch{ banners = []; }
   renderBanner(0); startBanner();
   bannerStage.addEventListener('mouseenter', stopBanner);
   bannerStage.addEventListener('mouseleave', startBanner);
 
-  const data = await api('/products?limit=20');
+  // Products: prefer public endpoint, fallback to legacy
+  let data=null;
+  try{ data = await api('/public/products?limit=20'); }catch{}
+  if(!data){ try{ data = await api('/products?limit=20'); }catch{} }
   const items = Array.isArray(data?.items)?data.items:[];
   grid.innerHTML = items.map(card).join('');
 })();
