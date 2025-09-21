@@ -17,7 +17,7 @@ export function pickPrice(product, variant){
   return { base, original, sale: base, regular: original };
 }
 
-function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).replace(/\./g,'').replace(/,/g,'.'))||0; }catch{ return 0; } }
+function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).replace(/\./g,'').replace(/,/g,'.'))||0; }catch(e){ return 0; } }
 
 export function pickLowestPrice(product){
   const vs = Array.isArray(product?.variants) ? product.variants : [];

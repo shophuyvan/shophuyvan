@@ -57,9 +57,9 @@ import api from './lib/api.js';
           const r = await api.get(p);
           const arr = r?.items || r?.data || r?.categories || [];
           if(Array.isArray(arr) && arr.length){ window.CATEGORIES = arr; return arr; }
-        }catch{}
+        }catch(e){}
       }
-    }catch{}
+    }catch(e){}
     return [];
   }
 

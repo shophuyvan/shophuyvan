@@ -132,7 +132,7 @@ export async function handleProducts(req, env, fire) {
   // POST /admin/products  — body: Product
   if (req.method === 'POST' && pathname === '/admin/products') {
     let body;
-    try { body = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
+    try { body = await req.json(); }catch(e){ return j(400, { error: 'Invalid JSON' }); }
     const product = normalizeProduct(body);
     await upsertProduct(fire, product);
     return j(200, { ok: true, item: product });
@@ -142,7 +142,7 @@ export async function handleProducts(req, env, fire) {
   // POST /admin/products/bulk — body: { items: Product[] }
   if (req.method === 'POST' && pathname === '/admin/products/bulk') {
     let payload;
-    try { payload = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
+    try { payload = await req.json(); }catch(e){ return j(400, { error: 'Invalid JSON' }); }
 
     const items = Array.isArray(payload?.items) ? payload.items : [];
     let ok = 0, fail = 0, details = [];

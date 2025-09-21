@@ -89,7 +89,7 @@ function minVarPrice(p){
       if(reg!=null){ minRegular = (minRegular==null)?reg:Math.min(minRegular, reg); }
     }
     return { sale:minSale, regular:minRegular };
-  }catch{ return null; }
+  }catch(e){ return null; }
 }
 function priceStr(p) {
   const mv = minVarPrice(p)||{}; const s = Number(mv.sale ?? p.price_sale ?? 0); const r = Number(mv.regular ?? p.price ?? 0);
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.querySelectorAll('.hero img, .hero video').forEach(el=>{
       el.style.objectFit='cover'; el.style.width='100%'; el.style.height='100%'; el.style.maxHeight='520px';
     });
-  } catch {}
+  }catch(e){}
 
   // Mobile hamburger top-left; toggle open/close; auto-close on scroll/blur
   const btn = document.querySelector('[data-hamburger]') || document.getElementById('hamburger');
@@ -173,7 +173,7 @@ try{
       return _renderAll();
     }
   }
-}catch{}
+}catch(e){}
 
 // lazy-load all images by default
 new MutationObserver(()=>{
@@ -223,7 +223,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         try{
           const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
           let data=null;
-          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
+          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch(e){} }
           const pr = (data?.item||data?.data||data||{});
           const vs = Array.isArray(pr.variants)?pr.variants:[];
           let s=null, r=null;
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           const val = (s && r && s<r) ? (`${(s).toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`)
                   : ((r||s||0).toLocaleString()+'đ');
           priceBox.innerHTML = `<b>${val}</b>`;
-        }catch{}
+        }catch(e){}
       }
     });
   }, 400);
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           const id = card.getAttribute('data-card-id');
           const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
           let data=null;
-          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
+          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch(e){} }
           const pr = (data?.item||data?.data||data||{});
           const {minS,maxS,minR} = range(pr);
           let html='';
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   try{
     const wrap = document.getElementById('banner-wrap');
     if(wrap){ Array.from(wrap.children).forEach((c,i)=>{ if(i>0) c.style.display='none'; }); }
-  }catch{}
+  }catch(e){}
 
   // If there's a header, re-parent hamburger into it to avoid overlap with logo
   try{
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       btn.style.position='absolute'; btn.style.left='8px'; btn.style.top='8px';
       header.prepend(btn);
     }
-  }catch{}
+  }catch(e){}
 });
 
 // v29: banner responsive + hamburger doesn't overlap logo

@@ -6,7 +6,7 @@ const applyBtn = document.getElementById('apply-voucher');
 const resultEl = document.getElementById('voucher-result');
 const summaryEl = document.getElementById('cart-summary');
 
-function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
+function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch(e){return [];} }
 function subtotal(items){ return (items||[]).reduce((s, it)=> s + (Number(it.price||0) * Number(it.qty||1)), 0); }
 
 async function applyVoucher(){

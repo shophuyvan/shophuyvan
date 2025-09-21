@@ -5,3 +5,10 @@
 .admin-nav-secondary{display:flex;gap:8px;margin:.5rem 0}
 .grid.two{display:grid;grid-template-columns:1fr 1fr; gap:10px}
 @media (max-width:768px){ .grid.two{ grid-template-columns:1fr; } }
+
+
+/* SEO/UX tweaks */
+html{font-size:16px}
+img{max-width:100%;height:auto}
+button, .btn{min-height:48px;min-width:48px;padding:.75rem 1rem}
+input, select, textarea{font-size:16px}

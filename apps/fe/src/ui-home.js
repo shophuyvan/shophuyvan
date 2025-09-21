@@ -21,7 +21,7 @@ function cloudify(u, t='w_500,q_auto,f_auto') {
     if (!url.hostname.includes('res.cloudinary.com')) return u;
     url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
     return url.toString();
-  } catch { return u || noImage; }
+  }catch(e){ return u || noImage; }
 }
 
 const grid = document.querySelector('#grid');
@@ -36,7 +36,7 @@ function renderBanner(i){
   const b = banners[bIdx];
   bannerStage.innerHTML = `
     <a href="${b.href||'#'}" target="${b.href ? '_blank' : '_self'}">
-      <img loading="lazy" class="w-full h-full object-cover" src="${cloudify(b.image,'w_1400,q_auto,f_auto')}" alt="">
+      <img loading="lazy" class="w-full h-full object-cover" src="${cloudify(b.image,'w_1400,q_auto,f_auto')}" alt=""> 
     </a>`;
   bannerDots.innerHTML = banners.map((_,k)=>`
     <button data-k="${k}" class="w-2 h-2 rounded-full ${k===bIdx?'bg-rose-600':'bg-gray-300'}"></button>
@@ -56,7 +56,7 @@ function card(p){
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
-      <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="">
+      <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt=""> 
     </div>
     <div class="p-3">
       <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
@@ -75,24 +75,24 @@ function card(p){
       const cfg = s1?.settings || s1 || {};
       const val = cfg.banners || cfg?.value || [];
       if (Array.isArray(val)) bannersData = val;
-    } catch {}
+    }catch(e){}
     if (!bannersData.length) {
       try {
         const s2 = await api('/settings?key=banners');
         const val = s2?.value || s2?.banners || [];
         if (Array.isArray(val)) bannersData = val;
-      } catch {}
+      }catch(e){}
     }
     banners = Array.isArray(bannersData) ? bannersData : [];
-  }catch{ banners = []; }
+  }catch(e){ banners = []; }
   renderBanner(0); startBanner();
   bannerStage.addEventListener('mouseenter', stopBanner);
   bannerStage.addEventListener('mouseleave', startBanner);
 
   // Products: prefer public endpoint, fallback to legacy
   let data=null;
-  try{ data = await api('/public/products?limit=20'); }catch{}
-  if(!data){ try{ data = await api('/products?limit=20'); }catch{} }
+  try{ data = await api('/public/products?limit=20'); }catch(e){}
+  if(!data){ try{ data = await api('/products?limit=20'); }catch(e){} }
   const items = Array.isArray(data?.items)?data.items:[];
   grid.innerHTML = items.map(card).join('');
 })();
