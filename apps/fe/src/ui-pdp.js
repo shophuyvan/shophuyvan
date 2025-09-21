@@ -233,6 +233,7 @@ function injectStickyCTA(){
   document.getElementById('shv-cta-zalo').href = zHref;
   document.getElementById('shv-cta-add').onclick = ()=> openVariantModal('cart');
   document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
+}
   /* legacy (direct add) fully removed */
 function updateStickyCTA(){
   const t=document.getElementById('shv-cta-title');
