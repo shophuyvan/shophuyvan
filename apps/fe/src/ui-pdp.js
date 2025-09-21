@@ -13,7 +13,17 @@ function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).repl
 function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
-  return sale>0 ? {base:sale, original: (reg>0?reg:null)} : {base: (reg>0?reg:0), original:null};
+  return sale>0 ? {base:sale, original: (reg>0?reg:null)}
+// --- PDP util: hide header on product page hero ---
+function hideHeader(){
+  try{
+    const h1 = document.querySelector('header');
+    if(h1) h1.style.display = 'none';
+    const h2 = document.querySelector('.site-header');
+    if(h2) h2.style.display = 'none';
+  }catch{}
+}
+ : {base: (reg>0?reg:0), original:null};
 }
 function imagesOf(p){
   const A = [];

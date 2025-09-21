@@ -7,3 +7,7 @@ workers_dev = true
 binding = "SHV"
 id = "dbbe5e2f36e8492f94ba0213ccfaf550"
 preview_id = "dbbe5e2f36e8492f94ba0213ccfaf550"
+
+# Added by patch: shipping key
+[vars]
+SHIPPING_API_KEY = "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5"

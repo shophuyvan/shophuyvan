@@ -589,7 +589,25 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
         return json({ok:true, settings: all}, {}, req);
       }
 
-      // Shipping credentials
+      
+
+      // Public shipping quote (weight-based stub; requires key presence)
+      if(p==='/shipping/quote' && req.method==='GET'){
+        const weight = Number(url.searchParams.get('weight')||0); // grams
+        const to_province = url.searchParams.get('to_province')||'';
+        const to_district = url.searchParams.get('to_district')||'';
+        const key = (env && env.SHIPPING_API_KEY) || 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
+        if(!key){ return json({ok:false, error:'missing_key'}, {status:400}, req); }
+        const unit = Math.max(1, Math.ceil(weight/500)); // 500g blocks
+        const base = 12000 + unit*3000;
+        const items = [
+          { provider:'jt', service_code:'JT-FAST', name:'Giao nhanh', fee: Math.round(base*1.1), eta:'1-2 ngày' },
+          { provider:'spx', service_code:'SPX-REG', name:'Tiêu chuẩn', fee: Math.round(base), eta:'2-3 ngày' },
+          { provider:'ahamove', service_code:'AHA-SAVE', name:'Tiết kiệm', fee: Math.round(base*0.9), eta:'3-5 ngày' }
+        ];
+        return json({ok:true, items, to_province, to_district}, {}, req);
+      }
+// Shipping credentials
       if(p==='/admin/shipping/credentials' && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const body = await readBody(req)||{};

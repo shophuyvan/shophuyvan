@@ -63,7 +63,7 @@ orderBtn?.addEventListener('click', async () => {
     voucher_code: (voucherInput.value||null),
     shipping_fee: chosen?.fee || 0
   };
-  const res = await api('/orders', { method:'POST', body });
+  const res = await api('/public/orders/create', { method:'POST', body });
   orderResult.textContent = `Đặt hàng thành công: ${res.orderId || ''}`;
   // Optionally call /shipping/create via backend setting
 });
