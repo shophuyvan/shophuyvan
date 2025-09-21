@@ -1,3 +1,4 @@
+# .github/workflows/deploy-fe.yml
 name: Deploy FE to Cloudflare Pages
 
 on:
@@ -21,9 +22,9 @@ jobs:
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: shophuyvan1
-          directory:  apps/fe
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          apiToken:     ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:    ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName:  shophuyvan       # <-- ĐỔI TỪ shophuyvan1 thành shophuyvan
+          directory:    apps/fe
+          gitHubToken:  ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
