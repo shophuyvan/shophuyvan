@@ -22,6 +22,25 @@ function imagesOf(p){
   if (p?.thumb) A.push(p.thumb);
   return A.filter(Boolean).map(String);
 }
+
+function videosOf(p){
+  const arr = [];
+  if(Array.isArray(p?.videos)) arr.push(...p.videos);
+  if(p?.video) arr.unshift(p.video);
+  if(Array.isArray(p?.media)){
+    for(const m of p.media){ if(m && (m.type==='video' || /\.mp4|\.webm|\.m3u8/i.test(String(m.src||m.url||'')))) arr.push(m.src||m.url); }
+  }
+  return arr.filter(Boolean).map(String);
+}
+function mediaList(p){
+  const imgs = imagesOf(p);
+  const vids = videosOf(p);
+  const out=[];
+  vids.forEach(v=> out.push({type:'video', src:v}));
+  imgs.forEach(i=> out.push({type:'image', src:i}));
+  return out;
+}
+
 function variantsOf(p){
   if (Array.isArray(p?.variants)) return p.variants;
   const keys = ['skus','sku_list','children','items','options','variations','combos','list'];
@@ -85,12 +104,83 @@ function renderPriceStock(){
 }
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
 
+
 function renderMedia(prefer){
-  const main=$('#media-main'); const thumbs=$('#media-thumbs');
-  if(thumbs){ thumbs.innerHTML=''; thumbs.style.display='none'; }
+  const main=$('#media-main'); let thumbs=$('#media-thumbs');
   if(!main) return;
-  const img=(imagesOf(prefer||PRODUCT)[0]||'');
-  main.innerHTML = img ? `<img src="${img}" class="w-full h-auto rounded">` : '';
+  hideHeader();
+
+  const items = mediaList(prefer||PRODUCT);
+  let idx = 0;
+
+  function show(i){
+    idx = (i + items.length) % items.length;
+    const it = items[idx];
+    if(!it){ main.innerHTML=''; return; }
+    if(it.type==='video'){
+      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
+      const v = main.querySelector('#pdp-video');
+      v.src = it.src; v.load();
+    }else{
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
+    }
+    drawArrows();
+  }
+
+  function drawArrows(){
+    const left = document.createElement('button');
+    const right= document.createElement('button');
+    [left,right].forEach(b=>{ b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.35);color:#fff;border:none;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center'; });
+    left.style.left='8px'; right.style.right='8px';
+    left.textContent='‹'; right.textContent='›';
+    left.onclick=()=>{ show(idx-1); resetAuto(); };
+    right.onclick=()=>{ show(idx+1); resetAuto(); };
+    Array.from(main.querySelectorAll('.pdp-arrow')).forEach(n=>n.remove());
+    left.className='pdp-arrow'; right.className='pdp-arrow';
+    main.appendChild(left); main.appendChild(right);
+  }
+
+  let timer=null;
+  function resetAuto(){
+    if(timer){ clearInterval(timer); timer=null; }
+    timer = setInterval(()=>{
+      const v = main.querySelector('video');
+      if(v && !v.paused && !v.ended){ return; }
+      show(idx+1);
+    }, 3500);
+  }
+
+  show(0); resetAuto();
+
+  if(thumbs){
+    const vs = variantsOf(PRODUCT);
+    const pricePairs = vs.map(v=> pricePair(v)).filter(p=>p.base>0);
+    let priceHTML='';
+    if(pricePairs.length){
+      const min = Math.min(...pricePairs.map(p=>p.base));
+      const max = Math.max(...pricePairs.map(p=>p.base));
+      priceHTML = `<div style="font-weight:800;color:#dc2626;font-size:20px;margin-top:6px">${min===max?formatPrice(min):formatPrice(min)+' - '+formatPrice(max)}</div>`;
+    }
+    const countHTML = vs.length ? `<div style="font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>` : '';
+    const list = vs.slice(0,12).map((v,i)=>{
+      const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
+      const name = v.name || v.sku || ('Loại '+(i+1));
+      return `<button data-vidx="${i}" style="border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;display:flex;align-items:center;gap:8px">
+        <img src="${img}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f3f4f6" />
+        <span style="font-size:13px">${name}</span>
+      </button>`;
+    }).join('');
+
+    thumbs.style.display='block';
+    thumbs.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
+    thumbs.innerHTML = (countHTML ? `<div style="grid-column:1/-1">${countHTML}</div>` : '') + list + (priceHTML? `<div style="grid-column:1/-1">${priceHTML}</div>`:'');
+    thumbs.querySelectorAll('button[data-vidx]').forEach(btn=>{
+      btn.onclick=()=>{
+        const v = vs[Number(btn.getAttribute('data-vidx'))];
+        if(v){ CURRENT=v; renderPriceStock(); }
+      };
+    });
+  }
 }
 function renderDesc(){
   const el = $('#p-desc'); if(!el) return;
