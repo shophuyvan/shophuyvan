@@ -519,7 +519,7 @@ function openCheckoutModal(){
     const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
-  renderTotals(); }catch(e){} setTimeout(refreshShip, 0);
+  renderTotals(); setTimeout(refreshShip, 0);
 
   const list = cartItems();
   const box = m.querySelector('#co-items');

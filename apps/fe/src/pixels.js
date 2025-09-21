@@ -1,4 +1,20 @@
 
+// AUTO-BUST-PDP v2: replace PDP module script with fresh ?v using DOM operations
+(function(){
+  try{
+    if (window.__pdpAutov2) return; window.__pdpAutov2 = true;
+    var tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
+    if(!tag) return;
+    var u = new URL(tag.getAttribute('src'), document.baseURI);
+    u.searchParams.set('v', String(Date.now()));
+    var fresh = document.createElement('script');
+    fresh.type = 'module';
+    fresh.src = u.pathname + '?' + u.searchParams.toString();
+    tag.parentNode.insertBefore(fresh, tag);
+    tag.parentNode.removeChild(tag);
+  }catch(e){}
+})();
+
 // AUTO-BUST-PDP: ensure ui-pdp.js always has a fresh ?v and is swapped before it loads
 (function(){
   try{
