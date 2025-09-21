@@ -13,7 +13,15 @@ function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).repl
 function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
-  return sale>0 ? {base:sale, original: (reg>0?reg:null)}
+  if (sale > 0) {
+    return { base: sale, original: (reg > 0 ? reg : null) };
+  }
+  if (reg > 0) {
+    return { base: reg, original: null };
+  }
+  const any = num(o.base ?? o.min_price ?? 0);
+  return { base: any, original: null };
+}
 // --- PDP util: hide header on product page hero ---
 function hideHeader(){
   try{
