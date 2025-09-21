@@ -63,17 +63,36 @@ function variantsOf(p){
   for(const k of keys){ const v = p?.[k]; if(Array.isArray(v)) return v; }
   return [];
 }
-function htmlEscape(s){ return String(s||'').replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
-function mdToHTML(raw){ if(!raw) return ''; const lines=String(raw).split(/\r?\n/); const out=[]; let list=[]; const flush=()=>{ if(list.length){ out.push('<ul>'+list.map(li=>'<'+'li>'+htmlEscape(li)+'</li>').join('')+'</ul>'); list=[]; } }; for(const L of lines){ const t=L.trim(); if(!t){ flush(); continue; } if(/^[-*•]\s+/.test(t)){ list.push(t.replace(/^[-*•]\s+/,'')); continue; } const h=t.match(/^#{1,6}\s+(.*)$/); if(h){ flush(); const lvl=t.match(/^#{1,6}/)[0].length; out.push(`<h${lvl}>${htmlEscape(h[1])}</h${lvl}>`); continue; } out.push('<p>'+htmlEscape(t)+'</p>'); } flush(); return out.join(''); }
-    if(/^[-*•]\s+/.test(t)){ list.push(t.replace(/^[-*•]\s+/,'')); continue; }
-    const h=t.match(/^#{1,6}\s+(.*)$/); if(h){ flush(); const lvl=t.match(/^#{1,6}/)[0].length; out.push(`<h${lvl}>${htmlEscape(h[1])}</h${lvl}>`); continue; }
+
+function htmlEscape(s){
+  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function mdToHTML(raw){
+  if(!raw) return '';
+  const lines = String(raw).split(/\r?\n/);
+  const out = []; let list = [];
+  const flush = () => {
+    if(list.length){
+      out.push('<ul>' + list.map(li => '<li>'+htmlEscape(li)+'</li>').join('') + '</ul>');
+      list = [];
+    }
+  };
+  for(const L of lines){
+    const t = L.trim();
+    if(!t){ flush(); continue; }
+    if(/^[\-*•]\s+/.test(t)){ list.push(t.replace(/^[\-*•]\s+/,'')); continue; }
+    const h = t.match(/^#{1,6}\s+(.*)$/);
+    if(h){
+      flush();
+      const lvl = (t.match(/^#{1,6}/)[0] || '#').length;
+      out.push(`<h${lvl}>${htmlEscape(h[1])}</h${lvl}>`);
+      continue;
+    }
     out.push('<p>'+htmlEscape(t)+'</p>');
   }
-  flush(); return out.join('\n');
+  flush();
+  return out.join('');
 }
-
-let PRODUCT=null;
-let CURRENT=null;
 
 function renderTitle(){
   $('#p-title') && ($('#p-title').textContent = PRODUCT.title || PRODUCT.name || 'Sản phẩm');

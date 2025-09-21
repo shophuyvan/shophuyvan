@@ -1,4 +1,21 @@
 
+// --- build cache-buster (auto ?v for ui-pdp.js) ---
+(function(){
+  try{
+    // minute-based build tag to keep stable during a deploy
+    const BUILD = String(Math.floor(Date.now()/60000));
+    const tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
+    if(tag){
+      const u = new URL(tag.getAttribute('src'), location.origin);
+      if(u.searchParams.get('v') !== BUILD){
+        u.searchParams.set('v', BUILD);
+        tag.setAttribute('src', u.pathname + '?' + u.searchParams.toString());
+      }
+    }
+  }catch(e){}
+})();
+
+
 import api from './lib/api.js';
 
 (async () => {
