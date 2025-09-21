@@ -1,4 +1,23 @@
 
+// AUTO-BUST-PDP: ensure ui-pdp.js always has a fresh ?v and is swapped before it loads
+(function(){
+  try{
+    if (window.__pdpAutov) return; // only once
+    window.__pdpAutov = true;
+    var tags = document.querySelectorAll('script[type="module"][src*="/src/ui-pdp.js"]');
+    if(tags && tags.length){
+      var tag = tags[0];
+      var u = new URL(tag.getAttribute('src'), document.baseURI);
+      u.searchParams.set('v', String(Date.now()));
+      // Remove original tag and inject new one now so parser loads fresh file
+      tag.setAttribute('data-autov','1');
+      tag.parentNode.removeChild(tag);
+      document.write('<script type="module" src="'+u.pathname+'?'+u.searchParams.toString()+'"><'+'/script>');
+    }
+  }catch(e){/*silent*/}
+})();
+
+
 // --- build cache-buster (auto ?v for ui-pdp.js) ---
 (function(){
   try{

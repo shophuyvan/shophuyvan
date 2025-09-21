@@ -180,7 +180,7 @@ function renderMedia(prefer){
         <span style="font-size:13px">${name}</span>
       </button>`;
     }).join('');
-    thumbs.style.display='block';
+    thumbs.style.display='none'; thumbs.innerHTML='';
     thumbs.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
     thumbs.innerHTML = (countHTML ? `<div style="grid-column:1/-1">${countHTML}</div>` : '') + list + (priceHTML? `<div style="grid-column:1/-1">${priceHTML}</div>`:'');
     thumbs.querySelectorAll('button[data-vidx]').forEach(btn=>{
@@ -390,7 +390,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
       const {base}=pricePair(v); const img = imagesOf(v)[0]||'';
       const name = (v.name||v.sku||('Loại '+(i+1)));
       const act = (active===i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
-      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:cover;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
+      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:cover;border-radius:6px">`:''}<span>${name}${base?` `:''}</span></button>`;
     }).join('');
     box.querySelectorAll('button[data-k]').forEach(btn=>btn.onclick=()=>{ 
       const k=+btn.dataset.k; CURRENT = arr[k]; renderVBtns(k); updPrice(); 
@@ -482,6 +482,7 @@ function openCartModal(){
 
 // Checkout modal
 function openCheckoutModal(){
+  let shipFee = 0; let chosenShip = null;
   const m = mkMask('shv-co-mask');
   const html = `
   <div style="width:100%;max-width:640px;max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:14px 14px 80px 14px;position:relative">
@@ -511,14 +512,14 @@ function openCheckoutModal(){
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
 
-  function renderTotals(){
+  function renderTotals(){ try{
     const sub = calcTotal();
     const grand = sub + (shipFee||0);
     const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
     const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
-  renderTotals(); setTimeout(refreshShip, 0);
+  renderTotals(); }catch(e){} setTimeout(refreshShip, 0);
 
   const list = cartItems();
   const box = m.querySelector('#co-items');
