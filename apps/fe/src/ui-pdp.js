@@ -1,3 +1,4 @@
+let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 

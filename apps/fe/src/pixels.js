@@ -3,7 +3,7 @@
 (function(){
   try{
     // minute-based build tag to keep stable during a deploy
-    const BUILD = String(Math.floor(Date.now()/60000));
+    const BUILD = String(Date.now());
     const tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
     if(tag){
       const u = new URL(tag.getAttribute('src'), location.origin);
