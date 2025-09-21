@@ -10,7 +10,17 @@ function q(key, def=''){
   return u.searchParams.get(key) || def;
 }
 function toArr(a){ return Array.isArray(a) ? a : (a ? [a] : []); }
-function num(x){  if(x==null||x==='') return 0; return Number(String(x).replace(/\./g,'').replace(/,/g,'.'))||0; }catch{ return 0; } }
+function num(x){
+  if (x==null || x==='') return 0;
+  if (typeof x === 'number' && isFinite(x)) return x;
+  if (typeof x === 'string'){
+    const cleaned = x.replace(/\s+/g,'').replace(/\./g,'').replace(/,/g,'.');
+    const n = Number(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+  const n = Number(x);
+  return isNaN(n) ? 0 : n;
+}catch{ return 0; } }
 function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
@@ -32,7 +42,7 @@ function hideHeader(){
     if(h2) h2.style.display = 'none';
     const h3=document.querySelector('nav'); if(h3) h3.style.display='none';
     const st=document.createElement('style'); st.textContent='body>header{display:none!important}'; document.head.appendChild(st);
-  }catch{}
+  }
 }
 function imagesOf(p){
   const A = [];
@@ -210,7 +220,7 @@ function renderReviews(){
   }).join('');
 }
 function attachCart(){
-   const a=$('#btn-add'); const z=$('#btn-zalo'); if(a) a.style.display='none'; if(z) z.style.display='none'; const group=(a&&a.parentElement===z?.parentElement ? a.parentElement : (a&&a.parentElement)|| (z&&z.parentElement)); if(group){ group.style.display='none'; } }catch{}
+   const a=$('#btn-add'); const z=$('#btn-zalo'); if(a) a.style.display='none'; if(z) z.style.display='none'; const group=(a&&a.parentElement===z?.parentElement ? a.parentElement : (a&&a.parentElement)|| (z&&z.parentElement)); if(group){ group.style.display='none'; } }
   const btn = $('#btn-add'); if(!btn) return;
   btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
 
@@ -239,7 +249,7 @@ async function fetchProduct(id){
       if(r && (r.item || r.product || (r.id || r.title))){
         return r.item || r.product || r;
       }
-    }catch{}
+    }
   }
   // fallback list then find
   
@@ -247,7 +257,7 @@ async function fetchProduct(id){
     const items = list?.items || list?.products || [];
     const f = (items||[]).find(x=>String(x.id||x._id||'')===String(id));
     if(f) return f;
-  }catch{}
+  }
   return null;
 }
 
@@ -258,15 +268,15 @@ async function fetchProduct(id){
     const item = await fetchProduct(id);
     if(!item){ console.warn('Product not found'); return; }
     PRODUCT = item; CURRENT = null;
-    renderTitle(); renderPriceStock(); renderVariants(); renderMedia(); renderDesc(); renderFAQ(); renderReviews(); attachCart(); injectFloatingCart(); injectStickyCTA(); updateStickyCTA();  getSettings().then(s=>{ const pdp=s?.pdp||s; if(pdp?.countdown_until){ const t=Number(pdp.countdown_until); if(t>Date.now()) renderCountdown(t); } if(Array.isArray(pdp?.badges)) renderBadges(pdp.badges); }); }catch{}
+    renderTitle(); renderPriceStock(); renderVariants(); renderMedia(); renderDesc(); renderFAQ(); renderReviews(); attachCart(); injectFloatingCart(); injectStickyCTA(); updateStickyCTA();  getSettings().then(s=>{ const pdp=s?.pdp||s; if(pdp?.countdown_until){ const t=Number(pdp.countdown_until); if(t>Date.now()) renderCountdown(t); } if(Array.isArray(pdp?.badges)) renderBadges(pdp.badges); }); }
   }
 })();
 
 // ===== Extra PDP UX (Ladipage-like) =====
 async function getSettings(){
   // Try public settings first, then legacy
-   const s = await api('/public/settings'); return s?.settings || s || {}; }catch{}
-   const s = await api('/settings'); return s || {}; }catch{}
+   const s = await api('/public/settings'); return s?.settings || s || {}; }
+   const s = await api('/settings'); return s || {}; }
   return {};
 }
 function cartCount(){  return JSON.parse(localStorage.getItem('CART')||'[]').length }catch{ return 0 } }
@@ -280,7 +290,7 @@ function injectFloatingCart(){
   btn.setAttribute('aria-label','Giỏ hàng');
   btn.style.cssText = 'position:fixed;right:14px;bottom:90px;z-index:60;background:#111827;color:#fff;width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.2)';
   btn.innerHTML = '<span style="font-size:22px;line-height:1">🛒</span><span id="shv-float-cart-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:12px;font-weight:700;">0</span>';
-  document.body.appendChild(btn); btn.addEventListener('click', function(e){ e.preventDefault();  openCartModal(); }catch{} });
+  document.body.appendChild(btn); btn.addEventListener('click', function(e){ e.preventDefault();  openCartModal(); } });
   const upd=()=>{ const c=cartCount(); const b=document.getElementById('shv-float-cart-badge'); if(b) b.textContent=String(c) };
   upd(); setInterval(upd, 1500);
 }
