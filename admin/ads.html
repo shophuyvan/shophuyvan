@@ -1,0 +1,36 @@
+<!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Quảng cáo</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
+</head><body><div class='container'><div class='header'><div class='title'>Quảng cáo</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
+<div class="grid">
+  <div class="card"><div class="title">Facebook Pixel</div><input id="fb_pixel" class="input" placeholder="FB-XXXXXX"/><button id="save_fb" class="btn">Lưu</button></div>
+  <div class="card"><div class="title">Google Tag (G-)</div><input id="ga_tag" class="input" placeholder="G-XXXXXX"/><button id="save_ga" class="btn">Lưu</button></div>
+  <div class="card"><div class="title">Zalo Pixel</div><input id="zalo_pixel" class="input" placeholder="ZP-XXXXXX"/><button id="save_zl" class="btn">Lưu</button></div>
+</div>
+
+<script>
+(function(){
+  const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || (document.querySelector('[data-api-base]')?.textContent || '');
+  function fill(){
+    fetch(API + '/public/settings').then(r=>r.json()).then(s => {
+      const ads = (s && s.ads) || {};
+      (['fb','ga','zl']).forEach(key => {
+        const id = {fb:'fb_pixel', ga:'ga_tag', zl:'zalo_pixel'}[key];
+        const v = (ads && ads[key]) || '';
+        const inp = document.getElementById(id);
+        if(inp) inp.value = v || '';
+      });
+    }).catch(()=>{});
+  }
+  function save(key, id){
+    const val = document.getElementById(id)?.value?.trim() || '';
+    fetch(API + '/admin/settings/upsert', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({path:'ads.'+key, value: val})})
+      .then(()=> (window.Admin && Admin.toast)? Admin.toast('Đã lưu') : alert('Đã lưu'))
+      .catch(()=>{});
+  }
+  document.getElementById('save_fb')?.addEventListener('click',()=>save('fb','fb_pixel'));
+  document.getElementById('save_ga')?.addEventListener('click',()=>save('ga','ga_tag'));
+  document.getElementById('save_zl')?.addEventListener('click',()=>save('zl','zalo_pixel'));
+  fill();
+})();
+</script>
+
+</div><script>document.addEventListener('DOMContentLoaded',()=>Admin&&Admin.renderApiBase());</script></body></html>

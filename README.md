@@ -1,35 +1,53 @@
+# shophuyvan – CI/CD template for Cloudflare
 
-# SHV Monorepo (FE + Admin + API)
+This repository is a **ready-to-use** GitHub template to deploy:
+- **API**: Cloudflare **Workers** (folder: `api/`)
+- **FE**: Cloudflare **Pages** project `shophuyvan1` (folder: `fe/`)
+- **Admin**: Cloudflare **Pages** project `adminshophuyvan` (folder: `admin/`)
 
-Triển khai tự động lên **Cloudflare Pages** và **Cloudflare Workers** thông qua **GitHub Actions**.
+## 1) Secrets (GitHub → Settings → Secrets and variables → Actions → *New repository secret*)
+Create **repository secrets** with these exact names:
 
-## Cấu trúc
+- `CLOUDFLARE_API_TOKEN` – Cloudflare API token with minimum permissions:
+  - Account → *Workers Scripts*: **Edit**
+  - Account → *Cloudflare Pages*: **Edit**
+  - (Optional) Account → *Workers KV Storage*: **Edit** if Worker uses KV
+  - (Optional) Zone → *Workers Routes*: **Edit** if your Worker uses routes/custom domain
+- `CLOUDFLARE_ACCOUNT_ID` – Your Cloudflare **Account ID**
+
+> Tip: You can find Account ID in the URL of Cloudflare dashboard: `dash.cloudflare.com/<ACCOUNT_ID>/...`
+
+## 2) Folders
+- `api/` – put your Worker source here. The template assumes build output at `dist/index.mjs`.
+- `fe/` – your storefront; build to `fe/dist`
+- `admin/` – admin site; build to `admin/dist`
+
+## 3) Workflows
+This repo contains 3 workflows under `.github/workflows/`:
+
+- `deploy-worker.yml` – deploy Worker from `api/`
+- `deploy-pages-fe.yml` – deploy FE to Pages project **shophuyvan1**
+- `deploy-pages-admin.yml` – deploy Admin to Pages project **adminshophuyvan**
+
+## 4) Build scripts expectations
+
+**Worker** (api/package.json):
+```json
+{ "scripts": { "build": "tsc -p . || echo 'skip build'", "deploy": "wrangler deploy" } }
 ```
-apps/
-  fe/      # FE (Pages project: shophuyvan1)
-    dist/  # đặt toàn bộ build FE vào đây
-  admin/   # Admin (Pages project: adminshophuyvan)
-    dist/  # đặt toàn bộ build Admin vào đây
-  api/     # Worker service: shv-api
-    src/   # đặt source Worker vào đây
-    wrangler.toml
+If you already have your own build, keep it; just ensure the output file used in `wrangler.toml` is correct.
+
+**FE / Admin** (fe|admin/package.json):
+```json
+{ "scripts": { "build": "vite build" } }
 ```
+Change to whatever you use (Next/Nuxt/etc.) and update the workflows `directory:` if output != `dist`.
 
-> Với ZIP bạn đang có: giải nén **FE** vào `apps/fe/dist`, **Admin** vào `apps/admin/dist`, **API** vào `apps/api/src/` (đặt file chính là `index.js` hoặc đổi `main` trong `wrangler.toml`).
+## 5) wrangler.toml (api/wrangler.toml)
+- Uses `${CLOUDFLARE_ACCOUNT_ID}` so you do **not** hardcode account id.
+- Update `main = "dist/index.mjs"` to your compiled entry.
 
-## Secrets (GitHub → Settings → Secrets → Actions)
-- `CF_ACCOUNT_ID`
-- `CF_API_TOKEN`
+## 6) Trigger
+Push to `main` branch. Each folder change triggers only its workflow via `paths:` filters.
 
-## Deploy
-- Push `apps/fe/**`   → Pages `shophuyvan1`
-- Push `apps/admin/**`→ Pages `adminshophuyvan`
-- Push `apps/api/**`  → Worker `shv-api`
-
-## Cache-busting
-Workflow sẽ gắn `?v=<sha7>` cho link `.js/.css` trong HTML và cập nhật nếu đã có `?v=`.
-
-## Lint / Format
-- `pnpm -w i`
-- `pnpm -w run format`
-- `pnpm -w run lint`
+Happy shipping 🚀

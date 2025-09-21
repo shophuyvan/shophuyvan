@@ -1,0 +1,9 @@
+name = "shv-api"
+main = "src/index.js"
+compatibility_date = "2024-09-15"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "SHV"
+id = "dbbe5e2f36e8492f94ba0213ccfaf550"
+preview_id = "dbbe5e2f36e8492f94ba0213ccfaf550"
