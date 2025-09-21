@@ -1,0 +1,27 @@
+name: Deploy Admin to Cloudflare Pages
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/admin/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # - name: Install & Build
+      #   working-directory: apps/admin
+      #   run: |
+      #     npm ci
+      #     npm run build
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: adminshophuyvan
+          directory: apps/admin/dist
