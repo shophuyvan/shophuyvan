@@ -2,7 +2,7 @@ name: Deploy Admin to Cloudflare Pages
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - "apps/admin/**"
       - ".github/workflows/deploy-admin.yml"
@@ -12,22 +12,19 @@ permissions:
   contents: read
   deployments: write
 
+env:
+  WORKDIR: apps/admin
+  CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CF_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CF_PROJECT:    adminshophuyvan    # tên project Pages (đúng như trong Cloudflare)
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) CÀI PNPM TRƯỚC
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          run_install: false
-
-      # 2) SAU KHI CÓ PNPM, MỚI DÙNG setup-node + cache pnpm
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -35,18 +32,25 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/admin/pnpm-lock.yaml
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
       - name: Install
-        working-directory: apps/admin
         run: pnpm install --frozen-lockfile
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Build
-        working-directory: apps/admin
         run: pnpm run build
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: adminshophuyvan
-          directory: apps/admin/dist
+          apiToken:  ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
+          projectName: ${{ env.CF_PROJECT }}
+          directory: ${{ env.WORKDIR }}/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
