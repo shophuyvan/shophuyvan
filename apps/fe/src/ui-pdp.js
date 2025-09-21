@@ -234,13 +234,6 @@ function injectStickyCTA(){
   document.getElementById('shv-cta-add').onclick = ()=> openVariantModal('cart');
   document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
   /* legacy (direct add) fully removed */
-try{
-      const cart = JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item);
-      localStorage.setItem('CART', JSON.stringify(cart));
-      goCart();
-    }catch(e){ alert('Không thể thêm giỏ: '+e.message); }
-  };
-}
 function updateStickyCTA(){
   const t=document.getElementById('shv-cta-title');
   const p=document.getElementById('shv-cta-price');
