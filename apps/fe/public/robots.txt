@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shophuyvan1.pages.dev/sitemap.xml
