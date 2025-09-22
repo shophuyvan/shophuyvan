@@ -1,4 +1,37 @@
 
+// === SHV Admin Theme V3 (full width + mobile cards) ===
+(function(){
+  if(document.getElementById('shv-admin-theme')) return;
+  const css = `
+  :root{--shv-blue:#0f4c81;--shv-text:#0f172a;}
+  html,body{background:#fff;color:var(--shv-text);}
+  .header{background:var(--shv-blue);color:#fff;position:sticky;top:0;z-index:40;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+  .header a{color:#fff;text-decoration:none;}
+  main, .container, .wrap, .content, body>.wrap, body>.container{width:98vw!important;max-width:1600px!important;margin:12px auto!important;padding:12px!important}
+  table{width:100%!important;border-collapse:collapse;background:#fff}
+  thead th{background:#f3f6fb;color:#0f2741;border-bottom:1px solid #e5e7eb;position:sticky;top:56px;z-index:1}
+  th,td{border-bottom:1px solid #e5e7eb;padding:12px;font-size:14px;vertical-align:middle}
+  .table-wrap{width:100%;overflow:auto;-webkit-overflow-scrolling:touch}
+  .btn{border-radius:10px;border:1px solid var(--shv-blue);background:var(--shv-blue);color:#fff;padding:8px 12px;font-weight:700;cursor:pointer}
+  @media (max-width:768px){
+    main, .container, .wrap, .content, body>.wrap, body>.container{width:100vw!important;margin:0!important;padding:10px!important}
+    table.responsive, table.responsive thead, table.responsive tbody, table.responsive th, table.responsive td, table.responsive tr { display:block; }
+    table.responsive thead{ position:absolute; top:-9999px; left:-9999px; }
+    table.responsive tr{ border:1px solid #e5e7eb; margin-bottom:12px; border-radius:12px; background:#fff; padding:6px; }
+    table.responsive td{ border:none; border-bottom:1px solid #f1f5f9; position:relative; padding:10px; display:flex; justify-content:space-between; gap:12px; }
+    table.responsive td::before{ content: attr(data-label); font-weight:600; color:#0f2741; }
+    table.responsive td:last-child{ border-bottom:none; }
+  }`;
+  const st=document.createElement('style'); st.id='shv-admin-theme'; st.textContent=css; document.head.appendChild(st);
+  // wrap first table & set responsive
+  const t=document.querySelector('table'); if(!t) return;
+  if(!t.parentElement.classList.contains('table-wrap')){ const w=document.createElement('div'); w.className='table-wrap'; t.parentElement.insertBefore(w,t); w.appendChild(t); }
+  const headers=Array.from(t.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  t.querySelectorAll('tbody tr').forEach(tr=> Array.from(tr.children).forEach((td,i)=> td.setAttribute('data-label', headers[i]||'')));
+  t.classList.add('responsive');
+})();
+
+
 // --- Admin visual refresh (full width, white + deep blue, readable) ---
 (function(){
   if (document.getElementById('admin-theme')) return;
