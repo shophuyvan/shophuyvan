@@ -148,7 +148,7 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600" price" data-id="${encodeURIComponent(p.id||p.key||\'\')}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price" data-id="${encodeURIComponent(p.id||p.key||'')}">${priceStr(p)}</div>
     </div>
   </a>`;
 }
