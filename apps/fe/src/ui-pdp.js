@@ -450,6 +450,8 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
@@ -524,6 +526,8 @@ function openCartModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
@@ -582,6 +586,8 @@ function openCheckoutModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
@@ -699,6 +705,8 @@ function openSuccessModal(orderId, customer){
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
