@@ -127,15 +127,14 @@ async function hydratePrices(items){
   try{
     const list = Array.isArray(items)?items:[];
     for(const p of list){
-      const id = encodeURIComponent(p.id||p.key||'');
+      const id = String(p.id||p.key||'');
       const probe = minVarPrice(p);
       const hasPrice = (probe && (probe.sale>0 || probe.regular>0)) || Number(p?.price_sale||p?.sale_price||p?.price||0)>0;
       if(hasPrice) continue;
       const full = await fetchFullProduct(id);
       if(!full) continue;
       const html = priceHtmlFrom(full);
-      const node = document.querySelector(`.price[data-id="${(window.CSS && CSS.escape ? CSS.escape(id) : id)}"]`);
-      if(node) node.innerHTML = html;
+      document.querySelectorAll(`.price[data-id="${(window.CSS && CSS.escape ? CSS.escape(id) : id)}"]`).forEach(node => node.innerHTML = html);
     }
   }catch(e){ /* silent */ }
 }
@@ -148,7 +147,7 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 price" data-id="${encodeURIComponent(p.id||p.key||'')}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price" data-id="${(p.id||p.key||'')}">${priceStr(p)}</div>
     </div>
   </a>`;
 }
