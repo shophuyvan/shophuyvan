@@ -10,8 +10,15 @@
 <!-- build:16 -->
   <script type="module" src="/src/pixels.js?v=44"></script>
   <script type="module" src="/src/cat-menu.js?v=44"></script>
+
+<!-- SHV PDP HIDE HEADER CSS -->
+<style id="shv-pdp-inline-css">
+/* Hide global site header on PDP only */
+body.pdp header, body.pdp .topbar, body.pdp .site-header, 
+body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important; }
+</style>
 </head>
-<body class="bg-slate-50 text-gray-900">
+<body class="bg-slate-50 text-gray-900 pdp">
   <header class="border-b bg-white">
     <div class="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 gap-4 items-center">
       <a href="/" class="font-semibold text-lg">SHOP HUY VÂN</a>

@@ -1,3 +1,17 @@
+// /* SHV_PDP_HIDE_HEADER */
+(function(){try{
+  var b=document.body||document.documentElement;
+  if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
+  var id='shv-pdp-hide-header';
+  if(!document.getElementById(id)){
+    var css = [
+      'body.pdp header','body.pdp .topbar','body.pdp .site-header',
+      'body.pdp .shv-header','body.pdp .navbar','body.pdp nav'
+    ].join(',') + '{display:none !important;}';
+    var s=document.createElement('style'); s.id=id; s.textContent=css;
+    (document.head||document.documentElement).appendChild(s);
+  }
+}catch(_e){}})();
 let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
