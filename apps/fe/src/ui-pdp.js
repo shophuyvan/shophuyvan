@@ -162,10 +162,10 @@ function renderMedia(prefer){
     idx = (i+items.length)%items.length;
     const it = items[idx];
     if(it.type==='video'){
-      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:12px"></video>`;
+      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:contain;border-radius:12px" />`;
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
     }
     draw();
   }
@@ -178,28 +178,67 @@ function renderMedia(prefer){
   show(0); reset();
   if(thumbs){
     const vs = variantsOf(PRODUCT);
-    const pricePairs = vs.map(v=> pricePair(v)).filter(p=>p.base>0);
-    let priceHTML='';
-    if(pricePairs.length){
-      const min = Math.min(...pricePairs.map(p=>p.base));
-      const max = Math.max(...pricePairs.map(p=>p.base));
-      priceHTML = `<div style="font-weight:800;color:#dc2626;font-size:20px;margin-top:6px">${min===max?formatPrice(min):formatPrice(min)+' - '+formatPrice(max)}</div>`;
+    // Build horizontal scroller of square thumbnails (mobile-first)
+    if (!thumbs) return;
+    if (!vs.length) { thumbs.innerHTML = ''; thumbs.style.display = 'none'; }
+    else {
+      // Compute min-max price range for header (keeps existing logic)
+      const pricePairs = vs.map(v => pricePair(v)).filter(p => p.base > 0);
+      let header = '';
+      if (pricePairs.length) {
+        const min = Math.min(...pricePairs.map(p => p.base));
+        const max = Math.max(...pricePairs.map(p => p.base));
+        const priceText = (min === max) ? formatPrice(min) : (formatPrice(min) + ' - ' + formatPrice(max));
+        header = `<div style="flex-basis:100%;font-weight:800;color:#dc2626;font-size:16px;margin-top:6px">${priceText}</div>`;
+      }
+      const countHTML = `<div style="flex-basis:100%;font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>`;
+
+      // container styles
+      thumbs.style.display = 'flex';
+      thumbs.style.flexWrap = 'nowrap';
+      thumbs.style.overflowX = 'auto';
+      thumbs.style.gap = '8px';
+      thumbs.style.padding = '6px 2px';
+      thumbs.style.scrollSnapType = 'x proximity';
+
+      function selCheck(v) {
+        try {
+          if (!CURRENT) return false;
+          if (CURRENT === v) return true;
+          if (CURRENT.sku && v.sku && String(CURRENT.sku) === String(v.sku)) return true;
+          if (CURRENT.id && v.id && String(CURRENT.id) === String(v.id)) return true;
+          return false;
+        } catch { return false; }
+      }
+
+      thumbs.innerHTML = countHTML + header + vs.map((v, i) => {
+        const img = (imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '');
+        const name = (v.name || v.sku || ('Loại ' + (i + 1)));
+        const selected = selCheck(v);
+        const border = selected ? '#ef4444' : '#e5e7eb';
+        return `<button data-vidx="${i}" aria-pressed="${selected ? 'true' : 'false'}"
+          style="flex:0 0 auto;width:72px;scroll-snap-align:start;border:1px solid ${border};border-radius:10px;background:#fff;overflow:hidden">
+            <img alt="${htmlEscape(name)}" src="${img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" />
+          </button>`;
+      }).join('');
+
+      thumbs.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-vidx]');
+        if (!btn) return;
+        const i = parseInt(btn.getAttribute('data-vidx') || '0', 10);
+        const vs2 = variantsOf(PRODUCT);
+        const v = vs2[i];
+        if (!v) return;
+        CURRENT = v;
+        renderPriceStock();
+        renderMedia(v);
+        Array.from(thumbs.querySelectorAll('button[data-vidx]')).forEach(b => {
+          const on = (b === btn);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          b.style.borderColor = on ? '#ef4444' : '#e5e7eb';
+        });
+      }, { once: true }); // delegate once; new renderMedia will re-bind
     }
-    const countHTML = vs.length ? `<div style="font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>` : '';
-    const list = vs.slice(0,12).map((v,i)=>{
-      const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
-      const name = v.name || v.sku || ('Loại '+(i+1));
-      return `<button data-vidx="${i}" style="border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;display:flex;align-items:center;gap:8px">
-        <img src="${img}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f3f4f6" />
-        <span style="font-size:13px">${name}</span>
-      </button>`;
-    }).join('');
-    thumbs.style.display='block';
-    thumbs.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
-    thumbs.innerHTML = (countHTML ? `<div style="grid-column:1/-1">${countHTML}</div>` : '') + list + (priceHTML? `<div style="grid-column:1/-1">${priceHTML}</div>`:'');
-    thumbs.querySelectorAll('button[data-vidx]').forEach(btn=>{
-      btn.onclick=()=>{ const v=vs[Number(btn.getAttribute('data-vidx'))]; if(v){ CURRENT=v; renderPriceStock(); } };
-    });
   }
 }
 function renderDesc(){
