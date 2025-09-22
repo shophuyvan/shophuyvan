@@ -1,0 +1,5 @@
+/* apps/fe/public/assets/pdp.css */
+.pdp-img{width:100%;height:auto;border-radius:12px;display:block;margin:8px 0;object-fit:cover}
+.pdp-vid{width:100%;border-radius:12px;margin:8px 0;background:#000}
+.opt{padding:.5rem .75rem;border:1px solid #dbeafe;border-radius:999px;background:#fff;color:#1d4ed8;margin:.25rem .25rem;cursor:pointer}
+.opt.act{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
