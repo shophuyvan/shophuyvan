@@ -267,7 +267,7 @@ function attachCart(){
   const btn = $('#btn-add'); if(!btn) return;
   btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
 
-    const src = CURRENT || PRODUCT;
+    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
     const item = {
       id: String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()),
       title: PRODUCT.title || PRODUCT.name || '',
@@ -408,6 +408,22 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
   const vs = variantsOf(PRODUCT);
   const imgs = imagesOf(PRODUCT);
   const current = null;
+// Default select a sensible variant when opening modal
+try{
+  if(!CURRENT){
+    const arr = variantsOf(PRODUCT);
+    if(arr.length){
+      // choose lowest-priced available variant; fallback to first
+      let best = arr[0]; let bestVal = Infinity;
+      for(const v of arr){
+        const pr = pricePair(v); const base = Number(pr?.base||0);
+        if(base>0 && base < bestVal){ best = v; bestVal = base; }
+      }
+      CURRENT = best || arr[0];
+    }
+  }
+}catch{ /* ignore */ }
+
   const html = `
   <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
     <div style="display:flex;gap:10px">
@@ -450,7 +466,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
     });
   }
   function updPrice(){
-    const src = CURRENT || PRODUCT;
+    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
     let pr = null;
     if(src){ pr = pricePair(src); }
     else {
@@ -472,7 +488,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
   // Actions
   function addSelectedToCart(){
     const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
-    const src = CURRENT || PRODUCT;
+    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
     const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title:PRODUCT.title||PRODUCT.name||'', image:(imagesOf(src||PRODUCT)[0]||''), variant:(CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
     try{ const cart=JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item); localStorage.setItem('CART', JSON.stringify(cart)); }catch(e){}
   }
