@@ -104,13 +104,64 @@ async function fetchProductById(id){
   return null;
 }
 
+
+function fromDOM(){
+  try{
+    const tags=[...document.querySelectorAll('script[type="application/ld+json"]')];
+    for(const t of tags){
+      try{
+        const data=JSON.parse(t.textContent.trim());
+        const arr=Array.isArray(data)?data:[data];
+        const prod=arr.find(d=>d && (d['@type']==='Product' || (Array.isArray(d['@type']) && d['@type'].includes('Product'))));
+        if(prod){ return {title:prod.name,name:prod.name,images:Array.isArray(prod.image)?prod.image:(prod.image?[prod.image]:[]),price:prod.offers?.price||prod.price||0,description:prod.description||''}; }
+      }catch(_){}
+    }
+    const any=[...document.querySelectorAll('script[type="application/json"]')];
+    for(const t of any){
+      try{ const data=JSON.parse(t.textContent.trim()); const p=data?.product||data?.item||data?.data?.product; if(p) return p; }catch(_){}
+    }
+  }catch(_){}
+  return null;
+}
+async function api(url){
+  const r=await fetch(url,{mode:'cors',credentials:'omit'});
+  if(!r.ok) throw new Error('API '+r.status);
+  const ct=(r.headers.get('content-type')||'').toLowerCase();
+  if(ct.includes('json')) return r.json();
+  return r.text();
+}
+async function fetchProductById(id){
+  const domObj=fromDOM(); if(domObj) return domObj;
+  const bases=['','https://shv-api.shophuyvan.workers.dev'];
+  const make=(b)=>[`${b}/public/product?id=${encodeURIComponent(id)}`,`${b}/product?id=${encodeURIComponent(id)}`,`${b}/public/products/${encodeURIComponent(id)}`,`${b}/products/${encodeURIComponent(id)}`,`${b}/apis?product=${encodeURIComponent(id)}`,`${b}/apis/product?id=${encodeURIComponent(id)}`];
+  for(const b of bases){
+    for(const u of make(b)){
+      try{
+        const r=await api(u);
+        if(typeof r==='string'){
+          const tmp=document.implementation.createHTMLDocument('x'); tmp.documentElement.innerHTML=r;
+          const tag=tmp.querySelector('script[type="application/ld+json"]');
+          if(tag){ try{ const data=JSON.parse(tag.textContent.trim()); const arr=Array.isArray(data)?data:[data]; const p=arr.find(d=>d && (d['@type']==='Product' || (Array.isArray(d['@type']) && d['@type'].includes('Product')))); if(p){ return {title:p.name,name:p.name,images:Array.isArray(p.image)?p.image:[],price:p.offers?.price||0,description:p.description||''}; } }catch(_){} }
+          continue;
+        }
+        const o=r.item||r.product||r.data?.product||r.data||r;
+        if(o && (o.id||o.title||o.name)) return o;
+      }catch(_){}
+    }
+  }
+  for(const b of bases){
+    try{ const list=await api(`${b}/public/products`); const arr=list?.items||list?.products||list||[]; const found=(arr||[]).find(x=>String(x.id||x._id||'')===String(id)); if(found) return found; }catch(_){}
+  }
+  return null;
+}
+
 (async function init(){
   try{
     ensureMount();
     const id = qp('id','').trim();
     if(!id){ console.warn('PDP: missing id'); return; }
     const p = await fetchProductById(id);
-    if(!p){ console.warn('PDP: product not found'); return; }
+    if(!p){ console.warn('PDP: product not found'); try{ensureMount().querySelector('#media-main').textContent='Không tìm thấy sản phẩm';}catch(_){} return; }
     renderTitle(p); renderPriceStock(p); renderMedia(imgs(p)); renderDesc(p); renderFAQ(p?.faq||p?.faqs||[]); renderReviews(p?.reviews||[]); injectJSONLD(p);
     const btn=$('#btn-add'); if(btn) btn.onclick=()=>addToCart(p);
     const zalo=$('#btn-zalo'); if(zalo){ const phone=(p?.zalo||'').replace(/\D/g,''); if(phone) zalo.href=`https://zalo.me/${phone}`; }
