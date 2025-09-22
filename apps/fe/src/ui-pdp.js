@@ -50,7 +50,7 @@ function num(x){
   }
   const n = Number(x);
   return isNaN(n) ? 0 : n;
-} }
+} 
 function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
@@ -72,7 +72,6 @@ function hideHeader(){
     if(h2) h2.style.display = 'none';
     const h3=document.querySelector('nav'); if(h3) h3.style.display='none';
     const st=document.createElement('style'); st.textContent='body>header{display:none!important}'; document.head.appendChild(st);
-  }
 }
 function imagesOf(p){
   const A = [];
@@ -87,7 +86,7 @@ function videosOf(p){
   if(Array.isArray(p?.videos)) arr.push(...p.videos);
   if(p?.video) arr.unshift(p.video);
   if(Array.isArray(p?.media)){
-    for(const m of p.media){ if(m && (m.type==='video' || /\.mp4|\.webm|\.m3u8/i.test(String(m.src||m.url||'')))) arr.push(m.src||m.url); }
+    for(const m of p.media){ if(m && (m.type==='video' || /\.(mp4|webm|mov|m3u8)/i.test(String(m.src||m.url||'')))) arr.push(m.src||m.url); }
   }
   return arr.filter(Boolean).map(String);
 }
@@ -310,7 +309,7 @@ async function getSettings(){
   return {};
 }
 function cartCount(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]').length }catch(e){ return 0 } }
-function goCart(){  openCartModal(); } }
+function goCart(){  openCartModal(); }
 
 function injectFloatingCart(){
   if(document.getElementById('shv-float-cart')) return;
