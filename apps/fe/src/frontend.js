@@ -53,6 +53,7 @@ async function loadNew(){ if(!newWrap) return;
   if (!data || data.ok===false) data = await api('/public/products?limit=8');
   const items = (data.items || data.products || data.data || []).slice(0,8);
   newWrap.innerHTML = items.map(card).join('');
+  hydratePrices(items);
 }
 
 // All products with pagination
@@ -75,6 +76,7 @@ function renderAll(){ if(!allWrap) return;
     return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
   });
   allWrap.innerHTML = filtered.map(card).join('');
+  hydratePrices(filtered);
 }
 
 function minVarPrice(p){
@@ -96,6 +98,48 @@ function priceStr(p) {
   if (s && s<r) return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
   return `<div data-price><b>${(r||s||0).toLocaleString()}đ</b></div>`;
 }
+// --- Price hydration: fetch full product if summary lacks prices/variants ---
+const __priceCache = new Map();
+async function fetchFullProduct(id){
+  if(!id) return null;
+  if(__priceCache.has(id)) return __priceCache.get(id);
+  try{
+    let data = await api('/products?id='+encodeURIComponent(id));
+    if(!data || data.ok===false) data = await api('/public/products?id='+encodeURIComponent(id));
+    const item = data?.item || data?.data || data?.product || null;
+    __priceCache.set(id, item);
+    return item;
+  }catch{ return null; }
+}
+
+function priceHtmlFrom(p){
+  const mv = minVarPrice(p)||{};
+  const s = Number(mv.sale ?? p?.price_sale ?? p?.sale_price ?? 0);
+  const r = Number(mv.regular ?? p?.price ?? 0);
+  if (s && r && s<r){
+    return `<div><b class="text-rose-600">${s.toLocaleString('vi-VN')}đ</b> <span class="line-through opacity-70 text-sm">${r.toLocaleString('vi-VN')}đ</span></div>`;
+  }
+  const base = (s||r||0);
+  return `<div><b class="text-rose-600">${base.toLocaleString('vi-VN')}đ</b></div>`;
+}
+
+async function hydratePrices(items){
+  try{
+    const list = Array.isArray(items)?items:[];
+    for(const p of list){
+      const id = encodeURIComponent(p.id||p.key||'');
+      const probe = minVarPrice(p);
+      const hasPrice = (probe && (probe.sale>0 || probe.regular>0)) || Number(p?.price_sale||p?.sale_price||p?.price||0)>0;
+      if(hasPrice) continue;
+      const full = await fetchFullProduct(id);
+      if(!full) continue;
+      const html = priceHtmlFrom(full);
+      const node = document.querySelector(`.price[data-id="${(window.CSS && CSS.escape ? CSS.escape(id) : id)}"]`);
+      if(node) node.innerHTML = html;
+    }
+  }catch(e){ /* silent */ }
+}
+
 
 function card(p){
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
@@ -104,7 +148,7 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600" price" data-id="${encodeURIComponent(p.id||p.key||\'\')}">${priceStr(p)}</div>
     </div>
   </a>`;
 }
