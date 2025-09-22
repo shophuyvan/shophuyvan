@@ -1,0 +1,53 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Đơn hàng</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js?v=25"></script>
+<!-- build:21 -->
+</head><body>
+<div class="container">
+  <div class="header">
+    <div class="title">Đơn hàng</div>
+    <div class="nav">
+      <a href="./products.html" class="badge">Sản phẩm</a>
+      <a href="./banners.html" class="badge">Banner</a>
+      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <a href="./orders.html" class="badge">Đơn hàng</a>
+      <a href="./stats.html" class="badge">Thống kê</a>
+      <span class="badge">API: <span data-api-base></span></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row"><div class="col">
+      <label>Tạo đơn nhanh (JSON)</label>
+      <textarea id="raw" class="input" rows="6" placeholder='{"name":"KH A","phone":"09x","address":"...","items":[{"id":"...","qty":1,"price":65000,"cost":45000}],"shipping_fee":15000}'></textarea>
+      <div class="toolbar"><button id="create" class="btn primary">Tạo đơn</button></div>
+    </div></div>
+  </div>
+
+  <div class="card"><div class="title">Danh sách</div>
+    <table class="table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
+    <tbody id="list"></tbody></table>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+Admin.ensureAuth(); Admin.renderApiBase();
+$('#create').onclick = async ()=>{
+  try{ const body = JSON.parse($('#raw').value||'{}'); let r = await Admin.req('/admin/orders/upsert',{method:'POST',body}); if(r&&r.ok){ Admin.toast('Đã tạo'); load(); } else alert('Tạo thất bại'); }catch(e){ alert('JSON không hợp lệ'); }
+};
+async function load(){
+  const r = await Admin.req('/admin/orders',{method:'GET'}); const items = (r&&r.items)||[];
+  const tb=$('#list'); tb.innerHTML='';
+  items.forEach(o=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${o.id.slice(-6)}</td><td>${o.customer?.name||'-'}</td><td>${(o.subtotal||0).toLocaleString('vi-VN')}</td><td>${(o.shipping_fee||0).toLocaleString('vi-VN')}</td><td>${(o.revenue||0).toLocaleString('vi-VN')}</td><td>${(o.profit||0).toLocaleString('vi-VN')}</td><td><button class="btn" data-print="${o.id}">In</button> <button class="btn danger" data-del="${o.id}">Xoá</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+document.body.addEventListener('click', async (e)=>{
+  const id = e.target.dataset.print; if(id){ const r = await Admin.req('/admin/orders/print?id='+encodeURIComponent(id)); const html = r && r.html; if(html){ const w=window.open('', '_blank'); w.document.write(html); w.document.close(); } }
+  const del = e.target.dataset.del; if(del){ if(!confirm('Xoá đơn?')) return; let r = await Admin.req('/admin/orders/delete',{method:'POST',body:{id:del}}); if(r&&r.ok){ load(); } }
+});
+load();
+</script></body></html>

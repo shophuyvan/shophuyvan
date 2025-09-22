@@ -1,0 +1,84 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Quản lý Sản phẩm</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js?v=25"></script>
+<!-- build:21 -->
+</head><body>
+<div class="container">
+  <div class="header">
+    <div class="title">Sản phẩm</div>
+    <div class="nav">
+      <a href="./products.html" class="badge">Sản phẩm</a>
+      <a href="./banners.html" class="badge">Banner</a>
+      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <span class="badge">API: <span data-api-base></span></span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="flex">
+      <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
+      <button class="btn" id="reload">Tải lại</button>
+    </div>
+    <div><a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a></div>
+  </div>
+
+  <table class="table" id="tbl">
+    <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Giá</th><th>Slug</th><th>Hành động</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+
+function row(p){
+  const tr = document.createElement('tr');
+  const img = (p.images&&p.images[0]) || './no-image.svg';
+  tr.innerHTML = `
+    <td><img class="thumb" src="${img}"/></td>
+    <td>${p.title||p.name||''}</td>
+    <td>${p.price_sale||p.price||0}</td>
+    <td>${p.slug||''}</td>
+    <td>
+      <a class="btn" href="./product_edit.html?id=${encodeURIComponent(p.id||p._id||p.key||'')}">Sửa</a>
+      <button class="btn danger" data-del="${p.id||p._id||p.key||''}">Xoá</button>
+    </td>`;
+  return tr;
+}
+
+async function load(){
+  const r = await Admin.tryPaths(['/admin/products','/admin/product/list','/admin/products/list']);
+  const items = r.items || r.data || r.products || [];
+  const q = ($('#q').value||'').toLowerCase();
+  const tbody = $('#tbl tbody'); tbody.innerHTML='';
+  items
+    .filter(p => {
+      const t = (p.title||p.name||'').toLowerCase();
+      const slug = String(p.slug||'').toLowerCase();
+      const sku = String(p.sku||'').toLowerCase();
+      return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
+    })
+    .forEach(p=> tbody.appendChild(row(p)));
+
+  $$('[data-del]').forEach(btn=>{
+    btn.onclick = ()=> del(btn.getAttribute('data-del'));
+  });
+}
+
+async function del(id){
+  if (!id) return;
+  if (!confirm('Xác nhận xoá sản phẩm?')) return;
+  let r = await Admin.req('/admin/products/delete', { method:'POST', body:{ id } });
+  if(!(r && r.ok)) r = await Admin.req('/admin/product/delete?id='+encodeURIComponent(id), { method:'POST' });
+  if(!(r && r.ok)) r = await Admin.req('/admin/product?id='+encodeURIComponent(id), { method:'DELETE' });
+  if(r && r.ok){ alert('Đã xoá'); load(); } else { alert('Xoá thất bại'); }
+}
+
+$('#reload').onclick = load;
+$('#q').addEventListener('input', load);
+load();
+</script>
+</body></html>
