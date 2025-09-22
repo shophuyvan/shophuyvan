@@ -450,6 +450,8 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 
   // Render variants buttons
   function renderVBtns(active){
@@ -521,6 +523,8 @@ function openCartModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
   const list = m.querySelector('#cm-list');
   function render(){
     const arr = cartItems();
@@ -576,21 +580,38 @@ function openCheckoutModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
 
   function renderTotals(){
     const sub = calcTotal();
-    const grand = sub + (shipFee||0);
+    const feeVal = (typeof shipFee !== 'undefined' ? (shipFee||0) : 0);
+    const grand = sub + feeVal;
     const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
-    const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
+    const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + feeVal.toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
   renderTotals(); setTimeout(refreshShip, 0);
 
   const list = cartItems();
   const box = m.querySelector('#co-items');
+
+  // Totals box (sub, ship, grand)
+  (function(){
+    const totals = document.createElement('div');
+    totals.id = 'co-totals';
+    totals.innerHTML = `<div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px">
+      <div style="display:flex;justify-content:space-between"><div>Tạm tính</div><div id="co-sub" style="font-weight:700">0đ</div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px"><div>Phí vận chuyển</div><div id="co-shipfee" style="font-weight:700">0đ</div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px"><div><b>Tổng thanh toán</b></div><div id="co-grand" style="font-weight:800;color:#ef4444">0đ</div></div>
+    </div>`;
+    const target = m.querySelector('#co-items');
+    if(target) target.insertAdjacentElement('afterend', totals);
+  })();
+
   const total = calcTotal();
   box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>`
   // Responsive columns
@@ -598,8 +619,10 @@ function openCheckoutModal(){
   function applyCols(){ formBox.style.gridTemplateColumns = (window.innerWidth>=640?'1fr 1fr':'1fr'); }
   applyCols(); window.addEventListener('resize', applyCols);
 
-  // Shipping quote
+  
+  // Shipping state (declare early to avoid TDZ)
   let shipFee = 0; let chosenShip = null;
+  // Shipping quote
   const shipWrap = document.createElement('div');
   shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
   m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
@@ -678,4 +701,6 @@ function openSuccessModal(orderId, customer){
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 }
