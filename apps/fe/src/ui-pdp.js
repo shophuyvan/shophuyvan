@@ -23,6 +23,53 @@ const pricePair = (p)=>{
   return { base, compareAt: sale>0 && sale<raw ? raw : 0 };
 };
 
+
+// ====== self-mount helper ======
+function ensureMount(){
+  let host = document.getElementById('pdp-root');
+  if(host) return host;
+  let main = document.querySelector('main');
+  if(!main){
+    main = document.createElement('main');
+    document.body.appendChild(main);
+  }
+  host = document.createElement('section');
+  host.id = 'pdp-root';
+  host.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rounded-lg border bg-white p-2">
+        <div id="media-main" class="aspect-square w-full rounded-lg bg-gray-100 grid place-content-center text-gray-400">Đang tải…</div>
+        <div id="media-thumbs" class="mt-2 grid grid-cols-6 gap-2"></div>
+      </div>
+      <div class="rounded-lg border bg-white p-3 space-y-3">
+        <h1 id="p-title" class="text-xl font-bold"></h1>
+        <div class="text-sm text-gray-500"><span id="p-sold">0 đã bán</span> · <span id="p-rating">5★</span></div>
+        <div class="text-2xl font-semibold text-rose-600" id="p-price"></div>
+        <div id="p-stock" class="text-sm text-gray-600"></div>
+        <div class="flex gap-2">
+          <button id="btn-add" class="px-4 py-2 rounded-md bg-rose-600 text-white">Thêm giỏ</button>
+          <a id="btn-zalo" class="px-4 py-2 rounded-md border bg-white" target="_blank" rel="noopener">Zalo</a>
+        </div>
+        <div>
+          <h2 class="font-semibold">Mô tả</h2>
+          <div id="p-desc" class="prose max-w-none text-gray-800 text-sm"></div>
+        </div>
+        <div>
+          <h2 class="font-semibold">Câu hỏi thường gặp (FAQ)</h2>
+          <div id="p-faq" class="space-y-2"></div>
+        </div>
+        <div>
+          <h2 class="font-semibold">Đánh giá khách hàng</h2>
+          <div id="p-reviews" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+    <script id="json-ld-product" type="application/ld+json"></script>
+  `;
+  main.appendChild(host);
+  return host;
+}
+
 // --- Renderers ---
 function renderMedia(imgs){
   const main = $('#media-main'); const thumbs = $('#media-thumbs');
@@ -135,6 +182,7 @@ async function fetchProduct(id){
     const p = await fetchProduct(id);
     if(!p) return;
 
+    ensureMount();
     // Render UI
     renderTitle(p);
     renderPriceStock(p);
