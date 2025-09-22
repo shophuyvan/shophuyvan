@@ -5,3 +5,8 @@
 .admin-nav-secondary{display:flex;gap:8px;margin:.5rem 0}
 .grid.two{display:grid;grid-template-columns:1fr 1fr; gap:10px}
 @media (max-width:768px){ .grid.two{ grid-template-columns:1fr; } }
+
+
+/* ===== PDP main media square & contain ===== */
+#media-main { aspect-ratio: 1 / 1; }
+#media-main img { width:100%; height:100%; object-fit: contain; background:#fff; }

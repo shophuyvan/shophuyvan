@@ -162,10 +162,10 @@ function renderMedia(prefer){
     idx = (i+items.length)%items.length;
     const it = items[idx];
     if(it.type==='video'){
-      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
+      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:contain;border-radius:12px" />`;
     }
     draw();
   }
@@ -190,7 +190,7 @@ function renderMedia(prefer){
       const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
       const name = v.name || v.sku || ('Loại '+(i+1));
       return `<button data-vidx="${i}" style="border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;display:flex;align-items:center;gap:8px">
-        <img src="${img}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f3f4f6" />
+        <img src="${img}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f3f4f6" />
         <span style="font-size:13px">${name}</span>
       </button>`;
     }).join('');
@@ -372,7 +372,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
   const html = `
   <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
     <div style="display:flex;gap:10px">
-      <img src="${(imagesOf(current)[0]||imgs[0]||'')}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #eee;background:#f8fafc" />
+      <img src="${(imagesOf(current)[0]||imgs[0]||'')}" style="width:72px;height:72px;object-fit:contain;border-radius:10px;border:1px solid #eee;background:#f8fafc" />
       <div style="flex:1">
         <div style="font-weight:700;font-size:16px;margin-bottom:4px">${PRODUCT.title||PRODUCT.name||''}</div>
         <div id="vm-price" style="color:#dc2626;font-weight:800"></div>
@@ -404,7 +404,7 @@ function openVariantModal(mode){ // mode: 'cart' | 'buy'
       const {base}=pricePair(v); const img = imagesOf(v)[0]||'';
       const name = (v.name||v.sku||('Loại '+(i+1)));
       const act = (active===i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
-      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:cover;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
+      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:contain;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
     }).join('');
     box.querySelectorAll('button[data-k]').forEach(btn=>btn.onclick=()=>{ 
       const k=+btn.dataset.k; CURRENT = arr[k]; renderVBtns(k); updPrice(); 
@@ -471,7 +471,7 @@ function openCartModal(){
     const arr = cartItems();
     list.innerHTML = arr.map((it,idx)=>`
       <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
-        <img src="${it.image||''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #eee">
+        <img src="${it.image||''}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
           ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
@@ -576,7 +576,7 @@ function openCheckoutModal(){
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
  + list.map(it=>`
     <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
-      <img src="${it.image}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
+      <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
         ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
