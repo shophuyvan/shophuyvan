@@ -1,3 +1,40 @@
+
+// === SHV PATCH: resilient product fetch ===
+(function(){
+  const FALLBACK_BASE = (window.API_BASE || 'https://shv-api.shophuyvan.workers.dev').replace(/\/+$/,'');
+  async function _shvTryJson(url){
+    const res = await fetch(url, {headers: {'Accept':'application/json'}});
+    const txt = await res.text();
+    try{
+      return JSON.parse(txt);
+    }catch(e){
+      throw new Error('Not JSON from '+url+': '+txt.slice(0,120));
+    }
+  }
+  async function fetchProductByIdOrSlugPatched(idOrSlug){
+    const isId = /^(id|[0-9a-f]{8,})$/i.test(String(idOrSlug));
+    const q = isId ? ('id='+encodeURIComponent(idOrSlug)) : ('slug='+encodeURIComponent(idOrSlug));
+    const paths = ['/api/products?'+q, '/api/product/'+encodeURIComponent(idOrSlug), '/products?'+q];
+    const bases = ['', FALLBACK_BASE];
+    const tried = [];
+    for (const b of bases){
+      for (const p of paths){
+        const url = b + p;
+        try{
+          const data = await _shvTryJson(url);
+          if (data && (data.id || (Array.isArray(data.data) && data.data.length))) return data.data ? data.data[0]||data : data;
+        }catch(err){
+          tried.push(url + ' -> ' + err.message);
+        }
+      }
+    }
+    throw new Error('fetchProduct failed after trying: '+ tried.join(' | '));
+  }
+  // expose
+  window.fetchProductByIdOrSlug = fetchProductByIdOrSlugPatched;
+})(); 
+// === END PATCH ===
+
 import { fetchProductByIdOrSlug } from './lib/api.js';
 (()=>{const e=e=>document.querySelector(e),t=e("#pdp"),n={product:null};document.addEventListener("DOMContentLoaded",o);async function o(){c(),i();const e=a();if(!e)return s("Không xác định được sản phẩm.");try{const t=await fetchProductByIdOrSlug(e);n.product=r(t),l(),u()}catch(e){console.error("[PDP] init error:",e),s("Không tải được dữ liệu sản phẩm. Vui lòng thử lại.")}}function c(){if(t)return;const e=document.createElement("main");e.id="pdp",e.className="pdp-shell",document.body.appendChild(e)}function a(){const e=new URLSearchParams(location.search);return e.get("id")||e.get("slug")||d()}function d(){const e=location.pathname.replace(/\/+$/,"").split("/"),t=e[e.length-1]||"";return t.replace(/\.html?$/i,"")}function i(){e("#pdp").innerHTML='<div class="pdp-skeleton"><div class="blk"></div><div class="blk"></div></div>'}function r(e={}){const t=(e.images&&e.images.length?e.images:[e.image]).filter(Boolean),o="number"==typeof e.price?e.price:Number(e.price)||0;return{id:e.id||e._id||e.sku||"",title:e.title||e.name||"Sản phẩm",description:e.description||e.desc||"",images:t.length?t:["/assets/no-image.svg"],price:o,variants:Array.isArray(e.variants)?e.variants:[],rating:e.rating||e.stars||5,sold:e.sold||0,slug:e.slug||""}}function l(){const t=n.product;e("#pdp").innerHTML=`
       <div class="pdp-grid">
