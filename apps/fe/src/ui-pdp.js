@@ -278,7 +278,7 @@ function renderReviews(){
   }).join('');
 }
 function attachCart(){
-   const a=$('#btn-add'); const z=$('#btn-zalo'); if(a) a.style.display='none'; if(z) z.style.display='none'; const group=(a&&a.parentElement===z?.parentElement ? a.parentElement : (a&&a.parentElement)|| (z&&z.parentElement)); if(group){ group.style.display='none'; } }
+   const a=$('#btn-add'); const z=$('#btn-zalo'); if(a) a.style.display='none'; if(z) z.style.display='none'; const group=(a&&a.parentElement===z?.parentElement ? a.parentElement : (a&&a.parentElement)|| (z&&z.parentElement)); if(group){ group.style.display='none'; } 
   const btn = $('#btn-add'); if(!btn) return;
   btn.addEventListener('click', ()=>{ openVariantModal('cart'); return; /* legacy below disabled */
 
