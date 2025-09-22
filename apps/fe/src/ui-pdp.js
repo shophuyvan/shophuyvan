@@ -332,9 +332,14 @@ async function fetchProduct(id){
 
 // ===== Extra PDP UX (Ladipage-like) =====
 async function getSettings(){
-  // Try public settings first, then legacy
-   const s = await api('/public/settings'); return s?.settings || s || {}; }
-   const s = await api('/settings'); return s || {}; }
+  try{
+    const s1 = await api('/public/settings');
+    if(s1 && (s1.settings || Object.keys(s1).length)) return s1.settings || s1 || {};
+  }catch(e){}
+  try{
+    const s2 = await api('/settings');
+    return s2 || {};
+  }catch(e){}
   return {};
 }
 function cartCount(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]').length }catch(e){ return 0 } }
