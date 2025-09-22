@@ -55,24 +55,6 @@
   </main>
 
   <script type="application/ld+json" id="id-product"></script>
-  
-
-<script>
-(function(){
-  // simple cache buster loader for module scripts
-  window.__SHV_BUILD__ = window.__SHV_BUILD__ || (Date.now() + '');
-  window.loadModule = function(path){
-    try{
-      var s = document.createElement('script');
-      s.type = 'module';
-      s.src = path + (path.indexOf('?')>-1 ? '&' : '?') + 'v=' + window.__SHV_BUILD__;
-      document.head.appendChild(s);
-    }catch(e){ console.warn('loader error', e); }
-  };
-})();
-</script>
-
-<script>loadModule("/src/ui-pdp.js");</script>
-<script type="module" src="./src/ui-pdp.js?v=1758514484"></script>
+  <script type="module" src="/src/ui-pdp.js?v=67"></script>
 </body>
 </html>
