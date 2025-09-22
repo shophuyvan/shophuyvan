@@ -450,6 +450,7 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 
@@ -523,6 +524,7 @@ function openCartModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
   const list = m.querySelector('#cm-list');
@@ -580,6 +582,7 @@ function openCheckoutModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
@@ -588,10 +591,9 @@ function openCheckoutModal(){
 
   function renderTotals(){
     const sub = calcTotal();
-    const feeVal = (typeof shipFee !== 'undefined' ? (shipFee||0) : 0);
-    const grand = sub + feeVal;
+    const grand = sub + (shipFee||0);
     const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
-    const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + feeVal.toLocaleString('vi-VN') + 'đ';
+    const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
   renderTotals(); setTimeout(refreshShip, 0);
@@ -618,10 +620,6 @@ function openCheckoutModal(){
   const formBox = m.querySelector('#co-form');
   function applyCols(){ formBox.style.gridTemplateColumns = (window.innerWidth>=640?'1fr 1fr':'1fr'); }
   applyCols(); window.addEventListener('resize', applyCols);
-
-  
-  // Shipping state (declare early to avoid TDZ)
-  let shipFee = 0; let chosenShip = null;
   // Shipping quote
   const shipWrap = document.createElement('div');
   shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
@@ -701,6 +699,7 @@ function openSuccessModal(orderId, customer){
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 }
