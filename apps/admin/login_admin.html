@@ -35,6 +35,20 @@ $('#loginBtn').onclick = async ()=>{
   else { $('#st').textContent='Đăng nhập thất bại'; }
 };
 </script>
-<script src="/apps/_shared/versioner.js"></script>
+<script>
+(function(){
+  // simple cache buster loader for module scripts
+  window.__SHV_BUILD__ = window.__SHV_BUILD__ || (Date.now() + '');
+  window.loadModule = function(path){
+    try{
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = path + (path.indexOf('?')>-1 ? '&' : '?') + 'v=' + window.__SHV_BUILD__;
+      document.head.appendChild(s);
+    }catch(e){ console.warn('loader error', e); }
+  };
+})();
+</script>
+
 <script>loadModule("/apps/admin/admin_real.js");</script>
 </body></html>
