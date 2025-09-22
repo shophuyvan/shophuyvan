@@ -25,7 +25,7 @@ function injectJSONLD(prod){
     el.id = "id-product";
     el.textContent = JSON.stringify(data);
     document.head.appendChild(el);
-  }
+  } catch(e){ console.warn('injectJSONLD error', e); }
 }
 
 let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
