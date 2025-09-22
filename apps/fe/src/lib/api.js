@@ -35,3 +35,21 @@ function post(path, body, opts){ return core(path, { ...(opts||{}), method:'POST
 const api = Object.assign(core, { get, post });
 export default api;
 export { core as api, get, post };
+
+export async function fetchProductByIdOrSlug(idOrSlug) {
+  const tryUrls = [
+    `/api/products?id=${encodeURIComponent(idOrSlug)}`,
+    `/api/products?slug=${encodeURIComponent(idOrSlug)}`,
+    `/api/product/${encodeURIComponent(idOrSlug)}`,
+  ];
+  let lastErr;
+  for (const url of tryUrls) {
+    try {
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (data && (data.id || data._id || data.slug)) return data;
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error(`fetchProduct fail: ${lastErr?.message || 'unknown'}`);
+}
