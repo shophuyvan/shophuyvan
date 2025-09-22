@@ -244,3 +244,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     t.parentElement.insertBefore(w, t); w.appendChild(t);
   }
 })();
+
+
+// ---- mobile card table ----
+(function(){
+  const t = document.querySelector('table');
+  if(!t) return;
+  const headers = Array.from(t.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  t.querySelectorAll('tbody tr').forEach(tr=>{
+    Array.from(tr.children).forEach((td,i)=> td.setAttribute('data-label', headers[i]||''));
+  });
+  const css = `
+  @media (max-width: 768px){
+    table.responsive, table.responsive thead, table.responsive tbody, table.responsive th, table.responsive td, table.responsive tr { display:block; }
+    table.responsive thead{ position:absolute; top:-9999px; left:-9999px; }
+    table.responsive tr{ border:1px solid #e5e7eb; margin-bottom:12px; border-radius:12px; background:#fff; padding:6px; }
+    table.responsive td{ border:none; border-bottom:1px solid #f1f5f9; position:relative; padding:10px; display:flex; justify-content:space-between; gap:12px; }
+    table.responsive td::before{ content: attr(data-label); font-weight:600; color:#0f2741; }
+    table.responsive td:last-child{ border-bottom:none; }
+  }`;
+  const st=document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  t.classList.add('responsive');
+})();

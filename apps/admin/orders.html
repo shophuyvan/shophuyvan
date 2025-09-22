@@ -50,4 +50,6 @@ document.body.addEventListener('click', async (e)=>{
   const del = e.target.dataset.del; if(del){ if(!confirm('Xoá đơn?')) return; let r = await Admin.req('/admin/orders/delete',{method:'POST',body:{id:del}}); if(r&&r.ok){ load(); } }
 });
 load();
-</script></body></html>
+</script><script src="/apps/_shared/versioner.js"></script>
+<script>loadModule("/apps/admin/admin_real.js");</script>
+</body></html>

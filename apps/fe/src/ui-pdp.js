@@ -114,11 +114,11 @@ function addToCart(p){
 // --- Data fetchers ---
 async function fetchProduct(id){
   // Try by id with 2 endpoints, then list fallback
-  const paths = [`/public/products/${encodeURIComponent(id)}`, `/products/${encodeURIComponent(id)}`];
+  const paths = [`/public/product?id=${encodeURIComponent(id)}`, `/product?id=${encodeURIComponent(id)}`, `/public/products/${encodeURIComponent(id)}`, `/products/${encodeURIComponent(id)}`];
   for(const p of paths){
     try{
       const r = await api(p);
-      if(r && (r.item || r.product || (r.id || r.title))) return r.item || r.product || r;
+      if(r){ const obj = r.item || r.product || r.data?.product || r.data || r; if(obj && (obj.id || obj.title || obj.name)) return obj; }
     }catch(_){}
   }
   try{
