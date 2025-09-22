@@ -1,170 +1,40 @@
-// shv-api/src/modules/products.js
+// apps/fe/src/products.js
+(function(){
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const box = $('#product-list') || $('[data-list=products]');
+  if (!box) return;
 
-function j(status, data, headers) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-  });
-}
+  const API = "https://shv-api.shophuyvan.workers.dev/products";
+  const fmt = n => (Number(n)||0).toLocaleString("vi-VN")+"đ";
 
-// Chuẩn hóa dữ liệu product
-function normalizeProduct(input = {}) {
-  function normalizeVariants(arr){
-    if (!Array.isArray(arr)) return [];
-    return arr.map(v => ({
-      image: String(v.image||'').trim(),
-      name: String(v.name||'').trim(),
-      sku: String(v.sku||'').trim(),
-      stock: Number(v.stock||0),
-      weight_grams: Number(v.weight_grams||0),
-      price: Number(v.price||0),
-      sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==='') ? null : Number(v.sale_price)
-    })).filter(v => v.name);
+  function card(p){
+    const img = (p.images||[])[0] || "";
+    const link = p.slug ? `/product/${encodeURIComponent(p.slug)}` : `/product?id=${encodeURIComponent(p.id)}`;
+    const price = Number(p.sale_price || p.price || 0);
+    return `<a class="p-card" href="${link}" aria-label="${p.title}">
+  <div class="p-thumb">
+    <img loading="lazy" decoding="async" src="${img}" alt="${p.title || "Sản phẩm"}" />
+  </div>
+  <div class="p-body">
+    <div class="p-title">${p.title || ""}</div>
+    <div class="p-price">${fmt(price)}</div>
+  </div>
+</a>`;
   }
-  const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-  const toNumOrNull = (x) => {
-    if (x === undefined || x === null || String(x).trim?.() === '') return null;
-    const n = Number(x);
-    return Number.isFinite(n) ? n : null;
-  };
-  const toArr = (v) => (Array.isArray(v) ? v : []);
 
-  const now = new Date().toISOString();
-  const id = input.id || (crypto?.randomUUID?.() || String(Date.now()));
-
-  return {
-    id,
-    name: String(input.name || '').trim(),
-    description: String(input.description || ''),
-    price: toNum(input.price),
-    sale_price: toNumOrNull(input.sale_price),
-    stock: toNum(input.stock),
-    category: String(input.category || 'default'),
-    weight_grams: toNum(input.weight_grams),
-    images: toArr(input.images),
-    image_alts: toArr(input.image_alts),
-    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '') ? true : !!input.is_active, // CSV rỗng sẽ là false
-
-    brand: String(input.brand || ''),
-    origin: String(input.origin || ''),
-    variants: normalizeVariants(input.variants),
-    videos: toArr(input.videos),
-    faq: toArr(input.faq),
-    reviews: toArr(input.reviews),
-
-    seo: typeof input.seo === 'object'
-      ? {
-          title: String(input.seo.title || input.seo_title || ''),
-          description: String(input.seo.description || input.seo_description || ''),
-          keywords: String(input.seo.keywords || input.seo_keywords || ''),
-        }
-      : {
-          title: String(input.seo_title || ''),
-          description: String(input.seo_description || ''),
-          keywords: String(input.seo_keywords || ''),
-        },
-
-    created_at: input.created_at || now,
-    updated_at: now,
-  };
-}
-
-async function upsertProduct(fire, product) {
-  if (typeof fire.set === 'function') {
-    await fire.set('products', product.id, product);
-  } else if (typeof fire.upsert === 'function') {
-    await fire.upsert('products', product.id, product);
-  } else {
-    throw new Error('Fire: missing set/upsert(products)');
-  }
-}
-
-async function removeProduct(fire, id) {
-  if (!id) throw new Error('Missing id');
-  if (typeof fire.remove === 'function') {
-    await fire.remove('products', id);
-  } else if (typeof fire.delete === 'function') {
-    await fire.delete('products', id);
-  } else {
-    throw new Error('Fire: missing remove/delete(products)');
-  }
-}
-
-// Router cho /admin/products*
-export async function handleProducts(req, env, fire) {
-  const url = new URL(req.url);
-  const { pathname, searchParams } = url;
-
-  // ------- GET LIST (admin) -------
-  // GET /admin/products?limit=&cursor=&q=
-  if (req.method === 'GET' && pathname === '/admin/products') {
-    const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
-    const cursor = searchParams.get('cursor') || undefined;
-    const q = (searchParams.get('q') || '').trim().toLowerCase();
-
-    // Lấy tất cả sản phẩm (kể cả inactive)
-    const rs = await fire.list('products', {
-      orderBy: ['created_at', 'desc'],
-      limit,
-      cursor,
-    });
-
-    let items = rs.items || [];
-    if (q) {
-      items = items.filter(p =>
-        String(p.name || '').toLowerCase().includes(q) ||
-        String(p.category || '').toLowerCase().includes(q)
-      );
+  async function load(){
+    try{
+      box.innerHTML = `<div class="muted">Đang tải…</div>`;
+      const r = await fetch(API, { headers: { "accept":"application/json" }});
+      const data = await r.json();
+      const items = Array.isArray(data) ? data : (data.items || []);
+      if (!items.length){ box.innerHTML = `<div class="muted">Không có sản phẩm</div>`; return; }
+      box.innerHTML = items.map(card).join("");
+    }catch(e){
+      box.innerHTML = `<div class="muted">Lỗi tải dữ liệu</div>`;
     }
-    return j(200, { items, nextCursor: rs.nextCursor || null });
   }
 
-  // ------- GET ONE (admin) -------
-  // GET /admin/products/:id
-  if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    const item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Not Found' });
-    return j(200, { item });
-  }
-
-  // ------- CREATE/UPDATE -------
-  // POST /admin/products  — body: Product
-  if (req.method === 'POST' && pathname === '/admin/products') {
-    let body;
-    try { body = await req.json(); }catch(e){ return j(400, { error: 'Invalid JSON' }); }
-    const product = normalizeProduct(body);
-    await upsertProduct(fire, product);
-    return j(200, { ok: true, item: product });
-  }
-
-  // ------- BULK UPSERT -------
-  // POST /admin/products/bulk — body: { items: Product[] }
-  if (req.method === 'POST' && pathname === '/admin/products/bulk') {
-    let payload;
-    try { payload = await req.json(); }catch(e){ return j(400, { error: 'Invalid JSON' }); }
-
-    const items = Array.isArray(payload?.items) ? payload.items : [];
-    let ok = 0, fail = 0, details = [];
-    for (let i = 0; i < items.length; i++) {
-      try {
-        const p = normalizeProduct(items[i]);
-        await upsertProduct(fire, p);
-        ok++;
-      } catch (e) {
-        fail++; details.push({ i, error: String(e?.message || e) });
-      }
-    }
-    return j(200, { ok, fail, details });
-  }
-
-  // ------- DELETE -------
-  // DELETE /admin/products/:id
-  if (req.method === 'DELETE' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    await removeProduct(fire, id);
-    return j(200, { ok: true });
-  }
-
-  return j(405, { error: 'Method Not Allowed' });
-}
+  document.readyState !== "loading" ? load() : document.addEventListener("DOMContentLoaded", load);
+})();
