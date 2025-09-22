@@ -1,3 +1,38 @@
+
+// --- Admin visual refresh (white + deep blue), responsive ---
+(function injectAdminTheme(){
+  if (document.getElementById('admin-theme')) return;
+  const css = `
+  :root{--shv-blue:#0f4c81;--shv-blue-600:#0b3a63;--shv-bg:#f7f9fc;--shv-text:#0f172a;}
+  html,body{background:#fff;color:var(--shv-text);}
+  .header{background:var(--shv-blue);color:#fff;position:sticky;top:0;z-index:30;box-shadow:0 2px 12px rgba(0,0,0,.08);}
+  .header a{color:#fff;text-decoration:none;}
+  .header .nav{display:flex;gap:8px;flex-wrap:wrap;}
+  .header .nav .badge{background:#fff;color:var(--shv-blue);border:1px solid #ffffff66;border-radius:999px;padding:6px 10px;font-weight:600;}
+  .header .nav .badge.active, .header .nav .badge:hover{background:#e6f0f8;color:var(--shv-blue-600);}
+  main, .container, .wrap, .content{max-width:1200px;margin:0 auto;padding:12px;}
+  .card, .panel, .box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 4px 16px rgba(1,35,75,.05);padding:12px;}
+  table{width:100%;border-collapse:collapse;background:#fff;}
+  thead th{position:sticky;top:56px;background:#f3f6fb;color:#0f2741;border-bottom:1px solid #e5e7eb;}
+  th,td{border-bottom:1px solid #e5e7eb;padding:10px;vertical-align:middle;}
+  tr:hover{background:#f8fafc;}
+  .table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;}
+  @media (max-width: 768px){
+    .header .nav{gap:6px;}
+    .table-wrap{margin:0 -12px;padding:0 12px;}
+    table{min-width:840px;}
+    .card, .panel, .box{padding:10px;border-radius:10px;}
+  }
+  input,select,textarea{border:1px solid #c8d5e6;border-radius:10px;padding:8px 10px;outline:none;}
+  input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px #0f4c811a;border-color:#0f4c81;}
+  button, .btn{border-radius:10px;border:1px solid var(--shv-blue);background:var(--shv-blue);color:#fff;padding:8px 12px;font-weight:700;cursor:pointer;}
+  .btn.secondary{background:#fff;color:var(--shv-blue);}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+  .search input{width:100%;max-width:360px;}
+  `;
+  const s = document.createElement('style'); s.id='admin-theme'; s.textContent = css; document.head.appendChild(s);
+})();
+
 /* SHV admin patch v46 */
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){

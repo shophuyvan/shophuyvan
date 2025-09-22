@@ -178,29 +178,58 @@ function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''
 
 
 function renderMedia(prefer){
-  const main=$('#media-main'); let thumbs=$('#media-thumbs');
+  const main = document.getElementById('media-main');
+  let thumbs = document.getElementById('media-thumbs');
   if(!main) return;
   const items = mediaList(prefer||PRODUCT);
   let idx = 0;
+
   function show(i){
     if(items.length===0){ main.innerHTML=''; return; }
     idx = (i+items.length)%items.length;
     const it = items[idx];
-    if(it.type==='video'){
-      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
-      const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
-    }else{
-      main.innerHTML = `<img loading="lazy" decoding="async" alt="${PRODUCT?.name||\'Hình sản phẩm Shop Huy Vân\'}" src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
+    if(it.type === 'video'){
+      main.innerHTML = [
+        '<video id="pdp-video" playsinline controls muted preload="metadata"',
+        'style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>'
+      ].join('');
+      const v = main.querySelector('#pdp-video');
+      v.src = it.src; v.load();
+    } else {
+      const alt = (PRODUCT && (PRODUCT.name||PRODUCT.title)) ? (PRODUCT.name||PRODUCT.title) : 'Hình sản phẩm Shop Huy Vân';
+      main.innerHTML = '<img loading="lazy" decoding="async" alt="'+alt+'" src="'+it.src+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />';
     }
     draw();
   }
+
   function draw(){
     Array.from(main.querySelectorAll('.pdp-arrow')).forEach(n=>n.remove());
-    const mk=(dir)=>{const b=document.createElement('button'); b.className='pdp-arrow'; b.textContent=dir==='left'?'‹':'›'; b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);'+(dir==='left'?'left:8px;':'right:8px;')+'background:rgba(0,0,0,.35);color:#fff;border:none;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center'; return b;};
-    const L=mk('left'), R=mk('right'); L.onclick=()=>{show(idx-1); reset();}; R.onclick=()=>{show(idx+1); reset();}; main.appendChild(L); main.appendChild(R);
+    const mk = (dir)=>{
+      const b = document.createElement('button');
+      b.className = 'pdp-arrow';
+      b.setAttribute('aria-label', dir==='left'?'Trước':'Sau');
+      b.style.cssText = 'position:absolute;top:50%;'+(dir==='left'?'left:6px':'right:6px')+';transform:translateY(-50%);width:36px;height:36px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;opacity:.9;display:flex;align-items:center;justify-content:center';
+      b.textContent = dir==='left'?'‹':'›';
+      return b;
+    };
+    const L = mk('left'), R = mk('right');
+    L.onclick = ()=>{ show(idx-1); reset(); };
+    R.onclick = ()=>{ show(idx+1); reset(); };
+    main.appendChild(L); main.appendChild(R);
   }
-  let timer=null; function reset(){ if(timer){clearInterval(timer);} timer=setInterval(()=>{ const v=main.querySelector('video'); if(v && !v.paused && !v.ended) return; show(idx+1); }, 3500); }
+
+  let timer=null;
+  function reset(){
+    if(timer){ clearInterval(timer); }
+    timer = setInterval(()=>{
+      const v = document.getElementById('pdp-video');
+      if(v && !v.paused && !v.ended) return;
+      show(idx+1);
+    }, 3500);
+  }
+
   show(0); reset();
+
   if(thumbs){
     const vs = variantsOf(PRODUCT);
     const pricePairs = vs.map(v=> pricePair(v)).filter(p=>p.base>0);
@@ -208,20 +237,20 @@ function renderMedia(prefer){
     if(pricePairs.length){
       const min = Math.min(...pricePairs.map(p=>p.base));
       const max = Math.max(...pricePairs.map(p=>p.base));
-      priceHTML = `<div style="font-weight:800;color:#dc2626;font-size:20px;margin-top:6px">${min===max?formatPrice(min):formatPrice(min)+' - '+formatPrice(max)}</div>`;
+      priceHTML = '<div style="font-weight:800;color:#dc2626;font-size:20px;margin-top:6px">'+(min===max?formatPrice(min):formatPrice(min)+' - '+formatPrice(max))+'</div>';
     }
-    const countHTML = vs.length ? `<div style="font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>` : '';
+    const countHTML = vs.length ? '<div style="font-size:13px;color:#6b7280;margin-top:6px">'+vs.length+' phân loại có sẵn</div>' : '';
     const list = vs.slice(0,12).map((v,i)=>{
       const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
       const name = v.name || v.sku || ('Loại '+(i+1));
-      return `<button data-vidx="${i}" style="border:1px solid #e5e7eb;border-radius:10px;padding:6px;background:#fff;display:flex;align-items:center;gap:8px">
-        <img loading="lazy" decoding="async" alt="${PRODUCT?.name||\'Hình sản phẩm Shop Huy Vân\'}" src="${img}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f3f4f6" />
-        <span style="font-size:13px">${name}</span>
-      </button>`;
+      return '<button data-vidx="'+i+'" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;display:flex;align-items:center;gap:8px">'+
+        '<img loading="lazy" decoding="async" alt="'+(PRODUCT?.name||'Hình sản phẩm Shop Huy Vân')+'" src="'+img+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;background:#f3f4f6" />'+
+        '<span style="font-size:13px">'+name+'</span>'+
+      '</button>';
     }).join('');
     thumbs.style.display='none'; thumbs.innerHTML='';
     thumbs.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
-    thumbs.innerHTML = (countHTML ? `<div style="grid-column:1/-1">${countHTML}</div>` : '') + list + (priceHTML? `<div style="grid-column:1/-1">${priceHTML}</div>`:'');
+    thumbs.innerHTML = (countHTML ? '<div style="grid-column:1/-1">'+countHTML+'</div>' : '') + list + (priceHTML? '<div style="grid-column:1/-1">'+priceHTML+'</div>':'');
     thumbs.querySelectorAll('button[data-vidx]').forEach(btn=>{
       btn.onclick=()=>{ const v=vs[Number(btn.getAttribute('data-vidx'))]; if(v){ CURRENT=v; renderPriceStock(); } };
     });
