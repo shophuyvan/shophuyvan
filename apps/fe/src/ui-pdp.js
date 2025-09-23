@@ -212,7 +212,7 @@ function renderMedia(prefer){
         const priceText = (min === max) ? formatPrice(min) : (formatPrice(min) + ' - ' + formatPrice(max));
         header = `<div style="flex-basis:100%;font-weight:800;color:#dc2626;font-size:16px;margin-top:6px">${priceText}</div>`;
       }
-      const countHTML = `<div style="flex-basis:100%;font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>`;
+      /* FORCE_HIDE_COUNT */ const countHTML = '' // '';
 
       // container styles
       thumbs.style.display = 'block';
@@ -233,7 +233,7 @@ function renderMedia(prefer){
       }
 
       
-thumbs.innerHTML = countHTML + header;
+thumbs.innerHTML = header;
 // (variant thumbnails removed)
 
           }
