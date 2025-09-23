@@ -551,7 +551,8 @@ if(p==='/public/orders/create' && req.method==='POST'){
         const list = await getJSON(env,'orders:list',[])||[];
         list.unshift(order);
         await putJSON(env,'orders:list', list);
-        return json({ok:true, id}, {}, req);
+              try{ await pushToShipping(env, order); }catch(e){}
+      return json({ok:true, id}, {}, req);
       }
 
 // Orders upsert
@@ -780,3 +781,45 @@ return json({ok:false, error:'not found'}, {status:404}, req);
     }
   }
 };
+// --- Shipping integration ---
+async function pushToShipping(env, order){
+  try{
+    const cfg = await getJSON(env,'shipping:config',{}) || {};
+    if(!cfg.enabled) return;
+    const url = cfg.api_url;
+    if(!url) return;
+    const customer = order.customer || {};
+    const items = Array.isArray(order.items)? order.items : [];
+    const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+    const ship = Number(order.shipping_fee||0);
+    const disc = Number(order.discount||0) + Number(order.shipping_discount||0);
+    const cod_amount = Math.max(0, Number(order.revenue!=null?order.revenue:(subtotal + ship - disc)));
+    const payload = {
+      order_code: order.id,
+      to_name: customer.name || order.customer_name || order.name || '',
+      to_phone: customer.phone || order.phone || '',
+      to_address: order.address || customer.address || '',
+      cod_amount,
+      note: order.note || '',
+      items: items.map(it=>({ name: it.name||it.title||'', sku: it.sku||it.id||'', quantity: Number(it.qty||1), price: Number(it.price||0) }))
+    };
+    const headers = { 'Content-Type':'application/json' };
+    if(cfg.token) headers['Authorization'] = 'Bearer ' + cfg.token;
+    if(cfg.super_key) headers['x-super-key'] = cfg.super_key;
+    // fire and forget
+    fetch(url, { method: (cfg.method||'POST'), headers, body: JSON.stringify(payload)}).catch(()=>{});
+  }catch(e){}
+}
+
+      // --- Shipping config ---
+      if(p==='/admin/shipping' && req.method==='GET'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401}, req);
+        const cfg = await getJSON(env,'shipping:config',{}) || {};
+        return json({ok:true, cfg}, {}, req);
+      }
+      if(p==='/admin/shipping' && req.method==='PUT'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401}, req);
+        const body = await readBody(req)||{};
+        await putJSON(env,'shipping:config', body);
+        return json({ok:true}, {}, req);
+      }

@@ -1,15 +1,73 @@
-<!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Vận chuyển</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
-</head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
-<div class="grid">
-  <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Grab</div><input id="grab_key" class="input" placeholder="API Key"/><button id="save_grab" class="btn">Lưu</button></div>
-</div>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Vận chuyển</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script defer src="./admin_real.js?v=25"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <a href="./products.html" class="badge">Sản phẩm</a>
+      <a href="./banners.html" class="badge">Banner</a>
+      <a href="./vouchers.html" class="badge">Voucher</a>
+      <a href="./orders.html" class="badge">Đơn hàng</a>
+      <a href="./stats.html" class="badge">Thống kê</a>
+      <a href="./shipping.html" class="badge active">Vận chuyển</a>
+      <a href="./ads.html" class="badge">Quảng cáo</a>
+      <a href="https://shv-api.shophuyvan.workers.dev" target="_blank" class="badge subtle">API: https://shv-api.shophuyvan.workers.dev</a>
+    </div>
+    <div class="title">Vận chuyển</div>
+
+    <form id="shipping-form" class="card" style="max-width:840px">
+      <div class="row">
+        <label class="label">Bật tự động đẩy đơn</label>
+        <input id="enabled" type="checkbox"/>
+      </div>
+      <div class="row">
+        <label class="label">API URL tạo đơn</label>
+        <input id="api_url" class="input" placeholder="https://.../create-order"/>
+      </div>
+      <div class="row">
+        <label class="label">API Super Key</label>
+        <input id="super_key" class="input" placeholder="Dán Super Key"/>
+      </div>
+      <div class="row">
+        <label class="label">API Token</label>
+        <input id="token" class="input" placeholder="Dán Token (Bearer)"/>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="save">Lưu cấu hình</button>
+      </div>
+      <p class="help">Mặc định gọi <code>POST</code> tới <code>API URL</code> với header <code>Authorization: Bearer TOKEN</code>, <code>x-super-key: SUPER_KEY</code> và body JSON gồm: <code>{order_code,to_name,to_phone,to_address,cod_amount,items[]}</code>. Bạn có thể yêu cầu mình chỉnh theo schema đặc thù.</p>
+    </form>
+  </div>
+
 <script>
-['jt','spx','aha','grab'].forEach(k=>{
-  let key=''; fetch(Admin.getApiBase()+'/public/settings').then(r=>r.json()).then(d=>{key=((d.settings||{}).shipping||{}).credentials?.[k]?.key||''; if(inp) inp.value=key;}).catch(()=>{if(inp) inp.value='';}); const inp = document.getElementById(k+'_key'); if(inp) inp.value = key;
-  const btn = document.getElementById('save_'+k); if(btn) btn.onclick = ()=>{ localStorage.setItem('ship_'+k, document.getElementById(k+'_key').value.trim()); Admin.toast('Đã lưu '+k.toUpperCase()); };
-});
+(async function(){
+  async function load(){
+    const r = await Admin.req('/admin/shipping',{method:'GET'});
+    const cfg = (r&&r.cfg)||{};
+    document.getElementById('enabled').checked = !!cfg.enabled;
+    for(const k of ['api_url','super_key','token']){
+      const el = document.getElementById(k); if(el) el.value = cfg[k]||'';
+    }
+  }
+  document.getElementById('save').addEventListener('click', async ()=>{
+    const body = {
+      enabled: document.getElementById('enabled').checked,
+      api_url: document.getElementById('api_url').value.trim(),
+      super_key: document.getElementById('super_key').value.trim(),
+      token: document.getElementById('token').value.trim(),
+      method: 'POST'
+    };
+    await Admin.req('/admin/shipping',{method:'PUT', body});
+    alert('Đã lưu cấu hình vận chuyển!');
+  });
+  await load();
+})();
 </script>
-</div><script>document.addEventListener('DOMContentLoaded',()=>Admin&&Admin.renderApiBase());</script></body></html>
+</body>
+</html>
