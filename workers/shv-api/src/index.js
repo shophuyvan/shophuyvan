@@ -217,38 +217,87 @@ if(p==='/admin/orders' && req.method==='GET'){
   }
   return json({ok:true, items:list}, {}, req);
 }
+
 if(p==='/admin/stats' && req.method==='GET'){
-  const orders = await getJSON(env,'orders',[]) || [];
+  // Daily stats with profit formula:
+  // profit = revenue - cost_of_goods - tax(1.5%) - ads(15%) - labor(10%)
+  // revenue = subtotal + shipping_fee - discounts
   const gran = (url.searchParams.get('granularity')||'day').toLowerCase();
-  const sum = orders.reduce((acc,o)=>{
-    const amount = Number(o.total||o.amount||0);
-    const cost = Number(o.cost||0);
-    acc.orders += 1;
-    acc.revenue += amount;
-    acc.profit += (amount - cost);
-    // aggregate top products
-    (o.items||[]).forEach(it=>{
-      const key = it.name || it.title || it.id || 'unknown';
-      const k = String(key);
-      if(!acc.map[k]) acc.map[k] = {name:k, qty:0, revenue:0};
-      acc.map[k].qty += Number(it.qty||it.quantity||1);
-      acc.map[k].revenue += Number(it.total||it.price||0);
-    });
-    return acc;
-  }, {orders:0,revenue:0,profit:0,map:{}});
-  const top = Object.values(sum.map).sort((a,b)=>b.qty-a.qty).slice(0,10);
-  return json({orders:sum.orders, revenue:sum.revenue, profit:sum.profit, top_products:top, granularity:gran}, {}, req);
+  const now = Date.now();
+  const tz = 7*60*60*1000; // Asia/Ho_Chi_Minh
+  const dayStart = Math.floor((now + tz)/86400000)*86400000 - tz;
+  const from = (gran==='day') ? dayStart : Number(url.searchParams.get('from')||dayStart);
+  const to   = (gran==='day') ? (from + 86400000) : Number(url.searchParams.get('to')|| (from+86400000));
+
+  // load list (rich order objects)
+  let list = await getJSON(env,'orders:list',[]) || [];
+  // backfill legacy items from order:<id>
+  const out = [];
+  for(const o of list){
+    if(!o.items){
+      const full = await getJSON(env, 'order:'+o.id, null);
+      out.push(full||o);
+    } else out.push(o);
+  }
+  list = out;
+
+  // helper to get product cost if item lacks cost
+  async function getCost(it){
+    if(it && (it.cost!=null)) return Number(it.cost||0);
+    const pid = it && (it.id||it.sku||it.product_id);
+    if(!pid) return 0;
+    const p = await getJSON(env, 'product:'+pid, null);
+    if(!p) return 0;
+    const keys = ['cost','cost_price','import_price','gia_von','buy_price','price_import'];
+    for(const k of keys){ if(p[k]!=null) return Number(p[k]||0); }
+    // try nested sku/variants
+    if(Array.isArray(p.variants)){
+      const v = p.variants.find(v=> String(v.id||v.sku||'')===String(pid) || String(v.sku||'')===String(it.sku||''));
+      if(v){ for(const k of keys){ if(v[k]!=null) return Number(v[k]||0);} }
+    }
+    return 0;
+  }
+
+  let orders = 0;
+  let revenue = 0;
+  let goodsCost = 0;
+  const topMap = {};
+
+  // Filter by time and accumulate
+  for(const o of list){
+    const t = Number(o.createdAt||o.created_at||0);
+    if(!t) continue;
+    if(t < from || t >= to) continue;
+    orders += 1;
+    const items = Array.isArray(o.items)? o.items : [];
+    const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+    const ship = Number(o.shipping_fee||0);
+    const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
+    const orderRevenue = Math.max(0, (o.revenue!=null ? Number(o.revenue) : (subtotal + ship - disc)));
+    revenue += orderRevenue;
+
+    // cost of goods
+    for(const it of items){
+      let c = Number(it.cost||0);
+      if(!c){ c = await getCost(it); }
+      goodsCost += c * Number(it.qty||1);
+      // top products
+      const name = it.name || it.title || it.id || 'unknown';
+      if(!topMap[name]) topMap[name] = {name, qty:0, revenue:0};
+      topMap[name].qty += Number(it.qty||1);
+      topMap[name].revenue += Number(it.price||0)*Number(it.qty||1);
+    }
+  }
+
+  const tax = revenue * 0.015;
+  const ads = revenue * 0.15;
+  const labor = revenue * 0.10;
+  const profit = Math.max(0, revenue - goodsCost - tax - ads - labor);
+
+  const top_products = Object.values(topMap).sort((a,b)=> b.revenue-a.revenue).slice(0,20);
+  return json({ok:true, orders, revenue, profit, top_products, from, to}, {}, req);
 }
-
-
-      // AI
-
-      if(p==='/admin/ai/ping'){
-        return json({ok:true, ready: Boolean(env && env.GEMINI_API_KEY)}, {}, req);
-      }
-
-      // REST-style product get: /products/{id} and public alias
-      if(p.startsWith('/products/') && req.method==='GET'){
+if(p.startsWith('/products/') && req.method==='GET'){
         const id = decodeURIComponent(p.split('/')[2]||'').trim();
         if(!id) return json({error:'No id'}, {status:400}, req);
         if(env && env.SHV){
