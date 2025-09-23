@@ -147,7 +147,7 @@
   <div id="live-orders"></div>
 
   <div class="card"><div class="title">Danh sách</div>
-    <table class="table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
+    <table class="table md-table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
     <tbody id="list"></tbody></table>
   </div>
   <div id="new-order-banner" style="display:none;margin:10px 0;padding:10px;border:1px solid #16a34a;background:#ecfdf5;color:#065f46;border-radius:6px;">
@@ -304,7 +304,7 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
         <div><b>Trạng thái:</b> ${o.status||'pending'}</div>
       </div>
       <div class="card">
-        <table class="table">
+        <table class="table md-table">
           <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
         </table>

@@ -88,3 +88,7 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
   .table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
   .thumb{width:56px;height:56px}
 }
+
+/* Modal detail table override */
+.md-table{table-layout:auto}
+.md-table td,.md-table th{white-space:nowrap}

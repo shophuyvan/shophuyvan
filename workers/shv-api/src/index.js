@@ -205,6 +205,8 @@ if(p==='/admin/orders' && req.method==='GET'){
   const from = Number(searchParams.get('from')||0) || 0;
   const to   = Number(searchParams.get('to')||0)   || 0;
   let list = await getJSON(env,'orders:list',[])||[];
+  // enrich legacy list entries lacking items
+  list = await (async ()=>{ const out=[]; for(const it of list){ if(!it.items){ const full = await getJSON(env,'order:'+it.id, null); out.push(full||it); } else out.push(it);} return out; })();
   if(from||to){
     list = list.filter(o=>{
       const t = Number(o.createdAt||0);
@@ -469,25 +471,33 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       }
 
       // Public checkout: POST /public/orders/create
-      if(p==='/public/orders/create' && req.method==='POST'){
+      
+if(p==='/public/orders/create' && req.method==='POST'){
         const body = await readBody(req)||{};
         const id = (body.id)|| crypto.randomUUID().replace(/-/g,'');
-        const created_at = body.created_at || Date.now();
-        const order = {
-          id, created_at,
-          items: body.items||[],
-          customer: body.customer||{},
-          totals: body.totals||{},
-          note: body.note||'',
-          source: body.source||'fe',
-        };
-        // persist KV items
+        // Normalize fields
+        const createdAt = body.createdAt || body.created_at || Date.now();
+        const status = body.status || 'pending';
+        const customer = body.customer || {};
+        const items = Array.isArray(body.items)? body.items : [];
+        // derive totals
+        const t = body.totals || {};
+        const shipping_fee = Number(body.shipping_fee ?? t.ship ?? t.shipping_fee ?? 0);
+        const discount = Number(body.discount ?? t.discount ?? 0);
+        const shipping_discount = Number(body.shipping_discount ?? t.shipping_discount ?? 0);
+        const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+        const revenue = Math.max(0, subtotal + shipping_fee - (discount + shipping_discount));
+        const profit = items.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (discount||0);
+        const order = { id, createdAt, status, customer, items,
+          shipping_fee, discount, shipping_discount, subtotal, revenue, profit,
+          note: body.note||'', source: body.source||'fe' };
         await putJSON(env, 'order:'+id, order);
         const list = await getJSON(env,'orders:list',[])||[];
-        list.unshift({ id, created_at, customer: order.customer, totals: order.totals });
-        await putJSON(env,'orders:list', list.slice(0,500));
+        list.unshift(order);
+        await putJSON(env,'orders:list', list);
         return json({ok:true, id}, {}, req);
       }
+
 // Orders upsert
       if((p==='/admin/orders/upsert') && (req.method==='POST')){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
@@ -534,6 +544,8 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
         const from = Number(searchParams.get('from')||0) || 0;
         const to   = Number(searchParams.get('to')||0)   || 0;
         let list = await getJSON(env,'orders:list',[])||[];
+  // enrich legacy list entries lacking items
+  list = await (async ()=>{ const out=[]; for(const it of list){ if(!it.items){ const full = await getJSON(env,'order:'+it.id, null); out.push(full||it); } else out.push(it);} return out; })();
         if(from||to){
           list = list.filter(o=>{
             const t = Number(o.createdAt||0);
