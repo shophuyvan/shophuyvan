@@ -49,12 +49,27 @@ function hideHeader(){
     const st=document.createElement('style'); st.textContent='body>header{display:none!important}'; document.head.appendChild(st);
   }catch{}
 }
+function cleanImages(arr){
+  const out=[]; const seen=new Set();
+  for(let u of (arr||[])){
+    if(!u) continue;
+    let s = String(u).trim();
+    if(!s) continue;
+    // Convert some Google Drive share links -> direct view
+    const g = s.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if(g) s = `https://drive.google.com/uc?export=view&id=${g[1]}`;
+    if(!/^https?:/i.test(s) && !s.startsWith('/')) continue; // only http(s) or relative
+    if(seen.has(s)) continue; seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
 function imagesOf(p){
   const A = [];
   if (Array.isArray(p?.images)) A.push(...p.images);
   if (p?.image) A.unshift(p.image);
   if (p?.thumb) A.push(p.thumb);
-  return A.filter(Boolean).map(String);
+  return cleanImages(A);
 }
 
 function videosOf(p){
@@ -159,6 +174,7 @@ function renderMedia(prefer){
   const items = mediaList(prefer||PRODUCT);
   let idx = 0;
   function show(i){
+    window.__pdp_show_impl = function(dir){ if(dir==='next') show(i+1); else if(dir==='prev') show(i-1); };
     if(items.length===0){ main.innerHTML=''; return; }
     idx = (i+items.length)%items.length;
     const it = items[idx];
@@ -166,7 +182,7 @@ function renderMedia(prefer){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />`;
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
     }
     draw();
   }
@@ -219,7 +235,7 @@ function renderMedia(prefer){
         const border = selected ? '#ef4444' : '#e5e7eb';
         return `<button data-vidx="${i}" aria-pressed="${selected ? 'true' : 'false'}"
           style="flex:0 0 auto;width:72px;scroll-snap-align:start;border:1px solid ${border};border-radius:10px;background:#fff;overflow:hidden">
-            <img alt="${htmlEscape(name)}" src="${img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" />
+            <img alt="${htmlEscape(name)}" src="${img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" />
           </button>`;
       }).join('');
 
