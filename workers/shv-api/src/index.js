@@ -198,10 +198,22 @@ if(p==='/admin/settings/upsert' && req.method==='POST'){
   await putJSON(env,'settings',cur);
   return json({ok:true, settings:cur}, {}, req);
 }
-// Orders & stats (basic, safe)
+// Orders (unified)
 if(p==='/admin/orders' && req.method==='GET'){
-  const orders = await getJSON(env,'orders',[]) || [];
-  return json({items:orders}, {}, req);
+  if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+  const { searchParams } = new URL(req.url);
+  const from = Number(searchParams.get('from')||0) || 0;
+  const to   = Number(searchParams.get('to')||0)   || 0;
+  let list = await getJSON(env,'orders:list',[])||[];
+  if(from||to){
+    list = list.filter(o=>{
+      const t = Number(o.createdAt||0);
+      if(from && t < from) return false;
+      if(to   && t > to)   return false;
+      return true;
+    });
+  }
+  return json({ok:true, items:list}, {}, req);
 }
 if(p==='/admin/stats' && req.method==='GET'){
   const orders = await getJSON(env,'orders',[]) || [];
