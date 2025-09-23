@@ -1,21 +1,24 @@
 name: Deploy Worker
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - "workers/shv-api/**"
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: Publish with Wrangler
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: deploy
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: workers/shv-api     # <— rất quan trọng
+          wranglerVersion: '3'
+          command: deploy --verbose              # bật log chi tiết để dễ soi lỗi
