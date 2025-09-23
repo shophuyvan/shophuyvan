@@ -97,7 +97,7 @@ function renderSummary(){
     </div>
 
     <div>
-      <div class="font-semibold mb-1">Sản phẩm</div>
+      <div class="font-semibold mb-1">Thông tin sản phẩm</div>
       ${itemsHtml}
     </div>
 
@@ -107,8 +107,8 @@ function renderSummary(){
     </div>
 
     <div class="border-t pt-2 text-sm">
-      <div class="flex justify-between"><span>Tạm tính</span><span>${formatPrice(sub)}</span></div>
-      <div class="flex justify-between"><span>Phí vận chuyển</span><span>${formatPrice(ship_fee)}</span></div>
+      <div class="flex justify-between"><span>Tổng tiền hàng</span><span>${formatPrice(sub)}</span></div>
+      <div class="flex justify-between"><span>Tổng tiền phí vận chuyển</span><span>${formatPrice(ship_fee)}</span></div>
       ${v_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm giá</span><span>-${formatPrice(v_discount)}</span></div>`:''}
       ${v_ship_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm phí vận chuyển</span><span>-${formatPrice(v_ship_discount)}</span></div>`:''}
       <div class="flex justify-between font-semibold text-base mt-1"><span>Tổng thanh toán</span><span>${formatPrice(total)}</span></div>
