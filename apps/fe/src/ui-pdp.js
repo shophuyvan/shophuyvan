@@ -234,21 +234,9 @@ function renderMedia(prefer){
 
       
 thumbs.innerHTML = countHTML + header;
-if (!btn) return;
-        const i = parseInt(btn.getAttribute('data-vidx') || '0', 10);
-        const vs2 = variantsOf(PRODUCT);
-        const v = vs2[i];
-        if (!v) return;
-        CURRENT = v;
-        renderPriceStock();
-        renderMedia(v);
-        Array.from(thumbs.querySelectorAll('button[data-vidx]')).forEach(b => {
-          const on = (b === btn);
-          b.setAttribute('aria-pressed', on ? 'true' : 'false');
-          b.style.borderColor = on ? '#ef4444' : '#e5e7eb';
-        });
-      }, { once: true }); // delegate once; new renderMedia will re-bind
-    }
+// (variant thumbnails removed)
+
+          }
   }
 }
 function renderDesc(){
@@ -739,3 +727,4 @@ function openSuccessModal(orderId, customer){
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 }
+*/
