@@ -92,3 +92,10 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
 /* Modal detail table override */
 .md-table{table-layout:auto}
 .md-table td,.md-table th{white-space:nowrap}
+
+/* Variants sub-table */
+.table.variants{table-layout:auto;border:0;border-radius:0}
+.table.variants th:nth-child(1),.table.variants td:nth-child(1){width:auto}
+.table.variants th:nth-child(2),.table.variants td:nth-child(2){width:140px;text-align:right}
+.table.variants th:nth-child(3),.table.variants td:nth-child(3){width:120px;text-align:right}
+.table.variants th,.table.variants td{padding:8px 10px}

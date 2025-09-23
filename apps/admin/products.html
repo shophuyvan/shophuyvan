@@ -34,20 +34,51 @@
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
 
+
 function row(p){
+  const frag = document.createDocumentFragment();
   const tr = document.createElement('tr');
   const img = (p.images&&p.images[0]) || './no-image.svg';
+  const price = p.price_sale || p.price || 0;
   tr.innerHTML = `
     <td><img class="thumb" src="${img}"/></td>
     <td>${p.title||p.name||''}</td>
-    <td>${p.price_sale||p.price||0}</td>
+    <td>${price}</td>
     <td>${p.slug||''}</td>
     <td>
       <a class="btn" href="./product_edit.html?id=${encodeURIComponent(p.id||p._id||p.key||'')}">Sửa</a>
       <button class="btn danger" data-del="${p.id||p._id||p.key||''}">Xoá</button>
     </td>`;
-  return tr;
+  frag.appendChild(tr);
+
+  const variants = Array.isArray(p.variants)? p.variants :
+                   Array.isArray(p.options)? p.options :
+                   Array.isArray(p.skus)? p.skus :
+                   Array.isArray(p.children)? p.children :
+                   Array.isArray(p.items)? p.items : [];
+  if(variants && variants.length){
+    const tr2 = document.createElement('tr');
+    const cols = 5;
+    const rows = variants.map(v=>{
+      const name = v.name||v.title||v.variant||v.option||v.sku||v.id||'';
+      const price = v.price_sale||v.price||v.sell_price||v.min_price||v.max_price||0;
+      const stock = v.stock??v.inventory??v.qty??v.quantity??v.available??0;
+      const stockStr = (typeof stock==='boolean') ? (stock?'Còn':'Hết') : stock;
+      return `<tr><td class="px-4 py-2">${name}</td><td class="px-4 py-2" style="text-align:right">${Number(price||0).toLocaleString('vi-VN')}</td><td class="px-4 py-2" style="text-align:right">${stockStr}</td></tr>`;
+    }).join('');
+    tr2.innerHTML = `<td colspan="${cols}" style="background:#f9fafb;padding:0">
+      <table class="table variants" style="margin:0;border:0">
+        <thead><tr><th>Phân loại</th><th>Giá</th><th>Tồn kho</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </td>`;
+    frag.appendChild(tr2);
+  }
+  return frag;
 }
+
+async function load(){
+
 
 async function load(){
   const r = await Admin.tryPaths(['/admin/products','/admin/product/list','/admin/products/list']);
