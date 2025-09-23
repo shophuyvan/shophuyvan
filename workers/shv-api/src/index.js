@@ -514,8 +514,67 @@ if(p==='/public/orders/create' && req.method==='POST'){
       }
       if(p==='/admin/orders' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; return json({ok:true, items:list}, {}, req); }
       if(p==='/admin/orders/delete' && req.method==='POST'){ if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req); const b=await readBody(req)||{}; const id=b.id; const list=await getJSON(env,'orders:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'orders:list', next); return json({ok:true, deleted:id}, {}, req); }
-      if(p==='/admin/orders/print' && req.method==='GET'){ const id = new URL(req.url).searchParams.get('id'); const o = await getJSON(env,'order:'+id,null); if(!o) return json({ok:false,error:'not found'},{status:404},req); const rows=(o.items||[]).map(it=>`<tr><td>${it.title||it.name||it.id}</td><td>${it.qty||1}</td><td>${Number(it.price||0).toLocaleString('vi-VN')}</td></tr>`).join(''); const html=`<!doctype html><html><head><meta charset="utf-8"/><title>In đơn ${id}</title><style>table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style></head><body><h3>ĐƠN HÀNG ${id}</h3><p>KH: ${o.customer?.name||''} - ${o.customer?.phone||''} - ${o.customer?.address||''}</p><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá</th></tr></thead><tbody>${rows}</tbody></table><p>Tổng hàng: ${o.subtotal.toLocaleString('vi-VN')}đ - Ship: ${Number(o.shipping_fee||0).toLocaleString('vi-VN')}đ</p></body></html>`; return json({ok:true, html}, {}, req); }
-      if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}, req); }
+      
+      if(p==='/admin/orders/print' && req.method==='GET'){
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401}, req);
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
+        if(!id) return json({ok:false, error:'missing id'},{status:400}, req);
+        let o = await getJSON(env, 'order:'+id, null);
+        if(!o){
+          const list = await getJSON(env,'orders:list',[])||[];
+          o = list.find(x=> String(x.id)===String(id)) || null;
+        }
+        if(!o) return json({ok:false, error:'not found'},{status:404}, req);
+        const its = Array.isArray(o.items)? o.items : [];
+        const fmt = (n)=> new Intl.NumberFormat('vi-VN').format(Number(n||0));
+        const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+        const ship = Number(o.shipping_fee||0);
+        const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
+        const total = Math.max(0, sub + ship - disc);
+        const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
+        const rows = its.map(it=>`
+          <tr>
+            <td>${it.sku||it.id||''}</td>
+            <td>${(it.name||'') + (it.variant?(' - '+it.variant):'')}</td>
+            <td style="text-align:right">${fmt(it.qty||1)}</td>
+            <td style="text-align:right">${fmt(it.price||0)}</td>
+            <td style="text-align:right">${fmt(it.cost||0)}</td>
+            <td style="text-align:right">${fmt((it.price||0)*(it.qty||1))}</td>
+          </tr>`).join('') || `<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>`;
+        const customer = o.customer||{};
+        const html = `<!doctype html><html><head>
+          <meta charset="utf-8"/><title>In đơn ${id}</title>
+          <style>
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;color:#111827}
+            .row{display:flex;justify-content:space-between;margin-bottom:12px}
+            table{width:100%;border-collapse:collapse;margin-top:8px}
+            th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:13px}
+            th{background:#f9fafb;text-align:left}
+            .totals{margin-top:12px}
+            .totals div{display:flex;justify-content:space-between;padding:2px 0}
+          </style></head><body>
+          <div class="row"><div>
+            <div><b>Đơn hàng:</b> ${id}</div>
+            <div><b>Ngày tạo:</b> ${when}</div>
+            <div><b>Khách:</b> ${customer.name||o.customer_name||o.name||''} ${customer.phone?('• '+customer.phone):''}</div>
+            ${o.address||customer.address?(`<div><b>Địa chỉ:</b> ${o.address||customer.address}</div>`):''}
+            ${o.shipping_name?(`<div><b>Vận chuyển:</b> ${o.shipping_name} ${o.shipping_eta?(' • '+o.shipping_eta):''}</div>`):''}
+          </div></div>
+          <table><thead><tr>
+            <th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th>
+          </tr></thead><tbody>${rows}</tbody></table>
+          <div class="totals">
+            <div><span>Tổng hàng</span><b>${fmt(sub)}đ</b></div>
+            <div><span>Phí vận chuyển</span><b>${fmt(ship)}đ</b></div>
+            ${disc?(`<div><span>Giảm</span><b>-${fmt(disc)}đ</b></div>`):''}
+            <div style="font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}đ</b></div>
+          </div>
+          <script>window.onload = ()=> setTimeout(()=>window.print(), 200);</script>
+        </body></html>`;
+        return json({ok:true, html}, {}, req);
+      }
+if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}, req); }
 
       
       // Public order create -> create order and store to KV
