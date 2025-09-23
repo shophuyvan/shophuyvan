@@ -11,7 +11,7 @@
     <div class="nav">
       <a href="./products.html" class="badge">Sản phẩm</a>
       <a href="./banners.html" class="badge">Banner</a>
-      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
       <span class="badge">API: <span data-api-base></span></span>
     </div>
   </div>
@@ -76,9 +76,6 @@ function row(p){
   }
   return frag;
 }
-
-async function load(){
-
 
 async function load(){
   const r = await Admin.tryPaths(['/admin/products','/admin/product/list','/admin/products/list']);
