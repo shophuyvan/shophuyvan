@@ -64,6 +64,7 @@ function cleanImages(arr){
   }
   return out;
 }
+function hasImg(u){ try{ return !!(u && String(u).trim()); }catch{return false;} }
 function imagesOf(p){
   const A = [];
   if (Array.isArray(p?.images)) A.push(...p.images);
@@ -139,7 +140,8 @@ function renderPriceStock(){
   if(!el && !stockEl) return;
   let src = CURRENT || null;
   if(!src){
-    const vs = variantsOf(PRODUCT);
+    const vsFull = variantsOf(PRODUCT);
+      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : [];
     if(vs.length){
       let best=null;
       for(const v of vs){ const pr = pricePair(v); if(pr.base>0 && (!best || pr.base<best.base)) best=pr; }
@@ -160,7 +162,8 @@ function renderPriceStock(){
   }
   if(stockEl){
     let stk = 0;
-    const vs = variantsOf(PRODUCT); if(vs.length){ stk = vs.map(v=> (v.stock||v.qty||v.quantity||0) ).reduce((a,b)=>a+(+b||0),0); }
+    const vsFull = variantsOf(PRODUCT);
+      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : []; if(vs.length){ stk = vs.map(v=> (v.stock||v.qty||v.quantity||0) ).reduce((a,b)=>a+(+b||0),0); }
     stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
   }
 }
@@ -194,7 +197,8 @@ function renderMedia(prefer){
   let timer=null; function reset(){ if(timer){clearInterval(timer);} timer=setInterval(()=>{ const v=main.querySelector('video'); if(v && !v.paused && !v.ended) return; show(idx+1); }, 3500); }
   show(0); reset();
   if(thumbs){
-    const vs = variantsOf(PRODUCT);
+    const vsFull = variantsOf(PRODUCT);
+      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : [];
     // Build horizontal scroller of square thumbnails (mobile-first)
     if (!thumbs) return;
     if (!vs.length) { thumbs.innerHTML = ''; thumbs.style.display = 'none'; }
@@ -212,7 +216,7 @@ function renderMedia(prefer){
 
       // container styles
       thumbs.style.display = 'flex';
-      thumbs.style.flexWrap = 'nowrap';
+      thumbs.style.flexWrap = 'nowrap'; thumbs.style.maxWidth='100%'; thumbs.style.overflowX='auto'; thumbs.style.whiteSpace='nowrap';
       thumbs.style.overflowX = 'auto';
       thumbs.style.gap = '8px';
       thumbs.style.padding = '6px 2px';
@@ -228,16 +232,20 @@ function renderMedia(prefer){
         } catch { return false; }
       }
 
-      thumbs.innerHTML = countHTML + header + vs.map((v, i) => {
-        const img = (imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '');
+      
+thumbs.innerHTML = countHTML + header + vs.map((v, i) => {
+        const imgsV = imagesOf(v);
+        const img = (imgsV[0] || imagesOf(PRODUCT)[0] || '');
+        if(!img || !hasImg(img)) return ''; // skip variant without image to avoid broken placeholder
         const name = (v.name || v.sku || ('Loại ' + (i + 1)));
         const selected = selCheck(v);
         const border = selected ? '#ef4444' : '#e5e7eb';
         return `<button data-vidx="${i}" aria-pressed="${selected ? 'true' : 'false'}"
-          style="flex:0 0 auto;width:72px;scroll-snap-align:start;border:1px solid ${border};border-radius:10px;background:#fff;overflow:hidden">
+          style="flex:0 0 auto;width:72px;scroll-snap-align:start;border:2px solid ${border};border-radius:10px;background:#fff;overflow:hidden">
             <img alt="${htmlEscape(name)}" src="${img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" />
           </button>`;
       }).join('');
+
 
       thumbs.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-vidx]');
@@ -422,7 +430,8 @@ function closeMask(id='shv-mask'){ const m=document.getElementById(id); if(m) m.
 // Variant choose modal
 function openVariantModal(mode){ // mode: 'cart' | 'buy'
   const m = mkMask();
-  const vs = variantsOf(PRODUCT);
+  const vsFull = variantsOf(PRODUCT);
+      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : [];
   const imgs = imagesOf(PRODUCT);
   const current = null;
 // Default select a sensible variant when opening modal
