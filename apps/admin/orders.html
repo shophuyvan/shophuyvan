@@ -80,13 +80,13 @@
   const body = document.getElementById('items-body');
   function addRow(data){
     const tr = document.createElement('tr');
-    tr.innerHTML = \`
-      <td><input class="input" placeholder="ID SP" value="\${data?.id||''}"/></td>
-      <td><input class="input" placeholder="Tên / Phân loại" value="\${data?.name||''}"/></td>
-      <td><input class="input" type="number" min="1" value="\${data?.qty||1}"/></td>
-      <td><input class="input" type="number" min="0" value="\${data?.price||0}"/></td>
-      <td><input class="input" type="number" min="0" value="\${data?.cost||0}"/></td>
-      <td><button class="btn" data-del="1">X</button></td>\`;
+    tr.innerHTML = `
+      <td><input class="input" placeholder="ID SP" value="${data?.id||''}"/></td>
+      <td><input class="input" placeholder="Tên / Phân loại" value="${data?.name||''}"/></td>
+      <td><input class="input" type="number" min="1" value="${data?.qty||1}"/></td>
+      <td><input class="input" type="number" min="0" value="${data?.price||0}"/></td>
+      <td><input class="input" type="number" min="0" value="${data?.cost||0}"/></td>
+      <td><button class="btn" data-del="1">X</button></td>`;
     body.appendChild(tr);
   }
   document.getElementById('add-row').addEventListener('click', e=>{ addRow(); });
@@ -106,10 +106,10 @@
     const disc = Number(document.getElementById('discount').value||0);
     const total = Math.max(0, sub + ship - disc);
     document.getElementById('calc-summary').innerHTML = \`
-      <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>\${sub.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>\${ship.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between"><span>Giảm</span><b>-\${disc.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>\${total.toLocaleString('vi-VN')}đ</b></div>\`;
+      <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${sub.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${ship.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between"><span>Giảm</span><b>-${disc.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${total.toLocaleString('vi-VN')}đ</b></div>`;
   }
   ['keyup','change','input'].forEach(ev=>{
     document.getElementById('items-table').addEventListener(ev, renderCalc);
@@ -160,14 +160,36 @@ Admin.ensureAuth(); Admin.renderApiBase();
 $('#create').onclick = async ()=>{
   try{ const body = JSON.parse($('#raw').value||'{}'); let r = await Admin.req('/admin/orders/upsert',{method:'POST',body}); if(r&&r.ok){ Admin.toast('Đã tạo'); load(); } else alert('Tạo thất bại'); }catch(e){ alert('JSON không hợp lệ'); }
 };
+
 async function load(){
-  const r = await Admin.req('/admin/orders',{method:'GET'}); const items = (r&&r.items)||[];
-  const tb=$('#list'); tb.innerHTML='';
-  items.forEach(o=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${o.id.slice(-6)}</td><td>${o.customer?.name||'-'}</td><td>${(o.subtotal||0).toLocaleString('vi-VN')}</td><td>${(o.shipping_fee||0).toLocaleString('vi-VN')}</td><td>${(o.revenue||0).toLocaleString('vi-VN')}</td><td>${(o.profit||0).toLocaleString('vi-VN')}</td><td><button class="btn" data-print="${o.id}">In</button> <button class="btn danger" data-del="${o.id}">Xoá</button></td>`;
-    tb.appendChild(tr);
-  });
+  try{
+    const r = await Admin.req('/admin/orders',{method:'GET'});
+    const items = (r && r.items) || [];
+    const tb = document.getElementById('list');
+    if(!tb) return;
+    tb.innerHTML='';
+    items.forEach(o=>{
+      const its = Array.isArray(o.items)? o.items: [];
+      const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+      const ship = Number(o.shipping_fee||0);
+      const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
+      const revenue = Math.max(0, sub + ship - disc);
+      const profit = its.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (Number(o.discount||0)||0);
+      const id = (o.id||o._id||'').slice(-6);
+      const name = (o.customer && o.customer.name) || o.customer_name || o.name || 'Khách';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${id}</td>
+        <td>${name}</td>
+        <td>${sub.toLocaleString('vi-VN')}</td>
+        <td>${ship.toLocaleString('vi-VN')}</td>
+        <td>${revenue.toLocaleString('vi-VN')}</td>
+        <td>${profit.toLocaleString('vi-VN')}</td>
+        <td><button class="btn" data-print="${o.id}">In</button> <button class="btn danger" data-del="${o.id}">Xoá</button></td>`;
+      tb.appendChild(tr);
+    });
+  }catch(e){
+    console.error('load orders failed', e);
+  }
 }
 document.body.addEventListener('click', async (e)=>{
   const id = e.target.dataset.print; if(id){ const r = await Admin.req('/admin/orders/print?id='+encodeURIComponent(id)); const html = r && r.html; if(html){ const w=window.open('', '_blank'); w.document.write(html); w.document.close(); } }
