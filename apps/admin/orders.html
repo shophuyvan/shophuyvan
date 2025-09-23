@@ -105,7 +105,7 @@
     const ship = Number(document.getElementById('ship-fee').value||0);
     const disc = Number(document.getElementById('discount').value||0);
     const total = Math.max(0, sub + ship - disc);
-    document.getElementById('calc-summary').innerHTML = \`
+    document.getElementById('calc-summary').innerHTML = `
       <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${sub.toLocaleString('vi-VN')}đ</b></div>
       <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${ship.toLocaleString('vi-VN')}đ</b></div>
       <div style="display:flex;justify-content:space-between"><span>Giảm</span><b>-${disc.toLocaleString('vi-VN')}đ</b></div>
@@ -161,13 +161,13 @@ $('#create').onclick = async ()=>{
   try{ const body = JSON.parse($('#raw').value||'{}'); let r = await Admin.req('/admin/orders/upsert',{method:'POST',body}); if(r&&r.ok){ Admin.toast('Đã tạo'); load(); } else alert('Tạo thất bại'); }catch(e){ alert('JSON không hợp lệ'); }
 };
 
+
 async function load(){
   try{
     const r = await Admin.req('/admin/orders',{method:'GET'});
     const items = (r && r.items) || [];
     const tb = document.getElementById('list');
-    if(!tb) return;
-    tb.innerHTML='';
+    tb.innerHTML = '';
     items.forEach(o=>{
       const its = Array.isArray(o.items)? o.items: [];
       const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
@@ -177,6 +177,8 @@ async function load(){
       const profit = its.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (Number(o.discount||0)||0);
       const id = (o.id||o._id||'').slice(-6);
       const name = (o.customer && o.customer.name) || o.customer_name || o.name || 'Khách';
+      const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
+      const status = (o.status||'pending');
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${id}</td>
         <td>${name}</td>
@@ -184,7 +186,14 @@ async function load(){
         <td>${ship.toLocaleString('vi-VN')}</td>
         <td>${revenue.toLocaleString('vi-VN')}</td>
         <td>${profit.toLocaleString('vi-VN')}</td>
-        <td><button class="btn" data-print="${o.id}">In</button> <button class="btn danger" data-del="${o.id}">Xoá</button></td>`;
+        <td>${when}</td>
+        <td>${status}</td>
+        <td>
+          <button class="btn" data-view="${o.id}">Xem</button>
+          <button class="btn" data-print="${o.id}">In</button>
+          <button class="btn danger" data-del="${o.id}">Xoá</button>
+        </td>`;
+      tr.querySelector('[data-view]')?.addEventListener('click', ()=> showOrderDetail(o));
       tb.appendChild(tr);
     });
   }catch(e){
@@ -251,4 +260,66 @@ async function pollNewOrders(){
 }
 setInterval(pollNewOrders, 5000);
 try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{load(); const w=document.getElementById('live-orders'); if(w) w.innerHTML='';});}catch{}
-</script></body></html>
+</script>
+<div id="modal-detail" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:60">
+  <div style="width:min(720px,92vw);background:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px;max-height:90vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700;font-size:18px">Chi tiết đơn hàng</div>
+      <button id="md-close" class="btn">Đóng</button>
+    </div>
+    <div id="md-body" style="font-size:14px;color:#111827"></div>
+  </div>
+</div>
+<script>
+(function(){
+  function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
+  window.showOrderDetail = function(o){
+    const b = document.getElementById('md-body');
+    const c = document.getElementById('modal-detail');
+    const its = Array.isArray(o.items)?o.items:[];
+    const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+    const ship = Number(o.shipping_fee||0);
+    const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
+    const total = Math.max(0, sub + ship - disc);
+    const addr = (o.address || o.customer?.address || '');
+    const shipName = o.shipping_name || o.ship_name || '';
+    const eta = o.shipping_eta || '';
+    const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
+    const cust = o.customer || {};
+    const rows = its.map(it=>`
+      <tr>
+        <td>${it.sku||it.id||''}</td>
+        <td>${(it.name||'') + (it.variant?(' - '+it.variant):'')}</td>
+        <td style="text-align:right">${it.qty||1}</td>
+        <td style="text-align:right">${fmt(it.price||0)}</td>
+        <td style="text-align:right">${fmt(it.cost||0)}</td>
+        <td style="text-align:right">${fmt((it.price||0)*(it.qty||1))}</td>
+      </tr>`).join('');
+    b.innerHTML = `
+      <div style="margin-bottom:8px">
+        <div><b>Khách:</b> ${cust.name||o.customer_name||o.name||'Khách'} ${cust.phone?('• '+cust.phone):''}</div>
+        ${addr?('<div><b>Địa chỉ:</b> '+addr+'</div>'):''}
+        ${shipName?('<div><b>Vận chuyển:</b> '+shipName+(eta?(' • '+eta):'')+'</div>'):''}
+        ${when?('<div><b>Ngày tạo:</b> '+when+'</div>'):''}
+        <div><b>Trạng thái:</b> ${o.status||'pending'}</div>
+      </div>
+      <div class="card">
+        <table class="table">
+          <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
+        </table>
+        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
+          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${fmt(sub)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${fmt(ship)}</b></div>
+          ${disc?('<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-'+fmt(disc)+'</b></div>'):''}
+          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}</b></div>
+        </div>
+      </div>`;
+    c.style.display='flex';
+  };
+  document.getElementById('md-close')?.addEventListener('click', ()=>{ document.getElementById('modal-detail').style.display='none'; });
+  document.getElementById('modal-detail')?.addEventListener('click', (e)=>{ if(e.target.id==='modal-detail') e.currentTarget.style.display='none'; });
+})();
+</script>
+</body>
+</html>
