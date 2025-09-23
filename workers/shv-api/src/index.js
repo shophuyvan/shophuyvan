@@ -218,30 +218,46 @@ if(p==='/admin/orders' && req.method==='GET'){
   return json({ok:true, items:list}, {}, req);
 }
 
-if(p==='/admin/stats' && req.method==='GET'){
-  // Daily stats with profit formula:
-  // profit = revenue - cost_of_goods - tax(1.5%) - ads(15%) - labor(10%)
-  // revenue = subtotal + shipping_fee - discounts
-  const gran = (url.searchParams.get('granularity')||'day').toLowerCase();
-  const now = Date.now();
-  const tz = 7*60*60*1000; // Asia/Ho_Chi_Minh
-  const dayStart = Math.floor((now + tz)/86400000)*86400000 - tz;
-  const from = (gran==='day') ? dayStart : Number(url.searchParams.get('from')||dayStart);
-  const to   = (gran==='day') ? (from + 86400000) : Number(url.searchParams.get('to')|| (from+86400000));
 
-  // load list (rich order objects)
+if(p==='/admin/stats' && req.method==='GET'){
+  const gran = (url.searchParams.get('granularity')||'day').toLowerCase();
+  let from = url.searchParams.get('from');
+  let to   = url.searchParams.get('to');
+  // VN timezone base
+  const now = new Date(Date.now() + 7*3600*1000);
+  const y = now.getUTCFullYear(), m = now.getUTCMonth(), d = now.getUTCDate();
+  const todayStart = Date.UTC(y,m,d) - 7*3600*1000;
+  if(!from || !to){
+    if(gran==='day'){
+      from = todayStart; to = todayStart + 86400000;
+    }else if(gran==='week'){
+      // Monday as first day
+      const wd = (new Date(todayStart + 7*3600*1000).getDay() + 6) % 7; // 0..6, Monday=0
+      const start = todayStart - wd*86400000;
+      from = start; to = start + 7*86400000;
+    }else if(gran==='month'){
+      const dt = new Date(todayStart + 7*3600*1000);
+      const start = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), 1) - 7*3600*1000;
+      const end = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth()+1, 1) - 7*3600*1000;
+      from = start; to = end;
+    }else{ // custom without params => default to today
+      from = todayStart; to = todayStart + 86400000;
+    }
+  }else{
+    from = Number(from); to = Number(to);
+  }
+
+  // Load orders and enrich legacy rows
   let list = await getJSON(env,'orders:list',[]) || [];
-  // backfill legacy items from order:<id>
   const out = [];
   for(const o of list){
     if(!o.items){
-      const full = await getJSON(env, 'order:'+o.id, null);
+      const full = await getJSON(env,'order:'+o.id, null);
       out.push(full||o);
     } else out.push(o);
   }
   list = out;
 
-  // helper to get product cost if item lacks cost
   async function getCost(it){
     if(it && (it.cost!=null)) return Number(it.cost||0);
     const pid = it && (it.id||it.sku||it.product_id);
@@ -250,7 +266,6 @@ if(p==='/admin/stats' && req.method==='GET'){
     if(!p) return 0;
     const keys = ['cost','cost_price','import_price','gia_von','buy_price','price_import'];
     for(const k of keys){ if(p[k]!=null) return Number(p[k]||0); }
-    // try nested sku/variants
     if(Array.isArray(p.variants)){
       const v = p.variants.find(v=> String(v.id||v.sku||'')===String(pid) || String(v.sku||'')===String(it.sku||''));
       if(v){ for(const k of keys){ if(v[k]!=null) return Number(v[k]||0);} }
@@ -258,16 +273,12 @@ if(p==='/admin/stats' && req.method==='GET'){
     return 0;
   }
 
-  let orders = 0;
-  let revenue = 0;
-  let goodsCost = 0;
+  let orders = 0, revenue = 0, goodsCost = 0;
   const topMap = {};
 
-  // Filter by time and accumulate
   for(const o of list){
     const t = Number(o.createdAt||o.created_at||0);
-    if(!t) continue;
-    if(t < from || t >= to) continue;
+    if(!t || t < from || t >= to) continue;
     orders += 1;
     const items = Array.isArray(o.items)? o.items : [];
     const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
@@ -275,13 +286,10 @@ if(p==='/admin/stats' && req.method==='GET'){
     const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
     const orderRevenue = Math.max(0, (o.revenue!=null ? Number(o.revenue) : (subtotal + ship - disc)));
     revenue += orderRevenue;
-
-    // cost of goods
     for(const it of items){
       let c = Number(it.cost||0);
       if(!c){ c = await getCost(it); }
       goodsCost += c * Number(it.qty||1);
-      // top products
       const name = it.name || it.title || it.id || 'unknown';
       if(!topMap[name]) topMap[name] = {name, qty:0, revenue:0};
       topMap[name].qty += Number(it.qty||1);
@@ -293,9 +301,8 @@ if(p==='/admin/stats' && req.method==='GET'){
   const ads = revenue * 0.15;
   const labor = revenue * 0.10;
   const profit = Math.max(0, revenue - goodsCost - tax - ads - labor);
-
   const top_products = Object.values(topMap).sort((a,b)=> b.revenue-a.revenue).slice(0,20);
-  return json({ok:true, orders, revenue, profit, top_products, from, to}, {}, req);
+  return json({ok:true, orders, revenue, profit, top_products, from, to, granularity:gran }, {}, req);
 }
 if(p.startsWith('/products/') && req.method==='GET'){
         const id = decodeURIComponent(p.split('/')[2]||'').trim();
