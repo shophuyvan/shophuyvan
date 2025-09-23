@@ -25,6 +25,8 @@
     </div></div>
   </div>
 
+  <div id="live-orders"></div>
+
   <div class="card"><div class="title">Danh sách</div>
     <table class="table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
     <tbody id="list"></tbody></table>
@@ -54,20 +56,58 @@ document.body.addEventListener('click', async (e)=>{
 });
 load();
 let __lastFirstId = null;
+
+function fmt(n){try{return new Intl.NumberFormat('vi-VN').format(n||0)+'đ';}catch{return (n||0)+'đ';}}
+function renderLiveOrder(o){
+  const wrap = document.getElementById('live-orders'); if(!wrap) return;
+  const items = (o&&o.items)||[];
+  const sub = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+  const ship = Number(o.shipping_fee||0);
+  const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
+  const total = Math.max(0, sub + ship - disc);
+  const id = (o.id||o._id||'').slice(-6);
+  const name = (o.customer?.name || o.customer_name || o.name || 'Khách');
+  const phone = (o.customer?.phone || o.phone || '');
+  const addr = (o.address || o.customer?.address || '');
+  const time = new Date().toLocaleString('vi-VN');
+
+  const itemsHtml = items.slice(0,6).map(it=>`<li>${it.name||''}${it.variant?` - ${it.variant}`:''} <span style="color:#6b7280">x${it.qty||1}</span> <b style="float:right">${fmt((it.price||0)*(it.qty||1))}</b></li>`).join('') || '<li style="color:#6b7280">Không có dòng hàng</li>';
+  const more = items.length>6 ? `<div style="color:#6b7280;font-size:12px;margin-top:4px">+${items.length-6} dòng nữa...</div>` : '';
+
+  wrap.innerHTML = `<div id="new-order-card" class="card" style="border-left:4px solid #16a34a;background:#f0fdf4">
+    <div class="row"><div class="col">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="title" style="margin:0">Đơn hàng mới #${id}</div>
+        <div style="font-size:12px;color:#6b7280">${time}</div>
+      </div>
+      <div style="margin:4px 0 8px 0;font-size:14px">Khách: <b>${name}</b> ${phone?`• ${phone}`:''}</div>
+      ${addr?`<div style="font-size:13px;color:#374151;margin-bottom:8px">Địa chỉ: ${addr}</div>`:''}
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px">
+        <ul style="list-style:none;padding:0;margin:0">${itemsHtml}</ul>${more}
+        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
+          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${fmt(sub)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${fmt(ship)}</b></div>
+          ${disc?`<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-${fmt(disc)}</b></div>`:''}
+          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}</b></div>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:8px;display:flex;gap:8px">
+        <button id="btn-live-refresh" class="btn">Nạp danh sách</button>
+        <button id="btn-live-dismiss" class="btn">Đánh dấu đã xem</button>
+      </div>
+    </div></div>
+  </div>`;
+  document.getElementById('btn-live-refresh')?.addEventListener('click', ()=>{ try{load();}catch{} wrap.innerHTML=''; });
+  document.getElementById('btn-live-dismiss')?.addEventListener('click', ()=>{ wrap.innerHTML=''; });
+}
 async function pollNewOrders(){
   try{
     const r = await Admin.req('/admin/orders?limit=1',{method:'GET'});
-    const items = (r&&r.items)||r||[];
-    const first = items[0];
-    const id = first && (first.id||first._id);
+    const items = (r&&r.items)||r||[]; const first = items[0]; const id = first && (first.id||first._id);
     if(!__lastFirstId){ __lastFirstId = id; return; }
-    if(id && id !== __lastFirstId){
-      __lastFirstId = id;
-      const b = document.getElementById('new-order-banner');
-      if(b) b.style.display='block';
-    }
-  }catch(e){ /* ignore polling errors */ }
+    if(id && id !== __lastFirstId){ __lastFirstId = id; renderLiveOrder(first); const b=document.getElementById('new-order-banner'); if(b) b.style.display='block'; }
+  }catch(e){ /* ignore */ }
 }
-setInterval(pollNewOrders, 20000);
-document.getElementById('reload-orders')?.addEventListener('click', ()=>location.reload());
+setInterval(pollNewOrders, 5000);
+try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{load(); const w=document.getElementById('live-orders'); if(w) w.innerHTML='';});}catch{}
 </script></body></html>
