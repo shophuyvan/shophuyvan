@@ -1,3 +1,4 @@
+// SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
 (function(){try{
   var b=document.body||document.documentElement;
@@ -603,6 +604,22 @@ function openCheckoutModal(){
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
   renderTotals(); setTimeout(refreshShip, 0);
+  function updateAddrCard(){
+    const name = (m.querySelector('#co-name')?.value||'').trim();
+    const phone = (m.querySelector('#co-phone')?.value||'').trim();
+    const addr = (m.querySelector('#co-addr')?.value||'').trim();
+    const prov = (m.querySelector('#co-province')?.value||'').trim();
+    const dist = (m.querySelector('#co-district')?.value||'').trim();
+    const ward = (m.querySelector('#co-ward')?.value||'').trim();
+    const text = (name||phone||addr||prov||dist||ward)
+      ? `${name?name:''} ${phone?('• '+phone):''}<br/>${addr?addr+', ':''}${ward?ward+', ':''}${dist?dist+', ':''}${prov?prov:''}`
+      : 'Vui lòng nhập thông tin';
+    const el = m.querySelector('#co-addr-text'); if(el) el.innerHTML = text;
+  }
+  ['#co-name','#co-phone','#co-addr','#co-province','#co-district','#co-ward'].forEach(sel=>{
+    const el = m.querySelector(sel); if(el) el.addEventListener('input', updateAddrCard);
+  });
+  updateAddrCard();
 
   const list = cartItems();
   const box = m.querySelector('#co-items');
@@ -612,8 +629,8 @@ function openCheckoutModal(){
     const totals = document.createElement('div');
     totals.id = 'co-totals';
     totals.innerHTML = `<div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px">
-      <div style="display:flex;justify-content:space-between"><div>Tạm tính</div><div id="co-sub" style="font-weight:700">0đ</div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px"><div>Phí vận chuyển</div><div id="co-shipfee" style="font-weight:700">0đ</div></div>
+      <div style="display:flex;justify-content:space-between"><div>Tổng tiền hàng</div><div id="co-sub" style="font-weight:700">0đ</div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px"><div>Tổng tiền phí vận chuyển</div><div id="co-shipfee" style="font-weight:700">0đ</div></div>
       <div style="display:flex;justify-content:space-between;margin-top:6px"><div><b>Tổng thanh toán</b></div><div id="co-grand" style="font-weight:800;color:#ef4444">0đ</div></div>
     </div>`;
     const target = m.querySelector('#co-items');
@@ -656,6 +673,7 @@ function openCheckoutModal(){
     }catch(e){/*silent*/}
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
+  /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
  + list.map(it=>`
     <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
       <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
