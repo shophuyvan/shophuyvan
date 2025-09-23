@@ -215,8 +215,8 @@ function renderMedia(prefer){
       const countHTML = `<div style="flex-basis:100%;font-size:13px;color:#6b7280;margin-top:6px">${vs.length} phân loại có sẵn</div>`;
 
       // container styles
-      thumbs.style.display = 'flex';
-      thumbs.style.flexWrap = 'nowrap'; thumbs.style.maxWidth='100%'; thumbs.style.overflowX='auto'; thumbs.style.whiteSpace='nowrap';
+      thumbs.style.display = 'block';
+      thumbs.style.maxWidth='100%'; thumbs.style.overflow='visible';
       thumbs.style.overflowX = 'auto';
       thumbs.style.gap = '8px';
       thumbs.style.padding = '6px 2px';
@@ -233,23 +233,8 @@ function renderMedia(prefer){
       }
 
       
-thumbs.innerHTML = countHTML + header + vs.map((v, i) => {
-        const imgsV = imagesOf(v);
-        const img = (imgsV[0] || imagesOf(PRODUCT)[0] || '');
-        if(!img || !hasImg(img)) return ''; // skip variant without image to avoid broken placeholder
-        const name = (v.name || v.sku || ('Loại ' + (i + 1)));
-        const selected = selCheck(v);
-        const border = selected ? '#ef4444' : '#e5e7eb';
-        return `<button data-vidx="${i}" aria-pressed="${selected ? 'true' : 'false'}"
-          style="flex:0 0 auto;width:72px;scroll-snap-align:start;border:2px solid ${border};border-radius:10px;background:#fff;overflow:hidden">
-            <img alt="${htmlEscape(name)}" src="${img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" />
-          </button>`;
-      }).join('');
-
-
-      thumbs.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-vidx]');
-        if (!btn) return;
+thumbs.innerHTML = countHTML + header;
+if (!btn) return;
         const i = parseInt(btn.getAttribute('data-vidx') || '0', 10);
         const vs2 = variantsOf(PRODUCT);
         const v = vs2[i];
