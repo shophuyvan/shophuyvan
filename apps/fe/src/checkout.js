@@ -15,6 +15,9 @@ const voucherInput = document.getElementById('voucher');
 const voucherResult = document.getElementById('voucher-result');
 const orderBtn = document.getElementById('place-order');
 const orderResult = document.getElementById('order-result');
+const summaryEl = document.getElementById('cart-summary');
+// expose a summary updater for voucher-ui.js to call
+window.__updateSummary = function(){ try{ renderSummary(); }catch(e){} };
 
 let chosen = null;
 let lastPricing = null;
@@ -31,7 +34,7 @@ quoteBtn?.addEventListener('click', async () => {
   const res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
   quoteList.innerHTML = (res.items || res || []).map(opt => `
     <label class="flex items-center gap-3 border rounded p-3 cursor-pointer">
-      <input type="radio" name="ship" value="${opt.provider}:${opt.service_code}" />
+      <input type="radio" name="ship" value="${opt.provider}:${opt.service_code}" data-fee="${opt.fee}" data-eta="${opt.eta||''}" data-name="${opt.name}"/>
       <div class="flex-1">
         <div class="font-medium">${opt.name}</div>
         <div class="text-sm">Phí: ${formatPrice(opt.fee)} | ETA: ${opt.eta || '-'}</div>
@@ -39,11 +42,17 @@ quoteBtn?.addEventListener('click', async () => {
     </label>
   `).join('');
   quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
-    const [provider, service_code] = r.value.split(':');
-    chosen = { provider, service_code, fee: parseInt(r.closest('label').querySelector('.text-sm').textContent.match(/\d+/g)?.join('') || '0',10) };
+    const [provider, service_code] = (r.value||'').split(':');
+    const fee = parseInt(r.dataset.fee||'0',10);
+    const eta = r.dataset.eta||'';
+    const name = r.dataset.name||'';
+    chosen = { provider, service_code, fee, eta, name };
+    localStorage.setItem('ship_fee', String(fee));
+    localStorage.setItem('ship_eta', eta);
+    localStorage.setItem('ship_name', name);
+    try{ renderSummary(); }catch(e){}
   });
 });
-
 testVoucherBtn?.addEventListener('click', async ()=> {
   const cart = JSON.parse(localStorage.getItem('cart')||'[]');
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
@@ -52,18 +61,104 @@ testVoucherBtn?.addEventListener('click', async ()=> {
   voucherResult.textContent = `Tạm tính: ${formatPrice(res.subtotal)} | Giảm: ${formatPrice((res.discount_product||0)+(res.discount_shipping||0))} | Tổng: ${formatPrice(res.total)}`;
 });
 
+
+function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
+function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
+
+function renderSummary(){
+  if(!summaryEl) return;
+  const items = getCart();
+  const sub = calcSubtotal(items);
+  const ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
+  const ship_name = chosen?.name ?? (localStorage.getItem('ship_name')||'Chưa chọn');
+  const ship_eta = chosen?.eta ?? (localStorage.getItem('ship_eta')||'');
+  const v_discount = Number(localStorage.getItem('voucher_discount')||0);
+  const v_ship_discount = Number(localStorage.getItem('voucher_ship_discount')||0);
+  const name = document.getElementById('name')?.value || '';
+  const phone = document.getElementById('phone')?.value || '';
+  const address = document.getElementById('address')?.value || '';
+
+  const fee_after = Math.max(0, ship_fee - v_ship_discount);
+  const total = Math.max(0, sub - v_discount + fee_after);
+
+  const itemsHtml = items.map(it=>`
+    <div class="flex justify-between text-sm py-1">
+      <div class="w-2/3 pr-2">${it.name}${it.variant?` - ${it.variant}`:''} <span class="text-gray-500">x${it.qty}</span></div>
+      <div class="text-right font-medium">${formatPrice(Number(it.price||0)*Number(it.qty||1))}</div>
+    </div>
+  `).join('') || '<div class="text-sm text-gray-500">Giỏ hàng trống.</div>';
+
+  summaryEl.innerHTML = `
+  <div class="space-y-3">
+    <div>
+      <div class="font-semibold mb-1">Địa chỉ nhận hàng</div>
+      <div class="text-sm">${name||'-'} ${phone?`• ${phone}`:''}</div>
+      <div class="text-sm">${address||'-'}</div>
+    </div>
+
+    <div>
+      <div class="font-semibold mb-1">Sản phẩm</div>
+      ${itemsHtml}
+    </div>
+
+    <div>
+      <div class="font-semibold mb-1">Vận chuyển</div>
+      <div class="text-sm">${ship_name}${ship_eta?` • ${ship_eta}`:''}</div>
+    </div>
+
+    <div class="border-t pt-2 text-sm">
+      <div class="flex justify-between"><span>Tạm tính</span><span>${formatPrice(sub)}</span></div>
+      <div class="flex justify-between"><span>Phí vận chuyển</span><span>${formatPrice(ship_fee)}</span></div>
+      ${v_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm giá</span><span>-${formatPrice(v_discount)}</span></div>`:''}
+      ${v_ship_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm phí vận chuyển</span><span>-${formatPrice(v_ship_discount)}</span></div>`:''}
+      <div class="flex justify-between font-semibold text-base mt-1"><span>Tổng thanh toán</span><span>${formatPrice(total)}</span></div>
+    </div>
+  </div>`;
+}
+document.getElementById('name')?.addEventListener('input', ()=>renderSummary());
+document.getElementById('phone')?.addEventListener('input', ()=>renderSummary());
+document.getElementById('address')?.addEventListener('input', ()=>renderSummary());
+window.addEventListener('storage', ()=>renderSummary()); // in case other scripts update voucher
+document.addEventListener('DOMContentLoaded', ()=>renderSummary());
+
 orderBtn?.addEventListener('click', async () => {
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
-  const items = cart.map(it => ({ product_id: it.id, name: it.name, qty: it.qty, price: it.price, variant: it.variant||null }));
-  const body = {
-    customer_name: document.getElementById('name').value,
-    phone: document.getElementById('phone').value,
-    address: document.getElementById('address').value,
-    items,
-    voucher_code: (voucherInput.value||null),
-    shipping_fee: chosen?.fee || 0
-  };
-  const res = await api('/public/orders/create', { method:'POST', body });
-  orderResult.textContent = `Đặt hàng thành công: ${res.orderId || ''}`;
+  const btn = orderBtn;
+  if(!guardSubmit(btn)) return;
+  try{
+    const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    if(!cart.length){ orderResult.textContent='Giỏ hàng trống.'; return releaseSubmit(btn); }
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const address = document.getElementById('address').value.trim();
+    if(!name || !phone || !address){ orderResult.textContent='Vui lòng điền đầy đủ Họ tên, SĐT, Địa chỉ.'; return releaseSubmit(btn); }
+    if(!VN_PHONE_RE.test(phone)){ orderResult.textContent='SĐT không hợp lệ (VD: 09xxxxxxxx).'; return releaseSubmit(btn); }
+
+    const items = cart.map(it => ({ product_id: it.id, name: it.name, qty: it.qty, price: it.price, variant: it.variant||null }));
+    const voucher_code = (localStorage.getItem('voucher_code') || (voucherInput?.value||'').trim() || null);
+    const ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
+    const body = {
+      customer_name: name,
+      phone, address,
+      items,
+      voucher_code,
+      shipping_fee: ship_fee,
+      shipping_name: chosen?.name ?? localStorage.getItem('ship_name') || null,
+      shipping_eta: chosen?.eta ?? localStorage.getItem('ship_eta') || null
+    };
+    const res = await api('/public/orders/create', { method:'POST', body });
+    if(res && res.orderId){
+      orderResult.textContent = `Đặt hàng thành công: ${res.orderId}`;
+      localStorage.removeItem('cart'); // clear cart after order
+    }else{
+      orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
+    }
+  }catch(e){
+    console.error(e);
+    orderResult.textContent = 'Có lỗi xảy ra khi đặt hàng.';
+  }finally{
+    try{ renderSummary(); }catch(e){}
+    releaseSubmit(btn);
+  }
+});orderResult.textContent = `Đặt hàng thành công: ${res.orderId || ''}`;
   // Optionally call /shipping/create via backend setting
 });

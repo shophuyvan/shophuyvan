@@ -29,6 +29,9 @@
     <table class="table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
     <tbody id="list"></tbody></table>
   </div>
+  <div id="new-order-banner" style="display:none;margin:10px 0;padding:10px;border:1px solid #16a34a;background:#ecfdf5;color:#065f46;border-radius:6px;">
+    Có <strong>đơn hàng mới</strong>. <button id="reload-orders" class="btn">Tải lại</button>
+  </div>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -50,4 +53,21 @@ document.body.addEventListener('click', async (e)=>{
   const del = e.target.dataset.del; if(del){ if(!confirm('Xoá đơn?')) return; let r = await Admin.req('/admin/orders/delete',{method:'POST',body:{id:del}}); if(r&&r.ok){ load(); } }
 });
 load();
+let __lastFirstId = null;
+async function pollNewOrders(){
+  try{
+    const r = await Admin.req('/admin/orders?limit=1',{method:'GET'});
+    const items = (r&&r.items)||r||[];
+    const first = items[0];
+    const id = first && (first.id||first._id);
+    if(!__lastFirstId){ __lastFirstId = id; return; }
+    if(id && id !== __lastFirstId){
+      __lastFirstId = id;
+      const b = document.getElementById('new-order-banner');
+      if(b) b.style.display='block';
+    }
+  }catch(e){ /* ignore polling errors */ }
+}
+setInterval(pollNewOrders, 20000);
+document.getElementById('reload-orders')?.addEventListener('click', ()=>location.reload());
 </script></body></html>

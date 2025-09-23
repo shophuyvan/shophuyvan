@@ -22,7 +22,7 @@ async function applyVoucher(){
   const shipDiscount = Number(data.ship_discount||0);
   const total = sub - discount + Math.max(0, ship_fee - shipDiscount);
   resultEl.innerHTML = `Giảm: -${formatPrice(discount)} ${shipDiscount?`(Freeship: -${formatPrice(shipDiscount)})`:''}`;
-  if (summaryEl) summaryEl.innerHTML = `<div>Tạm tính: ${formatPrice(sub)}</div><div>Giảm giá: -${formatPrice(discount)}</div><div>Phí ship: ${formatPrice(Math.max(0, ship_fee - shipDiscount))}</div><div class="font-semibold mt-1">Tổng: ${formatPrice(total)}</div>`;
+  if (window.__updateSummary) { window.__updateSummary(); } else if (summaryEl) { /* keep previous simple summary if needed */ }
   localStorage.setItem('voucher_code', code);
   localStorage.setItem('voucher_discount', String(discount));
   localStorage.setItem('voucher_ship_discount', String(shipDiscount));
