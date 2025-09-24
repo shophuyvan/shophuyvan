@@ -391,7 +391,7 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const meta = await getJSON(env, 'file:'+id+':meta', null);
         const data = await env.SHV.get('file:'+id, 'arrayBuffer');
         if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)});
-        return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': meta.type||'application/octet-stream', 'cache-control':'public, max-age=31536000'}});
+        return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
       }
       if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);

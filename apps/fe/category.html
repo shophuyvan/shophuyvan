@@ -28,7 +28,12 @@
     .shv-breadcrumb .sep{opacity:.5}
     .shv-breadcrumb .last{color:#111827;font-weight:600}
   </style>
-</head>
+
+  <!-- SHV-CWV-PRELOADS -->
+  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="low">
+  <link rel="preconnect" href="https://shv-api.shophuyvan.workers.dev" crossorigin>
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+\n</head>
 <body class="bg-slate-50 text-gray-900">
 
   <nav class="shv-breadcrumb" aria-label="breadcrumb" id="shv-bc">
@@ -37,59 +42,11 @@
     <span class="last">Đang tải...</span>
   </nav>
 
-  
   <main class="max-w-6xl mx-auto px-3 py-4">
-    <div class="flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <h1 id="cat-title" class="text-2xl font-bold">Danh mục</h1>
-        <p id="cat-count" class="text-sm text-gray-500 mt-1">Đang tải...</p>
-      </div>
-      <form id="filters" class="w-full md:w-auto bg-white border rounded-xl p-3 flex flex-wrap items-end gap-3">
-        <div class="flex flex-col">
-          <label class="text-xs text-gray-500">Tìm kiếm</label>
-          <input id="f-q" type="search" placeholder="Từ khoá..." class="border rounded-lg px-3 py-1.5 w-48">
-        </div>
-        <div class="flex flex-col">
-          <label class="text-xs text-gray-500">Giá từ</label>
-          <input id="f-min" type="number" min="0" step="1000" placeholder="0" class="border rounded-lg px-3 py-1.5 w-28">
-        </div>
-        <div class="flex flex-col">
-          <label class="text-xs text-gray-500">đến</label>
-          <input id="f-max" type="number" min="0" step="1000" placeholder="∞" class="border rounded-lg px-3 py-1.5 w-28">
-        </div>
-        <label class="inline-flex items-center gap-2">
-          <input id="f-stock" type="checkbox" class="rounded border-gray-300">
-          <span class="text-sm">Còn hàng</span>
-        </label>
-        <div class="flex flex-col">
-          <label class="text-xs text-gray-500">Sắp xếp</label>
-          <select id="f-sort" class="border rounded-lg px-3 py-1.5 w-44">
-            <option value="relevance">Phù hợp</option>
-            <option value="price-asc">Giá thấp → cao</option>
-            <option value="price-desc">Giá cao → thấp</option>
-            <option value="newest">Mới nhất</option>
-            <option value="name">Tên A → Z</option>
-          </select>
-        </div>
-        <div class="flex flex-col">
-          <label class="text-xs text-gray-500">Mỗi trang</label>
-          <select id="f-size" class="border rounded-lg px-3 py-1.5 w-24">
-            <option>12</option>
-            <option selected>24</option>
-            <option>48</option>
-          </select>
-        </div>
-        <button type="submit" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg">Lọc</button>
-        <button type="button" id="f-reset" class="px-3 py-1.5 rounded-lg border">Đặt lại</button>
-      </form>
-    </div>
-
-    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4"></div>
-    <div id="empty" class="hidden text-gray-600 mt-3">Chưa có sản phẩm phù hợp.</div>
-
-    <nav id="pager" class="flex items-center justify-center gap-2 mt-6"></nav>
+    <h1 id="cat-title" class="text-2xl font-bold mb-4">Danh mục</h1>
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    <div id="empty" class="hidden text-gray-600">Chưa có sản phẩm trong danh mục này.</div>
   </main>
-
 
   <script type="module">
   // Minimal helpers
@@ -134,7 +91,7 @@
     grid.innerHTML = items.map(p => `
       <a href="${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
         <div class="aspect-[4/3] bg-slate-100">
-          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" class="w-full h-full object-cover"/>
+          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
         </div>
         <div class="p-3">
           <div class="text-sm text-gray-500">${p.category||''}</div>
@@ -167,8 +124,7 @@
       el.textContent = JSON.stringify(data);
     }catch(e){}
   })();
-  </script>
-
+  </script>\n
   <script type="module">
   const FMT = new Intl.NumberFormat('vi-VN');
   const $ = sel => document.querySelector(sel);
@@ -176,7 +132,7 @@
   const slugify = s => { try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } };
   const num = v => Number(String(v||'').replace(/\D/g,''))||0;
   const productUrl = p => '__BASE_URL__/product/' + (p.slug || p.id || '');
-  const pickImg = p => { let img=(Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'/public/logo.png'; if(img&&typeof img==='object'&&img.url) img=img.url; return img; };
+  const pickImg = p => { let img=(Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'/public/logo.png'; if(img&&typeof img==='object'&&img.url) img=img.url; img=String(img||''); img=img.replace(/^https?:\/\/shv-api\.shophuyvan\.workers\.dev\/file\//,'/api/file/'); if(/^[a-f0-9]{16,}$/i.test(img)) img='/api/file/'+img; return img; };
 
   const path = location.pathname.split('/').filter(Boolean);
   const slug = (path[0]==='c' && path[1]) ? path[1] : new URLSearchParams(location.search).get('c') || '';
@@ -321,7 +277,6 @@
 
   render();
   </script>
-
-
+\n
 </body>
 </html>
