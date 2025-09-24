@@ -51,6 +51,8 @@
   <script type="module">
   // Minimal helpers
   const FMT = new Intl.NumberFormat('vi-VN');
+function normalizeImg(u){ if(!u) return ''; if(typeof u==='object'&&u.url) u=u.url; u=String(u); u=u.replace(/^https?:\/\/shv-api\.shophuyvan\.workers\.dev\/file\//,'/api/file/'); if(/^[a-f0-9]{16,}$/i.test(u)) u='/api/file/'+u; return u; }
+function toImg(u,w){ u=normalizeImg(u); const m=u.match(/\/api\/file\/(.+)$/); if(m) return '/api/img/'+m[1]+'?w='+w+'&format=auto'; return u; }
   function slugify(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } }
   function nicePrice(p){ const n=Number(String(p).replace(/\D/g,'')); if(!n) return ''; return FMT.format(n)+'₫'; }
   function pickImg(p){
@@ -91,7 +93,7 @@
     grid.innerHTML = items.map(p => `
       <a href="${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
         <div class="aspect-[4/3] bg-slate-100">
-          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
+          <img src="${toImg((Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'', 540)}" srcset="${toImg((Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'', 360)} 360w, ${toImg((Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'', 540)} 540w, ${toImg((Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'', 720)} 720w, ${toImg((Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'', 1080)} 1080w" sizes="(min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw" alt="${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
         </div>
         <div class="p-3">
           <div class="text-sm text-gray-500">${p.category||''}</div>
@@ -127,6 +129,8 @@
   </script>\n
   <script type="module">
   const FMT = new Intl.NumberFormat('vi-VN');
+function normalizeImg(u){ if(!u) return ''; if(typeof u==='object'&&u.url) u=u.url; u=String(u); u=u.replace(/^https?:\/\/shv-api\.shophuyvan\.workers\.dev\/file\//,'/api/file/'); if(/^[a-f0-9]{16,}$/i.test(u)) u='/api/file/'+u; return u; }
+function toImg(u,w){ u=normalizeImg(u); const m=u.match(/\/api\/file\/(.+)$/); if(m) return '/api/img/'+m[1]+'?w='+w+'&format=auto'; return u; }
   const $ = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   const slugify = s => { try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } };

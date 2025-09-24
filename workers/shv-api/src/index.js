@@ -390,7 +390,23 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
         const data = await env.SHV.get('file:'+id, 'arrayBuffer');
-        if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)});
+        if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)}
+      // Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
+      if(p.startsWith('/img/') && req.method==='GET'){
+        const u = new URL(req.url);
+        const id = p.split('/').pop();
+        const width = Number(u.searchParams.get('w')||0) || undefined;
+        const quality = Number(u.searchParams.get('q')||0) || undefined;
+        const format = u.searchParams.get('format') || 'auto';
+        const src = 'https://shv-api.shophuyvan.workers.dev/file/' + id;
+        const r = await fetch(src, { cf: { image: { width, quality, format, fit: 'cover' } } });
+        const h = new Headers(r.headers);
+        // strong CDN caching
+        h.set('cache-control','public, max-age=31536000, immutable');
+        corsHeaders(req, h);
+        return new Response(r.body, { status: r.status, headers: h });
+      }
+    );
         return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
       }
       if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
