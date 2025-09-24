@@ -135,38 +135,45 @@ function renderTitle(){
 }
 
 
+
 function renderPriceStock(){
   const el = $('#p-price'); const stockEl = $('#p-stock');
   if(!el && !stockEl) return;
-  let src = CURRENT || null;
-  if(!src){
-    const vsFull = variantsOf(PRODUCT);
-      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : [];
-    if(vs.length){
-      let best=null;
-      for(const v of vs){ const pr = pricePair(v); if(pr.base>0 && (!best || pr.base<best.base)) best=pr; }
-      if(best){
-        el && (el.innerHTML = best.original
-          ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div><div class='line-through text-gray-400'>${formatPrice(best.original)}</div>`
-          : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(best.base)}</div>`);
-      }
+
+  // Compute RANGE across variants if available
+  const vsAll = variantsOf(PRODUCT) || [];
+  const vs = vsAll.length ? vsAll.slice(0, 200) : []; // safety cap
+  let rendered = false;
+
+  if(vs.length){
+    const pairs = vs.map(v=>pricePair(v)).filter(p=>p.base>0);
+    if(pairs.length){
+      const min = Math.min(...pairs.map(p=>p.base));
+      const max = Math.max(...pairs.map(p=>p.base));
+      const priceText = (min===max) ? formatPrice(min) : (formatPrice(min)+' - '+formatPrice(max));
+      el && (el.innerHTML = `<div class='text-rose-600 font-bold text-xl'>${priceText}</div>`);
+      rendered = true;
     }
   }
-  if(src){
-    const {base, original} = pricePair(src);
+
+  // Fallback: use product's price (no variants or invalid data)
+  if(!rendered){
+    const src = CURRENT || PRODUCT || null;
+    const {base, original} = pricePair(src||{});
     if(el){
-      el.innerHTML = original
-        ? `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div><div class='line-through text-gray-400'>${formatPrice(original)}</div>`
-        : `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base)}</div>`;
+      el.innerHTML = `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base||0)}</div>`;
     }
   }
+
+  // Stock sum across variants
   if(stockEl){
     let stk = 0;
-    const vsFull = variantsOf(PRODUCT);
-      const vs = vsFull && vsFull.length>0 ? vsFull.slice(0, 15) : []; if(vs.length){ stk = vs.map(v=> (v.stock||v.qty||v.quantity||0) ).reduce((a,b)=>a+(+b||0),0); }
+    if(vs.length) stk = vs.map(v => (v.stock||v.qty||v.quantity||0)).reduce((a,b)=>a+(+b||0),0);
+    else stk = (PRODUCT.stock||PRODUCT.qty||PRODUCT.quantity||0) || 0;
     stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
   }
 }
+
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
 
 
@@ -233,7 +240,7 @@ function renderMedia(prefer){
       }
 
       
-thumbs.innerHTML = header;
+// moved: price range now displayed below title in #p-price
 // (variant thumbnails removed)
 
           }
