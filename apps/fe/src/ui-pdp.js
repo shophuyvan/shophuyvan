@@ -812,13 +812,6 @@ function openCheckoutModal(){
     }catch(e){ alert('Đặt hàng lỗi: '+e.message); }
   };
 
-    try{
-      const body = { items: cartItems(), customer, totals:{ amount: calcTotal(), shipping_fee: shipFee }, shipping: { method: chosenShip, fee: shipFee }, source:'pdp' };
-      const r = await api.post('/public/orders/create', body);
-      if(r && r.ok){ setCartItems([]); closeMask('shv-co-mask'); openSuccessModal(r.id, customer); }
-      else { alert('Đặt hàng lỗi'); }
-    }catch(e){ alert('Đặt hàng lỗi: '+e.message); }
-  };
 }
 
 // Success modal

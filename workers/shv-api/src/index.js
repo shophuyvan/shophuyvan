@@ -390,8 +390,11 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
         const data = await env.SHV.get('file:'+id, 'arrayBuffer');
-        if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)}
-      // Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
+        if(!data || !meta) return new Response('not found', {status:404, headers:corsHeaders(req)});
+        return new Response(data, {headers: Object.assign({'Content-Type': (meta&&meta.type)||'application/octet-stream','Cache-Control':'public, max-age=31536000'}, corsHeaders(req))});
+      }
+      
+// Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
       if(p.startsWith('/img/') && req.method==='GET'){
         const u = new URL(req.url);
         const id = p.split('/').pop();
