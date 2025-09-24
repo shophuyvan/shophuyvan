@@ -13,6 +13,57 @@ function corsHeaders(req){
   };
 }
 function json(data, init={}, req){ return new Response(JSON.stringify(data||{}), {status: init.status||200, headers: {...corsHeaders(req), 'content-type':'application/json; charset=utf-8'}}); }
+
+
+// === SuperAI helpers injected ===
+async function superToken(env){
+  // Prefer saved static token or super_key
+  try{
+    const st = await getJSON(env,'settings',{})||{};
+    const ship = st.shipping||{};
+    if(ship.super_token) return ship.super_token;
+    if(ship.super_key) return ship.super_key;
+  }catch(e){}
+  // Password token flow (if credentials present)
+  try{
+    const st = await getJSON(env,'settings',{})||{}; const ship=st.shipping||{};
+    const user=ship.super_user||''; const pass=ship.super_pass||''; const partner=ship.super_partner||'';
+    if(user && pass && partner){
+      const urls=['https://api.mysupership.vn/v1/platform/auth/token','https://dev.superai.vn/v1/platform/auth/token'];
+      for (const url of urls){
+        try{
+          const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({username:user,password:pass,partner})});
+          const j=await r.json().catch(()=>null);
+          const tok=(j && (j.data?.token||j.token))||'';
+          if(tok){
+            await putJSON(env,'super:token',tok); await env.SHV.put('super:token:ts', String(Date.now()));
+            return tok;
+          }
+        }catch(e){}
+      }
+    }
+  }catch(e){}
+  // KV cache
+  try{
+    const t = await getJSON(env,'super:token',null);
+    const ts = Number(await env.SHV.get('super:token:ts','text'))||0;
+    if(t && (Date.now()-ts) < 23*60*60*1000) return t;
+  }catch(e){}
+  return '';
+}
+
+async function superFetch(env, path, {method='GET', headers={}, body=null, useBearer=false}={}){
+  const base = 'https://api.mysupership.vn';
+  const token = await superToken(env);
+  const h = Object.assign({'Accept':'application/json'}, headers||{});
+  if(useBearer) h['Authorization'] = 'Bearer '+token; else h['Token'] = token;
+  const url = base + path;
+  const res = await fetch(url, {method, headers:h, body});
+  let data=null; try{ data = await res.json(); }catch(e){ data=null; }
+  return data;
+}
+// === End SuperAI helpers ===
+
 async function readBody(req){
   const ct = req.headers.get('content-type')||'';
   if(ct.includes('application/json')) return await req.json();
@@ -836,6 +887,7 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
 
 // ---- SuperAI Platform Price (requires sender & receiver) ----
 if(p==='/shipping/price' && req.method==='POST'){
+  try{
   const body = await req.json().catch(()=>({}));
   const settings = await getJSON(env,'settings',{})||{};
   const s = settings.shipping||{};
@@ -867,6 +919,7 @@ if(p==='/shipping/price' && req.method==='POST'){
   };
   if(Array.isArray(arr)) arr.forEach(pushOne); else pushOne(arr);
   return json({ok:true, items, raw:data}, {}, req);
+  }catch(e){ return json({ok:false, error:String(e && e.message || e || 'UNKNOWN')}, {}, req);}
 }
 
 // ---- SuperAI Platform Create Order ----
@@ -915,6 +968,7 @@ if(p==='/shipping/optimization' && req.method==='GET'){
   return json({ok:true, data}, {}, req);
 }
 if(p==='/shipping/optimize' && req.method==='POST'){
+  try{
   const body = await req.json().catch(()=>({}));
   const payload = { option_id: String(body.option_id||'1') };
   const data = await superFetch(env, '/v1/platform/orders/optimize', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
