@@ -479,7 +479,65 @@ try{
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
-  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
+  
+  // Responsive width & form grid
+  try{
+    const card=m.firstElementChild;
+    if(card){
+      card.style.maxWidth = '640px';
+      card.style.width = 'min(92vw, 640px)';
+    }
+  }catch{}
+  const form = m.querySelector('#co-form');
+  const span2 = (el)=>{ if(el) el.style.gridColumn='1 / -1'; };
+  function applyFormLayout(){
+    if(!form) return;
+    const wide = window.matchMedia('(min-width: 480px)').matches;
+    form.style.display='grid';
+    form.style.gridTemplateColumns = wide ? '1fr 1fr' : '1fr';
+    // name/phone side-by-side; address/note full width; province/district side-by-side; ward full
+    span2(m.querySelector('#co-addr'));
+    span2(m.querySelector('#co-note'));
+  }
+  applyFormLayout(); window.addEventListener('resize', applyFormLayout);
+
+  // Province datalist with typeahead
+  (function setupProvinceDatalist(){
+    const inp = m.querySelector('#co-province'); if(!inp) return;
+    const dl = document.createElement('datalist'); dl.id='co-province-list';
+    // Populate with province names and common aliases
+    const seen = new Set();
+    PROVINCES.forEach(p=>{ const opt=document.createElement('option'); opt.value=p; dl.appendChild(opt); seen.add(p); });
+    Object.keys(PROVINCE_ALIASES).forEach(k=>{ const v=PROVINCE_ALIASES[k]; if(!seen.has(v)){ const opt=document.createElement('option'); opt.value=v; dl.appendChild(opt);} });
+    m.appendChild(dl); inp.setAttribute('list','co-province-list');
+    // Normalize on change or blur
+    const canon = ()=>{ inp.value = provinceCanonical(inp.value); populateDistricts(); saveAddrNow(); };
+    inp.addEventListener('change', canon); inp.addEventListener('blur', canon); inp.addEventListener('input', ()=>{/* live save */ saveAddrNow();});
+  })();
+
+  // Simple persistence of last district/ward typed to assist next time
+  const districtEl = m.querySelector('#co-district');
+  const wardEl = m.querySelector('#co-ward');
+  districtEl?.addEventListener('change', saveAddrNow);
+  districtEl?.addEventListener('input', saveAddrNow);
+  wardEl?.addEventListener('change', saveAddrNow);
+  wardEl?.addEventListener('input', saveAddrNow);
+
+  // Prefill from LocalStorage if any
+  (function prefill(){ populateDistricts();
+    const o = loadSavedAddr();
+    if(Object.keys(o).length){
+      const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
+      set('#co-name', o.name);
+      set('#co-phone', o.phone);
+      set('#co-addr', o.addr);
+      set('#co-province', o.province);
+      set('#co-district', o.district);
+      set('#co-ward', o.ward);
+      set('#co-note', o.note);
+    }
+  })();
+try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 
   // Render variants buttons
   function renderVBtns(active){
@@ -616,6 +674,66 @@ function openCheckoutModal(){
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
+  
+  // ===== Address helpers =====
+  const PROVINCES = [
+  "An Giang","Bà Rịa - Vũng Tàu","Bạc Liêu","Bắc Giang","Bắc Kạn","Bắc Ninh","Bến Tre","Bình Dương","Bình Định","Bình Phước","Bình Thuận",
+  "Cà Mau","Cao Bằng","Cần Thơ","Đà Nẵng","Đắk Lắk","Đắk Nông","Điện Biên","Đồng Nai","Đồng Tháp","Gia Lai","Hà Giang","Hà Nam","Hà Nội","Hà Tĩnh",
+  "Hải Dương","Hải Phòng","Hậu Giang","Hòa Bình","Hưng Yên","Khánh Hòa","Kiên Giang","Kon Tum","Lai Châu","Lạng Sơn","Lào Cai","Lâm Đồng","Long An",
+  "Nam Định","Nghệ An","Ninh Bình","Ninh Thuận","Phú Thọ","Phú Yên","Quảng Bình","Quảng Nam","Quảng Ngãi","Quảng Ninh","Quảng Trị","Sóc Trăng",
+  "Sơn La","Tây Ninh","Thái Bình","Thái Nguyên","Thanh Hóa","Thừa Thiên Huế","Tiền Giang","TP Hồ Chí Minh","Trà Vinh","Tuyên Quang","Vĩnh Long",
+  "Vĩnh Phúc","Yên Bái","Bình Định"
+];
+  const PROVINCE_ALIASES = {
+    "hcm":"TP Hồ Chí Minh","tp hcm":"TP Hồ Chí Minh","tp ho chi minh":"TP Hồ Chí Minh","sai gon":"TP Hồ Chí Minh",
+    "hn":"Hà Nội","ha noi":"Hà Nội","hnoi":"Hà Nội",
+    "dn":"Đà Nẵng","da nang":"Đà Nẵng","danang":"Đà Nẵng"
+  };
+  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
+  function provinceCanonical(input){
+    let v = String(input||'').trim();
+    const n = vnNorm(v);
+    if(PROVINCE_ALIASES[n]) return PROVINCE_ALIASES[n];
+    // best-effort fuzzy include
+    let best = v;
+    for(const p of PROVINCES){
+      const pn = vnNorm(p);
+      if(pn.includes(n) || n.includes(pn)){ best = p; break; }
+  const DISTRICTS = {
+    "TP Hồ Chí Minh": ["Quận 1","Quận 3","Quận 4","Quận 5","Quận 6","Quận 7","Quận 8","Quận 10","Quận 11","Quận 12","Bình Thạnh","Gò Vấp","Tân Bình","Tân Phú","Bình Tân","Phú Nhuận","Thủ Đức","Bình Chánh","Hóc Môn","Nhà Bè","Củ Chi","Cần Giờ"],
+    "Hà Nội": ["Ba Đình","Hoàn Kiếm","Đống Đa","Cầu Giấy","Hai Bà Trưng","Hoàng Mai","Tây Hồ","Thanh Xuân","Long Biên","Hà Đông","Gia Lâm","Đông Anh","Nam Từ Liêm","Bắc Từ Liêm","Thanh Trì","Sóc Sơn"],
+    "Đà Nẵng": ["Hải Châu","Thanh Khê","Liên Chiểu","Sơn Trà","Ngũ Hành Sơn","Cẩm Lệ","Hòa Vang"]
+  };
+  function populateDistricts(){
+    const p = provinceCanonical(m.querySelector('#co-province')?.value||'');
+    const dlId = 'co-district-list';
+    let dl = m.querySelector('#'+dlId);
+    if(!dl){ dl = document.createElement('datalist'); dl.id=dlId; m.appendChild(dl); }
+    dl.innerHTML='';
+    const list = DISTRICTS[p] || [];
+    list.forEach(d=>{ const o=document.createElement('option'); o.value=d; dl.appendChild(o); });
+    const dInput = m.querySelector('#co-district'); if(dInput){ dInput.setAttribute('list', dlId); }
+  }
+
+    }
+    return best;
+  }
+  function loadSavedAddr(){
+    try{ return JSON.parse(localStorage.getItem('shv_addr')||'{}'); }catch{return {}}
+  }
+  function saveAddrNow(){
+    const o = {
+      name: m.querySelector('#co-name')?.value||'',
+      phone: m.querySelector('#co-phone')?.value||'',
+      addr: m.querySelector('#co-addr')?.value||'',
+      province: m.querySelector('#co-province')?.value||'',
+      district: m.querySelector('#co-district')?.value||'',
+      ward: m.querySelector('#co-ward')?.value||'',
+      note: m.querySelector('#co-note')?.value||''
+    };
+    try{ localStorage.setItem('shv_addr', JSON.stringify(o)); }catch{}
+  }
+['#co-name','#co-phone','#co-addr','#co-note'].forEach(s=>{ const e=m.querySelector(s); e&&['input','change','blur'].forEach(ev=>e.addEventListener(ev, saveAddrNow)); });
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
