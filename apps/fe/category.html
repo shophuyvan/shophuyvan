@@ -28,6 +28,12 @@
     .shv-breadcrumb .sep{opacity:.5}
     .shv-breadcrumb .last{color:#111827;font-weight:600}
   </style>
+
+  <!-- SHV-CWV-PRELOADS -->
+  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="low">
+  <link rel="preconnect" href="https://shv-api.shophuyvan.workers.dev" crossorigin>
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+
 </head>
 <body class="bg-slate-50 text-gray-900">
 
@@ -86,7 +92,7 @@
     grid.innerHTML = items.map(p => `
       <a href="${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
         <div class="aspect-[4/3] bg-slate-100">
-          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" class="w-full h-full object-cover"/>
+          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
         </div>
         <div class="p-3">
           <div class="text-sm text-gray-500">${p.category||''}</div>

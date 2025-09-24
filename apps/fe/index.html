@@ -43,6 +43,12 @@
   }
   </script>
 
+
+  <!-- SHV-CWV-PRELOADS -->
+  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="low">
+  <link rel="preconnect" href="https://shv-api.shophuyvan.workers.dev" crossorigin>
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+
 </head>
 <body class="bg-slate-50 text-gray-900">
   <header class="border-b bg-white sticky top-0 z-40">
@@ -140,5 +146,23 @@
   </div>
 <script type="module" src="/src/tracking.js?v=36"></script>
 <script type="module" src="/src/frontend.js?v=41"></script>
-<script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script></body>
+<script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script>
+  <!-- SHV-CWV: generic lazyload safeguard -->
+  <script>
+  (function(){
+    try{
+      // delay to allow hero/LCP settle
+      setTimeout(function(){
+        document.querySelectorAll('img:not([loading])').forEach(function(img){
+          if(!img.closest('header')) img.setAttribute('loading','lazy');
+          if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
+          if(!img.hasAttribute('width')) img.setAttribute('width','800');
+          if(!img.hasAttribute('height')) img.setAttribute('height','600');
+        });
+      }, 800);
+    }catch(e){}
+  })();
+  </script>
+
+</body>
 </html>
