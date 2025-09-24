@@ -9,7 +9,23 @@
       <input id="sender_district" class="input" placeholder="Quận/Huyện (VD: Bình Chánh)">
       <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
       <input id="option_id" class="input" placeholder="Option tối ưu (mặc định: 1)">
+    
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px">
+      <select id="sender_province_sel" class="input">
+        <option value="">— Chọn Tỉnh/Thành —</option>
+      </select>
+      <select id="sender_district_sel" class="input" disabled>
+        <option value="">— Chọn Quận/Huyện —</option>
+      </select>
+      <select id="sender_commune_sel" class="input" disabled>
+        <option value="">— Chọn Phường/Xã —</option>
+      </select>
     </div>
+    <input type="hidden" id="sender_province_code">
+    <input type="hidden" id="sender_district_code">
+    <input type="hidden" id="sender_commune_code">
+    <small style="display:block;margin:6px 0 0;color:#6b7280">Mẹo: chọn từ danh sách để tránh sai chính tả; hệ thống sẽ tự điền lại vào ô văn bản.</small>
+</div>
     <div style="margin-top:8px">
       <button id="save_sender" class="btn">Lưu người gửi</button>
     </div>
@@ -88,6 +104,157 @@ document.addEventListener('DOMContentLoaded',()=>{
     alert('Kết quả: '+JSON.stringify(r).slice(0,400));
   });}
 });
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  const api = Admin.getApiBase();
+
+  const $ = id => document.getElementById(id);
+  const set = (id, v)=>{ const el=$(id); if(el) el.value = v||''; };
+
+  async function getJSON(p){
+    try{ const r = await fetch(api + p); return await r.json(); }catch(e){ return null; }
+  }
+
+  // Populate selects
+  async function loadProvinces(selectedName){
+    const data = await getJSON('/shipping/areas/province');
+    const sel = $('sender_province_sel'); if(!sel) return;
+    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
+    if(data && data.items){
+      data.items.forEach(it=>{
+        const opt = document.createElement('option');
+        opt.value = it.code; opt.textContent = it.name;
+        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    sel.disabled = false;
+    if(sel.value){ await loadDistricts(sel.value, $('sender_district').value); }
+    // Sync text input + code
+    syncProvinceToInputs();
+  }
+
+  async function loadDistricts(provinceCode, selectedName){
+    const data = await getJSON('/shipping/areas/district?province=' + encodeURIComponent(provinceCode||''));
+    const sel = $('sender_district_sel'); if(!sel) return;
+    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
+    if(data && data.items){
+      data.items.forEach(it=>{
+        const opt = document.createElement('option');
+        opt.value = it.code; opt.textContent = it.name;
+        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    sel.disabled = !provinceCode;
+    if(sel.value){ await loadCommunes(sel.value, $('sender_commune')?.value || ''); }
+    syncDistrictToInputs();
+  }
+
+  async function loadCommunes(districtCode, selectedName){
+    const sel = $('sender_commune_sel'); if(!sel) return;
+    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
+    const data = await getJSON('/shipping/areas/commune?district=' + encodeURIComponent(districtCode||''));
+    if(data && data.items){
+      data.items.forEach(it=>{
+        const opt = document.createElement('option');
+        opt.value = it.code; opt.textContent = it.name;
+        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    sel.disabled = !districtCode;
+    syncCommuneToInputs();
+  }
+
+  function syncProvinceToInputs(){
+    const sel = $('sender_province_sel');
+    const name = sel.selectedOptions[0]?.textContent || '';
+    const code = sel.value || '';
+    if(name){ set('sender_province', name); }
+    set('sender_province_code', code);
+  }
+  function syncDistrictToInputs(){
+    const sel = $('sender_district_sel');
+    const name = sel.selectedOptions[0]?.textContent || '';
+    const code = sel.value || '';
+    if(name){ set('sender_district', name); }
+    set('sender_district_code', code);
+  }
+  function syncCommuneToInputs(){
+    const sel = $('sender_commune_sel');
+    const name = sel.selectedOptions[0]?.textContent || '';
+    const code = sel.value || '';
+    set('sender_commune_code', code);
+    // Không bắt buộc điền phường vào text; nhưng nếu có input 'sender_commune' thì điền
+    if($('sender_commune')) set('sender_commune', name);
+  }
+
+  // Wire changes
+  $('sender_province_sel')?.addEventListener('change', async ()=>{
+    syncProvinceToInputs();
+    await loadDistricts($('sender_province_sel').value, '');
+  });
+  $('sender_district_sel')?.addEventListener('change', async ()=>{
+    syncDistrictToInputs();
+    await loadCommunes($('sender_district_sel').value, '');
+  });
+  $('sender_commune_sel')?.addEventListener('change', syncCommuneToInputs);
+
+  // Prefill from settings, then load selects with matching selection
+  (async ()=>{
+    try{
+      const s = await (await fetch(api + '/public/settings')).json();
+      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], s) || d;
+      set('sender_name',     g('shipping.sender_name',''));
+      set('sender_phone',    g('shipping.sender_phone',''));
+      set('sender_address',  g('shipping.sender_address',''));
+      set('sender_province', g('shipping.sender_province',''));
+      set('sender_district', g('shipping.sender_district',''));
+      set('option_id',       g('shipping.option_id','1'));
+      set('sender_province_code', g('shipping.sender_province_code',''));
+      set('sender_district_code', g('shipping.sender_district_code',''));
+      set('sender_commune_code',  g('shipping.sender_commune_code',''));
+      // load select options and try select by saved name first; if code exists, use that value
+      await loadProvinces(g('shipping.sender_province',''));
+      // If we have code, set it and cascade loads
+      if($('sender_province_code').value){
+        $('sender_province_sel').value = $('sender_province_code').value;
+        await loadDistricts($('sender_province_code').value, g('shipping.sender_district',''));
+      }
+      if($('sender_district_code').value){
+        $('sender_district_sel').value = $('sender_district_code').value;
+        await loadCommunes($('sender_district_code').value, g('shipping.sender_commune',''));
+      }
+    }catch(e){}
+  })();
+
+  // Save sender handler (upsert names + codes)
+  const btnSave = $('save_sender');
+  if(btnSave && !btnSave.__wired){
+    btnSave.__wired = true;
+    btnSave.addEventListener('click', async (ev)=>{
+      ev.preventDefault();
+      const upserts = (list)=>Promise.all(list.map(([path, value])=>{
+        return Admin.req('/admin/settings/upsert', {method:'POST', body:{path, value}});
+      }));
+      await upserts([
+        ['shipping.sender_name',     $('sender_name').value.trim()],
+        ['shipping.sender_phone',    $('sender_phone').value.trim()],
+        ['shipping.sender_address',  $('sender_address').value.trim()],
+        ['shipping.sender_province', $('sender_province').value.trim()],
+        ['shipping.sender_district', $('sender_district').value.trim()],
+        ['shipping.option_id',       $('option_id').value.trim() || '1'],
+        ['shipping.sender_province_code', $('sender_province_sel').value || $('sender_province_code').value || '' ],
+        ['shipping.sender_district_code', $('sender_district_sel').value || $('sender_district_code').value || '' ],
+        ['shipping.sender_commune_code',  $('sender_commune_sel').value  || $('sender_commune_code').value  || '' ],
+      ]);
+      Admin.toast('Đã lưu người gửi');
+    });
+  }
+});
+</script>
 </script>
 
 </body></html>
