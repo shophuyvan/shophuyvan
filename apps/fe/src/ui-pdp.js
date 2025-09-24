@@ -751,6 +751,7 @@ function openCheckoutModal(){
   shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
   
   // === Area selects (receiver) ===
+  (async ()=>{
   const $ = (sel)=>m.querySelector(sel);
   async function getAreas(path){
     try{ const res = await api.get(path); return res?.items||res||[]; }catch(e){ return []; }
@@ -824,6 +825,8 @@ function openCheckoutModal(){
     await loadWards($('#co-district-code').value, $('#co-ward').value.trim());
   }
   // === end area selects ===
+  })();
+
 m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
   async function refreshShip(){
     try{
