@@ -386,33 +386,36 @@ if(p.startsWith('/products/') && req.method==='GET'){
 if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
 
       // File
-      if(p.startsWith('/file/') && req.method==='GET'){
-        const id = p.split('/').pop();
-        const meta = await getJSON(env, 'file:'+id+':meta', null);
-        const data = await env.SHV.get('file:'+id, 'arrayBuffer');
-        if(!data || !meta) return new Response('not found', {status:404, headers:corsHeaders(req)});
-        return new Response(data, {headers: Object.assign({'Content-Type': (meta&&meta.type)||'application/octet-stream','Cache-Control':'public, max-age=31536000'}, corsHeaders(req))});
-      }
       
-// Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
-      if(p.startsWith('/img/') && req.method==='GET'){
-        const u = new URL(req.url);
+      // Binary file download from KV
+      if (p.startsWith('/file/') && req.method === 'GET') {
         const id = p.split('/').pop();
-        const width = Number(u.searchParams.get('w')||0) || undefined;
-        const quality = Number(u.searchParams.get('q')||0) || undefined;
-        const format = u.searchParams.get('format') || 'auto';
-        const src = 'https://shv-api.shophuyvan.workers.dev/file/' + id;
+        const meta = await getJSON(env, 'file:' + id + ':meta', null);
+        const data = await env.SHV.get('file:' + id, 'arrayBuffer');
+        if (!data || !meta) {
+          return new Response('not found', { status: 404, headers: corsHeaders(req) });
+        }
+        const h = { 'Content-Type': (meta && meta.type) || 'application/octet-stream',
+                    'Cache-Control': 'public, max-age=31536000, immutable' };
+        return new Response(data, { status: 200, headers: Object.assign(h, corsHeaders(req)) });
+      }
+
+      // Responsive image proxy (Cloudflare Image Resizing)
+      if (p.startsWith('/img/') && req.method === 'GET') {
+        const id = p.split('/').pop();
+        const u = new URL(req.url);
+        const width   = Number(u.searchParams.get('w') || 0) || undefined;
+        const quality = Number(u.searchParams.get('q') || 0) || undefined;
+        const format  = u.searchParams.get('format') || 'auto';
+        const src = new URL('/file/' + id, u.origin).toString();
         const r = await fetch(src, { cf: { image: { width, quality, format, fit: 'cover' } } });
         const h = new Headers(r.headers);
-        // strong CDN caching
-        h.set('cache-control','public, max-age=31536000, immutable');
+        h.set('cache-control', 'public, max-age=31536000, immutable');
         corsHeaders(req, h);
         return new Response(r.body, { status: r.status, headers: h });
       }
-    );
-        return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
-      }
-      if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
+
+if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const ct = req.headers.get('content-type')||'';
         if(!ct.startsWith('multipart/form-data')) return json({ok:false,error:'expect multipart'}, {status:400}, req);
