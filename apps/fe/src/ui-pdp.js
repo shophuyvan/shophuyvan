@@ -647,6 +647,21 @@ function openCheckoutModal(){
       <input id="co-province" placeholder="Tỉnh/Thành" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-district" placeholder="Quận/Huyện" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-ward" placeholder="Phường/Xã" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <select id="co-province-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px">
+          <option value="">— Chọn Tỉnh/Thành —</option>
+        </select>
+        <select id="co-district-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" disabled>
+          <option value="">— Chọn Quận/Huyện —</option>
+        </select>
+        <select id="co-ward-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" disabled>
+          <option value="">— Chọn Phường/Xã —</option>
+        </select>
+      </div>
+      <input type="hidden" id="co-province-code" />
+      <input type="hidden" id="co-district-code" />
+      <input type="hidden" id="co-ward-code" />
+
       <textarea id="co-note" placeholder="Để lại lời nhắn cho chúng tôi" style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;min-height:80px"></textarea>
     </div>
 
@@ -734,7 +749,82 @@ function openCheckoutModal(){
   // Shipping quote
   const shipWrap = document.createElement('div');
   shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
-  m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
+  
+  // === Area selects (receiver) ===
+  const $ = (sel)=>m.querySelector(sel);
+  async function getAreas(path){
+    try{ const res = await api.get(path); return res?.items||res||[]; }catch(e){ return []; }
+  }
+  function syncNameAndCode(fromSel, textInput, codeInput){
+    const sel = $(fromSel); if(!sel) return;
+    const opt = sel.options[sel.selectedIndex];
+    if(opt){ $(textInput).value = (opt.text||''); $(codeInput).value = (sel.value||''); }
+  }
+  async function loadProvinces(selectedName=''){
+    const data = await getAreas('/shipping/areas/province');
+    const sel = $('#co-province-sel'); sel.innerHTML='<option value="">— Chọn Tỉnh/Thành —</option>';
+    data.forEach(it=>{
+      const o=document.createElement('option'); o.value=it.code; o.textContent=it.name;
+      if(selectedName && it.name.trim().toLowerCase()===selectedName.trim().toLowerCase()) o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.disabled=false;
+    if(sel.value){ await loadDistricts(sel.value, $('#co-district').value.trim()); }
+    syncNameAndCode('#co-province-sel','#co-province','#co-province-code');
+  }
+  async function loadDistricts(provinceCode, selectedName=''){
+    const data = await getAreas('/shipping/areas/district?province=' + encodeURIComponent(provinceCode||''));
+    const sel = $('#co-district-sel'); sel.innerHTML='<option value="">— Chọn Quận/Huyện —</option>';
+    data.forEach(it=>{
+      const o=document.createElement('option'); o.value=it.code; o.textContent=it.name;
+      if(selectedName && it.name.trim().toLowerCase()===selectedName.trim().toLowerCase()) o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.disabled=!provinceCode;
+    if(sel.value){ await loadWards(sel.value, $('#co-ward').value.trim()); }
+    syncNameAndCode('#co-district-sel','#co-district','#co-district-code');
+  }
+  async function loadWards(districtCode, selectedName=''){
+    const data = await getAreas('/shipping/areas/commune?district=' + encodeURIComponent(districtCode||''));
+    const sel = $('#co-ward-sel'); sel.innerHTML='<option value="">— Chọn Phường/Xã —</option>';
+    data.forEach(it=>{
+      const o=document.createElement('option'); o.value=it.code; o.textContent=it.name;
+      if(selectedName && it.name.trim().toLowerCase()===selectedName.trim().toLowerCase()) o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.disabled=!districtCode;
+    const opt = sel.options[sel.selectedIndex];
+    $('#co-ward-code').value = sel.value||'';
+    if(opt) $('#co-ward').value = opt.text||'';
+  }
+  $('#co-province-sel')?.addEventListener('change', async ()=>{ 
+    syncNameAndCode('#co-province-sel','#co-province','#co-province-code');
+    await loadDistricts($('#co-province-sel').value,'');
+    // trigger ship refresh if needed
+    $('#co-province').dispatchEvent(new Event('change'));
+  });
+  $('#co-district-sel')?.addEventListener('change', async ()=>{ 
+    syncNameAndCode('#co-district-sel','#co-district','#co-district-code');
+    await loadWards($('#co-district-sel').value,'');
+    $('#co-district').dispatchEvent(new Event('change'));
+  });
+  $('#co-ward-sel')?.addEventListener('change', ()=>{ 
+    const opt=$('#co-ward-sel').options[$('#co-ward-sel').selectedIndex];
+    $('#co-ward-code').value = $('#co-ward-sel').value||'';
+    if(opt) $('#co-ward').value=opt.text||'';
+  });
+  // Prefill selects using existing text (if any)
+  await loadProvinces($('#co-province').value.trim());
+  if($('#co-province-code').value){
+    $('#co-province-sel').value = $('#co-province-code').value;
+    await loadDistricts($('#co-province-code').value, $('#co-district').value.trim());
+  }
+  if($('#co-district-code').value){
+    $('#co-district-sel').value = $('#co-district-code').value;
+    await loadWards($('#co-district-code').value, $('#co-ward').value.trim());
+  }
+  // === end area selects ===
+m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
   async function refreshShip(){
     try{
       const prov = (m.querySelector('#co-province')?.value||'').trim();
@@ -782,7 +872,12 @@ function openCheckoutModal(){
       district: m.querySelector('#co-district').value.trim(),
       ward: m.querySelector('#co-ward').value.trim(),
       note: m.querySelector('#co-note').value.trim(),
+    
+      ,province_code: m.querySelector('#co-province-code')?.value||'',
+      district_code: m.querySelector('#co-district-code')?.value||'',
+      ward_code: m.querySelector('#co-ward-code')?.value||''
     };
+
     try{
       // read selected shipping option (if any)
       let sp=null; const sel=m.querySelector('#co-ship-list input[name=ship]:checked');
