@@ -772,6 +772,7 @@ function openCheckoutModal(){
       <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
     </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
 
+  
   m.querySelector('#co-submit').onclick = async ()=>{
     const customer = {
       name: m.querySelector('#co-name').value.trim(),
@@ -782,6 +783,35 @@ function openCheckoutModal(){
       ward: m.querySelector('#co-ward').value.trim(),
       note: m.querySelector('#co-note').value.trim(),
     };
+    try{
+      // read selected shipping option (if any)
+      let sp=null; const sel=m.querySelector('#co-ship-list input[name=ship]:checked');
+      if(sel){ 
+        const parts=(sel.value||'').split(':');
+        const provider=parts[0]||''; const service=(parts[1]||'').trim();
+        const info=sel.closest('label'); 
+        const name=info?.querySelector('div>div')?.textContent?.trim()||null;
+        const eta=(info?.querySelector('div>div+div')?.textContent||'').replace('Thời gian:','').trim();
+        sp={provider, service, name, eta, fee: (shipFee||0)};
+      }
+      const body = { 
+        items: cartItems(), 
+        customer, 
+        totals:{ amount: calcTotal(), ship: (shipFee||0) }, 
+        shipping_fee: (shipFee||0),
+        shipping_name: sp?.name||null,
+        shipping_eta: sp?.eta||null,
+        shipping_provider: sp?.provider||null,
+        shipping_service: sp?.service||null,
+        shipping: { method: (sp? (sp.provider+':'+sp.service) : (chosenShip||'')), fee: (shipFee||0) }, 
+        source:'pdp' 
+      };
+      const r = await api.post('/public/orders/create', body);
+      if(r && r.ok){ setCartItems([]); closeMask('shv-co-mask'); openSuccessModal(r.id, customer); }
+      else { alert('Đặt hàng lỗi'); }
+    }catch(e){ alert('Đặt hàng lỗi: '+e.message); }
+  };
+
     try{
       const body = { items: cartItems(), customer, totals:{ amount: calcTotal(), shipping_fee: shipFee }, shipping: { method: chosenShip, fee: shipFee }, source:'pdp' };
       const r = await api.post('/public/orders/create', body);

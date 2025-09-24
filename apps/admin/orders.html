@@ -338,7 +338,7 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
     <div><b>Địa chỉ:</b> ${(order?.customer?.address||order?.address||'')}</div></div>
     <div class="box"><div class="row"><span>Phí VC:</span><b>${(order?.shipping_fee||0).toLocaleString('vi-VN')}đ</b></div>
     <div class="row"><span>Tổng:</span><b>${(order?.revenue||0).toLocaleString('vi-VN')}đ</b></div></div>
-    <script>window.onload=()=>window.print()</script></body></html>`;
+    <script>window.onload=()=>window.print()<\/script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   }
   // Observe modal content changes to add buttons
