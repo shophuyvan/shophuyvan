@@ -48,7 +48,7 @@
   const FMT = new Intl.NumberFormat('vi-VN');
 function normalizeImg(u){ if(!u) return ''; if(typeof u==='object'&&u.url) u=u.url; u=String(u); u=u.replace(/^https?:\/\/shv-api\.shophuyvan\.workers\.dev\/file\//,'/api/file/'); if(/^[a-f0-9]{16,}$/i.test(u)) u='/api/file/'+u; return u; }
 function toImg(u,w){ u=normalizeImg(u); const m=u.match(/\/api\/file\/(.+)$/); if(m) return '/api/img/'+m[1]+'?w='+w+'&format=auto'; return u; }
-  function slugify(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } }
+  function slugify(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } }
   function nicePrice(p){ const n=Number(String(p).replace(/\D/g,'')); if(!n) return ''; return FMT.format(n)+'₫'; }
   function pickImg(p){
     let img = (Array.isArray(p.images)&&p.images[0]) || (Array.isArray(p.gallery)&&p.gallery[0]) || p.image || '/public/logo.png';
@@ -128,7 +128,7 @@ function normalizeImg(u){ if(!u) return ''; if(typeof u==='object'&&u.url) u=u.u
 function toImg(u,w){ u=normalizeImg(u); const m=u.match(/\/api\/file\/(.+)$/); if(m) return '/api/img/'+m[1]+'?w='+w+'&format=auto'; return u; }
   const $ = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
-  const slugify = s => { try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } };
+  const slugify = s => { try{ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } };
   const num = v => Number(String(v||'').replace(/\D/g,''))||0;
   const productUrl = p => '__BASE_URL__/product/' + (p.slug || p.id || '');
   const pickImg = p => { let img=(Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'/public/logo.png'; if(img&&typeof img==='object'&&img.url) img=img.url; img=String(img||''); img=img.replace(/^https?:\/\/shv-api\.shophuyvan\.workers\.dev\/file\//,'/api/file/'); if(/^[a-f0-9]{16,}$/i.test(img)) img='/api/file/'+img; return img; };

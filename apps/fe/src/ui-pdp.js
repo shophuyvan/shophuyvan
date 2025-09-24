@@ -713,7 +713,7 @@ function openCheckoutModal(){
     "hn":"Hà Nội","ha noi":"Hà Nội","hnoi":"Hà Nội",
     "dn":"Đà Nẵng","da nang":"Đà Nẵng","danang":"Đà Nẵng"
   };
-  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
+  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\[\u0300-\u036f]/g,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
   function provinceCanonical(input){
     let v = String(input||'').trim();
     const n = vnNorm(v);
