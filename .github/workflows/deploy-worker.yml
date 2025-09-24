@@ -1,21 +1,44 @@
+
 name: Deploy Worker
 
 on:
-  workflow_dispatch:
   push:
+    branches: [ main ]
     paths:
       - "workers/shv-api/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Publish with Wrangler
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install (if package.json present)
+        working-directory: workers/shv-api
+        run: |
+          if [ -f package.json ]; then npm ci; fi
+
+      - name: Publish with Wrangler v3
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/shv-api
-          command: deploy
+          # Wrangler will read wrangler.toml inside workingDirectory
+          command: deploy --log-level=info
