@@ -1,8 +1,6 @@
 // SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
-(function(){
-  try{ if(typeof window!=='undefined' && typeof window.populateWards!=='function'){ window.populateWards = function(){}; } }catch(e){}
-  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}try{
+(function(){try{
   var b=document.body||document.documentElement;
   if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
   var id='shv-pdp-hide-header';
@@ -213,8 +211,7 @@ function renderMedia(prefer){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){
-  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
     }
     draw();
   }
@@ -482,87 +479,7 @@ try{
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
-  
-  // Responsive width & form grid
-  try{
-    const card=m.firstElementChild;
-    if(card){
-      card.style.maxWidth = '640px';
-      card.style.width = 'min(92vw, 640px)';
-    }
-  }catch{}
-  
-  // Toolbar: default address actions
-  (function addAddressTools(){
-    const head = m.querySelector('h3');
-    const tools = document.createElement('div');
-    tools.style.display='flex'; tools.style.gap='8px'; tools.style.margin='8px 4px'; tools.style.flexWrap='wrap';
-    tools.innerHTML = `
-      <button id="co-use-default" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Dùng địa chỉ mặc định</button>
-      <button id="co-clear-default" style="border:1px solid #fecaca;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 10px;font-size:12px">Xoá địa chỉ đã lưu</button>
-    `;
-    head && head.parentNode && head.parentNode.insertBefore(tools, head.nextSibling);
-
-    const fill = (o)=>{
-      const set=(sel,val)=>{ const el=m.querySelector(sel); if(el) el.value=val||''; };
-      const o2 = o || {};
-      set('#co-name', o2.name); set('#co-phone', o2.phone); set('#co-addr', o2.addr);
-      set('#co-province', o2.province); set('#co-district', o2.district); set('#co-ward', o2.ward); set('#co-note', o2.note);
-      if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
-    };
-    m.querySelector('#co-use-default')?.addEventListener('click', ()=>{ try{ const o=JSON.parse(localStorage.getItem('shv_addr')||'{}'); fill(o); }catch{ fill({}); } });
-    m.querySelector('#co-clear-default')?.addEventListener('click', ()=>{ try{ localStorage.removeItem('shv_addr'); }catch{}; fill({}); });
-  })();
-const form = m.querySelector('#co-form');
-  const span2 = (el)=>{ if(el) el.style.gridColumn='1 / -1'; };
-  function applyFormLayout(){
-    if(!form) return;
-    const wide = window.matchMedia('(min-width: 480px)').matches;
-    form.style.display='grid';
-    form.style.gridTemplateColumns = wide ? '1fr 1fr' : '1fr';
-    // name/phone side-by-side; address/note full width; province/district side-by-side; ward full
-    span2(m.querySelector('#co-addr'));
-    span2(m.querySelector('#co-note'));
-  }
-  applyFormLayout(); window.addEventListener('resize', applyFormLayout);
-
-  // Province datalist with typeahead
-  (function setupProvinceDatalist(){
-    const inp = m.querySelector('#co-province'); if(!inp) return;
-    const dl = document.createElement('datalist'); dl.id='co-province-list';
-    // Populate with province names and common aliases
-    const seen = new Set();
-    PROVINCES.forEach(p=>{ const opt=document.createElement('option'); opt.value=p; dl.appendChild(opt); seen.add(p); });
-    Object.keys(PROVINCE_ALIASES).forEach(k=>{ const v=PROVINCE_ALIASES[k]; if(!seen.has(v)){ const opt=document.createElement('option'); opt.value=v; dl.appendChild(opt);} });
-    m.appendChild(dl); inp.setAttribute('list','co-province-list');
-    // Normalize on change or blur
-    const canon = ()=>{ inp.value = provinceCanonical(inp.value); if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards(); saveAddrNow(); };
-    inp.addEventListener('change', canon); inp.addEventListener('blur', canon); inp.addEventListener('input', ()=>{/* live save */ saveAddrNow();});
-  })();
-
-  // Simple persistence of last district/ward typed to assist next time
-  const districtEl = m.querySelector('#co-district');
-  const wardEl = m.querySelector('#co-ward');
-  districtEl?.addEventListener('change', ()=>{ const pv=m.querySelector('#co-province')?.value||''; const el=m.querySelector('#co-district'); if(el){ el.value=districtCanonical(el.value, pv); } if (typeof populateWards==='function') populateWards(); saveAddrNow(); });
-  districtEl?.addEventListener('input', ()=>{ saveAddrNow(); });
-  wardEl?.addEventListener('change', saveAddrNow);
-  wardEl?.addEventListener('input', saveAddrNow);
-
-  // Prefill from LocalStorage if any
-  (function prefill(){ try{ if(window.Address&&Address.applyToForm) Address.applyToForm(document);}catch(e){} if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
-    const o = loadSavedAddr();
-    if(Object.keys(o).length){
-      const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
-      set('#co-name', o.name);
-      set('#co-phone', o.phone);
-      set('#co-addr', o.addr);
-      set('#co-province', o.province);
-      set('#co-district', o.district);
-      set('#co-ward', o.ward);
-      set('#co-note', o.note);
-    }
-  })();
-try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 
   // Render variants buttons
   function renderVBtns(active){
@@ -699,94 +616,6 @@ function openCheckoutModal(){
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
-  
-  // ===== Address helpers =====
-  const PROVINCES = [
-  "An Giang","Bà Rịa - Vũng Tàu","Bạc Liêu","Bắc Giang","Bắc Kạn","Bắc Ninh","Bến Tre","Bình Dương","Bình Định","Bình Phước","Bình Thuận",
-  "Cà Mau","Cao Bằng","Cần Thơ","Đà Nẵng","Đắk Lắk","Đắk Nông","Điện Biên","Đồng Nai","Đồng Tháp","Gia Lai","Hà Giang","Hà Nam","Hà Nội","Hà Tĩnh",
-  "Hải Dương","Hải Phòng","Hậu Giang","Hòa Bình","Hưng Yên","Khánh Hòa","Kiên Giang","Kon Tum","Lai Châu","Lạng Sơn","Lào Cai","Lâm Đồng","Long An",
-  "Nam Định","Nghệ An","Ninh Bình","Ninh Thuận","Phú Thọ","Phú Yên","Quảng Bình","Quảng Nam","Quảng Ngãi","Quảng Ninh","Quảng Trị","Sóc Trăng",
-  "Sơn La","Tây Ninh","Thái Bình","Thái Nguyên","Thanh Hóa","Thừa Thiên Huế","Tiền Giang","TP Hồ Chí Minh","Trà Vinh","Tuyên Quang","Vĩnh Long",
-  "Vĩnh Phúc","Yên Bái","Bình Định"
-];
-  const PROVINCE_ALIASES = {
-    "hcm":"TP Hồ Chí Minh","tp hcm":"TP Hồ Chí Minh","tp ho chi minh":"TP Hồ Chí Minh","sai gon":"TP Hồ Chí Minh",
-    "hn":"Hà Nội","ha noi":"Hà Nội","hnoi":"Hà Nội",
-    "dn":"Đà Nẵng","da nang":"Đà Nẵng","danang":"Đà Nẵng"
-  };
-  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\[\u0300-\u036f]/g,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
-  function provinceCanonical(input){
-    let v = String(input||'').trim();
-    const n = vnNorm(v);
-    if(PROVINCE_ALIASES[n]) return PROVINCE_ALIASES[n];
-    // best-effort fuzzy include
-    let best = v;
-    for(const p of PROVINCES){
-      const pn = vnNorm(p);
-      if(pn.includes(n) || n.includes(pn)){ best = p; break; }
-  // District aliases and ward suggestions
-  function districtCanonical(input, province){
-    const raw = String(input||'').trim();
-    const n = vnNorm(raw).replace(/\./g,'').replace(/\s+/g,'');
-    if(province === 'TP Hồ Chí Minh'){
-      const m = n.match(/^q(u?a?n)?(\d{1,2})$/) || n.match(/^q(\d{1,2})$/);
-      if(m){ return 'Quận ' + String(parseInt(m[2]||m[1],10)); }
-    }
-    return raw;
-  }
-  function populateWards(){
-    const dlId = 'co-ward-list';
-    let dl = m.querySelector('#'+dlId);
-    if(!dl){ dl = document.createElement('datalist'); dl.id=dlId; m.appendChild(dl); }
-    dl.innerHTML='';
-    const d = (m.querySelector('#co-district')?.value||'').trim();
-    const nm = d.match(/Quận\s*(\d{1,2})/i);
-    let list = [];
-    if(nm){
-      const max = 25;
-      list = Array.from({length:max}, (_,i)=>'Phường '+(i+1));
-    }else if(/Thủ Đức|Gò Vấp|Tân Bình|Tân Phú|Bình Thạnh|Bình Tân|Phú Nhuận/i.test(d)){
-      list = Array.from({length:20}, (_,i)=>'Phường '+(i+1));
-    }
-    list.forEach(w=>{ const o=document.createElement('option'); o.value=w; dl.appendChild(o); });
-    const wInput = m.querySelector('#co-ward'); if(wInput){ wInput.setAttribute('list', dlId); }
-  }
-
-  const DISTRICTS = {
-    "TP Hồ Chí Minh": ["Quận 1","Quận 3","Quận 4","Quận 5","Quận 6","Quận 7","Quận 8","Quận 10","Quận 11","Quận 12","Bình Thạnh","Gò Vấp","Tân Bình","Tân Phú","Bình Tân","Phú Nhuận","Thủ Đức","Bình Chánh","Hóc Môn","Nhà Bè","Củ Chi","Cần Giờ"],
-    "Hà Nội": ["Ba Đình","Hoàn Kiếm","Đống Đa","Cầu Giấy","Hai Bà Trưng","Hoàng Mai","Tây Hồ","Thanh Xuân","Long Biên","Hà Đông","Gia Lâm","Đông Anh","Nam Từ Liêm","Bắc Từ Liêm","Thanh Trì","Sóc Sơn"],
-    "Đà Nẵng": ["Hải Châu","Thanh Khê","Liên Chiểu","Sơn Trà","Ngũ Hành Sơn","Cẩm Lệ","Hòa Vang"]
-  };
-  function populateDistricts(){
-    const p = provinceCanonical(m.querySelector('#co-province')?.value||'');
-    const dlId = 'co-district-list';
-    let dl = m.querySelector('#'+dlId);
-    if(!dl){ dl = document.createElement('datalist'); dl.id=dlId; m.appendChild(dl); }
-    dl.innerHTML='';
-    const list = DISTRICTS[p] || [];
-    list.forEach(d=>{ const o=document.createElement('option'); o.value=d; dl.appendChild(o); });
-    const dInput = m.querySelector('#co-district'); if(dInput){ dInput.setAttribute('list', dlId); }
-  }
-
-    }
-    return best;
-  }
-  function loadSavedAddr(){
-    try{ return JSON.parse(localStorage.getItem('shv_addr')||'{}'); }catch{return {}}
-  }
-  function saveAddrNow(){
-    const o = {
-      name: m.querySelector('#co-name')?.value||'',
-      phone: m.querySelector('#co-phone')?.value||'',
-      addr: m.querySelector('#co-addr')?.value||'',
-      province: m.querySelector('#co-province')?.value||'',
-      district: m.querySelector('#co-district')?.value||'',
-      ward: m.querySelector('#co-ward')?.value||'',
-      note: m.querySelector('#co-note')?.value||''
-    };
-    try{ localStorage.setItem('shv_addr', JSON.stringify(o)); }catch{}
-  }
-['#co-name','#co-phone','#co-addr','#co-note'].forEach(s=>{ const e=m.querySelector(s); e&&['input','change','blur'].forEach(ev=>e.addEventListener(ev, saveAddrNow)); });
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
@@ -821,7 +650,6 @@ function openCheckoutModal(){
 
   // Totals box (sub, ship, grand)
   (function(){
-  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}
     const totals = document.createElement('div');
     totals.id = 'co-totals';
     totals.innerHTML = `<div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px">
@@ -934,8 +762,7 @@ function openSuccessModal(orderId, customer){
       <a href="/" style="border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none">Đặt lại đơn hàng</a>
       <a href="${zHref}" target="_blank" rel="noopener" style="border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Liên hệ với Shop</a>
     </div>
-    <button onclick="(function(){
-  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+    <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
   // Shipping state
@@ -947,7 +774,6 @@ function openSuccessModal(orderId, customer){
 
 // SHV-CWV: PDP image hints
 (function(){
-  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}
   try{
     const imgs = document.querySelectorAll('img');
     let firstSet = false;
