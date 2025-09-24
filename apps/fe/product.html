@@ -17,6 +17,69 @@
 body.pdp header, body.pdp .topbar, body.pdp .site-header, 
 body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important; }
 </style>
+
+  <!-- SEO-INJECTED -->
+  <link id="canonical" rel="canonical" href="https://shophuyvan1.pages.dev/product.html" />
+  <meta property="og:type" content="product"/>
+  <meta property="og:site_name" content="Shop Huy Vân"/>
+  <script>
+  // canonical from id, if present
+  (function(){
+    try {
+      const u = new URL(window.location.href);
+      const id = u.searchParams.get('id');
+      const can = document.querySelector('link#canonical');
+      if(id){ can.href = 'https://shophuyvan1.pages.dev/product/' + id; }
+    } catch(e){}
+  })();
+  </script>
+  <script id="pdp-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Sản phẩm - Shop Huy Vân",
+    "image": [],
+    "description": "Sản phẩm tại Shop Huy Vân",
+    "brand": {"@type": "Brand","name":"Shop Huy Vân"},
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "VND",
+      "lowPrice": "0",
+      "highPrice": "0",
+      "availability": "https://schema.org/InStock"
+    }
+  }
+  </script>
+  <script>
+  // Nếu client có thông tin sản phẩm toàn diện trong window.PRODUCT, cập nhật JSON-LD + OG
+  (function(){
+    try{
+      const data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      if(!data) return;
+      const j = document.getElementById('pdp-jsonld');
+      const model = {
+        "@context":"https://schema.org","@type":"Product",
+        "name": data.name || data.title || "Sản phẩm",
+        "image": (data.images||data.gallery||[]).map(x => typeof x==='string'? x : x.url).filter(Boolean),
+        "description": data.description || data.desc || "",
+        "sku": data.sku || data.id || "",
+        "brand": {"@type":"Brand","name": (data.brand||'Shop Huy Vân')},
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "VND",
+          "price": String(data.price||data.final_price||data.sale_price||data.original_price||0).replace(/\D/g,''),
+          "availability": (data.stock>0?'https://schema.org/InStock':'https://schema.org/OutOfStock')
+        }
+      };
+      j.textContent = JSON.stringify(model);
+      // OG title/description
+      const ogt = document.createElement('meta'); ogt.setAttribute('property','og:title'); ogt.content = (data.name||'Sản phẩm') + ' • Shop Huy Vân';
+      const ogd = document.createElement('meta'); ogd.setAttribute('property','og:description'); ogd.content = (data.description||'Sản phẩm tại Shop Huy Vân');
+      document.head.appendChild(ogt); document.head.appendChild(ogd);
+    }catch(e){}
+  })();
+  </script>
+
 </head>
 <body class="bg-slate-50 text-gray-900 pdp">
   <header class="border-b bg-white">
