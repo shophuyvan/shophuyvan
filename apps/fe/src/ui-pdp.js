@@ -727,25 +727,3 @@ function openSuccessModal(orderId, customer){
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
 }
-
-// SHV-CWV: PDP image hints
-(function(){
-  try{
-    const imgs = document.querySelectorAll('img');
-    let firstSet = false;
-    imgs.forEach((img)=>{
-      // skip logo in header if any
-      const isHeader = !!img.closest('header');
-      if(!firstSet && !isHeader){
-        img.setAttribute('fetchpriority','high');
-        img.setAttribute('loading','eager');
-        firstSet = true;
-      }else{
-        if(!img.hasAttribute('loading')) img.setAttribute('loading','lazy');
-      }
-      if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
-      if(!img.hasAttribute('width')) img.setAttribute('width','800');
-      if(!img.hasAttribute('height')) img.setAttribute('height','600');
-    });
-  }catch(e){}
-})();

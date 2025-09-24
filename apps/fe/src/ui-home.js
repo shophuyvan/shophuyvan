@@ -96,20 +96,3 @@ function card(p){
   const items = Array.isArray(data?.items)?data.items:[];
   grid.innerHTML = items.map(card).join('');
 })();
-
-
-// SHV-CWV: lazyload & size images in grids
-(function(){
-  try{
-    const imgs = document.querySelectorAll('.grid img, .product-card img, .banner img');
-    imgs.forEach((img, i)=>{
-      if(!img.hasAttribute('loading')) img.setAttribute('loading', i===0 ? 'eager' : 'lazy');
-      if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
-      // default 4:3 placeholder sizes to reduce CLS
-      if(!img.hasAttribute('width')) img.setAttribute('width','800');
-      if(!img.hasAttribute('height')) img.setAttribute('height','600');
-      // mark first visible image as high priority (likely LCP)
-      if(i===0 && !img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority','high');
-    });
-  }catch(e){}
-})();

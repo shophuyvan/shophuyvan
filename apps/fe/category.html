@@ -28,12 +28,6 @@
     .shv-breadcrumb .sep{opacity:.5}
     .shv-breadcrumb .last{color:#111827;font-weight:600}
   </style>
-
-  <!-- SHV-CWV-PRELOADS -->
-  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="low">
-  <link rel="preconnect" href="https://shv-api.shophuyvan.workers.dev" crossorigin>
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-
 </head>
 <body class="bg-slate-50 text-gray-900">
 
@@ -43,11 +37,59 @@
     <span class="last">Đang tải...</span>
   </nav>
 
+  
   <main class="max-w-6xl mx-auto px-3 py-4">
-    <h1 id="cat-title" class="text-2xl font-bold mb-4">Danh mục</h1>
-    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-    <div id="empty" class="hidden text-gray-600">Chưa có sản phẩm trong danh mục này.</div>
+    <div class="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <h1 id="cat-title" class="text-2xl font-bold">Danh mục</h1>
+        <p id="cat-count" class="text-sm text-gray-500 mt-1">Đang tải...</p>
+      </div>
+      <form id="filters" class="w-full md:w-auto bg-white border rounded-xl p-3 flex flex-wrap items-end gap-3">
+        <div class="flex flex-col">
+          <label class="text-xs text-gray-500">Tìm kiếm</label>
+          <input id="f-q" type="search" placeholder="Từ khoá..." class="border rounded-lg px-3 py-1.5 w-48">
+        </div>
+        <div class="flex flex-col">
+          <label class="text-xs text-gray-500">Giá từ</label>
+          <input id="f-min" type="number" min="0" step="1000" placeholder="0" class="border rounded-lg px-3 py-1.5 w-28">
+        </div>
+        <div class="flex flex-col">
+          <label class="text-xs text-gray-500">đến</label>
+          <input id="f-max" type="number" min="0" step="1000" placeholder="∞" class="border rounded-lg px-3 py-1.5 w-28">
+        </div>
+        <label class="inline-flex items-center gap-2">
+          <input id="f-stock" type="checkbox" class="rounded border-gray-300">
+          <span class="text-sm">Còn hàng</span>
+        </label>
+        <div class="flex flex-col">
+          <label class="text-xs text-gray-500">Sắp xếp</label>
+          <select id="f-sort" class="border rounded-lg px-3 py-1.5 w-44">
+            <option value="relevance">Phù hợp</option>
+            <option value="price-asc">Giá thấp → cao</option>
+            <option value="price-desc">Giá cao → thấp</option>
+            <option value="newest">Mới nhất</option>
+            <option value="name">Tên A → Z</option>
+          </select>
+        </div>
+        <div class="flex flex-col">
+          <label class="text-xs text-gray-500">Mỗi trang</label>
+          <select id="f-size" class="border rounded-lg px-3 py-1.5 w-24">
+            <option>12</option>
+            <option selected>24</option>
+            <option>48</option>
+          </select>
+        </div>
+        <button type="submit" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg">Lọc</button>
+        <button type="button" id="f-reset" class="px-3 py-1.5 rounded-lg border">Đặt lại</button>
+      </form>
+    </div>
+
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4"></div>
+    <div id="empty" class="hidden text-gray-600 mt-3">Chưa có sản phẩm phù hợp.</div>
+
+    <nav id="pager" class="flex items-center justify-center gap-2 mt-6"></nav>
   </main>
+
 
   <script type="module">
   // Minimal helpers
@@ -92,7 +134,7 @@
     grid.innerHTML = items.map(p => `
       <a href="${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
         <div class="aspect-[4/3] bg-slate-100">
-          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
+          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" class="w-full h-full object-cover"/>
         </div>
         <div class="p-3">
           <div class="text-sm text-gray-500">${p.category||''}</div>
@@ -126,5 +168,160 @@
     }catch(e){}
   })();
   </script>
+
+  <script type="module">
+  const FMT = new Intl.NumberFormat('vi-VN');
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const slugify = s => { try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } };
+  const num = v => Number(String(v||'').replace(/\D/g,''))||0;
+  const productUrl = p => '__BASE_URL__/product/' + (p.slug || p.id || '');
+  const pickImg = p => { let img=(Array.isArray(p.images)&&p.images[0])||(Array.isArray(p.gallery)&&p.gallery[0])||p.image||'/public/logo.png'; if(img&&typeof img==='object'&&img.url) img=img.url; return img; };
+
+  const path = location.pathname.split('/').filter(Boolean);
+  const slug = (path[0]==='c' && path[1]) ? path[1] : new URLSearchParams(location.search).get('c') || '';
+
+  const qp = new URLSearchParams(location.search);
+  const state = {
+    q: qp.get('q') || '',
+    min: num(qp.get('min')) || '',
+    max: num(qp.get('max')) || '',
+    stock: qp.get('stock') === '1',
+    sort: qp.get('sort') || 'relevance',
+    page: Math.max(1, parseInt(qp.get('page')||'1',10)),
+    size: Math.max(6, parseInt(qp.get('size')||'24',10))
+  };
+
+  $('#f-q').value = state.q;
+  $('#f-min').value = state.min || '';
+  $('#f-max').value = state.max || '';
+  $('#f-stock').checked = state.stock;
+  $('#f-sort').value = state.sort;
+  $('#f-size').value = String(state.size);
+
+  const RES = await fetch('/api/products').then(r=>r.json()).catch(()=>({ok:false,items:[]}));
+  const allItems = (RES.items||[]).filter(p => {
+    const cat = p.category || '';
+    const list = Array.isArray(p.categoryPath) ? p.categoryPath : (typeof p.categoryPath==='string'? p.categoryPath.split('/').map(s=>s.trim()) : []);
+    const arr = [cat, ...list].filter(Boolean);
+    return arr.some(x => slugify(x) === slug);
+  });
+
+  const catName = decodeURIComponent(slug).replace(/-/g,' ').replace(/\b\w/g, m=>m.toUpperCase());
+  $('#cat-title').textContent = catName || 'Danh mục';
+
+  function applyFilters(items){
+    let out = items.slice();
+    if(state.q){
+      const q = state.q.toLowerCase();
+      out = out.filter(p =>
+        String(p.name||'').toLowerCase().includes(q) ||
+        String(p.description||'').toLowerCase().includes(q)
+      );
+    }
+    if(state.min) out = out.filter(p => num(p.price||p.final_price||p.sale_price||p.original_price) >= Number(state.min));
+    if(state.max) out = out.filter(p => num(p.price||p.final_price||p.sale_price||p.original_price) <= Number(state.max));
+    if(state.stock) out = out.filter(p => (p.stock||0) > 0);
+
+    switch(state.sort){
+      case 'price-asc': out.sort((a,b)=> num(a.price||a.final_price||a.sale_price||a.original_price) - num(b.price||b.final_price||b.sale_price||b.original_price)); break;
+      case 'price-desc': out.sort((a,b)=> num(b.price||b.final_price||b.sale_price||b.original_price) - num(a.price||a.final_price||a.sale_price||a.original_price)); break;
+      case 'newest': out.sort((a,b)=> new Date(b.created_at||b.updated_at||0) - new Date(a.created_at||a.updated_at||0)); break;
+      case 'name': out.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''),'vi')); break;
+      default: break;
+    }
+    return out;
+  }
+
+  function render(){
+    const items = applyFilters(allItems);
+    const total = items.length;
+    const pages = Math.max(1, Math.ceil(total / state.size));
+    if(state.page > pages) state.page = pages;
+
+    $('#cat-count').textContent = total ? (total + ' sản phẩm') : '0 sản phẩm';
+
+    const start = (state.page - 1) * state.size;
+    const pageItems = items.slice(start, start + state.size);
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = pageItems.map(p => \`
+      <a href="\${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
+        <div class="aspect-[4/3] bg-slate-100">
+          <img src="\${pickImg(p)}" alt="\${(p.name||'Sản phẩm')}" loading="lazy" decoding="async" width="800" height="600" class="w-full h-full object-cover"/>
+        </div>
+        <div class="p-3">
+          <div class="text-sm text-gray-500">\${p.category||''}</div>
+          <div class="font-medium line-clamp-2">\${p.name||''}</div>
+          <div class="text-rose-600 font-semibold mt-1">\${FMT.format(num(p.price||p.final_price||p.sale_price||p.original_price||0))}₫</div>
+        </div>
+      </a>
+    \`).join('');
+
+    document.getElementById('empty').classList.toggle('hidden', !!pageItems.length);
+
+    const pager = document.getElementById('pager');
+    function pageBtn(n, label = n){
+      const active = n===state.page ? 'bg-slate-900 text-white' : 'bg-white text-slate-900 hover:bg-slate-50';
+      return `<button data-page="\${n}" class="px-3 h-9 rounded-lg border \${active}">\${label}</button>`;
+    }
+    const maxButtons=7;
+    const pagesCount = pages;
+    let first = Math.max(1, state.page - Math.floor(maxButtons/2));
+    let last = Math.min(pagesCount, first + maxButtons - 1);
+    if(last-first+1<maxButtons) first = Math.max(1, last - maxButtons + 1);
+    const nums = [];
+    for(let i=first;i<=last;i++) nums.push(pageBtn(i));
+    pager.innerHTML = (pagesCount>1)
+      ? \`\${pageBtn(Math.max(1, state.page-1), '‹')} \${nums.join('')} \${pageBtn(Math.min(pagesCount, state.page+1), '›')}\`
+      : '';
+
+    pager.querySelectorAll('button[data-page]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.page = Number(btn.dataset.page);
+        pushURL(); render(); window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+  }
+
+  function pushURL(){
+    const u = new URL(location.href);
+    const q = new URLSearchParams(u.search);
+    function setOrDel(k, v){ if(v===undefined || v==='' || v===false) q.delete(k); else q.set(k, String(v)); }
+    setOrDel('q', state.q);
+    setOrDel('min', state.min);
+    setOrDel('max', state.max);
+    setOrDel('stock', state.stock ? 1 : '');
+    setOrDel('sort', state.sort==='relevance' ? '' : state.sort);
+    setOrDel('page', state.page>1 ? state.page : '');
+    setOrDel('size', (state.size!==24) ? state.size : '');
+    history.replaceState(null, '', u.pathname + (q.toString()?('?'+q.toString()):''));
+  }
+
+  document.getElementById('filters').addEventListener('submit', e=>{
+    e.preventDefault();
+    state.q = document.getElementById('f-q').value.trim();
+    state.min = num(document.getElementById('f-min').value);
+    state.max = num(document.getElementById('f-max').value);
+    state.stock = document.getElementById('f-stock').checked;
+    state.sort = document.getElementById('f-sort').value;
+    state.size = parseInt(document.getElementById('f-size').value,10) || 24;
+    state.page = 1; pushURL(); render();
+  });
+  document.getElementById('f-reset').addEventListener('click', ()=>{
+    document.getElementById('f-q').value='';
+    document.getElementById('f-min').value='';
+    document.getElementById('f-max').value='';
+    document.getElementById('f-stock').checked=false;
+    document.getElementById('f-sort').value='relevance';
+    document.getElementById('f-size').value='24';
+    state.q=''; state.min=''; state.max=''; state.stock=false; state.sort='relevance'; state.size=24; state.page=1;
+    pushURL(); render();
+  });
+
+  render();
+  </script>
+
+
 </body>
 </html>
