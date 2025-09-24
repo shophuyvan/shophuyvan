@@ -369,7 +369,7 @@ async function getSettings(){
   try{ const s = await api('/settings'); return s || {}; }catch{}
   return {};
 }
-function cartCount(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]').length }catch{ return 0 } }
+function cartCount(){ try{ return (JSON.parse(localStorage.getItem('CART')||'[]')||[]).reduce((s,it)=>s+(Number(it.qty)||1),0) }catch{ return 0 } }
 function goCart(){ try{ openCartModal(); }catch(e){ /* no-op */ } }
 
 function injectFloatingCart(){
@@ -542,8 +542,15 @@ try{
   function addSelectedToCart(){
     const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
     const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
-    const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title:PRODUCT.title||PRODUCT.name||'', image:(imagesOf(src||PRODUCT)[0]||''), variant:(CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
-    try{ const cart=JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item); localStorage.setItem('CART', JSON.stringify(cart)); }catch(e){}
+    const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title: PRODUCT.title||PRODUCT.name||'', image: imagesOf(src||PRODUCT)[0]||'', variant: (CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
+    try{
+      const cart = JSON.parse(localStorage.getItem('CART')||'[]')||[];
+      const k = keyOfItem(item);
+      const idx = cart.findIndex(x=>keyOfItem(x)===k);
+      if(idx>-1){ cart[idx].qty = (Number(cart[idx].qty)||1) + qty; }
+      else { cart.push(item); }
+      localStorage.setItem('CART', JSON.stringify(consolidateCart(cart)));
+    }catch(e){}
   }
 
   m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); openCartModal(); };
@@ -554,7 +561,23 @@ try{
 }
 
 // Cart modal bottom sheet
-function cartItems(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]'); }catch{ return []; } }
+function cartItems(){ try{ const raw=JSON.parse(localStorage.getItem('CART')||'[]'); const merged=consolidateCart(raw); if(merged.length!==raw.length){ localStorage.setItem('CART', JSON.stringify(merged)); } return merged; }catch{ return []; } }
+
+// SHV_PATCH: consolidate cart items by (id, variant, price)
+function keyOfItem(it){
+  return String(it.id||'')+'|'+String(it.variant||'')+'|'+String(Number(it.price)||0);
+}
+function consolidateCart(arr){
+  try{
+    const map = new Map();
+    for(const it of arr||[]){
+      const k = keyOfItem(it);
+      if(!map.has(k)){ map.set(k, {...it, qty: Number(it.qty)||1}); }
+      else { const o=map.get(k); o.qty = (Number(o.qty)||1) + (Number(it.qty)||1); map.set(k,o); }
+    }
+    return Array.from(map.values());
+  }catch(e){ return arr||[]; }
+}
 function setCartItems(arr){ localStorage.setItem('CART', JSON.stringify(arr)); }
 function calcTotal(){ return cartItems().reduce((s,it)=>s + (Number(it.price)||0)*(Number(it.qty)||1), 0); }
 
@@ -564,7 +587,7 @@ function openCartModal(){
   const html = `
   <div style="width:100%;max-width:560px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:12px 12px 80px 12px;position:relative">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px">
-      <div style="font-weight:800">GIỎ HÀNG (${items.length})</div>
+      <div style="font-weight:800">GIỎ HÀNG (${(items||[]).reduce((s,it)=>s+(Number(it.qty)||1),0)})</div>
       <button id="cm-close" style="border:none;background:transparent;font-size:22px">✕</button>
     </div>
     <div id="cm-list"></div>
