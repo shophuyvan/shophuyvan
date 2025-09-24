@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Shop Huy Vân</title>
   <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
-  <script src="https://cdn.tailwindcss.com"></script>
-  
 <!-- build:16 -->
   <script type="module" src="/src/pixels.js?v=36"></script>
   <script type="module" src="/src/cat-menu.js?v=36"></script>
@@ -45,10 +43,9 @@
 
 
   <!-- SHV-CWV-PRELOADS -->
-  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="low">
+  <link rel="preload" as="image" href="/public/logo.png" imagesrcset="/public/logo.png 1x" fetchpriority="high">
   <link rel="preconnect" href="https://shv-api.shophuyvan.workers.dev" crossorigin>
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-
+  <link rel="stylesheet" href="/public/tailwind.css">
 </head>
 <body class="bg-slate-50 text-gray-900">
   <header class="border-b bg-white sticky top-0 z-40">

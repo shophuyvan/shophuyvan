@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;padding:10px 14px;border-radius:8px;background:#222;color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:9999;opacity:.96}
 .toast.err{background:#b00020}
