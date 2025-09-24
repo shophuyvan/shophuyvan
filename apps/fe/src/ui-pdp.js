@@ -662,8 +662,26 @@ function openCheckoutModal(){
   })();
 
   const total = calcTotal();
-  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>`
+  
+  box.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Thông tin sản phẩm</div>` +
+    cartItems().map(it => {
+      const sub = (Number(it.price||0) * Number(it.qty||1));
+      const vtxt = it.variant ? ` - ${it.variant}` : '';
+      const img = it.image ? `<img src="${it.image}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #eee;background:#f8fafc"/>` : '';
+      return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f3f4f6">
+        ${img}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${it.name||''}${vtxt}</div>
+          <div style="font-size:12px;color:#6b7280">x${Number(it.qty||1)}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div>${(Number(it.price||0)).toLocaleString('vi-VN')}đ</div>
+          <div style="font-size:12px;color:#6b7280">${sub.toLocaleString('vi-VN')}đ</div>
+        </div>
+      </div>`;
+    }).join('');
   // Responsive columns
+
   const formBox = m.querySelector('#co-form');
   function applyCols(){ formBox.style.gridTemplateColumns = (window.innerWidth>=640?'1fr 1fr':'1fr'); }
   applyCols(); window.addEventListener('resize', applyCols);
