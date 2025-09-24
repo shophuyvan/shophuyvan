@@ -1,7 +1,21 @@
 <!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Vận chuyển</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
 </head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
 <div class="grid">
-  <div class="card"><div class="title">Super (Aggregator)</div><input id="super_key" class="input" placeholder="API Super Key"/><button id="save_super" class="btn">Lưu</button></div>
+  <div class="card"><div class="title">Thông tin người gửi</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
+      <input id="sender_name" class="input" placeholder="Tên người gửi">
+      <input id="sender_phone" class="input" placeholder="SĐT người gửi">
+      <input id="sender_province" class="input" placeholder="Tỉnh/Thành (VD: Hồ Chí Minh)">
+      <input id="sender_district" class="input" placeholder="Quận/Huyện (VD: Bình Chánh)">
+      <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
+      <input id="option_id" class="input" placeholder="Option tối ưu (mặc định: 1)">
+    </div>
+    <div style="margin-top:8px">
+      <button id="save_sender" class="btn">Lưu người gửi</button>
+    </div>
+  </div>
+
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
   <div class="card"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
@@ -30,4 +44,50 @@ document.addEventListener('DOMContentLoaded',()=>{
   });}
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  // Load settings
+  (async ()=>{
+    try{
+      const s = await (await fetch(Admin.getApiBase()+'/public/settings')).json();
+      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], s) || d;
+      const set = (id, v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=v||''; };
+      set('super_key', g('shipping.super_key',''));
+      set('super_user', g('shipping.super_user',''));
+      set('super_pass', g('shipping.super_pass',''));
+      set('super_partner', g('shipping.super_partner',''));
+    }catch(e){}
+  })();
+
+  // Save static token
+  const btnTok=document.getElementById('save_super');
+  if(btnTok && !btnTok.__wired){ btnTok.__wired=true; btnTok.addEventListener('click', async ()=>{
+    const v=document.getElementById('super_key')?.value||'';
+    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
+    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:v}});
+    Admin.toast('Đã lưu Super token');
+  });}
+
+  // Save username/password/partner
+  const btnPwd=document.getElementById('save_super_pwd');
+  if(btnPwd && !btnPwd.__wired){ btnPwd.__wired=true; btnPwd.addEventListener('click', async ()=>{
+    const user=document.getElementById('super_user')?.value||'';
+    const pass=document.getElementById('super_pass')?.value||'';
+    const partner=document.getElementById('super_partner')?.value||'';
+    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_user', value:user}});
+    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_pass', value:pass}});
+    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_partner', value:partner}});
+    Admin.toast('Đã lưu tài khoản SuperAI');
+  });}
+
+  // Quick test: call quote with HCM/HCM (dummy 500g) to verify token ok
+  const btnTest=document.getElementById('test_super');
+  if(btnTest && !btnTest.__wired){ btnTest.__wired=true; btnTest.addEventListener('click', async ()=>{
+    const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:500, cod:0 } });
+    alert('Kết quả: '+JSON.stringify(r).slice(0,400));
+  });}
+});
+</script>
+
 </body></html>

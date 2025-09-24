@@ -748,22 +748,196 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
 
       
 
-      // Public shipping quote (weight-based stub; requires key presence)
+      
+      // Public shipping quote (integrated with SuperAI when super_key is present; fallback to stub)
       if(p==='/shipping/quote' && req.method==='GET'){
-        const weight = Number(url.searchParams.get('weight')||0); // grams
-        const to_province = url.searchParams.get('to_province')||'';
-        const to_district = url.searchParams.get('to_district')||'';
-        const s = await getJSON(env,'settings',{})||{}; const key = (s?.shipping?.super_key) || (env && env.SHIPPING_API_KEY) || '';
-        if(!key){ return json({ok:false, error:'missing_key'}, {status:400}, req); }
-        const unit = Math.max(1, Math.ceil(weight/500)); // 500g blocks
+        const u = new URL(req.url);
+        const weight = Number(u.searchParams.get('weight')||0);
+        const to_province = u.searchParams.get('to_province')||'';
+        const to_district = u.searchParams.get('to_district')||'';
+        const cod = Number(u.searchParams.get('cod')||0)||0;
+        const s = await getJSON(env,'settings',{})||{};
+        const superKey = (s?.shipping?.super_key) || (env && env.SHIPPING_API_KEY) || '';
+        async function superQuote(){
+          if(!superKey) return null;
+          const url = 'https://api.mysupership.vn/v1/ai/orders/superai';
+          const body = {
+            receiver: { province: to_province, district: to_district },
+            weight_gram: Math.max(0, Math.round(weight||0)),
+            cod: cod
+          };
+          try{
+            const r = await fetch(url, {
+              method:'POST',
+              headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer '+superKey },
+              body: JSON.stringify(body)
+            });
+            const data = await r.json().catch(()=>null);
+            // Try to normalize various possible shapes
+            let arr = [];
+            function pushOne(x){
+              if(!x||typeof x!=='object') return;
+              const fee = Number(x.fee ?? x.price ?? x.total_fee ?? x.amount ?? 0);
+              const eta = x.eta ?? x.leadtime_text ?? x.leadtime ?? x.expected ?? '';
+              const provider = x.provider ?? x.carrier ?? x.brand ?? x.code ?? 'dvvc';
+              const service_code = x.service_code ?? x.service ?? x.serviceId ?? '';
+              const name = x.name ?? x.service_name ?? x.display ?? 'Dịch vụ';
+              if(fee>0){
+                arr.push({ provider, service_code, name, fee, eta });
+              }
+            }
+            if(Array.isArray(data)) data.forEach(pushOne);
+            if(data && Array.isArray(data.items)) data.items.forEach(pushOne);
+            if(data && Array.isArray(data.services)) data.services.forEach(pushOne);
+            if(data && Array.isArray(data.data)) data.data.forEach(pushOne);
+            if(data && data.result && Array.isArray(data.result)) data.result.forEach(pushOne);
+            if(arr.length) return {ok:true, items:arr};
+            return null;
+          }catch(e){ return null; }
+        }
+        const superRes = await superQuote();
+        if(superRes){ return json(superRes, {}, req); }
+
+        // Fallback (if Super unreachable or no key)
+        const unit = Math.max(1, Math.ceil((weight||0)/500));
         const base = 12000 + unit*3000;
         const items = [
-          { provider:'jt', service_code:'JT-FAST', name:'Giao nhanh', fee: Math.round(base*1.1), eta:'1-2 ngày' },
-          { provider:'spx', service_code:'SPX-REG', name:'Tiêu chuẩn', fee: Math.round(base), eta:'2-3 ngày' },
-          { provider:'ahamove', service_code:'AHA-SAVE', name:'Tiết kiệm', fee: Math.round(base*0.9), eta:'3-5 ngày' }
+          { provider:'jt',  service_code:'JT-FAST',  name:'Giao nhanh',  fee: Math.round(base*1.1), eta:'1-2 ngày' },
+          { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
+          { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
         ];
         return json({ok:true, items, to_province, to_district}, {}, req);
       }
+
+// ---- SuperAI Platform Areas ----
+if(p==='/shipping/areas/province' && req.method==='GET'){
+  const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items}, {}, req);
+}
+if(p==='/shipping/areas/district' && req.method==='GET'){
+  const u=new URL(req.url); const province=u.searchParams.get('province')||'';
+  const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, province}, {}, req);
+}
+if(p==='/shipping/areas/commune' && req.method==='GET'){
+  const u=new URL(req.url); const district=u.searchParams.get('district')||'';
+  const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, district}, {}, req);
+}
+
+// ---- SuperAI Platform Price (requires sender & receiver) ----
+if(p==='/shipping/price' && req.method==='POST'){
+  const body = await req.json().catch(()=>({}));
+  const settings = await getJSON(env,'settings',{})||{};
+  const s = settings.shipping||{};
+  const payload = {
+    sender_province: body.sender_province || s.sender_province || '',
+    sender_district: body.sender_district || s.sender_district || '',
+    receiver_province: body.receiver_province || body.to_province || '',
+    receiver_district: body.receiver_district || body.to_district || '',
+    receiver_commune: body.receiver_commune || body.to_ward || '',
+    weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
+    cod: Number(body.cod||0)||0,
+    length_cm: Number(body.length_cm||0)||0,
+    width_cm: Number(body.width_cm||0)||0,
+    height_cm: Number(body.height_cm||0)||0,
+    option_id: body.option_id || s.option_id || '1'
+  };
+  const data = await superFetch(env, '/v1/platform/orders/price', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  // normalize output
+  const arr = (data?.data && (data.data.items||data.data.rates)) || data?.data || data || [];
+  let items = [];
+  const pushOne = (x)=>{
+    if(!x) return;
+    const fee = Number(x.fee ?? x.price ?? x.total_fee ?? x.amount ?? 0);
+    const eta = x.eta ?? x.leadtime_text ?? x.leadtime ?? '';
+    const provider = x.provider ?? x.carrier ?? x.brand ?? x.code ?? 'dvvc';
+    const service_code = x.service_code ?? x.service ?? x.serviceId ?? '';
+    const name = x.name ?? x.service_name ?? x.display ?? 'Dịch vụ';
+    if(fee>0) items.push({provider, service_code, name, fee, eta});
+  };
+  if(Array.isArray(arr)) arr.forEach(pushOne); else pushOne(arr);
+  return json({ok:true, items, raw:data}, {}, req);
+}
+
+// ---- SuperAI Platform Create Order ----
+if(p==='/admin/shipping/create' && req.method==='POST'){
+  // Admin creates real waybill
+  const body = await req.json().catch(()=>({}));
+  const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{};
+  const order = body.order || {};
+  const ship = body.ship || {};
+  const payload = {
+    // Sender
+    sender_name: s.sender_name || settings.store?.name || 'Shop',
+    sender_phone: s.sender_phone || settings.store?.phone || '',
+    sender_address: s.sender_address || settings.store?.address || '',
+    sender_province: s.sender_province || '',
+    sender_district: s.sender_district || '',
+    // Receiver
+    receiver_name: order.customer?.name || body.to_name || '',
+    receiver_phone: order.customer?.phone || body.to_phone || '',
+    receiver_address: order.customer?.address || body.to_address || '',
+    receiver_province: order.customer?.province || body.to_province || '',
+    receiver_district: order.customer?.district || body.to_district || '',
+    receiver_commune: order.customer?.ward || body.to_commune || '',
+    // Parcel
+    weight_gram: Number(order.weight_gram || body.weight_gram || 0) || 0,
+    cod: Number(order.cod || body.cod || 0) || 0,
+    option_id: s.option_id || '1',
+    // Service selected
+    provider: ship.provider || body.provider || order.shipping_provider || '',
+    service_code: ship.service_code || body.service_code || order.shipping_service || ''
+  };
+  const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const code = data?.data?.code || data?.code || null;
+  const tracking = data?.data?.tracking || data?.tracking || code || null;
+  if(code){
+    await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
+    return json({ok:true, code, tracking}, {}, req);
+  }
+  return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
+}
+
+
+// ---- SuperAI Platform Optimization ----
+if(p==='/shipping/optimization' && req.method==='GET'){
+  const data = await superFetch(env, '/v1/platform/orders/optimization', {method:'GET'});
+  return json({ok:true, data}, {}, req);
+}
+if(p==='/shipping/optimize' && req.method==='POST'){
+  const body = await req.json().catch(()=>({}));
+  const payload = { option_id: String(body.option_id||'1') };
+  const data = await superFetch(env, '/v1/platform/orders/optimize', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  return json({ok: !(data?.error), data}, {}, req);
+}
+
+// ---- Order Info (Platform) ----
+if(p==='/admin/shipping/info' && req.method==='GET'){
+  const u = new URL(req.url); const code = u.searchParams.get('code')||u.searchParams.get('id')||'';
+  const data = await superFetch(env, '/v1/platform/orders/info?code='+encodeURIComponent(code), {method:'GET'});
+  return json({ok: !!data, data}, {}, req);
+}
+
+// ---- SuperAI Platform Label ----
+if(p==='/admin/shipping/label' && req.method==='GET'){
+  const u = new URL(req.url);
+  const code = u.searchParams.get('code') || u.searchParams.get('id') || '';
+  const size = u.searchParams.get('size') || 'S9';
+  // 1) Get print token
+  const tokData = await superFetch(env, '/v1/platform/orders/token', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code })});
+  const printToken = tokData?.data?.token || tokData?.token || '';
+  // 2) Redirect to label URL if token exists
+  if(printToken){
+    const url = 'https://api.mysupership.vn/v1/platform/orders/label?token='+encodeURIComponent(printToken)+'&size='+encodeURIComponent(size);
+    return Response.redirect(url, 302);
+  }
+  return json({ok:false, error:'LABEL_TOKEN_FAILED', raw:tokData}, {}, req);
+}
+
 // Shipping credentials
       if(p==='/admin/shipping/credentials' && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
