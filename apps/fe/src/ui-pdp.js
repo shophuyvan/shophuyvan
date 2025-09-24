@@ -1,6 +1,7 @@
 // SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
 (function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateWards!=='function'){ window.populateWards = function(){}; } }catch(e){}
   try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}try{
   var b=document.body||document.documentElement;
   if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
@@ -507,7 +508,7 @@ try{
       const o2 = o || {};
       set('#co-name', o2.name); set('#co-phone', o2.phone); set('#co-addr', o2.addr);
       set('#co-province', o2.province); set('#co-district', o2.district); set('#co-ward', o2.ward); set('#co-note', o2.note);
-      if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards();
+      if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
     };
     m.querySelector('#co-use-default')?.addEventListener('click', ()=>{ try{ const o=JSON.parse(localStorage.getItem('shv_addr')||'{}'); fill(o); }catch{ fill({}); } });
     m.querySelector('#co-clear-default')?.addEventListener('click', ()=>{ try{ localStorage.removeItem('shv_addr'); }catch{}; fill({}); });
@@ -535,20 +536,20 @@ const form = m.querySelector('#co-form');
     Object.keys(PROVINCE_ALIASES).forEach(k=>{ const v=PROVINCE_ALIASES[k]; if(!seen.has(v)){ const opt=document.createElement('option'); opt.value=v; dl.appendChild(opt);} });
     m.appendChild(dl); inp.setAttribute('list','co-province-list');
     // Normalize on change or blur
-    const canon = ()=>{ inp.value = provinceCanonical(inp.value); if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards(); saveAddrNow(); };
+    const canon = ()=>{ inp.value = provinceCanonical(inp.value); if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards(); saveAddrNow(); };
     inp.addEventListener('change', canon); inp.addEventListener('blur', canon); inp.addEventListener('input', ()=>{/* live save */ saveAddrNow();});
   })();
 
   // Simple persistence of last district/ward typed to assist next time
   const districtEl = m.querySelector('#co-district');
   const wardEl = m.querySelector('#co-ward');
-  districtEl?.addEventListener('change', ()=>{ const pv=m.querySelector('#co-province')?.value||''; const el=m.querySelector('#co-district'); if(el){ el.value=districtCanonical(el.value, pv); } populateWards(); saveAddrNow(); });
+  districtEl?.addEventListener('change', ()=>{ const pv=m.querySelector('#co-province')?.value||''; const el=m.querySelector('#co-district'); if(el){ el.value=districtCanonical(el.value, pv); } if (typeof populateWards==='function') populateWards(); saveAddrNow(); });
   districtEl?.addEventListener('input', ()=>{ saveAddrNow(); });
   wardEl?.addEventListener('change', saveAddrNow);
   wardEl?.addEventListener('input', saveAddrNow);
 
   // Prefill from LocalStorage if any
-  (function prefill(){ if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards();
+  (function prefill(){ if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
     const o = loadSavedAddr();
     if(Object.keys(o).length){
       const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
