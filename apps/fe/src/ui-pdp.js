@@ -854,16 +854,30 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
     }catch(e){/*silent*/}
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
-  /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
- + list.map(it=>`
-    <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
-      <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
-        ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
-      </div>
-      <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
-    </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
+  /*auto_select_ship*/ setTimeout(()=>{ 
+  try{ 
+    const list = m.querySelectorAll('#co-ship-list input[name=ship]');
+    if(list.length){ const r = list[0]; r.checked = true; r.dispatchEvent(new Event('change')); }
+  }catch(e){} 
+}, 200);
+
+// --- render danh sách item + tổng tiền ---
+const itemsHtml = list.map(it => `
+  <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
+    <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+      ${it.variant ? `<div style="font-size:12px;color:#6b7280">${it.variant}</div>` : ''}
+    </div>
+    <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+  </div>
+`).join('');
+
+m.querySelector('#co-items').innerHTML =
+  itemsHtml + `<div style="text-align:right;font-weight:600;margin-top:8px">
+    Tổng: ${total.toLocaleString('vi-VN')}đ
+  </div>`;
+
 
   
   m.querySelector('#co-submit').onclick = async ()=>{
