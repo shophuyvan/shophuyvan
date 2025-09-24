@@ -136,33 +136,51 @@ function renderTitle(){
 
 
 
+
 function renderPriceStock(){
   const el = $('#p-price'); const stockEl = $('#p-stock');
   if(!el && !stockEl) return;
 
   // Compute RANGE across variants if available
   const vsAll = variantsOf(PRODUCT) || [];
-  const vs = vsAll.length ? vsAll.slice(0, 200) : []; // safety cap
+  const vs = vsAll.length ? vsAll.slice(0, 400) : []; // safety cap
   let rendered = false;
 
+  const renderPriceHtml = (minBase, maxBase, minOrig, maxOrig) => {
+    const baseText = (minBase===maxBase) ? formatPrice(minBase) : (formatPrice(minBase)+' - '+formatPrice(maxBase));
+    let html = `<div class="text-rose-600 font-bold text-xl">${baseText}</div>`;
+    if(minOrig && maxOrig && (maxOrig>maxBase || minOrig>minBase)){
+      const origText = (minOrig===maxOrig) ? formatPrice(minOrig) : (formatPrice(minOrig)+' - '+formatPrice(maxOrig));
+      html += `<div class="text-gray-400 line-through text-base mt-1">${origText}</div>`;
+    }
+    return html;
+  };
+
   if(vs.length){
-    const pairs = vs.map(v=>pricePair(v)).filter(p=>p.base>0);
-    if(pairs.length){
-      const min = Math.min(...pairs.map(p=>p.base));
-      const max = Math.max(...pairs.map(p=>p.base));
-      const priceText = (min===max) ? formatPrice(min) : (formatPrice(min)+' - '+formatPrice(max));
-      el && (el.innerHTML = `<div class='text-rose-600 font-bold text-xl'>${priceText}</div>`);
+    const pairs = vs.map(v=>pricePair(v));
+    // base range
+    const baseVals = pairs.map(p=>+p.base||0).filter(v=>v>0);
+    if(baseVals.length){
+      const minBase = Math.min(...baseVals);
+      const maxBase = Math.max(...baseVals);
+
+      // original range (only variants where original>base)
+      const origVals = pairs.map(p=>+p.original||0).filter(v=>v>0);
+      let minOrig=0, maxOrig=0;
+      if(origVals.length){
+        minOrig = Math.min(...origVals);
+        maxOrig = Math.max(...origVals);
+      }
+      el && (el.innerHTML = renderPriceHtml(minBase, maxBase, minOrig, maxOrig));
       rendered = true;
     }
   }
 
-  // Fallback: use product's price (no variants or invalid data)
+  // Fallback: no variants
   if(!rendered){
     const src = CURRENT || PRODUCT || null;
     const {base, original} = pricePair(src||{});
-    if(el){
-      el.innerHTML = `<div class='text-rose-600 font-bold text-xl'>${formatPrice(base||0)}</div>`;
-    }
+    el && (el.innerHTML = renderPriceHtml(+base||0, +base||0, +original||0, +original||0));
   }
 
   // Stock sum across variants
@@ -173,6 +191,7 @@ function renderPriceStock(){
     stockEl.textContent = stk>0 ? ('Còn '+stk) : 'Hết hàng';
   }
 }
+
 
 function renderVariants(){ const box=$('#p-variants'); if(box){ box.innerHTML=''; box.style.display='none'; } }
 
