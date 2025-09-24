@@ -488,7 +488,29 @@ try{
       card.style.width = 'min(92vw, 640px)';
     }
   }catch{}
-  const form = m.querySelector('#co-form');
+  
+  // Toolbar: default address actions
+  (function addAddressTools(){
+    const head = m.querySelector('h3');
+    const tools = document.createElement('div');
+    tools.style.display='flex'; tools.style.gap='8px'; tools.style.margin='8px 4px'; tools.style.flexWrap='wrap';
+    tools.innerHTML = `
+      <button id="co-use-default" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:12px">Dùng địa chỉ mặc định</button>
+      <button id="co-clear-default" style="border:1px solid #fecaca;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:6px 10px;font-size:12px">Xoá địa chỉ đã lưu</button>
+    `;
+    head && head.parentNode && head.parentNode.insertBefore(tools, head.nextSibling);
+
+    const fill = (o)=>{
+      const set=(sel,val)=>{ const el=m.querySelector(sel); if(el) el.value=val||''; };
+      const o2 = o || {};
+      set('#co-name', o2.name); set('#co-phone', o2.phone); set('#co-addr', o2.addr);
+      set('#co-province', o2.province); set('#co-district', o2.district); set('#co-ward', o2.ward); set('#co-note', o2.note);
+      populateDistricts(); populateWards();
+    };
+    m.querySelector('#co-use-default')?.addEventListener('click', ()=>{ try{ const o=JSON.parse(localStorage.getItem('shv_addr')||'{}'); fill(o); }catch{ fill({}); } });
+    m.querySelector('#co-clear-default')?.addEventListener('click', ()=>{ try{ localStorage.removeItem('shv_addr'); }catch{}; fill({}); });
+  })();
+const form = m.querySelector('#co-form');
   const span2 = (el)=>{ if(el) el.style.gridColumn='1 / -1'; };
   function applyFormLayout(){
     if(!form) return;
@@ -511,20 +533,20 @@ try{
     Object.keys(PROVINCE_ALIASES).forEach(k=>{ const v=PROVINCE_ALIASES[k]; if(!seen.has(v)){ const opt=document.createElement('option'); opt.value=v; dl.appendChild(opt);} });
     m.appendChild(dl); inp.setAttribute('list','co-province-list');
     // Normalize on change or blur
-    const canon = ()=>{ inp.value = provinceCanonical(inp.value); populateDistricts(); saveAddrNow(); };
+    const canon = ()=>{ inp.value = provinceCanonical(inp.value); populateDistricts(); populateWards(); saveAddrNow(); };
     inp.addEventListener('change', canon); inp.addEventListener('blur', canon); inp.addEventListener('input', ()=>{/* live save */ saveAddrNow();});
   })();
 
   // Simple persistence of last district/ward typed to assist next time
   const districtEl = m.querySelector('#co-district');
   const wardEl = m.querySelector('#co-ward');
-  districtEl?.addEventListener('change', saveAddrNow);
-  districtEl?.addEventListener('input', saveAddrNow);
+  districtEl?.addEventListener('change', ()=>{ const pv=m.querySelector('#co-province')?.value||''; const el=m.querySelector('#co-district'); if(el){ el.value=districtCanonical(el.value, pv); } populateWards(); saveAddrNow(); });
+  districtEl?.addEventListener('input', ()=>{ saveAddrNow(); });
   wardEl?.addEventListener('change', saveAddrNow);
   wardEl?.addEventListener('input', saveAddrNow);
 
   // Prefill from LocalStorage if any
-  (function prefill(){ populateDistricts();
+  (function prefill(){ populateDistricts(); populateWards();
     const o = loadSavedAddr();
     if(Object.keys(o).length){
       const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
@@ -699,6 +721,34 @@ function openCheckoutModal(){
     for(const p of PROVINCES){
       const pn = vnNorm(p);
       if(pn.includes(n) || n.includes(pn)){ best = p; break; }
+  // District aliases and ward suggestions
+  function districtCanonical(input, province){
+    const raw = String(input||'').trim();
+    const n = vnNorm(raw).replace(/\./g,'').replace(/\s+/g,'');
+    if(province === 'TP Hồ Chí Minh'){
+      const m = n.match(/^q(u?a?n)?(\d{1,2})$/) || n.match(/^q(\d{1,2})$/);
+      if(m){ return 'Quận ' + String(parseInt(m[2]||m[1],10)); }
+    }
+    return raw;
+  }
+  function populateWards(){
+    const dlId = 'co-ward-list';
+    let dl = m.querySelector('#'+dlId);
+    if(!dl){ dl = document.createElement('datalist'); dl.id=dlId; m.appendChild(dl); }
+    dl.innerHTML='';
+    const d = (m.querySelector('#co-district')?.value||'').trim();
+    const nm = d.match(/Quận\s*(\d{1,2})/i);
+    let list = [];
+    if(nm){
+      const max = 25;
+      list = Array.from({length:max}, (_,i)=>'Phường '+(i+1));
+    }else if(/Thủ Đức|Gò Vấp|Tân Bình|Tân Phú|Bình Thạnh|Bình Tân|Phú Nhuận/i.test(d)){
+      list = Array.from({length:20}, (_,i)=>'Phường '+(i+1));
+    }
+    list.forEach(w=>{ const o=document.createElement('option'); o.value=w; dl.appendChild(o); });
+    const wInput = m.querySelector('#co-ward'); if(wInput){ wInput.setAttribute('list', dlId); }
+  }
+
   const DISTRICTS = {
     "TP Hồ Chí Minh": ["Quận 1","Quận 3","Quận 4","Quận 5","Quận 6","Quận 7","Quận 8","Quận 10","Quận 11","Quận 12","Bình Thạnh","Gò Vấp","Tân Bình","Tân Phú","Bình Tân","Phú Nhuận","Thủ Đức","Bình Chánh","Hóc Môn","Nhà Bè","Củ Chi","Cần Giờ"],
     "Hà Nội": ["Ba Đình","Hoàn Kiếm","Đống Đa","Cầu Giấy","Hai Bà Trưng","Hoàng Mai","Tây Hồ","Thanh Xuân","Long Biên","Hà Đông","Gia Lâm","Đông Anh","Nam Từ Liêm","Bắc Từ Liêm","Thanh Trì","Sóc Sơn"],
