@@ -89,7 +89,7 @@ async function load(){
       tr.innerHTML = `<td class="px-4 py-2">${p.name||''}</td><td class="px-4 py-2">${p.qty||0}</td><td class="px-4 py-2">${fmt(p.revenue||0)}</td>`;
       tb.appendChild(tr);
     });}
-  }
+  };
   document.getElementById('gran')?.addEventListener('change', load);
   document.getElementById('apply')?.addEventListener('click', load);
   document.getElementById('from')?.addEventListener('change', ()=>{ document.getElementById('gran').value='custom'; });
