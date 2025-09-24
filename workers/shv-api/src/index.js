@@ -969,10 +969,11 @@ if(p==='/shipping/optimization' && req.method==='GET'){
 }
 if(p==='/shipping/optimize' && req.method==='POST'){
   try{
-  const body = await req.json().catch(()=>({}));
+const body = await req.json().catch(()=>({}));
   const payload = { option_id: String(body.option_id||'1') };
   const data = await superFetch(env, '/v1/platform/orders/optimize', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
   return json({ok: !(data?.error), data}, {}, req);
+  }catch(e){ return json({ok:false, error:String(e && e.message || e || 'UNKNOWN')}, {}, req); }
 }
 
 // ---- Order Info (Platform) ----
