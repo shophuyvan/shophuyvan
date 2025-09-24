@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin/
 Disallow: /admin_login.html
 
-Sitemap: https://shophuyvan1.pages.dev/sitemap.xml
+Sitemap: __BASE_URL__/sitemap.xml

@@ -19,7 +19,7 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 </style>
 
   <!-- SEO-INJECTED -->
-  <link id="canonical" rel="canonical" href="https://shophuyvan1.pages.dev/product.html" />
+  <link id="canonical" rel="canonical" href="__BASE_URL__/product.html" />
   <meta property="og:type" content="product"/>
   <meta property="og:site_name" content="Shop Huy Vân"/>
   <script>
@@ -29,7 +29,7 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
       const u = new URL(window.location.href);
       const id = u.searchParams.get('id');
       const can = document.querySelector('link#canonical');
-      if(id){ can.href = 'https://shophuyvan1.pages.dev/product/' + id; }
+      if(id){ can.href = '__BASE_URL__/product/' + id; }
     } catch(e){}
   })();
   </script>
@@ -76,6 +76,59 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
       const ogt = document.createElement('meta'); ogt.setAttribute('property','og:title'); ogt.content = (data.name||'Sản phẩm') + ' • Shop Huy Vân';
       const ogd = document.createElement('meta'); ogd.setAttribute('property','og:description'); ogd.content = (data.description||'Sản phẩm tại Shop Huy Vân');
       document.head.appendChild(ogt); document.head.appendChild(ogd);
+    }catch(e){}
+  })();
+  </script>
+
+
+  <script id="pdp-breadcrumb-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Trang chủ",
+        "item": "__BASE_URL__/"
+      }
+    ]
+  }
+  </script>
+  <script>
+  // Build breadcrumb JSON-LD from product category/categoryPath
+  (function(){
+    try{
+      var data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      if(!data) return;
+      var cats = [];
+      if (Array.isArray(data.categoryPath)) {
+        cats = data.categoryPath.filter(Boolean);
+      } else if (typeof data.categoryPath === 'string') {
+        cats = data.categoryPath.split('/').map(s => s.trim()).filter(Boolean);
+      } else if (Array.isArray(data.categories)) {
+        cats = data.categories.filter(Boolean);
+      } else if (typeof data.category === 'string') {
+        cats = [data.category];
+      }
+      var items = [
+        { "@type":"ListItem", "position":1, "name":"Trang chủ", "item": __BASE_URL__ + "/" }
+      ];
+      var pathAccum = "";
+      cats.forEach(function(cat, i){
+        // slugify
+        var slug = String(cat).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+        pathAccum += ("/c/" + slug);
+        items.push({ "@type":"ListItem", "position": i+2, "name": cat, "item": __BASE_URL__ + pathAccum });
+      });
+      var prodName = (data.name || data.title || "Sản phẩm");
+      var prodId = (data.id || "").toString().trim();
+      var prodUrl = prodId ? (__BASE_URL__ + "/product/" + prodId) : (typeof location!=='undefined' ? location.href : (__BASE_URL__ + "/product.html"));
+      items.push({ "@type":"ListItem", "position": items.length+1, "name": prodName, "item": prodUrl });
+
+      var el = document.getElementById('pdp-breadcrumb-jsonld');
+      var jsonld = { "@context":"https://schema.org", "@type":"BreadcrumbList", "itemListElement": items };
+      el.textContent = JSON.stringify(jsonld);
     }catch(e){}
   })();
   </script>
