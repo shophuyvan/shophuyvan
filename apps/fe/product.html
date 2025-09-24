@@ -176,6 +176,61 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 
 </head>
 <body class="bg-slate-50 text-gray-900 pdp">
+  <!-- SHV BREADCRUMB UI -->
+  <style>
+    .shv-breadcrumb{font-size:14px;color:#4b5563;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px auto;max-width:1200px;padding:0 12px}
+    .shv-breadcrumb a{color:#2563eb;text-decoration:none}
+    .shv-breadcrumb a:hover{text-decoration:underline}
+    .shv-breadcrumb .sep{opacity:.5}
+    .shv-breadcrumb .last{color:#111827;font-weight:600}
+  </style>
+  <nav class="shv-breadcrumb" aria-label="breadcrumb" id="shv-bc">
+    <a href="__BASE_URL__/">Trang chủ</a>
+    <span class="sep">›</span>
+    <span class="last">Đang tải...</span>
+  </nav>
+  <script>
+  // Render breadcrumb UI from product data
+  (function(){
+    try{
+      var data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      var el = document.getElementById('shv-bc');
+      if(!el) return;
+      var items = [];
+      function addLink(href, label){
+        items.push('<a href="'+href+'">'+label+'</a>');
+      }
+      function addText(label){
+        items.push('<span class="last">'+label+'</span>');
+      }
+      // categories
+      var cats = [];
+      if (data){
+        if (Array.isArray(data.categoryPath)) cats = data.categoryPath.filter(Boolean);
+        else if (typeof data.categoryPath==='string') cats = data.categoryPath.split('/').map(s=>s.trim()).filter(Boolean);
+        else if (Array.isArray(data.categories)) cats = data.categories.filter(Boolean);
+        else if (typeof data.category==='string') cats = [data.category];
+      }
+      // Start with home link already in HTML; rebuild full content:
+      var html = [];
+      html.push('<a href="__BASE_URL__/">Trang chủ</a>');
+      var accum = '';
+      function slugify(s){
+        try{ return String(s).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+      }
+      cats.forEach(function(cat){
+        html.push('<span class="sep">›</span>');
+        accum += '/c/' + slugify(cat);
+        html.push('<a href="'+ '__BASE_URL__' + accum +'">'+ cat +'</a>');
+      });
+      var name = (data && (data.name||data.title)) || 'Sản phẩm';
+      html.push('<span class="sep">›</span>');
+      html.push('<span class="last">'+ name +'</span>');
+      el.innerHTML = html.join(' ');
+    }catch(e){}
+  })();
+  </script>
+
   <header class="border-b bg-white">
     <div class="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 gap-4 items-center">
       <a href="/" class="font-semibold text-lg">SHOP HUY VÂN</a>
