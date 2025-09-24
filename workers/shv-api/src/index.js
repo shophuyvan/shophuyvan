@@ -390,7 +390,17 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
         const data = await env.SHV.get('file:'+id, 'arrayBuffer');
-        if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)}
+        if(!data || !meta){
+          return new Response('not found',{status:404, headers: corsHeaders(req)});
+        }
+        const mime = (meta && meta.mime) ? meta.mime : 'application/octet-stream';
+        const h = new Headers({'content-type': mime});
+        // strong CDN caching
+        h.set('cache-control','public, max-age=31536000, immutable');
+        corsHeaders(req, h);
+        return new Response(data, { status: 200, headers: h });
+      }
+
       // Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
       if(p.startsWith('/img/') && req.method==='GET'){
         const u = new URL(req.url);
@@ -406,7 +416,6 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         corsHeaders(req, h);
         return new Response(r.body, { status: r.status, headers: h });
       }
-    );
         return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
       }
       if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
