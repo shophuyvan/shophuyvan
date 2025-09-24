@@ -1,2 +1,4 @@
+/c/* /category.html 200
+/product/* /product.html 200
 /api/* https://shv-api.shophuyvan.workers.dev/:splat 200
 /* /index.html 200

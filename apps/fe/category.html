@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Danh mục • Shop Huy Vân</title>
+  <meta name="description" content="Danh mục sản phẩm tại Shop Huy Vân" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- SEO-INJECTED: canonical & JSON-LD (updated by script) -->
+  <link id="canonical" rel="canonical" href="__BASE_URL__/c" />
+  <script id="category-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Danh mục",
+    "url": "__BASE_URL__/c",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": []
+    }
+  }
+  </script>
+  <style>
+    .shv-breadcrumb{font-size:14px;color:#4b5563;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px auto;max-width:1200px;padding:0 12px}
+    .shv-breadcrumb a{color:#2563eb;text-decoration:none}
+    .shv-breadcrumb a:hover{text-decoration:underline}
+    .shv-breadcrumb .sep{opacity:.5}
+    .shv-breadcrumb .last{color:#111827;font-weight:600}
+  </style>
+</head>
+<body class="bg-slate-50 text-gray-900">
+
+  <nav class="shv-breadcrumb" aria-label="breadcrumb" id="shv-bc">
+    <a href="__BASE_URL__/">Trang chủ</a>
+    <span class="sep">›</span>
+    <span class="last">Đang tải...</span>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-3 py-4">
+    <h1 id="cat-title" class="text-2xl font-bold mb-4">Danh mục</h1>
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    <div id="empty" class="hidden text-gray-600">Chưa có sản phẩm trong danh mục này.</div>
+  </main>
+
+  <script type="module">
+  // Minimal helpers
+  const FMT = new Intl.NumberFormat('vi-VN');
+  function slugify(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); } }
+  function nicePrice(p){ const n=Number(String(p).replace(/\D/g,'')); if(!n) return ''; return FMT.format(n)+'₫'; }
+  function pickImg(p){
+    let img = (Array.isArray(p.images)&&p.images[0]) || (Array.isArray(p.gallery)&&p.gallery[0]) || p.image || '/public/logo.png';
+    if (img && typeof img === 'object' && img.url) img = img.url;
+    return img;
+  }
+  function productUrl(p){ return '__BASE_URL__/product/' + (p.slug || p.id || ''); }
+
+  // Get slug from pathname /c/:slug
+  const path = location.pathname.split('/').filter(Boolean);
+  const slug = (path[0]==='c' && path[1]) ? path[1] : new URLSearchParams(location.search).get('c') || '';
+  const catName = decodeURIComponent(slug).replace(/-/g,' ').replace(/\b\w/g, m=>m.toUpperCase());
+
+  // Update head
+  document.title = (catName ? ('Danh mục ' + catName) : 'Danh mục') + ' • Shop Huy Vân';
+  const can = document.querySelector('#canonical'); if (can) can.href = '__BASE_URL__/c/' + slug;
+  document.querySelector('#cat-title').textContent = catName || 'Danh mục';
+
+  // Breadcrumb UI
+  const bc = document.getElementById('shv-bc');
+  bc.innerHTML = '<a href="__BASE_URL__/">Trang chủ</a> <span class="sep">›</span> <span class="last">'+ (catName||'Danh mục') +'</span>';
+
+  // Fetch products (public)
+  const RES = await fetch('/api/products').then(r=>r.json()).catch(()=>({ok:false,items:[]}));
+  const items = (RES.items||[]).filter(p => {
+    const cat = p.category || '';
+    const list = Array.isArray(p.categoryPath) ? p.categoryPath : (typeof p.categoryPath==='string'? p.categoryPath.split('/').map(s=>s.trim()) : []);
+    const arr = [cat, ...list].filter(Boolean);
+    return arr.some(x => slugify(x) === slug);
+  });
+
+  // Render
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  if(!items.length){ empty.classList.remove('hidden'); }
+  else{
+    grid.innerHTML = items.map(p => `
+      <a href="${productUrl(p)}" class="block bg-white rounded-xl border hover:shadow-sm transition overflow-hidden">
+        <div class="aspect-[4/3] bg-slate-100">
+          <img src="${pickImg(p)}" alt="${(p.name||'Sản phẩm')}" class="w-full h-full object-cover"/>
+        </div>
+        <div class="p-3">
+          <div class="text-sm text-gray-500">${p.category||''}</div>
+          <div class="font-medium line-clamp-2">${p.name||''}</div>
+          <div class="text-rose-600 font-semibold mt-1">${nicePrice(p.price||p.final_price||p.sale_price||p.original_price||0)}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  // JSON-LD CollectionPage
+  (function(){
+    try{
+      const el = document.getElementById('category-jsonld');
+      const data = {
+        "@context":"https://schema.org",
+        "@type":"CollectionPage",
+        "name": catName ? ("Danh mục " + catName) : "Danh mục",
+        "url": "__BASE_URL__/c/" + slug,
+        "mainEntity": {
+          "@type": "ItemList",
+          "itemListElement": items.slice(0,100).map((p,i)=>({
+            "@type":"ListItem",
+            "position": i+1,
+            "url": productUrl(p),
+            "name": p.name || "Sản phẩm"
+          }))
+        }
+      };
+      el.textContent = JSON.stringify(data);
+    }catch(e){}
+  })();
+  </script>
+</body>
+</html>

@@ -50,6 +50,7 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
+        category:  resolve(__dirname, 'category.html'),
         index:    resolve(__dirname, 'index.html'),
         product:  resolve(__dirname, 'product.html'),
         cart:     resolve(__dirname, 'cart.html'),
