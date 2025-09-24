@@ -416,21 +416,25 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         corsHeaders(req, h);
         return new Response(r.body, { status: r.status, headers: h });
       }
-        return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
-      }
+
       if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
-        const ct = req.headers.get('content-type')||'';
-        if(!ct.startsWith('multipart/form-data')) return json({ok:false,error:'expect multipart'}, {status:400}, req);
+        const ct = req.headers.get('content-type') || '';
+        if(!ct.toLowerCase().startsWith('multipart/form-data')){
+          return json({ok:false, error:'content-type'}, {status:400}, req);
+        }
         const form = await req.formData();
-        const files = []; for(const [k,v] of form.entries()){ if(v && typeof v==='object' && 'arrayBuffer' in v){ files.push(v); } }
+        const files = [];
+        for (const [, v] of form.entries()){
+          if (v && typeof v === 'object' && 'arrayBuffer' in v) files.push(v);
+        }
         const urls = [];
-        for(const f of files){
+        for (const f of files){
           const id = crypto.randomUUID().replace(/-/g,'');
           const buf = await f.arrayBuffer();
           await env.SHV.put('file:'+id, buf);
-          await env.SHV.put('file:'+id+':meta', JSON.stringify({name:f.name, type:f.type, size:f.size}));
-          urls.push(url.origin+'/file/'+id);
+          await env.SHV.put('file:'+id+':meta', JSON.stringify({mime:f.type, name:f.name, size:f.size}));
+          urls.push(url.origin + '/file/' + id);
         }
         return json({ok:true, urls}, {}, req);
       }
