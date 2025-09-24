@@ -1,6 +1,22 @@
 // SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
 (function(){try{
+// SHV_PATCH: responsive width for checkout modal
+(function(){
+  try{
+    const id='shv-co-responsive-style';
+    if(!document.getElementById(id)){
+      const st=document.createElement('style');
+      st.id=id;
+      st.textContent = `
+        #shv-co-mask .co-modal{ width: calc(100vw - 24px); max-width:560px; }
+        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 40px); max-width:600px; } }
+        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 48px); max-width:640px; } }
+      `;
+      (document.head||document.documentElement).appendChild(st);
+    }
+  }catch(e){}
+})();
   var b=document.body||document.documentElement;
   if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
   var id='shv-pdp-hide-header';
@@ -588,7 +604,7 @@ function openCartModal(){
 function openCheckoutModal(){
   const m = mkMask('shv-co-mask');
   const html = `
-  <div style="width:100%;max-width:640px;max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:14px 14px 80px 14px;position:relative">
+  <div class="co-modal" style="max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:14px 14px 80px 14px;position:relative">
     <div style="display:flex;align-items:center;gap:6px;padding-bottom:10px">
       <button id="co-back" style="border:none;background:transparent;font-size:22px">←</button>
       <div style="font-weight:800">HOÀN TẤT ĐƠN HÀNG</div>
