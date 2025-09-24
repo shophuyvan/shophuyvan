@@ -562,6 +562,8 @@ if(p==='/public/orders/create' && req.method==='POST'){
         const profit = items.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (discount||0);
         const order = { id, createdAt, status, customer, items,
           shipping_fee, discount, shipping_discount, subtotal, revenue, profit,
+          shipping_name: body.shipping_name||null, shipping_eta: body.shipping_eta||null,
+          shipping_provider: body.shipping_provider||null, shipping_service: body.shipping_service||null,
           note: body.note||'', source: body.source||'fe' };
         await putJSON(env, 'order:'+id, order);
         const list = await getJSON(env,'orders:list',[])||[];
@@ -751,7 +753,7 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         const weight = Number(url.searchParams.get('weight')||0); // grams
         const to_province = url.searchParams.get('to_province')||'';
         const to_district = url.searchParams.get('to_district')||'';
-        const key = (env && env.SHIPPING_API_KEY) || 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
+        const s = await getJSON(env,'settings',{})||{}; const key = (s?.shipping?.super_key) || (env && env.SHIPPING_API_KEY) || '';
         if(!key){ return json({ok:false, error:'missing_key'}, {status:400}, req); }
         const unit = Math.max(1, Math.ceil(weight/500)); // 500g blocks
         const base = 12000 + unit*3000;

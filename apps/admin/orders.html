@@ -321,5 +321,62 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
   document.getElementById('modal-detail')?.addEventListener('click', (e)=>{ if(e.target.id==='modal-detail') e.currentTarget.style.display='none'; });
 })();
 </script>
+
+<script>
+// --- Inject shipping actions on order detail modal ---
+(function(){
+  function openPrint(order, tracking){
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vận đơn</title>
+    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',sans-serif;padding:16px}
+    .box{border:1px dashed #444;padding:12px;margin-bottom:12px}
+    .row{display:flex;justify-content:space-between}</style></head><body>
+    <h2>Vận đơn - ${order?.shipping_name||order?.shipping_provider||''}</h2>
+    <div class="box"><div><b>Tracking:</b> ${tracking||order?.tracking||''}</div>
+    <div><b>Đơn hàng:</b> ${order?.id||''}</div>
+    <div><b>Khách:</b> ${(order?.customer?.name||order?.customer_name||order?.name||'')}</div>
+    <div><b>ĐT:</b> ${(order?.customer?.phone||order?.phone||'')}</div>
+    <div><b>Địa chỉ:</b> ${(order?.customer?.address||order?.address||'')}</div></div>
+    <div class="box"><div class="row"><span>Phí VC:</span><b>${(order?.shipping_fee||0).toLocaleString('vi-VN')}đ</b></div>
+    <div class="row"><span>Tổng:</span><b>${(order?.revenue||0).toLocaleString('vi-VN')}đ</b></div></div>
+    <script>window.onload=()=>window.print()</script></body></html>`;
+    const w = window.open('', '_blank'); w.document.write(html); w.document.close();
+  }
+  // Observe modal content changes to add buttons
+  const modal = document.getElementById('modal-detail');
+  const container = modal;
+  const obs = new MutationObserver(()=>{
+    const btnBarId='ship-actions';
+    if(document.getElementById(btnBarId)) return;
+    const panel = modal.querySelector('.card'); if(!panel) return;
+    const bar = document.createElement('div'); bar.id=btnBarId; bar.className='toolbar';
+    bar.innerHTML = '<button id="btn-create-waybill" class="btn">Tạo vận đơn</button><button id="btn-print-waybill" class="btn">In vận đơn</button>';
+    panel.parentElement.insertBefore(bar, panel);
+    const idEl = panel.closest('#modal-content') || document;
+    const nameEl = panel.querySelector('b')||{};
+    // Wire buttons
+    const btnC = document.getElementById('btn-create-waybill');
+    const btnP = document.getElementById('btn-print-waybill');
+    btnC.onclick = async ()=>{
+      try{
+        // Need order data -> fetch by ID stored in dataset on the modal (fallback: list API then find)
+        const list = await Admin.req('/admin/orders',{method:'GET'});
+        const items=(list&&list.items)||[]; const idTxt = modal.querySelector('.card b')?.textContent||'';
+        const id = (modal._currentId)|| (items[0]&&items[0].id); // best-effort fallback
+        const idx = items.findIndex(o=>(o.id||'').endsWith(id?.slice(-6)));
+        const o = idx>=0? items[idx] : items[0];
+        const r = await Admin.req('/admin/shipping/create',{method:'POST', body:{ order_id:o.id, provider:(o.shipping_provider||'stub'), service_code:(o.shipping_service||''), to_address:o.customer?.address||o.address||'', to_name:o.customer?.name||o.customer_name||o.name||'', to_phone:o.customer?.phone||o.phone||'', fee:o.shipping_fee||0 }});
+        if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking); }
+        else{ Admin.toast('Tạo vận đơn thất bại'); }
+      }catch(e){ Admin.toast('Lỗi tạo vận đơn'); }
+    };
+    btnP.onclick = async ()=>{
+      const list = await Admin.req('/admin/orders',{method:'GET'});
+      const o = (list&&list.items&&list.items[0])||null;
+      openPrint(o, '');
+    };
+  });
+  obs.observe(container, { childList:true, subtree:true });
+})();
+</script>
 </body>
 </html>

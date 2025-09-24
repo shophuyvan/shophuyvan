@@ -42,7 +42,7 @@ quoteBtn?.addEventListener('click', async () => {
     </label>
   `).join('');
   quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
-    const [provider, service_code] = (r.value||'').split(':');
+    const [provider, service_code] = (r.value||'').split(':'); localStorage.setItem('ship_provider', provider); localStorage.setItem('ship_service', service_code);
     const fee = parseInt(r.dataset.fee||'0',10);
     const eta = r.dataset.eta||'';
     const name = r.dataset.name||'';
@@ -143,7 +143,9 @@ orderBtn?.addEventListener('click', async () => {
       voucher_code,
       shipping_fee: ship_fee,
       shipping_name: chosen?.name ?? localStorage.getItem('ship_name') || null,
-      shipping_eta: chosen?.eta ?? localStorage.getItem('ship_eta') || null
+      shipping_eta: chosen?.eta ?? localStorage.getItem('ship_eta') || null,
+      shipping_provider: chosen?.provider || localStorage.getItem('ship_provider') || null,
+      shipping_service: chosen?.service_code || localStorage.getItem('ship_service') || null
     };
     const res = await api('/public/orders/create', { method:'POST', body });
     if(res && res.orderId){
