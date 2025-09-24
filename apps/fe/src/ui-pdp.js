@@ -549,7 +549,7 @@ const form = m.querySelector('#co-form');
   wardEl?.addEventListener('input', saveAddrNow);
 
   // Prefill from LocalStorage if any
-  (function prefill(){ if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
+  (function prefill(){ try{ if(window.Address&&Address.applyToForm) Address.applyToForm(document);}catch(e){} if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); if (typeof populateWards==='function') populateWards();
     const o = loadSavedAddr();
     if(Object.keys(o).length){
       const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
