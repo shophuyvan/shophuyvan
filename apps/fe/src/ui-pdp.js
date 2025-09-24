@@ -512,7 +512,7 @@ try{
       const {base}=pricePair(v); const img = imagesOf(v)[0]||'';
       const name = (v.name||v.sku||('Loại '+(i+1)));
       const act = (active===i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
-      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" style="width:28px;height:28px;object-fit:contain;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
+      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" data-fallback="${String(img||'').includes('/file/')?String(img).replace('/file/', '/img/')+'?w=960&q=85&format=auto':img}" onerror="if(this.dataset.fallback&&!this.__tried){this.__tried=1;this.src=this.dataset.fallback}" style="width:28px;height:28px;object-fit:contain;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
     }).join('');
     box.querySelectorAll('button[data-k]').forEach(btn=>btn.onclick=()=>{ 
       const k=+btn.dataset.k; CURRENT = arr[k]; renderVBtns(k); updPrice(); 
@@ -607,7 +607,7 @@ function openCartModal(){
     const arr = cartItems();
     list.innerHTML = arr.map((it,idx)=>`
       <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
-        <img src="${it.image||''}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee">
+        <img src="${it.image||''}" data-fallback="${(it.image||'').replace('/file/', '/img/')+'?w=720&q=85&format=auto'}" onerror="if(this.dataset.fallback&&!this.__tried){this.__tried=1;this.src=this.dataset.fallback}else{this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'56\' height=\'56\'><rect width=\'100%\' height=\'100%\' fill=\'%23f3f4f6\'/></svg>';}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
           ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
