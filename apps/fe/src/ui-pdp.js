@@ -1,6 +1,7 @@
 // SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
-(function(){try{
+(function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}try{
   var b=document.body||document.documentElement;
   if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
   var id='shv-pdp-hide-header';
@@ -211,7 +212,8 @@ function renderMedia(prefer){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
     }
     draw();
   }
@@ -505,7 +507,7 @@ try{
       const o2 = o || {};
       set('#co-name', o2.name); set('#co-phone', o2.phone); set('#co-addr', o2.addr);
       set('#co-province', o2.province); set('#co-district', o2.district); set('#co-ward', o2.ward); set('#co-note', o2.note);
-      populateDistricts(); populateWards();
+      if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards();
     };
     m.querySelector('#co-use-default')?.addEventListener('click', ()=>{ try{ const o=JSON.parse(localStorage.getItem('shv_addr')||'{}'); fill(o); }catch{ fill({}); } });
     m.querySelector('#co-clear-default')?.addEventListener('click', ()=>{ try{ localStorage.removeItem('shv_addr'); }catch{}; fill({}); });
@@ -533,7 +535,7 @@ const form = m.querySelector('#co-form');
     Object.keys(PROVINCE_ALIASES).forEach(k=>{ const v=PROVINCE_ALIASES[k]; if(!seen.has(v)){ const opt=document.createElement('option'); opt.value=v; dl.appendChild(opt);} });
     m.appendChild(dl); inp.setAttribute('list','co-province-list');
     // Normalize on change or blur
-    const canon = ()=>{ inp.value = provinceCanonical(inp.value); populateDistricts(); populateWards(); saveAddrNow(); };
+    const canon = ()=>{ inp.value = provinceCanonical(inp.value); if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards(); saveAddrNow(); };
     inp.addEventListener('change', canon); inp.addEventListener('blur', canon); inp.addEventListener('input', ()=>{/* live save */ saveAddrNow();});
   })();
 
@@ -546,7 +548,7 @@ const form = m.querySelector('#co-form');
   wardEl?.addEventListener('input', saveAddrNow);
 
   // Prefill from LocalStorage if any
-  (function prefill(){ populateDistricts(); populateWards();
+  (function prefill(){ if (typeof populateDistricts==='function') if (typeof populateDistricts==='function') populateDistricts(); populateWards();
     const o = loadSavedAddr();
     if(Object.keys(o).length){
       const set=(sel,val)=>{ const el=m.querySelector(sel); if(el && !el.value) el.value=val||''; };
@@ -711,7 +713,7 @@ function openCheckoutModal(){
     "hn":"Hà Nội","ha noi":"Hà Nội","hnoi":"Hà Nội",
     "dn":"Đà Nẵng","da nang":"Đà Nẵng","danang":"Đà Nẵng"
   };
-  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\[\u0300-\u036f]/g,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
+  function vnNorm(s){ try{ return String(s||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim(); }catch(e){ return String(s||'').toLowerCase(); } }
   function provinceCanonical(input){
     let v = String(input||'').trim();
     const n = vnNorm(v);
@@ -818,6 +820,7 @@ function openCheckoutModal(){
 
   // Totals box (sub, ship, grand)
   (function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}
     const totals = document.createElement('div');
     totals.id = 'co-totals';
     totals.innerHTML = `<div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px">
@@ -930,7 +933,8 @@ function openSuccessModal(orderId, customer){
       <a href="/" style="border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none">Đặt lại đơn hàng</a>
       <a href="${zHref}" target="_blank" rel="noopener" style="border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Liên hệ với Shop</a>
     </div>
-    <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+    <button onclick="(function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
   // Shipping state
@@ -942,6 +946,7 @@ function openSuccessModal(orderId, customer){
 
 // SHV-CWV: PDP image hints
 (function(){
+  try{ if(typeof window!=='undefined' && typeof window.populateDistricts!=='function'){ window.populateDistricts = function(){}; } }catch(e){}
   try{
     const imgs = document.querySelectorAll('img');
     let firstSet = false;

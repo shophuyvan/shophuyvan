@@ -28,7 +28,7 @@ async function adminOK(req, env){
 async function getJSON(env, key, def){ try{ const v = await env.SHV.get(key); return v? JSON.parse(v): (def??null);}catch{return def??null;} }
 async function putJSON(env, key, obj){ await env.SHV.put(key, JSON.stringify(obj)); }
 
-function slugify(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+function slugify(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
 // Build product summary
 function toSummary(prod){
@@ -74,7 +74,7 @@ async function geminiGen(env, prompt){
 
       // AI
 function dedupe(arr){ return Array.from(new Set(arr.filter(Boolean).map(s=>s.trim()))); }
-function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
+function words(s){ return (s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9\s]/g,'').split(/\s+/g).filter(w=>w.length>2); }
 function keywordsFrom(title, desc){
   const stop = new Set(['san','pham','chinh','hang','bao','hanh','gia','tot','chat','luong','mua','ngay','giao','nhanh','quoc','te','toan','quoc','hang','ship','uu','dai','khach','hang']);
   const bag = dedupe([...words(title||''), ...words(desc||'')]).filter(w=>!stop.has(w)).slice(0,12);
@@ -390,17 +390,7 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         const id = p.split('/').pop();
         const meta = await getJSON(env, 'file:'+id+':meta', null);
         const data = await env.SHV.get('file:'+id, 'arrayBuffer');
-        if(!data || !meta){
-          return new Response('not found',{status:404, headers: corsHeaders(req)});
-        }
-        const mime = (meta && meta.mime) ? meta.mime : 'application/octet-stream';
-        const h = new Headers({'content-type': mime});
-        // strong CDN caching
-        h.set('cache-control','public, max-age=31536000, immutable');
-        corsHeaders(req, h);
-        return new Response(data, { status: 200, headers: h });
-      }
-
+        if(!data || !meta) return new Response('not found',{status:404, headers:corsHeaders(req)}
       // Responsive image proxy (auto WebP/AVIF + resize) via Cloudflare Image Resizing
       if(p.startsWith('/img/') && req.method==='GET'){
         const u = new URL(req.url);
@@ -416,25 +406,22 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         corsHeaders(req, h);
         return new Response(r.body, { status: r.status, headers: h });
       }
-
+    );
+        return new Response(data, {status:200, headers:{...corsHeaders(req), 'content-type': (meta && (meta.type||meta.mime)) || 'image/jpeg', 'content-disposition': 'inline; filename="'+((meta && (meta.name||('file-'+id)))||('file-'+id))+((meta && meta.ext)?('.'+meta.ext):'')+'"', 'cache-control':'public, max-age=31536000, immutable'}});
+      }
       if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
-        const ct = req.headers.get('content-type') || '';
-        if(!ct.toLowerCase().startsWith('multipart/form-data')){
-          return json({ok:false, error:'content-type'}, {status:400}, req);
-        }
+        const ct = req.headers.get('content-type')||'';
+        if(!ct.startsWith('multipart/form-data')) return json({ok:false,error:'expect multipart'}, {status:400}, req);
         const form = await req.formData();
-        const files = [];
-        for (const [, v] of form.entries()){
-          if (v && typeof v === 'object' && 'arrayBuffer' in v) files.push(v);
-        }
+        const files = []; for(const [k,v] of form.entries()){ if(v && typeof v==='object' && 'arrayBuffer' in v){ files.push(v); } }
         const urls = [];
-        for (const f of files){
+        for(const f of files){
           const id = crypto.randomUUID().replace(/-/g,'');
           const buf = await f.arrayBuffer();
           await env.SHV.put('file:'+id, buf);
-          await env.SHV.put('file:'+id+':meta', JSON.stringify({mime:f.type, name:f.name, size:f.size}));
-          urls.push(url.origin + '/file/' + id);
+          await env.SHV.put('file:'+id+':meta', JSON.stringify({name:f.name, type:f.type, size:f.size}));
+          urls.push(url.origin+'/file/'+id);
         }
         return json({ok:true, urls}, {}, req);
       }
