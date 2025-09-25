@@ -76,11 +76,24 @@ async function __fetchQuoteAndRender(auto=false){
   // Auto-select cheapest on first load or when auto-triggered
   if(items.length){
     let cheapest = items[0];
-    for(const it of items){ if(Number(it.fee)<Number(cheapest.fee)) cheapest = it; }
-    // tick corresponding radio
+    for(const it of items){ if(Number(it.fee) < Number(cheapest.fee)) cheapest = it; }
     const val = `${cheapest.provider}:${cheapest.service_code||''}`;
     const radio = quoteList.querySelector(`input[name=ship][value="${val}"]`);
     if(radio){ radio.checked = true; radio.dispatchEvent(new Event('change')); }
+    // Dù radio có tick hay không, vẫn set chosen & localStorage để render ngay
+    chosen = { 
+      provider: cheapest.provider, 
+      service_code: cheapest.service_code||'', 
+      fee: Number(cheapest.fee)||0, 
+      eta: cheapest.eta||'', 
+      name: cheapest.name||''
+    };
+    localStorage.setItem('ship_provider', chosen.provider);
+    localStorage.setItem('ship_service', chosen.service_code);
+    localStorage.setItem('ship_fee', String(chosen.fee));
+    localStorage.setItem('ship_eta', chosen.eta);
+    localStorage.setItem('ship_name', chosen.name);
+    try{ renderSummary(); }catch(e){}
   }
   return items;
 }
