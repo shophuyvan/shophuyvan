@@ -8,6 +8,16 @@ function releaseSubmit(btn){ __placing=false; btn?.removeAttribute('disabled'); 
 import { api } from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+
+// === CART KEY NORMALIZER (PATCH) ===
+function getCart(){
+  try {
+    const raw = localStorage.getItem('CART') ?? localStorage.getItem('cart') ?? '[]';
+    const arr = JSON.parse(raw || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch(e){ return []; }
+}
+// === /PATCH ===
 const quoteBtn = document.getElementById('get-quote');
 const quoteList = document.getElementById('quote-list');
 const testVoucherBtn = document.getElementById('test-voucher');
