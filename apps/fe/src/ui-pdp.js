@@ -8,11 +8,16 @@
     if(!document.getElementById(id)){
       const st=document.createElement('style');
       st.id=id;
-      st.textContent = `
+      st.textContent = 
+        /* widen and full-span location selects */
+        #shv-co-mask #co-form #co-province-sel,
+        #shv-co-mask #co-form #co-district-sel,
+        #shv-co-mask #co-form #co-ward-sel{ grid-column: 1 / -1 !important; width:100% !important; }
+`
         /* modal width & margins */
-        #shv-co-mask .co-modal{ box-sizing:border-box; width: calc(100vw - 32px); max-width: 600px; margin: 0 16px; }
-        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 64px); max-width: 760px; margin: 0 24px; } }
-        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 96px); max-width: 840px; margin: 0 32px; } }
+        #shv-co-mask .co-modal{ box-sizing:border-box; width: calc(100vw - 32px); max-width: 520px; margin: 0 16px; }
+        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 64px); max-width: 620px; margin: 0 24px; } }
+        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 96px); max-width: 680px; margin: 0 32px; } }
         /* form grid: 1 col mobile, 2 cols tablet/desktop */
         #shv-co-mask #co-form{ display:grid; grid-template-columns: 1fr; gap: 10px; }
         #shv-co-mask #co-form input, #shv-co-mask #co-form textarea{ width:100%; }
@@ -20,11 +25,6 @@
           #shv-co-mask #co-form{ grid-template-columns: 1fr 1fr; gap: 12px; }
           #shv-co-mask #co-addr, #shv-co-mask #co-note{ grid-column: 1 / -1; }
         }
-
-        /* widen and full-span location selects */
-        #shv-co-mask #co-form #co-province-sel,
-        #shv-co-mask #co-form #co-district-sel,
-        #shv-co-mask #co-form #co-ward-sel{ grid-column: 1 / -1 !important; width:100% !important; }
 `; (document.head||document.documentElement).appendChild(st);
     }
   }catch(e){}
@@ -503,22 +503,34 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
-  // SHV_FIX: Force full-width location selects & single-column grid to avoid truncation
+  // SHV_FIX v3: enforce full-span & stretch for address selects
   try{
+    const form = m.querySelector('#co-form');
+    if(form){
+      form.style.display = 'grid';
+      form.style.gridTemplateColumns = '1fr';
+      form.style.alignItems = 'stretch';
+    }
     const grid = m.querySelector('.co-grid');
     if(grid){
       grid.style.gridColumn = '1 / -1';
       grid.style.width = '100%';
+      grid.style.minWidth = '0';
       grid.style.display = 'grid';
       grid.style.gridTemplateColumns = '1fr';
+      grid.style.alignItems = 'stretch';
+      grid.style.justifyItems = 'stretch';
+      grid.style.placeItems = 'stretch';
     }
     ['co-province-sel','co-district-sel','co-ward-sel'].forEach(id=>{
       const el = m.querySelector('#'+id);
       if(el){
         el.style.width = '100%';
         el.style.maxWidth = '100%';
+        el.style.minWidth = '0';
         el.style.display = 'block';
         el.style.gridColumn = '1 / -1';
+        el.style.boxSizing = 'border-box';
       }
     });
   }catch(_e){}
