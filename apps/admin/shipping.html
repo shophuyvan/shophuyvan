@@ -303,4 +303,132 @@ document.addEventListener('DOMContentLoaded', ()=>{
    var sp=document.getElementById('super_partner');
    if(sp && !sp.placeholder){sp.placeholder='Partner secret (nếu có)';}
  });
+</script>/* ===== Shipping Admin Page JS (re-authored) ===== */
+  (function(){
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const byId = id => document.getElementById(id);
+
+    const SELS = {
+      province: byId('co-province-sel'),
+      district: byId('co-district-sel'),
+      ward: byId('co-ward-sel'),
+      name: byId('co-name'),
+      phone: byId('co-phone'),
+      addr: byId('co-addr'),
+      opt: byId('co-opt')
+    };
+
+    function toast(msg){
+      try{ if(window.Admin?.toast) return window.Admin.toast(msg); }catch(e){}
+      console.log('[Admin]', msg);
+    }
+
+    async function api(path, body){
+      const r = await fetch(path, {
+        method: 'POST',
+        headers: {'content-type':'application/json'},
+        body: JSON.stringify(body||{})
+      });
+      let text = await r.text();
+      try{ return JSON.parse(text); }catch(e){ return { ok:false, error:true, message:text }; }
+    }
+
+    function saveLocalSender(obj){
+      localStorage.setItem('shv_sender', JSON.stringify(obj));
+    }
+    function loadLocalSender(){
+      try{ return JSON.parse(localStorage.getItem('shv_sender')||'{}'); }catch{return {};}
+    }
+
+    // --- load regions ---
+    async function loadProvinces(){
+      const pn = await api('/shipping/provinces', {});
+      const list = (pn.data || pn.items || []).sort((a,b)=> a.name.localeCompare(b.name));
+      SELS.province.innerHTML = '<option value=\"\">— Chọn Tỉnh/Thành —</option>' + list.map(p=>`<option value=\"${p.code}\" data-name=\"${p.name}\">${p.name}</option>`).join('');
+    }
+    async function loadDistricts(provinceCode){
+      SELS.district.innerHTML = '<option value=\"\">— Chọn Quận/Huyện —</option>';
+      SELS.ward.innerHTML = '<option value=\"\">— Chọn Phường/Xã —</option>';
+      if(!provinceCode) return;
+      const rs = await api('/shipping/districts', { province: provinceCode });
+      const list = (rs.data || rs.items || []).sort((a,b)=> a.name.localeCompare(b.name));
+      SELS.district.innerHTML += list.map(d=>`<option value=\"${d.code}\" data-name=\"${d.name}\">${d.name}</option>`).join('');
+    }
+    async function loadWards(districtCode){
+      SELS.ward.innerHTML = '<option value=\"\">— Chọn Phường/Xã —</option>';
+      if(!districtCode) return;
+      const rs = await api('/shipping/wards', { district: districtCode });
+      const list = (rs.data || rs.items || []).sort((a,b)=> a.name.localeCompare(b.name));
+      SELS.ward.innerHTML += list.map(w=>`<option value=\"${w.code}\" data-name=\"${w.name}\">${w.name}</option>`).join('');
+    }
+
+    async function upsertSender(){
+      const v = {
+        name: SELS.name.value.trim(),
+        phone: SELS.phone.value.trim(),
+        addr: SELS.addr.value.trim(),
+        province_code: SELS.province.value,
+        province_name: SELS.province.selectedOptions[0]?.dataset.name || '',
+        district_code: SELS.district.value,
+        district_name: SELS.district.selectedOptions[0]?.dataset.name || '',
+        ward_code: SELS.ward.value,
+        ward_name: SELS.ward.selectedOptions[0]?.dataset.name || '',
+        option: SELS.opt?.value || '1'
+      };
+      if(!v.province_code || !v.district_code){
+        alert('Vui lòng chọn đủ Tỉnh/Thành và Quận/Huyện.');
+        return;
+      }
+      saveLocalSender(v);
+      try{
+        await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
+        toast('Đã lưu người gửi');
+      }catch(e){ /* ignore */ }
+    }
+
+    async function restore(){
+      // 1) provinces
+      await loadProvinces();
+      const data = loadLocalSender();
+      if(data.province_code){
+        SELS.province.value = data.province_code;
+        await loadDistricts(data.province_code);
+      }
+      if(data.district_code){
+        SELS.district.value = data.district_code;
+        await loadWards(data.district_code);
+      }
+      if(data.ward_code){
+        SELS.ward.value = data.ward_code;
+      }
+      if(data.name) SELS.name.value = data.name;
+      if(data.phone) SELS.phone.value = data.phone;
+      if(data.addr) SELS.addr.value = data.addr;
+      if(data.option) SELS.opt.value = data.option;
+    }
+
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      await restore();
+      SELS.province.addEventListener('change', e=> loadDistricts(SELS.province.value));
+      SELS.district.addEventListener('change', e=> loadWards(SELS.district.value));
+      const btn = document.getElementById('co-save');
+      if(btn) btn.addEventListener('click', upsertSender);
+
+      // Price test
+      const probe = document.getElementById('btn-quote');
+      if(probe) probe.addEventListener('click', async ()=>{
+        const data = loadLocalSender();
+        const body = {
+          sender_province: data.province_name, sender_district: data.district_name, sender_ward: data.ward_name,
+          receiver_province: 'Thành phố Hồ Chí Minh', receiver_district: 'Quận 1',
+          weight_gram: 500, cod: 0
+        };
+        const r = await api('/shipping/price', body);
+        alert('Kết quả: '+JSON.stringify(r));
+      });
+    });
+  })();
 </script>
+</body>
+</html>
