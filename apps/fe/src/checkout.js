@@ -29,7 +29,7 @@ function calcWeight(cart) {
 quoteBtn?.addEventListener('click', async () => {
   const to_province = document.getElementById('province').value;
   const to_district = document.getElementById('district').value;
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
   const weight = calcWeight(cart);
   const res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
   quoteList.innerHTML = (res.items || res || []).map(opt => `
@@ -54,7 +54,7 @@ quoteBtn?.addEventListener('click', async () => {
   });
 });
 testVoucherBtn?.addEventListener('click', async ()=> {
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
   const res = await api('/pricing/preview', { method:'POST', body: { items, shipping_fee: chosen?.fee||0, voucher_code: voucherInput.value||null } });
   lastPricing = res;
@@ -62,7 +62,7 @@ testVoucherBtn?.addEventListener('click', async ()=> {
 });
 
 
-function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
+function getCart(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]'); }catch{return [];} }
 function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
 
 function renderSummary(){
@@ -125,7 +125,7 @@ orderBtn?.addEventListener('click', async () => {
   const btn = orderBtn;
   if(!guardSubmit(btn)) return;
   try{
-    const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    const cart = JSON.parse(localStorage.getItem('CART')||'[]');
     if(!cart.length){ orderResult.textContent='Giỏ hàng trống.'; return releaseSubmit(btn); }
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -150,7 +150,7 @@ orderBtn?.addEventListener('click', async () => {
     const res = await api('/public/orders/create', { method:'POST', body });
     if(res && res.orderId){
       orderResult.textContent = `Đặt hàng thành công: ${res.orderId}`;
-      localStorage.removeItem('cart'); // clear cart after order
+      localStorage.removeItem('CART'); // clear cart after order
     }else{
       orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
     }

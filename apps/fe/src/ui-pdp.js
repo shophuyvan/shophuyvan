@@ -655,6 +655,10 @@ function openCheckoutModal(){
           <option value="">— Chọn Phường/Xã —</option>
         </select>
       </div>
+      <!-- Hidden text fields to hold selected names for province/district/ward (fix null .value) -->
+      <input type="hidden" id="co-province" />
+      <input type="hidden" id="co-district" />
+      <input type="hidden" id="co-ward" />
       <input type="hidden" id="co-province-code" />
       <input type="hidden" id="co-district-code" />
       <input type="hidden" id="co-ward-code" />
