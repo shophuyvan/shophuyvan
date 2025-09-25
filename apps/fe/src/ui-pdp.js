@@ -644,14 +644,14 @@ function openCheckoutModal(){
       <input id="co-name" placeholder="Họ và tên" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-phone" placeholder="Số điện thoại" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-addr" placeholder="Số nhà, thôn, xóm,.." style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
-      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr !important;gap:12px;width:100% !important}.co-grid select,.co-grid input{width:100% !important;max-width:100% !important;box-sizing:border-box;display:block;min-height:46px !important;padding:12px !important}</style><div class="co-grid" style="grid-column:1 / -1;width:100% !important;display:block;">
-        <select id="co-province-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1;min-height:44px;width:100%;max-width:100%;display:block;width:100% !important;max-width:100% !important;min-height:46px !important;display:block">
+      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr !important;gap:12px;width:100% !important}.co-grid select,.co-grid input{width:100% !important;max-width:100% !important;box-sizing:border-box;display:block;min-height:46px !important;padding:12px !important}</style><div class="co-grid" style="grid-column:1 / -1;width:100% !important;display:block;grid-template-columns:1fr !important;">
+        <select id="co-province-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1 !important;min-height:44px;width:100%;max-width:100%;display:block;width:100% !important;max-width:100% !important;min-height:46px !important;display:block;flex:0 0 100%">
           <option value="">— Chọn Tỉnh/Thành —</option>
         </select>
-        <select id="co-district-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1;width:100% !important;max-width:100% !important;min-height:46px !important;display:block" disabled>
+        <select id="co-district-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1 !important;width:100% !important;max-width:100% !important;min-height:46px !important;display:block;flex:0 0 100%" disabled>
           <option value="">— Chọn Quận/Huyện —</option>
         </select>
-        <select id="co-ward-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1;width:100% !important;max-width:100% !important;min-height:46px !important;display:block" disabled>
+        <select id="co-ward-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1 !important;width:100% !important;max-width:100% !important;min-height:46px !important;display:block;flex:0 0 100%" disabled>
           <option value="">— Chọn Phường/Xã —</option>
         </select>
       </div>
