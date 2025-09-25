@@ -40,6 +40,9 @@
         <option value="">— Chọn Phường/Xã —</option>
       </select>
     </div>
+      <input id="weight_gram" type="number" inputmode="numeric" min="0" placeholder="Khối lượng (gram)"
+             class="p-2 border border-slate-300 rounded w-full" />
+
     <input type="hidden" id="sender_province_code">
     <input type="hidden" id="sender_district_code">
     <input type="hidden" id="sender_commune_code">
@@ -448,6 +451,43 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
   })();
+
+// --- WEIGHT PATCH: add weight field save/restore and use in quote request ---
+(function(){
+  const LS = window.localStorage;
+  const weightEl = document.getElementById('weight_gram');
+  // restore
+  try{
+    const saved = LS.getItem('shipping.weight_gram');
+    if(saved && weightEl) weightEl.value = saved;
+  }catch(e){}
+  // auto save
+  weightEl && weightEl.addEventListener('input', () => {
+    try { LS.setItem('shipping.weight_gram', weightEl.value.trim()); } catch(e){}
+  });
+
+  // override test quote to include weight
+  const btn = document.getElementById('test_super');
+  if(btn && !btn.__weightPatched){
+    btn.__weightPatched = true;
+    btn.addEventListener('click', async function(ev){
+      try{
+        ev.preventDefault(); ev.stopImmediatePropagation();
+      }catch(e){};
+      const w = parseInt((weightEl && weightEl.value)||'0',10) || 0;
+      if(!w){ alert('Vui lòng nhập Khối lượng (gram)'); return; }
+      try { LS.setItem('shipping.weight_gram', String(w)); } catch(e){}
+      let body = { receiver_province:'Thành phố Hồ Chí Minh', receiver_district:'Quận 1', weight_gram: w, cod: 0 };
+      try {
+        const r = await Admin.req('/shipping/price', { method: 'POST', body });
+        alert('Kết quả: ' + JSON.stringify(r).slice(0,500));
+      } catch(err){
+        alert('Gọi báo giá thất bại: ' + (err && err.message ? err.message : String(err)));
+      }
+    }, {capture:true});
+  }
+})();
+// --- END WEIGHT PATCH ---
 </script>
 </body>
 </html>
