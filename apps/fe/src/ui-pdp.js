@@ -500,6 +500,63 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v6: On mobile, drop grid for #co-form to avoid implicit columns; enforce full-width selects
+  (function(){
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const form = m.querySelector('#co-form');
+    const gridBox = m.querySelector('.co-grid');
+    const killGridColumns = () => {
+      if(!form) return;
+      // Remove any inline grid-column that may create implicit tracks
+      form.querySelectorAll('[style*="grid-column"]').forEach(el => {
+        el.style.removeProperty('grid-column');
+      });
+    };
+    try{
+      if(isMobile && form){
+        form.style.display = 'block';
+        form.style.removeProperty('grid-template-columns');
+        killGridColumns();
+      }else if(form){
+        // desktop/tablet fallback
+        form.style.display = 'grid';
+        form.style.gridTemplateColumns = '1fr';
+      }
+      if(gridBox){
+        // make address selects container stretch fully
+        gridBox.style.display = isMobile ? 'block' : 'grid';
+        if(!isMobile){
+          gridBox.style.gridTemplateColumns = '1fr';
+        }
+        gridBox.style.width = '100%';
+        gridBox.style.minWidth = '0';
+      }
+      // location selects always full width
+      ['co-province-sel','co-district-sel','co-ward-sel'].forEach(id=>{
+        const el = m.querySelector('#'+id);
+        if(el){
+          el.style.setProperty('width','100%','important');
+          el.style.setProperty('max-width','100%','important');
+          el.style.display = 'block';
+        }
+      });
+      // observe to keep removing grid-column re-applied later
+      const mo = new MutationObserver((mutations)=>{
+        let touch = false;
+        mutations.forEach(mt=>{
+          if(mt.type==='attributes' && mt.attributeName==='style'){
+            touch = true;
+          }
+          if(mt.type==='childList') touch = true;
+        });
+        if(touch){
+          killGridColumns();
+        }
+      });
+      mo.observe(form || m, {attributes:true, subtree:true, childList:true});
+    }catch(_e){}
+  })();
+
   // SHV_FIX v5: force full-span & watch for regressions
   const __applyGridFix = () => {
     try{
