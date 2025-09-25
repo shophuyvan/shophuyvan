@@ -1118,14 +1118,27 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
       </label>`).join('');
       const first = list.querySelector('input[name=ship]');
       if(first){ first.dispatchEvent(new Event('change')); }
-      list.querySelectorAll('input[name=ship]').forEach(r=> r.onchange = ()=>{ const fee = Number(r.dataset.fee||'0'); shipFee = fee; chosenShip = r.value; renderTotals(); });
+            list.querySelectorAll('input[name=ship]').forEach(r=>{ r.onchange = ()=>{ const fee = Number(r.dataset.fee||'0'); shipFee = fee; chosenShip = r.value; renderTotals(); }; });
     }catch(e){/*silent*/}
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
-  /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
-
-  
-  m.querySelector('#co-submit').onclick = async ()=>{
+  /*auto_select_ship*/ setTimeout(()=>{ try{ 
+      const list = m.querySelector('#co-ship-list');
+      if(!list) return;
+      const radios = list.querySelectorAll('input[name=ship]');
+      if(!radios.length) return;
+      // pick cheapest by data-fee
+      let cheapest = null;
+      radios.forEach(r=>{ const fee = Number(r.dataset.fee||'0'); if(cheapest===null || fee < cheapest.fee){ cheapest = {r, fee}; } });
+      if(cheapest){
+        cheapest.r.checked = true;
+        shipFee = cheapest.fee;
+        chosenShip = cheapest.r.value;
+        renderTotals();
+        cheapest.r.dispatchEvent(new Event('change'));
+      }
+    }catch(e){} }, 200);
+m.querySelector('#co-submit').onclick = async ()=>{
     const customer = {
       name: m.querySelector('#co-name').value.trim(),
       phone: m.querySelector('#co-phone').value.trim(),
