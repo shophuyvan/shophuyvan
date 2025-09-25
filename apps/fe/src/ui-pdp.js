@@ -8,16 +8,10 @@
     if(!document.getElementById(id)){
       const st=document.createElement('style');
       st.id=id;
-      st.textContent = 
-        /* widen and full-span location selects */
-        #shv-co-mask #co-form #co-province-sel,
-        #shv-co-mask #co-form #co-district-sel,
-        #shv-co-mask #co-form #co-ward-sel{ grid-column: 1 / -1 !important; width:100% !important; }
-`
-        /* modal width & margins */
-        #shv-co-mask .co-modal{ box-sizing:border-box; width: calc(100vw - 32px); max-width: 520px; margin: 0 16px; }
-        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 64px); max-width: 620px; margin: 0 24px; } }
-        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 96px); max-width: 680px; margin: 0 32px; } }
+      st.textContent = `        /* modal width & margins */
+        #shv-co-mask .co-modal{ box-sizing:border-box; width: calc(100vw - 32px); max-width: 600px; margin: 0 16px; }
+        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 64px); max-width: 760px; margin: 0 24px; } }
+        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 96px); max-width: 840px; margin: 0 32px; } }
         /* form grid: 1 col mobile, 2 cols tablet/desktop */
         #shv-co-mask #co-form{ display:grid; grid-template-columns: 1fr; gap: 10px; }
         #shv-co-mask #co-form input, #shv-co-mask #co-form textarea{ width:100%; }
@@ -25,7 +19,10 @@
           #shv-co-mask #co-form{ grid-template-columns: 1fr 1fr; gap: 12px; }
           #shv-co-mask #co-addr, #shv-co-mask #co-note{ grid-column: 1 / -1; }
         }
-`; (document.head||document.documentElement).appendChild(st);
+        /* widen and full-span location selects */
+        #shv-co-mask #co-form #co-province-sel,
+        #shv-co-mask #co-form #co-district-sel,
+        #shv-co-mask #co-form #co-ward-sel{ grid-column: 1 / -1 !important; width:100% !important; }`; (document.head||document.documentElement).appendChild(st);
     }
   }catch(e){}
 })();
