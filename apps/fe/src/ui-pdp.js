@@ -500,6 +500,54 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v5: force full-span & watch for regressions
+  const __applyGridFix = () => {
+    try{
+      const form = m.querySelector('#co-form');
+      if(form){
+        form.style.display = 'grid';
+        form.style.gridTemplateColumns = '1fr';
+        form.style.alignItems = 'stretch';
+      }
+      const grid = m.querySelector('.co-grid');
+      if(grid){
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = '1fr';
+        grid.style.gridColumn = '1 / -1';
+        grid.style.width = '100%';
+        grid.style.minWidth = '0';
+        grid.style.justifyItems = 'stretch';
+        grid.style.alignItems = 'stretch';
+      }
+      // Prevent implicit columns: address & note must span full row
+      ['co-addr','co-note'].forEach(id=>{
+        const el = m.querySelector('#'+id);
+        if(el){
+          el.style.setProperty('grid-column','1 / -1','important');
+          el.style.minWidth = '0';
+          el.style.width = '100%';
+        }
+      });
+      // Location selects: always full width
+      ['co-province-sel','co-district-sel','co-ward-sel'].forEach(id=>{
+        const el = m.querySelector('#'+id);
+        if(el){
+          el.style.setProperty('grid-column','1 / -1','important');
+          el.style.setProperty('width','100%','important');
+          el.style.setProperty('max-width','100%','important');
+          el.style.minWidth = '0';
+          el.style.display = 'block';
+        }
+      });
+    }catch(_e){}
+  };
+  __applyGridFix();
+  // Observe mutations to keep the layout stable if any script rewrites inline styles
+  try{
+    const mo = new MutationObserver(() => __applyGridFix());
+    mo.observe(m, { attributes: true, childList: true, subtree: true });
+  }catch(_e){}
+
   // SHV_FIX v4: prevent implicit grid columns causing 129px width
   try{
     const addr = m.querySelector('#co-addr');
