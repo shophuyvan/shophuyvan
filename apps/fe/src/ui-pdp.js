@@ -498,8 +498,8 @@ try{
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
-  (()=>{const __el=m.querySelector('#co-back'); if(__el) __el.onclick = ()=>{ closeMask('shv-co-mask'); openCartModal(); }; })();
-  (function(){const __el=m.querySelector('#co-close'); if(__el) __el.onclick=()=>closeMask('shv-co-mask');})();
+  (()=>{const __el=m.querySelector('#co-back'); if(__el) __el.onclick = ()=>{ closeMask('shv-co-mask'); openCartModal(); }; })(); })();
+  (function(){const __el=m.querySelector('#co-close'); if(__el) __el.onclick=()=>closeMask('shv-co-mask'); })();})();
 
 
   function renderTotals(){
@@ -676,15 +676,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
   /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
- + list.map(it=>`
-    <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
-      <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
-        ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
-      </div>
-      <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
-    </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
+
 
   
   (function(){const __e=m.querySelector('#co-submit'); if(__e) __e.onclick = async ()=>{
