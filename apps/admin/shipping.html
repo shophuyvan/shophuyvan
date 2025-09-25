@@ -455,5 +455,318 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   })();
 </script>
+
+<script>
+<!-- PATCH: SuperAI warehouses + weight + localStorage -->
+(function() {
+  function onReady(fn){if(document.readyState!=="loading"){fn()}else{document.addEventListener("DOMContentLoaded",fn);}}
+
+  function normalize(str){
+    if(!str) return "";
+    return str.toString().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/\s+/g," ").trim();
+  }
+
+  function setSelectByText(sel, text){
+    if(!sel) return;
+    const norm = normalize(text);
+    if(!norm) return;
+    let matched = false;
+    for (const opt of sel.options) {
+      if (normalize(opt.textContent) === norm || normalize(opt.value) === norm) {
+        sel.value = opt.value;
+        matched = true;
+        break;
+      }
+      // partial contains
+      if (!matched && (normalize(opt.textContent).includes(norm) || normalize(opt.value).includes(norm))) {
+        sel.value = opt.value;
+        matched = true;
+      }
+    }
+  }
+
+  // Ensure weight input exists (keeping UI style)
+  function ensureWeightInput(){
+    if (document.querySelector("#weight_gram")) return;
+    const input = document.createElement("input");
+    input.id = "weight_gram";
+    input.type = "number";
+    input.min = "1";
+    input.placeholder = "Khối lượng (gram)";
+    input.className = "form-control"; // rely on existing CSS
+    // Try to insert near test button or token
+    const anchor = document.querySelector("#test_super") || document.querySelector("#btnTest") || document.querySelector("#super_token") || document.body;
+    if (anchor && anchor.parentElement) {
+      anchor.parentElement.insertBefore(input, anchor);
+      // small margin if needed
+      input.style.marginBottom = "8px";
+    } else {
+      document.body.prepend(input);
+    }
+  }
+
+  // LocalStorage helpers
+  const LS_KEYS = {
+    token: "super_token",
+    whCachePrefix: "wh_cache_", // + token
+    whId: "sender_wh_id",
+    addr: "sender_addr",
+    prov: "sender_province",
+    dist: "sender_district",
+    ward: "sender_ward",
+    name: "sender_name",
+    phone: "sender_phone",
+    weight: "sender_weight",
+    partnerSecret: "partner_secret"
+  };
+
+  function saveFieldLS(idOrEl, key){
+    const el = typeof idOrEl === "string" ? document.querySelector(idOrEl) : idOrEl;
+    if(!el) return;
+    try {
+      localStorage.setItem(key, el.value || el.textContent || "");
+    } catch(e){}
+  }
+
+  function restoreFieldLS(id, key){
+    const el = document.querySelector(id);
+    if(!el) return;
+    try {
+      const v = localStorage.getItem(key);
+      if (v !== null && v !== undefined) {
+        if (el.tagName === "SELECT") {
+          // try direct by value first
+          el.value = v;
+          if (el.value !== v) { // fallback by text
+            setSelectByText(el, v);
+          }
+        } else {
+          el.value = v;
+        }
+      }
+    } catch(e){}
+  }
+
+  function attachAutoSave(){
+    const map = [
+      ["#super_token", LS_KEYS.token],
+      ["#co-addr", LS_KEYS.addr],
+      ["#sender_province", LS_KEYS.prov],
+      ["#sender_district", LS_KEYS.dist],
+      ["#sender_ward", LS_KEYS.ward],
+      ["#weight_gram", LS_KEYS.weight],
+      ["#partner_secret", LS_KEYS.partnerSecret],
+      ["#sender_name", LS_KEYS.name],
+      ["#sender_phone", LS_KEYS.phone],
+      ["#selWh", LS_KEYS.whId]
+    ];
+    for (const [sel, key] of map) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      el.addEventListener("input", () => saveFieldLS(el, key));
+      el.addEventListener("change", () => saveFieldLS(el, key));
+    }
+  }
+
+  function restoreAll(){
+    restoreFieldLS("#super_token", LS_KEYS.token);
+    ensureWeightInput();
+    restoreFieldLS("#weight_gram", LS_KEYS.weight);
+    restoreFieldLS("#co-addr", LS_KEYS.addr);
+    restoreFieldLS("#sender_province", LS_KEYS.prov);
+    restoreFieldLS("#sender_district", LS_KEYS.dist);
+    restoreFieldLS("#sender_ward", LS_KEYS.ward);
+    restoreFieldLS("#partner_secret", LS_KEYS.partnerSecret);
+    restoreFieldLS("#sender_name", LS_KEYS.name);
+    restoreFieldLS("#sender_phone", LS_KEYS.phone);
+    restoreFieldLS("#selWh", LS_KEYS.whId);
+
+    // If we have token & cache, populate warehouses
+    const tokenEl = document.querySelector("#super_token");
+    const selWh = document.querySelector("#selWh");
+    if (tokenEl && selWh) {
+      const token = tokenEl.value || "";
+      if (token) {
+        const cache = localStorage.getItem(LS_KEYS.whCachePrefix + token);
+        if (cache) {
+          try {
+            const list = JSON.parse(cache);
+            populateWhSelect(list);
+            const savedWh = localStorage.getItem(LS_KEYS.whId);
+            if (savedWh) selWh.value = savedWh;
+          } catch(e){}
+        }
+      }
+    }
+  }
+
+  function populateWhSelect(list){
+    const sel = document.querySelector("#selWh");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Chọn kho --</option>';
+    (list || []).forEach((wh) => {
+      const opt = document.createElement("option");
+      const id = wh.id || wh.code || wh.uuid || wh._id || wh.wh_id || "";
+      const name = wh.name || wh.wh_name || wh.title || "Kho";
+      const addr = wh.address || wh.addr || wh.address_full || [wh.address_line, wh.ward_name, wh.district_name, wh.province_name].filter(Boolean).join(", ");
+      opt.value = String(id);
+      opt.textContent = `${name} — ${addr}`;
+      // keep raw data for later fill
+      opt.dataset.addr = addr || "";
+      opt.dataset.province = wh.province_name || wh.province || "";
+      opt.dataset.district = wh.district_name || wh.district || "";
+      opt.dataset.ward = wh.ward_name || wh.ward || "";
+      sel.appendChild(opt);
+    });
+  }
+
+  function bindWarehouseLoader(){
+    const btn = document.querySelector("#btnLoadWh");
+    if (!btn) return;
+    btn.addEventListener("click", async function(){
+      const tokenEl = document.querySelector("#super_token");
+      const selWh = document.querySelector("#selWh");
+      if (!tokenEl || !selWh){ alert("Thiếu #super_token hoặc #selWh"); return; }
+      const token = (tokenEl.value||"").trim();
+      if (!token) { alert("Vui lòng nhập Token trước khi tải kho."); return; }
+
+      const base = (window.SUPERAI_BASE_URL) || "https://dev.superai.vn";
+      const url = base.replace(/\/+$/,"") + "/v1/platform/warehouses";
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Token": token
+          }
+        });
+        if (res.status === 401) { alert("Token chưa đúng hoặc hết hạn."); return; }
+        const data = await res.json().catch(()=>({}));
+        const list = Array.isArray(data) ? data : (data.data || data.items || data.results || []);
+        if (!list || list.length === 0) { alert("Không tìm thấy kho. Kiểm tra lại token."); return; }
+        populateWhSelect(list);
+        // cache by token
+        try { localStorage.setItem(LS_KEYS.whCachePrefix + token, JSON.stringify(list)); } catch(e){}
+        alert("Tải kho thành công.");
+      } catch (e) {
+        console.error(e);
+        alert("Không thể tải kho. Vui lòng kiểm tra mạng hoặc token.");
+      }
+    });
+  }
+
+  function bindWarehouseSelect(){
+    const sel = document.querySelector("#selWh");
+    if (!sel) return;
+    sel.addEventListener("change", function(){
+      const opt = sel.selectedOptions && sel.selectedOptions[0];
+      if (!opt) return;
+      const addr = opt.dataset.addr || "";
+      const prov = opt.dataset.province || "";
+      const dist = opt.dataset.district || "";
+      const ward = opt.dataset.ward || "";
+      const addrEl = document.querySelector("#co-addr");
+      if (addrEl) addrEl.value = addr, saveFieldLS(addrEl, LS_KEYS.addr);
+      const provSel = document.querySelector("#sender_province");
+      const distSel = document.querySelector("#sender_district");
+      const wardSel = document.querySelector("#sender_ward");
+      if (provSel) { setSelectByText(provSel, prov); saveFieldLS(provSel, LS_KEYS.prov); }
+      if (distSel) { setSelectByText(distSel, dist); saveFieldLS(distSel, LS_KEYS.dist); }
+      if (wardSel) { setSelectByText(wardSel, ward); saveFieldLS(wardSel, LS_KEYS.ward); }
+      // save wh id
+      saveFieldLS(sel, LS_KEYS.whId);
+    });
+  }
+
+  // Validate weight before test quote
+  function bindQuoteValidation(){
+    const testBtns = [document.querySelector("#test_super"), document.querySelector("#btnTest")].filter(Boolean);
+    testBtns.forEach(btn => {
+      btn.addEventListener("click", function(e){
+        const wEl = document.querySelector("#weight_gram");
+        const w = wEl ? parseInt(wEl.value||"0", 10) : 0;
+        if (!w || w <= 0) {
+          e.stopImmediatePropagation(); e.preventDefault();
+          if (wEl) { wEl.focus(); wEl.style.borderColor = "red"; }
+          alert("Vui lòng nhập khối lượng (gram)");
+          return false;
+        }
+      }, true); // capture to pre-validate
+    });
+  }
+
+  // Intercept fetch to always inject weight into JSON payloads for POST requests (quote/order)
+  function patchFetchInjectWeight(){
+    if (window.__fetch_patched__) return;
+    window.__fetch_patched__ = true;
+    const origFetch = window.fetch;
+    window.fetch = async function(input, init){
+      try {
+        const method = (init && (init.method||"GET")).toUpperCase();
+        const headers = (init && init.headers) || {};
+        const ct = (headers["Content-Type"] || headers["content-type"] || "");
+        if (method === "POST" && typeof init.body === "string" && ct.includes("application/json")) {
+          try {
+            const obj = JSON.parse(init.body);
+            // inject weight if missing or invalid
+            const wEl = document.querySelector("#weight_gram");
+            const w = wEl ? parseInt(wEl.value||"0",10) : 0;
+            if (w && w > 0) {
+              if (!("weight" in obj) || !obj.weight || obj.weight <= 0) {
+                obj.weight = w;
+              }
+            }
+            init.body = JSON.stringify(obj);
+          } catch(e){ /* ignore parse errors */ }
+        }
+      } catch(e){}
+      const res = await origFetch(input, init);
+      // Try to highlight if server complains about weight
+      try {
+        const clone = res.clone();
+        const data = await clone.json().catch(()=>null);
+        const msg = data && (data.message || data.error || data.msg || "");
+        if (msg && /weight|khối lượng/i.test(msg)) {
+          const wEl = document.querySelector("#weight_gram");
+          if (wEl) wEl.style.borderColor = "red";
+          setTimeout(()=>{ if (wEl) wEl.style.borderColor = ""; }, 3000);
+          alert(typeof msg === "string" ? msg : "Vui lòng kiểm tra khối lượng (gram).");
+        }
+      } catch(e){}
+      return res;
+    }
+  }
+
+  // Validate save sender has province/district/ward
+  function bindSaveSenderValidation(){
+    const btn = document.querySelector("#save_sender");
+    if (!btn) return;
+    btn.addEventListener("click", function(e){
+      const prov = (document.querySelector("#sender_province")||{}).value || "";
+      const dist = (document.querySelector("#sender_district")||{}).value || "";
+      const ward = (document.querySelector("#sender_ward")||{}).value || "";
+      if (!prov || !dist || !ward) {
+        e.stopImmediatePropagation(); e.preventDefault();
+        alert("Vui lòng chọn đủ Tỉnh/Quận/Phường trước khi Lưu người gửi.");
+        return false;
+      }
+    }, true); // capture
+  }
+
+  onReady(function(){
+    ensureWeightInput();
+    restoreAll();
+    attachAutoSave();
+    bindWarehouseLoader();
+    bindWarehouseSelect();
+    bindQuoteValidation();
+    bindSaveSenderValidation();
+    patchFetchInjectWeight();
+  });
+})();
+<!-- /PATCH -->
+</script>
 </body>
 </html>
