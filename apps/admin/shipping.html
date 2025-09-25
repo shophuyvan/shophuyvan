@@ -335,6 +335,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
 
     function saveLocalSender(obj){
+    function collectSenderValues(){
+      return {
+        name: $('#sender_name').value.trim(),
+        phone: $('#sender_phone').value.trim(),
+        address: $('#sender_address').value.trim(),
+        optimize: Number($('#optimize').value || 1),
+        province_code: SELS.province.value || '',
+        province_name: SELS.province.selectedOptions[0]?.text || '',
+        district_code: SELS.district.value || '',
+        district_name: SELS.district.selectedOptions[0]?.text || '',
+        commune_code: SELS.commune.value || '',
+        commune_name: SELS.commune.selectedOptions[0]?.text || '',
+      };
+    }
+    
       localStorage.setItem('shv_sender', JSON.stringify(obj));
     }
     function loadLocalSender(){
@@ -364,6 +379,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
 
     async function upsertSender(){
+      // save local first so F5 restores even if server fails
+      const vBefore = collectSenderValues();
+      saveLocalSender(vBefore);
+
       const v = {
         name: SELS.name.value.trim(),
         phone: SELS.phone.value.trim(),
@@ -412,7 +431,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       await restore();
       SELS.province.addEventListener('change', e=> loadDistricts(SELS.province.value));
       SELS.district.addEventListener('change', e=> loadWards(SELS.district.value));
-      const btn = document.getElementById('co-save');
+      const btn = document.getElementById('save_sender');
       if(btn) btn.addEventListener('click', upsertSender);
 
       // Price test
