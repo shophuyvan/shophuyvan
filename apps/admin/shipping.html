@@ -768,5 +768,65 @@ document.addEventListener('DOMContentLoaded', ()=>{
 })();
 <!-- /PATCH -->
 </script>
+
+<script>
+<!-- PATCH: Prefill weight from order DOM -->
+(function(){
+  function textNum(el){ return el ? parseFloat(String(el.textContent||el.value||'').replace(/[^\d.,]/g,'').replace(',','.'))||0 : 0; }
+  function findByHeader(table, headerTexts){
+    const ths = table.querySelectorAll('thead th, tr:first-child th');
+    let idx = -1;
+    ths.forEach((th,i)=>{
+      const t = (th.innerText||'').toLowerCase();
+      if (headerTexts.some(h => t.includes(h))) idx = (idx===-1? i: idx);
+    });
+    return idx;
+  }
+  async function calcFromOrderDOM(){
+    let total = 0;
+    const rows = document.querySelectorAll('.order-item, .order-row, #order_items tbody tr');
+    if (rows.length){
+      rows.forEach(r=>{
+        const wAttr = r.querySelector('[data-weight]');
+        const qAttr = r.querySelector('[data-qty]');
+        const w = textNum(r.querySelector('.item-weight, .weight')) || (wAttr? parseFloat(wAttr.getAttribute('data-weight'))||0:0);
+        const q = textNum(r.querySelector('.item-qty, .qty')) || (qAttr? parseFloat(qAttr.getAttribute('data-qty'))||0:1);
+        if (w>0) total += w*(q||1);
+      });
+      if (total>0) return total;
+      const table = document.querySelector('#order_items, table.order-items') || document.querySelector('#order_items') || document.querySelector('table.order-items');
+      if (table){
+        const idxW = findByHeader(table, ['trọng lượng','khối lượng','weight']);
+        const idxQ = findByHeader(table, ['sl','số lượng','qty']);
+        const trs = table.querySelectorAll('tbody tr');
+        trs.forEach(tr=>{
+          const tds = tr.querySelectorAll('td');
+          const w = idxW>=0 ? textNum(tds[idxW]) : 0;
+          const q = idxQ>=0 ? textNum(tds[idxQ]) : 1;
+          if (w>0) total += w*(q||1);
+        });
+        if (total>0) return total;
+      }
+    }
+    return 0;
+  }
+  async function prefillWeightIfEmpty(){
+    const wEl = document.querySelector('#weight_gram');
+    if (!wEl || (parseInt(wEl.value||'0',10)>0)) return;
+    let total = await calcFromOrderDOM();
+    if (total>0){
+      wEl.value = Math.round(total);
+      try{ localStorage.setItem('sender_weight', wEl.value); }catch(e){}
+    }
+  }
+  document.addEventListener('DOMContentLoaded', prefillWeightIfEmpty);
+  ['#test_super','#btnTest','#btnCreateOrder','#create_order'].forEach(sel=>{
+    const b = document.querySelector(sel);
+    if(!b) return;
+    b.addEventListener('click', prefillWeightIfEmpty, true);
+  });
+})();
+<!-- /PATCH -->
+</script>
 </body>
 </html>
