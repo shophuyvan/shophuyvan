@@ -191,6 +191,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if($('sender_commune')) set('sender_commune', name);
   }
 
+  // === Wire change listeners for selects ===
+  const provinceSel = $('sender_province_sel');
+  const districtSel = $('sender_district_sel');
+  const communeSel  = $('sender_commune_sel');
+  if(provinceSel && !provinceSel.__wired){
+    provinceSel.__wired = true;
+    provinceSel.addEventListener('change', async (e)=>{
+      syncProvinceToInputs();
+      // clear dependents
+      if(districtSel){ districtSel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>'; districtSel.disabled = !provinceSel.value; }
+      if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = true; }
+      if(provinceSel.value){ await loadDistricts(provinceSel.value, ''); }
+    });
+  }
+  if(districtSel && !districtSel.__wired){
+    districtSel.__wired = true;
+    districtSel.addEventListener('change', async (e)=>{
+      syncDistrictToInputs();
+      if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = !districtSel.value; }
+      if(districtSel.value){ await loadCommunes(districtSel.value, ''); }
+    });
+  }
+  if(communeSel && !communeSel.__wired){
+    communeSel.__wired = true;
+    communeSel.addEventListener('change', ()=>{
+      syncCommuneToInputs();
+    });
+  }
+
+
   // Wire changes
   $('sender_province_sel')?.addEventListener('change', async ()=>{
     syncProvinceToInputs();
