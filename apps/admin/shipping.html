@@ -740,11 +740,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   // Validate save sender has province/district/ward
-  function bindSaveSenderValidation(){
-    const btn = document.querySelector("#save_sender");
-    if (!btn) return;
-    btn.addEventListener("click", function(e){
-      const prov = (document.querySelector("#sender_province")||{}).value || "";
+  function bindSaveSenderValidation(){ 
+      try{
+        const btn = document.querySelector("#save_sender"); if(!btn) return;
+        // Allow save without forcing province/district/ward; just soft warn
+        btn.addEventListener("click", function(e){
+          const prov = (document.querySelector("#sender_province")||{}).value || "";
+          const dist = (document.querySelector("#sender_district")||{}).value || "";
+          const ward = (document.querySelector("#sender_ward")||{}).value || "";
+          if(!(prov && dist && ward)){
+            console.warn("Khuyến nghị chọn Tỉnh/Quận/Phường cho báo giá chính xác, nhưng không bắt buộc.");
+          }
+        }, true);
+      }catch(e){}
+    }
+).value || "";
       const dist = (document.querySelector("#sender_district")||{}).value || "";
       const ward = (document.querySelector("#sender_ward")||{}).value || "";
       if (!prov || !dist || !ward) {

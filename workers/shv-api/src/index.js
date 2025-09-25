@@ -904,6 +904,21 @@ if(p==='/shipping/price' && req.method==='POST'){
     height_cm: Number(body.height_cm||0)||0,
     option_id: body.option_id || s.option_id || '1'
   };
+  // Auto-fill sender from warehouses if missing
+  try{
+    if(!(payload.sender_province && payload.sender_district)){
+      const wh = await superFetch(env, '/v1/platform/warehouses', {method:'GET'});
+      const list = (wh && (wh.data||wh)) || [];
+      const pick = Array.isArray(list) && list.length ? (list.find(x=>x.default||x.is_primary||x.primary) || list[0]) : null;
+      if(pick){
+        payload.sender_province = payload.sender_province || pick.province_name || pick.province || '';
+        payload.sender_district = payload.sender_district || pick.district_name || pick.district || '';
+        payload.sender_commune  = payload.sender_commune  || pick.ward_name     || pick.ward     || '';
+        payload.sender_address  = payload.sender_address  || pick.address || pick.address_full || '';
+      }
+    }
+  }catch(_e){}
+
   const data = await superFetch(env, '/v1/platform/orders/price', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
   // normalize output
   const arr = (data?.data && (data.data.items||data.data.rates)) || data?.data || data || [];
