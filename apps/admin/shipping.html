@@ -25,6 +25,12 @@
       <input id="sender_name" class="input" placeholder="Tên người gửi">
       <input id="sender_phone" class="input" placeholder="SĐT người gửi">
       <input id="sender_province" class="input" placeholder="Tỉnh/Thành (VD: Hồ Chí Minh)">
+      
+      <div class="grid" style="grid-template-columns:1fr auto; gap:8px">
+        <select id="warehouse_sel" class="input"><option value="">— Chọn kho người gửi (tự tải từ API) —</option></select>
+        <button id="warehouse_reload" class="btn" title="Tải danh sách kho từ API">Tải kho</button>
+      </div>
+
       <input id="sender_district" class="input" placeholder="Quận/Huyện (VD: Bình Chánh)">
       <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
       <input id="option_id" class="input" placeholder="Option tối ưu (mặc định: 1)">
@@ -40,9 +46,6 @@
         <option value="">— Chọn Phường/Xã —</option>
       </select>
     </div>
-      <input id="weight_gram" type="number" inputmode="numeric" min="0" placeholder="Khối lượng (gram)"
-             class="p-2 border border-slate-300 rounded w-full" />
-
     <input type="hidden" id="sender_province_code">
     <input type="hidden" id="sender_district_code">
     <input type="hidden" id="sender_commune_code">
@@ -53,7 +56,7 @@
     </div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px"><input id="weight_gram" class="input" placeholder="Khối lượng (gram)" style="max-width:180px" inputmode="numeric"/>    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
   <div class="card"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
@@ -120,9 +123,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   });}
 
   // Quick test: call quote with HCM/HCM (dummy 500g) to verify token ok
-  const btnTest=document.getElementById('test_super');
+  const btnTest=document.getElementById('test_super');try{ const W=localStorage.getItem('adm_ship_weight'); if(W){ const e=document.getElementById('weight_gram'); if(e) e.value=W;} }catch(e){}
   if(btnTest && !btnTest.__wired){ btnTest.__wired=true; btnTest.addEventListener('click', async ()=>{
-    const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:500, cod:0 } });
+    const wEl=document.getElementById('weight_gram');let W=parseInt((wEl&&wEl.value)||'0'); if(!W||W<0) W=500; try{ localStorage.setItem('adm_ship_weight', String(W)); }catch(e){} const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:W, weight:W, cod:0 } });
     alert('Kết quả: '+JSON.stringify(r).slice(0,400));
   });}
 });
@@ -451,43 +454,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
   })();
-
-// --- WEIGHT PATCH: add weight field save/restore and use in quote request ---
-(function(){
-  const LS = window.localStorage;
-  const weightEl = document.getElementById('weight_gram');
-  // restore
-  try{
-    const saved = LS.getItem('shipping.weight_gram');
-    if(saved && weightEl) weightEl.value = saved;
-  }catch(e){}
-  // auto save
-  weightEl && weightEl.addEventListener('input', () => {
-    try { LS.setItem('shipping.weight_gram', weightEl.value.trim()); } catch(e){}
-  });
-
-  // override test quote to include weight
-  const btn = document.getElementById('test_super');
-  if(btn && !btn.__weightPatched){
-    btn.__weightPatched = true;
-    btn.addEventListener('click', async function(ev){
-      try{
-        ev.preventDefault(); ev.stopImmediatePropagation();
-      }catch(e){};
-      const w = parseInt((weightEl && weightEl.value)||'0',10) || 0;
-      if(!w){ alert('Vui lòng nhập Khối lượng (gram)'); return; }
-      try { LS.setItem('shipping.weight_gram', String(w)); } catch(e){}
-      let body = { receiver_province:'Thành phố Hồ Chí Minh', receiver_district:'Quận 1', weight_gram: w, cod: 0 };
-      try {
-        const r = await Admin.req('/shipping/price', { method: 'POST', body });
-        alert('Kết quả: ' + JSON.stringify(r).slice(0,500));
-      } catch(err){
-        alert('Gọi báo giá thất bại: ' + (err && err.message ? err.message : String(err)));
-      }
-    }, {capture:true});
-  }
-})();
-// --- END WEIGHT PATCH ---
 </script>
 </body>
 </html>
