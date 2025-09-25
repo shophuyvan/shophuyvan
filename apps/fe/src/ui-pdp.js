@@ -864,22 +864,22 @@ function openCheckoutModal(){
       <input type="hidden" id="co-district-code" />
       <input type="hidden" id="co-ward-code" />
 
-      <textarea id="co-note" placeholder="Để lại lời nhắn cho chúng tôi" style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;min-height:80px"></textarea>
+      <textarea id="co-note" placeholder="Để lại lời nhắn cho chúng tôi" style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);min-height:80px"></textarea>
     </div>
 
     <div style="margin-top:12px;border-top:1px solid #f3f4f6;padding-top:10px" id="co-items"></div>
 
-    <div id="co-sticky" style="position:sticky;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e5e7eb;padding:10px 12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><div style="font-weight:800">Tổng cộng: <span id="co-sticky-grand" style="color:#ef4444">0đ</span></div><div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sản phẩm: <span id="co-sticky-sub">0đ</span> • Ship: <span id="co-sticky-ship">0đ</span></div></div><button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800;white-space:nowrap">ĐẶT HÀNG</button></div>
+    <div id="co-sticky" style="position:fixed;left:0;right:0;bottom:0;width:100%;z-index:99;background:#fff;border-top:1px solid #e5e7eb;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><div style="font-weight:800">Tổng cộng: <span id="co-sticky-grand" style="color:#ef4444">0đ</span></div><div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sản phẩm: <span id="co-sticky-sub">0đ</span> • Ship: <span id="co-sticky-ship">0đ</span></div></div><button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800;white-space:nowrap">ĐẶT HÀNG</button></div>
   </div>`;
   m.innerHTML = html;
   // SHV_FIX v9: keep CTA sticky and ensure space at the bottom (mobile)
   try{
-    const card = m.firstElementChild; if(card){ card.style.paddingBottom = '100px'; }
+    const card = m.firstElementChild; if(card){ card.style.paddingBottom = '120px'; }
     const submit = m.querySelector('#co-submit');
     if(submit){
       const wrap = submit.parentElement;
       if(wrap){
-        wrap.style.position='sticky'; wrap.style.left='0'; wrap.style.right='0'; wrap.style.bottom='0';
+        wrap.style.position='fixed'; wrap.style.left='0'; wrap.style.right='0'; wrap.style.bottom='0';
         wrap.style.background='#fff'; wrap.style.paddingTop='12px'; wrap.style.marginTop='16px';
         wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.zIndex='1';
       }
@@ -1178,13 +1178,13 @@ function openSuccessModal(orderId, customer){
     <div style="font-size:40px;line-height:1">✅</div>
     <div style="font-weight:800;font-size:18px;margin:6px 0 2px">Đã gửi đơn hàng</div>
     <div style="color:#374151;margin-bottom:10px">Chúng tôi sẽ liên hệ để xác nhận và giao hàng sớm nhất.</div>
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);margin-bottom:12px">
       <div><b>${customer?.name||''}</b> • ${customer?.phone||''}</div>
       <div style="font-size:13px;color:#6b7280">${[customer?.address, customer?.ward, customer?.district, customer?.province].filter(Boolean).join(', ')}</div>
     </div>
     <div style="display:flex;gap:10px;justify-content:center">
-      <a href="/" style="border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none">Đặt lại đơn hàng</a>
-      <a href="${zHref}" target="_blank" rel="noopener" style="border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px;text-decoration:none;font-weight:700">Liên hệ với Shop</a>
+      <a href="/" style="border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);text-decoration:none">Đặt lại đơn hàng</a>
+      <a href="${zHref}" target="_blank" rel="noopener" style="border:1px solid #0068FF;color:#0068FF;background:#fff;border-radius:8px;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);text-decoration:none;font-weight:700">Liên hệ với Shop</a>
     </div>
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
