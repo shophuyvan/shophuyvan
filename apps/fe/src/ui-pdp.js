@@ -644,14 +644,14 @@ function openCheckoutModal(){
       <input id="co-name" placeholder="Họ và tên" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-phone" placeholder="Số điện thoại" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-addr" placeholder="Số nhà, thôn, xóm,.." style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
-      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr;gap:10px}@media(min-width:640px){.co-grid{grid-template-columns:1fr 1fr;gap:12px}}.co-grid select,.co-grid input{width:100%;max-width:100%;box-sizing:border-box}</style><div class="co-grid">
-        <select id="co-province-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px">
+      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr;gap:10px}@media(min-width:640px){.co-grid{grid-template-columns:1fr 1fr;gap:12px}}.co-grid select,.co-grid input{width:100%;max-width:100%;box-sizing:border-box;display:block}</style><div class="co-grid">
+        <select id="co-province-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1">
           <option value="">— Chọn Tỉnh/Thành —</option>
         </select>
-        <select id="co-district-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px" disabled>
+        <select id="co-district-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1" disabled>
           <option value="">— Chọn Quận/Huyện —</option>
         </select>
-        <select id="co-ward-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px" disabled>
+        <select id="co-ward-sel" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:12px;display:block;grid-column:1 / -1" disabled>
           <option value="">— Chọn Phường/Xã —</option>
         </select>
       </div>
