@@ -500,6 +500,32 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
+  (function(){
+    const head = document.head || document.getElementsByTagName('head')[0];
+    let fix = document.getElementById('shv-co-fix-style');
+    if(!fix){
+      fix = document.createElement('style');
+      fix.id = 'shv-co-fix-style';
+      fix.type = 'text/css';
+      fix.textContent = `
+        /* Mobile-first hard overrides */
+        @media (max-width: 767px){
+          #shv-co-mask #co-form{ display:block !important; }
+          #shv-co-mask #co-form input,
+          #shv-co-mask #co-form textarea{ width:100% !important; }
+          #shv-co-mask #co-form .co-grid{ display:block !important; width:100% !important; min-width:0 !important; }
+          #shv-co-mask #co-form #co-addr,
+          #shv-co-mask #co-form #co-note{ grid-column:1 / -1 !important; width:100% !important; }
+          #shv-co-mask #co-form #co-province-sel,
+          #shv-co-mask #co-form #co-district-sel,
+          #shv-co-mask #co-form #co-ward-sel{ grid-column:1 / -1 !important; width:100% !important; max-width:100% !important; display:block !important; }
+        }
+      `;
+      head.appendChild(fix);
+    }
+  })();
+
   // SHV_FIX v6: On mobile, drop grid for #co-form to avoid implicit columns; enforce full-width selects
   (function(){
     const isMobile = window.matchMedia('(max-width: 767px)').matches;
@@ -746,6 +772,32 @@ function openCartModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
+  (function(){
+    const head = document.head || document.getElementsByTagName('head')[0];
+    let fix = document.getElementById('shv-co-fix-style');
+    if(!fix){
+      fix = document.createElement('style');
+      fix.id = 'shv-co-fix-style';
+      fix.type = 'text/css';
+      fix.textContent = `
+        /* Mobile-first hard overrides */
+        @media (max-width: 767px){
+          #shv-co-mask #co-form{ display:block !important; }
+          #shv-co-mask #co-form input,
+          #shv-co-mask #co-form textarea{ width:100% !important; }
+          #shv-co-mask #co-form .co-grid{ display:block !important; width:100% !important; min-width:0 !important; }
+          #shv-co-mask #co-form #co-addr,
+          #shv-co-mask #co-form #co-note{ grid-column:1 / -1 !important; width:100% !important; }
+          #shv-co-mask #co-form #co-province-sel,
+          #shv-co-mask #co-form #co-district-sel,
+          #shv-co-mask #co-form #co-ward-sel{ grid-column:1 / -1 !important; width:100% !important; max-width:100% !important; display:block !important; }
+        }
+      `;
+      head.appendChild(fix);
+    }
+  })();
+
   // Shipping state
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
@@ -822,6 +874,32 @@ function openCheckoutModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
+  (function(){
+    const head = document.head || document.getElementsByTagName('head')[0];
+    let fix = document.getElementById('shv-co-fix-style');
+    if(!fix){
+      fix = document.createElement('style');
+      fix.id = 'shv-co-fix-style';
+      fix.type = 'text/css';
+      fix.textContent = `
+        /* Mobile-first hard overrides */
+        @media (max-width: 767px){
+          #shv-co-mask #co-form{ display:block !important; }
+          #shv-co-mask #co-form input,
+          #shv-co-mask #co-form textarea{ width:100% !important; }
+          #shv-co-mask #co-form .co-grid{ display:block !important; width:100% !important; min-width:0 !important; }
+          #shv-co-mask #co-form #co-addr,
+          #shv-co-mask #co-form #co-note{ grid-column:1 / -1 !important; width:100% !important; }
+          #shv-co-mask #co-form #co-province-sel,
+          #shv-co-mask #co-form #co-district-sel,
+          #shv-co-mask #co-form #co-ward-sel{ grid-column:1 / -1 !important; width:100% !important; max-width:100% !important; display:block !important; }
+        }
+      `;
+      head.appendChild(fix);
+    }
+  })();
+
   // Shipping state
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
@@ -1081,6 +1159,32 @@ function openSuccessModal(orderId, customer){
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
+  (function(){
+    const head = document.head || document.getElementsByTagName('head')[0];
+    let fix = document.getElementById('shv-co-fix-style');
+    if(!fix){
+      fix = document.createElement('style');
+      fix.id = 'shv-co-fix-style';
+      fix.type = 'text/css';
+      fix.textContent = `
+        /* Mobile-first hard overrides */
+        @media (max-width: 767px){
+          #shv-co-mask #co-form{ display:block !important; }
+          #shv-co-mask #co-form input,
+          #shv-co-mask #co-form textarea{ width:100% !important; }
+          #shv-co-mask #co-form .co-grid{ display:block !important; width:100% !important; min-width:0 !important; }
+          #shv-co-mask #co-form #co-addr,
+          #shv-co-mask #co-form #co-note{ grid-column:1 / -1 !important; width:100% !important; }
+          #shv-co-mask #co-form #co-province-sel,
+          #shv-co-mask #co-form #co-district-sel,
+          #shv-co-mask #co-form #co-ward-sel{ grid-column:1 / -1 !important; width:100% !important; max-width:100% !important; display:block !important; }
+        }
+      `;
+      head.appendChild(fix);
+    }
+  })();
+
   // Shipping state
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
