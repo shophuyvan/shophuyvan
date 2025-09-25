@@ -1,4 +1,23 @@
 <!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Vận chuyển</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
+
+<style>
+  :root{
+    --primary:#1d4ed8; /* blue-700 */
+    --primary-dark:#1e40af;
+    --muted:#e5e7eb;
+  }
+  body{ background:#f8fafc; }
+  .header{ background:linear-gradient(180deg,#eff6ff 0,#ffffff 100%); border-bottom:1px solid #e5e7eb; }
+  .badge{ background:#eff6ff; color:var(--primary); border:1px solid #dbeafe; }
+  .card{ background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
+  .title{ color:var(--primary); font-weight:600; }
+  .btn{ background:var(--primary); color:#fff; border:0; border-radius:8px; }
+  .btn:hover{ background:var(--primary-dark); }
+  .input{ border:1px solid #dbeafe; border-radius:8px; background:#fff; }
+  /* Hide duplicate text inputs – use dropdowns only */
+  #sender_province, #sender_district { display:none !important; }
+</style>
+
 </head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
 <div class="grid">
   <div class="card"><div class="title">Thông tin người gửi</div>
@@ -287,3 +306,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 
 </body></html>
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  const st= $('super_token') || $('super_key'); if(st && !st.placeholder) st.placeholder='Nhập Super Token (Bearer) từ Aggregator';
+  const sp=$('super_partner'); if(sp && !sp.placeholder) sp.placeholder='Partner secret (nếu có)';
+});
+</script>
