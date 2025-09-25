@@ -647,7 +647,7 @@ function openCheckoutModal(){
       <input id="co-province" placeholder="Tỉnh/Thành" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-district" placeholder="Quận/Huyện" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
       <input id="co-ward" placeholder="Phường/Xã" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr;gap:8px}.co-grid>*{min-width:0}@media(min-width:768px){.co-grid{grid-template-columns:1fr 1fr}}@media(min-width:1024px){.co-grid{grid-template-columns:1fr 1fr 1fr}}.co-form input,.co-form select{width:100%;box-sizing:border-box}</style><div class="co-grid">
         <select id="co-province-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px">
           <option value="">— Chọn Tỉnh/Thành —</option>
         </select>
