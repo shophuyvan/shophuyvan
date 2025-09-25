@@ -26,23 +26,33 @@ function calcWeight(cart) {
   return cart.reduce((sum, it) => sum + (it.weight_grams || 0) * (it.qty || 1), 0);
 }
 
-quoteBtn?.addEventListener('click', async () => {
-  const to_province = document.getElementById('province').value;
-  const to_district = document.getElementById('district').value;
+// === AUTO QUOTE & AUTO-SELECT CHEAPEST (PATCH) ===
+async function __fetchQuoteAndRender(auto=false){
+  const to_province = document.getElementById('province')?.value || '';
+  const to_district = document.getElementById('district')?.value || '';
   const cart = JSON.parse(localStorage.getItem('CART')||'[]');
   const weight = calcWeight(cart);
+  if(!to_province || !to_district || !weight){ 
+    if(!auto){ console.warn('quote skipped: missing province/district/weight'); }
+    return null;
+  }
   const res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
-  quoteList.innerHTML = (res.items || res || []).map(opt => `
+  const items = (res.items || res || []);
+  quoteList.innerHTML = items.map(opt => `
     <label class="flex items-center gap-3 border rounded p-3 cursor-pointer">
-      <input type="radio" name="ship" value="${opt.provider}:${opt.service_code}" data-fee="${opt.fee}" data-eta="${opt.eta||''}" data-name="${opt.name}"/>
+      <input type="radio" name="ship" value="${opt.provider}:${opt.service_code||''}" data-fee="${opt.fee}" data-eta="${opt.eta||''}" data-name="${opt.name||''}"/>
       <div class="flex-1">
-        <div class="font-medium">${opt.name}</div>
+        <div class="font-medium">${opt.name||''}</div>
         <div class="text-sm">Phí: ${formatPrice(opt.fee)} | ETA: ${opt.eta || '-'}</div>
       </div>
     </label>
   `).join('');
+
+  // bind selection
   quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
-    const [provider, service_code] = (r.value||'').split(':'); localStorage.setItem('ship_provider', provider); localStorage.setItem('ship_service', service_code);
+    const [provider, service_code] = (r.value||'').split(':');
+    localStorage.setItem('ship_provider', provider); 
+    localStorage.setItem('ship_service', service_code);
     const fee = parseInt(r.dataset.fee||'0',10);
     const eta = r.dataset.eta||'';
     const name = r.dataset.name||'';
@@ -52,6 +62,37 @@ quoteBtn?.addEventListener('click', async () => {
     localStorage.setItem('ship_name', name);
     try{ renderSummary(); }catch(e){}
   });
+
+  // Auto-select cheapest on first load or when auto-triggered
+  if(items.length){
+    let cheapest = items[0];
+    for(const it of items){ if(Number(it.fee)<Number(cheapest.fee)) cheapest = it; }
+    // tick corresponding radio
+    const val = `${cheapest.provider}:${cheapest.service_code||''}`;
+    const radio = quoteList.querySelector(`input[name=ship][value="${val}"]`);
+    if(radio){ radio.checked = true; radio.dispatchEvent(new Event('change')); }
+  }
+  return items;
+}
+
+// auto triggers
+function __bindAutoQuote(){
+  const trigger = () => __fetchQuoteAndRender(true);
+  ['province','district','ward','rcv_addr'].forEach(id=>{
+    const el = document.getElementById(id); if(!el) return;
+    el.addEventListener('change', trigger); el.addEventListener('input', trigger);
+  });
+  // quantity inputs
+  document.querySelectorAll('.item-qty input').forEach(inp=>{
+    inp.addEventListener('change', trigger); inp.addEventListener('input', trigger);
+  });
+  // run once on load
+  document.addEventListener('DOMContentLoaded', trigger);
+}
+// === /PATCH ===
+
+quoteBtn?.addEventListener('click', async ()=>{ await __fetchQuoteAndRender(false); });
+__bindAutoQuote();
 });
 testVoucherBtn?.addEventListener('click', async ()=> {
   const cart = JSON.parse(localStorage.getItem('CART')||'[]');
