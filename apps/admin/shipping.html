@@ -240,22 +240,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if (typeof syncCommuneToInputs==='function') syncCommuneToInputs();
     });
   }
-
-  }
-
-
-  // Wire changes
-  $('sender_province_sel')?.addEventListener('change', async ()=>{
-    syncProvinceToInputs();
-    await loadDistricts($('sender_province_sel').value, '');
-  });
-  $('sender_district_sel')?.addEventListener('change', async ()=>{
-    syncDistrictToInputs();
-    await loadCommunes($('sender_district_sel').value, '');
-  });
-  $('sender_commune_sel')?.addEventListener('change', syncCommuneToInputs);
-
-  // Prefill from settings, then load selects with matching selection
+// Prefill from settings, then load selects with matching selection
   (async ()=>{
     try{
       const s = await (await fetch(api + '/public/settings')).json();
@@ -311,8 +296,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 </body></html>
 <script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  const st= $('super_token') || $('super_key'); if(st && !st.placeholder) st.placeholder='Nhập Super Token (Bearer) từ Aggregator';
-  const sp=document.getElementById('super_partner'); if(sp && !sp.placeholder) sp.placeholder='Partner secret (nếu có)';
-});
+ document.addEventListener('DOMContentLoaded', function(){
+   var $id=function(id){return document.getElementById(id)};
+   var st=$id('super_token')||$id('super_key');
+   if(st && !st.placeholder){st.placeholder='Nhập Super Token (Bearer) từ Aggregator';}
+   var sp=document.getElementById('super_partner');
+   if(sp && !sp.placeholder){sp.placeholder='Partner secret (nếu có)';}
+ });
 </script>
