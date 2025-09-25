@@ -500,6 +500,16 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v4: prevent implicit grid columns causing 129px width
+  try{
+    const addr = m.querySelector('#co-addr');
+    const note = m.querySelector('#co-note');
+    if(addr){ addr.style.gridColumn = '1 / -1'; }
+    if(note){ note.style.gridColumn = '1 / -1'; }
+    const grid = m.querySelector('.co-grid');
+    if(grid){ grid.style.display = 'grid'; grid.style.gridTemplateColumns = '1fr'; grid.style.width='100%'; grid.style.minWidth='0'; }
+  }catch(_){}
+
   // SHV_FIX v3: enforce full-span & stretch for address selects
   try{
     const form = m.querySelector('#co-form');
