@@ -869,21 +869,19 @@ function openCheckoutModal(){
 
     <div style="margin-top:12px;border-top:1px solid #f3f4f6;padding-top:10px" id="co-items"></div>
 
-    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;justify-content:center">
-      <button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800">ĐẶT HÀNG</button>
-    </div>
+    <div id="co-sticky" style="position:sticky;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e5e7eb;padding:10px 12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><div style="font-weight:800">Tổng cộng: <span id="co-sticky-grand" style="color:#ef4444">0đ</span></div><div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sản phẩm: <span id="co-sticky-sub">0đ</span> • Ship: <span id="co-sticky-ship">0đ</span></div></div><button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800;white-space:nowrap">ĐẶT HÀNG</button></div>
   </div>`;
   m.innerHTML = html;
   // SHV_FIX v9: keep CTA sticky and ensure space at the bottom (mobile)
   try{
-    const card = m.firstElementChild; if(card){ card.style.paddingBottom = '80px'; }
+    const card = m.firstElementChild; if(card){ card.style.paddingBottom = '100px'; }
     const submit = m.querySelector('#co-submit');
     if(submit){
       const wrap = submit.parentElement;
       if(wrap){
         wrap.style.position='sticky'; wrap.style.left='0'; wrap.style.right='0'; wrap.style.bottom='0';
         wrap.style.background='#fff'; wrap.style.paddingTop='12px'; wrap.style.marginTop='16px';
-        wrap.style.display='flex'; wrap.style.justifyContent='center'; wrap.style.zIndex='1';
+        wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.zIndex='1';
       }
     }
   }catch(_e){}
@@ -923,13 +921,18 @@ function openCheckoutModal(){
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
 
+  
   function renderTotals(){
     const sub = calcTotal();
     const grand = sub + (shipFee||0);
     const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
     const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
+    const s1 = m.querySelector('#co-sticky-sub'); if(s1) s1.textContent = sub.toLocaleString('vi-VN') + 'đ';
+    const s2 = m.querySelector('#co-sticky-ship'); if(s2) s2.textContent = (shipFee||0).toLocaleString('vi-VN') + 'đ';
+    const s3 = m.querySelector('#co-sticky-grand'); if(s3) s3.textContent = grand.toLocaleString('vi-VN') + 'đ';
   }
+
   renderTotals(); setTimeout(refreshShip, 0);
   function updateAddrCard(){
     const name = (m.querySelector('#co-name')?.value||'').trim();
