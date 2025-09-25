@@ -503,6 +503,26 @@ try{
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX: Force full-width location selects & single-column grid to avoid truncation
+  try{
+    const grid = m.querySelector('.co-grid');
+    if(grid){
+      grid.style.gridColumn = '1 / -1';
+      grid.style.width = '100%';
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = '1fr';
+    }
+    ['co-province-sel','co-district-sel','co-ward-sel'].forEach(id=>{
+      const el = m.querySelector('#'+id);
+      if(el){
+        el.style.width = '100%';
+        el.style.maxWidth = '100%';
+        el.style.display = 'block';
+        el.style.gridColumn = '1 / -1';
+      }
+    });
+  }catch(_e){}
+
   // Shipping state
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
