@@ -53,7 +53,7 @@ function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
   if (sale > 0) {
-    return { base: sale, original: (reg > 0 ? reg : null) };
+    return { base: sale, original: (reg > 0 ? reg : null) }; })();
   }
   if (reg > 0) {
     return { base: reg, original: null };
@@ -498,8 +498,8 @@ try{
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
-  m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
-  m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
+  (()=>{const __el=m.querySelector('#co-back'); if(__el) __el.onclick = ()=>{ closeMask('shv-co-mask'); openCartModal(); }; })();
+  (function(){const __el=m.querySelector('#co-close'); if(__el) __el.onclick=()=>closeMask('shv-co-mask');})();
 
 
   function renderTotals(){
@@ -687,7 +687,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
     </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
 
   
-  m.querySelector('#co-submit').onclick = async ()=>{
+  (function(){const __e=m.querySelector('#co-submit'); if(__e) __e.onclick = async ()=>{
     const customer = {
       name: m.querySelector('#co-name').value.trim(),
       phone: m.querySelector('#co-phone').value.trim(),
