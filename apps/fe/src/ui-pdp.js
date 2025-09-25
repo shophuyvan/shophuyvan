@@ -874,6 +874,20 @@ function openCheckoutModal(){
     </div>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX v9: keep CTA sticky and ensure space at the bottom (mobile)
+  try{
+    const card = m.firstElementChild; if(card){ card.style.paddingBottom = '80px'; }
+    const submit = m.querySelector('#co-submit');
+    if(submit){
+      const wrap = submit.parentElement;
+      if(wrap){
+        wrap.style.position='sticky'; wrap.style.left='0'; wrap.style.right='0'; wrap.style.bottom='0';
+        wrap.style.background='#fff'; wrap.style.paddingTop='12px'; wrap.style.marginTop='16px';
+        wrap.style.display='flex'; wrap.style.justifyContent='center'; wrap.style.zIndex='1';
+      }
+    }
+  }catch(_e){}
+
   // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
   (function(){
     const head = document.head || document.getElementsByTagName('head')[0];
@@ -976,7 +990,7 @@ function openCheckoutModal(){
   applyCols(); window.addEventListener('resize', applyCols);
   // Shipping quote
   const shipWrap = document.createElement('div');
-  shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div></div>`;
+  shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div><div id=\"co-ship-hint\" style=\"font-size:12px;color:#6b7280;margin-top:4px\">Chọn Tỉnh/Quận/Phường để xem phí vận chuyển ước tính</div></div>`;
   
   // === Area selects (receiver) ===
   (async ()=>{
@@ -1057,6 +1071,19 @@ function openCheckoutModal(){
 
 m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
   async function refreshShip(){
+    const hint = m.querySelector('#co-ship-hint');
+    const list = m.querySelector('#co-ship-list');
+    if(list) list.innerHTML = '';
+    const provText = (m.querySelector('#co-province')?.value||'').trim();
+    const distText = (m.querySelector('#co-district')?.value||'').trim();
+    const wardText = (m.querySelector('#co-ward')?.value||'').trim();
+    if(!(provText && distText && wardText)){
+      if(hint) hint.textContent = 'Chọn Tỉnh/Quận/Phường để xem phí vận chuyển ước tính';
+      return;
+    } else {
+      if(hint) hint.textContent = 'Đang tính phí vận chuyển...';
+    }
+    
     try{
       const prov = (m.querySelector('#co-province')?.value||'').trim();
       const dist = (m.querySelector('#co-district')?.value||'').trim();
@@ -1065,7 +1092,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
       const weight = items.reduce((s,it)=> s + (Number(it.weight)||200)*(Number(it.qty)||1), 0);
       const qs = `/shipping/quote?to_province=${encodeURIComponent(prov)}&to_district=${encodeURIComponent(dist)}&weight=${weight}&cod=0`;
       const res = await api.get(qs);
-      const arr = (res?.items||res||[]);
+      if(list) list.innerHTML = ''; const arr = (res?.items||res||[]);
       const list = m.querySelector('#co-ship-list');
       list.innerHTML = arr.map((o,i)=>`<label style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer">
         <input type="radio" name="ship" value="${o.provider||o.carrier}:${o.service_code||o.service}" ${i===0?'checked':''}/>
