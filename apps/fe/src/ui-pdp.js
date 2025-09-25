@@ -53,7 +53,7 @@ function pricePair(o){
   const sale = num(o.sale_price ?? o.price_sale ?? o.sale ?? 0);
   const reg  = num(o.price ?? o.regular_price ?? o.base_price ?? 0);
   if (sale > 0) {
-    return { base: sale, original: (reg > 0 ? reg : null) }; })();
+    return { base: sale, original: (reg > 0 ? reg : null) };
   }
   if (reg > 0) {
     return { base: reg, original: null };
@@ -491,21 +491,201 @@ try{
       <input id="vm-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
       <button id="vm-inc" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
     </div>
-    <div id="co-submit-wrap" style="margin-top:12px;text-align:center"><button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:14px 26px;font-weight:800">ĐẶT HÀNG</button></div></div>`;
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;gap:10px">
+      <button id="vm-add" style="flex:1;border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:12px 16px;font-weight:700">Thêm Vào Giỏ Hàng</button>
+      <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">Mua Ngay</button>
+    </div>
+    <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+  </div>`;
   m.innerHTML = html;
   // Shipping state
   let shipFee = 0; let chosenShip = null;
   // Declare shipping state early to avoid TDZ errors
   // Ensure mobile-safe width & scrolling
   try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
-  (()=>{const __el=m.querySelector('#co-back'); if(__el) __el.onclick = ()=>{ closeMask('shv-co-mask'); openCartModal(); }; })(); })();
-  (function(){const __el=m.querySelector('#co-close'); if(__el) __el.onclick=()=>closeMask('shv-co-mask'); })();})();
+
+  // Render variants buttons
+  function renderVBtns(active){
+    const box = m.querySelector('#vm-variants');
+    const arr = variantsOf(PRODUCT);
+    box.innerHTML = arr.map((v,i)=>{
+      const {base}=pricePair(v); const img = imagesOf(v)[0]||'';
+      const name = (v.name||v.sku||('Loại '+(i+1)));
+      const act = (active===i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
+      return `<button data-k="${i}" style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;${act}">${img?`<img src="${img}" data-fallback="${String(img||'').includes('/file/')?String(img).replace('/file/', '/img/')+'?w=960&q=85&format=auto':img}" onerror="if(this.dataset.fallback&&!this.__tried){this.__tried=1;this.src=this.dataset.fallback}" style="width:28px;height:28px;object-fit:contain;border-radius:6px">`:''}<span>${name}${base?` — ${(base||0).toLocaleString('vi-VN')}đ`:''}</span></button>`;
+    }).join('');
+    box.querySelectorAll('button[data-k]').forEach(btn=>btn.onclick=()=>{ 
+      const k=+btn.dataset.k; CURRENT = arr[k]; renderVBtns(k); updPrice(); 
+    });
+  }
+  function updPrice(){
+    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
+    let pr = null;
+    if(src){ pr = pricePair(src); }
+    else {
+      const arr = variantsOf(PRODUCT);
+      let best = null; for(const v of arr){ const p=pricePair(v); if(p.base>0 && (!best || p.base<best.base)) best=p; }
+      pr = best || { base: 0 };
+    }
+    m.querySelector('#vm-price').textContent = (pr.base||0).toLocaleString('vi-VN')+'đ';
+    const im = m.querySelector('img'); im.src = (imagesOf(src)[0] || im.src);
+  }
+  renderVBtns((vs.indexOf(current)>=0)?vs.indexOf(current):0); updPrice();
+
+  // Qty
+  const dec = ()=>{ const inp=m.querySelector('#vm-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)-1); inp.value=String(v); };
+  const inc = ()=>{ const inp=m.querySelector('#vm-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
+  m.querySelector('#vm-dec').onclick = dec;
+  m.querySelector('#vm-inc').onclick = inc;
+
+  // Actions
+  function addSelectedToCart(){
+    const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
+    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
+    const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title: PRODUCT.title||PRODUCT.name||'', image: imagesOf(src||PRODUCT)[0]||'', variant: (CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
+    try{
+      const cart = JSON.parse(localStorage.getItem('CART')||'[]')||[];
+      const k = keyOfItem(item);
+      const idx = cart.findIndex(x=>keyOfItem(x)===k);
+      if(idx>-1){ cart[idx].qty = (Number(cart[idx].qty)||1) + qty; }
+      else { cart.push(item); }
+      localStorage.setItem('CART', JSON.stringify(consolidateCart(cart)));
+    }catch(e){}
+  }
+
+  m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); openCartModal(); };
+  m.querySelector('#vm-buy').onclick = ()=>{ addSelectedToCart(); closeMask(); openCheckoutModal(); };
+  m.querySelector('#vm-close').onclick = ()=> closeMask();
+
+  if(mode==='buy'){/* nothing extra */}
+}
+
+// Cart modal bottom sheet
+function cartItems(){ try{ const raw=JSON.parse(localStorage.getItem('CART')||'[]'); const merged=consolidateCart(raw); if(merged.length!==raw.length){ localStorage.setItem('CART', JSON.stringify(merged)); } return merged; }catch{ return []; } }
+
+// SHV_PATCH: consolidate cart items by (id, variant, price)
+function keyOfItem(it){
+  return String(it.id||'')+'|'+String(it.variant||'')+'|'+String(Number(it.price)||0);
+}
+function consolidateCart(arr){
+  try{
+    const map = new Map();
+    for(const it of arr||[]){
+      const k = keyOfItem(it);
+      if(!map.has(k)){ map.set(k, {...it, qty: Number(it.qty)||1}); }
+      else { const o=map.get(k); o.qty = (Number(o.qty)||1) + (Number(it.qty)||1); map.set(k,o); }
+    }
+    return Array.from(map.values());
+  }catch(e){ return arr||[]; }
+}
+function setCartItems(arr){ localStorage.setItem('CART', JSON.stringify(arr)); }
+function calcTotal(){ return cartItems().reduce((s,it)=>s + (Number(it.price)||0)*(Number(it.qty)||1), 0); }
+
+function openCartModal(){
+  const m = mkMask('shv-cart-mask');
+  const items = cartItems();
+  const html = `
+  <div style="width:100%;max-width:560px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:12px 12px 80px 12px;position:relative">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px">
+      <div style="font-weight:800">GIỎ HÀNG (${(items||[]).reduce((s,it)=>s+(Number(it.qty)||1),0)})</div>
+      <button id="cm-close" style="border:none;background:transparent;font-size:22px">✕</button>
+    </div>
+    <div id="cm-list"></div>
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-weight:700">Tổng: <span id="cm-total" style="color:#dc2626"></span></div>
+      <button id="cm-checkout" style="flex:0 0 auto;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">ĐẶT HÀNG NGAY</button>
+    </div>
+  </div>`;
+  m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
+  // Declare shipping state early to avoid TDZ errors
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
+  const list = m.querySelector('#cm-list');
+  function render(){
+    const arr = cartItems();
+    list.innerHTML = arr.map((it,idx)=>`
+      <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
+        <img src="${it.image||''}" data-fallback="${(it.image||'').replace('/file/', '/img/')+'?w=720&q=85&format=auto'}" onerror="if(this.dataset.fallback&&!this.__tried){this.__tried=1;this.src=this.dataset.fallback}else{this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'56\' height=\'56\'><rect width=\'100%\' height=\'100%\' fill=\'%23f3f4f6\'/></svg>';}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+          ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
+          <div style="font-weight:700;color:#ef4444">${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button data-dec="${idx}" style="width:28px;height:28px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">−</button>
+          <span>${it.qty||1}</span>
+          <button data-inc="${idx}" style="width:28px;height:28px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
+          <button data-del="${idx}" style="margin-left:8px;border:none;background:transparent">🗑️</button>
+        </div>
+      </div>`).join('') || '<div style="padding:12px;color:#6b7280">Giỏ hàng trống</div>';
+    const total = calcTotal(); m.querySelector('#cm-total').textContent = total.toLocaleString('vi-VN')+'đ';
+    list.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; const arr=cartItems(); arr[i].qty=Math.max(1,(arr[i].qty||1)-1); setCartItems(arr); render(); });
+    list.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const arr=cartItems(); arr[i].qty=(arr[i].qty||1)+1; setCartItems(arr); render(); });
+    list.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.del; const arr=cartItems(); arr.splice(i,1); setCartItems(arr); render(); });
+  }
+  render();
+  m.querySelector('#cm-close').onclick=()=>closeMask('shv-cart-mask');
+  m.querySelector('#cm-checkout').onclick=()=>{ closeMask('shv-cart-mask'); openCheckoutModal(); };
+}
+
+// Checkout modal
+function openCheckoutModal(){
+  const m = mkMask('shv-co-mask');
+  const html = `
+  <div class="co-modal" style="max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:14px 14px 80px 14px;position:relative">
+    <div style="display:flex;align-items:center;gap:6px;padding-bottom:10px">
+      <button id="co-back" style="border:none;background:transparent;font-size:22px">←</button>
+      <div style="font-weight:800">HOÀN TẤT ĐƠN HÀNG</div>
+      <button id="co-close" style="margin-left:auto;border:none;background:transparent;font-size:22px">✕</button>
+    </div>
+    <div id="co-form" style="display:grid;grid-template-columns:1fr;gap:10px">
+      <input id="co-name" placeholder="Họ và tên" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-phone" placeholder="Số điện thoại" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <input id="co-addr" placeholder="Số nhà, thôn, xóm,.." style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" />
+      <style id="co-grid-style">.co-grid{display:grid;grid-template-columns:1fr;gap:8px}.co-grid>*{min-width:0}@media(min-width:768px){.co-grid{grid-template-columns:1fr 1fr}}@media(min-width:1024px){.co-grid{grid-template-columns:1fr 1fr 1fr}}.co-form input,.co-form select{width:100%;box-sizing:border-box}</style><div class="co-grid">
+        <select id="co-province-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px">
+          <option value="">— Chọn Tỉnh/Thành —</option>
+        </select>
+        <select id="co-district-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" disabled>
+          <option value="">— Chọn Quận/Huyện —</option>
+        </select>
+        <select id="co-ward-sel" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px" disabled>
+          <option value="">— Chọn Phường/Xã —</option>
+        </select>
+      </div>
+      <!-- Hidden text fields to hold selected names for province/district/ward (fix null .value) -->
+      <input type="hidden" id="co-province" />
+      <input type="hidden" id="co-district" />
+      <input type="hidden" id="co-ward" />
+      <input type="hidden" id="co-province-code" />
+      <input type="hidden" id="co-district-code" />
+      <input type="hidden" id="co-ward-code" />
+
+      <textarea id="co-note" placeholder="Để lại lời nhắn cho chúng tôi" style="grid-column:1/3;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;min-height:80px"></textarea>
+    </div>
+
+    <div style="margin-top:12px;border-top:1px solid #f3f4f6;padding-top:10px" id="co-items"></div>
+
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;justify-content:center">
+      <button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800">ĐẶT HÀNG</button>
+    </div>
+  </div>`;
+  m.innerHTML = html;
+  // Shipping state
+  let shipFee = 0; let chosenShip = null;
+  // Declare shipping state early to avoid TDZ errors
+  // Ensure mobile-safe width & scrolling
+  try{ const card=m.firstElementChild; if(card){ card.style.width='calc(100% - 16px)'; card.style.maxWidth='640px'; card.style.margin='0 8px'; card.style.boxSizing='border-box'; card.style.maxHeight='92vh'; card.style.overflow='auto'; card.style.WebkitOverflowScrolling='touch'; }}catch{}
+  m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
+  m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
 
   function renderTotals(){
     const sub = calcTotal();
     const grand = sub + (shipFee||0);
-    const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = sub.toLocaleString('vi-VN') + 'đ';
+    const d1 = m.querySelector('#co-sub'); if(d1) d1.textContent = 'Tạm tính: ' + sub.toLocaleString('vi-VN') + 'đ';
     const d2 = m.querySelector('#co-shipfee'); if(d2) d2.textContent = 'Phí vận chuyển: ' + (shipFee||0).toLocaleString('vi-VN') + 'đ';
     const d3 = m.querySelector('#co-grand'); if(d3) d3.textContent = 'Tổng: ' + grand.toLocaleString('vi-VN') + 'đ';
   }
@@ -676,10 +856,18 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
   /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
-
+ + list.map(it=>`
+    <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
+      <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+        ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
+      </div>
+      <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+    </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
 
   
-  (function(){const __e=m.querySelector('#co-submit'); if(__e) __e.onclick = async ()=>{
+  m.querySelector('#co-submit').onclick = async ()=>{
     const customer = {
       name: m.querySelector('#co-name').value.trim(),
       phone: m.querySelector('#co-phone').value.trim(),
