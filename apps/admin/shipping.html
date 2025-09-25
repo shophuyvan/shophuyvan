@@ -210,33 +210,37 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if($('sender_commune')) set('sender_commune', name);
   }
 
+  // 
   // === Wire change listeners for selects ===
-  const provinceSel = $('sender_province_sel');
-  const districtSel = $('sender_district_sel');
-  const communeSel  = $('sender_commune_sel');
+  const GET = (id)=>document.getElementById(id);
+  const provinceSel = GET('sender_province_sel');
+  const districtSel = GET('sender_district_sel');
+  const communeSel  = GET('sender_commune_sel');
   if(provinceSel && !provinceSel.__wired){
     provinceSel.__wired = true;
-    provinceSel.addEventListener('change', async (e)=>{
-      syncProvinceToInputs();
+    provinceSel.addEventListener('change', async ()=>{
+      if (typeof syncProvinceToInputs==='function') syncProvinceToInputs();
       // clear dependents
       if(districtSel){ districtSel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>'; districtSel.disabled = !provinceSel.value; }
       if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = true; }
-      if(provinceSel.value){ await loadDistricts(provinceSel.value, ''); }
+      if(provinceSel.value && typeof loadDistricts==='function'){ await loadDistricts(provinceSel.value, ''); }
     });
   }
   if(districtSel && !districtSel.__wired){
     districtSel.__wired = true;
-    districtSel.addEventListener('change', async (e)=>{
-      syncDistrictToInputs();
+    districtSel.addEventListener('change', async ()=>{
+      if (typeof syncDistrictToInputs==='function') syncDistrictToInputs();
       if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = !districtSel.value; }
-      if(districtSel.value){ await loadCommunes(districtSel.value, ''); }
+      if(districtSel.value && typeof loadCommunes==='function'){ await loadCommunes(districtSel.value, ''); }
     });
   }
   if(communeSel && !communeSel.__wired){
     communeSel.__wired = true;
     communeSel.addEventListener('change', ()=>{
-      syncCommuneToInputs();
+      if (typeof syncCommuneToInputs==='function') syncCommuneToInputs();
     });
+  }
+
   }
 
 
@@ -309,6 +313,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
   const st= $('super_token') || $('super_key'); if(st && !st.placeholder) st.placeholder='Nhập Super Token (Bearer) từ Aggregator';
-  const sp=$('super_partner'); if(sp && !sp.placeholder) sp.placeholder='Partner secret (nếu có)';
+  const sp=document.getElementById('super_partner'); if(sp && !sp.placeholder) sp.placeholder='Partner secret (nếu có)';
 });
 </script>
