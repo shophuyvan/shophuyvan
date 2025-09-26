@@ -436,6 +436,16 @@ document.getElementById('schemaAuto')?.addEventListener('click', ()=>{
 
       <hr/>
       
+      
+      <div class="toolbar">
+        <div class="title">AI SEO Studio</div>
+        <div class="row" style="gap:8px;align-items:center">
+          <button class="btn" id="openStudio">Mở Studio</button>
+          <button class="btn" id="pasteFromStudio">Dán từ Studio (Clipboard)</button>
+          <span class="hint">Ghép với https://ai.studio/… để soạn SEO trực tiếp</span>
+        </div>
+      </div>
+
       <div class="toolbar">
         <div class="title">Nhập gói ZIP sản phẩm</div>
         <input type="file" id="zipFile" accept=".zip" />
@@ -968,6 +978,117 @@ document.getElementById('schemaAuto')?.addEventListener('click', ()=>{
   (window.Admin?.toast||alert)('Đã tạo Schema JSON-LD từ dữ liệu form');
 });
 
+</script>
+
+
+<style>
+#studioModal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:9999}
+#studioWrap{position:absolute;inset:5%;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+#studioHead{padding:8px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+#studioFrame{flex:1;border:0;width:100%}
+</style>
+<div id="studioModal">
+  <div id="studioWrap">
+    <div id="studioHead">
+      <div class="title">AI SEO Studio</div>
+      <div class="row" style="gap:8px">
+        <button class="btn" id="studioSend">Gửi dữ liệu hiện tại</button>
+        <button class="btn" id="studioClose">Đóng</button>
+      </div>
+    </div>
+    <iframe id="studioFrame" referrerpolicy="no-referrer"></iframe>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  const STUDIO_URL = 'https://ai.studio/apps/drive/1I360f-vc91CdgftIdA5k_6jMJF3B4jUJ';
+  const modal = document.getElementById('studioModal');
+  const frame = document.getElementById('studioFrame');
+
+  function openStudio(){
+    try{
+      frame.src = STUDIO_URL;
+      modal.style.display = 'block';
+      (window.Admin?.toast||console.log)('Đang mở AI SEO Studio...');
+    }catch(e){
+      window.open(STUDIO_URL, '_blank');
+    }
+  }
+  function closeStudio(){ modal.style.display='none'; frame.src='about:blank'; }
+
+  // Gửi dữ liệu hiện tại sang Studio (nếu Studio hỗ trợ postMessage)
+  function dataForStudio(){
+    return {
+      type: 'SEO_STUDIO_INPUT',
+      payload: {
+        title: document.getElementById('title')?.value||'',
+        seoTitle: document.getElementById('seoTitle')?.value||'',
+        desc: document.getElementById('desc')?.value||'',
+        keywords: document.getElementById('keywords')?.value||'',
+        faq: document.getElementById('faq')?.value||'',
+      }
+    };
+  }
+
+  document.getElementById('openStudio')?.addEventListener('click', openStudio);
+  document.getElementById('studioClose')?.addEventListener('click', closeStudio);
+  document.getElementById('studioSend')?.addEventListener('click', ()=>{
+    try{ frame.contentWindow.postMessage(dataForStudio(), '*'); }catch(e){}
+  });
+
+  // Nhận dữ liệu từ Studio (nếu Studio postMessage về parent)
+  window.addEventListener('message', (e)=>{
+    // Chỉ nhận từ ai.studio
+    if(!String(e.origin||'').includes('ai.studio')) return;
+    const data = e.data||{};
+    if(data.type==='SEO_STUDIO_SAVE' || data.type==='SEO_STUDIO_PUBLISH'){
+      applySeoPayload(data.payload||{});
+      (window.Admin?.toast||alert)('Đã nhận nội dung từ AI Studio');
+      if(data.type==='SEO_STUDIO_PUBLISH'){
+        // tự nhấn Lưu sản phẩm
+        document.getElementById('saveBtn')?.click();
+      }
+    }
+  });
+
+  // Dán từ clipboard (khi Studio có nút "Copy")
+  document.getElementById('pasteFromStudio')?.addEventListener('click', async ()=>{
+    try{
+      const t = await navigator.clipboard.readText();
+      if(!t) return alert('Clipboard trống');
+      applySeoText(t);
+      (window.Admin?.toast||alert)('Đã dán nội dung từ clipboard');
+    }catch(e){ alert('Không đọc được clipboard: ' + e); }
+  });
+
+  // ---- Áp dụng dữ liệu vào form ----
+  function applySeoPayload(p){
+    if(p.title) document.getElementById('title').value = p.title;
+    if(p.seoTitle) document.getElementById('seoTitle').value = p.seoTitle;
+    if(p.desc) document.getElementById('desc').value = p.desc;
+    if(p.keywords) document.getElementById('keywords').value = Array.isArray(p.keywords)? p.keywords.join(', ') : p.keywords;
+    if(p.faq) document.getElementById('faq').value = Array.isArray(p.faq)? p.faq.map(x=>`Hỏi: ${x.q} | Đáp: ${x.a}`).join('\n') : p.faq;
+  }
+
+  // Parser text dạng file SEO
+  function applySeoText(src){
+    function sec(name){ const re = new RegExp('---\\s*'+name+'\\s*---([\\s\\S]*?)(?=\\n---|$)','i'); const m = src.match(re); return m? (m[1]||'').trim():''; }
+    const title = (src.match(/TÊN\\s*SẢN\\s*PHẨM\\s*:\\s*(.+)/i)||[])[1] || (src.split(/\n+/).map(s=>s.trim()).filter(Boolean)[0]||'');
+    const seoTitle = sec('TIÊU ĐỀ SEO');
+    const shortDesc = sec('MÔ TẢ NGẮN');
+    const details = sec('THÔNG TIN CHI TIẾT');
+    const keywords = sec('TỪ KHOÁ|TỪ KHÓA');
+    const faq = sec('CÂU HỎI THƯỜNG GẶP \\(FAQ\\)');
+    if(title) document.getElementById('title').value = title;
+    if(seoTitle) document.getElementById('seoTitle').value = seoTitle;
+    const desc = [shortDesc, details].filter(Boolean).join('\n\n');
+    if(desc) document.getElementById('desc').value = desc;
+    if(keywords) document.getElementById('keywords').value = keywords.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean).join(', ');
+    if(faq) document.getElementById('faq').value = faq.split(/\n+/).map(s=>s.trim()).filter(Boolean).join('\n');
+  }
+})();
 </script>
 
 </body></html>
