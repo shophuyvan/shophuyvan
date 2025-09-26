@@ -92,6 +92,9 @@ function _formatDesc(shortTxt, detailsTxt){
 
 // ===== ZIP Import =====
 document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  if(window.__SHV_ZIP_BUSY__) return alert('Đang xử lý ZIP, vui lòng đợi...');
+  window.__SHV_ZIP_BUSY__ = true;
+  try{
   const f = document.getElementById('zipFile')?.files?.[0];
   if(!f) return alert('Chọn file .zip trước');
   let zip;
@@ -135,29 +138,41 @@ document.getElementById('applyZip')?.addEventListener('click', async ()=>{
   // Video (mp4) nếu có
   const vids = listFiles('', /\.(mp4|webm|mov)$/i);
   if(vids[0]){
-    const blob = await zip.file(vids[0]).async('blob');
-    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
-    try{
-      const urls = await doUpload(file);
-      if(urls[0]) $('#video').value = urls[0];
-    }catch(e){ console.log('Upload video lỗi', e); }
+    if(!$('#video').value){
+      const blob = await zip.file(vids[0]).async('blob');
+      const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+      try{
+        const urls = await doUpload(file);
+        if(urls[0]) $('#video').value = urls[0];
+      }catch(e){ console.log('Upload video lỗi', e); }
+    }
   }
 
   // Ảnh trong thư mục images/
   const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
   if(imgs.length){
     const files = [];
+    const existNames = new Set((state.images||[]).map(u=>String(u).split('/').pop().toLowerCase()));
     for (const p of imgs){
       const blob = await zip.file(p).async('blob');
-      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+      const name = p.split('/').pop();
+      if(existNames.has(String(name).toLowerCase())) continue; // skip duplicate filename
+      files.push(new File([blob], name, {type: blob.type||'image/*'}));
     }
     try{
-      const urls = await doUpload(files);
-      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+      if(files.length){
+        const urls = await doUpload(files);
+        if(urls?.length){
+          const before = new Set(state.images||[]);
+          (state.images = [...before, ...urls]);
+          renderImgs();
+        }
+      }
     }catch(e){ console.log('Upload ảnh lỗi', e); }
   }
 
   (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+  } finally { window.__SHV_ZIP_BUSY__ = false; }
 });
 // ===== End ZIP Import =====
 
@@ -226,6 +241,9 @@ document.getElementById('schemaAuto')?.addEventListener('click', ()=>{
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js">
 // ===== ZIP Import =====
 document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  if(window.__SHV_ZIP_BUSY__) return alert('Đang xử lý ZIP, vui lòng đợi...');
+  window.__SHV_ZIP_BUSY__ = true;
+  try{
   const f = document.getElementById('zipFile')?.files?.[0];
   if(!f) return alert('Chọn file .zip trước');
   let zip;
@@ -269,29 +287,41 @@ document.getElementById('applyZip')?.addEventListener('click', async ()=>{
   // Video (mp4) nếu có
   const vids = listFiles('', /\.(mp4|webm|mov)$/i);
   if(vids[0]){
-    const blob = await zip.file(vids[0]).async('blob');
-    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
-    try{
-      const urls = await doUpload(file);
-      if(urls[0]) $('#video').value = urls[0];
-    }catch(e){ console.log('Upload video lỗi', e); }
+    if(!$('#video').value){
+      const blob = await zip.file(vids[0]).async('blob');
+      const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+      try{
+        const urls = await doUpload(file);
+        if(urls[0]) $('#video').value = urls[0];
+      }catch(e){ console.log('Upload video lỗi', e); }
+    }
   }
 
   // Ảnh trong thư mục images/
   const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
   if(imgs.length){
     const files = [];
+    const existNames = new Set((state.images||[]).map(u=>String(u).split('/').pop().toLowerCase()));
     for (const p of imgs){
       const blob = await zip.file(p).async('blob');
-      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+      const name = p.split('/').pop();
+      if(existNames.has(String(name).toLowerCase())) continue; // skip duplicate filename
+      files.push(new File([blob], name, {type: blob.type||'image/*'}));
     }
     try{
-      const urls = await doUpload(files);
-      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+      if(files.length){
+        const urls = await doUpload(files);
+        if(urls?.length){
+          const before = new Set(state.images||[]);
+          (state.images = [...before, ...urls]);
+          renderImgs();
+        }
+      }
     }catch(e){ console.log('Upload ảnh lỗi', e); }
   }
 
   (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+  } finally { window.__SHV_ZIP_BUSY__ = false; }
 });
 // ===== End ZIP Import =====
 
@@ -849,6 +879,9 @@ function _formatDesc(shortTxt, detailsTxt){
 
 // ===== ZIP Import =====
 document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  if(window.__SHV_ZIP_BUSY__) return alert('Đang xử lý ZIP, vui lòng đợi...');
+  window.__SHV_ZIP_BUSY__ = true;
+  try{
   const f = document.getElementById('zipFile')?.files?.[0];
   if(!f) return alert('Chọn file .zip trước');
   let zip;
@@ -892,29 +925,41 @@ document.getElementById('applyZip')?.addEventListener('click', async ()=>{
   // Video (mp4) nếu có
   const vids = listFiles('', /\.(mp4|webm|mov)$/i);
   if(vids[0]){
-    const blob = await zip.file(vids[0]).async('blob');
-    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
-    try{
-      const urls = await doUpload(file);
-      if(urls[0]) $('#video').value = urls[0];
-    }catch(e){ console.log('Upload video lỗi', e); }
+    if(!$('#video').value){
+      const blob = await zip.file(vids[0]).async('blob');
+      const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+      try{
+        const urls = await doUpload(file);
+        if(urls[0]) $('#video').value = urls[0];
+      }catch(e){ console.log('Upload video lỗi', e); }
+    }
   }
 
   // Ảnh trong thư mục images/
   const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
   if(imgs.length){
     const files = [];
+    const existNames = new Set((state.images||[]).map(u=>String(u).split('/').pop().toLowerCase()));
     for (const p of imgs){
       const blob = await zip.file(p).async('blob');
-      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+      const name = p.split('/').pop();
+      if(existNames.has(String(name).toLowerCase())) continue; // skip duplicate filename
+      files.push(new File([blob], name, {type: blob.type||'image/*'}));
     }
     try{
-      const urls = await doUpload(files);
-      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+      if(files.length){
+        const urls = await doUpload(files);
+        if(urls?.length){
+          const before = new Set(state.images||[]);
+          (state.images = [...before, ...urls]);
+          renderImgs();
+        }
+      }
     }catch(e){ console.log('Upload ảnh lỗi', e); }
   }
 
   (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+  } finally { window.__SHV_ZIP_BUSY__ = false; }
 });
 // ===== End ZIP Import =====
 

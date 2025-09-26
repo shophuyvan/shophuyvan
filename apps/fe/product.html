@@ -279,22 +279,29 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
   <script type="application/ld+json" id="id-product"></script>
   <script type="module" src="/src/ui-pdp.js?v=72"></script>
 
-<!-- SHV: Render description & FAQ with markup -->
+
+
+<!-- SHV: Render description & FAQ with markup (robust) -->
 <script>
 (function(){
+  function normalizeNewlines(raw){
+    if(raw==null) return '';
+    // convert literal \n in saved text to real newline
+    return String(raw).replace(/\\n/g, '\n');
+  }
   function renderDesc(raw){
-    if(!raw) return '';
-    // Convert headings '## ' to <h3>, bullets to <li>, keep linebreaks
+    raw = normalizeNewlines(raw);
     const lines = String(raw).split(/\n/);
     let html='', inList=false;
-    for(const ln of lines){
+    for(const ln0 of lines){
+      const ln = ln0.trimEnd();
       if(/^##\s+/.test(ln)){
         if(inList){ html+='</ul>'; inList=false; }
         html += '<h3 class="font-semibold mt-2 mb-1">'+ln.replace(/^##\s+/, '')+'</h3>';
       }else if(/^\-\s+/.test(ln)){
         if(!inList){ html+='<ul class="list-disc pl-5">'; inList=true; }
         html += '<li>'+ln.replace(/^\-\s+/, '')+'</li>';
-      }else if(ln.trim()===''){
+      }else if(ln===''){
         if(inList){ html+='</ul>'; inList=false; }
         html += '<br/>';
       }else{
@@ -305,24 +312,27 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
     return html;
   }
   function parseFaq(raw){
-    if(!raw) return [];
-    const out=[];
-    const lines = String(raw).split(/\n+/).map(s=>s.trim()).filter(Boolean);
-    for(const line of lines){
-      const m = line.match(/Hỏi\s*:\s*(.+?)\s*\|\s*Đáp\s*:\s*(.+)/i);
-      if(m) out.push({q:m[1], a:m[2]}); else out.push({q:line, a:''});
+    raw = normalizeNewlines(raw);
+    const text = ' ' + raw.replace(/\s+/g,' ') + ' ';
+    const out = [];
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    if(!out.length && raw.trim()){
+      out.push({q: raw.trim(), a: ''});
     }
     return out;
   }
-  const elDesc = document.querySelector('[data-bind="product-desc"]');
-  const elFaq = document.querySelector('[data-bind="product-faq"]');
-  if(window.__PRODUCT__ && (elDesc||elFaq)){
-    if(elDesc){ elDesc.innerHTML = renderDesc(window.__PRODUCT__.desc||''); }
-    if(elFaq){ 
-      const items = parseFaq(window.__PRODUCT__.faq||'');
+  function apply(){
+    const p = (window.__PRODUCT__||{});
+    const elDesc = document.querySelector('[data-bind="product-desc"]');
+    const elFaq = document.querySelector('[data-bind="product-faq"]');
+    if(elDesc) elDesc.innerHTML = renderDesc(p.desc||'');
+    if(elFaq){
+      const items = parseFaq(p.faq||'');
       elFaq.innerHTML = items.map(x=>('<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>')).join('');
     }
   }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply); else apply();
 })();
 </script>
 
