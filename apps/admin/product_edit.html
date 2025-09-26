@@ -206,6 +206,14 @@ document.getElementById('applyTemplate')?.addEventListener('click', ()=>{
 
 // === Schema JSON-LD generator ===
 function buildSchemaFromForm(){
+
+// SHV safe-local gramsOf to avoid ReferenceError
+const gramsOf = (typeof window!=='undefined' && window.gramsOf) ? window.gramsOf : function(v){
+  const raw = String(v ?? '').replace(',', '.');
+  const n = Number(raw);
+  return (!isNaN(n) && n>0 && n<=50 && /[.,]/.test(raw)) ? Math.round(n*1000) : Math.round(n||0);
+};
+
   const title = $('#title').value.trim();
   const desc  = $('#desc').value.trim();
   const slug  = $('#slug').value.trim();
@@ -590,12 +598,40 @@ $('#aiReviews')?.addEventListener('click', ()=>{
 });
 
 // Upload helpers (fallbacks handled by Worker)
+
+// SHV dedupe helpers
 async function blobHashSHA1(blob){
   const buf = await blob.arrayBuffer();
   const hash = await crypto.subtle.digest('SHA-1', buf);
   return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 async function doUpload(fileOrFiles){
+  const arr = (Array.isArray(fileOrFiles)?fileOrFiles:[fileOrFiles]).filter(Boolean);
+  window.__UPLOAD_NAME_SET__ = window.__UPLOAD_NAME_SET__ || new Set();
+  window.__UPLOAD_HASH_SET__ = window.__UPLOAD_HASH_SET__ || new Set();
+  const filtered = [];
+  for (const f of arr){
+    try{
+      const nameKey = (f.name||'').toLowerCase();
+      if (nameKey && window.__UPLOAD_NAME_SET__.has(nameKey)) continue;
+      if (f && f.arrayBuffer){
+        const h = await blobHashSHA1(f);
+        if (window.__UPLOAD_HASH_SET__.has(h)) continue;
+        window.__UPLOAD_HASH_SET__.add(h);
+      }
+      if (nameKey) window.__UPLOAD_NAME_SET__.add(nameKey);
+      filtered.push(f);
+    }catch(e){ filtered.push(f); }
+  }
+  if (!filtered.length) return [];
+  const fd = new FormData();
+  filtered.forEach(f=>fd.append('file', f));
+  let r = await Admin.req('/admin/upload', { method:'POST', body:fd });
+  if (!(r && r.ok)) r = await Admin.req('/admin/files', { method:'POST', body:fd });
+  if (r && r.ok && r.urls) return r.urls;
+  return [];
+}
+
   const fd = new FormData();
   (Array.isArray(fileOrFiles)?fileOrFiles:[fileOrFiles]).forEach(f=>fd.append('file', f));
   let r = await Admin.req('/admin/upload', { method:'POST', body:fd });
