@@ -1,0 +1,38 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Đăng nhập quản trị</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js?v=25"></script>
+<!-- build:21 -->
+</head><body>
+<div class="container">
+  <div class="header"><div class="title">Đăng nhập quản trị</div>
+    <div class="badge">API: <span data-api-base></span></div>
+  </div>
+  <div class="card">
+    <label>API base</label>
+    <div class="flex">
+      <input id="api" class="input" placeholder="https://shv-api.shophuyvan.workers.dev"/>
+      <button class="btn" id="setApi">Đổi API base</button>
+    </div>
+    <hr/>
+    <label>Tài khoản</label><input id="u" class="input" value="admin"/>
+    <label>Mật khẩu</label><input id="p" type="password" class="input"/>
+    <div class="toolbar">
+      <button id="loginBtn" class="btn primary">Đăng nhập</button>
+      <div class="small">Nếu gặp CORS 405 hãy bật header <b>x-token</b> cho preflight.</div>
+    </div>
+    <div class="hint">Trạng thái: <span id="st">chưa đăng nhập</span></div>
+  </div>
+</div>
+<script>
+const $ = s=>document.querySelector(s);
+$('#setApi').onclick = ()=>{ Admin.setBase($('#api').value.trim()); };
+$('#loginBtn').onclick = async ()=>{
+  $('#st').textContent='đang đăng nhập...';
+  const ok = await Admin.login($('#u').value.trim(), $('#p').value.trim());
+  if(ok){ $('#st').textContent='OK'; location.href='/products.html'; }
+  else { $('#st').textContent='Đăng nhập thất bại'; }
+};
+</script>
+</body></html>

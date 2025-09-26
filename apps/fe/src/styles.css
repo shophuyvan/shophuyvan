@@ -1,0 +1,12 @@
+@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;padding:10px 14px;border-radius:8px;background:#222;color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:9999;opacity:.96}
+.toast.err{background:#b00020}
+.toast.ok{background:#2e7d32}
+.admin-nav-secondary{display:flex;gap:8px;margin:.5rem 0}
+.grid.two{display:grid;grid-template-columns:1fr 1fr; gap:10px}
+@media (max-width:768px){ .grid.two{ grid-template-columns:1fr; } }
+
+
+/* ===== PDP main media square & contain ===== */
+#media-main { aspect-ratio: 1 / 1; }
+#media-main img { width:100%; height:100%; object-fit: contain; background:#fff; }
