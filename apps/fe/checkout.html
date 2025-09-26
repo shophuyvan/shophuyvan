@@ -66,5 +66,76 @@
 <script type="module" src="/src/tracking.js?v=99"></script>
 <script type="module" src="/src/frontend.js?v=99"></script>
 <script type="module" src="/src/voucher-ui.js?v=99"></script>
+
+<!-- SHV fallback: auto shipping quote via API if original /src scripts don't run or return mock -->
+<script>
+(function(){
+  if (window.SHV_FALLBACK_SHIPPING) return; window.SHV_FALLBACK_SHIPPING = true;
+  const api = (path, opt={}) => fetch((window.Admin?.getApiBase?.()||'https://shv-api.shophuyvan.workers.dev') + path, Object.assign({headers:{'content-type':'application/json'}}, opt)).then(r=>r.json()).catch(()=>null);
+  const el = (id)=>document.getElementById(id);
+  const money = (v)=> (Number(v||0)).toLocaleString('vi-VN') + 'đ';
+
+  async function autoQuote(){
+    const to_province = el('province')?.value?.trim() || '';
+    const to_district = el('district')?.value?.trim() || '';
+    if(!to_province || !to_district) return; // wait until address filled
+
+    // naive weight fallback: 500g if không có dữ liệu
+    let weight = 0;
+    try{
+      // Nếu có tổng trọng lượng trên DOM thì parse; nếu không, dùng 500g
+      const wDom = document.querySelector('[data-cart-weight]')?.dataset?.cartWeight || '';
+      weight = Math.max(0, parseInt(wDom)) || 500;
+    }catch(e){ weight = 500; }
+
+    const params = new URLSearchParams({ weight: String(weight), to_province, to_district });
+    const rs = await fetch((window.Admin?.getApiBase?.()||'https://shv-api.shophuyvan.workers.dev') + '/shipping/quote?' + params.toString()).then(r=>r.json()).catch(()=>null);
+    if(!(rs && (rs.ok||Array.isArray(rs)))) return;
+
+    const list = Array.isArray(rs) ? rs : (rs.items||[]);
+    const ql = el('quote-list'); if(!ql) return;
+    if(!list.length){ ql.innerHTML = '<div class="text-sm text-gray-500">Không có DVVC khả dụng.</div>'; return; }
+    ql.innerHTML = list.map((x,i)=>{
+      const id = 'ship_'+(i+1);
+      return \`<label class="flex items-center justify-between border rounded p-2 cursor-pointer">
+        <div class="flex items-center gap-2">
+          <input type="radio" name="ship_opt" value="\${x.provider}|\\${x.service_code}|\\${x.fee}" \${i===0?'checked':''}/>
+          <div class="font-semibold">\${x.provider} - \${x.name||x.service_code||''}</div>
+        </div>
+        <div class="font-semibold">\${money(x.fee||0)}</div>
+      </label>\`;
+    }).join('');
+
+    // Update totals on change
+    const radios = ql.querySelectorAll('input[name="ship_opt"]');
+    const updateFee = ()=>{
+      const val = ql.querySelector('input[name="ship_opt"]:checked')?.value||'';
+      const fee = Number(val.split('|')[2]||0);
+      let feeRow = document.getElementById('shv-fee-row');
+      if(!feeRow){
+        feeRow = document.createElement('div');
+        feeRow.id = 'shv-fee-row';
+        feeRow.className = 'mt-2 text-sm';
+        const wrap = document.querySelector('section.bg-white.border.rounded.p-4:nth-of-type(3)') || document.body;
+        wrap.appendChild(feeRow);
+      }
+      feeRow.innerHTML = '<div><span class="font-semibold">Phí vận chuyển (API):</span> '+money(fee)+'</div>';
+      // Nếu có dòng "Tổng tiền phí vận chuyển" cũ, thay số 0đ
+      const old = Array.from(document.querySelectorAll('section .font-semibold')).find(n=>/Tổng tiền phí vận chuyển/i.test(n.textContent||''));
+      if(old && old.nextSibling){ old.nextSibling.textContent = ' '+money(fee); }
+    };
+    radios.forEach(r=>r.addEventListener('change', updateFee));
+    updateFee();
+  }
+
+  // Auto run when user nhập địa chỉ, và chạy 1 lần khi load
+  ['province','district','ward','address'].forEach(id=>{
+    const E = el(id); if(E){ ['change','blur','keyup'].forEach(ev=>E.addEventListener(ev, ()=>autoQuote())); }
+  });
+  document.addEventListener('DOMContentLoaded', autoQuote);
+  setTimeout(autoQuote, 800);
+})();
+</script>
+
 </body>
 </html>
