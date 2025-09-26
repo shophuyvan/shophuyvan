@@ -337,13 +337,25 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 </script>
 
 
-<!-- SHV PATCH v12b: Fallback render mô tả & FAQ (auto-detect) + weight_gram -->
+<!-- SHV PATCH v12c: robust desc/FAQ renderer + weight_gram -->
 <script>
 (function(){
-  // ======= Desc/FAQ renderer =======
-  function norm(s){ return (s==null?'':String(s)); }
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    // Handle various encodings of newlines
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> 
+
+    t = t.replace(/\\n/g, '\n');                // literal \n -> 
+
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> 
+
+    t = t.replace(/\r/g, '\n');                  // CR -> 
+
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
   function toHtml(raw){
-    raw = norm(raw).replace(/\\n/g,'\n');         // "\n" -> newline thật
+    raw = normBreaks(raw);
     const lines = raw.split(/\n/);
     let html='', list=false;
     for(const l0 of lines){
@@ -353,95 +365,67 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
       if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
       html+='<p class="mb-1">'+l+'</p>';
     }
-    if(list) html+='</ul>';
-    return html;
+    if(list) html+='</ul>'; return html;
   }
-  function renderByIds(){
-    var p = (window.__SHV_PRODUCT__ || window.PRODUCT || window.__PRODUCT__ || {});
-    var ok=false;
-    var descBox = document.getElementById('p-desc');
-    if(descBox){
-      var raw = p.desc || p.description || descBox.textContent || '';
-      descBox.innerHTML = toHtml(raw); ok=true;
-    }
-    var faqBox = document.getElementById('p-faq');
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+  function renderFAQAuto(){
+    // 1) ưu tiên #p-faq
+    const faqBox = document.getElementById('p-faq');
+    let ok = false;
     if(faqBox){
-      var rawFaq = norm(p.faq || faqBox.textContent || '').replace(/\\n/g,'\n');
-      var text = (' '+rawFaq.replace(/\s+/g,' ')+' ');
-      var re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
-      var out='', m; while((m=re.exec(text))){ out+='<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
-      if(out){ faqBox.innerHTML = out; ok=true; }
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); ok=true; }
     }
-    return ok;
+    if(ok) return true;
+    // 2) quét phần mô tả cho đoạn chứa Hỏi/Đáp và thay tại chỗ
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if(candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 3) dò heading "FAQ"
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if(heads.length){
+      const el = heads[0].nextElementSibling;
+      if(el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
   }
-  function renderByHeading(){
-    // Tìm thẻ có text "Mô tả", lấy sibling kế tiếp rỗng/thuần văn bản để render
+  function renderDescAuto(){
+    const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+    const descBox = document.getElementById('p-desc');
+    if(descBox){ descBox.innerHTML = toHtml(p.desc||p.description||descBox.textContent||''); return true; }
+    // Heading "Mô tả" → sibling
     const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
       .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
-    let done=false;
-    heads.some(h=>{
-      let box=h.nextElementSibling;
-      if(!box) return false;
-      // tránh ghi đè nếu đã có nhiều tag con (coi như html đẹp sẵn)
-      if(box.children && box.children.length>0 && box.querySelector('p,ul,ol,h3')) return false;
-      const raw = box.textContent;
-      if(!raw) return false;
-      box.innerHTML = toHtml(raw);
-      done=true; return true;
-    });
-    // FAQ
-    const faqHeads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
-      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
-    faqHeads.some(h=>{
-      let box = h.nextElementSibling; if(!box) return false;
-      const raw = (' '+box.textContent+' ').replace(/\s+/g,' ');
-      const re=/\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
-      let out='', m; while((m=re.exec(raw))){ out += '<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
-      if(out){ box.innerHTML = out; done=true; return true; }
-      return false;
-    });
-    return done;
+    for(const h of heads){
+      const box = h.nextElementSibling;
+      if(!box) continue;
+      if(box.children && box.children.length>0 && box.querySelector('p,ul,ol,h3')) continue;
+      const raw = box.textContent; if(!raw) continue;
+      box.innerHTML = toHtml(raw); return true;
+    }
+    return false;
   }
 
-  // ======= weight_gram into cart =======
-  function gramsOf(v){
-    const raw = String(v??'').replace(',','.');
-    const n = Number(raw);
-    if(!n || isNaN(n)) return 0;
-    return (/[.,]/.test(raw) && n>0 && n<=50) ? Math.round(n*1000) : Math.round(n);
-  }
-  function buildWeightMap(){
-    const P = (window.__SHV_PRODUCT__ || window.PRODUCT || window.__PRODUCT__ || {});
-    const map = { product: gramsOf(P.weight||P.weight_gram||0) };
-    (P.variants||[]).forEach(v=>{ map['v:'+v.id] = gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id]; });
-    return map;
-  }
-  function addWeightsToCart(cart){
-    const map = buildWeightMap();
-    (cart||[]).forEach(it=>{
-      if(!it) return;
-      if(!it.weight_gram || it.weight_gram<=0){
-        const byVar = map['v:'+it.variant_id] || map['id:'+it.variant_id];
-        const byId  = map['id:'+it.id] || map['v:'+it.id];
-        it.weight_gram = byVar || byId || map.product || 0;
-      }
-    });
-    return cart;
-  }
-  (function patchLocalStorage(){
-    const orig = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = function(k,v){
-      if(k==='cart'){
-        try{ const arr = JSON.parse(v||'[]'); v = JSON.stringify(addWeightsToCart(arr)); }catch(e){}
-      }
-      return orig(k,v);
-    };
-    try{ const cur = localStorage.getItem('cart'); if(cur){ const arr = addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){}
-  })();
+  // weight_gram hook (giữ nguyên như trước)
+  function gramsOf(v){ const raw=String(v??'').replace(',','.'); const n=Number(raw); if(!n||isNaN(n)) return 0; return (/[.,]/.test(raw)&&n>0&&n<=50)?Math.round(n*1000):Math.round(n); }
+  function buildWeightMap(){ const P=window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{}; const map={product:gramsOf(P.weight||P.weight_gram||0)}; (P.variants||[]).forEach(v=>{ map['v:'+v.id]=gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id];}); return map; }
+  function addWeightsToCart(cart){ const map=buildWeightMap(); (cart||[]).forEach(it=>{ if(!it) return; if(!it.weight_gram||it.weight_gram<=0){ const byVar=map['v:'+it.variant_id]||map['id:'+it.variant_id]; const byId=map['id:'+it.id]||map['v:'+it.id]; it.weight_gram=byVar||byId||map.product||0; }}); return cart; }
+  (function patchLocalStorage(){ const orig=localStorage.setItem.bind(localStorage); localStorage.setItem=function(k,v){ if(k==='cart'){ try{ const arr=JSON.parse(v||'[]'); v=JSON.stringify(addWeightsToCart(arr)); }catch(e){} } return orig(k,v); }; try{ const cur=localStorage.getItem('cart'); if(cur){ const arr=addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){} })();
 
-  function run(){ if(!renderByIds()) renderByHeading(); }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
-  else run();
+  function run(){ renderDescAuto(); renderFAQAuto(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();
 </script>
 
