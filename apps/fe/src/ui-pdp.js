@@ -40,6 +40,25 @@
 }catch(_e){}})();
 let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
 import api from './lib/api.js';
+async function shvGetShippingOptions(provinceName, districtName, weightGram){
+  try{
+    const body = { receiver_province: provinceName, receiver_district: districtName, weight_gram: weightGram, cod: 0 };
+    let res = await api('/shipping/price', { method:'POST', body });
+    let arr = (res?.items || res?.data || res) || [];
+    if(!Array.isArray(arr) || arr.length===0){
+      const qs = `/shipping/quote?to_province=${encodeURIComponent(provinceName)}&to_district=${encodeURIComponent(districtName)}&weight=${weightGram}&cod=0`;
+      res = await api.get(qs);
+      arr = (res?.items||res)||[];
+    }
+    return arr.map(o=>({ 
+      provider: o.provider||o.carrier||'',
+      name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),
+      fee: Number(o.fee || o.total_fee || o.price || 0),
+      eta: o.eta || o.leadtime || ''
+    })).filter(o=>o.fee>=0).sort((a,b)=>a.fee-b.fee);
+  }catch(e){ console.error(e); return []; }
+}
+
 import { formatPrice } from './lib/price.js';
 
 const $  = (s, r=document)=>r.querySelector(s);
@@ -807,20 +826,7 @@ function openCartModal(){
   function render(){
     const arr = cartItems();
     list.innerHTML = arr.map((it,idx)=>`
-      <div style="display:flex;
-      // PATCH: auto-select cheapest & set totals
-      try{
-        if(Array.isArray(arr) && arr.length){
-          let cheapest = arr[0];
-          for(const it of arr){ if(Number(it.fee||it.price||0) < Number(cheapest.fee||cheapest.price||0)) cheapest = it; }
-          const val = (cheapest.provider||cheapest.carrier)+':' + (cheapest.service_code||cheapest.service||'');
-          const r = list.querySelector(`input[name=ship][value="${val}"]`);
-          const fee = Number(cheapest.fee||cheapest.price||0) || 0;
-          if(r){ r.checked = true; }
-          shipFee = fee; chosenShip = val; renderTotals();
-        }
-      }catch(e){}
-    gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
+      <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #f3f4f6">
         <img src="${it.image||''}" data-fallback="${(it.image||'').replace('/file/', '/img/')+'?w=720&q=85&format=auto'}" onerror="if(this.dataset.fallback&&!this.__tried){this.__tried=1;this.src=this.dataset.fallback}else{this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'56\' height=\'56\'><rect width=\'100%\' height=\'100%\' fill=\'%23f3f4f6\'/></svg>';}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
@@ -1106,39 +1112,34 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
       if(!prov || !dist) return;
       const items = cartItems();
       const weight = items.reduce((s,it)=> s + (Number(it.weight)||200)*(Number(it.qty)||1), 0);
-      const qs = `/shipping/quote?to_province=${encodeURIComponent(prov)}&to_district=${encodeURIComponent(dist)}&weight=${weight}&cod=0`;
-      const res = await api.get(qs);
-      if(list) list.innerHTML = ''; const arr = (res?.items||res||[]);
-      const list = m.querySelector('#co-ship-list');
-      list.innerHTML = arr.map((o,i)=>`<label style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer">
-        <input type="radio" name="ship" value="${o.provider||o.carrier}:${o.service_code||o.service}" data-fee="${Number(o.fee||o.price||0)}"$1/>
+      const arr = await shvGetShippingOptions(prov, dist, weight); const list = m.querySelector('#co-ship-list'); list.innerHTML = arr.map((o,i)=>`<label style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer">
+        <input type="radio" name="ship" value="${o.provider||o.carrier}:${o.service_code||o.service}" ${i===0?'checked':''}/>
         <div style="flex:1"><div style="font-weight:600">${o.provider||o.carrier||'ĐVVC'} - ${o.name||o.service_name||o.service||''}</div>
         <div style="font-size:12px;color:#6b7280">Thời gian: ${o.leadtime_text||o.leadtime||''}</div></div>
         <div style="white-space:nowrap">${(Number(o.fee||o.price||0)).toLocaleString('vi-VN')}đ</div>
       </label>`).join('');
       const first = list.querySelector('input[name=ship]');
       if(first){ first.dispatchEvent(new Event('change')); }
-            list.querySelectorAll('input[name=ship]').forEach(r=>{ r.onchange = ()=>{ const fee = Number(r.dataset.fee||'0'); shipFee = fee; chosenShip = r.value; renderTotals(); }; });
+      list.querySelectorAll('input[name=ship]').forEach(r=> r.onchange = ()=>{
+        const fee = Number((r.closest('label').querySelector('div[style*="white-space"]').textContent||'0').replace(/[^0-9]/g,''));
+        shipFee = fee; chosenShip = r.value; renderTotals();
+      });
     }catch(e){/*silent*/}
   }
   ['#co-province','#co-district'].forEach(sel=>{ const el=m.querySelector(sel); if(el) el.addEventListener('change', refreshShip); });
-  /*auto_select_ship*/ setTimeout(()=>{ try{ 
-      const list = m.querySelector('#co-ship-list');
-      if(!list) return;
-      const radios = list.querySelectorAll('input[name=ship]');
-      if(!radios.length) return;
-      // pick cheapest by data-fee
-      let cheapest = null;
-      radios.forEach(r=>{ const fee = Number(r.dataset.fee||'0'); if(cheapest===null || fee < cheapest.fee){ cheapest = {r, fee}; } });
-      if(cheapest){
-        cheapest.r.checked = true;
-        shipFee = cheapest.fee;
-        chosenShip = cheapest.r.value;
-        renderTotals();
-        cheapest.r.dispatchEvent(new Event('change'));
-      }
-    }catch(e){} }, 200);
-m.querySelector('#co-submit').onclick = async ()=>{
+  /*auto_select_ship*/ setTimeout(()=>{ try{ const list=m.querySelector('#co-ship-list'); const r=list&&list.querySelector('input[name=ship]'); if(r){ r.checked=true; r.dispatchEvent(new Event('change')); } }catch(e){} }, 200);
+ + list.map(it=>`
+    <div style="display:flex;gap:10px;padding:6px 0;border-top:1px solid #f3f4f6">
+      <img src="${it.image}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f9fafb;border:1px solid #eee" />
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+        ${it.variant?`<div style="font-size:12px;color:#6b7280">${it.variant}</div>`:''}
+      </div>
+      <div style="white-space:nowrap">${it.qty} × ${(Number(it.price)||0).toLocaleString('vi-VN')}đ</div>
+    </div>`).join('') + `<div style="text-align:right;font-weight:800;margin-top:8px">Tổng: ${total.toLocaleString('vi-VN')}đ</div>`;
+
+  
+  m.querySelector('#co-submit').onclick = async ()=>{
     const customer = {
       name: m.querySelector('#co-name').value.trim(),
       phone: m.querySelector('#co-phone').value.trim(),

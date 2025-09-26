@@ -8,16 +8,6 @@ function releaseSubmit(btn){ __placing=false; btn?.removeAttribute('disabled'); 
 import { api } from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
-
-// === CART KEY NORMALIZER (PATCH) ===
-function getCart(){
-  try {
-    const raw = localStorage.getItem('CART') ?? localStorage.getItem('cart') ?? '[]';
-    const arr = JSON.parse(raw || '[]');
-    return Array.isArray(arr) ? arr : [];
-  } catch(e){ return []; }
-}
-// === /PATCH ===
 const quoteBtn = document.getElementById('get-quote');
 const quoteList = document.getElementById('quote-list');
 const testVoucherBtn = document.getElementById('test-voucher');
@@ -36,86 +26,58 @@ function calcWeight(cart) {
   return cart.reduce((sum, it) => sum + (it.weight_grams || 0) * (it.qty || 1), 0);
 }
 
-// === AUTO QUOTE & AUTO-SELECT CHEAPEST (PATCH) ===
-async function __fetchQuoteAndRender(auto=false){
+quoteBtn?.addEventListener('click', async () => {
   const to_province = document.getElementById('province')?.value || '';
   const to_district = document.getElementById('district')?.value || '';
   const cart = JSON.parse(localStorage.getItem('CART')||'[]');
   const weight = calcWeight(cart);
-  if(!to_province || !to_district || !weight){ 
-    if(!auto){ console.warn('quote skipped: missing province/district/weight'); }
-    return null;
-  }
-  const res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
-  const items = (res.items || res || []);
-  quoteList.innerHTML = items.map(opt => `
-    <label class="flex items-center gap-3 border rounded p-3 cursor-pointer">
-      <input type="radio" name="ship" value="${opt.provider}:${opt.service_code||''}" data-fee="${opt.fee}" data-eta="${opt.eta||''}" data-name="${opt.name||''}"/>
-      <div class="flex-1">
-        <div class="font-medium">${opt.name||''}</div>
-        <div class="text-sm">Phí: ${formatPrice(opt.fee)} | ETA: ${opt.eta || '-'}</div>
-      </div>
-    </label>
-  `).join('');
-
-  // bind selection
-  quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
-    const [provider, service_code] = (r.value||'').split(':');
-    localStorage.setItem('ship_provider', provider); 
-    localStorage.setItem('ship_service', service_code);
-    const fee = parseInt(r.dataset.fee||'0',10);
-    const eta = r.dataset.eta||'';
-    const name = r.dataset.name||'';
-    chosen = { provider, service_code, fee, eta, name };
-    localStorage.setItem('ship_fee', String(fee));
-    localStorage.setItem('ship_eta', eta);
-    localStorage.setItem('ship_name', name);
-    try{ renderSummary(); }catch(e){}
-  });
-
-  // Auto-select cheapest on first load or when auto-triggered
-  if(items.length){
-    let cheapest = items[0];
-    for(const it of items){ if(Number(it.fee) < Number(cheapest.fee)) cheapest = it; }
-    const val = `${cheapest.provider}:${cheapest.service_code||''}`;
-    const radio = quoteList.querySelector(`input[name=ship][value="${val}"]`);
-    if(radio){ radio.checked = true; radio.dispatchEvent(new Event('change')); }
-    // Dù radio có tick hay không, vẫn set chosen & localStorage để render ngay
-    chosen = { 
-      provider: cheapest.provider, 
-      service_code: cheapest.service_code||'', 
-      fee: Number(cheapest.fee)||0, 
-      eta: cheapest.eta||'', 
-      name: cheapest.name||''
-    };
-    localStorage.setItem('ship_provider', chosen.provider);
-    localStorage.setItem('ship_service', chosen.service_code);
-    localStorage.setItem('ship_fee', String(chosen.fee));
-    localStorage.setItem('ship_eta', chosen.eta);
+  try{
+    // Prefer POST /shipping/price (SuperAI real platform). Server will auto-pick sender from warehouses.
+    const body = { receiver_province: to_province, receiver_district: to_district, weight_gram: weight, cod: 0 };
+    let res = await api('/shipping/price', { method:'POST', body });
+    let arr = (res?.items || res?.data || res) || [];
+    if(!Array.isArray(arr) || arr.length===0){
+      // Fallback to legacy GET /shipping/quote
+      res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
+      arr = (res.items || res || []);
+    }
+    // Auto choose the cheapest
+    arr = arr.map(o=>({ 
+      provider: o.provider||o.carrier||'',
+      name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),
+      fee: Number(o.fee || o.total_fee || o.price || 0),
+      eta: o.eta || o.leadtime || ''
+    })).filter(o=>o.fee>=0);
+    if(arr.length===0){ quoteList.innerHTML = '<div class="text-sm text-gray-500">Không có gói vận chuyển khả dụng.</div>'; return; }
+    arr.sort((a,b)=> a.fee - b.fee);
+    const best = arr[0];
+    chosen = { provider: best.provider, name: best.name, fee: best.fee, eta: best.eta };
     localStorage.setItem('ship_name', chosen.name);
-    try{ renderSummary(); }catch(e){}
+    localStorage.setItem('ship_fee', String(chosen.fee));
+    localStorage.setItem('ship_eta', chosen.eta||'');
+    lastPricing = arr;
+    renderSummary();
+    // Render list for transparency
+    quoteList.innerHTML = arr.map(opt => `
+      <label class="flex items-center gap-3 border rounded p-3">
+        <input type="radio" name="ship" value="\${opt.provider}" data-fee="\${opt.fee}" data-eta="\${opt.eta||''}" data-name="\${opt.name}" \${opt===best?'checked':''}/>
+        <div class="flex-1"><div class="font-medium">\${opt.name}</div><div class="text-sm">Phí: \${formatPrice(opt.fee)} | ETA: \${opt.eta || '-'}</div></div>
+      </label>
+    `).join('');
+    // Allow manual change from list
+    quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
+      const fee = Number(r.dataset.fee||0), name=r.dataset.name||'', eta=r.dataset.eta||'';
+      chosen = { fee, name, eta };
+      localStorage.setItem('ship_name', name);
+      localStorage.setItem('ship_fee', String(fee));
+      localStorage.setItem('ship_eta', eta||'');
+      renderSummary();
+    });
+  }catch(e){
+    console.error(e);
+    quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển.</div>';
   }
-  return items;
-}
-
-// auto triggers
-function __bindAutoQuote(){
-  const trigger = () => __fetchQuoteAndRender(true);
-  ['province','district','ward','rcv_addr'].forEach(id=>{
-    const el = document.getElementById(id); if(!el) return;
-    el.addEventListener('change', trigger); el.addEventListener('input', trigger);
-  });
-  // quantity inputs
-  document.querySelectorAll('.item-qty input').forEach(inp=>{
-    inp.addEventListener('change', trigger); inp.addEventListener('input', trigger);
-  });
-  // run once on load
-  document.addEventListener('DOMContentLoaded', trigger);
-}
-// === /PATCH ===
-
-quoteBtn?.addEventListener('click', async ()=>{ await __fetchQuoteAndRender(false); });
-__bindAutoQuote();
+});
 });
 testVoucherBtn?.addEventListener('click', async ()=> {
   const cart = JSON.parse(localStorage.getItem('CART')||'[]');

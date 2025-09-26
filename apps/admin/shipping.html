@@ -16,21 +16,19 @@
   .input{ border:1px solid #dbeafe; border-radius:8px; background:#fff; }
   /* Hide duplicate text inputs – use dropdowns only */
   #sender_province, #sender_district { display:none !important; }
+
+  /* Hide manual sender block; we will auto-sync from Warehouses */
+  .sender-manual{ display:none !important; }
 </style>
 
-</head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
+
+</head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span> <button id='sync-warehouses' class='btn' style='margin-left:8px'>Đồng bộ từ Warehouses</button></div></div>
 <div class="grid">
   <div class="card"><div class="title">Thông tin người gửi</div>
     <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
       <input id="sender_name" class="input" placeholder="Tên người gửi">
       <input id="sender_phone" class="input" placeholder="SĐT người gửi">
       <input id="sender_province" class="input" placeholder="Tỉnh/Thành (VD: Hồ Chí Minh)">
-      
-      <div class="grid" style="grid-template-columns:1fr auto; gap:8px">
-        <select id="warehouse_sel" class="input"><option value="">— Chọn kho người gửi (tự tải từ API) —</option></select>
-        <button id="warehouse_reload" class="btn" title="Tải danh sách kho từ API">Tải kho</button>
-      </div>
-
       <input id="sender_district" class="input" placeholder="Quận/Huyện (VD: Bình Chánh)">
       <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
       <input id="option_id" class="input" placeholder="Option tối ưu (mặc định: 1)">
@@ -56,7 +54,7 @@
     </div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px"><input id="weight_gram" class="input" placeholder="Khối lượng (gram)" style="max-width:180px" inputmode="numeric"/>    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
   <div class="card"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
@@ -101,6 +99,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(e){}
   })();
 
+  // Wire sync warehouses
+  const syncBtn = document.getElementById('sync-warehouses');
+  if(syncBtn && !syncBtn.__wired){ syncBtn.__wired=true; syncBtn.addEventListener('click', syncSenderFromWarehouses); }
+
   // Save static token
   const btnTok=document.getElementById('save_super');
   if(btnTok && !btnTok.__wired){ btnTok.__wired=true; btnTok.addEventListener('click', async ()=>{
@@ -123,9 +125,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   });}
 
   // Quick test: call quote with HCM/HCM (dummy 500g) to verify token ok
-  const btnTest=document.getElementById('test_super');try{ const W=localStorage.getItem('adm_ship_weight'); if(W){ const e=document.getElementById('weight_gram'); if(e) e.value=W;} }catch(e){}
+  const btnTest=document.getElementById('test_super');
   if(btnTest && !btnTest.__wired){ btnTest.__wired=true; btnTest.addEventListener('click', async ()=>{
-    const wEl=document.getElementById('weight_gram');let W=parseInt((wEl&&wEl.value)||'0'); if(!W||W<0) W=500; try{ localStorage.setItem('adm_ship_weight', String(W)); }catch(e){} const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:W, weight:W, cod:0 } });
+    const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:500, cod:0 } });
     alert('Kết quả: '+JSON.stringify(r).slice(0,400));
   });}
 });
@@ -384,7 +386,29 @@ document.addEventListener('DOMContentLoaded', ()=>{
       SELS.ward.innerHTML += list.map(w=>`<option value=\"${w.code}\" data-name=\"${w.name}\">${w.name}</option>`).join('');
     }
 
-    async function upsertSender(){
+    
+async function syncSenderFromWarehouses(){
+  try{
+    const rs = await api('/shipping/warehouses', {});
+    const list = rs?.items || rs?.data || [];
+    if(!Array.isArray(list) || list.length===0){ alert('Không lấy được warehouses'); return; }
+    const w = list[0];
+    const v = {
+      name: w.name || w.contact_name || '',
+      phone: w.phone || w.contact_phone || '',
+      addr: w.address || w.addr || '',
+      province_code: w.province_code || '', province_name: w.province || w.province_name || '',
+      district_code: w.district_code || '', district_name: w.district || w.district_name || '',
+      ward_code: w.ward_code || '', ward_name: w.ward || w.ward_name || '',
+      option: '1'
+    };
+    await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
+    toast('Đã đồng bộ địa chỉ người gửi từ Warehouses');
+  }catch(e){ console.error(e); alert('Lỗi khi đồng bộ từ Warehouses'); }
+}
+
+async function upsertSender(){
+
       // save local first so F5 restores even if server fails
       const vBefore = collectSenderValues();
       saveLocalSender(vBefore);
@@ -454,389 +478,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
   })();
-</script>
-
-<script>
-<!-- PATCH: SuperAI warehouses + weight + localStorage -->
-(function() {
-  function onReady(fn){if(document.readyState!=="loading"){fn()}else{document.addEventListener("DOMContentLoaded",fn);}}
-
-  function normalize(str){
-    if(!str) return "";
-    return str.toString().toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-      .replace(/\s+/g," ").trim();
-  }
-
-  function setSelectByText(sel, text){
-    if(!sel) return;
-    const norm = normalize(text);
-    if(!norm) return;
-    let matched = false;
-    for (const opt of sel.options) {
-      if (normalize(opt.textContent) === norm || normalize(opt.value) === norm) {
-        sel.value = opt.value;
-        matched = true;
-        break;
-      }
-      // partial contains
-      if (!matched && (normalize(opt.textContent).includes(norm) || normalize(opt.value).includes(norm))) {
-        sel.value = opt.value;
-        matched = true;
-      }
-    }
-  }
-
-  // Ensure weight input exists (keeping UI style)
-  function ensureWeightInput(){
-    if (document.querySelector("#weight_gram")) return;
-    const input = document.createElement("input");
-    input.id = "weight_gram";
-    input.type = "number";
-    input.min = "1";
-    input.placeholder = "Khối lượng (gram)";
-    input.className = "form-control"; // rely on existing CSS
-    // Try to insert near test button or token
-    const anchor = document.querySelector("#test_super") || document.querySelector("#btnTest") || document.querySelector("#super_token") || document.body;
-    if (anchor && anchor.parentElement) {
-      anchor.parentElement.insertBefore(input, anchor);
-      // small margin if needed
-      input.style.marginBottom = "8px";
-    } else {
-      document.body.prepend(input);
-    }
-  }
-
-  // LocalStorage helpers
-  const LS_KEYS = {
-    token: "super_token",
-    whCachePrefix: "wh_cache_", // + token
-    whId: "sender_wh_id",
-    addr: "sender_addr",
-    prov: "sender_province",
-    dist: "sender_district",
-    ward: "sender_ward",
-    name: "sender_name",
-    phone: "sender_phone",
-    weight: "sender_weight",
-    partnerSecret: "partner_secret"
-  };
-
-  function saveFieldLS(idOrEl, key){
-    const el = typeof idOrEl === "string" ? document.querySelector(idOrEl) : idOrEl;
-    if(!el) return;
-    try {
-      localStorage.setItem(key, el.value || el.textContent || "");
-    } catch(e){}
-  }
-
-  function restoreFieldLS(id, key){
-    const el = document.querySelector(id);
-    if(!el) return;
-    try {
-      const v = localStorage.getItem(key);
-      if (v !== null && v !== undefined) {
-        if (el.tagName === "SELECT") {
-          // try direct by value first
-          el.value = v;
-          if (el.value !== v) { // fallback by text
-            setSelectByText(el, v);
-          }
-        } else {
-          el.value = v;
-        }
-      }
-    } catch(e){}
-  }
-
-  function attachAutoSave(){
-    const map = [
-      ["#super_token", LS_KEYS.token],
-      ["#co-addr", LS_KEYS.addr],
-      ["#sender_province", LS_KEYS.prov],
-      ["#sender_district", LS_KEYS.dist],
-      ["#sender_ward", LS_KEYS.ward],
-      ["#weight_gram", LS_KEYS.weight],
-      ["#partner_secret", LS_KEYS.partnerSecret],
-      ["#sender_name", LS_KEYS.name],
-      ["#sender_phone", LS_KEYS.phone],
-      ["#selWh", LS_KEYS.whId]
-    ];
-    for (const [sel, key] of map) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      el.addEventListener("input", () => saveFieldLS(el, key));
-      el.addEventListener("change", () => saveFieldLS(el, key));
-    }
-  }
-
-  function restoreAll(){
-    restoreFieldLS("#super_token", LS_KEYS.token);
-    ensureWeightInput();
-    restoreFieldLS("#weight_gram", LS_KEYS.weight);
-    restoreFieldLS("#co-addr", LS_KEYS.addr);
-    restoreFieldLS("#sender_province", LS_KEYS.prov);
-    restoreFieldLS("#sender_district", LS_KEYS.dist);
-    restoreFieldLS("#sender_ward", LS_KEYS.ward);
-    restoreFieldLS("#partner_secret", LS_KEYS.partnerSecret);
-    restoreFieldLS("#sender_name", LS_KEYS.name);
-    restoreFieldLS("#sender_phone", LS_KEYS.phone);
-    restoreFieldLS("#selWh", LS_KEYS.whId);
-
-    // If we have token & cache, populate warehouses
-    const tokenEl = document.querySelector("#super_token");
-    const selWh = document.querySelector("#selWh");
-    if (tokenEl && selWh) {
-      const token = tokenEl.value || "";
-      if (token) {
-        const cache = localStorage.getItem(LS_KEYS.whCachePrefix + token);
-        if (cache) {
-          try {
-            const list = JSON.parse(cache);
-            populateWhSelect(list);
-            const savedWh = localStorage.getItem(LS_KEYS.whId);
-            if (savedWh) selWh.value = savedWh;
-          } catch(e){}
-        }
-      }
-    }
-  }
-
-  function populateWhSelect(list){
-    const sel = document.querySelector("#selWh");
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Chọn kho --</option>';
-    (list || []).forEach((wh) => {
-      const opt = document.createElement("option");
-      const id = wh.id || wh.code || wh.uuid || wh._id || wh.wh_id || "";
-      const name = wh.name || wh.wh_name || wh.title || "Kho";
-      const addr = wh.address || wh.addr || wh.address_full || [wh.address_line, wh.ward_name, wh.district_name, wh.province_name].filter(Boolean).join(", ");
-      opt.value = String(id);
-      opt.textContent = `${name} — ${addr}`;
-      // keep raw data for later fill
-      opt.dataset.addr = addr || "";
-      opt.dataset.province = wh.province_name || wh.province || "";
-      opt.dataset.district = wh.district_name || wh.district || "";
-      opt.dataset.ward = wh.ward_name || wh.ward || "";
-      sel.appendChild(opt);
-    });
-  }
-
-  function bindWarehouseLoader(){
-    const btn = document.querySelector("#btnLoadWh");
-    if (!btn) return;
-    btn.addEventListener("click", async function(){
-      const tokenEl = document.querySelector("#super_token");
-      const selWh = document.querySelector("#selWh");
-      if (!tokenEl || !selWh){ alert("Thiếu #super_token hoặc #selWh"); return; }
-      const token = (tokenEl.value||"").trim();
-      if (!token) { alert("Vui lòng nhập Token trước khi tải kho."); return; }
-
-      const base = (window.SUPERAI_BASE_URL) || "https://dev.superai.vn";
-      const url = base.replace(/\/+$/,"") + "/v1/platform/warehouses";
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "Token": token
-          }
-        });
-        if (res.status === 401) { alert("Token chưa đúng hoặc hết hạn."); return; }
-        const data = await res.json().catch(()=>({}));
-        const list = Array.isArray(data) ? data : (data.data || data.items || data.results || []);
-        if (!list || list.length === 0) { alert("Không tìm thấy kho. Kiểm tra lại token."); return; }
-        populateWhSelect(list);
-        // cache by token
-        try { localStorage.setItem(LS_KEYS.whCachePrefix + token, JSON.stringify(list)); } catch(e){}
-        alert("Tải kho thành công.");
-      } catch (e) {
-        console.error(e);
-        alert("Không thể tải kho. Vui lòng kiểm tra mạng hoặc token.");
-      }
-    });
-  }
-
-  function bindWarehouseSelect(){
-    const sel = document.querySelector("#selWh");
-    if (!sel) return;
-    sel.addEventListener("change", function(){
-      const opt = sel.selectedOptions && sel.selectedOptions[0];
-      if (!opt) return;
-      const addr = opt.dataset.addr || "";
-      const prov = opt.dataset.province || "";
-      const dist = opt.dataset.district || "";
-      const ward = opt.dataset.ward || "";
-      const addrEl = document.querySelector("#co-addr");
-      if (addrEl) addrEl.value = addr, saveFieldLS(addrEl, LS_KEYS.addr);
-      const provSel = document.querySelector("#sender_province");
-      const distSel = document.querySelector("#sender_district");
-      const wardSel = document.querySelector("#sender_ward");
-      if (provSel) { setSelectByText(provSel, prov); saveFieldLS(provSel, LS_KEYS.prov); }
-      if (distSel) { setSelectByText(distSel, dist); saveFieldLS(distSel, LS_KEYS.dist); }
-      if (wardSel) { setSelectByText(wardSel, ward); saveFieldLS(wardSel, LS_KEYS.ward); }
-      // save wh id
-      saveFieldLS(sel, LS_KEYS.whId);
-    });
-  }
-
-  // Validate weight before test quote
-  function bindQuoteValidation(){
-    const testBtns = [document.querySelector("#test_super"), document.querySelector("#btnTest")].filter(Boolean);
-    testBtns.forEach(btn => {
-      btn.addEventListener("click", function(e){
-        const wEl = document.querySelector("#weight_gram");
-        const w = wEl ? parseInt(wEl.value||"0", 10) : 0;
-        if (!w || w <= 0) {
-          e.stopImmediatePropagation(); e.preventDefault();
-          if (wEl) { wEl.focus(); wEl.style.borderColor = "red"; }
-          alert("Vui lòng nhập khối lượng (gram)");
-          return false;
-        }
-      }, true); // capture to pre-validate
-    });
-  }
-
-  // Intercept fetch to always inject weight into JSON payloads for POST requests (quote/order)
-  function patchFetchInjectWeight(){
-    if (window.__fetch_patched__) return;
-    window.__fetch_patched__ = true;
-    const origFetch = window.fetch;
-    window.fetch = async function(input, init){
-      try {
-        const method = (init && (init.method||"GET")).toUpperCase();
-        const headers = (init && init.headers) || {};
-        const ct = (headers["Content-Type"] || headers["content-type"] || "");
-        if (method === "POST" && typeof init.body === "string" && ct.includes("application/json")) {
-          try {
-            const obj = JSON.parse(init.body);
-            // inject weight if missing or invalid
-            const wEl = document.querySelector("#weight_gram");
-            const w = wEl ? parseInt(wEl.value||"0",10) : 0;
-            if (w && w > 0) {
-              if (!("weight" in obj) || !obj.weight || obj.weight <= 0) {
-                obj.weight = w;
-              }
-            }
-            init.body = JSON.stringify(obj);
-          } catch(e){ /* ignore parse errors */ }
-        }
-      } catch(e){}
-      const res = await origFetch(input, init);
-      // Try to highlight if server complains about weight
-      try {
-        const clone = res.clone();
-        const data = await clone.json().catch(()=>null);
-        const msg = data && (data.message || data.error || data.msg || "");
-        if (msg && /weight|khối lượng/i.test(msg)) {
-          const wEl = document.querySelector("#weight_gram");
-          if (wEl) wEl.style.borderColor = "red";
-          setTimeout(()=>{ if (wEl) wEl.style.borderColor = ""; }, 3000);
-          alert(typeof msg === "string" ? msg : "Vui lòng kiểm tra khối lượng (gram).");
-        }
-      } catch(e){}
-      return res;
-    }
-  }
-
-  // Validate save sender has province/district/ward
-  function bindSaveSenderValidation(){ 
-      try{
-        const btn = document.querySelector("#save_sender"); if(!btn) return;
-        // Allow save without forcing province/district/ward; just soft warn
-        btn.addEventListener("click", function(e){
-          const prov = (document.querySelector("#sender_province")||{}).value || "";
-          const dist = (document.querySelector("#sender_district")||{}).value || "";
-          const ward = (document.querySelector("#sender_ward")||{}).value || "";
-          if(!(prov && dist && ward)){
-            console.warn("Khuyến nghị chọn Tỉnh/Quận/Phường cho báo giá chính xác, nhưng không bắt buộc.");
-          }
-        }, true);
-      }catch(e){}
-    }
-).value || "";
-      const dist = (document.querySelector("#sender_district")||{}).value || "";
-      const ward = (document.querySelector("#sender_ward")||{}).value || "";
-      if (!prov || !dist || !ward) {
-        e.stopImmediatePropagation(); e.preventDefault();
-        alert("Vui lòng chọn đủ Tỉnh/Quận/Phường trước khi Lưu người gửi.");
-        return false;
-      }
-    }, true); // capture
-  }
-
-  onReady(function(){
-    ensureWeightInput();
-    restoreAll();
-    attachAutoSave();
-    bindWarehouseLoader();
-    bindWarehouseSelect();
-    bindQuoteValidation();
-    bindSaveSenderValidation();
-    patchFetchInjectWeight();
-  });
-})();
-<!-- /PATCH -->
-</script>
-
-<script>
-<!-- PATCH: Prefill weight from order DOM -->
-(function(){
-  function textNum(el){ return el ? parseFloat(String(el.textContent||el.value||'').replace(/[^\d.,]/g,'').replace(',','.'))||0 : 0; }
-  function findByHeader(table, headerTexts){
-    const ths = table.querySelectorAll('thead th, tr:first-child th');
-    let idx = -1;
-    ths.forEach((th,i)=>{
-      const t = (th.innerText||'').toLowerCase();
-      if (headerTexts.some(h => t.includes(h))) idx = (idx===-1? i: idx);
-    });
-    return idx;
-  }
-  async function calcFromOrderDOM(){
-    let total = 0;
-    const rows = document.querySelectorAll('.order-item, .order-row, #order_items tbody tr');
-    if (rows.length){
-      rows.forEach(r=>{
-        const wAttr = r.querySelector('[data-weight]');
-        const qAttr = r.querySelector('[data-qty]');
-        const w = textNum(r.querySelector('.item-weight, .weight')) || (wAttr? parseFloat(wAttr.getAttribute('data-weight'))||0:0);
-        const q = textNum(r.querySelector('.item-qty, .qty')) || (qAttr? parseFloat(qAttr.getAttribute('data-qty'))||0:1);
-        if (w>0) total += w*(q||1);
-      });
-      if (total>0) return total;
-      const table = document.querySelector('#order_items, table.order-items') || document.querySelector('#order_items') || document.querySelector('table.order-items');
-      if (table){
-        const idxW = findByHeader(table, ['trọng lượng','khối lượng','weight']);
-        const idxQ = findByHeader(table, ['sl','số lượng','qty']);
-        const trs = table.querySelectorAll('tbody tr');
-        trs.forEach(tr=>{
-          const tds = tr.querySelectorAll('td');
-          const w = idxW>=0 ? textNum(tds[idxW]) : 0;
-          const q = idxQ>=0 ? textNum(tds[idxQ]) : 1;
-          if (w>0) total += w*(q||1);
-        });
-        if (total>0) return total;
-      }
-    }
-    return 0;
-  }
-  async function prefillWeightIfEmpty(){
-    const wEl = document.querySelector('#weight_gram');
-    if (!wEl || (parseInt(wEl.value||'0',10)>0)) return;
-    let total = await calcFromOrderDOM();
-    if (total>0){
-      wEl.value = Math.round(total);
-      try{ localStorage.setItem('sender_weight', wEl.value); }catch(e){}
-    }
-  }
-  document.addEventListener('DOMContentLoaded', prefillWeightIfEmpty);
-  ['#test_super','#btnTest','#btnCreateOrder','#create_order'].forEach(sel=>{
-    const b = document.querySelector(sel);
-    if(!b) return;
-    b.addEventListener('click', prefillWeightIfEmpty, true);
-  });
-})();
-<!-- /PATCH -->
 </script>
 </body>
 </html>
