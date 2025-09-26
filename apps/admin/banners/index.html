@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Quản lý Banner - Shop Huy Vân</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<header class="sticky top-0 z-40 bg-white border-b">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <h1 class="text-xl font-semibold">Quản lý Banner</h1>
+    <div class="flex gap-2">
+      <button id="btnDownloadJSON" class="px-3 py-2 rounded-lg border bg-white">Tải site-config.json</button>
+      <button id="btnPatchZip" class="px-3 py-2 rounded-lg border bg-blue-600 text-white">Đóng gói ZIP (ảnh + JSON)</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-10">
+  <section class="bg-white border rounded-2xl p-5">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-lg font-semibold">HERO Banner</h2>
+      <div class="text-sm text-slate-600">Kích thước: <b>Desktop 1920×600</b>, <b>Tablet 1200×500</b>, <b>Mobile 720×400</b></div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-3">
+      <div class="space-y-3">
+        <label class="block text-sm">Tiêu đề
+          <input id="heroTitle" class="mt-1 w-full border rounded-lg p-2"/>
+        </label>
+        <label class="block text-sm">Mô tả
+          <input id="heroSubtitle" class="mt-1 w-full border rounded-lg p-2"/>
+        </label>
+        <div class="text-sm font-medium">Nút CTA</div>
+        <div id="heroButtons" class="space-y-2"></div>
+        <button id="addHeroBtn" class="px-3 py-1.5 rounded-lg border">+ Thêm nút</button>
+      </div>
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 gap-2">
+          <label class="block text-sm">Desktop URL
+            <input id="heroImgDesktop" class="mt-1 w-full border rounded-lg p-2" placeholder="./assets/banners/hero-desktop.png"/>
+          </label>
+          <label class="block text-sm">Tablet URL
+            <input id="heroImgTablet" class="mt-1 w-full border rounded-lg p-2" placeholder="./assets/banners/hero-tablet.png"/>
+          </label>
+          <label class="block text-sm">Mobile URL
+            <input id="heroImgMobile" class="mt-1 w-full border rounded-lg p-2" placeholder="./assets/banners/hero-mobile.png"/>
+          </label>
+        </div>
+        <div class="grid md:grid-cols-3 gap-2">
+          <label class="block text-sm">Upload Desktop
+            <input type="file" id="heroFileDesktop" accept="image/*" class="mt-1 w-full border rounded-lg p-2"/>
+          </label>
+          <label class="block text-sm">Upload Tablet
+            <input type="file" id="heroFileTablet" accept="image/*" class="mt-1 w-full border rounded-lg p-2"/>
+          </label>
+          <label class="block text-sm">Upload Mobile
+            <input type="file" id="heroFileMobile" accept="image/*" class="mt-1 w-full border rounded-lg p-2"/>
+          </label>
+        </div>
+        <label class="block text-sm">Prompt AI
+          <textarea id="heroPrompt" rows="4" class="mt-1 w-full border rounded-lg p-2" placeholder="Mô tả để tạo ảnh AI..."></textarea>
+        </label>
+        <div class="flex gap-2">
+          <button id="copyHeroPrompt" class="px-3 py-1.5 rounded-lg border">Copy Prompt</button>
+          <button id="copyHeroSize" class="px-3 py-1.5 rounded-lg border">Copy kích thước</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-white border rounded-2xl p-5">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-lg font-semibold">Category Banners</h2>
+      <button id="addCat" class="px-3 py-1.5 rounded-lg border">+ Thêm</button>
+    </div>
+    <div class="text-sm text-slate-600 mt-1">Kích thước: <b>Desktop 1200×400</b>, <b>Mobile 720×300</b></div>
+    <div id="cats" class="mt-3 space-y-3"></div>
+  </section>
+
+  <section class="bg-white border rounded-2xl p-5">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-lg font-semibold">Mini Banners</h2>
+      <button id="addMini" class="px-3 py-1.5 rounded-lg border">+ Thêm</button>
+    </div>
+    <div class="text-sm text-slate-600 mt-1">Kích thước: <b>Desktop 600×300</b>, <b>Mobile 340×200</b></div>
+    <div id="minis" class="mt-3 space-y-3"></div>
+  </section>
+
+  <div class="text-sm text-slate-500">
+    <p><strong>Lưu ý:</strong> Trang admin tĩnh sẽ tạo <b>ZIP patch</b> chứa ảnh + JSON. Tải ZIP về rồi commit vào repo FE.</p>
+  </div>
+</main>
+
+<script>
+const $ = (s, el=document)=>el.querySelector(s);
+let cfg = null;
+const BASE_JSON = '/apps/fe/assets/site-config.json';
+
+function makeButtonRow(item, idx){
+  const wrap = document.createElement('div');
+  wrap.className = "flex gap-2 items-center";
+  wrap.innerHTML = `
+    <input class="border rounded-lg p-2 grow" placeholder="Nhãn" value="${item.label||''}">
+    <input class="border rounded-lg p-2 grow" placeholder="Link" value="${item.href||'#'}">
+    <label class="text-sm flex items-center gap-1"><input type="checkbox" ${item.primary?'checked':''}> Primary</label>
+    <button class="border rounded-lg px-2 py-1">Xoá</button>
+  `;
+  const [label, href, primary, delBtn] = wrap.querySelectorAll('input,button');
+  delBtn.onclick = ()=>{ cfg.hero.buttons.splice(idx,1); redraw(); };
+  label.oninput = ()=>{ item.label = label.value; };
+  href.oninput = ()=>{ item.href = href.value; };
+  primary.onchange = ()=>{ item.primary = primary.checked; };
+  return wrap;
+}
+
+function makeRow(item, idx, arr, kind){
+  const row = document.createElement('div');
+  row.className = "grid md:grid-cols-4 gap-2 items-start border rounded-xl p-2";
+  row.innerHTML = `
+    <input class="border rounded-lg p-2" placeholder="Tiêu đề" value="${item.title||''}">
+    <input class="border rounded-lg p-2" placeholder="Link" value="${item.href||'#'}">
+    <div class="flex gap-2">
+      <input class="border rounded-lg p-2 grow" placeholder="Ảnh (URL)" value="${item.img||''}">
+      <input type="file" class="border rounded-lg p-2 w-40" accept="image/*">
+    </div>
+    <div>
+      <div class="text-xs text-slate-500 mb-1">${item.size||''}</div>
+      <textarea class="border rounded-lg p-2 w-full text-sm" rows="3" placeholder="Prompt AI">${item.prompt||''}</textarea>
+      <div class="flex gap-2 mt-1">
+        <button class="border rounded-lg px-2 py-1 text-sm">Copy Prompt</button>
+        <button class="border rounded-lg px-2 py-1 text-sm">Copy Size</button>
+        <button class="border rounded-lg px-2 py-1 text-sm">Xoá</button>
+      </div>
+    </div>
+  `;
+  const [title, href, imgInput, fileInput] = [row.children[0], row.children[1], row.children[2].querySelector('input'), row.children[2].querySelector('input[type=file]')];
+  const promptTA = row.children[3].querySelector('textarea');
+  const [btnCopyP, btnCopyS, btnDel] = row.children[3].querySelectorAll('button');
+
+  title.oninput = ()=> item.title = title.value;
+  href.oninput = ()=> item.href = href.value;
+  imgInput.oninput = ()=> item.img = imgInput.value;
+  promptTA.oninput = ()=> item.prompt = promptTA.value;
+  btnCopyP.onclick = ()=> navigator.clipboard.writeText(promptTA.value||'');
+  btnCopyS.onclick = ()=> navigator.clipboard.writeText(item.size||'');
+  btnDel.onclick = ()=>{ arr.splice(idx,1); redraw(); };
+  fileInput.onchange = ()=>{ item.__file = fileInput.files[0] || null; };
+  return row;
+}
+
+function redraw(){
+  $('#heroTitle').value = cfg.hero.title||'';
+  $('#heroSubtitle').value = cfg.hero.subtitle||'';
+  $('#heroImgDesktop').value = cfg.hero.images.desktop||'';
+  $('#heroImgTablet').value = cfg.hero.images.tablet||'';
+  $('#heroImgMobile').value = cfg.hero.images.mobile||'';
+  $('#heroPrompt').value = cfg.hero.prompt||'';
+
+  const btnWrap = $('#heroButtons'); btnWrap.innerHTML = '';
+  (cfg.hero.buttons||[]).forEach((b,i)=> btnWrap.appendChild(makeButtonRow(b,i)));
+
+  const cats = $('#cats'); cats.innerHTML = '';
+  (cfg.categories||[]).forEach((c,i)=> cats.appendChild(makeRow(c,i,cfg.categories,'cat')));
+
+  const minis = $('#minis'); minis.innerHTML = '';
+  (cfg.minis||[]).forEach((m,i)=> minis.appendChild(makeRow(m,i,cfg.minis,'mini')));
+}
+
+async function loadCfg(){
+  try{
+    const r = await fetch(BASE_JSON, {cache:'no-store'});
+    cfg = await r.json();
+  }catch(e){
+    cfg = { hero:{title:'',subtitle:'',buttons:[],images:{},prompt:''}, categories:[], minis:[] };
+  }
+  cfg.categories.forEach(c=> c.size = c.size || 'Desktop 1200x400; Mobile 720x300');
+  cfg.minis.forEach(m=> m.size = m.size || 'Desktop 600x300; Mobile 340x200');
+  redraw();
+}
+
+// Events
+$('#addHeroBtn').onclick = ()=>{ (cfg.hero.buttons ||= []).push({label:'Nút mới',href:'#',primary:false}); redraw(); };
+$('#addCat').onclick = ()=>{ (cfg.categories ||= []).push({title:'Danh mục mới',href:'#',img:'',size:'Desktop 1200x400; Mobile 720x300',prompt:''}); redraw(); };
+$('#addMini').onclick = ()=>{ (cfg.minis ||= []).push({title:'Mini banner',href:'#',img:'',size:'Desktop 600x300; Mobile 340x200',prompt:''}); redraw(); };
+
+// Bind hero
+$('#heroTitle').oninput = e=> cfg.hero.title = e.target.value;
+$('#heroSubtitle').oninput = e=> cfg.hero.subtitle = e.target.value;
+$('#heroImgDesktop').oninput = e=> cfg.hero.images.desktop = e.target.value;
+$('#heroImgTablet').oninput = e=> cfg.hero.images.tablet = e.target.value;
+$('#heroImgMobile').oninput = e=> cfg.hero.images.mobile = e.target.value;
+$('#heroPrompt').oninput = e=> cfg.hero.prompt = e.target.value;
+$('#copyHeroPrompt').onclick = ()=> navigator.clipboard.writeText($('#heroPrompt').value||'');
+$('#copyHeroSize').onclick = ()=> navigator.clipboard.writeText('Desktop 1920x600; Tablet 1200x500; Mobile 720x400');
+
+// Download JSON
+$('#btnDownloadJSON').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'site-config.json'; a.click();
+};
+
+// Create patch ZIP
+$('#btnPatchZip').onclick = async ()=>{
+  const zip = new JSZip();
+  // write files selected
+  const addItemFile = (arr, prefix)=>{
+    (arr||[]).forEach((it, i)=>{
+      if(it.__file){
+        const fname = `${prefix}-${i+1}.png`;
+        zip.file(`apps/fe/assets/banners/${fname}`, it.__file);
+        it.img = `./assets/banners/${fname}`;
+      }
+    });
+  };
+  const hd = $('#heroFileDesktop').files[0];
+  const ht = $('#heroFileTablet').files[0];
+  const hm = $('#heroFileMobile').files[0];
+  if(hd){ zip.file('apps/fe/assets/banners/hero-desktop.png', hd); cfg.hero.images.desktop = './assets/banners/hero-desktop.png'; }
+  if(ht){ zip.file('apps/fe/assets/banners/hero-tablet.png', ht); cfg.hero.images.tablet = './assets/banners/hero-tablet.png'; }
+  if(hm){ zip.file('apps/fe/assets/banners/hero-mobile.png', hm); cfg.hero.images.mobile = './assets/banners/hero-mobile.png'; }
+  addItemFile(cfg.categories, 'cat');
+  addItemFile(cfg.minis, 'mini');
+  // finally add JSON
+  zip.file('apps/fe/assets/site-config.json', JSON.stringify(cfg, null, 2));
+  const blob = await zip.generateAsync({type:'blob'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'patch-banners.zip'; a.click();
+};
+
+loadCfg();
+</script>
+</body>
+</html>
