@@ -377,15 +377,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
       console.log('[Admin]', msg);
     }
 
+    
     async function api(path, body){
-      const r = await fetch(path, {
-        method: 'POST',
-        headers: {'content-type':'application/json'},
-        body: JSON.stringify(body||{})
-      });
-      let text = await r.text();
-      try{ return JSON.parse(text); }catch(e){ return { ok:false, error:true, message:text }; }
+      try{
+        // use Admin.req so it automatically applies API base + auth token
+        const rs = await Admin.req(path, { method:'POST', body: body||{} });
+        return rs || { ok:false };
+      }catch(e){
+        return { ok:false, error:true, message: String(e) };
+      }
     }
+
 
     function saveLocalSender(obj){
     function collectSenderValues(){
@@ -448,7 +450,7 @@ window.syncSenderFromWarehouses = async function(){
       option: '1'
     };
     await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
-    if(window.__saveSenderSummary) window.__saveSenderSummary(v);
+    if(window.__saveSenderSummary) window.__saveSenderSummary(v); try{document.getElementById('sender_summary').style.display='block';}catch(_){}
     toast('Đã đồng bộ địa chỉ người gửi từ Warehouses');
   }catch(e){ console.error(e); alert('Lỗi khi đồng bộ từ Warehouses'); }
 }
@@ -478,7 +480,7 @@ async function upsertSender(){
       saveLocalSender(v);
       try{
         await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
-    if(window.__saveSenderSummary) window.__saveSenderSummary(v);
+    if(window.__saveSenderSummary) window.__saveSenderSummary(v); try{document.getElementById('sender_summary').style.display='block';}catch(_){}
         toast('Đã lưu người gửi');
       }catch(e){ /* ignore */ }
     }
