@@ -21,7 +21,6 @@ async function superToken(env){
   try{
     const st = await getJSON(env,'settings',{})||{};
     const ship = st.shipping||{};
-    if(ship.super_token) return ship.super_token;
     if(ship.super_key) return ship.super_key;
   }catch(e){}
   // Password token flow (if credentials present)
@@ -814,9 +813,9 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         const to_district = u.searchParams.get('to_district')||'';
         const cod = Number(u.searchParams.get('cod')||0)||0;
         const s = await getJSON(env,'settings',{})||{};
-        const superKey = (s?.shipping?.super_key) || (env && env.SHIPPING_API_KEY) || '';
+        const bearer = (s?.shipping?.super_token) || '';
         async function superQuote(){
-          if(!superKey) return null;
+          if(!bearer) return null;
           const url = 'https://api.mysupership.vn/v1/ai/orders/superai';
           const body = {
             receiver: { province: to_province, district: to_district },
@@ -826,7 +825,7 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
           try{
             const r = await fetch(url, {
               method:'POST',
-              headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer '+superKey },
+              headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer '+bearer },
               body: JSON.stringify(body)
             });
             const data = await r.json().catch(()=>null);
@@ -884,6 +883,25 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
   return json({ok:true, items, district}, {}, req);
 }
+
+// ---- SuperAI Platform Warehouses ----
+if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
+  const data = await superFetch(env, '/v1/platform/warehouses', {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({
+    id: x.id || x.code || '',
+    name: x.name || x.contact_name || '',
+    phone: x.phone || x.contact_phone || '',
+    address: x.address || x.addr || '',
+    province_code: x.province_code || x.provinceId || '',
+    province_name: x.province || x.province_name || '',
+    district_code: x.district_code || x.districtId || '',
+    district_name: x.district || x.district_name || '',
+    ward_code: x.commune_code || x.ward_code || '',
+    ward_name: x.commune || x.ward || x.ward_name || ''
+  }));
+  return json({ok:true, items, raw:data}, {}, req);
+}
+
 
 // ---- SuperAI Platform Price (requires sender & receiver) ----
 if(p==='/shipping/price' && req.method==='POST'){

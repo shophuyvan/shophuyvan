@@ -66,10 +66,10 @@
 </div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
+  <div class="card" style="display:none"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
   <div class="card"><div class="title">Grab</div><input id="grab_key" class="input" placeholder="API Key"/><button id="save_grab" class="btn">Lưu</button></div>
 </div>
 <script>
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], s) || d;
       const set = (id, v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=v||''; };
       set('super_key', g('shipping.super_key',''));
-      set('super_user', g('shipping.super_user',''));
+      set('super_user', g('shipping.super_user','')); set('super_token', g('shipping.super_token',''));
       set('super_pass', g('shipping.super_pass',''));
       set('super_partner', g('shipping.super_partner',''));
     }catch(e){}
@@ -119,7 +119,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const btnTok=document.getElementById('save_super');
   if(btnTok && !btnTok.__wired){ btnTok.__wired=true; btnTok.addEventListener('click', async ()=>{
     const v=document.getElementById('super_key')?.value||'';
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
+    const bt=document.getElementById('super_token')?.value||'';
+    if(v) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
+    if(bt) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:bt}});
     await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:v}});
     Admin.toast('Đã lưu Super token');
   });}
