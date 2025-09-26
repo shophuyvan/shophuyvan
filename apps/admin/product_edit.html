@@ -325,12 +325,11 @@ function parseReviews(text){
 $('#saveBtn')?.addEventListener('click', async ()=>{
   const vs = Array.from($('#variants').children||[]).map(div=>{
     const g = (sel)=> div.querySelector(sel);
-    return {
-      name: g('[data-f="name"]').value.trim(),
+    return { name: g('[data-f="name"]').value.trim(),
       price: Number(g('[data-f="price"]').value||0),
       price_sale: Number(g('[data-f="price_sale"]').value||0),
       cost: Number(g('[data-f="cost"]').value||0),
-      (()=>{ let raw=String(g('[data-f="weight"]').value||'').replace(',','.'); let w = Number(raw)||0; if(w>0 && w<=50 && /[\.,]/.test(raw)) w = Math.round(w*1000); return w; })(),
+      weight: (()=>{ let raw=String(g('[data-f="weight"]').value||'').replace(',','.'); let w = Number(raw)||0; if(w>0 && w<=50 && /[\.,]/.test(raw)) w = Math.round(w*1000); return w; })(),
       stock: Number(g('[data-f="stock"]').value||0),
       image: g('[data-f="thumb"]').src
     };
