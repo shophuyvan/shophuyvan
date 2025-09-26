@@ -2,7 +2,57 @@
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Thêm / Sửa sản phẩm</title>
 <link rel="stylesheet" href="./styles.css"/>
-<script src="./admin_real.js?v=25"></script>
+<script src="./admin_real.js?v=25">
+// ===== SEO File Import =====
+function getSection(src, name){
+  const re = new RegExp('---\\s*'+name.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+'\\s*---([\\s\\S]*?)(?=\n---|$)','i');
+  const m = src.match(re);
+  return m ? (m[1]||'').trim() : '';
+}
+function getTitle(src){
+  const m = src.match(/TÊN\s*SẢN\s*PHẨM\s*:\s*(.+)/i);
+  return m ? m[1].trim() : '';
+}
+function parseFaqPairs(block){
+  const out = [];
+  const re = /Hỏi\s*:\s*([^\n]+)[\s\S]*?Đáp\s*:\s*([^\n]+)(?:\n\n|$)/gi;
+  let m; while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
+  if(!out.length){ return block.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
+  return out;
+}
+document.getElementById('applySeo')?.addEventListener('click', async ()=>{
+  const f = document.getElementById('seoFile')?.files?.[0];
+  if(!f) return alert('Chọn file .txt hoặc .md trước');
+  const txtFile = await f.text();
+  const title = getTitle(txtFile);
+  const seoTitle = getSection(txtFile, 'TIÊU ĐỀ SEO');
+  const shortDesc = getSection(txtFile, 'MÔ TẢ NGẮN');
+  const details = getSection(txtFile, 'THÔNG TIN CHI TIẾT');
+  const keywords = getSection(txtFile, 'TỪ KHOÁ|TỪ KHÓA');
+  const faq = getSection(txtFile, 'CÂU HỎI THƯỜNG GẶP \(FAQ\)');
+  const videoTitle = getSection(txtFile, 'TIÊU ĐỀ VIDEO');
+  if(title) document.getElementById('title').value = title;
+  if(seoTitle) document.getElementById('seoTitle').value = seoTitle;
+  const desc = [shortDesc, details].filter(Boolean).join('\n\n');
+  if(desc) document.getElementById('desc').value = desc;
+  if(keywords){
+    const ks = keywords.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
+    document.getElementById('keywords').value = ks.join(', ');
+  }
+  if(faq){
+    const lines = parseFaqPairs(faq);
+    document.getElementById('faq').value = lines.join('\n');
+  }
+  if(videoTitle && !document.getElementById('video').value){
+    // chỉ gợi ý: điền vào SEO Desc nếu trống
+    const sd = document.getElementById('seoDesc');
+    if(sd && !sd.value) sd.value = videoTitle;
+  }
+  (window.Admin?.toast||alert)('Đã nhập dữ liệu SEO từ file');
+});
+// ===== End SEO File Import =====
+
+</script>
 <!-- build:21 -->
 </head><body>
 <div class="container">
@@ -83,6 +133,14 @@
       <div id="suggest" class="ai-box"></div>
 
       <hr/>
+      
+      <div class="toolbar">
+        <div class="title">Nhập file SEO</div>
+        <input type="file" id="seoFile" accept=".txt,.md" />
+        <button class="btn" id="applySeo">Áp dụng file</button>
+        <span class="hint">Hỗ trợ định dạng: TÊN SẢN PHẨM / --- TIÊU ĐỀ SEO --- / --- MÔ TẢ NGẮN --- / --- THÔNG TIN CHI TIẾT --- / --- TỪ KHÓA --- / --- CÂU HỎI THƯỜNG GẶP (FAQ) ---</span>
+      </div>
+
       <div class="toolbar"><div class="title">Biến thể</div><button id="addVar" class="btn">+ Thêm biến thể</button></div>
       <div id="variants"></div>
     </div>
@@ -231,7 +289,7 @@ function addVar(v={}){
       <div class="col"><label>Giá bán</label><input class="input" type="number" data-f="price" value="${v.price||0}"/></div>
       <div class="col"><label>Giá sale</label><input class="input" type="number" data-f="price_sale" value="${v.price_sale||0}"/></div>
       <div class="col"><label>Giá nhập</label><input class="input" type="number" data-f="cost" value="${v.cost||0}"/></div>
-      <div class="col"><label>Cân nặng</label><input class="input" type="number" data-f="weight" value="${v.weight||0}"/></div>
+      <div class="col"><label>Cân nặng (kg)</label><input class="input" type="number" step="0.01" data-f="weight" value="${v.weight||0}"/></div>
       <div class="col"><label>Tồn kho</label><input class="input" type="number" data-f="stock" value="${v.stock||0}"/></div>
     </div>
     <div class="row">
@@ -272,7 +330,7 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
       price: Number(g('[data-f="price"]').value||0),
       price_sale: Number(g('[data-f="price_sale"]').value||0),
       cost: Number(g('[data-f="cost"]').value||0),
-      weight: Number(g('[data-f="weight"]').value||0),
+      (()=>{ let raw=String(g('[data-f="weight"]').value||'').replace(',','.'); let w = Number(raw)||0; if(w>0 && w<=50 && /[\.,]/.test(raw)) w = Math.round(w*1000); return w; })(),
       stock: Number(g('[data-f="stock"]').value||0),
       image: g('[data-f="thumb"]').src
     };
@@ -291,7 +349,7 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
     price: Number($('#price').value||0),
     price_sale: Number($('#price_sale').value||0),
     cost: Number($('#cost').value||0),
-    weight: Number($('#weight').value||0),
+    weight: Number(String($('#weight').value||'').replace(',','.'))||0,
     stock: Number($('#stock').value||0),
     images: state.images||[],
     video: $('#video').value.trim(),
@@ -347,6 +405,56 @@ document.getElementById('pickCat')?.addEventListener('click', async ()=>{
     if(!name) return; window.__pickedCats = window.__pickedCats||new Set(); name.split(/\s*,\s*|\s+/).forEach(s=>s&&window.__pickedCats.add(s)); Admin.toast('Đã chọn: '+Array.from(window.__pickedCats).join(', '));
   }catch(e){ alert('Không tải được danh mục'); }
 });
+
+// ===== SEO File Import =====
+function getSection(src, name){
+  const re = new RegExp('---\\s*'+name.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+'\\s*---([\\s\\S]*?)(?=\n---|$)','i');
+  const m = src.match(re);
+  return m ? (m[1]||'').trim() : '';
+}
+function getTitle(src){
+  const m = src.match(/TÊN\s*SẢN\s*PHẨM\s*:\s*(.+)/i);
+  return m ? m[1].trim() : '';
+}
+function parseFaqPairs(block){
+  const out = [];
+  const re = /Hỏi\s*:\s*([^\n]+)[\s\S]*?Đáp\s*:\s*([^\n]+)(?:\n\n|$)/gi;
+  let m; while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
+  if(!out.length){ return block.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
+  return out;
+}
+document.getElementById('applySeo')?.addEventListener('click', async ()=>{
+  const f = document.getElementById('seoFile')?.files?.[0];
+  if(!f) return alert('Chọn file .txt hoặc .md trước');
+  const txtFile = await f.text();
+  const title = getTitle(txtFile);
+  const seoTitle = getSection(txtFile, 'TIÊU ĐỀ SEO');
+  const shortDesc = getSection(txtFile, 'MÔ TẢ NGẮN');
+  const details = getSection(txtFile, 'THÔNG TIN CHI TIẾT');
+  const keywords = getSection(txtFile, 'TỪ KHOÁ|TỪ KHÓA');
+  const faq = getSection(txtFile, 'CÂU HỎI THƯỜNG GẶP \(FAQ\)');
+  const videoTitle = getSection(txtFile, 'TIÊU ĐỀ VIDEO');
+  if(title) document.getElementById('title').value = title;
+  if(seoTitle) document.getElementById('seoTitle').value = seoTitle;
+  const desc = [shortDesc, details].filter(Boolean).join('\n\n');
+  if(desc) document.getElementById('desc').value = desc;
+  if(keywords){
+    const ks = keywords.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
+    document.getElementById('keywords').value = ks.join(', ');
+  }
+  if(faq){
+    const lines = parseFaqPairs(faq);
+    document.getElementById('faq').value = lines.join('\n');
+  }
+  if(videoTitle && !document.getElementById('video').value){
+    // chỉ gợi ý: điền vào SEO Desc nếu trống
+    const sd = document.getElementById('seoDesc');
+    if(sd && !sd.value) sd.value = videoTitle;
+  }
+  (window.Admin?.toast||alert)('Đã nhập dữ liệu SEO từ file');
+});
+// ===== End SEO File Import =====
+
 </script>
 
 </body></html>
