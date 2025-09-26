@@ -72,3 +72,31 @@ img[loading="lazy"]{content-visibility:auto}
 .breadcrumb{display:flex; flex-wrap:wrap; gap:.5rem; font-size:.9rem}
 .breadcrumb a{color:#334155}
 .breadcrumb .sep{opacity:.5}
+
+
+/* === Hero CTA overlay (right aligned) === */
+.hero-wrap{position:relative}
+.hero-cta{
+  position:absolute; inset:0 0 0 0; display:flex; align-items:center; justify-content:flex-end;
+  padding:clamp(.5rem, 2vw, 2rem);
+}
+.hero-cta .box{
+  background:rgba(255,255,255,.92); backdrop-filter:saturate(120%) blur(4px);
+  border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.25rem; max-width:min(42ch, 48%);
+}
+.hero-cta h2{margin:0 0 .25rem 0; font-size:clamp(1.25rem, 2.2vw, 1.75rem); font-weight:700; color:#0f172a}
+.hero-cta p{margin:.25rem 0 .75rem 0; color:#334155}
+.hero-cta .cta-row{display:flex; gap:.5rem; flex-wrap:wrap}
+.hero-cta .btn{border-radius:12px; padding:.6rem 1rem}
+.hero-cta .btn-primary{background:#0ea5e9; border-color:#0ea5e9; color:#fff}
+/* === Category banner grid (below hero) === */
+.cat-grid{
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1rem;
+}
+.cat-grid a{display:block; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff}
+.cat-grid img{width:100%; height:auto; display:block}
+@media (max-width: 992px){ .cat-grid{grid-template-columns:repeat(2, minmax(0,1fr));} }
+@media (max-width: 640px){ .cat-grid{grid-template-columns:1fr;} }
+/* === Mini banners (Freeship/Giao nhanh) === */
+.mini-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1rem}
+@media (max-width:640px){ .mini-grid{grid-template-columns:1fr;} }
