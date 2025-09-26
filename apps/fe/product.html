@@ -424,8 +424,155 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
   function addWeightsToCart(cart){ const map=buildWeightMap(); (cart||[]).forEach(it=>{ if(!it) return; if(!it.weight_gram||it.weight_gram<=0){ const byVar=map['v:'+it.variant_id]||map['id:'+it.variant_id]; const byId=map['id:'+it.id]||map['v:'+it.id]; it.weight_gram=byVar||byId||map.product||0; }}); return cart; }
   (function patchLocalStorage(){ const orig=localStorage.setItem.bind(localStorage); localStorage.setItem=function(k,v){ if(k==='cart'){ try{ const arr=JSON.parse(v||'[]'); v=JSON.stringify(addWeightsToCart(arr)); }catch(e){} } return orig(k,v); }; try{ const cur=localStorage.getItem('cart'); if(cur){ const arr=addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){} })();
 
-  function run(){ renderDescAuto(); renderFAQAuto(); }
+  window.__SHV_RUN_RENDER__ = run;
+function run(){ renderDescAuto(); renderFAQAuto(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+
+
+<!-- SHV PATCH v12d: observe async content and re-apply render -->
+<script>
+(function(){
+  function debounce(fn, wait){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this, arguments), wait); }; }
+  function needProcess(){
+    const txt = document.body.textContent || '';
+    return /Mô tả|FAQ|Câu hỏi thường gặp/.test(txt);
+  }
+  function trigger(){
+    if(window.__SHV_RAN__) return;
+    // Delay a bit to let SPA inject content
+    setTimeout(()=>{
+      try{
+        if(typeof window.__SHV_RUN_RENDER__ === 'function'){ window.__SHV_RUN_RENDER__(); window.__SHV_RAN__=true; }
+      }catch(e){}
+    }, 150);
+  }
+  const runDebounced = debounce(trigger, 200);
+  const mo = new MutationObserver(()=>{ if(needProcess()) runDebounced(); });
+  mo.observe(document.documentElement, {subtree:true, childList:true, characterData:true});
+  document.addEventListener('DOMContentLoaded', runDebounced);
+})();
+</script>
+
+
+<!-- SHV PATCH v12e: aggressive child processing for desc/FAQ -->
+<script>
+(function(){
+  // helpers copied
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> \n
+    t = t.replace(/\\n/g, '\n');                // literal \n -> \n
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> \n
+    t = t.replace(/\r/g, '\n');                  // CR -> \n
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
+  function toHtml(raw){
+    raw = normBreaks(raw);
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>'; return html;
+  }
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+
+  function needsTransform(s){ return /\n|^##\s+|^-\s+/.test(s); }
+
+  function transformInside(box){
+    if(!box) return false;
+    let touched = false;
+    // 1) process text nodes
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (const tn of textNodes){
+      const s = String(tn.nodeValue||'');
+      if (needsTransform(s)){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = toHtml(s);
+        tn.parentNode.replaceChild(wrap, tn);
+        touched = true;
+      }
+    }
+    // 2) process simple child elements
+    const kids = Array.from(box.children||[]);
+    for (const el of kids){
+      if (el.children.length===0){
+        const txt = el.textContent||'';
+        if (needsTransform(txt)){
+          el.innerHTML = toHtml(txt);
+          touched = true;
+        }
+      }
+    }
+    // 3) if vẫn còn \n trong toàn box => rebuild toàn bộ
+    const fullText = (box.textContent||'');
+    if (needsTransform(fullText) && !touched){
+      box.innerHTML = toHtml(fullText);
+      touched = true;
+    }
+    return touched;
+  }
+
+  function renderFAQAuto(){
+    // 1) ưu tiên #p-faq
+    const faqBox = document.getElementById('p-faq');
+    if (faqBox){
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 2) tìm block có “Hỏi:” & “Đáp:” gần vùng mô tả
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if (candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 3) theo heading “FAQ”
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if (heads.length){
+      const el = heads[0].nextElementSibling;
+      if (el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
+  }
+
+  function renderDescAuto(){
+    const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+    const descBox = document.getElementById('p-desc');
+    if (descBox){ transformInside(descBox); return true; }
+    // Heading “Mô tả” -> sibling
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    for (const h of heads){
+      const box = h.nextElementSibling;
+      if (!box) continue;
+      transformInside(box);
+      return true;
+    }
+    return false;
+  }
+
+  function run(){ renderDescAuto(); renderFAQAuto(); }
+  window.__SHV_RUN_RENDER__ = run;
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();
 </script>
 
