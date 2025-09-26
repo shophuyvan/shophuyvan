@@ -81,12 +81,7 @@
     if(!to_province || !to_district) return; // wait until address filled
 
     // naive weight fallback: 500g if không có dữ liệu
-    let weight = 0;
-    try{
-      // Nếu có tổng trọng lượng trên DOM thì parse; nếu không, dùng 500g
-      const wDom = document.querySelector('[data-cart-weight]')?.dataset?.cartWeight || '';
-      weight = Math.max(0, parseInt(wDom)) || 500;
-    }catch(e){ weight = 500; }
+    let weight = window.__SHV_TOTAL_WEIGHT__ || 0; if(!weight){ try{ const wDom = document.querySelector('[data-cart-weight]')?.dataset?.cartWeight || ''; weight = Math.max(0, parseInt(wDom)) || 500; }catch(e){ weight = 500; } } }
 
     const params = new URLSearchParams({ weight: String(weight), to_province, to_district });
     const rs = await fetch((window.Admin?.getApiBase?.()||'https://shv-api.shophuyvan.workers.dev') + '/shipping/quote?' + params.toString()).then(r=>r.json()).catch(()=>null);
@@ -134,6 +129,41 @@
   });
   document.addEventListener('DOMContentLoaded', autoQuote);
   setTimeout(autoQuote, 800);
+})();
+</script>
+
+
+<!-- SHV: compute cart total weight (gram) and attach to shipping quote -->
+<script>
+(function(){
+  function readCart(){
+    try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch(e){ return []; }
+  }
+  function totalWeightGram(){
+    const arr = readCart();
+    let total = 0;
+    for(const it of arr){
+      const w = Number(it.weight_gram || it.weight || 0) || 0;
+      const qty = Number(it.qty||1)||1;
+      total += w*qty;
+    }
+    return total||0;
+  }
+  // patch fallback quote code if exists
+  const oldAuto = window.autoQuote;
+  window.autoQuote = async function(){
+    if(typeof oldAuto === 'function') try{ await oldAuto(); }catch(e){};
+    const w = totalWeightGram();
+    // if our fallback exists, it uses wDom or 500; ensure we override
+    window.__SHV_TOTAL_WEIGHT__ = w;
+  };
+  // if our own fallback script (from earlier patch) is present
+  setInterval(function(){
+    const el = document.getElementById('quote-list');
+    if(!el) return;
+    // store weight to dataset for any consumer
+    el.dataset.totalWeightGram = String(totalWeightGram());
+  }, 1000);
 })();
 </script>
 

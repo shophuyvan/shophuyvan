@@ -16,6 +16,9 @@
 /* Hide global site header on PDP only */
 body.pdp header, body.pdp .topbar, body.pdp .site-header, 
 body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important; }
+  /* SHV patch: pre-line */
+  .desc-preline{white-space:pre-line;}
+  .faq-item{margin-bottom:8px}
 </style>
 
   <!-- SEO-INJECTED -->
@@ -182,7 +185,10 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
     .shv-breadcrumb a:hover{text-decoration:underline}
     .shv-breadcrumb .sep{opacity:.5}
     .shv-breadcrumb .last{color:#111827;font-weight:600}
-  </style>
+    /* SHV patch: pre-line */
+  .desc-preline{white-space:pre-line;}
+  .faq-item{margin-bottom:8px}
+</style>
   <nav class="shv-breadcrumb" aria-label="breadcrumb" id="shv-bc">
     <a href="__BASE_URL__/">Trang chủ</a>
     <span class="sep">›</span>
@@ -272,5 +278,53 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 
   <script type="application/ld+json" id="id-product"></script>
   <script type="module" src="/src/ui-pdp.js?v=72"></script>
+
+<!-- SHV: Render description & FAQ with markup -->
+<script>
+(function(){
+  function renderDesc(raw){
+    if(!raw) return '';
+    // Convert headings '## ' to <h3>, bullets to <li>, keep linebreaks
+    const lines = String(raw).split(/\n/);
+    let html='', inList=false;
+    for(const ln of lines){
+      if(/^##\s+/.test(ln)){
+        if(inList){ html+='</ul>'; inList=false; }
+        html += '<h3 class="font-semibold mt-2 mb-1">'+ln.replace(/^##\s+/, '')+'</h3>';
+      }else if(/^\-\s+/.test(ln)){
+        if(!inList){ html+='<ul class="list-disc pl-5">'; inList=true; }
+        html += '<li>'+ln.replace(/^\-\s+/, '')+'</li>';
+      }else if(ln.trim()===''){
+        if(inList){ html+='</ul>'; inList=false; }
+        html += '<br/>';
+      }else{
+        html += '<p class="mb-1">'+ln+'</p>';
+      }
+    }
+    if(inList) html+='</ul>';
+    return html;
+  }
+  function parseFaq(raw){
+    if(!raw) return [];
+    const out=[];
+    const lines = String(raw).split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    for(const line of lines){
+      const m = line.match(/Hỏi\s*:\s*(.+?)\s*\|\s*Đáp\s*:\s*(.+)/i);
+      if(m) out.push({q:m[1], a:m[2]}); else out.push({q:line, a:''});
+    }
+    return out;
+  }
+  const elDesc = document.querySelector('[data-bind="product-desc"]');
+  const elFaq = document.querySelector('[data-bind="product-faq"]');
+  if(window.__PRODUCT__ && (elDesc||elFaq)){
+    if(elDesc){ elDesc.innerHTML = renderDesc(window.__PRODUCT__.desc||''); }
+    if(elFaq){ 
+      const items = parseFaq(window.__PRODUCT__.faq||'');
+      elFaq.innerHTML = items.map(x=>('<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>')).join('');
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
