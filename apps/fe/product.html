@@ -576,5 +576,120 @@ function run(){ renderDescAuto(); renderFAQAuto(); }
 })();
 </script>
 
+
+<!-- SHV PATCH v12f: stronger \n detection + multi-run render -->
+<script>
+(function(){
+  function expose(){ if(typeof window.__SHV_RUN_RENDER__!=='function' && typeof run==='function') window.__SHV_RUN_RENDER__ = run; }
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> \n
+    t = t.replace(/\\n/g, '\n');                // literal \n -> \n
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> \n
+    t = t.replace(/\r/g, '\n');                  // CR -> \n
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
+  function toHtml(raw){
+    raw = normBreaks(raw);
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>'; return html;
+  }
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+  function needsTransform(s){
+    s = String(s||'');
+    return /(\\n|\r\n|\n)|(^|\s)##\s+|(^|\s)-\s+/.test(s);
+  }
+  function transformInside(box){
+    if(!box) return false;
+    let touched = false;
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    const texts=[]; while(walker.nextNode()) texts.push(walker.currentNode);
+    for(const tn of texts){
+      const s = String(tn.nodeValue||'');
+      if(needsTransform(s)){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = toHtml(s);
+        tn.parentNode.replaceChild(wrap, tn);
+        touched = true;
+      }
+    }
+    const kids = Array.from(box.children||[]);
+    for(const el of kids){
+      if(el.children.length===0){
+        const txt = el.textContent||'';
+        if(needsTransform(txt)){ el.innerHTML = toHtml(txt); touched = true; }
+      }
+    }
+    const full = box.textContent||'';
+    if(needsTransform(full) && !touched){ box.innerHTML = toHtml(full); touched = true; }
+    return touched;
+  }
+  function renderFAQAuto(){
+    const faqBox = document.getElementById('p-faq');
+    if(faqBox){
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if(candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if(heads.length){
+      const el = heads[0].nextElementSibling;
+      if(el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
+  }
+  function renderDescAuto(){
+    const descBox = document.getElementById('p-desc');
+    if(descBox){ if(!transformInside(descBox)){ const txt=descBox.textContent||''; if(needsTransform(txt)) descBox.innerHTML = toHtml(txt); } return true; }
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    for(const h of heads){
+      const box = h.nextElementSibling;
+      if(!box) continue;
+      if(!transformInside(box)){ const txt=box.textContent||''; if(needsTransform(txt)) box.innerHTML = toHtml(txt); }
+      return true;
+    }
+    return false;
+  }
+  function gramsOf(v){ const raw=String(v??'').replace(',','.'); const n=Number(raw); if(!n||isNaN(n)) return 0; return (/[.,]/.test(raw)&&n>0&&n<=50)?Math.round(n*1000):Math.round(n); }
+  function buildWeightMap(){ const P=window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{}; const map={product:gramsOf(P.weight||P.weight_gram||0)}; (P.variants||[]).forEach(v=>{ map['v:'+v.id]=gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id];}); return map; }
+  function addWeightsToCart(cart){ const map=buildWeightMap(); (cart||[]).forEach(it=>{ if(!it) return; if(!it.weight_gram||it.weight_gram<=0){ const byVar=map['v:'+it.variant_id]||map['id:'+it.variant_id]; const byId=map['id:'+it.id]||map['v:'+it.id]; it.weight_gram=byVar||byId||map.product||0; }}); return cart; }
+  (function patchLocalStorage(){ const orig=localStorage.setItem.bind(localStorage); localStorage.setItem=function(k,v){ if(k==='cart'){ try{ const arr=JSON.parse(v||'[]'); v=JSON.stringify(addWeightsToCart(arr)); }catch(e){} } return orig(k,v); }; try{ const cur=localStorage.getItem('cart'); if(cur){ const arr=addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){} })();
+  function run(){ renderDescAuto(); renderFAQAuto(); }
+  expose();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
+  // Observer (multi-run, không khoá một lần)
+  (function(){
+    function debounce(fn, wait){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this, arguments), wait); }; }
+    const runDebounced = debounce(()=>{ try{ run(); }catch(e){} }, 200);
+    const mo = new MutationObserver(muts=>{ runDebounced(); });
+    mo.observe(document.documentElement, {subtree:true, childList:true, characterData:true});
+  })();
+})();
+</script>
+
 </body>
 </html>
