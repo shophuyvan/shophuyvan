@@ -337,13 +337,13 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 </script>
 
 
-<!-- SHV PATCH: Fallback render mô tả & FAQ + weight_gram -->
+<!-- SHV PATCH v12b: Fallback render mô tả & FAQ (auto-detect) + weight_gram -->
 <script>
 (function(){
   // ======= Desc/FAQ renderer =======
   function norm(s){ return (s==null?'':String(s)); }
   function toHtml(raw){
-    raw = norm(raw).replace(/\\n/g,'\n');
+    raw = norm(raw).replace(/\\n/g,'\n');         // "\n" -> newline thật
     const lines = raw.split(/\n/);
     let html='', list=false;
     for(const l0 of lines){
@@ -356,23 +356,51 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
     if(list) html+='</ul>';
     return html;
   }
-  function renderDescFaq(){
+  function renderByIds(){
     var p = (window.__SHV_PRODUCT__ || window.PRODUCT || window.__PRODUCT__ || {});
+    var ok=false;
     var descBox = document.getElementById('p-desc');
-    var faqBox  = document.getElementById('p-faq');
     if(descBox){
       var raw = p.desc || p.description || descBox.textContent || '';
-      descBox.innerHTML = toHtml(raw);
-      descBox.classList.add('desc-preline');
+      descBox.innerHTML = toHtml(raw); ok=true;
     }
+    var faqBox = document.getElementById('p-faq');
     if(faqBox){
-      var rawFaq = p.faq || faqBox.textContent || '';
-      rawFaq = norm(rawFaq).replace(/\\n/g,'\n');
+      var rawFaq = norm(p.faq || faqBox.textContent || '').replace(/\\n/g,'\n');
       var text = (' '+rawFaq.replace(/\s+/g,' ')+' ');
       var re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
-      var out = '', m; while((m=re.exec(text))){ out += '<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
-      if(out && faqBox) faqBox.innerHTML = out;
+      var out='', m; while((m=re.exec(text))){ out+='<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
+      if(out){ faqBox.innerHTML = out; ok=true; }
     }
+    return ok;
+  }
+  function renderByHeading(){
+    // Tìm thẻ có text "Mô tả", lấy sibling kế tiếp rỗng/thuần văn bản để render
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    let done=false;
+    heads.some(h=>{
+      let box=h.nextElementSibling;
+      if(!box) return false;
+      // tránh ghi đè nếu đã có nhiều tag con (coi như html đẹp sẵn)
+      if(box.children && box.children.length>0 && box.querySelector('p,ul,ol,h3')) return false;
+      const raw = box.textContent;
+      if(!raw) return false;
+      box.innerHTML = toHtml(raw);
+      done=true; return true;
+    });
+    // FAQ
+    const faqHeads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    faqHeads.some(h=>{
+      let box = h.nextElementSibling; if(!box) return false;
+      const raw = (' '+box.textContent+' ').replace(/\s+/g,' ');
+      const re=/\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+      let out='', m; while((m=re.exec(raw))){ out += '<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
+      if(out){ box.innerHTML = out; done=true; return true; }
+      return false;
+    });
+    return done;
   }
 
   // ======= weight_gram into cart =======
@@ -411,8 +439,9 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
     try{ const cur = localStorage.getItem('cart'); if(cur){ const arr = addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){}
   })();
 
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', renderDescFaq);
-  else renderDescFaq();
+  function run(){ if(!renderByIds()) renderByHeading(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
 })();
 </script>
 
