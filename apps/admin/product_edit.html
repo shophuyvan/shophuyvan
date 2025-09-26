@@ -590,9 +590,41 @@ $('#aiReviews')?.addEventListener('click', ()=>{
 });
 
 // Upload helpers (fallbacks handled by Worker)
+
+// ====== helpers: dedupe by content ======
+async function blobHashSHA1(blob){
+  const buf = await blob.arrayBuffer();
+  const hash = await crypto.subtle.digest('SHA-1', buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 async function doUpload(fileOrFiles){
+  const arr = (Array.isArray(fileOrFiles)?fileOrFiles:[fileOrFiles]).filter(Boolean);
+  // Dedupe by name + content hash (within this Admin session)
+  window.__UPLOAD_NAME_SET__ = window.__UPLOAD_NAME_SET__ || new Set();
+  window.__UPLOAD_HASH_SET__ = window.__UPLOAD_HASH_SET__ || new Set();
+  const filtered = [];
+  for (const f of arr){
+    try{
+      // skip by name
+      const nameKey = (f.name||'').toLowerCase();
+      if (nameKey && window.__UPLOAD_NAME_SET__.has(nameKey)) continue;
+      // skip by hash (only for Blobs/Files)
+      let ok = true;
+      if (f && f.arrayBuffer){
+        const h = await blobHashSHA1(f);
+        if (window.__UPLOAD_HASH_SET__.has(h)) ok = false;
+        else window.__UPLOAD_HASH_SET__.add(h);
+      }
+      if(ok){
+        if(nameKey) window.__UPLOAD_NAME_SET__.add(nameKey);
+        filtered.push(f);
+      }
+    }catch(e){ filtered.push(f); }
+  }
+  if (!filtered.length) return [];
   const fd = new FormData();
-  (Array.isArray(fileOrFiles)?fileOrFiles:[fileOrFiles]).forEach(f=>fd.append('file', f));
+  filtered.forEach(f=>fd.append('file', f));
   let r = await Admin.req('/admin/upload', { method:'POST', body:fd });
   if (!(r && r.ok)) r = await Admin.req('/admin/files', { method:'POST', body:fd });
   if (r && r.ok && r.urls) return r.urls;
