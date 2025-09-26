@@ -25,7 +25,18 @@
 </head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span> <button id='sync-warehouses' class='btn' style='margin-left:8px'>Đồng bộ từ Warehouses</button></div></div>
 <div class="grid">
   <div class="card"><div class="title">Thông tin người gửi</div>
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
+    
+    <!-- Summary (read-only) -->
+    <div id="sender_summary" class="info-block" style="padding:8px 0; display:none">
+      <div><b>Tên:</b> <span id="s_name"></span></div>
+      <div><b>SĐT:</b> <span id="s_phone"></span></div>
+      <div><b>Địa chỉ:</b> <span id="s_addr"></span></div>
+      <div style="margin-top:8px">
+        <button id="edit_sender" class="btn" style="background:#6b7280">Chỉnh sửa thủ công</button>
+      </div>
+    </div>
+<div class='sender-manual'>
+<div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
       <input id="sender_name" class="input" placeholder="Tên người gửi">
       <input id="sender_phone" class="input" placeholder="SĐT người gửi">
       <input id="sender_province" class="input" placeholder="Tỉnh/Thành (VD: Hồ Chí Minh)">
@@ -52,6 +63,7 @@
     <div style="margin-top:8px">
       <button id="save_sender" class="btn">Lưu người gửi</button>
     </div>
+</div>
   </div>
 
   <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (static)"/>  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" class="input" placeholder="password" type="password"/>  <input id="super_partner" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
@@ -302,6 +314,39 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 
+
+<script>
+(function(){
+  function showSummaryFromLocal(){
+    try{
+      const s = JSON.parse(localStorage.getItem('shipping.sender')||'null');
+      if(!s) return;
+      const sum = document.getElementById('sender_summary');
+      if(!sum) return;
+      document.getElementById('s_name').textContent = s.name||'';
+      document.getElementById('s_phone').textContent = s.phone||'';
+      const addr = [s.addr, s.ward_name, s.district_name, s.province_name].filter(Boolean).join(', ');
+      document.getElementById('s_addr').textContent = addr;
+      sum.style.display='block';
+      var m = document.querySelector('.sender-manual'); if(m) m.style.display='none';
+    }catch(e){}
+  }
+  window.__saveSenderSummary = function(v){
+    try{ localStorage.setItem('shipping.sender', JSON.stringify(v||{})); }catch(e){}
+    showSummaryFromLocal();
+  };
+  // attach edit button
+  document.addEventListener('DOMContentLoaded', function(){
+    const edit = document.getElementById('edit_sender');
+    if(edit && !edit.__wired){ edit.__wired=true; edit.addEventListener('click', function(){
+      var m = document.querySelector('.sender-manual'); if(m) m.style.display='block';
+      var sum = document.getElementById('sender_summary'); if(sum) sum.style.display='none';
+    }); }
+    showSummaryFromLocal();
+  });
+})();
+</script>
+
 </body></html>
 <script>
  document.addEventListener('DOMContentLoaded', function(){
@@ -387,7 +432,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
 
     
-async function syncSenderFromWarehouses(){
+window.syncSenderFromWarehouses = async function(){
   try{
     const rs = await api('/shipping/warehouses', {});
     const list = rs?.items || rs?.data || [];
@@ -403,6 +448,7 @@ async function syncSenderFromWarehouses(){
       option: '1'
     };
     await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
+    if(window.__saveSenderSummary) window.__saveSenderSummary(v);
     toast('Đã đồng bộ địa chỉ người gửi từ Warehouses');
   }catch(e){ console.error(e); alert('Lỗi khi đồng bộ từ Warehouses'); }
 }
@@ -432,6 +478,7 @@ async function upsertSender(){
       saveLocalSender(v);
       try{
         await api('/admin/settings/upsert', { path: 'shipping.sender', value: v });
+    if(window.__saveSenderSummary) window.__saveSenderSummary(v);
         toast('Đã lưu người gửi');
       }catch(e){ /* ignore */ }
     }
@@ -479,5 +526,38 @@ async function upsertSender(){
     });
   })();
 </script>
+
+<script>
+(function(){
+  function showSummaryFromLocal(){
+    try{
+      const s = JSON.parse(localStorage.getItem('shipping.sender')||'null');
+      if(!s) return;
+      const sum = document.getElementById('sender_summary');
+      if(!sum) return;
+      document.getElementById('s_name').textContent = s.name||'';
+      document.getElementById('s_phone').textContent = s.phone||'';
+      const addr = [s.addr, s.ward_name, s.district_name, s.province_name].filter(Boolean).join(', ');
+      document.getElementById('s_addr').textContent = addr;
+      sum.style.display='block';
+      var m = document.querySelector('.sender-manual'); if(m) m.style.display='none';
+    }catch(e){}
+  }
+  window.__saveSenderSummary = function(v){
+    try{ localStorage.setItem('shipping.sender', JSON.stringify(v||{})); }catch(e){}
+    showSummaryFromLocal();
+  };
+  // attach edit button
+  document.addEventListener('DOMContentLoaded', function(){
+    const edit = document.getElementById('edit_sender');
+    if(edit && !edit.__wired){ edit.__wired=true; edit.addEventListener('click', function(){
+      var m = document.querySelector('.sender-manual'); if(m) m.style.display='block';
+      var sum = document.getElementById('sender_summary'); if(sum) sum.style.display='none';
+    }); }
+    showSummaryFromLocal();
+  });
+})();
+</script>
+
 </body>
 </html>
