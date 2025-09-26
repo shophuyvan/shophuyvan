@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Wire sync warehouses
   const syncBtn = document.getElementById('sync-warehouses');
-  if(syncBtn && !syncBtn.__wired){ syncBtn.__wired=true; syncBtn.addEventListener('click', syncSenderFromWarehouses); }
+  if(syncBtn && !syncBtn.__wired){ syncBtn.__wired=true; syncBtn.addEventListener('click', ()=> (window.syncSenderFromWarehouses && window.syncSenderFromWarehouses())); }
 
   // Save static token
   const btnTok=document.getElementById('save_super');
