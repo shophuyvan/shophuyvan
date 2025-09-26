@@ -52,8 +52,190 @@ document.getElementById('applySeo')?.addEventListener('click', async ()=>{
 });
 // ===== End SEO File Import =====
 
+// ===== Helpers: SEO parse & layout =====
+function _sec(src, name){
+  const re = new RegExp('---\\s*'+name+'\\s*---([\\s\\S]*?)(?=\\n---|$)','i'); const m = src.match(re);
+  return m ? (m[1]||'').trim() : '';
+}
+function _titleOf(src){
+  const m = src.match(/TÊN\\s*SẢN\\s*PHẨM\\s*:\\s*(.+)/i); return m ? m[1].trim() : '';
+}
+function _slugOf(src){
+  return _sec(src, 'URL SLUG').split(/\\s+/).join('-').replace(/[^a-z0-9-]/gi,'').toLowerCase();
+}
+function _keywordsOf(src){
+  const ks = _sec(src, 'TỪ KHOÁ|TỪ KHÓA'); 
+  return ks ? ks.split(/[\\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ') : '';
+}
+function _faqOf(src){
+  const block = _sec(src, 'CÂU HỎI THƯỜNG GẶP \\(FAQ\\)'); if(!block) return '';
+  const out=[]; const re=/Hỏi\\s*:\\s*([^\\n]+)[\\s\\S]*?Đáp\\s*:\\s*([^\\n]+)(?:\\n\\n|$)/gi; let m;
+  while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
+  return out.length? out.join('\\n') : block;
+}
+function _formatDesc(shortTxt, detailsTxt){
+  function bullets(txt){
+    if(!txt) return '';
+    // Tách theo dấu xuống dòng hoặc dấu chấm phẩy, chuyển thành bullet
+    const items = txt.replace(/[*•]/g,'').split(/\\n+|;|\\u2022/).map(s=>s.trim()).filter(Boolean);
+    if(!items.length) return txt;
+    return items.map(s=>'- '+s).join('\\n');
+  }
+  const h = (t)=> (t?('## '+t+'\\n'):''); // markdown style -> FE sẽ render xuống dòng đẹp
+  const short = bullets(shortTxt);
+  const details = bullets(detailsTxt);
+  return h('Mô tả ngắn')+short+'\\n\\n'+h('Thông tin chi tiết')+details;
+}
+// ===== End Helpers =====
+
+
+
+// ===== ZIP Import =====
+document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  const f = document.getElementById('zipFile')?.files?.[0];
+  if(!f) return alert('Chọn file .zip trước');
+  let zip;
+  try{ zip = await JSZip.loadAsync(f); }catch(e){ return alert('Không đọc được ZIP: '+e); }
+  const getText = async (name)=>{
+    // tìm theo tên chính xác hoặc regex không phân biệt hoa thường
+    let file = zip.file(name) || zip.file(new RegExp(name, 'i'))[0];
+    return file ? await file.async('string') : '';
+  };
+  const listFiles = (prefix, exts)=>{
+    const out=[];
+    zip.forEach((path, file)=>{
+      if(file.dir) return;
+      if(prefix && !path.toLowerCase().startsWith(prefix)) return;
+      if(exts && !exts.test(path)) return;
+      out.push(path);
+    });
+    return out;
+  };
+
+  const seo = await getText('ket-qua-seo.txt');
+  if(seo){
+    const title = _titleOf(seo);
+    const seoTitle = _sec(seo, 'TIÊU ĐỀ SEO');
+    const shortDesc = _sec(seo, 'MÔ TẢ NGẮN');
+    const details = _sec(seo, 'THÔNG TIN CHI TIẾT');
+    const slug = _sec(seo, 'URL SLUG') || (title?title.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9\\s-]/ig,'').trim().replace(/\\s+/g,'-').toLowerCase():'');
+    if(title) $('#title').value = title;
+    if(seoTitle) $('#seoTitle').value = seoTitle;
+    if(slug) $('#slug').value = slug;
+    const kw = _keywordsOf(seo); if(kw) $('#keywords').value = kw;
+    const faq = _faqOf(seo); if(faq) $('#faq').value = faq;
+    const desc = _formatDesc(shortDesc, details);
+    if(desc) $('#desc').value = desc;
+  }
+
+  // schema.json nếu có -> gợi ý vào SEO Desc nếu đang trống
+  const schemaText = await getText('schema.json');
+  if(schemaText && !$('#seoDesc').value){ $('#seoDesc').value = 'JSON-LD đã import, xem schema.json'; }
+
+  // Video (mp4) nếu có
+  const vids = listFiles('', /\.(mp4|webm|mov)$/i);
+  if(vids[0]){
+    const blob = await zip.file(vids[0]).async('blob');
+    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+    try{
+      const urls = await doUpload(file);
+      if(urls[0]) $('#video').value = urls[0];
+    }catch(e){ console.log('Upload video lỗi', e); }
+  }
+
+  // Ảnh trong thư mục images/
+  const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
+  if(imgs.length){
+    const files = [];
+    for (const p of imgs){
+      const blob = await zip.file(p).async('blob');
+      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+    }
+    try{
+      const urls = await doUpload(files);
+      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+    }catch(e){ console.log('Upload ảnh lỗi', e); }
+  }
+
+  (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+});
+// ===== End ZIP Import =====
+
 </script>
 <!-- build:21 -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js">
+// ===== ZIP Import =====
+document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  const f = document.getElementById('zipFile')?.files?.[0];
+  if(!f) return alert('Chọn file .zip trước');
+  let zip;
+  try{ zip = await JSZip.loadAsync(f); }catch(e){ return alert('Không đọc được ZIP: '+e); }
+  const getText = async (name)=>{
+    // tìm theo tên chính xác hoặc regex không phân biệt hoa thường
+    let file = zip.file(name) || zip.file(new RegExp(name, 'i'))[0];
+    return file ? await file.async('string') : '';
+  };
+  const listFiles = (prefix, exts)=>{
+    const out=[];
+    zip.forEach((path, file)=>{
+      if(file.dir) return;
+      if(prefix && !path.toLowerCase().startsWith(prefix)) return;
+      if(exts && !exts.test(path)) return;
+      out.push(path);
+    });
+    return out;
+  };
+
+  const seo = await getText('ket-qua-seo.txt');
+  if(seo){
+    const title = _titleOf(seo);
+    const seoTitle = _sec(seo, 'TIÊU ĐỀ SEO');
+    const shortDesc = _sec(seo, 'MÔ TẢ NGẮN');
+    const details = _sec(seo, 'THÔNG TIN CHI TIẾT');
+    const slug = _sec(seo, 'URL SLUG') || (title?title.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9\\s-]/ig,'').trim().replace(/\\s+/g,'-').toLowerCase():'');
+    if(title) $('#title').value = title;
+    if(seoTitle) $('#seoTitle').value = seoTitle;
+    if(slug) $('#slug').value = slug;
+    const kw = _keywordsOf(seo); if(kw) $('#keywords').value = kw;
+    const faq = _faqOf(seo); if(faq) $('#faq').value = faq;
+    const desc = _formatDesc(shortDesc, details);
+    if(desc) $('#desc').value = desc;
+  }
+
+  // schema.json nếu có -> gợi ý vào SEO Desc nếu đang trống
+  const schemaText = await getText('schema.json');
+  if(schemaText && !$('#seoDesc').value){ $('#seoDesc').value = 'JSON-LD đã import, xem schema.json'; }
+
+  // Video (mp4) nếu có
+  const vids = listFiles('', /\.(mp4|webm|mov)$/i);
+  if(vids[0]){
+    const blob = await zip.file(vids[0]).async('blob');
+    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+    try{
+      const urls = await doUpload(file);
+      if(urls[0]) $('#video').value = urls[0];
+    }catch(e){ console.log('Upload video lỗi', e); }
+  }
+
+  // Ảnh trong thư mục images/
+  const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
+  if(imgs.length){
+    const files = [];
+    for (const p of imgs){
+      const blob = await zip.file(p).async('blob');
+      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+    }
+    try{
+      const urls = await doUpload(files);
+      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+    }catch(e){ console.log('Upload ảnh lỗi', e); }
+  }
+
+  (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+});
+// ===== End ZIP Import =====
+
+</script>
 </head><body>
 <div class="container">
   <div class="header">
@@ -134,6 +316,12 @@ document.getElementById('applySeo')?.addEventListener('click', async ()=>{
 
       <hr/>
       
+      <div class="toolbar">
+        <div class="title">Nhập gói ZIP sản phẩm</div>
+        <input type="file" id="zipFile" accept=".zip" />
+        <button class="btn" id="applyZip">Áp dụng ZIP</button>
+      </div>
+
       <div class="toolbar">
         <div class="title">Nhập file SEO</div>
         <input type="file" id="seoFile" accept=".txt,.md" />
@@ -325,11 +513,12 @@ function parseReviews(text){
 $('#saveBtn')?.addEventListener('click', async ()=>{
   const vs = Array.from($('#variants').children||[]).map(div=>{
     const g = (sel)=> div.querySelector(sel);
-    return { name: g('[data-f="name"]').value.trim(),
+    return {
+      name: g('[data-f="name"]').value.trim(),
       price: Number(g('[data-f="price"]').value||0),
       price_sale: Number(g('[data-f="price_sale"]').value||0),
       cost: Number(g('[data-f="cost"]').value||0),
-      weight: (()=>{ let raw=String(g('[data-f="weight"]').value||'').replace(',','.'); let w = Number(raw)||0; if(w>0 && w<=50 && /[\.,]/.test(raw)) w = Math.round(w*1000); return w; })(),
+      (()=>{ let raw=String(g('[data-f="weight"]').value||'').replace(',','.'); let w = Number(raw)||0; if(w>0 && w<=50 && /[\.,]/.test(raw)) w = Math.round(w*1000); return w; })(),
       stock: Number(g('[data-f="stock"]').value||0),
       image: g('[data-f="thumb"]').src
     };
@@ -453,6 +642,115 @@ document.getElementById('applySeo')?.addEventListener('click', async ()=>{
   (window.Admin?.toast||alert)('Đã nhập dữ liệu SEO từ file');
 });
 // ===== End SEO File Import =====
+
+// ===== Helpers: SEO parse & layout =====
+function _sec(src, name){
+  const re = new RegExp('---\\s*'+name+'\\s*---([\\s\\S]*?)(?=\\n---|$)','i'); const m = src.match(re);
+  return m ? (m[1]||'').trim() : '';
+}
+function _titleOf(src){
+  const m = src.match(/TÊN\\s*SẢN\\s*PHẨM\\s*:\\s*(.+)/i); return m ? m[1].trim() : '';
+}
+function _slugOf(src){
+  return _sec(src, 'URL SLUG').split(/\\s+/).join('-').replace(/[^a-z0-9-]/gi,'').toLowerCase();
+}
+function _keywordsOf(src){
+  const ks = _sec(src, 'TỪ KHOÁ|TỪ KHÓA'); 
+  return ks ? ks.split(/[\\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ') : '';
+}
+function _faqOf(src){
+  const block = _sec(src, 'CÂU HỎI THƯỜNG GẶP \\(FAQ\\)'); if(!block) return '';
+  const out=[]; const re=/Hỏi\\s*:\\s*([^\\n]+)[\\s\\S]*?Đáp\\s*:\\s*([^\\n]+)(?:\\n\\n|$)/gi; let m;
+  while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
+  return out.length? out.join('\\n') : block;
+}
+function _formatDesc(shortTxt, detailsTxt){
+  function bullets(txt){
+    if(!txt) return '';
+    // Tách theo dấu xuống dòng hoặc dấu chấm phẩy, chuyển thành bullet
+    const items = txt.replace(/[*•]/g,'').split(/\\n+|;|\\u2022/).map(s=>s.trim()).filter(Boolean);
+    if(!items.length) return txt;
+    return items.map(s=>'- '+s).join('\\n');
+  }
+  const h = (t)=> (t?('## '+t+'\\n'):''); // markdown style -> FE sẽ render xuống dòng đẹp
+  const short = bullets(shortTxt);
+  const details = bullets(detailsTxt);
+  return h('Mô tả ngắn')+short+'\\n\\n'+h('Thông tin chi tiết')+details;
+}
+// ===== End Helpers =====
+
+
+
+// ===== ZIP Import =====
+document.getElementById('applyZip')?.addEventListener('click', async ()=>{
+  const f = document.getElementById('zipFile')?.files?.[0];
+  if(!f) return alert('Chọn file .zip trước');
+  let zip;
+  try{ zip = await JSZip.loadAsync(f); }catch(e){ return alert('Không đọc được ZIP: '+e); }
+  const getText = async (name)=>{
+    // tìm theo tên chính xác hoặc regex không phân biệt hoa thường
+    let file = zip.file(name) || zip.file(new RegExp(name, 'i'))[0];
+    return file ? await file.async('string') : '';
+  };
+  const listFiles = (prefix, exts)=>{
+    const out=[];
+    zip.forEach((path, file)=>{
+      if(file.dir) return;
+      if(prefix && !path.toLowerCase().startsWith(prefix)) return;
+      if(exts && !exts.test(path)) return;
+      out.push(path);
+    });
+    return out;
+  };
+
+  const seo = await getText('ket-qua-seo.txt');
+  if(seo){
+    const title = _titleOf(seo);
+    const seoTitle = _sec(seo, 'TIÊU ĐỀ SEO');
+    const shortDesc = _sec(seo, 'MÔ TẢ NGẮN');
+    const details = _sec(seo, 'THÔNG TIN CHI TIẾT');
+    const slug = _sec(seo, 'URL SLUG') || (title?title.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9\\s-]/ig,'').trim().replace(/\\s+/g,'-').toLowerCase():'');
+    if(title) $('#title').value = title;
+    if(seoTitle) $('#seoTitle').value = seoTitle;
+    if(slug) $('#slug').value = slug;
+    const kw = _keywordsOf(seo); if(kw) $('#keywords').value = kw;
+    const faq = _faqOf(seo); if(faq) $('#faq').value = faq;
+    const desc = _formatDesc(shortDesc, details);
+    if(desc) $('#desc').value = desc;
+  }
+
+  // schema.json nếu có -> gợi ý vào SEO Desc nếu đang trống
+  const schemaText = await getText('schema.json');
+  if(schemaText && !$('#seoDesc').value){ $('#seoDesc').value = 'JSON-LD đã import, xem schema.json'; }
+
+  // Video (mp4) nếu có
+  const vids = listFiles('', /\.(mp4|webm|mov)$/i);
+  if(vids[0]){
+    const blob = await zip.file(vids[0]).async('blob');
+    const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
+    try{
+      const urls = await doUpload(file);
+      if(urls[0]) $('#video').value = urls[0];
+    }catch(e){ console.log('Upload video lỗi', e); }
+  }
+
+  // Ảnh trong thư mục images/
+  const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
+  if(imgs.length){
+    const files = [];
+    for (const p of imgs){
+      const blob = await zip.file(p).async('blob');
+      files.push(new File([blob], p.split('/').pop(), {type: blob.type||'image/*'}));
+    }
+    try{
+      const urls = await doUpload(files);
+      if(urls?.length){ state.images.push(...urls); renderImgs(); }
+    }catch(e){ console.log('Upload ảnh lỗi', e); }
+  }
+
+  (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
+});
+// ===== End ZIP Import =====
 
 </script>
 
