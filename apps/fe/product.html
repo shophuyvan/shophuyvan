@@ -336,5 +336,85 @@ body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important;
 })();
 </script>
 
+
+<!-- SHV PATCH: Fallback render mô tả & FAQ + weight_gram -->
+<script>
+(function(){
+  // ======= Desc/FAQ renderer =======
+  function norm(s){ return (s==null?'':String(s)); }
+  function toHtml(raw){
+    raw = norm(raw).replace(/\\n/g,'\n');
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>';
+    return html;
+  }
+  function renderDescFaq(){
+    var p = (window.__SHV_PRODUCT__ || window.PRODUCT || window.__PRODUCT__ || {});
+    var descBox = document.getElementById('p-desc');
+    var faqBox  = document.getElementById('p-faq');
+    if(descBox){
+      var raw = p.desc || p.description || descBox.textContent || '';
+      descBox.innerHTML = toHtml(raw);
+      descBox.classList.add('desc-preline');
+    }
+    if(faqBox){
+      var rawFaq = p.faq || faqBox.textContent || '';
+      rawFaq = norm(rawFaq).replace(/\\n/g,'\n');
+      var text = (' '+rawFaq.replace(/\s+/g,' ')+' ');
+      var re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+      var out = '', m; while((m=re.exec(text))){ out += '<details class="faq-item"><summary class="font-medium">'+m[1].trim()+'</summary><div class="mt-1">'+m[2].trim()+'</div></details>'; }
+      if(out && faqBox) faqBox.innerHTML = out;
+    }
+  }
+
+  // ======= weight_gram into cart =======
+  function gramsOf(v){
+    const raw = String(v??'').replace(',','.');
+    const n = Number(raw);
+    if(!n || isNaN(n)) return 0;
+    return (/[.,]/.test(raw) && n>0 && n<=50) ? Math.round(n*1000) : Math.round(n);
+  }
+  function buildWeightMap(){
+    const P = (window.__SHV_PRODUCT__ || window.PRODUCT || window.__PRODUCT__ || {});
+    const map = { product: gramsOf(P.weight||P.weight_gram||0) };
+    (P.variants||[]).forEach(v=>{ map['v:'+v.id] = gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id]; });
+    return map;
+  }
+  function addWeightsToCart(cart){
+    const map = buildWeightMap();
+    (cart||[]).forEach(it=>{
+      if(!it) return;
+      if(!it.weight_gram || it.weight_gram<=0){
+        const byVar = map['v:'+it.variant_id] || map['id:'+it.variant_id];
+        const byId  = map['id:'+it.id] || map['v:'+it.id];
+        it.weight_gram = byVar || byId || map.product || 0;
+      }
+    });
+    return cart;
+  }
+  (function patchLocalStorage(){
+    const orig = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(k,v){
+      if(k==='cart'){
+        try{ const arr = JSON.parse(v||'[]'); v = JSON.stringify(addWeightsToCart(arr)); }catch(e){}
+      }
+      return orig(k,v);
+    };
+    try{ const cur = localStorage.getItem('cart'); if(cur){ const arr = addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){}
+  })();
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', renderDescFaq);
+  else renderDescFaq();
+})();
+</script>
+
 </body>
 </html>
