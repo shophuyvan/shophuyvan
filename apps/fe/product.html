@@ -691,5 +691,78 @@ function run(){ renderDescAuto(); renderFAQAuto(); }
 })();
 </script>
 
+
+<!-- SHV ACTIONBAR PATCH v1: sticky action bar at bottom + smaller buttons -->
+<style>
+  .shv-actionbar{
+    position: sticky;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    padding: 12px;
+    display: flex; gap: 12px;
+    border-top: 1px solid #eee;
+    z-index: 1;
+  }
+  .shv-btn-sm{
+    height: 42px;
+    font-size: 14px;
+    line-height: 42px;
+    border-radius: 12px;
+    padding: 0 14px;
+  }
+  .shv-actionbar .shv-btn-sm{ flex: 1; }
+</style>
+
+
+<!-- SHV ACTIONBAR PATCH v1 -->
+<script>
+(function(){
+  function findButtons(root){
+    const btns = Array.from(root.querySelectorAll('button, .btn, [role="button"]'));
+    const add = btns.find(b => /thêm\s*vào\s*giỏ/i.test((b.textContent||'')));
+    const buy = btns.find(b => /mua\s*ngay/i.test((b.textContent||'')));
+    return { add, buy };
+  }
+  function ensureFooter(panel){
+    let footer = panel.querySelector('.shv-actionbar');
+    if(!footer){
+      footer = document.createElement('div');
+      footer.className = 'shv-actionbar';
+      if(getComputedStyle(panel).overflow === 'visible'){
+        footer.style.position = 'absolute';
+        footer.style.bottom   = '12px';
+        footer.style.left     = '0';
+        footer.style.right    = '0';
+      }
+      panel.appendChild(footer);
+    }
+    return footer;
+  }
+  function tweak(panel){
+    const { add, buy } = findButtons(panel);
+    if(!(add && buy)) return;
+    panel.style.position = 'relative';
+    panel.style.display  = 'flex';
+    panel.style.flexDirection = 'column';
+    [add, buy].forEach(b=>{
+      b.classList.add('shv-btn-sm');
+      b.style.height='42px'; b.style.fontSize='14px';
+      b.style.borderRadius='12px'; b.style.padding='0 14px';
+      b.style.flex='1';
+    });
+    const footer = ensureFooter(panel);
+    if (add.parentNode !== footer) footer.appendChild(add);
+    if (buy.parentNode !== footer) footer.appendChild(buy);
+  }
+  function scan(){
+    document.querySelectorAll('[role="dialog"], .modal, .sheet, .drawer, .shv-float-cart').forEach(tweak);
+  }
+  const init = () => { try{ scan(); }catch(e){} };
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  new MutationObserver(() => init()).observe(document.body, { childList:true, subtree:true });
+})();
+</script>
+
 </body>
 </html>
