@@ -34,7 +34,7 @@
 #shv-sidebar .panel{position:absolute;left:0;top:0;height:100%;width:260px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:2px 0 20px rgba(0,0,0,.12);padding:16px;transform:translateX(-100%);transition:transform .25s ease}
 #shv-sidebar.open{display:block}
 #shv-sidebar.open .panel{transform:translateX(0)}
-#shv-sidebar .item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:10px}
+#shv-sidebar .item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:10px white-space:nowrap; }
 #shv-sidebar .item:hover{background:#f3f4f6}
 #shv-sidebar .title{font-weight:700;margin:4px 0 12px}
 

@@ -302,5 +302,81 @@ document.addEventListener('DOMContentLoaded', function closeSidebarOnLink(){
   });
 });
 </script>
+
+<!-- SHV AUTH MODAL (no new file; inline) -->
+<div id="shv-auth-modal" aria-hidden="true" style="position:fixed;inset:0;display:none;z-index:140">
+  <div class="mask" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
+  <div class="panel" role="dialog" aria-modal="true" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,92vw);background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.15);">
+    <header style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb">
+      <strong>Đăng nhập / Đăng ký</strong>
+      <button id="auth-close" aria-label="Đóng" style="border:none;background:transparent;font-size:20px;line-height:1;padding:6px 8px">✕</button>
+    </header>
+    <div class="content" style="padding:16px">
+      <div class="tabs" style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="tab-login" class="tab active" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc">Đăng nhập</button>
+        <button id="tab-register" class="tab" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff">Đăng ký</button>
+      </div>
+      <form id="form-login" class="form" autocomplete="on" style="display:block">
+        <label>Tài khoản<input id="auth-user" type="text" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Mật khẩu<input id="auth-pass" type="password" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <button type="button" id="auth-login-btn" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#0ea5e9;color:#fff;border:0">Đăng nhập</button>
+      </form>
+      <form id="form-register" class="form" autocomplete="on" style="display:none">
+        <label>Họ tên<input id="reg-name" type="text" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Số điện thoại<input id="reg-phone" type="tel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Mật khẩu<input id="reg-pass" type="password" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <button type="button" id="auth-register-btn" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#16a34a;color:#fff;border:0">Đăng ký</button>
+      </form>
+      <div id="auth-msg" style="margin-top:8px;font-size:12px;color:#64748b"></div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  const modal = document.getElementById('shv-auth-modal');
+  function openAuthModal(){ if(!modal) return; modal.style.display='block'; }
+  function closeAuthModal(){ if(!modal) return; modal.style.display='none'; }
+  document.getElementById('auth-close')?.addEventListener('click', closeAuthModal);
+  modal?.querySelector('.mask')?.addEventListener('click', (e)=>{ if(e.target===e.currentTarget) closeAuthModal(); });
+  // Tabs
+  const tabLogin = document.getElementById('tab-login');
+  const tabReg   = document.getElementById('tab-register');
+  const formLogin = document.getElementById('form-login');
+  const formReg   = document.getElementById('form-register');
+  function actTab(which){
+    if(!tabLogin||!tabReg) return;
+    if(which==='login'){ tabLogin.classList.add('active'); tabReg.classList.remove('active'); formLogin.style.display='block'; formReg.style.display='none'; }
+    else { tabReg.classList.add('active'); tabLogin.classList.remove('active'); formReg.style.display='block'; formLogin.style.display='none'; }
+  }
+  tabLogin?.addEventListener('click', ()=>actTab('login'));
+  tabReg?.addEventListener('click', ()=>actTab('register'));
+  // Intercept sidebar login link
+  Array.from(document.querySelectorAll('#shv-sidebar a[href$="login_admin.html"], #shv-sidebar a[href*="admin_login.html"]')).forEach(a=>{
+    a.addEventListener('click', (e)=>{ e.preventDefault(); openAuthModal(); });
+  });
+  // Fake handlers (stub) - you can wire to real API later
+  document.getElementById('auth-login-btn')?.addEventListener('click', ()=>{
+    document.getElementById('auth-msg').textContent = 'Đăng nhập demo (chưa nối API).';
+  });
+  document.getElementById('auth-register-btn')?.addEventListener('click', ()=>{
+    document.getElementById('auth-msg').textContent = 'Đăng ký demo (chưa nối API).';
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  const shv = document.getElementById('shv-sidebar');
+  function closeIt(){ try{ if(typeof closeSidebar==='function') closeSidebar(); }catch(e){} }
+  shv?.addEventListener('click', (e)=>{
+    const a = e.target.closest && e.target.closest('.item, a');
+    if(a) closeIt();
+  });
+})();
+</script>
+
 </body>
 </html>
