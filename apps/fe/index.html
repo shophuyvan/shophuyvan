@@ -42,30 +42,54 @@
     }
   }
   </script>
+  <link rel="stylesheet" href="./assets/header-shop.css">
 </head>
 <body class="bg-slate-50 text-gray-900">
-  <header class="border-b bg-white sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-      <a href="/" class="flex items-center gap-2"><img src="/public/logo.png?v=23" alt="SHOP HUY VÂN" class="w-8 h-8"/><h1 class="text-lg font-bold">SHOP HUY VÂN</h1></a>
-      <button id="mobile-menu-btn" class="md:hidden border rounded px-2 py-1 text-sm">☰ Menu</button><nav id="main-nav" class="ml-6 hidden md:flex gap-4 text-sm">
-        <a href="/" class="hover:text-blue-600">Trang chủ</a>
-        <a href="#" class="hover:text-blue-600">Danh mục</a>
-        <a href="policy.html" class="hover:text-blue-600">Chính sách</a>
-        <a href="about.html" class="hover:text-blue-600">Thông tin shop</a>
-      </nav>
-      <div id="mobile-menu" class="md:hidden hidden px-2 py-2 border rounded bg-white absolute top-14 left-4 right-4 z-50 shadow">
-        <a href="/" class="block py-1">Trang chủ</a>
-        <a href="#" class="block py-1" id="mobile-cat">Danh mục</a>
-        <a href="policy.html" class="block py-1">Chính sách</a>
-        <a href="about.html" class="block py-1">Thông tin shop</a>
-        <a href="guide.html" class="block py-1">Hướng dẫn sử dụng</a>
+  
+<header class="header-shop">
+  <div class="top">
+    <button id="menuBtn" class="icon-btn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+    <a href="/" class="logo">
+      <img src="/public/logo.png" alt="Logo">
+      <div>
+        <div class="brand">CHỢ SỈ ĐẦM SEN</div>
+        <div class="sub">Mua Bán Giá Sỉ</div>
       </div>
-      <div class="ml-auto flex items-center gap-2">
-        <input id="shv-search" placeholder="Tìm kiếm..." class="border rounded px-3 py-1 text-sm w-40 md:w-64" />
-        <a href="cart.html" class="relative inline-flex items-center text-sm px-3 py-1 border rounded hover:bg-gray-100">🛒 Giỏ</a>
-      </div>
+    </a>
+
+    <a href="cart.html" class="cart" aria-label="Giỏ hàng">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="20" r="1"></circle>
+        <circle cx="16" cy="20" r="1"></circle>
+        <path d="M3 3h2l.4 2M7 13h10l3-8H6.4"></path>
+      </svg>
+      <span id="cart-badge" class="badge">0</span>
+    </a>
+  </div>
+
+  <div class="searchbar">
+    <div class="wrap">
+      <button class="all" id="allBtn">ALL
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </button>
+      <input id="searchInput" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
+      <button class="go" id="searchGo" aria-label="Tìm kiếm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-3.5-3.5"></path>
+        </svg>
+      </button>
     </div>
-  </header>
+  </div>
+</header>
+
 
   <div class="bg-amber-50 border-y">
     <div class="max-w-6xl mx-auto px-4 py-2 whitespace-nowrap overflow-hidden">
@@ -156,6 +180,31 @@
     }catch(e){}
   })();
   </script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var go = document.getElementById('searchGo');
+  var input = document.getElementById('searchInput');
+  if(go && input){
+    go.addEventListener('click', function(){
+      var q = encodeURIComponent(input.value||'');
+      var url = '/index.html' + (q ? ('?q=' + q) : '');
+      window.location.href = url;
+    });
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ go.click(); }
+    });
+  }
+  var menuBtn = document.getElementById('menuBtn');
+  var mobile = document.getElementById('mobile-menu');
+  if(menuBtn && mobile){
+    menuBtn.addEventListener('click', function(){
+      mobile.classList.toggle('hidden');
+    });
+  }
+});
+</script>
 
 </body>
 </html>
