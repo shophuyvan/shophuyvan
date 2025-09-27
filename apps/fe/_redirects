@@ -1,4 +1,10 @@
-/c/* /category.html 200
-/product/* /product.html 200
-/api/* https://shv-api.shophuyvan.workers.dev/:splat 200
-/* /index.html 200
+/assets/*    /assets/:splat    200
+/public/*    /public/:splat    200
+/src/*       /src/:splat       200
+/favicon.ico /favicon.ico      200
+/robots.txt  /robots.txt       200
+/sitemap.xml /sitemap.xml      200
+/c/*         /category.html    200
+/product/*   /product.html     200
+/api/*       https://shv-api.shophuyvan.workers.dev/:splat 200
+/*           /index.html       200
