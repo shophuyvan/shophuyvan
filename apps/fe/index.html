@@ -90,6 +90,31 @@
   </div>
 </header>
 
+<div id="shv-sidebar" aria-hidden="true">
+  <div class="mask"></div>
+  <aside class="panel">
+    <div class="title">Menu</div>
+    <a href="/apps/fe/login.html" class="item">🔐 Đăng nhập / Đăng ký</a>
+    <a href="/apps/fe/index.html" class="item">🏠 Trang chủ</a>
+    <a href="/apps/fe/guide.html" class="item">📘 Hướng dẫn sử dụng</a>
+    <a href="/apps/fe/policy.html" class="item">📜 Chính sách</a>
+    <a href="/apps/fe/about.html" class="item">🏪 Thông tin shop</a>
+  </aside>
+</div>
+
+<div id="shv-cart-modal" aria-hidden="true">
+  <div class="mask"></div>
+  <div class="panel">
+    <header><strong>Giỏ hàng</strong><button id="cart-close" aria-label="Đóng">✕</button></header>
+    <div class="list" id="cart-modal-list"></div>
+    <footer>
+      <div>Tổng: <strong id="cart-modal-total">0đ</strong></div>
+      <a href="/apps/fe/checkout.html" class="btn-primary">ĐẶT HÀNG NGAY</a>
+    </footer>
+  </div>
+</div>
+
+
 
   <div class="bg-amber-50 border-y">
     <div class="max-w-6xl mx-auto px-4 py-2 whitespace-nowrap overflow-hidden">
@@ -190,45 +215,77 @@
 
 
 
+
+
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  const header = document.querySelector('.header-shop');
-  if(header){ header.style.zIndex = 90; header.style.position='sticky'; header.style.top='0'; }
+  const sidebar = document.getElementById('shv-sidebar');
+  const cartModal = document.getElementById('shv-cart-modal');
+  const cartList = document.getElementById('cart-modal-list');
+  const cartTotal = document.getElementById('cart-modal-total');
 
-  const cartBtn = document.getElementById('header-cart-btn');
-  cartBtn && cartBtn.addEventListener('click', function(e){
-    e.preventDefault(); e.stopPropagation();
-    const fc = document.getElementById('shv-float-cart');
-    const mask = document.getElementById('shv-cart-mask');
-    if(fc){ fc.style.display='flex'; fc.style.opacity='1'; fc.style.pointerEvents='auto'; }
-    if(mask){ mask.style.display='block'; mask.style.opacity='1'; mask.style.pointerEvents='auto'; }
-  });
-
-  const menuBtn = document.getElementById('menuBtn');
-  menuBtn && menuBtn.addEventListener('click', function(e){
-    e.preventDefault(); e.stopPropagation();
-    const cat = document.getElementById('catBtn'); if(cat) cat.click();
-  });
-
-  function parseCartCount(){
+  function fmt(n){return (n||0).toLocaleString('vi-VN')+'đ';}
+  function getCart(){
     try{
       const a1 = JSON.parse(localStorage.getItem('CART')||'[]')||[];
       const a2 = JSON.parse(localStorage.getItem('cart')||'[]')||[];
-      const sum = (a)=>a.reduce((s,it)=>s+(Number(it.qty||it.quantity)||1),0);
-      return sum(a1)+sum(a2);
-    }catch(e){ return 0; }
+      return (a1.length?a1:a2);
+    }catch(e){ return []; }
   }
-  function updateCartBadge(){
-    const el=document.getElementById('cart-badge'); if(!el) return;
-    const n=parseCartCount(); el.textContent=n; el.style.display=n>0?'inline-flex':'none';
-  }
-  updateCartBadge(); setInterval(updateCartBadge,1200);
+  function setCart(arr){ localStorage.setItem('cart', JSON.stringify(arr)); window.updateCartBadge && window.updateCartBadge(); }
 
-  const ip=document.getElementById('shv-search');
-  if(ip){
-    const q=new URL(location.href).searchParams.get('q')||'';
-    if(q){ ip.value=q; ip.dispatchEvent(new Event('input',{bubbles:true})); }
+  function renderCart(){
+    const cart = getCart();
+    if(!cart.length){ cartList.innerHTML='<div class="p-4 text-sm text-gray-500">Giỏ hàng trống.</div>'; cartTotal.textContent='0đ'; return; }
+    let total = 0;
+    cartList.innerHTML = cart.map((it,i)=>{
+      const price = Number(it.price||it.sale_price||it.final_price||0);
+      const qty = Number(it.qty||it.quantity||1);
+      total += price*qty;
+      const name = (it.name||it.title||'Sản phẩm');
+      const img = it.image||it.img||'/public/no-image.svg';
+      return `
+        <div class="item">
+          <img src="${img}" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid #e5e7eb">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+            <div style="color:#ef4444;font-weight:700">${fmt(price)}</div>
+          </div>
+          <div class="qty">
+            <button data-i="${i}" data-d="-1">−</button>
+            <span>${qty}</span>
+            <button data-i="${i}" data-d="1">+</button>
+            <button data-i="${i}" data-remove="1" title="Xóa">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    cartTotal.textContent = fmt(total);
+    cartList.querySelectorAll('button[data-d]').forEach(b=>{
+      b.onclick = ()=>{
+        const i = +b.dataset.i, d = +b.dataset.d;
+        const cart = getCart(); cart[i].qty = Math.max(1, Number(cart[i].qty||cart[i].quantity||1)+d); setCart(cart); renderCart();
+      };
+    });
+    cartList.querySelectorAll('button[data-remove]').forEach(b=>{
+      b.onclick = ()=>{
+        const i = +b.dataset.i; const cart = getCart(); cart.splice(i,1); setCart(cart); renderCart();
+      };
+    });
   }
+
+  function openSidebar(){ sidebar.classList.add('open'); sidebar.style.display='block'; }
+  function closeSidebar(){ sidebar.classList.remove('open'); setTimeout(()=>sidebar.style.display='none', 250); }
+  function openCart(){ cartModal.style.display='block'; renderCart(); }
+  function closeCart(){ cartModal.style.display='none'; }
+
+  document.getElementById('menuBtn')?.addEventListener('click', e=>{ e.preventDefault(); openSidebar(); });
+  sidebar?.querySelector('.mask')?.addEventListener('click', closeSidebar);
+
+  document.getElementById('header-cart-btn')?.addEventListener('click', e=>{ e.preventDefault(); openCart(); });
+  cartModal?.querySelector('.mask')?.addEventListener('click', closeCart);
+  document.getElementById('cart-close')?.addEventListener('click', closeCart);
 });
 </script>
 
