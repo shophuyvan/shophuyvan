@@ -94,7 +94,7 @@
   <div class="mask"></div>
   <aside class="panel">
     <div class="title">Menu</div>
-    <a href="/apps/fe/login.html" class="item">🔐 Đăng nhập / Đăng ký</a>
+    <a href="/apps/admin/login_admin.html" class="item">🔐 Đăng nhập / Đăng ký</a>
     <a href="/apps/fe/index.html" class="item">🏠 Trang chủ</a>
     <a href="/apps/fe/guide.html" class="item">📘 Hướng dẫn sử dụng</a>
     <a href="/apps/fe/policy.html" class="item">📜 Chính sách</a>
@@ -289,5 +289,18 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+<script>
+document.addEventListener('DOMContentLoaded', function closeSidebarOnLink(){
+  const sb = document.getElementById('shv-sidebar');
+  if(!sb) return;
+  sb.querySelectorAll('a').forEach(a=>{
+    a.addEventListener('click', ()=>{ 
+      sb.classList.remove('open'); 
+      sb.style.display='none';
+    });
+  });
+});
+</script>
 </body>
 </html>
