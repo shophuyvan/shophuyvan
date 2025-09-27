@@ -383,14 +383,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     
     async function api(path, body){
-      try{
-        // use Admin.req so it automatically applies API base + auth token
-        const rs = await Admin.req(path, { method:'POST', body: body||{} });
-        return rs || { ok:false };
-      }catch(e){
-        return { ok:false, error:true, message: String(e) };
-      }
-    }
+  try{
+    const token = (document.getElementById('super_token')?.value || localStorage.getItem('x-token') || '').trim();
+    const needsGet = (!body || Object.keys(body).length===0) || (/\/shipping\/(provinces|districts|wards|warehouses)/.test(path));
+    const options = { method: needsGet ? 'GET' : 'POST' };
+    if(!needsGet) options.body = body || {};
+    options.headers = options.headers || {};
+    if(token) options.headers['x-token'] = token;
+    if(window.Admin?.req) return await Admin.req(path, options);
+    // Fallback fetch if Admin.req is unavailable
+    const res = await fetch(path, {
+      method: options.method,
+      headers: { 'Content-Type':'application/json', ...(token?{'x-token':token}:{}) },
+      body: options.method==='POST' ? JSON.stringify(options.body||{}) : undefined
+    });
+    try{ return await res.json(); }catch(_){ return { ok: res.ok, status: res.status }; }
+  }catch(e){ return { ok:false, error:true, message:String(e) }; }
+}
 
 
     function saveLocalSender(obj){
@@ -427,14 +436,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(!provinceCode) return;
       const rs = await api('/shipping/districts', { province: provinceCode });
       const list = (rs.data || rs.items || []).sort((a,b)=> a.name.localeCompare(b.name));
-      SELS.district.innerHTML += list.map(d=>`<option value=\"${d.code}\" data-name=\"${d.name}\">${d.name}</option>`).join('');
+      if(SELS.district){ SELS.district.innerHTML+=list.map(d=>`<option value=\"${d.code}\" data-name=\"${d.name}\">${d.name}</option>`).join('');
     }
     async function loadWards(districtCode){
       SELS.ward.innerHTML = '<option value=\"\">— Chọn Phường/Xã —</option>';
       if(!districtCode) return;
       const rs = await api('/shipping/wards', { district: districtCode });
       const list = (rs.data || rs.items || []).sort((a,b)=> a.name.localeCompare(b.name));
-      SELS.ward.innerHTML += list.map(w=>`<option value=\"${w.code}\" data-name=\"${w.name}\">${w.name}</option>`).join('');
+      if(SELS.ward){ SELS.ward.innerHTML+=list.map(w=>`<option value=\"${w.code}\" data-name=\"${w.name}\">${w.name}</option>`).join('');
     }
 
     
