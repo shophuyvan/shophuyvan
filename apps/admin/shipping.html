@@ -122,8 +122,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const bt=document.getElementById('super_token')?.value||'';
     if(v) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
     if(bt) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:bt}});
+    try{ localStorage.setItem('x-token', (document.getElementById('super_token')?.value||'')); }catch(_e){}
     try{ (window.Admin?.toast||alert)('Đã lưu khóa API'); }catch(e){ alert('Đã lưu khóa API'); }
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:v}});
+    
     Admin.toast('Đã lưu Super token');
   });}
 
