@@ -390,35 +390,64 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(w=> sel.innerHTML += `<option value="${w.code}">${w.name}</option>`);
     sel.removeAttribute('disabled');
   }
-  async function syncWarehouses(){
-  function pickList(rs){
-  try{
-    if(!rs) return [];
-    if(Array.isArray(rs)) return rs;
-    if(Array.isArray(rs.items)) return rs.items;
-    if(rs.data && Array.isArray(rs.data)) return rs.data;
-    if(rs.result && Array.isArray(rs.result)) return rs.result;
-    if(rs.items && rs.items.data && Array.isArray(rs.items.data)) return rs.items.data;
-    if(rs.raw && Array.isArray(rs.raw.warehouses)) return rs.raw.warehouses;
-    if(rs.raw && rs.raw.data && Array.isArray(rs.raw.data.warehouses)) return rs.raw.data.warehouses;
-    if(rs.data && Array.isArray(rs.data.warehouses)) return rs.data.warehouses;
-    if(Array.isArray(rs.warehouses)) return rs.warehouses;
-    return [];
-  }catch(_){ return []; }
-}catch(_){ return []; }
+  <script>
+// ...
+
+async function syncWarehouses () {
+  try {
+    const rs   = await api('/shipping/warehouses');
+    const list = pickList(rs);
+
+    if (!Array.isArray(list) || list.length === 0) {
+      console.log('Warehouses raw:', rs);
+      toast(rs?.message || 'Không lấy được warehouses');
+      return;
+    }
+
+    const w = list[0] || {};
+
+    const _name = w.name || w.contact_name || w.primary_name || w.wh_name || '';
+    const _phone = w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
+    const _addr  = w.addr || w.address || w.formatted_address || w.wh_address || '';
+
+    $('sender_name')   && ($('sender_name').value   = _name);
+    $('sender_phone')  && ($('sender_phone').value  = _phone);
+    $('sender_address')&& ($('sender_address').value= _addr);
+
+    // Ép string để khớp value trong <select>
+    const p = String(w.province_code || (w.province && w.province.code) || w.provinceId || w.province_code_id || '');
+    const d = String(w.district_code || (w.district && w.district.code) || w.districtId || '');
+    const c = String(w.ward_code || w.commune_code || (w.ward && w.ward.code) || '');
+
+    // Tải và set tỉnh/huyện/xã theo thứ tự
+    await loadProvinces();
+    if (p) {
+      $('sender_province_sel').value = p;
+      $('sender_province_code') && ($('sender_province_code').value = p);
+    }
+
+    await loadDistricts(p);
+    if (d) {
+      $('sender_district_sel').value = d;
+      $('sender_district_code') && ($('sender_district_code').value = d);
+    }
+
+    await loadWards(d);
+    if (c) {
+      $('sender_commune_sel').value = c;
+      $('sender_commune_code') && ($('sender_commune_code').value = c);
+    }
+
+    toast('Đã đồng bộ từ Warehouses');
+  } catch (err) {
+    console.error('syncWarehouses error:', err);
+    toast('Không lấy được warehouses');
   }
-  let rs = await api('/shipping/warehouses', {});
-  let list = pickList(rs);
-  if(!list.length){
-    // fallback POST (một số API yêu cầu POST)
-    rs = await api('/shipping/warehouses', { __post:true });
-    list = pickList(rs);
-  }
-  if(!list.length){
-    toast('Không lấy được warehouses' + (rs?.status?(' (status '+rs.status+')'):'') );
-    alert('Warehouses error: '+JSON.stringify(rs));
-    return;
-  }
+}
+
+// ...
+</script>
+
   const w = list[0] || {};
 const _name = w.name || w.contact_name || w.primary_name || w.wh_name || '';
 const _phone = w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
