@@ -1,3 +1,4 @@
+# .github/workflows/deploy-admin.yml
 name: Deploy Admin to Cloudflare Pages
 
 on:
@@ -12,19 +13,29 @@ permissions:
   contents: read
   deployments: write
 
+concurrency:
+  group: deploy-admin-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # (Nếu Admin có bước build, thêm ở đây – và đổi 'directory' bên dưới trỏ vào thư mục output)
+      # - name: Build Admin
+      #   working-directory: apps/admin
+      #   run: |
+      #     npm ci
+      #     npm run build
+
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: adminshophuyvan
-          # Nếu trong repo admin của bạn có thư mục dist/ thì đặt 'apps/admin/dist'
-          directory:  apps/admin
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName:   adminshophuyvan  # <- đúng tên project Pages cho Admin
+          directory:     apps/admin       # <- hoặc đổi sang thư mục build (vd: apps/admin/dist)
+          gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
