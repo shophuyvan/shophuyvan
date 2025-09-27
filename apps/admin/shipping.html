@@ -321,37 +321,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 
 
-<script>
-(function(){
-  function showSummaryFromLocal(){
-    try{
-      const s = JSON.parse(localStorage.getItem('shipping.sender')||'null');
-      if(!s) return;
-      const sum = document.getElementById('sender_summary');
-      if(!sum) return;
-      document.getElementById('s_name').textContent = s.name||'';
-      document.getElementById('s_phone').textContent = s.phone||'';
-      const addr = [s.addr, s.ward_name, s.district_name, s.province_name].filter(Boolean).join(', ');
-      document.getElementById('s_addr').textContent = addr;
-      sum.style.display='block';
-      var m = document.querySelector('.sender-manual'); if(m) m.style.display='none';
-    }catch(e){}
-  }
-  window.__saveSenderSummary = function(v){
-    try{ localStorage.setItem('shipping.sender', JSON.stringify(v||{})); }catch(e){}
-    showSummaryFromLocal();
-  };
-  // attach edit button
-  document.addEventListener('DOMContentLoaded', function(){
-    const edit = document.getElementById('edit_sender');
-    if(edit && !edit.__wired){ edit.__wired=true; edit.addEventListener('click', function(){
-      var m = document.querySelector('.sender-manual'); if(m) m.style.display='block';
-      var sum = document.getElementById('sender_summary'); if(sum) sum.style.display='none';
-    }); }
-    showSummaryFromLocal();
-  });
-})();
-</script>
+
 
 <script>
  document.addEventListener('DOMContentLoaded', function(){
@@ -362,37 +332,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
    if(sp && !sp.placeholder){sp.placeholder='Partner secret (nếu có)';}
  });
 </script>
-<script>
-(function(){
-  function showSummaryFromLocal(){
-    try{
-      const s = JSON.parse(localStorage.getItem('shipping.sender')||'null');
-      if(!s) return;
-      const sum = document.getElementById('sender_summary');
-      if(!sum) return;
-      document.getElementById('s_name').textContent = s.name||'';
-      document.getElementById('s_phone').textContent = s.phone||'';
-      const addr = [s.addr, s.ward_name, s.district_name, s.province_name].filter(Boolean).join(', ');
-      document.getElementById('s_addr').textContent = addr;
-      sum.style.display='block';
-      var m = document.querySelector('.sender-manual'); if(m) m.style.display='none';
-    }catch(e){}
-  }
-  window.__saveSenderSummary = function(v){
-    try{ localStorage.setItem('shipping.sender', JSON.stringify(v||{})); }catch(e){}
-    showSummaryFromLocal();
-  };
-  // attach edit button
-  document.addEventListener('DOMContentLoaded', function(){
-    const edit = document.getElementById('edit_sender');
-    if(edit && !edit.__wired){ edit.__wired=true; edit.addEventListener('click', function(){
-      var m = document.querySelector('.sender-manual'); if(m) m.style.display='block';
-      var sum = document.getElementById('sender_summary'); if(sum) sum.style.display='none';
-    }); }
-    showSummaryFromLocal();
-  });
-})();
-</script>
+
+
+
+
 
 
 <script>
@@ -400,20 +343,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function $(id){ return document.getElementById(id); }
   function toast(t){ try{ var el=$('__toast'); el.textContent=t; el.style.opacity='1'; setTimeout(()=>el.style.opacity='0', 1800);}catch(e){ alert(t); } }
   function token(){ return ($('super_token')?.value || localStorage.getItem('x-token') || '').trim(); }
+  const BASE = 'https://shv-api.shophuyvan.workers.dev'; // dùng API base tuyệt đối để tránh _redirects khác site
+
   async function api(path, body){
     const needsGet = (!body || Object.keys(body).length===0) || (/\/shipping\/(provinces|districts|wards|warehouses)\b/.test(path));
     const opt = { method: needsGet ? 'GET' : 'POST' };
     if(!needsGet) opt.body = body || {};
     opt.headers = opt.headers || {};
     if(token()) opt.headers['x-token'] = token();
-    if(window.Admin?.req){ try { return await Admin.req(path, opt); } catch(e){ return {ok:false,error:true,message:String(e)}; } }
-    const res = await fetch(path, {
+
+    // Ưu tiên Admin.req nếu có, nhưng luôn dùng absolute URL
+    if(window.Admin?.req){
+      try{ return await Admin.req(BASE + path, opt); }catch(e){ return { ok:false, error:true, message:String(e) }; }
+    }
+    // Fallback fetch
+    const res = await fetch(BASE + path, {
       method: opt.method,
       headers: { 'Content-Type':'application/json', ...(token()?{'x-token':token()}: {}) },
       body: opt.method==='POST' ? JSON.stringify(opt.body||{}) : undefined
     });
     try{ return await res.json(); }catch(_){ return { ok: res.ok, status: res.status }; }
   }
+
   async function loadProvinces(){
     const rs = await api('/shipping/provinces', {});
     const sel = $('sender_province_sel');
@@ -466,12 +417,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       district_code: $('sender_district_sel')?.value||$('sender_district_code')?.value||'',
       commune_code: $('sender_commune_sel')?.value||$('sender_commune_code')?.value||''
     };
-    // weight fallback: try order weight field if exists, else default 500g
     let weight = Number($('order_weight')?.value||0) || Number($('weight')?.value||0);
     if(!weight || weight<=0) weight = 500; // gram
     const option = Number($('option_id')?.value||1) || 1;
     const body = { sender, weight, option };
-    const rs = await api('/shipping/quote', body);
+    // dùng endpoint thật giống FE
+    const rs = await api('/shipping/price', body);
     if(rs && !rs.error){ alert('Kết quả: ok='+rs.ok+', items='+(rs.items?rs.items.length:0)); }
     else{ alert('Kết quả: '+JSON.stringify(rs)); }
   }
