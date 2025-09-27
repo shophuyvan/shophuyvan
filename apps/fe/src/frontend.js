@@ -449,3 +449,47 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   })();
 });
+
+
+
+// --- SHV FE Shipping hotfix: hide Ahamove from PDP modal (no real Ahamove in prod) ---
+(function(){
+  function removeAha(scope){
+    try{
+      const root = scope || document;
+      // Find section titled "Đơn vị vận chuyển"
+      const blocks = Array.from(root.querySelectorAll('*'))
+        .filter(el => /đơn vị vận chuyển/i.test(el.textContent||''));
+      if(blocks.length){
+        // Search nearby radio rows and remove any that contains "aha" or "ahamove"
+        const container = blocks[0].closest('div') || blocks[0].parentElement || document.body;
+        const rows = container.querySelectorAll('label, .flex, .grid, .shipping-row, li, div');
+        rows.forEach(row=>{
+          const txt = (row.textContent||'').trim().toLowerCase();
+          if(/\baha\b|\bahamove\b/.test(txt)){
+            row.remove();
+          }
+        });
+        // If the currently selected radio is "aha", switch to the first available item
+        const selected = container.querySelector('input[type="radio"]:checked');
+        if(selected){
+          const lab = selected.closest('label, .flex, .grid, div');
+          if(lab && /\baha\b|\bahamove\b/i.test(lab.textContent||'')){
+            selected.checked = false;
+            const alt = container.querySelector('input[type="radio"]');
+            if(alt){ alt.checked = true; alt.dispatchEvent(new Event('change', {bubbles:true})); }
+          }
+        }
+      }
+    }catch(e){}
+  }
+  // Run on load & when PDP modal appears/updates
+  document.addEventListener('DOMContentLoaded', ()=> removeAha());
+  new MutationObserver((muts)=>{
+    for(const m of muts){
+      if(m.addedNodes && m.addedNodes.length){
+        removeAha(document);
+      }
+    }
+  }).observe(document.documentElement, {subtree:true, childList:true});
+})();
