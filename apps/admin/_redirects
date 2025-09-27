@@ -1,9 +1,9 @@
-/assets/* /assets/:splat 200
-/public/* /public/:splat 200
-/src/* /src/:splat 200
-/favicon.ico /favicon.ico 200
-/robots.txt /robots.txt 200
-/sitemap.xml /sitemap.xml 200
+/apps/admin/assets/* /apps/admin/assets/:splat 200
+/apps/admin/public/* /apps/admin/public/:splat 200
+/assets/*            /assets/:splat         200
+/public/*            /public/:splat         200
+/favicon.ico         /favicon.ico           200
+/robots.txt          /robots.txt            200
 / /login_admin.html 200
 /index.html /login_admin.html 200
-/* /index.html 200
+/* /login_admin.html 200
