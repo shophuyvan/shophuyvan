@@ -884,11 +884,31 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
   return json({ok:true, items, district}, {}, req);
 }
 
+// ---- Aliases for FE paths (provinces/districts/wards) ----
+if(p==='/shipping/provinces' && req.method==='GET'){
+  const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items}, {}, req);
+}
+if(p==='/shipping/districts' && req.method==='GET'){
+  const u=new URL(req.url);
+  const province = u.searchParams.get('province_code') || u.searchParams.get('province') || '';
+  const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, province}, {}, req);
+}
+if(p==='/shipping/wards' && req.method==='GET'){
+  const u=new URL(req.url);
+  const district = u.searchParams.get('district_code') || u.searchParams.get('district') || '';
+  const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, district}, {}, req);
+}
+
 // ---- SuperAI Platform Warehouses ----
 if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
   try{
     const data = await superFetch(env, '/v1/platform/warehouses', {method:'GET'});
-    // Hợp nhất mọi định dạng dữ liệu có thể
     const source = [];
     const pushArr = (arr)=>{ if(Array.isArray(arr)) source.push(...arr); };
     pushArr(data);
@@ -897,7 +917,6 @@ if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
     pushArr(data?.data?.items);
     pushArr(data?.warehouses);
     pushArr(data?.data?.warehouses);
-
     const items = source.map(x=>({
       id: x.id || x.code || '',
       name: x.name || x.contact_name || x.wh_name || '',
@@ -908,9 +927,8 @@ if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
       district_code: String(x.district_code || x.districtId || ''),
       district_name: x.district || x.district_name || '',
       ward_code: String(x.commune_code || x.ward_code || ''),
-      ward_name: x.commune || x.ward || x.ward_name || ''
+      ward_name: String(x.commune || x.ward || x.ward_name || '')
     }));
-
     return json({ok:true, items, raw:data}, {}, req);
   }catch(e){
     return json({ok:false, items:[], error:String(e?.message||e)}, {}, req);
