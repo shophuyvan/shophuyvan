@@ -15,10 +15,10 @@
   .btn:hover{ background:var(--primary-dark); }
   .input{ border:1px solid #dbeafe; border-radius:8px; background:#fff; }
   /* Hide duplicate text inputs – use dropdowns only */
-  #sender_province, #sender_district { display:none !important; }
+  #sender_province, #sender_district { display:block !important; }
 
   /* Hide manual sender block; we will auto-sync from Warehouses */
-  .sender-manual{ display:none !important; }
+  .sender-manual{ display:block !important; }
 </style>
 
 
@@ -576,6 +576,40 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }, 1000);
     }, {capture:true});
   }
+})();
+</script>
+
+
+<script>
+(function(){
+  function $(id){return document.getElementById(id);}
+  function updateSummary(){
+    var sum = $('sender_summary'); if(!sum) return;
+    var name  = $('sender_name')?.value||'';
+    var phone = $('sender_phone')?.value||'';
+    var addr1 = $('sender_address')?.value||'';
+    var prov  = $('sender_province_sel')?.selectedOptions[0]?.textContent||'';
+    var dist  = $('sender_district_sel')?.selectedOptions[0]?.textContent||'';
+    var ward  = $('sender_commune_sel')?.selectedOptions[0]?.textContent||'';
+    var addr = [addr1, ward, dist, prov].filter(Boolean).join(', ');
+    var n = document.getElementById('s_name');  if(n) n.textContent = name;
+    var ph= document.getElementById('s_phone'); if(ph) ph.textContent = phone;
+    var ad= document.getElementById('s_addr');  if(ad) ad.textContent = addr;
+    sum.style.display = (name||phone||addr)?'block':'none';
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('sync-warehouses');
+    if(btn && !btn.__wired_summary){
+      btn.__wired_summary = true;
+      btn.addEventListener('click', function(){
+        setTimeout(updateSummary, 1200);
+      });
+    }
+    setTimeout(updateSummary, 800);
+    // Observe changes on selects/inputs to refresh summary
+    ['sender_name','sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
+      .forEach(function(id){ var el=$(id); if(el) el.addEventListener('change', updateSummary); });
+  });
 })();
 </script>
 
