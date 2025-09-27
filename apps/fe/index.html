@@ -57,7 +57,7 @@
     <a href="/" class="logo">
       <img src="/public/logo.png" alt="Logo">
       <div>
-        <div class="brand">SHOP HUY VÂN</div>
+        <div class="brand">CHỢ SỈ ĐẦM SEN</div>
         <div class="sub">Mua Bán Giá Sỉ</div>
       </div>
     </a>
@@ -74,7 +74,7 @@
 
   <div class="searchbar">
     <div class="wrap">
-      <button class="all" id="allBtn">ALL
+      <button class="all" id="catBtn" data-cat-menu="1">ALL
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px">
           <path d="M6 9l6 6 6-6"/>
         </svg>
@@ -182,29 +182,30 @@
   </script>
 
 
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  var go = document.getElementById('searchGo');
-  var input = document.getElementById('searchInput');
-  if(go && input){
-    go.addEventListener('click', function(){
-      var q = encodeURIComponent(input.value||'');
-      var url = '/index.html' + (q ? ('?q=' + q) : '');
-      window.location.href = url;
-    });
-    input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){ go.click(); }
-    });
+  function parseCartCount(){
+    try{
+      const arr1 = JSON.parse(localStorage.getItem('CART')||'[]')||[];
+      const arr2 = JSON.parse(localStorage.getItem('cart')||'[]')||[];
+      const sum = (arr)=>arr.reduce((s,it)=>s+(Number(it.qty)||1),0);
+      return sum(arr1) + sum(arr2);
+    }catch(e){ return 0; }
   }
-  var menuBtn = document.getElementById('menuBtn');
-  var mobile = document.getElementById('mobile-menu');
-  if(menuBtn && mobile){
-    menuBtn.addEventListener('click', function(){
-      mobile.classList.toggle('hidden');
-    });
+  function updateCartBadge(){
+    var el = document.getElementById('cart-badge');
+    if(!el) return;
+    var n = parseCartCount();
+    el.textContent = n;
+    el.style.display = n>0 ? 'inline-flex' : 'none';
   }
+  updateCartBadge();
+  setInterval(updateCartBadge, 1000);
+  window.updateCartBadge = updateCartBadge;
 });
 </script>
+
 
 </body>
 </html>

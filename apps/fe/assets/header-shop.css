@@ -22,3 +22,6 @@
   .header-shop .logo .sub{display:block}
   .header-shop .cart{width:38px;height:38px}
 }
+
+/* Hide legacy floating hamburger if present */
+#hamburger,[data-hamburger]{display:none !important}
