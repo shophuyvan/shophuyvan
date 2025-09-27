@@ -399,6 +399,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(rs.data && Array.isArray(rs.data)) return rs.data;
       if(rs.result && Array.isArray(rs.result)) return rs.result;
       if(rs.items && rs.items.data && Array.isArray(rs.items.data)) return rs.items.data;
+      if(rs.raw && Array.isArray(rs.raw.warehouses)) return rs.raw.warehouses;
       return [];
     }catch(_){ return []; }
   }
