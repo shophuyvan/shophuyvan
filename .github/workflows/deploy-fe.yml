@@ -13,18 +13,29 @@ permissions:
   contents: read
   deployments: write
 
+concurrency:
+  group: deploy-fe-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # (Nếu FE có bước build, thêm ở đây – và đổi 'directory' bên dưới trỏ vào thư mục output)
+      # - name: Build FE
+      #   working-directory: apps/fe
+      #   run: |
+      #     npm ci
+      #     npm run build
+
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:     ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:    ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName:  shophuyvan       # <-- ĐỔI TỪ shophuyvan1 thành shophuyvan
-          directory:    apps/fe
-          gitHubToken:  ${{ secrets.GITHUB_TOKEN }}
+          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName:   shophuyvan      # <- đúng tên project Pages cho FE
+          directory:     apps/fe         # <- hoặc đổi sang thư mục build (vd: apps/fe/dist)
+          gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
