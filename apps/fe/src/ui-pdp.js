@@ -512,13 +512,43 @@ try{
       <input id="vm-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
       <button id="vm-inc" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
     </div>
-    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;gap:10px">
+    <div style="position:fixed;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;gap:10px">
       <button id="vm-add" style="flex:1;border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:12px 16px;font-weight:700">Thêm Vào Giỏ Hàng</button>
       <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">Mua Ngay</button>
     </div>
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX: pin VM action bar to viewport bottom & make buttons slightly smaller
+  try{
+    const footer = m.querySelector('#vm-add')?.parentElement;
+    if(footer){
+      footer.style.position = 'fixed';
+      footer.style.left = '0';
+      footer.style.right = '0';
+      footer.style.bottom = '0';
+      footer.style.background = '#fff';
+      footer.style.padding = '8px 12px';
+      footer.style.marginTop = '0';
+      footer.style.gap = '8px';
+      footer.style.zIndex = '9999';
+    }
+    const addBtn = m.querySelector('#vm-add');
+    const buyBtn = m.querySelector('#vm-buy');
+    [addBtn, buyBtn].forEach(b=>{
+      if(b){
+        b.style.padding = '10px 12px';
+        b.style.fontSize = '14px';
+        b.style.borderRadius = '10px';
+      }
+    });
+    // ensure modal content has bottom padding so content not hidden behind fixed bar
+    const panel = m.querySelector('div[style*="max-height"]') || m.firstElementChild;
+    if(panel){
+      panel.style.paddingBottom = '96px';
+    }
+  }catch(_e){}
+
   // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
   (function(){
     const head = document.head || document.getElementsByTagName('head')[0];
@@ -785,12 +815,42 @@ function openCartModal(){
       <button id="cm-close" style="border:none;background:transparent;font-size:22px">✕</button>
     </div>
     <div id="cm-list"></div>
-    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="position:fixed;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div style="font-weight:700">Tổng: <span id="cm-total" style="color:#dc2626"></span></div>
       <button id="cm-checkout" style="flex:0 0 auto;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">ĐẶT HÀNG NGAY</button>
     </div>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX: pin VM action bar to viewport bottom & make buttons slightly smaller
+  try{
+    const footer = m.querySelector('#vm-add')?.parentElement;
+    if(footer){
+      footer.style.position = 'fixed';
+      footer.style.left = '0';
+      footer.style.right = '0';
+      footer.style.bottom = '0';
+      footer.style.background = '#fff';
+      footer.style.padding = '8px 12px';
+      footer.style.marginTop = '0';
+      footer.style.gap = '8px';
+      footer.style.zIndex = '9999';
+    }
+    const addBtn = m.querySelector('#vm-add');
+    const buyBtn = m.querySelector('#vm-buy');
+    [addBtn, buyBtn].forEach(b=>{
+      if(b){
+        b.style.padding = '10px 12px';
+        b.style.fontSize = '14px';
+        b.style.borderRadius = '10px';
+      }
+    });
+    // ensure modal content has bottom padding so content not hidden behind fixed bar
+    const panel = m.querySelector('div[style*="max-height"]') || m.firstElementChild;
+    if(panel){
+      panel.style.paddingBottom = '96px';
+    }
+  }catch(_e){}
+
   // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
   (function(){
     const head = document.head || document.getElementsByTagName('head')[0];
@@ -891,6 +951,36 @@ function openCheckoutModal(){
     <div id="co-sticky" style="position:fixed;left:0;right:0;bottom:0;width:100%;z-index:99;background:#fff;border-top:1px solid #e5e7eb;padding:10px 12px calc(env(safe-area-inset-bottom, 0) + 10px);margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><div style="font-weight:800">Tổng cộng: <span id="co-sticky-grand" style="color:#ef4444">0đ</span></div><div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sản phẩm: <span id="co-sticky-sub">0đ</span> • Ship: <span id="co-sticky-ship">0đ</span></div></div><button id="co-submit" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:800;white-space:nowrap">ĐẶT HÀNG</button></div>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX: pin VM action bar to viewport bottom & make buttons slightly smaller
+  try{
+    const footer = m.querySelector('#vm-add')?.parentElement;
+    if(footer){
+      footer.style.position = 'fixed';
+      footer.style.left = '0';
+      footer.style.right = '0';
+      footer.style.bottom = '0';
+      footer.style.background = '#fff';
+      footer.style.padding = '8px 12px';
+      footer.style.marginTop = '0';
+      footer.style.gap = '8px';
+      footer.style.zIndex = '9999';
+    }
+    const addBtn = m.querySelector('#vm-add');
+    const buyBtn = m.querySelector('#vm-buy');
+    [addBtn, buyBtn].forEach(b=>{
+      if(b){
+        b.style.padding = '10px 12px';
+        b.style.fontSize = '14px';
+        b.style.borderRadius = '10px';
+      }
+    });
+    // ensure modal content has bottom padding so content not hidden behind fixed bar
+    const panel = m.querySelector('div[style*="max-height"]') || m.firstElementChild;
+    if(panel){
+      panel.style.paddingBottom = '96px';
+    }
+  }catch(_e){}
+
   // SHV_FIX v9: keep CTA sticky and ensure space at the bottom (mobile)
   try{
     const card = m.firstElementChild; if(card){ card.style.paddingBottom = '120px'; }
@@ -1204,6 +1294,36 @@ function openSuccessModal(orderId, customer){
     <button onclick="(function(){var m=document.getElementById('shv-succ-mask'); if(m) m.remove();})();" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
   </div>`;
   m.innerHTML = html;
+  // SHV_FIX: pin VM action bar to viewport bottom & make buttons slightly smaller
+  try{
+    const footer = m.querySelector('#vm-add')?.parentElement;
+    if(footer){
+      footer.style.position = 'fixed';
+      footer.style.left = '0';
+      footer.style.right = '0';
+      footer.style.bottom = '0';
+      footer.style.background = '#fff';
+      footer.style.padding = '8px 12px';
+      footer.style.marginTop = '0';
+      footer.style.gap = '8px';
+      footer.style.zIndex = '9999';
+    }
+    const addBtn = m.querySelector('#vm-add');
+    const buyBtn = m.querySelector('#vm-buy');
+    [addBtn, buyBtn].forEach(b=>{
+      if(b){
+        b.style.padding = '10px 12px';
+        b.style.fontSize = '14px';
+        b.style.borderRadius = '10px';
+      }
+    });
+    // ensure modal content has bottom padding so content not hidden behind fixed bar
+    const panel = m.querySelector('div[style*="max-height"]') || m.firstElementChild;
+    if(panel){
+      panel.style.paddingBottom = '96px';
+    }
+  }catch(_e){}
+
   // SHV_FIX v7: strong CSS overrides with !important + mobile block layout
   (function(){
     const head = document.head || document.getElementsByTagName('head')[0];
