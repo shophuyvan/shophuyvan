@@ -885,44 +885,37 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
 }
 
 // ---- SuperAI Platform Warehouses ----
-if (p === '/shipping/warehouses' && (req.method === 'POST' || req.method === 'GET')) {
-  try {
-    const data = await superFetch(env, '/v1/platform/warehouses', { method: 'GET' });
+if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
+  try{
+    const data = await superFetch(env, '/v1/platform/warehouses', {method:'GET'});
+    // Hợp nhất mọi định dạng dữ liệu có thể
+    const source = [];
+    const pushArr = (arr)=>{ if(Array.isArray(arr)) source.push(...arr); };
+    pushArr(data);
+    pushArr(data?.data);
+    pushArr(data?.items);
+    pushArr(data?.data?.items);
+    pushArr(data?.warehouses);
+    pushArr(data?.data?.warehouses);
 
-    // Gom mọi khả năng trả về thành 1 mảng nguồn
-    const sources = [];
-    if (Array.isArray(data)) sources.push(...data);
-    if (data && Array.isArray(data.data)) sources.push(...data.data);
-    if (data && Array.isArray(data.items)) sources.push(...data.items);
-    if (data?.data && Array.isArray(data.data.items)) sources.push(...data.data.items);
+    const items = source.map(x=>({
+      id: x.id || x.code || '',
+      name: x.name || x.contact_name || x.wh_name || '',
+      phone: x.phone || x.contact_phone || x.wh_phone || '',
+      address: x.address || x.addr || x.wh_address || '',
+      province_code: String(x.province_code || x.provinceId || x.province_code_id || ''),
+      province_name: x.province || x.province_name || '',
+      district_code: String(x.district_code || x.districtId || ''),
+      district_name: x.district || x.district_name || '',
+      ward_code: String(x.commune_code || x.ward_code || ''),
+      ward_name: x.commune || x.ward || x.ward_name || ''
+    }));
 
-    // Chuẩn hoá từng phần tử
-    const items = [];
-    const pushOne = (x) => {
-      if (!x || typeof x !== 'object') return;
-      items.push({
-        id: x.id || x.code || '',
-        name: x.name || x.contact_name || x.wh_name || '',
-        phone: x.phone || x.contact_phone || x.wh_phone || '',
-        address: x.address || x.addr || x.wh_address || '',
-        province_code: String(x.province_code || x.provinceId || x.province_code_id || ''),
-        province_name: x.province || x.province_name || '',
-        district_code: String(x.district_code || x.districtId || ''),
-        district_name: x.district || x.district_name || '',
-        ward_code: String(x.commune_code || x.ward_code || ''),
-        ward_name: x.commune || x.ward || x.ward_name || ''
-      });
-    };
-    sources.forEach(pushOne);
-
-    // Không còn map lỗi khi data không phải mảng
-    return json({ ok: true, items, raw: data }, {}, req);
-  } catch (e) {
-    // Luôn trả JSON 200 để FE không “đỏ trang”, kèm thông tin debug
-    return json({ ok: false, items: [], error: String(e?.message || e) }, {}, req);
+    return json({ok:true, items, raw:data}, {}, req);
+  }catch(e){
+    return json({ok:false, items:[], error:String(e?.message||e)}, {}, req);
   }
 }
-
 
 
 // ---- SuperAI Platform Price (requires sender & receiver) ----
