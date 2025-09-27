@@ -450,46 +450,63 @@ document.addEventListener('DOMContentLoaded', ()=>{
   })();
 });
 
-
-
-// --- SHV FE Shipping hotfix: hide Ahamove from PDP modal (no real Ahamove in prod) ---
+/* === SHV SHIPPING HOTFIX: remove Ahamove/AHA options on FE === */
 (function(){
-  function removeAha(scope){
-    try{
-      const root = scope || document;
-      // Find section titled "Đơn vị vận chuyển"
-      const blocks = Array.from(root.querySelectorAll('*'))
-        .filter(el => /đơn vị vận chuyển/i.test(el.textContent||''));
-      if(blocks.length){
-        // Search nearby radio rows and remove any that contains "aha" or "ahamove"
-        const container = blocks[0].closest('div') || blocks[0].parentElement || document.body;
-        const rows = container.querySelectorAll('label, .flex, .grid, .shipping-row, li, div');
-        rows.forEach(row=>{
-          const txt = (row.textContent||'').trim().toLowerCase();
-          if(/\baha\b|\bahamove\b/.test(txt)){
-            row.remove();
-          }
-        });
-        // If the currently selected radio is "aha", switch to the first available item
-        const selected = container.querySelector('input[type="radio"]:checked');
-        if(selected){
-          const lab = selected.closest('label, .flex, .grid, div');
-          if(lab && /\baha\b|\bahamove\b/i.test(lab.textContent||'')){
-            selected.checked = false;
-            const alt = container.querySelector('input[type="radio"]');
-            if(alt){ alt.checked = true; alt.dispatchEvent(new Event('change', {bubbles:true})); }
-          }
-        }
-      }
-    }catch(e){}
+  function pickContainer(node){
+    if(!node || node.nodeType!==1) return null;
+    return node.closest && node.closest('label,li,.carrier,.shipping-option,.option,.item,.group,.flex,.grid,.row') || node;
   }
-  // Run on load & when PDP modal appears/updates
-  document.addEventListener('DOMContentLoaded', ()=> removeAha());
-  new MutationObserver((muts)=>{
-    for(const m of muts){
-      if(m.addedNodes && m.addedNodes.length){
-        removeAha(document);
+  function forceSelectFirst(){
+    const first = document.querySelector('input[type="radio"]:not([disabled]):not([aria-disabled="true"])');
+    if(first){
+      if(!first.checked){
+        first.checked = true;
+        ['input','change','click'].forEach(evt => first.dispatchEvent(new Event(evt,{bubbles:true})));
       }
     }
-  }).observe(document.documentElement, {subtree:true, childList:true});
+  }
+  function removeAHA(root){
+    try{
+      root = root || document;
+      const all = Array.from(root.querySelectorAll('label, .shipping-option, li, .carrier, .option, .item, .group, .flex, div'));
+      let removed = false;
+      all.forEach(el => {
+        const txt = (el.textContent||'').toLowerCase();
+        if(!txt) return;
+        if(/\baha\b|ahamove/.test(txt)){
+          const container = pickContainer(el);
+          if(container && container.isConnected){
+            const chosen = container.querySelector('input[type="radio"]')?.checked;
+            container.remove();
+            removed = true;
+            if(chosen) forceSelectFirst();
+          }
+        }
+      });
+      return removed;
+    }catch(e){ return false; }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(()=>removeAHA(), 0); });
+  }else{
+    setTimeout(()=>removeAHA(), 0);
+  }
+  const mo = new MutationObserver(muts => {
+    for(const m of muts){
+      if(m.addedNodes && m.addedNodes.length){
+        removeAHA(document);
+        break;
+      }
+    }
+  });
+  try{ mo.observe(document.documentElement, {childList:true, subtree:true}); }catch(_){}
+  setTimeout(()=>{
+    const btn = Array.from(document.querySelectorAll('button, a'))
+      .find(x => /đồng\s*bộ\s*từ\s*warehouses/i.test(x.textContent||''));
+    if(btn && !btn.__aha_hooked){
+      btn.__aha_hooked = true;
+      btn.addEventListener('click', ()=> setTimeout(()=>removeAHA(), 700), {capture:true});
+    }
+  }, 1000);
 })();
+/* === END SHIPPING HOTFIX === */
