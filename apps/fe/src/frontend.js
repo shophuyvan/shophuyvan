@@ -24,7 +24,11 @@ async function loadBanners() { if(!bannerWrap) return;
 
 // Categories
 async function loadCategories(){
-  const data = await api('/public/categories');
+  let data = await api('/public/categories');
+  if(!data || data.ok===false || !Array.isArray(data.items)){
+    try{ data = await (await fetch('./assets/categories.json',{cache:'no-store'})).json(); }
+    catch(e){ data = {items:[]}; }
+  }
   const cats = (data && data.items)||[];
   const nav = document.querySelector('nav.ml-6');
   if(nav){
@@ -378,6 +382,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 // v28 banner hard clamp & hamburger-in-header
 document.addEventListener('DOMContentLoaded', ()=>{
+  if(document.querySelector('.header-shop')) return; // header already has its own menu
   // Hard clamp: only first banner cell visible
   try{
     const wrap = document.getElementById('banner-wrap');

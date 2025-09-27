@@ -79,7 +79,7 @@
           <path d="M6 9l6 6 6-6"/>
         </svg>
       </button>
-      <input id="searchInput" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
+      <input id="shv-search" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
       <button class="go" id="searchGo" aria-label="Tìm kiếm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"></circle>
@@ -206,6 +206,16 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const u = new URL(location.href);
+  const q = u.searchParams.get('q') || '';
+  const ip = document.getElementById('shv-search');
+  if(ip){ ip.value = q; ip.dispatchEvent(new Event('input',{bubbles:true})); }
+});
+</script>
 
 </body>
 </html>

@@ -1,4 +1,4 @@
-location.replace('/');
+//location.replace('/'); // disabled redirect
 import { formatPrice } from './lib/price.js';
 
 const list = document.getElementById('cart-list');

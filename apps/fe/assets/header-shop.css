@@ -25,3 +25,5 @@
 
 /* Hide legacy floating hamburger if present */
 #hamburger,[data-hamburger]{display:none !important}
+
+#mobile-menu-btn,#__shv_hamburger{display:none !important}
