@@ -1,3 +1,6 @@
+/apps/fe/assets/*  /assets/:splat  200
+/apps/fe/src/*     /src/:splat     200
+/apps/fe/public/*  /public/:splat  200
 /assets/*    /assets/:splat    200
 /public/*    /public/:splat    200
 /src/*       /src/:splat       200
