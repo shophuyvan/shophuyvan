@@ -394,5 +394,95 @@ document.addEventListener('DOMContentLoaded', ()=>{
 })();
 </script>
 
+
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function toast(t){ try{ var el=$('__toast'); el.textContent=t; el.style.opacity='1'; setTimeout(()=>el.style.opacity='0', 1800);}catch(e){ alert(t); } }
+  function token(){ return ($('super_token')?.value || localStorage.getItem('x-token') || '').trim(); }
+  async function api(path, body){
+    const needsGet = (!body || Object.keys(body).length===0) || (/\/shipping\/(provinces|districts|wards|warehouses)\b/.test(path));
+    const opt = { method: needsGet ? 'GET' : 'POST' };
+    if(!needsGet) opt.body = body || {};
+    opt.headers = opt.headers || {};
+    if(token()) opt.headers['x-token'] = token();
+    if(window.Admin?.req){ try { return await Admin.req(path, opt); } catch(e){ return {ok:false,error:true,message:String(e)}; } }
+    const res = await fetch(path, {
+      method: opt.method,
+      headers: { 'Content-Type':'application/json', ...(token()?{'x-token':token()}: {}) },
+      body: opt.method==='POST' ? JSON.stringify(opt.body||{}) : undefined
+    });
+    try{ return await res.json(); }catch(_){ return { ok: res.ok, status: res.status }; }
+  }
+  async function loadProvinces(){
+    const rs = await api('/shipping/provinces', {});
+    const sel = $('sender_province_sel');
+    if(!sel || !rs || !Array.isArray(rs.items)) return;
+    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
+    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=> sel.innerHTML += `<option value="${p.code}">${p.name}</option>`);
+  }
+  async function loadDistricts(provinceCode){
+    const sel=$('sender_district_sel'); if(!sel) return;
+    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
+    if(!provinceCode) return;
+    const rs = await api('/shipping/districts', { province_code: provinceCode });
+    if(!rs || !Array.isArray(rs.items)) return;
+    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(d=> sel.innerHTML += `<option value="${d.code}">${d.name}</option>`);
+    sel.removeAttribute('disabled');
+  }
+  async function loadWards(districtCode){
+    const sel=$('sender_commune_sel'); if(!sel) return;
+    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
+    if(!districtCode) return;
+    const rs = await api('/shipping/wards', { district_code: districtCode });
+    if(!rs || !Array.isArray(rs.items)) return;
+    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(w=> sel.innerHTML += `<option value="${w.code}">${w.name}</option>`);
+    sel.removeAttribute('disabled');
+  }
+  async function syncWarehouses(){
+    const rs = await api('/shipping/warehouses', {});
+    if(!rs || rs.error || !Array.isArray(rs.items) || !rs.items.length){
+      toast('Không lấy được warehouses'); return;
+    }
+    const w = rs.items[0];
+    $('sender_name') && ($('sender_name').value = w.name || w.contact_name || '');
+    $('sender_phone') && ($('sender_phone').value = w.phone || w.contact_phone || '');
+    $('sender_address') && ($('sender_address').value = w.addr || w.address || '');
+    const p = w.province_code || w.province?.code || ''; const d = w.district_code || w.district?.code || ''; const c = w.ward_code || w.commune_code || w.ward?.code || '';
+    await loadProvinces();
+    if(p){ $('sender_province_sel').value = p; $('sender_province_code') && ($('sender_province_code').value=p); }
+    await loadDistricts(p);
+    if(d){ $('sender_district_sel').value = d; $('sender_district_code') && ($('sender_district_code').value=d); }
+    await loadWards(d);
+    if(c){ $('sender_commune_sel').value = c; $('sender_commune_code') && ($('sender_commune_code').value=c); }
+    toast('Đã đồng bộ từ Warehouses');
+  }
+  async function testQuote(){
+    const sender = {
+      name: $('sender_name')?.value||'',
+      phone: $('sender_phone')?.value||'',
+      address: $('sender_address')?.value||'',
+      province_code: $('sender_province_sel')?.value||$('sender_province_code')?.value||'',
+      district_code: $('sender_district_sel')?.value||$('sender_district_code')?.value||'',
+      commune_code: $('sender_commune_sel')?.value||$('sender_commune_code')?.value||''
+    };
+    // weight fallback: try order weight field if exists, else default 500g
+    let weight = Number($('order_weight')?.value||0) || Number($('weight')?.value||0);
+    if(!weight || weight<=0) weight = 500; // gram
+    const option = Number($('option_id')?.value||1) || 1;
+    const body = { sender, weight, option };
+    const rs = await api('/shipping/quote', body);
+    if(rs && !rs.error){ alert('Kết quả: ok='+rs.ok+', items='+(rs.items?rs.items.length:0)); }
+    else{ alert('Kết quả: '+JSON.stringify(rs)); }
+  }
+  document.addEventListener('DOMContentLoaded', ()=>{
+    $('sync-warehouses') && $('sync-warehouses').addEventListener('click', syncWarehouses);
+    $('sender_province_sel') && $('sender_province_sel').addEventListener('change', (e)=> loadDistricts(e.target.value));
+    $('sender_district_sel') && $('sender_district_sel').addEventListener('change', (e)=> loadWards(e.target.value));
+    $('test_super') && $('test_super').addEventListener('click', testQuote);
+  });
+})();
+</script>
+
 </body>
 </html>
