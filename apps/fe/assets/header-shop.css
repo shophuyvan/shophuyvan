@@ -1,6 +1,6 @@
 
 /* Header style - Cho Si Dam Sen look */
-.header-shop{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:40}
+.header-shop{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:90}
 .header-shop .top{max-width:72rem;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:.75rem}
 .header-shop .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
 .header-shop .logo{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:#0f172a}

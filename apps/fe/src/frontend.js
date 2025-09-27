@@ -55,9 +55,13 @@ async function loadCategories(){
 async function loadNew(){ if(!newWrap) return; 
   let data = await api('/products?limit=8');
   if (!data || data.ok===false) data = await api('/public/products?limit=8');
-  const items = (data.items || data.products || data.data || []).slice(0,8);
-  newWrap.innerHTML = items.map(card).join('');
-  hydratePrices(items);
+  let items = (data.items || data.products || data.data || []);
+  const now = Date.now();
+  items = items.filter(p=>{
+    const d=new Date(p.created_at||p.createdAt||p.updated_at||p.updatedAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
+    return d && (now-d) <= 24*60*60*1000;
+  }).slice(0,8);
+  if(items.length===0){ newWrap.parentElement?.classList?.add('hidden'); } else { newWrap.parentElement?.classList?.remove('hidden'); newWrap.innerHTML = items.map(card).join(''); hydratePrices(items); }
 }
 
 // All products with pagination

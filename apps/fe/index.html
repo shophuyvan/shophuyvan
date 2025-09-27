@@ -57,12 +57,12 @@
     <a href="/" class="logo">
       <img src="/public/logo.png" alt="Logo">
       <div>
-        <div class="brand">CHỢ SỈ ĐẦM SEN</div>
+        <div class="brand">SHOP HUY VÂN</div>
         <div class="sub">Mua Bán Giá Sỉ</div>
       </div>
     </a>
 
-    <a href="cart.html" class="cart" aria-label="Giỏ hàng">
+    <a href="#" class="cart" id="header-cart-btn" aria-label="Giỏ hàng">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="9" cy="20" r="1"></circle>
         <circle cx="16" cy="20" r="1"></circle>
@@ -183,37 +183,52 @@
 
 
 
+
+
+
+
+
+
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+  const header = document.querySelector('.header-shop');
+  if(header){ header.style.zIndex = 90; header.style.position='sticky'; header.style.top='0'; }
+
+  const cartBtn = document.getElementById('header-cart-btn');
+  cartBtn && cartBtn.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    const fc = document.getElementById('shv-float-cart');
+    const mask = document.getElementById('shv-cart-mask');
+    if(fc){ fc.style.display='flex'; fc.style.opacity='1'; fc.style.pointerEvents='auto'; }
+    if(mask){ mask.style.display='block'; mask.style.opacity='1'; mask.style.pointerEvents='auto'; }
+  });
+
+  const menuBtn = document.getElementById('menuBtn');
+  menuBtn && menuBtn.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    const cat = document.getElementById('catBtn'); if(cat) cat.click();
+  });
+
   function parseCartCount(){
     try{
-      const arr1 = JSON.parse(localStorage.getItem('CART')||'[]')||[];
-      const arr2 = JSON.parse(localStorage.getItem('cart')||'[]')||[];
-      const sum = (arr)=>arr.reduce((s,it)=>s+(Number(it.qty)||1),0);
-      return sum(arr1) + sum(arr2);
+      const a1 = JSON.parse(localStorage.getItem('CART')||'[]')||[];
+      const a2 = JSON.parse(localStorage.getItem('cart')||'[]')||[];
+      const sum = (a)=>a.reduce((s,it)=>s+(Number(it.qty||it.quantity)||1),0);
+      return sum(a1)+sum(a2);
     }catch(e){ return 0; }
   }
   function updateCartBadge(){
-    var el = document.getElementById('cart-badge');
-    if(!el) return;
-    var n = parseCartCount();
-    el.textContent = n;
-    el.style.display = n>0 ? 'inline-flex' : 'none';
+    const el=document.getElementById('cart-badge'); if(!el) return;
+    const n=parseCartCount(); el.textContent=n; el.style.display=n>0?'inline-flex':'none';
   }
-  updateCartBadge();
-  setInterval(updateCartBadge, 1000);
-  window.updateCartBadge = updateCartBadge;
-});
-</script>
+  updateCartBadge(); setInterval(updateCartBadge,1200);
 
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  const u = new URL(location.href);
-  const q = u.searchParams.get('q') || '';
-  const ip = document.getElementById('shv-search');
-  if(ip){ ip.value = q; ip.dispatchEvent(new Event('input',{bubbles:true})); }
+  const ip=document.getElementById('shv-search');
+  if(ip){
+    const q=new URL(location.href).searchParams.get('q')||'';
+    if(q){ ip.value=q; ip.dispatchEvent(new Event('input',{bubbles:true})); }
+  }
 });
 </script>
 
