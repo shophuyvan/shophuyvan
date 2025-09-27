@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   async function syncWarehouses(){
     const rs = await api('/shipping/warehouses', {});
     if(!rs || rs.error || !Array.isArray(rs.items) || !rs.items.length){
-      toast('Không lấy được warehouses'); return;
+      toast('Không lấy được warehouses' + (rs?.status?(' (status '+rs.status+')'):'') ); alert('Warehouses error: '+JSON.stringify(rs)); return;
     }
     const w = rs.items[0];
     $('sender_name') && ($('sender_name').value = w.name || w.contact_name || '');
