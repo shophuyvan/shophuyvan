@@ -290,6 +290,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if($('sender_district_code').value){
         $('sender_district_sel').value = $('sender_district_code').value;
         await loadCommunes($('sender_district_code').value, g('shipping.sender_commune',''));
+        // After loading communes, prefer selecting by saved code (if any)
+        if ($('sender_commune_code').value) {
+          $('sender_commune_sel').value = $('sender_commune_code').value;
+          try { $('sender_commune_sel').dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
+        }
+
       }
     }catch(e){}
   })();
