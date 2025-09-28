@@ -978,7 +978,39 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
   const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{};
   const order = body.order || {};
   const ship = body.ship || {};
-  const payload = {
+  
+    // --- Normalize & resolve codes when receiver uses names ---
+    const norm = (s)=> String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase()
+      .replace(/(thanh pho|tinh|quan|huyen|thi xa|phuong|xa|thi tran)/g,' ').replace(/\s+/g,' ').trim();
+    async function findProvinceCode(name){
+      try{
+        const res = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+        const list = res?.data || res || [];
+        const n = norm(name);
+        const hit = list.find(x=> norm(x.name)===n || norm(x.full_name)===n ) || list.find(x=> norm(x.name).includes(n));
+        return hit?.code || '';
+      }catch(e){ return ''; }
+    }
+    async function findDistrictCode(provCode, name){
+      try{
+        const res = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(provCode), {method:'GET'});
+        const list = res?.data || res || [];
+        const n = norm(name);
+        const hit = list.find(x=> norm(x.name)===n || norm(x.full_name)===n ) || list.find(x=> norm(x.name).includes(n));
+        return hit?.code || '';
+      }catch(e){ return ''; }
+    }
+    async function findCommuneCode(distCode, name){
+      try{
+        const res = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(distCode), {method:'GET'});
+        const list = res?.data || res || [];
+        const n = norm(name);
+        const hit = list.find(x=> norm(x.name)===n || norm(x.full_name)===n ) || list.find(x=> norm(x.name).includes(n));
+        return hit?.code || '';
+      }catch(e){ return ''; }
+    }
+
+    const payload = {
     // Sender (prefer codes; fallback names)
     sender_name: s.sender_name || settings.store?.name || 'Shop',
     sender_phone: s.sender_phone || settings.store?.phone || '',
@@ -1000,7 +1032,22 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     provider: ship.provider || body.provider || order.shipping_provider || '',
     service_code: ship.service_code || body.service_code || body.service || order.shipping_service || ''
   };
-  const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  
+  // Resolve missing codes if any
+  const digits = (v)=> /^\d+$/.test(String(v||''));
+  if(!digits(payload.receiver_province) && (order.customer?.province || body.to_province)){
+    const pc = await findProvinceCode(order.customer?.province || body.to_province);
+    if(pc) payload.receiver_province = pc;
+  }
+  if(!digits(payload.receiver_district) && (order.customer?.district || body.to_district) && digits(payload.receiver_province)){
+    const dc = await findDistrictCode(payload.receiver_province, order.customer?.district || body.to_district);
+    if(dc) payload.receiver_district = dc;
+  }
+  if(!digits(payload.receiver_commune) && (order.customer?.commune || body.to_commune) && digits(payload.receiver_district)){
+    const wc = await findCommuneCode(payload.receiver_district, order.customer?.commune || body.to_commune);
+    if(wc) payload.receiver_commune = wc;
+  }
+const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
   const code = data?.data?.code || data?.code || null;
   const tracking = data?.data?.tracking || data?.tracking || code || null;
   if(code){
