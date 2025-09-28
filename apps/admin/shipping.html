@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const upserts = (list)=>Promise.all(list.map(([path, value])=>{
         return Admin.req('/admin/settings/upsert', {method:'POST', body:{path, value}});
       }));
-      await upserts([
+      try{ await upserts([
 ['shipping.sender_name',     $('sender_name').value.trim()],
         ['shipping.sender_phone',    $('sender_phone').value.trim()],
         ['shipping.sender_address',  $('sender_address').value.trim()],
@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       
 ]);
       Admin.toast('Đã lưu người gửi');
+    }catch(e){ Admin.toast('Lỗi lưu cài đặt: '+(e?.message||e)); console.error(e);}
     });
   }
 });
