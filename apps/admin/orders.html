@@ -1,382 +1,82 @@
-<!doctype html><html lang="vi"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Đơn hàng</title>
-<link rel="stylesheet" href="./styles.css"/>
-<script src="./admin_real.js?v=25"></script>
-<!-- build:21 -->
-</head><body>
-<div class="container">
-  <div class="header">
-    <div class="title">Đơn hàng</div>
-    <div class="nav">
-      <a href="./products.html" class="badge">Sản phẩm</a>
-      <a href="./banners.html" class="badge">Banner</a>
-      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
-      <a href="./orders.html" class="badge">Đơn hàng</a>
-      <a href="./stats.html" class="badge">Thống kê</a>
-      <span class="badge">API: <span data-api-base></span></span>
-    </div>
-  </div>
-  <div class="card">
-    <div class="row"><div class="col">
-      
-<label>Tạo đơn</label>
-<div class="row">
-  <div class="col">
-    <div class="grid">
-      <div>
-        <div class="label">Họ tên</div>
-        <input id="c-name" class="input" placeholder="Nguyễn Văn A"/>
-      </div>
-      <div>
-        <div class="label">Số điện thoại</div>
-        <input id="c-phone" class="input" placeholder="09xx"/>
-      </div>
-    </div>
-    <div class="label" style="margin-top:6px">Địa chỉ</div>
-    <input id="c-addr" class="input" placeholder="Số nhà, đường, phường, quận, tỉnh/thành"/>
-  </div>
-</div>
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Đơn hàng</title>
+  <link rel="stylesheet" href="../lib/admin.css"/>
+  <script type="module">
+    import Admin from '../lib/admin_real.js';
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const modal = document.getElementById('order-modal');
+      const btnC  = document.getElementById('btn-create-waybill');
+      const btnP  = document.getElementById('btn-print-waybill');
 
-<div class="label" style="margin-top:10px">Sản phẩm</div>
-<table class="table" id="items-table">
-  <thead><tr>
-    <th style="width:22%">Mã SP</th>
-    <th>Tên/Phân loại</th>
-    <th style="width:10%">SL</th>
-    <th style="width:14%">Giá bán</th>
-    <th style="width:14%">Giá vốn</th>
-    <th style="width:6%"></th>
-  </tr></thead>
-  <tbody id="items-body"></tbody>
-</table>
-<div class="toolbar"><button id="add-row" class="btn">+ Thêm dòng</button></div>
+      async function openPrint(order, tracking){
+        if(!tracking) return Admin.toast('Chưa có tracking');
+        const r = await Admin.req('/admin/shipping/label',{method:'POST', body:{tracking}});
+        if(r && r.ok && r.url){ window.open(r.url,'_blank'); }
+      }
 
-<div class="grid">
-  <div>
-    <div class="label">Phí vận chuyển</div>
-    <input id="ship-fee" class="input" type="number" value="0"/>
-  </div>
-  <div>
-    <div class="label">Giảm (voucher)</div>
-    <input id="discount" class="input" type="number" value="0"/>
-  </div>
-  <div>
-    <div class="label">Ghi chú</div>
-    <input id="note" class="input" placeholder="Ghi chú cho đơn"/>
-  </div>
-</div>
+      btnC.onclick = async ()=>{
+        try{
+          // lấy danh sách đơn mới nhất để đồng bộ
+          const list = await Admin.req('/admin/orders',{method:'GET'});
+          const itemsAll=(list&&list.items)||[];
+          const idTxt = modal.querySelector('.card b')?.textContent||'';
+          const ord = itemsAll.find(x=>(x.id||'').endsWith(idTxt.slice(-6))) || itemsAll[0];
+          if(!ord){ Admin.toast('Không tìm thấy đơn để tạo vận đơn'); return; }
 
-<div class="card" style="margin-top:10px">
-  <div id="calc-summary" style="font-size:14px"></div>
-</div>
+          const its = Array.isArray(ord.items)? ord.items: [];
+          const weight = its.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
+          const subtotal = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+          const cleanItems = its.map(it=>({ sku: it.sku||it.id||'', name: it.name||it.title||'Hàng hóa',
+                                            qty: Number(it.qty||1), price: Number(it.price||0),
+                                            weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) }));
 
-<div class="toolbar">
-  <button id="create" class="btn primary">Tạo đơn</button>
-</div>
+          const payload = {
+            order_id: ord.id || ord._id || '',
+            provider: ord.shipping_provider || (ord.shipping && ord.shipping.provider) || '',
+            service_code: ord.shipping_service || (ord.shipping && ord.shipping.service) || '',
+            fee: Number(ord.shipping_fee||0),
+            name: ord.name || (cleanItems[0]?.name) || 'Đơn hàng',
+            to_name: (ord.customer&&ord.customer.name)||ord.customer_name||ord.name||'',
+            to_phone: (ord.customer&&ord.customer.phone)||ord.phone||'',
+            to_address: (ord.customer&&ord.customer.address)||ord.address||'',
+            to_province_code: ord.customer?.province_code || ord.to_province_code || '',
+            to_district_code: ord.customer?.district_code || ord.to_district_code || '',
+            to_commune_code:  ord.customer?.commune_code  || ord.to_commune_code  || '',
+            weight_gram: weight,
+            cod: subtotal,
+            items: cleanItems
+          };
 
-<script>
-(function(){
-  const body = document.getElementById('items-body');
-  function addRow(data){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input class="input" placeholder="ID SP" value="${data?.id||''}"/></td>
-      <td><input class="input" placeholder="Tên / Phân loại" value="${data?.name||''}"/></td>
-      <td><input class="input" type="number" min="1" value="${data?.qty||1}"/></td>
-      <td><input class="input" type="number" min="0" value="${data?.price||0}"/></td>
-      <td><input class="input" type="number" min="0" value="${data?.cost||0}"/></td>
-      <td><button class="btn" data-del="1">X</button></td>`;
-    body.appendChild(tr);
-  }
-  document.getElementById('add-row').addEventListener('click', e=>{ addRow(); });
-
-  function collectItems(){
-    const rows = Array.from(body.querySelectorAll('tr'));
-    return rows.map(r=>{
-      const [id,name,qty,price,cost] = Array.from(r.querySelectorAll('input')).map(i=>i.value);
-      return { id, name, qty:Number(qty||1), price:Number(price||0), cost:Number(cost||0) };
-    }).filter(x=>x.id || x.name);
-  }
-
-  function renderCalc(){
-    const items = collectItems();
-    const sub = items.reduce((s,it)=>s+Number(it.price||0)*Number(it.qty||1),0);
-    const ship = Number(document.getElementById('ship-fee').value||0);
-    const disc = Number(document.getElementById('discount').value||0);
-    const total = Math.max(0, sub + ship - disc);
-    document.getElementById('calc-summary').innerHTML = `
-      <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${sub.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${ship.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between"><span>Giảm</span><b>-${disc.toLocaleString('vi-VN')}đ</b></div>
-      <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${total.toLocaleString('vi-VN')}đ</b></div>`;
-  }
-  ['keyup','change','input'].forEach(ev=>{
-    document.getElementById('items-table').addEventListener(ev, renderCalc);
-    document.getElementById('ship-fee').addEventListener(ev, renderCalc);
-    document.getElementById('discount').addEventListener(ev, renderCalc);
-  });
-  document.getElementById('items-table').addEventListener('click', e=>{
-    if(e.target.dataset.del){ e.target.closest('tr')?.remove(); renderCalc(); }
-  });
-  addRow();
-  renderCalc();
-
-  // Override create handler to send structured order
-  document.getElementById('create').addEventListener('click', async ()=>{
-    const order = {
-      id: '',
-      createdAt: Date.now(),
-      customer: { name: document.getElementById('c-name').value||'', phone: document.getElementById('c-phone').value||'', address: document.getElementById('c-addr').value||'' },
-      items: collectItems(),
-      shipping_fee: Number(document.getElementById('ship-fee').value||0),
-      discount: Number(document.getElementById('discount').value||0),
-      note: document.getElementById('note').value||'',
-      source: 'admin'
-    };
-    try{
-      const r = await Admin.req('/admin/orders/upsert', {method:'POST', body: order});
-      if(r && r.ok){ alert('Tạo đơn thành công: '+(r.id||'')); load(); }
-      else{ alert('Tạo đơn thất bại'); }
-    }catch(e){ alert('Lỗi: '+(e&&e.message||e)); }
-  }, { once: true });
-})();
-</script>
-
-
-  <div id="live-orders"></div>
-
-  <div class="card"><div class="title">Danh sách</div>
-    <table class="table md-table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
-    <tbody id="list"></tbody></table>
-  </div>
-  <div id="new-order-banner" style="display:none;margin:10px 0;padding:10px;border:1px solid #16a34a;background:#ecfdf5;color:#065f46;border-radius:6px;">
-    Có <strong>đơn hàng mới</strong>. <button id="reload-orders" class="btn">Tải lại</button>
-  </div>
-</div>
-<script>
-const $=s=>document.querySelector(s);
-Admin.ensureAuth(); Admin.renderApiBase();
-$('#create').onclick = async ()=>{
-  try{ const body = JSON.parse($('#raw').value||'{}'); let r = await Admin.req('/admin/orders/upsert',{method:'POST',body}); if(r&&r.ok){ Admin.toast('Đã tạo'); load(); } else alert('Tạo thất bại'); }catch(e){ alert('JSON không hợp lệ'); }
-};
-
-
-async function load(){
-  try{
-    const r = await Admin.req('/admin/orders',{method:'GET'});
-    const items = (r && r.items) || [];
-    const tb = document.getElementById('list');
-    tb.innerHTML = '';
-    items.forEach(o=>{
-      const its = Array.isArray(o.items)? o.items: [];
-      const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-      const ship = Number(o.shipping_fee||0);
-      const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
-      const revenue = Math.max(0, sub + ship - disc);
-      const profit = its.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (Number(o.discount||0)||0);
-      const id = (o.id||o._id||'').slice(-6);
-      const name = (o.customer && o.customer.name) || o.customer_name || o.name || 'Khách';
-      const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
-      const status = (o.status||'pending');
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${id}</td>
-        <td>${name}</td>
-        <td>${sub.toLocaleString('vi-VN')}</td>
-        <td>${ship.toLocaleString('vi-VN')}</td>
-        <td>${revenue.toLocaleString('vi-VN')}</td>
-        <td>${profit.toLocaleString('vi-VN')}</td>
-        <td>${when}</td>
-        <td>${status}</td>
-        <td>
-          <button class="btn" data-view="${o.id}">Xem</button>
-          <button class="btn" data-print="${o.id}">In</button>
-          <button class="btn danger" data-del="${o.id}">Xoá</button>
-        </td>`;
-      tr.querySelector('[data-view]')?.addEventListener('click', ()=> showOrderDetail(o));
-      tb.appendChild(tr);
-    });
-  }catch(e){
-    console.error('load orders failed', e);
-  }
-}
-document.body.addEventListener('click', async (e)=>{
-  const id = e.target.dataset.print; if(id){ const r = await Admin.req('/admin/orders/print?id='+encodeURIComponent(id)); const html = r && r.html; if(html){ const w=window.open('', '_blank'); w.document.write(html); w.document.close(); } }
-  const del = e.target.dataset.del; if(del){ if(!confirm('Xoá đơn?')) return; let r = await Admin.req('/admin/orders/delete',{method:'POST',body:{id:del}}); if(r&&r.ok){ load(); } }
-});
-load();
-let __lastFirstId = null;
-
-function fmt(n){try{return new Intl.NumberFormat('vi-VN').format(n||0)+'đ';}catch{return (n||0)+'đ';}}
-function renderLiveOrder(o){
-  const wrap = document.getElementById('live-orders'); if(!wrap) return;
-  const items = (o&&o.items)||[];
-  const sub = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-  const ship = Number(o.shipping_fee||0);
-  const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
-  const total = Math.max(0, sub + ship - disc);
-  const id = (o.id||o._id||'').slice(-6);
-  const name = (o.customer?.name || o.customer_name || o.name || 'Khách');
-  const phone = (o.customer?.phone || o.phone || '');
-  const addr = (o.address || o.customer?.address || '');
-  const time = new Date().toLocaleString('vi-VN');
-
-  const itemsHtml = items.slice(0,6).map(it=>`<li>${it.name||''}${it.variant?` - ${it.variant}`:''} <span style="color:#6b7280">x${it.qty||1}</span> <b style="float:right">${fmt((it.price||0)*(it.qty||1))}</b></li>`).join('') || '<li style="color:#6b7280">Không có dòng hàng</li>';
-  const more = items.length>6 ? `<div style="color:#6b7280;font-size:12px;margin-top:4px">+${items.length-6} dòng nữa...</div>` : '';
-
-  wrap.innerHTML = `<div id="new-order-card" class="card" style="border-left:4px solid #16a34a;background:#f0fdf4">
-    <div class="row"><div class="col">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="title" style="margin:0">Đơn hàng mới #${id}</div>
-        <div style="font-size:12px;color:#6b7280">${time}</div>
-      </div>
-      <div style="margin:4px 0 8px 0;font-size:14px">Khách: <b>${name}</b> ${phone?`• ${phone}`:''}</div>
-      ${addr?`<div style="font-size:13px;color:#374151;margin-bottom:8px">Địa chỉ: ${addr}</div>`:''}
-      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:8px">
-        <ul style="list-style:none;padding:0;margin:0">${itemsHtml}</ul>${more}
-        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
-          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${fmt(sub)}</b></div>
-          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${fmt(ship)}</b></div>
-          ${disc?`<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-${fmt(disc)}</b></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}</b></div>
-        </div>
-      </div>
-      <div class="toolbar" style="margin-top:8px;display:flex;gap:8px">
-        <button id="btn-live-refresh" class="btn">Nạp danh sách</button>
-        <button id="btn-live-dismiss" class="btn">Đánh dấu đã xem</button>
-      </div>
-    </div></div>
-  </div>`;
-  document.getElementById('btn-live-refresh')?.addEventListener('click', ()=>{ try{load();}catch{} wrap.innerHTML=''; });
-  document.getElementById('btn-live-dismiss')?.addEventListener('click', ()=>{ wrap.innerHTML=''; });
-}
-async function pollNewOrders(){
-  try{
-    const r = await Admin.req('/admin/orders?limit=1',{method:'GET'});
-    const items = (r&&r.items)||r||[]; const first = items[0]; const id = first && (first.id||first._id);
-    if(!__lastFirstId){ __lastFirstId = id; return; }
-    if(id && id !== __lastFirstId){ __lastFirstId = id; renderLiveOrder(first); const b=document.getElementById('new-order-banner'); if(b) b.style.display='block'; }
-  }catch(e){ /* ignore */ }
-}
-setInterval(pollNewOrders, 5000);
-try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{load(); const w=document.getElementById('live-orders'); if(w) w.innerHTML='';});}catch{}
-</script>
-<div id="modal-detail" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:60">
-  <div style="width:min(720px,92vw);background:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px;max-height:90vh;overflow:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:700;font-size:18px">Chi tiết đơn hàng</div>
-      <button id="md-close" class="btn">Đóng</button>
-    </div>
-    <div id="md-body" style="font-size:14px;color:#111827"></div>
-  </div>
-</div>
-<script>
-(function(){
-  function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
-  window.showOrderDetail = function(o){
-    const b = document.getElementById('md-body');
-    const c = document.getElementById('modal-detail');
-    const its = Array.isArray(o.items)?o.items:[];
-    const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-    const ship = Number(o.shipping_fee||0);
-    const disc = Number(o.discount||0) + Number(o.shipping_discount||0);
-    const total = Math.max(0, sub + ship - disc);
-    const addr = (o.address || o.customer?.address || '');
-    const shipName = o.shipping_name || o.ship_name || '';
-    const eta = o.shipping_eta || '';
-    const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
-    const cust = o.customer || {};
-    const rows = its.map(it=>`
-      <tr>
-        <td>${it.sku||it.id||''}</td>
-        <td>${(it.name||'') + (it.variant?(' - '+it.variant):'')}</td>
-        <td style="text-align:right">${it.qty||1}</td>
-        <td style="text-align:right">${fmt(it.price||0)}</td>
-        <td style="text-align:right">${fmt(it.cost||0)}</td>
-        <td style="text-align:right">${fmt((it.price||0)*(it.qty||1))}</td>
-      </tr>`).join('');
-    b.innerHTML = `
-      <div style="margin-bottom:8px">
-        <div><b>Khách:</b> ${cust.name||o.customer_name||o.name||'Khách'} ${cust.phone?('• '+cust.phone):''}</div>
-        ${addr?('<div><b>Địa chỉ:</b> '+addr+'</div>'):''}
-        ${shipName?('<div><b>Vận chuyển:</b> '+shipName+(eta?(' • '+eta):'')+'</div>'):''}
-        ${when?('<div><b>Ngày tạo:</b> '+when+'</div>'):''}
-        <div><b>Trạng thái:</b> ${o.status||'pending'}</div>
-      </div>
-      <div class="card">
-        <table class="table md-table">
-          <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
-        </table>
-        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
-          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${fmt(sub)}</b></div>
-          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${fmt(ship)}</b></div>
-          ${disc?('<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-'+fmt(disc)+'</b></div>'):''}
-          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}</b></div>
-        </div>
-      </div>`;
-    c.style.display='flex';
-  };
-  document.getElementById('md-close')?.addEventListener('click', ()=>{ document.getElementById('modal-detail').style.display='none'; });
-  document.getElementById('modal-detail')?.addEventListener('click', (e)=>{ if(e.target.id==='modal-detail') e.currentTarget.style.display='none'; });
-})();
-</script>
-
-<script>
-// --- Inject shipping actions on order detail modal ---
-(function(){
-  function openPrint(order, tracking){
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vận đơn</title>
-    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',sans-serif;padding:16px}
-    .box{border:1px dashed #444;padding:12px;margin-bottom:12px}
-    .row{display:flex;justify-content:space-between}</style></head><body>
-    <h2>Vận đơn - ${order?.shipping_name||order?.shipping_provider||''}</h2>
-    <div class="box"><div><b>Tracking:</b> ${tracking||order?.tracking||''}</div>
-    <div><b>Đơn hàng:</b> ${order?.id||''}</div>
-    <div><b>Khách:</b> ${(order?.customer?.name||order?.customer_name||order?.name||'')}</div>
-    <div><b>ĐT:</b> ${(order?.customer?.phone||order?.phone||'')}</div>
-    <div><b>Địa chỉ:</b> ${(order?.customer?.address||order?.address||'')}</div></div>
-    <div class="box"><div class="row"><span>Phí VC:</span><b>${(order?.shipping_fee||0).toLocaleString('vi-VN')}đ</b></div>
-    <div class="row"><span>Tổng:</span><b>${(order?.revenue||0).toLocaleString('vi-VN')}đ</b></div></div>
-    <script>window.onload=()=>window.print()<\/script></body></html>`;
-    const w = window.open('', '_blank'); w.document.write(html); w.document.close();
-  }
-  // Observe modal content changes to add buttons
-  const modal = document.getElementById('modal-detail');
-  const container = modal;
-  const obs = new MutationObserver(()=>{
-    const btnBarId='ship-actions';
-    if(document.getElementById(btnBarId)) return;
-    const panel = modal.querySelector('.card'); if(!panel) return;
-    const bar = document.createElement('div'); bar.id=btnBarId; bar.className='toolbar';
-    bar.innerHTML = '<button id="btn-create-waybill" class="btn">Tạo vận đơn</button><button id="btn-print-waybill" class="btn">In vận đơn</button>';
-    panel.parentElement.insertBefore(bar, panel);
-    const idEl = panel.closest('#modal-content') || document;
-    const nameEl = panel.querySelector('b')||{};
-    // Wire buttons
-    const btnC = document.getElementById('btn-create-waybill');
-    const btnP = document.getElementById('btn-print-waybill');
-    btnC.onclick = async ()=>{
-      try{
-        // Need order data -> fetch by ID stored in dataset on the modal (fallback: list API then find)
+          const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
+          if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(ord, r.tracking||''); }
+          else{ Admin.toast('Tạo vận đơn thất bại'); console.warn('create-failed', r); }
+        }catch(e){ Admin.toast('Lỗi tạo vận đơn'); console.error(e); }
+      };
+      btnP.onclick = async ()=>{
+        // giữ nguyên hành vi in theo tracking đã có
         const list = await Admin.req('/admin/orders',{method:'GET'});
-        const items=(list&&list.items)||[]; const idTxt = modal.querySelector('.card b')?.textContent||'';
-        const id = (modal._currentId)|| (items[0]&&items[0].id); // best-effort fallback
-        const idx = items.findIndex(o=>(o.id||'').endsWith(id?.slice(-6)));
-        const o = idx>=0? items[idx] : items[0];
-        const r = await Admin.req('/admin/shipping/create',{method:'POST', body:{ order_id:o.id, provider:(o.shipping_provider||'stub'), service_code:(o.shipping_service||''), to_address:o.customer?.address||o.address||'', to_name:o.customer?.name||o.customer_name||o.name||'', to_phone:o.customer?.phone||o.phone||'', fee:o.shipping_fee||0 }});
-        if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking); }
-        else{ Admin.toast('Tạo vận đơn thất bại'); }
-      }catch(e){ Admin.toast('Lỗi tạo vận đơn'); }
-    };
-    btnP.onclick = async ()=>{
-      const list = await Admin.req('/admin/orders',{method:'GET'});
-      const o = (list&&list.items&&list.items[0])||null;
-      openPrint(o, '');
-    };
-  });
-  obs.observe(container, { childList:true, subtree:true });
-})();
-</script>
+        const itemsAll=(list&&list.items)||[];
+        const idTxt = modal.querySelector('.card b')?.textContent||'';
+        const ord = itemsAll.find(x=>(x.id||'').endsWith(idTxt.slice(-6))) || itemsAll[0];
+        if(!ord){ return;}
+        openPrint(ord, ord.tracking||'');
+      };
+    });
+  </script>
+</head>
+<body>
+  <div id="order-modal">
+    <div class="card">
+      <div class="actions">
+        <button id="btn-create-waybill">Tạo vận đơn</button>
+        <button id="btn-print-waybill">In vận đơn</button>
+      </div>
+      <b>ORDER-ID</b>
+    </div>
+  </div>
 </body>
 </html>
