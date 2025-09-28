@@ -314,16 +314,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
         return Admin.req('/admin/settings/upsert', {method:'POST', body:{path, value}});
       }));
       await upserts([
-        ['shipping.sender_name',     $('sender_name').value.trim()],
+['shipping.sender_name',     $('sender_name').value.trim()],
         ['shipping.sender_phone',    $('sender_phone').value.trim()],
         ['shipping.sender_address',  $('sender_address').value.trim()],
         ['shipping.sender_province', $('sender_province').value.trim()],
         ['shipping.sender_district', $('sender_district').value.trim()],
+                ['shipping.sender_commune', ($('sender_commune_sel').selectedOptions[0]?.textContent||'').trim() || '' ],
         ['shipping.option_id',       $('option_id').value.trim() || '1'],
         ['shipping.sender_province_code', $('sender_province_sel').value || $('sender_province_code').value || '' ],
         ['shipping.sender_district_code', $('sender_district_sel').value || $('sender_district_code').value || '' ],
         ['shipping.sender_commune_code',  $('sender_commune_sel').value  || $('sender_commune_code').value  || '' ],
-      ]);
+      
+]);
       Admin.toast('Đã lưu người gửi');
     });
   }
