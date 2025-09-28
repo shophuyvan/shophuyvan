@@ -356,41 +356,20 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
     // Wire buttons
     const btnC = document.getElementById('btn-create-waybill');
     const btnP = document.getElementById('btn-print-waybill');
-    
-btnC.onclick = async ()=>{
-  try{
-    const list = await Admin.req('/admin/orders',{method:'GET'});
-    const items=(list&&list.items)||[];
-    // Try get current order id from modal header
-    const idTxt = modal.querySelector('.card b')?.textContent||'';
-    const o = items.find(x=>(x.id||'').endsWith(idTxt.slice(-6))) || items[0];
-    if(!o){ Admin.toast('Không tìm thấy đơn để tạo vận đơn'); return; }
-    const its = Array.isArray(o.items)? o.items: [];
-    const weight = its.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
-    const subtotal = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-    const payload = {
-      order_id: o.id || o._id || '',
-      provider: o.shipping_provider || (o.shipping && o.shipping.provider) || '',
-      service: o.shipping_service || (o.shipping && o.shipping.service) || '',
-      fee: Number(o.shipping_fee||0),
-      name: o.shipping_name || '',
-      eta: o.shipping_eta || '',
-      to_name: (o.customer&&o.customer.name)||o.customer_name||o.name||'',
-      to_phone: (o.customer&&o.customer.phone)||o.phone||'',
-      to_address: (o.customer&&o.customer.address)||o.address||'',
-      to_province: o.customer?.province || o.to_province || '',
-      to_district: o.customer?.district || o.to_district || '',
-      to_commune:  o.customer?.commune  || o.to_commune  || '',
-      weight, cod: subtotal,
-      items: its.map(it=>({ sku: it.sku||it.id||'', name: it.name||'', qty: Number(it.qty||1), price: Number(it.price||0), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) }))
+    btnC.onclick = async ()=>{
+      try{
+        // Need order data -> fetch by ID stored in dataset on the modal (fallback: list API then find)
+        const list = await Admin.req('/admin/orders',{method:'GET'});
+        const items=(list&&list.items)||[]; const idTxt = modal.querySelector('.card b')?.textContent||'';
+        const id = (modal._currentId)|| (items[0]&&items[0].id); // best-effort fallback
+        const idx = items.findIndex(o=>(o.id||'').endsWith(id?.slice(-6)));
+        const o = idx>=0? items[idx] : items[0];
+        const r = await Admin.req('/admin/shipping/create',{method:'POST', body:{ order_id:o.id, provider:(o.shipping_provider||'stub'), service_code:(o.shipping_service||''), to_address:o.customer?.address||o.address||'', to_name:o.customer?.name||o.customer_name||o.name||'', to_phone:o.customer?.phone||o.phone||'', fee:o.shipping_fee||0 }});
+        if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking); }
+        else{ Admin.toast('Tạo vận đơn thất bại'); }
+      }catch(e){ Admin.toast('Lỗi tạo vận đơn'); }
     };
-    const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
-    if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking||''); }
-    else{ Admin.toast('Tạo vận đơn thất bại'); console.warn('create-failed', r); }
-  }catch(e){ Admin.toast('Lỗi tạo vận đơn'); console.error(e); }
-};
-btnP.onclick
- = async ()=>{
+    btnP.onclick = async ()=>{
       const list = await Admin.req('/admin/orders',{method:'GET'});
       const o = (list&&list.items&&list.items[0])||null;
       openPrint(o, '');
