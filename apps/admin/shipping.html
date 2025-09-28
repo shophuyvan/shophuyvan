@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   (async ()=>{
     try{
       const s = await (await fetch(Admin.getApiBase()+'/public/settings')).json();
-      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], s) || d;
+      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], (s && s.settings) ? s.settings : s) || d;
       const set = (id, v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=v||''; };
       set('super_key', g('shipping.super_key',''));
       set('super_user', g('shipping.super_user',''));
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   (async ()=>{
     try{
       const s = await (await fetch(api + '/public/settings')).json();
-      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], s) || d;
+      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], (s && s.settings) ? s.settings : s) || d;
       set('sender_name',     g('shipping.sender_name',''));
       set('sender_phone',    g('shipping.sender_phone',''));
       set('sender_address',  g('shipping.sender_address',''));
@@ -290,6 +290,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if($('sender_district_code').value){
         $('sender_district_sel').value = $('sender_district_code').value;
         await loadCommunes($('sender_district_code').value, g('shipping.sender_commune',''));
+        if ($('sender_commune_code').value) {
+          $('sender_commune_sel').value = $('sender_commune_code').value;
+          try { $('sender_commune_sel').dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
+        }
         // After loading communes, prefer selecting by saved code (if any)
         if ($('sender_commune_code').value) {
           $('sender_commune_sel').value = $('sender_commune_code').value;
