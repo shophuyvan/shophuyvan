@@ -624,8 +624,42 @@ if(p==='/public/orders/create' && req.method==='POST'){
         await putJSON(env, 'order:'+id, order);
         const list = await getJSON(env,'orders:list',[])||[];
         list.unshift(order);
-        await putJSON(env,'orders:list', list);
+        
+        // Auto-create shipment on Super if provider/service present & credentials available
+        try{
+          const settings = await getJSON(env,'settings',{})||{};
+          const s = settings.shipping||{};
+          const canSuper = !!(s.super_key || (env && env.SHIPPING_API_KEY));
+          if(canSuper && (order.shipping_provider || order.shipping_service || order.shipping_name)){
+            const payload = { order, ship: { provider: order.shipping_provider||'', service_code: order.shipping_service||'' } };
+            // Reuse same worker handler
+            const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+              sender_name: s.sender_name || settings.store?.name || 'Shop',
+              sender_phone: s.sender_phone || settings.store?.phone || '',
+              sender_address: s.sender_address || settings.store?.address || '',
+              sender_province: s.sender_province || '',
+              sender_district: s.sender_district || '',
+              receiver_name: order.customer?.name || '',
+              receiver_phone: order.customer?.phone || '',
+              receiver_address: order.customer?.address || '',
+              receiver_province: order.customer?.province || '',
+              receiver_district: order.customer?.district || '',
+              receiver_commune: order.customer?.ward || '',
+              weight_gram: Number(order.weight_gram||0)||0,
+              cod: Number(order.cod||0)||0,
+              option_id: s.option_id || '1',
+              provider: payload.ship.provider || '',
+              service_code: payload.ship.service_code || ''
+            })});
+            const code = data?.data?.code || data?.code || null;
+            const tracking = data?.data?.tracking || data?.tracking || code || null;
+            if(code){
+              await putJSON(env, 'shipment:'+order.id, { provider: payload.ship.provider, service_code: payload.ship.service_code, code, tracking, raw: data, at: Date.now() });
+            }
+          }
+        }catch(e){ /* swallow auto-create errors to not block checkout */ }
         return json({ok:true, id}, {}, req);
+
       }
 
 // Orders upsert
