@@ -970,7 +970,7 @@ function openCheckoutModal(){
     const dist = (m.querySelector('#co-district-code')?.value||m.querySelector('#co-district')?.value||'').trim();
     const ward = (m.querySelector('#co-ward')?.value||'').trim();
     m.querySelector('#co-addr')?.addEventListener('input', ()=>{ resolveFromText(); setTimeout(refreshShip,300); });
-    const addr = (m.querySelector('#co-addr')?.value||'').trim();
+    const addr2 = (m.querySelector('#co-addr')?.value||'').trim();
     const text = (name||phone||addr||prov||dist||ward)
       ? `${name?name:''} ${phone?('• '+phone):''}<br/>${addr?addr+', ':''}${ward?ward+', ':''}${dist?dist+', ':''}${prov?prov:''}`
       : 'Vui lòng nhập thông tin';
