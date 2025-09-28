@@ -23,7 +23,10 @@ jobs:
         working-directory: workers/shv-api
 
     steps:
-            - name: Setup Node
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -31,28 +34,27 @@ jobs:
       - name: Install Wrangler
         run: npm i -g wrangler@3
 
-      # Debug: in env để chắc chắn secrets đang có
+      # Debug: kiểm tra secrets có mặt
       - name: Echo env (debug)
+        shell: bash
         run: |
           echo "CF_ACCOUNT_ID=${{ secrets.CF_ACCOUNT_ID }}"
-          echo "CLOUDFLARE_API_TOKEN length: $([[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]] && echo OK || echo MISSING)"
-        shell: bash
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then echo "TOKEN: OK"; else echo "TOKEN: MISSING"; fi
 
-      # Build thử để lộ lỗi JS/bindings (nếu có)
+      # Build thử: lộ lỗi JS/bindings nếu có
       - name: Build dry-run (debug)
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+          SUPER_BASE:       ${{ secrets.SUPER_BASE }}
         run: wrangler deploy --dry-run --verbose
-        env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # CHỈ cần nếu bạn không set ở Dashboard → Variables
-          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
-          SUPER_BASE:       ${{ secrets.SUPER_BASE }}
 
-      # Deploy thật (có log chi tiết)
+      # Deploy thật (in log chi tiết)
       - name: Deploy wrangler
-        run: wrangler deploy --verbose
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
+        run: wrangler deploy --verbose
