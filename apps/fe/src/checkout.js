@@ -22,65 +22,83 @@ window.__updateSummary = function(){ try{ renderSummary(); }catch(e){} };
 let chosen = null;
 let lastPricing = null;
 
-function calcWeight(cart) {
-  return cart.reduce((sum, it) => sum + (it.weight_grams || 0) * (it.qty || 1), 0);
-}
+function calcWeight(cart){ return cart.reduce((sum,it)=> sum + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0); }
 
-quoteBtn?.addEventListener('click', async () => {
-  const to_province = document.getElementById('province')?.value || '';
-  const to_district = document.getElementById('district')?.value || '';
-  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+
+quoteBtn?.addEventListener('click', async () => { await fetchAndRenderQuote(); });
+
+async function fetchAndRenderQuote(){
+  const to_province = document.getElementById('province')?.value?.trim() || '';
+  const to_district = document.getElementById('district')?.value?.trim() || '';
+  const to_ward     = document.getElementById('ward')?.value?.trim() || '';
+  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
   const weight = calcWeight(cart);
+  const subtotal = (cart||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+
   try{
-    // Prefer POST /shipping/price (SuperAI real platform). Server will auto-pick sender from warehouses.
-    const body = { receiver_province: to_province, receiver_district: to_district, weight_gram: weight, cod: 0 };
-    let res = await api('/shipping/price', { method:'POST', body });
+    const payload = {
+      to: { province_code: '', district_code: '', commune_code: '' },
+      to_province: to_province, to_district: to_district, to_ward: to_ward,
+      items: cart.map(it=>({ sku: it.id||it.sku||'', qty: Number(it.qty||1), price: Number(it.price||0), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) })),
+      package: { weight_grams: Number(weight||0) },
+      total_cod: subtotal
+    };
+    let res = await api('/api/shipping/quote', { method:'POST', body: payload });
     let arr = (res?.items || res?.data || res) || [];
     if(!Array.isArray(arr) || arr.length===0){
-      // Fallback to legacy GET /shipping/quote
-      res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${weight}&cod=0`);
-      arr = (res.items || res || []);
+      // Fallback to legacy
+      res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${Number(weight)||0}&cod=${subtotal}`);
+      arr = (res?.items || res || []);
     }
-    // Auto choose the cheapest
-    arr = arr.map(o=>({ 
+    arr = arr.map(o=>({
       provider: o.provider||o.carrier||'',
+      service_code: o.service_code || o.service || '',
       name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),
       fee: Number(o.fee || o.total_fee || o.price || 0),
-      eta: o.eta || o.leadtime || ''
+      eta: o.eta || o.leadtime || o.leadtime_text || ''
     })).filter(o=>o.fee>=0);
+
     if(arr.length===0){ quoteList.innerHTML = '<div class="text-sm text-gray-500">Không có gói vận chuyển khả dụng.</div>'; return; }
     arr.sort((a,b)=> a.fee - b.fee);
     const best = arr[0];
-    chosen = { provider: best.provider, name: best.name, fee: best.fee, eta: best.eta };
-    localStorage.setItem('ship_name', chosen.name);
-    localStorage.setItem('ship_fee', String(chosen.fee));
+    chosen = { provider: best.provider, service_code: best.service_code, name: best.name, fee: best.fee, eta: best.eta };
+    localStorage.setItem('ship_provider', chosen.provider||'');
+    localStorage.setItem('ship_service', chosen.service_code||'');
+    localStorage.setItem('ship_name', chosen.name||'');
+    localStorage.setItem('ship_fee', String(chosen.fee||0));
     localStorage.setItem('ship_eta', chosen.eta||'');
+
     lastPricing = arr;
     renderSummary();
-    // Render list for transparency
+
+    // Render list
     quoteList.innerHTML = arr.map(opt => `
       <label class="flex items-center gap-3 border rounded p-3">
-        <input type="radio" name="ship" value="\${opt.provider}" data-fee="\${opt.fee}" data-eta="\${opt.eta||''}" data-name="\${opt.name}" \${opt===best?'checked':''}/>
-        <div class="flex-1"><div class="font-medium">\${opt.name}</div><div class="text-sm">Phí: \${formatPrice(opt.fee)} | ETA: \${opt.eta || '-'}</div></div>
+        <input type="radio" name="ship" value="\${opt.provider}|\${opt.service_code}" data-fee="\${opt.fee}" data-eta="\${opt.eta||''}" data-name="\${opt.name}" \${opt===best?'checked':''}/>
+        <div class="flex-1"><div class="font-medium">\${opt.name}</div><div class="text-sm">Phí: \${formatPrice(opt.fee)} • ETA: \${opt.eta || '-'}</div></div>
       </label>
     `).join('');
-    // Allow manual change from list
+
+    // Allow manual change
     quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
       const fee = Number(r.dataset.fee||0), name=r.dataset.name||'', eta=r.dataset.eta||'';
-      chosen = { fee, name, eta };
+      const [prov,svc] = String(r.value||'').split('|');
+      chosen = { provider: prov||'', service_code: svc||'', fee, name, eta };
+      localStorage.setItem('ship_provider', chosen.provider||'');
+      localStorage.setItem('ship_service', chosen.service_code||'');
       localStorage.setItem('ship_name', name);
       localStorage.setItem('ship_fee', String(fee));
       localStorage.setItem('ship_eta', eta||'');
       renderSummary();
     });
+
   }catch(e){
     console.error(e);
     quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển.</div>';
   }
-});
-});
+}
 testVoucherBtn?.addEventListener('click', async ()=> {
-  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
   const res = await api('/pricing/preview', { method:'POST', body: { items, shipping_fee: chosen?.fee||0, voucher_code: voucherInput.value||null } });
   lastPricing = res;
@@ -88,7 +106,7 @@ testVoucherBtn?.addEventListener('click', async ()=> {
 });
 
 
-function getCart(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]'); }catch{return [];} }
+function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
 function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
 
 function renderSummary(){
@@ -151,7 +169,7 @@ orderBtn?.addEventListener('click', async () => {
   const btn = orderBtn;
   if(!guardSubmit(btn)) return;
   try{
-    const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+    const cart = JSON.parse(localStorage.getItem('cart')||'[]');
     if(!cart.length){ orderResult.textContent='Giỏ hàng trống.'; return releaseSubmit(btn); }
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -187,6 +205,11 @@ orderBtn?.addEventListener('click', async () => {
     try{ renderSummary(); }catch(e){}
     releaseSubmit(btn);
   }
-});orderResult.textContent = `Đặt hàng thành công: ${res.orderId || ''}`;
-  // Optionally call /shipping/create via backend setting
 });
+
+;['province','district','ward','address'].forEach(id=>{
+  const E = document.getElementById(id);
+  if(E){ ['change','blur','keyup'].forEach(ev=> E.addEventListener(ev, ()=>{ try{ fetchAndRenderQuote(); }catch(e){} })); }
+});
+document.addEventListener('DOMContentLoaded', ()=>{ try{ fetchAndRenderQuote(); }catch(e){} });
+
