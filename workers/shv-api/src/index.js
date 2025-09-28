@@ -1057,30 +1057,9 @@ const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST',
   return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
 }
 
-  const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  const code = data?.data?.code || data?.code || null;
-  const tracking = data?.data?.tracking || data?.tracking || code || null;
-  if(code){
-    await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
-    return json({ok:true, code, tracking}, {}, req);
-  }
   return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
 }
 
-
-// ---- SuperAI Platform Optimization ----
-if(p==='/shipping/optimization' && req.method==='GET'){
-  const data = await superFetch(env, '/v1/platform/orders/optimization', {method:'GET'});
-  return json({ok:true, data}, {}, req);
-}
-if(p==='/shipping/optimize' && req.method==='POST'){
-  try{
-const body = await req.json().catch(()=>({}));
-  const payload = { option_id: String(body.option_id||'1') };
-  const data = await superFetch(env, '/v1/platform/orders/optimize', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  return json({ok: !(data?.error), data}, {}, req);
-  }catch(e){ return json({ok:false, error:String(e && e.message || e || 'UNKNOWN')}, {}, req); }
-}
 
 // ---- Order Info (Platform) ----
 if(p==='/admin/shipping/info' && req.method==='GET'){
