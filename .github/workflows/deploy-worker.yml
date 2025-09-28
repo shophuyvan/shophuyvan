@@ -1,67 +1,33 @@
-name: Deploy Worker (shv-api)
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: "20"
 
-on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - "workers/shv-api/**"
-      - ".github/workflows/deploy-worker.yml"
-  workflow_dispatch:
+  - name: Install Wrangler
+    run: npm i -g wrangler@3
 
-permissions:
-  contents: read
+  # In biến môi trường để chắc chắn đã có
+  - name: Echo env (debug)
+    run: |
+      echo "CF_ACCOUNT_ID=${{ secrets.CF_ACCOUNT_ID }}"
+      echo "CLOUDFLARE_API_TOKEN length=${{ secrets.CLOUDFLARE_API_TOKEN && 1 || 0 }}"
+    shell: bash
 
-concurrency:
-  group: deploy-worker-${{ github.ref }}
-  cancel-in-progress: true
+  # Build thử trước (in log lỗi nếu có cú pháp)
+  - name: Build dry-run (debug)
+    run: wrangler deploy --dry-run --verbose
+    env:
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # chỉ cần nếu không set ở Dashboard
+      SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+      SUPER_BASE:       ${{ secrets.SUPER_BASE }}
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: workers/shv-api
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Debug: in ra wrangler.toml và kiểm tra file src/index.js có patch
-      - name: Verify source markers
-        run: |
-          echo "=== wrangler.toml ==="
-          cat wrangler.toml
-          echo "=== markers in src/index.js ==="
-          grep -n "/shipping/areas/ward" src/index.js || true
-          grep -n "payload.weight = Number(body.weight_gram" src/index.js || true
-
-      # Debug: kiểm tra token/Account ID có hợp lệ
-      - name: Wrangler whoami (debug)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: whoami
-
-      # Deploy Worker (dùng 'deploy' cho wrangler v3)
-      - name: Publish to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: deploy --verbose
-        env:
-          # CHỈ cần nếu bạn không đặt ở Dashboard → Variables
-          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
-          SUPER_BASE:       ${{ secrets.SUPER_BASE }}
-
-      # Liệt kê deployments để xác nhận script đã cập nhật
-      - name: List deployments
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: deployments list
+  # Deploy thật (có log chi tiết)
+  - name: Deploy wrangler
+    run: wrangler deploy --verbose
+    env:
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+      SUPER_BASE:       ${{ secrets.SUPER_BASE }}
