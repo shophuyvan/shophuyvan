@@ -973,14 +973,15 @@ if(p==='/shipping/price' && req.method==='POST'){
 
 // ---- SuperAI Platform Create Order ----
 if(p==='/admin/shipping/create' && req.method==='POST'){
-  // Admin creates real waybill
-  const body = await req.json().catch(()=>({}));
-  const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{};
-  const order = body.order || {};
-  const ship = body.ship || {};
-  
+  try{
+    const body = await (req.headers.get('content-type')||'').includes('application/json') ? (await req.json().catch(()=>({}))) : (await readBody(req)||{});
+    const settings = await getJSON(env,'settings',{})||{}; 
+    const s = settings.shipping||{};
+    const order = body.order || {};
+    const ship  = body.ship  || {};
+
     // --- Normalize & resolve codes when receiver uses names ---
-    const norm = (s)=> String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase()
+    const norm = (t)=> String(t||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase()
       .replace(/(thanh pho|tinh|quan|huyen|thi xa|phuong|xa|thi tran)/g,' ').replace(/\s+/g,' ').trim();
     async function findProvinceCode(name){
       try{
@@ -1011,56 +1012,55 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     }
 
     const payload = {
-    // Sender (prefer codes; fallback names)
-    sender_name: s.sender_name || settings.store?.name || 'Shop',
-    sender_phone: s.sender_phone || settings.store?.phone || '',
-    sender_address: s.sender_address || settings.store?.address || '',
-    sender_province: s.sender_province_code || s.sender_province || '',
-    sender_district: s.sender_district_code || s.sender_district || '',
-    // Receiver (prefer codes; fallback names)
-    receiver_name: order.customer?.name || body.to_name || '',
-    receiver_phone: order.customer?.phone || body.to_phone || '',
-    receiver_address: order.customer?.address || body.to_address || '',
-    receiver_province: order.customer?.province_code || body.to_province_code || order.to_province_code || body.to_province || order.customer?.province || '',
-    receiver_district: order.customer?.district_code || body.to_district_code || order.to_district_code || body.to_district || order.customer?.district || '',
-    receiver_commune: order.customer?.commune_code  || body.to_commune_code  || order.to_commune_code  || body.to_commune  || order.customer?.ward || '',
-    // Parcel
-    weight_gram: Number(order.weight_gram || body.weight_gram || body.weight || 0) || 0,
-    cod: Number(order.cod || body.cod || 0) || 0,
-    option_id: s.option_id || '1',
-    // Service selected (accept both service/service_code)
-    provider: ship.provider || body.provider || order.shipping_provider || '',
-    service_code: ship.service_code || body.service_code || body.service || order.shipping_service || ''
-  };
-  
-  // Resolve missing codes if any
-  const digits = (v)=> /^\d+$/.test(String(v||''));
-  if(!digits(payload.receiver_province) && (order.customer?.province || body.to_province)){
-    const pc = await findProvinceCode(order.customer?.province || body.to_province);
-    if(pc) payload.receiver_province = pc;
+      // Sender (prefer codes; fallback names)
+      sender_name: s.sender_name || settings.store?.name || 'Shop',
+      sender_phone: s.sender_phone || settings.store?.phone || '',
+      sender_address: s.sender_address || settings.store?.address || '',
+      sender_province: s.sender_province_code || s.sender_province || '',
+      sender_district: s.sender_district_code || s.sender_district || '',
+      // Receiver (prefer codes; fallback names)
+      receiver_name: order.customer?.name || body.to_name || '',
+      receiver_phone: order.customer?.phone || body.to_phone || '',
+      receiver_address: order.customer?.address || body.to_address || '',
+      receiver_province: order.customer?.province_code || body.to_province_code || order.to_province_code || body.to_province || order.customer?.province || '',
+      receiver_district: order.customer?.district_code || body.to_district_code || order.to_district_code || body.to_district || order.customer?.district || '',
+      receiver_commune: order.customer?.commune_code  || body.to_commune_code  || order.to_commune_code  || body.to_commune  || order.customer?.ward || '',
+      // Parcel
+      weight_gram: Number(order.weight_gram || body.weight_gram || body.weight || 0) || 0,
+      cod: Number(order.cod || body.cod || 0) || 0,
+      option_id: s.option_id || '1',
+      // Service selected (accept both service/service_code)
+      provider: ship.provider || body.provider || order.shipping_provider || '',
+      service_code: ship.service_code || body.service_code || body.service || order.shipping_service || ''
+    };
+
+    // Resolve missing receiver codes if only names are provided
+    const digits = (v)=> /^\d+$/.test(String(v||''));
+    if(!digits(payload.receiver_province) && (order.customer?.province || body.to_province)){
+      const pc = await findProvinceCode(order.customer?.province || body.to_province);
+      if(pc) payload.receiver_province = pc;
+    }
+    if(!digits(payload.receiver_district) && (order.customer?.district || body.to_district) && digits(payload.receiver_province)){
+      const dc = await findDistrictCode(payload.receiver_province, order.customer?.district || body.to_district);
+      if(dc) payload.receiver_district = dc;
+    }
+    if(!digits(payload.receiver_commune) && (order.customer?.commune || body.to_commune) && digits(payload.receiver_district)){
+      const wc = await findCommuneCode(payload.receiver_district, order.customer?.commune || body.to_commune);
+      if(wc) payload.receiver_commune = wc;
+    }
+
+    const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const code = data?.data?.code || data?.code || null;
+    const tracking = data?.data?.tracking || data?.tracking || code || null;
+    if(code){
+      await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { id: (order.id||body.order_id||code), provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
+      return json({ok:true, code, tracking}, {}, req);
+    }
+    return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
+  }catch(e){
+    return json({ok:false, error:String(e?.message||e)}, {status:500}, req);
   }
-  if(!digits(payload.receiver_district) && (order.customer?.district || body.to_district) && digits(payload.receiver_province)){
-    const dc = await findDistrictCode(payload.receiver_province, order.customer?.district || body.to_district);
-    if(dc) payload.receiver_district = dc;
-  }
-  if(!digits(payload.receiver_commune) && (order.customer?.commune || body.to_commune) && digits(payload.receiver_district)){
-    const wc = await findCommuneCode(payload.receiver_district, order.customer?.commune || body.to_commune);
-    if(wc) payload.receiver_commune = wc;
-  }
-const data = await superFetch(env, '/v1/platform/orders/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  const code = data?.data?.code || data?.code || null;
-  const tracking = data?.data?.tracking || data?.tracking || code || null;
-  if(code){
-    await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { id: (order.id||body.order_id||code), provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
-    return json({ok:true, code, tracking}, {}, req);
-  }
-  return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
 }
-
-  return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
-}
-
-
 // ---- Order Info (Platform) ----
 if(p==='/admin/shipping/info' && req.method==='GET'){
   const u = new URL(req.url); const code = u.searchParams.get('code')||u.searchParams.get('id')||'';
