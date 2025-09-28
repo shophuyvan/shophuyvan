@@ -29,7 +29,7 @@ function calcWeight(cart) {
 quoteBtn?.addEventListener('click', async () => {
   const to_province = document.getElementById('province')?.value || '';
   const to_district = document.getElementById('district')?.value || '';
-  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+  const cart = (JSON.parse(localStorage.getItem('CART')||'[]').length?JSON.parse(localStorage.getItem('CART')||'[]'):JSON.parse(localStorage.getItem('cart')||'[]'));
   const weight = calcWeight(cart);
   try{
     // Prefer POST /shipping/price (SuperAI real platform). Server will auto-pick sender from warehouses.
@@ -80,7 +80,7 @@ quoteBtn?.addEventListener('click', async () => {
 });
 });
 testVoucherBtn?.addEventListener('click', async ()=> {
-  const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+  const cart = (JSON.parse(localStorage.getItem('CART')||'[]').length?JSON.parse(localStorage.getItem('CART')||'[]'):JSON.parse(localStorage.getItem('cart')||'[]'));
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
   const res = await api('/pricing/preview', { method:'POST', body: { items, shipping_fee: chosen?.fee||0, voucher_code: voucherInput.value||null } });
   lastPricing = res;
@@ -88,7 +88,19 @@ testVoucherBtn?.addEventListener('click', async ()=> {
 });
 
 
-function getCart(){ try{ return JSON.parse(localStorage.getItem('CART')||'[]'); }catch{return [];} }
+function getCart(){
+  try{
+    const a = JSON.parse(localStorage.getItem('CART')||'[]');
+    const b = JSON.parse(localStorage.getItem('cart')||'[]');
+    const arr = Array.isArray(a)&&a.length ? a : (Array.isArray(b)?b:[]);
+    // normalize
+    return (arr||[]).map(it=>({
+      ...it,
+      price: Number(String(it.price||0).toString().replace(/[^0-9.-]/g,''))||0,
+      qty: Number(it.qty||1)||1
+    }));
+  }catch(e){ return []; }
+}
 function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
 
 function renderSummary(){
@@ -151,7 +163,7 @@ orderBtn?.addEventListener('click', async () => {
   const btn = orderBtn;
   if(!guardSubmit(btn)) return;
   try{
-    const cart = JSON.parse(localStorage.getItem('CART')||'[]');
+    const cart = (JSON.parse(localStorage.getItem('CART')||'[]').length?JSON.parse(localStorage.getItem('CART')||'[]'):JSON.parse(localStorage.getItem('cart')||'[]'));
     if(!cart.length){ orderResult.textContent='Giỏ hàng trống.'; return releaseSubmit(btn); }
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();

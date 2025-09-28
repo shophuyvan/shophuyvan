@@ -45,11 +45,7 @@ async function shvGetShippingOptions(provinceName, districtName, weightGram){
     const body = { receiver_province: provinceName, receiver_district: districtName, weight_gram: weightGram, cod: 0 };
     let res = await api('/shipping/price', { method:'POST', body });
     let arr = (res?.items || res?.data || res) || [];
-    if(!Array.isArray(arr) || arr.length===0){
-      const qs = `/shipping/quote?to_province=${encodeURIComponent(provinceName)}&to_district=${encodeURIComponent(districtName)}&weight=${weightGram}&cod=0`;
-      res = await api.get(qs);
-      arr = (res?.items||res)||[];
-    }
+    // Do NOT fallback to legacy quote to avoid fake providers
     return arr.map(o=>({ 
       provider: o.provider||o.carrier||'',
       name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),

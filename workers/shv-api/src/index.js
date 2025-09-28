@@ -888,15 +888,8 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         const superRes = await superQuote();
         if(superRes){ return json(superRes, {}, req); }
 
-        // Fallback (if Super unreachable or no key)
-        const unit = Math.max(1, Math.ceil((weight||0)/500));
-        const base = 12000 + unit*3000;
-        const items = [
-          { provider:'jt',  service_code:'JT-FAST',  name:'Giao nhanh',  fee: Math.round(base*1.1), eta:'1-2 ngày' },
-          { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
-          { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
-        ];
-        return json({ok:true, items, to_province, to_district}, {}, req);
+              // Fallback removed to avoid showing fake providers
+        return json({ok:true, items:[], to_province, to_district}, {}, req);
       }
 
 // ---- SuperAI Platform Areas ----
