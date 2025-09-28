@@ -23,45 +23,36 @@ jobs:
         working-directory: workers/shv-api
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+            - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-      # (Debug) xem wrangler.toml và marker trong index.js
-      - name: Verify source markers
+      - name: Install Wrangler
+        run: npm i -g wrangler@3
+
+      # Debug: in env để chắc chắn secrets đang có
+      - name: Echo env (debug)
         run: |
-          echo "=== wrangler.toml ==="
-          cat wrangler.toml
-          echo "=== markers in src/index.js ==="
-          grep -n "/shipping/areas/ward" src/index.js || true
-          grep -n "payload.weight = Number(body.weight_gram" src/index.js || true
+          echo "CF_ACCOUNT_ID=${{ secrets.CF_ACCOUNT_ID }}"
+          echo "CLOUDFLARE_API_TOKEN length: $([[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]] && echo OK || echo MISSING)"
+        shell: bash
 
-      # (Debug) xác thực token/account
-      - name: Wrangler whoami
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: whoami
-
-      # Publish (in verbose để thấy log build)
-      - name: Publish to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: deploy --verbose
+      # Build thử để lộ lỗi JS/bindings (nếu có)
+      - name: Build dry-run (debug)
+        run: wrangler deploy --dry-run --verbose
         env:
-          # CHỈ cần nếu bạn KHÔNG set ở Dashboard → Variables
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # CHỈ cần nếu bạn không set ở Dashboard → Variables
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
 
-      # (Debug) liệt kê deployments
-      - name: List deployments
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          workingDirectory: workers/shv-api
-          command: deployments list
+      # Deploy thật (có log chi tiết)
+      - name: Deploy wrangler
+        run: wrangler deploy --verbose
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+          SUPER_BASE:       ${{ secrets.SUPER_BASE }}
