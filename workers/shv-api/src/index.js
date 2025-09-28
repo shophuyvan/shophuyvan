@@ -910,19 +910,19 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
 if(p==='/shipping/areas/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  return json(items, {}, req);
 }
 if(p==='/shipping/areas/district' && req.method==='GET'){
   const u=new URL(req.url); const province=u.searchParams.get('province')||'';
   const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, province}, {}, req);
+  return json(items, {}, req);
 }
 if(p==='/shipping/areas/commune' && req.method==='GET'){
   const u=new URL(req.url); const district=u.searchParams.get('district')||'';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, district}, {}, req);
+  return json(items, {}, req);
 }
 
 // ---- Aliases: /shipping/areas/ward(s) -> commune
@@ -930,7 +930,7 @@ if((p==='/shipping/areas/ward' || p==='/shipping/areas/wards') && req.method==='
   const u=new URL(req.url); const district=u.searchParams.get('district')||u.searchParams.get('district_code')||'';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, district}, {}, req);
+  return json(items, {}, req);
 }
 
 
@@ -938,21 +938,21 @@ if((p==='/shipping/areas/ward' || p==='/shipping/areas/wards') && req.method==='
 if(p==='/shipping/provinces' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  return json(items, {}, req);
 }
 if(p==='/shipping/districts' && req.method==='GET'){
   const u=new URL(req.url);
   const province = u.searchParams.get('province_code') || u.searchParams.get('province') || '';
   const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, province}, {}, req);
+  return json(items, {}, req);
 }
 if(p==='/shipping/wards' && req.method==='GET'){
   const u=new URL(req.url);
   const district = u.searchParams.get('district_code') || u.searchParams.get('district') || '';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, district}, {}, req);
+  return json(items, {}, req);
 }
 
 // ---- SuperAI Platform Warehouses ----
