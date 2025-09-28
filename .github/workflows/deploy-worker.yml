@@ -1,4 +1,3 @@
-# .github/workflows/deploy-worker.yml
 name: Deploy Worker (shv-api)
 
 on:
@@ -24,18 +23,45 @@ jobs:
         working-directory: workers/shv-api
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Kiểm tra code có patch ward + weight
+      # Debug: in ra wrangler.toml và kiểm tra file src/index.js có patch
       - name: Verify source markers
         run: |
+          echo "=== wrangler.toml ==="
+          cat wrangler.toml
+          echo "=== markers in src/index.js ==="
           grep -n "/shipping/areas/ward" src/index.js || true
           grep -n "payload.weight = Number(body.weight_gram" src/index.js || true
 
+      # Debug: kiểm tra token/Account ID có hợp lệ
+      - name: Wrangler whoami (debug)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: workers/shv-api
+          command: whoami
+
+      # Deploy Worker (dùng 'deploy' cho wrangler v3)
       - name: Publish to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}   # Tạo secret tên **CF_ACCOUNT_ID**
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
           workingDirectory: workers/shv-api
-          command: publish
+          command: deploy --verbose
+        env:
+          # CHỈ cần nếu bạn không đặt ở Dashboard → Variables
+          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+          SUPER_BASE:       ${{ secrets.SUPER_BASE }}
+
+      # Liệt kê deployments để xác nhận script đã cập nhật
+      - name: List deployments
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: workers/shv-api
+          command: deployments list
