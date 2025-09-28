@@ -764,7 +764,7 @@ function cartItems(){
     if(merged.length!==raw.length){ localStorage.setItem('CART', JSON.stringify(merged)); }
     return merged; 
   }catch{ return []; } 
-} return merged; }catch{ return []; } }
+}
 
 // SHV_PATCH: consolidate cart items by (id, variant, price)
 function keyOfItem(it){
@@ -965,7 +965,7 @@ function openCheckoutModal(){
   function updateAddrCard(){
     const name = (m.querySelector('#co-name')?.value||'').trim();
     const phone = (m.querySelector('#co-phone')?.value||'').trim();
-    const addr = (m.querySelector('#co-addr')?.value||'';
+    const addr = (m.querySelector('#co-addr')?.value||'');
     const prov = (m.querySelector('#co-province-code')?.value||m.querySelector('#co-province')?.value||'').trim();
     const dist = (m.querySelector('#co-district-code')?.value||m.querySelector('#co-district')?.value||'').trim();
     const ward = (m.querySelector('#co-ward')?.value||'').trim();
@@ -1030,7 +1030,7 @@ function openCheckoutModal(){
   // --- Auto resolve province/district/ward from free text address ---
   function slug(s){ return (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
   async function resolveFromText(){
-    const addr = (m.querySelector('#co-addr')?.value||'';
+    const addr = (m.querySelector('#co-addr')?.value||'');
     if(!addr) return;
     try{
       const saddr = slug(addr);
