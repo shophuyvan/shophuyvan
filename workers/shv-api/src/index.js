@@ -907,25 +907,59 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
       }
 
 // ---- SuperAI Platform Areas ----
+
 if(p==='/shipping/areas/province' && req.method==='GET'){
-  const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
-  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json(items, {}, req);
-}
-if(p==='/shipping/areas/district' && req.method==='GET'){
-  const u=new URL(req.url); const province=u.searchParams.get('province')||'';
-  const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
-  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json(items, {}, req);
-}
-if(p==='/shipping/areas/commune' && req.method==='GET'){
-  const u=new URL(req.url); const district=u.searchParams.get('district')||'';
-  const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
-  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json(items, {}, req);
+  try {
+    const key='areas:province';
+    let items = await env.VANCHUYEN?.get?.(key, {type:'json'});
+    if(!Array.isArray(items) || !items.length){
+      const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+      const arr = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      items = arr.map(x => ({ code: String(x.code||x.id||x.value||'').padStart(2,'0'), name: x.name||x.text||''})).filter(Boolean);
+      if(items.length && env.VANCHUYEN?.put) await env.VANCHUYEN.put(key, JSON.stringify(items), {expirationTtl: 86400});
+    }
+    return json(items||[], {}, req);
+  } catch (e) {
+    return json([], {}, req);
+  }
 }
 
-// ---- Aliases: /shipping/areas/ward(s) -> commune
+if(p==='/shipping/areas/district' && req.method==='GET'){
+  try {
+    const u=new URL(req.url); const province=(u.searchParams.get('province')||'').padStart(2,'0');
+    if(!province) return json([], {}, req);
+    const key=`areas:district:${province}`;
+    let items = await env.VANCHUYEN?.get?.(key, {type:'json'});
+    if(!Array.isArray(items) || !items.length){
+      const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
+      const arr = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      items = arr.map(x => ({ code: String(x.code||x.id||x.value||'').padStart(3,'0'), name: x.name||x.text||''})).filter(Boolean);
+      if(items.length && env.VANCHUYEN?.put) await env.VANCHUYEN.put(key, JSON.stringify(items), {expirationTtl: 86400});
+    }
+    return json(items||[], {}, req);
+  } catch (e) {
+    return json([], {}, req);
+  }
+}
+
+if(p==='/shipping/areas/commune' && req.method==='GET'){
+  try {
+    const u=new URL(req.url); const district=(u.searchParams.get('district')||'').padStart(3,'0');
+    if(!district) return json([], {}, req);
+    const key=`areas:commune:${district}`;
+    let items = await env.VANCHUYEN?.get?.(key, {type:'json'});
+    if(!Array.isArray(items) || !items.length){
+      const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
+      const arr = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      items = arr.map(x => ({ code: String(x.code||x.id||x.value||''), name: x.name||x.text||''})).filter(Boolean);
+      if(items.length && env.VANCHUYEN?.put) await env.VANCHUYEN.put(key, JSON.stringify(items), {expirationTtl: 86400});
+    }
+    return json(items||[], {}, req);
+  } catch (e) {
+    return json([], {}, req);
+  }
+}
+
 if((p==='/shipping/areas/ward' || p==='/shipping/areas/wards') && req.method==='GET'){
   const u=new URL(req.url); const district=u.searchParams.get('district')||u.searchParams.get('district_code')||'';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
