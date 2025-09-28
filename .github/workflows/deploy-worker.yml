@@ -34,27 +34,30 @@ jobs:
       - name: Install Wrangler
         run: npm i -g wrangler@3
 
-      # Debug: kiểm tra secrets có mặt
+      # (debug) xác nhận secrets có mặt
       - name: Echo env (debug)
         shell: bash
         run: |
           echo "CF_ACCOUNT_ID=${{ secrets.CF_ACCOUNT_ID }}"
           if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then echo "TOKEN: OK"; else echo "TOKEN: MISSING"; fi
 
-      # Build thử: lộ lỗi JS/bindings nếu có
+      # Build thử: phát hiện lỗi JS/bindings trước khi publish
       - name: Build dry-run (debug)
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # nếu KHÔNG set ở Dashboard → Variables thì truyền vào đây:
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
-        run: wrangler deploy --dry-run --verbose
+          WRANGLER_LOG:     debug
+        run: wrangler deploy --dry-run
 
-      # Deploy thật (in log chi tiết)
+      # Deploy chính thức
       - name: Deploy wrangler
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
-        run: wrangler deploy --verbose
+          WRANGLER_LOG:     debug
+        run: wrangler deploy
