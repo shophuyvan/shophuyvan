@@ -17,6 +17,14 @@ function json(data, init={}, req){ return new Response(JSON.stringify(data||{}),
 
 // === SuperAI helpers injected ===
 async function superToken(env){
+  // Direct env token (SHIPPING_API_KEY / SUPER_KEY) fallback
+  try{
+    if(env && (env.SHIPPING_API_KEY || env.SUPER_KEY || env.SUPER_TOKEN)){
+      const direct = env.SHIPPING_API_KEY || env.SUPER_KEY || env.SUPER_TOKEN;
+      if(direct){ await putJSON(env,'super:token', direct); await env.SHV.put('super:token:ts', String(Date.now())); return direct; }
+    }
+  }catch(e){}    
+
   // Prefer saved static token or super_key
   try{
     const st = await getJSON(env,'settings',{})||{};
@@ -210,6 +218,12 @@ export default {
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+      // Version endpoint for deployment verification
+      if(p==='/__version' && req.method==='GET'){
+        const BUILD_ID = (env && env.BUILD_ID) || 'shv-patch-2025-09-28';
+        return json({ok:true, build: BUILD_ID, now: Date.now()}, {}, req);
+      }
+
 
 // --- SHV v22: vouchers, settings, orders, stats ---
 if(p==='/vouchers' && req.method==='GET'){
@@ -910,6 +924,15 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
   return json({ok:true, items, district}, {}, req);
 }
+
+// ---- Aliases: /shipping/areas/ward(s) -> commune
+if((p==='/shipping/areas/ward' || p==='/shipping/areas/wards') && req.method==='GET'){
+  const u=new URL(req.url); const district=u.searchParams.get('district')||u.searchParams.get('district_code')||'';
+  const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, district}, {}, req);
+}
+
 
 // ---- Aliases for FE paths (provinces/districts/wards) ----
 if(p==='/shipping/provinces' && req.method==='GET'){
