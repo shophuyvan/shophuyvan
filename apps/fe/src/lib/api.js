@@ -8,7 +8,7 @@ function withTimeout(promise, ms=10000){
 }
 async function core(path, init = {}) {
   const fallback = 'https://shv-api.shophuyvan.workers.dev';
-  const base = (window.API_BASE || fallback).replace(/\/+$/,'');
+  const base = ((typeof window!=='undefined' && window.API_BASE) || (typeof API_BASE!=='undefined' && API_BASE) || fallback).replace(/\/+$/,'');
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const headers = new Headers(init.headers || {});

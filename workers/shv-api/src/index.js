@@ -52,7 +52,7 @@ async function superToken(env){
 }
 
 async function superFetch(env, path, {method='GET', headers={}, body=null, useBearer=false}={}){
-  const base = 'https://api.mysupership.vn';
+  const base = (env && env.SUPER_BASE) ? env.SUPER_BASE : 'https://api.mysupership.vn';
   const token = await superToken(env);
   const h = Object.assign({'Accept':'application/json'}, headers||{});
   if(useBearer) h['Authorization'] = 'Bearer '+token; else h['Token'] = token;
