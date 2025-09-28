@@ -940,6 +940,8 @@ if(p==='/shipping/price' && req.method==='POST'){
   const settings = await getJSON(env,'settings',{})||{};
   const s = settings.shipping||{};
   const payload = {
+      name: body.name || order.name || (cleanItems[0]?.name) || 'Đơn hàng',
+      items: cleanItems,
     sender_province: body.sender_province || s.sender_province || '',
     sender_district: body.sender_district || s.sender_district || '',
     receiver_province: body.receiver_province || body.to_province || '',
@@ -979,6 +981,15 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     const s = settings.shipping||{};
     const order = body.order || {};
     const ship  = body.ship  || {};
+    const items = Array.isArray(body.items)? body.items : (Array.isArray(order.items)? order.items : []);
+    const cleanItems = items.map(it=>({
+      sku: it.sku||it.id||'',
+      name: it.name||it.title||'Hàng hóa',
+      qty: Number(it.qty||it.quantity||1),
+      price: Number(it.price||0),
+      weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0),
+      length_cm: Number(it.length_cm||it.l||0), width_cm: Number(it.width_cm||it.w||0), height_cm: Number(it.height_cm||it.h||0)
+    }));
 
     // --- Normalize & resolve codes when receiver uses names ---
     const norm = (t)=> String(t||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase()
@@ -1011,13 +1022,9 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
       }catch(e){ return ''; }
     }
 
-    
-  // Resolve receiver phone from many possible fields and normalize
-  const onlyDigits = (v)=> String(v||'').replace(/\D+/g,'');
-  const phoneRaw = body.to_phone || order.customer?.phone || order.phone || order.customer_phone || order.receiver_phone || settings.store?.phone || s.sender_phone || '';
-  const receiverPhone = onlyDigits(phoneRaw);
-
     const payload = {
+      name: body.name || order.name || (cleanItems[0]?.name) || 'Đơn hàng',
+      items: cleanItems,
       // Sender (prefer codes; fallback names)
       sender_name: s.sender_name || settings.store?.name || 'Shop',
       sender_phone: s.sender_phone || settings.store?.phone || '',
@@ -1026,7 +1033,7 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
       sender_district: s.sender_district_code || s.sender_district || '',
       // Receiver (prefer codes; fallback names)
       receiver_name: order.customer?.name || body.to_name || '',
-      receiver_phone: receiverPhone,
+      receiver_phone: order.customer?.phone || body.to_phone || '',
       receiver_address: order.customer?.address || body.to_address || '',
       receiver_province: order.customer?.province_code || body.to_province_code || order.to_province_code || body.to_province || order.customer?.province || '',
       receiver_district: order.customer?.district_code || body.to_district_code || order.to_district_code || body.to_district || order.customer?.district || '',
