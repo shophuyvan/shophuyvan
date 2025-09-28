@@ -1,0 +1,45 @@
+{
+  "items": [
+    {
+      "name": "Đồ gia dụng",
+      "slug": "do-gia-dung",
+      "children": [
+        {
+          "name": "Dụng cụ nhà bếp",
+          "slug": "nha-bep"
+        },
+        {
+          "name": "Vệ sinh nhà cửa",
+          "slug": "ve-sinh"
+        },
+        {
+          "name": "Đèn - Ổ cắm",
+          "slug": "dien-dung"
+        }
+      ]
+    },
+    {
+      "name": "Điện gia dụng",
+      "slug": "dien-gia-dung",
+      "children": [
+        {
+          "name": "Quạt",
+          "slug": "quat"
+        },
+        {
+          "name": "Bếp điện",
+          "slug": "bep-dien"
+        },
+        {
+          "name": "Máy sấy tóc",
+          "slug": "may-say-toc"
+        }
+      ]
+    },
+    {
+      "name": "Phụ kiện tiện ích",
+      "slug": "tien-ich",
+      "children": []
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Thống kê</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js?v=25"></script>
+<!-- build:21 -->
+</head><body>
+<div class="container">
+  <div class="header">
+    <div class="title">Thống kê</div>
+    <div class="toolbar" style="display:flex;gap:8px;flex-wrap:wrap">
+      <label>Khoảng thời gian:</label>
+      <select id="gran" class="input" style="width:160px">
+        <option value="day" selected>Ngày (hôm nay)</option>
+        <option value="week">Tuần này</option>
+        <option value="month">Tháng này</option>
+        <option value="custom">Tùy chỉnh</option>
+      </select>
+      <input id="from" type="date" class="input"/>
+      <span>→</span>
+      <input id="to" type="date" class="input"/>
+      <button id="apply" class="btn">Áp dụng</button>
+    </div>
+    <div class="nav">
+      <a href="./products.html" class="badge">Sản phẩm</a>
+      <a href="./banners.html" class="badge">Banner</a>
+      <a href="./vouchers.html" class="badge">Voucher</a><a href="./orders.html" class="badge">Đơn hàng</a><a href="./stats.html" class="badge">Thống kê</a><a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <a href="./orders.html" class="badge">Đơn hàng</a>
+      <a href="./stats.html" class="badge">Thống kê</a>
+      <span class="badge">API: <span data-api-base></span></span>
+    </div>
+  </div>
+  <div class="card"><div class="row">
+    <div class="col"><div class="title">Đơn hàng</div><div id="orders" class="big-number">0</div></div>
+    <div class="col"><div class="title">Doanh số</div><div id="revenue" class="big-number">0đ</div></div>
+    <div class="col"><div class="title">Lợi nhuận</div><div id="profit" class="big-number">0đ</div></div>
+  </div></div>
+  <div class="card"><div class="title">Top sản phẩm</div>
+    <table class="table"><thead><tr><th>Sản phẩm</th><th>SL</th><th>Doanh thu</th></tr></thead><tbody id="top"></tbody></table>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  if(window.Admin){ Admin.ensureAuth(); Admin.renderApiBase(); }
+  async function req(path){
+    const api = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || (document.querySelector('[data-api-base]')?.textContent || '');
+    const r = await fetch(api+path).then(r=>r.json()).catch(()=>({}));
+    return r||{};
+  }
+  
+async function load(){
+  const gran = document.getElementById('gran')?.value || 'day';
+  const f = document.getElementById('from');
+  const t = document.getElementById('to');
+  // Build from/to in ms (VN timezone). If custom or date inputs filled -> use range.
+  let query = new URLSearchParams({ granularity: gran });
+  function toLocalStart(d){
+    const dt = new Date(d+'T00:00:00+07:00'); return dt.getTime();
+  }
+  if(f && t && (gran==='custom' || f.value || t.value)){
+    const from = f.value ? toLocalStart(f.value) : undefined;
+    const toEnd = t.value ? (toLocalStart(t.value) + 86400000) : undefined;
+    if(from) query.set('from', String(from));
+    if(toEnd) query.set('to', String(toEnd));
+  }
+  const res = await Admin.req('/admin/stats?'+query.toString(), { method:'GET' });
+  if(!res) return;
+  const s = res;
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('orders', (s.orders||0));
+  const fmt = n => (Number(n||0)).toLocaleString('vi-VN')+'đ';
+  set('revenue', fmt(s.revenue));
+  set('profit', fmt(s.profit));
+  const tb = document.getElementById('top'); if(tb){ tb.innerHTML=''; (s.top_products||[]).forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="px-4 py-2">${p.name||''}</td><td class="px-4 py-2">${p.qty||0}</td><td class="px-4 py-2">${fmt(p.revenue||0)}</td>`;
+    tb.appendChild(tr);
+  });}
+}
+;
+    set('orders', (s.orders||0));
+    const fmt = n => (Number(n||0)).toLocaleString('vi-VN')+'đ';
+    set('revenue', fmt(s.revenue));
+    set('profit', fmt(s.profit));
+    const tb = document.getElementById('top'); if(tb){ tb.innerHTML=''; (s.top_products||[]).forEach(p=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="px-4 py-2">${p.name||''}</td><td class="px-4 py-2">${p.qty||0}</td><td class="px-4 py-2">${fmt(p.revenue||0)}</td>`;
+      tb.appendChild(tr);
+    });}
+  };
+  document.getElementById('gran')?.addEventListener('change', load);
+  document.getElementById('apply')?.addEventListener('click', load);
+  document.getElementById('from')?.addEventListener('change', ()=>{ document.getElementById('gran').value='custom'; });
+  document.getElementById('to')?.addEventListener('change', ()=>{ document.getElementById('gran').value='custom'; });
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', load); else load();
+})();
+</script>
+</body></html>

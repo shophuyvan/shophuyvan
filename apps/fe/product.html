@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDP • Shop Huy Vân</title>
+  <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+<!-- build:16 -->
+  <script type="module" src="/src/pixels.js?v=44"></script>
+  <script type="module" src="/src/cat-menu.js?v=44"></script>
+
+<!-- SHV PDP HIDE HEADER CSS -->
+<style id="shv-pdp-inline-css">
+/* Hide global site header on PDP only */
+body.pdp header, body.pdp .topbar, body.pdp .site-header, 
+body.pdp .shv-header, body.pdp .navbar, body.pdp nav { display: none !important; }
+  /* SHV patch: pre-line */
+  .desc-preline{white-space:pre-line;}
+  .faq-item{margin-bottom:8px}
+</style>
+
+  <!-- SEO-INJECTED -->
+  <link id="canonical" rel="canonical" href="__BASE_URL__/product.html" />
+  <meta property="og:type" content="product"/>
+  <meta property="og:site_name" content="Shop Huy Vân"/>
+  <script>
+  // canonical from id, if present
+  (function(){
+    try {
+      const u = new URL(window.location.href);
+      const id = u.searchParams.get('id');
+      const can = document.querySelector('link#canonical');
+      if(id){ can.href = '__BASE_URL__/product/' + id; }
+    } catch(e){}
+  })();
+  </script>
+  <script id="pdp-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Sản phẩm - Shop Huy Vân",
+    "image": [],
+    "description": "Sản phẩm tại Shop Huy Vân",
+    "brand": {"@type": "Brand","name":"Shop Huy Vân"},
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "VND",
+      "lowPrice": "0",
+      "highPrice": "0",
+      "availability": "https://schema.org/InStock"
+    }
+  }
+  </script>
+  <script>
+  // Nếu client có thông tin sản phẩm toàn diện trong window.PRODUCT, cập nhật JSON-LD + OG
+  (function(){
+    try{
+      const data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      if(!data) return;
+      const j = document.getElementById('pdp-jsonld');
+      const model = {
+        "@context":"https://schema.org","@type":"Product",
+        "name": data.name || data.title || "Sản phẩm",
+        "image": (data.images||data.gallery||[]).map(x => typeof x==='string'? x : x.url).filter(Boolean),
+        "description": data.description || data.desc || "",
+        "sku": data.sku || data.id || "",
+        "brand": {"@type":"Brand","name": (data.brand||'Shop Huy Vân')},
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "VND",
+          "price": String(data.price||data.final_price||data.sale_price||data.original_price||0).replace(/\D/g,''),
+          "availability": (data.stock>0?'https://schema.org/InStock':'https://schema.org/OutOfStock')
+        }
+      };
+      j.textContent = JSON.stringify(model);
+      // OG title/description
+      const ogt = document.createElement('meta'); ogt.setAttribute('property','og:title'); ogt.content = (data.name||'Sản phẩm') + ' • Shop Huy Vân';
+      const ogd = document.createElement('meta'); ogd.setAttribute('property','og:description'); ogd.content = (data.description||'Sản phẩm tại Shop Huy Vân');
+      document.head.appendChild(ogt); document.head.appendChild(ogd);
+    }catch(e){}
+  })();
+  </script>
+
+
+  <script id="pdp-breadcrumb-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Trang chủ",
+        "item": "__BASE_URL__/"
+      }
+    ]
+  }
+  </script>
+  <script>
+  // Build breadcrumb JSON-LD from product category/categoryPath
+  (function(){
+    try{
+      var data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      if(!data) return;
+      var cats = [];
+      if (Array.isArray(data.categoryPath)) {
+        cats = data.categoryPath.filter(Boolean);
+      } else if (typeof data.categoryPath === 'string') {
+        cats = data.categoryPath.split('/').map(s => s.trim()).filter(Boolean);
+      } else if (Array.isArray(data.categories)) {
+        cats = data.categories.filter(Boolean);
+      } else if (typeof data.category === 'string') {
+        cats = [data.category];
+      }
+      var items = [
+        { "@type":"ListItem", "position":1, "name":"Trang chủ", "item": __BASE_URL__ + "/" }
+      ];
+      var pathAccum = "";
+      cats.forEach(function(cat, i){
+        // slugify
+        var slug = String(cat).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+        pathAccum += ("/c/" + slug);
+        items.push({ "@type":"ListItem", "position": i+2, "name": cat, "item": __BASE_URL__ + pathAccum });
+      });
+      var prodName = (data.name || data.title || "Sản phẩm");
+      var prodId = (data.id || "").toString().trim();
+      var prodUrl = prodId ? (__BASE_URL__ + "/product/" + prodId) : (typeof location!=='undefined' ? location.href : (__BASE_URL__ + "/product.html"));
+      items.push({ "@type":"ListItem", "position": items.length+1, "name": prodName, "item": prodUrl });
+
+      var el = document.getElementById('pdp-breadcrumb-jsonld');
+      var jsonld = { "@context":"https://schema.org", "@type":"BreadcrumbList", "itemListElement": items };
+      el.textContent = JSON.stringify(jsonld);
+    }catch(e){}
+  })();
+  </script>
+
+
+  <!-- SEO-INJECTED: Dynamic Title & Description -->
+  <script>
+  (function(){
+    try{
+      var data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      if(!data) return;
+
+      var name = (data.seo_title || data.name || data.title || "Sản phẩm").toString().trim();
+      var price = (data.final_price || data.sale_price || data.price || data.original_price || "").toString().replace(/\D/g,'');
+      var priceTxt = price ? (" | Giá " + new Intl.NumberFormat('vi-VN').format(Number(price)) + "₫") : "";
+      document.title = name + " • Shop Huy Vân" + priceTxt;
+
+      var desc = (
+        data.seo_description ||
+        data.meta_description ||
+        data.short_description ||
+        data.description ||
+        data.desc || ""
+      ).toString().replace(/\s+/g,' ').trim();
+      if(desc.length > 160) desc = desc.slice(0,157) + '...';
+
+      var md = document.querySelector('meta[name="description"]');
+      if(!md){ md = document.createElement('meta'); md.setAttribute('name','description'); document.head.appendChild(md); }
+      if(desc) md.setAttribute('content', desc);
+
+      // Ensure OG title/desc/image align
+      function setOG(prop, value){
+        var m = document.querySelector('meta[property="'+prop+'"]');
+        if(!m){ m=document.createElement('meta'); m.setAttribute('property', prop); document.head.appendChild(m); }
+        if(value) m.setAttribute('content', value);
+      }
+      setOG('og:title', name + ' • Shop Huy Vân');
+      setOG('og:description', desc);
+      var img = (Array.isArray(data.images) && data.images[0]) || (Array.isArray(data.gallery) && data.gallery[0]) || data.image || '';
+      if (img && typeof img === 'object' && img.url) img = img.url;
+      if(img) setOG('og:image', img);
+    }catch(e){}
+  })();
+  </script>
+</head>
+<body class="bg-slate-50 text-gray-900 pdp">
+  <!-- SHV BREADCRUMB UI -->
+  <style>
+    .shv-breadcrumb{font-size:14px;color:#4b5563;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px auto;max-width:1200px;padding:0 12px}
+    .shv-breadcrumb a{color:#2563eb;text-decoration:none}
+    .shv-breadcrumb a:hover{text-decoration:underline}
+    .shv-breadcrumb .sep{opacity:.5}
+    .shv-breadcrumb .last{color:#111827;font-weight:600}
+    /* SHV patch: pre-line */
+  .desc-preline{white-space:pre-line;}
+  .faq-item{margin-bottom:8px}
+</style>
+  <nav class="shv-breadcrumb" aria-label="breadcrumb" id="shv-bc">
+    <a href="__BASE_URL__/">Trang chủ</a>
+    <span class="sep">›</span>
+    <span class="last">Đang tải...</span>
+  </nav>
+  <script>
+  // Render breadcrumb UI from product data
+  (function(){
+    try{
+      var data = window.__SHV_PRODUCT__ || window.PRODUCT || null;
+      var el = document.getElementById('shv-bc');
+      if(!el) return;
+      var items = [];
+      function addLink(href, label){
+        items.push('<a href="'+href+'">'+label+'</a>');
+      }
+      function addText(label){
+        items.push('<span class="last">'+label+'</span>');
+      }
+      // categories
+      var cats = [];
+      if (data){
+        if (Array.isArray(data.categoryPath)) cats = data.categoryPath.filter(Boolean);
+        else if (typeof data.categoryPath==='string') cats = data.categoryPath.split('/').map(s=>s.trim()).filter(Boolean);
+        else if (Array.isArray(data.categories)) cats = data.categories.filter(Boolean);
+        else if (typeof data.category==='string') cats = [data.category];
+      }
+      // Start with home link already in HTML; rebuild full content:
+      var html = [];
+      html.push('<a href="__BASE_URL__/">Trang chủ</a>');
+      var accum = '';
+      function slugify(s){
+        try{ return String(s).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }catch(e){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+      }
+      cats.forEach(function(cat){
+        html.push('<span class="sep">›</span>');
+        accum += '/c/' + slugify(cat);
+        html.push('<a href="'+ '__BASE_URL__' + accum +'">'+ cat +'</a>');
+      });
+      var name = (data && (data.name||data.title)) || 'Sản phẩm';
+      html.push('<span class="sep">›</span>');
+      html.push('<span class="last">'+ name +'</span>');
+      el.innerHTML = html.join(' ');
+    }catch(e){}
+  })();
+  </script>
+
+  <header class="border-b bg-white">
+    <div class="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 gap-4 items-center">
+      <a href="/" class="font-semibold text-lg">SHOP HUY VÂN</a>
+      <input id="search" class="border rounded px-3 py-2 w-full" placeholder="Tìm kiếm..."/>
+      <a href="/cart" class="justify-self-end text-sm border rounded px-3 py-2">Giỏ</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-12 gap-6">
+    <section class="md:col-span-6 space-y-2">
+      <div id="media-main" class="relative aspect-square bg-white rounded-lg overflow-hidden"></div>
+      <div id="media-thumbs" class="grid grid-cols-6 gap-2"></div>
+    </section>
+    <section class="md:col-span-6 space-y-4">
+      <h1 id="p-title" class="text-xl md:text-2xl font-semibold"></h1>
+      <div class="flex items-center gap-3 text-sm text-gray-600">
+        <span id="p-sold">0 đã bán</span><span>•</span><span id="p-rating">5★</span>
+      </div>
+      <div id="p-price" class="text-2xl font-semibold"></div>
+      <div id="p-stock" class="text-sm text-gray-500"></div>
+      <div id="p-variants" class="space-y-2"></div>
+      <div class="flex items-center gap-3">
+        <button id="btn-add" class="bg-rose-600 hover:bg-rose-700 text-white rounded px-4 py-2">Thêm giỏ</button>
+        <a id="btn-zalo" target="_blank" rel="noopener" href="https://zalo.me/" class="border rounded px-4 py-2">Zalo</a>
+      </div>
+    </section>
+    <section class="md:col-span-8">
+      <h2 class="font-semibold mb-2">Mô tả</h2>
+      <article id="p-desc" class="prose prose-sm max-w-none"></article>
+    </section>
+    <section class="md:col-span-4">
+      <h2 class="font-semibold mb-2">Câu hỏi thường gặp (FAQ)</h2>
+      <div id="p-faq" class="space-y-2"></div>
+    </section>
+    <section class="md:col-span-12">
+      <h2 class="font-semibold mb-2">Đánh giá khách hàng</h2>
+      <div id="p-reviews" class="space-y-3"></div>
+    </section>
+  </main>
+
+  <script type="application/ld+json" id="id-product"></script>
+  <script type="module" src="/src/ui-pdp.js?v=72"></script>
+
+
+
+<!-- SHV: Render description & FAQ with markup (robust) -->
+<script>
+(function(){
+  function normalizeNewlines(raw){
+    if(raw==null) return '';
+    // convert literal \n in saved text to real newline
+    return String(raw).replace(/\\n/g, '\n');
+  }
+  function renderDesc(raw){
+    raw = normalizeNewlines(raw);
+    const lines = String(raw).split(/\n/);
+    let html='', inList=false;
+    for(const ln0 of lines){
+      const ln = ln0.trimEnd();
+      if(/^##\s+/.test(ln)){
+        if(inList){ html+='</ul>'; inList=false; }
+        html += '<h3 class="font-semibold mt-2 mb-1">'+ln.replace(/^##\s+/, '')+'</h3>';
+      }else if(/^\-\s+/.test(ln)){
+        if(!inList){ html+='<ul class="list-disc pl-5">'; inList=true; }
+        html += '<li>'+ln.replace(/^\-\s+/, '')+'</li>';
+      }else if(ln===''){
+        if(inList){ html+='</ul>'; inList=false; }
+        html += '<br/>';
+      }else{
+        html += '<p class="mb-1">'+ln+'</p>';
+      }
+    }
+    if(inList) html+='</ul>';
+    return html;
+  }
+  function parseFaq(raw){
+    raw = normalizeNewlines(raw);
+    const text = ' ' + raw.replace(/\s+/g,' ') + ' ';
+    const out = [];
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    if(!out.length && raw.trim()){
+      out.push({q: raw.trim(), a: ''});
+    }
+    return out;
+  }
+  function apply(){
+    const p = (window.__PRODUCT__||{});
+    const elDesc = document.querySelector('[data-bind="product-desc"]');
+    const elFaq = document.querySelector('[data-bind="product-faq"]');
+    if(elDesc) elDesc.innerHTML = renderDesc(p.desc||'');
+    if(elFaq){
+      const items = parseFaq(p.faq||'');
+      elFaq.innerHTML = items.map(x=>('<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>')).join('');
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply); else apply();
+})();
+</script>
+
+
+<!-- SHV PATCH v12c: robust desc/FAQ renderer + weight_gram -->
+<script>
+(function(){
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    // Handle various encodings of newlines
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> 
+
+    t = t.replace(/\\n/g, '\n');                // literal \n -> 
+
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> 
+
+    t = t.replace(/\r/g, '\n');                  // CR -> 
+
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
+  function toHtml(raw){
+    raw = normBreaks(raw);
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>'; return html;
+  }
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+  function renderFAQAuto(){
+    // 1) ưu tiên #p-faq
+    const faqBox = document.getElementById('p-faq');
+    let ok = false;
+    if(faqBox){
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); ok=true; }
+    }
+    if(ok) return true;
+    // 2) quét phần mô tả cho đoạn chứa Hỏi/Đáp và thay tại chỗ
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if(candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 3) dò heading "FAQ"
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if(heads.length){
+      const el = heads[0].nextElementSibling;
+      if(el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
+  }
+  function renderDescAuto(){
+    const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+    const descBox = document.getElementById('p-desc');
+    if(descBox){ descBox.innerHTML = toHtml(p.desc||p.description||descBox.textContent||''); return true; }
+    // Heading "Mô tả" → sibling
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    for(const h of heads){
+      const box = h.nextElementSibling;
+      if(!box) continue;
+      if(box.children && box.children.length>0 && box.querySelector('p,ul,ol,h3')) continue;
+      const raw = box.textContent; if(!raw) continue;
+      box.innerHTML = toHtml(raw); return true;
+    }
+    return false;
+  }
+
+  // weight_gram hook (giữ nguyên như trước)
+  function gramsOf(v){ const raw=String(v??'').replace(',','.'); const n=Number(raw); if(!n||isNaN(n)) return 0; return (/[.,]/.test(raw)&&n>0&&n<=50)?Math.round(n*1000):Math.round(n); }
+  function buildWeightMap(){ const P=window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{}; const map={product:gramsOf(P.weight||P.weight_gram||0)}; (P.variants||[]).forEach(v=>{ map['v:'+v.id]=gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id];}); return map; }
+  function addWeightsToCart(cart){ const map=buildWeightMap(); (cart||[]).forEach(it=>{ if(!it) return; if(!it.weight_gram||it.weight_gram<=0){ const byVar=map['v:'+it.variant_id]||map['id:'+it.variant_id]; const byId=map['id:'+it.id]||map['v:'+it.id]; it.weight_gram=byVar||byId||map.product||0; }}); return cart; }
+  (function patchLocalStorage(){ const orig=localStorage.setItem.bind(localStorage); localStorage.setItem=function(k,v){ if(k==='cart'){ try{ const arr=JSON.parse(v||'[]'); v=JSON.stringify(addWeightsToCart(arr)); }catch(e){} } return orig(k,v); }; try{ const cur=localStorage.getItem('cart'); if(cur){ const arr=addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){} })();
+
+  window.__SHV_RUN_RENDER__ = run;
+function run(){ renderDescAuto(); renderFAQAuto(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+
+
+<!-- SHV PATCH v12d: observe async content and re-apply render -->
+<script>
+(function(){
+  function debounce(fn, wait){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this, arguments), wait); }; }
+  function needProcess(){
+    const txt = document.body.textContent || '';
+    return /Mô tả|FAQ|Câu hỏi thường gặp/.test(txt);
+  }
+  function trigger(){
+    if(window.__SHV_RAN__) return;
+    // Delay a bit to let SPA inject content
+    setTimeout(()=>{
+      try{
+        if(typeof window.__SHV_RUN_RENDER__ === 'function'){ window.__SHV_RUN_RENDER__(); window.__SHV_RAN__=true; }
+      }catch(e){}
+    }, 150);
+  }
+  const runDebounced = debounce(trigger, 200);
+  const mo = new MutationObserver(()=>{ if(needProcess()) runDebounced(); });
+  mo.observe(document.documentElement, {subtree:true, childList:true, characterData:true});
+  document.addEventListener('DOMContentLoaded', runDebounced);
+})();
+</script>
+
+
+<!-- SHV PATCH v12e: aggressive child processing for desc/FAQ -->
+<script>
+(function(){
+  // helpers copied
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> \n
+    t = t.replace(/\\n/g, '\n');                // literal \n -> \n
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> \n
+    t = t.replace(/\r/g, '\n');                  // CR -> \n
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
+  function toHtml(raw){
+    raw = normBreaks(raw);
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>'; return html;
+  }
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+
+  function needsTransform(s){ return /\n|^##\s+|^-\s+/.test(s); }
+
+  function transformInside(box){
+    if(!box) return false;
+    let touched = false;
+    // 1) process text nodes
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (const tn of textNodes){
+      const s = String(tn.nodeValue||'');
+      if (needsTransform(s)){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = toHtml(s);
+        tn.parentNode.replaceChild(wrap, tn);
+        touched = true;
+      }
+    }
+    // 2) process simple child elements
+    const kids = Array.from(box.children||[]);
+    for (const el of kids){
+      if (el.children.length===0){
+        const txt = el.textContent||'';
+        if (needsTransform(txt)){
+          el.innerHTML = toHtml(txt);
+          touched = true;
+        }
+      }
+    }
+    // 3) if vẫn còn \n trong toàn box => rebuild toàn bộ
+    const fullText = (box.textContent||'');
+    if (needsTransform(fullText) && !touched){
+      box.innerHTML = toHtml(fullText);
+      touched = true;
+    }
+    return touched;
+  }
+
+  function renderFAQAuto(){
+    // 1) ưu tiên #p-faq
+    const faqBox = document.getElementById('p-faq');
+    if (faqBox){
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 2) tìm block có “Hỏi:” & “Đáp:” gần vùng mô tả
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if (candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    // 3) theo heading “FAQ”
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if (heads.length){
+      const el = heads[0].nextElementSibling;
+      if (el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
+  }
+
+  function renderDescAuto(){
+    const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+    const descBox = document.getElementById('p-desc');
+    if (descBox){ transformInside(descBox); return true; }
+    // Heading “Mô tả” -> sibling
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    for (const h of heads){
+      const box = h.nextElementSibling;
+      if (!box) continue;
+      transformInside(box);
+      return true;
+    }
+    return false;
+  }
+
+  function run(){ renderDescAuto(); renderFAQAuto(); }
+  window.__SHV_RUN_RENDER__ = run;
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+
+
+<!-- SHV PATCH v12f: stronger \n detection + multi-run render -->
+<script>
+(function(){
+  function expose(){ if(typeof window.__SHV_RUN_RENDER__!=='function' && typeof run==='function') window.__SHV_RUN_RENDER__ = run; }
+  function normBreaks(s){
+    let t = (s==null?'':String(s));
+    t = t.replace(/\\r\\n|\\n\\r/g, '\n'); // literal \r\n -> \n
+    t = t.replace(/\\n/g, '\n');                // literal \n -> \n
+    t = t.replace(/\r\n|\n\r/g, '\n');        // CRLF -> \n
+    t = t.replace(/\r/g, '\n');                  // CR -> \n
+    t = t.replace(/\n{3,}/g, '\n\n');           // collapse
+    return t;
+  }
+  function toHtml(raw){
+    raw = normBreaks(raw);
+    const lines = raw.split(/\n/);
+    let html='', list=false;
+    for(const l0 of lines){
+      const l = l0.trimEnd();
+      if(/^##\s+/.test(l)){ if(list){html+='</ul>'; list=false;} html+='<h3 class="font-semibold mt-2 mb-1">'+l.replace(/^##\s+/,'')+'</h3>'; continue; }
+      if(/^\-\s+/.test(l)){ if(!list){html+='<ul class="list-disc pl-5">'; list=true;} html+='<li>'+l.replace(/^\-\s+/,'')+'</li>'; continue; }
+      if(l===''){ if(list){html+='</ul>'; list=false;} html+='<br/>'; continue; }
+      html+='<p class="mb-1">'+l+'</p>';
+    }
+    if(list) html+='</ul>'; return html;
+  }
+  function parseFaqText(raw){
+    raw = normBreaks(raw);
+    const text = (' '+raw.replace(/\s+/g,' ')+' ');
+    const re = /\sHỏi\s*:\s*(.+?)\s*Đáp\s*:\s*(.+?)(?=\sHỏi\s*:|$)/gi;
+    let out=[], m; while((m=re.exec(text))){ out.push({q:m[1].trim(), a:m[2].trim()}); }
+    return out;
+  }
+  function needsTransform(s){
+    s = String(s||'');
+    return /(\\n|\r\n|\n)|(^|\s)##\s+|(^|\s)-\s+/.test(s);
+  }
+  function transformInside(box){
+    if(!box) return false;
+    let touched = false;
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    const texts=[]; while(walker.nextNode()) texts.push(walker.currentNode);
+    for(const tn of texts){
+      const s = String(tn.nodeValue||'');
+      if(needsTransform(s)){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = toHtml(s);
+        tn.parentNode.replaceChild(wrap, tn);
+        touched = true;
+      }
+    }
+    const kids = Array.from(box.children||[]);
+    for(const el of kids){
+      if(el.children.length===0){
+        const txt = el.textContent||'';
+        if(needsTransform(txt)){ el.innerHTML = toHtml(txt); touched = true; }
+      }
+    }
+    const full = box.textContent||'';
+    if(needsTransform(full) && !touched){ box.innerHTML = toHtml(full); touched = true; }
+    return touched;
+  }
+  function renderFAQAuto(){
+    const faqBox = document.getElementById('p-faq');
+    if(faqBox){
+      const p = window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{};
+      const arr = parseFaqText(p.faq||faqBox.textContent||'');
+      if(arr.length){ faqBox.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    const candidates = Array.from(document.querySelectorAll('section,div,p,article'))
+      .filter(el=>/Hỏi\s*:/.test(el.textContent) && /Đáp\s*:/.test(el.textContent));
+    if(candidates.length){
+      const el = candidates[0];
+      const arr = parseFaqText(el.textContent);
+      if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; }
+    }
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/Câu hỏi thường gặp|FAQ/i.test(el.textContent));
+    if(heads.length){
+      const el = heads[0].nextElementSibling;
+      if(el){ const arr = parseFaqText(el.textContent||''); if(arr.length){ el.innerHTML = arr.map(x=>'<details class="faq-item"><summary class="font-medium">'+x.q+'</summary><div class="mt-1">'+x.a+'</div></details>').join(''); return true; } }
+    }
+    return false;
+  }
+  function renderDescAuto(){
+    const descBox = document.getElementById('p-desc');
+    if(descBox){ if(!transformInside(descBox)){ const txt=descBox.textContent||''; if(needsTransform(txt)) descBox.innerHTML = toHtml(txt); } return true; }
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,div,strong,b,span'))
+      .filter(el=>/\bMô tả\b/i.test(el.textContent.trim()));
+    for(const h of heads){
+      const box = h.nextElementSibling;
+      if(!box) continue;
+      if(!transformInside(box)){ const txt=box.textContent||''; if(needsTransform(txt)) box.innerHTML = toHtml(txt); }
+      return true;
+    }
+    return false;
+  }
+  function gramsOf(v){ const raw=String(v??'').replace(',','.'); const n=Number(raw); if(!n||isNaN(n)) return 0; return (/[.,]/.test(raw)&&n>0&&n<=50)?Math.round(n*1000):Math.round(n); }
+  function buildWeightMap(){ const P=window.__SHV_PRODUCT__||window.PRODUCT||window.__PRODUCT__||{}; const map={product:gramsOf(P.weight||P.weight_gram||0)}; (P.variants||[]).forEach(v=>{ map['v:'+v.id]=gramsOf(v.weight||v.weight_gram||0); map['id:'+v.id]=map['v:'+v.id];}); return map; }
+  function addWeightsToCart(cart){ const map=buildWeightMap(); (cart||[]).forEach(it=>{ if(!it) return; if(!it.weight_gram||it.weight_gram<=0){ const byVar=map['v:'+it.variant_id]||map['id:'+it.variant_id]; const byId=map['id:'+it.id]||map['v:'+it.id]; it.weight_gram=byVar||byId||map.product||0; }}); return cart; }
+  (function patchLocalStorage(){ const orig=localStorage.setItem.bind(localStorage); localStorage.setItem=function(k,v){ if(k==='cart'){ try{ const arr=JSON.parse(v||'[]'); v=JSON.stringify(addWeightsToCart(arr)); }catch(e){} } return orig(k,v); }; try{ const cur=localStorage.getItem('cart'); if(cur){ const arr=addWeightsToCart(JSON.parse(cur||'[]')); localStorage.setItem('cart', JSON.stringify(arr)); } }catch(e){} })();
+  function run(){ renderDescAuto(); renderFAQAuto(); }
+  expose();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run); else run();
+  // Observer (multi-run, không khoá một lần)
+  (function(){
+    function debounce(fn, wait){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this, arguments), wait); }; }
+    const runDebounced = debounce(()=>{ try{ run(); }catch(e){} }, 200);
+    const mo = new MutationObserver(muts=>{ runDebounced(); });
+    mo.observe(document.documentElement, {subtree:true, childList:true, characterData:true});
+  })();
+})();
+</script>
+
+
+<!-- SHV ACTIONBAR PATCH v1: sticky action bar at bottom + smaller buttons -->
+<style>
+  .shv-actionbar{
+    position: sticky;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    padding: 12px;
+    display: flex; gap: 12px;
+    border-top: 1px solid #eee;
+    z-index: 1;
+  }
+  .shv-btn-sm{
+    height: 42px;
+    font-size: 14px;
+    line-height: 42px;
+    border-radius: 12px;
+    padding: 0 14px;
+  }
+  .shv-actionbar .shv-btn-sm{ flex: 1; }
+</style>
+
+
+<!-- SHV ACTIONBAR PATCH v1 -->
+<script>
+(function(){
+  function findButtons(root){
+    const btns = Array.from(root.querySelectorAll('button, .btn, [role="button"]'));
+    const add = btns.find(b => /thêm\s*vào\s*giỏ/i.test((b.textContent||'')));
+    const buy = btns.find(b => /mua\s*ngay/i.test((b.textContent||'')));
+    return { add, buy };
+  }
+  function ensureFooter(panel){
+    let footer = panel.querySelector('.shv-actionbar');
+    if(!footer){
+      footer = document.createElement('div');
+      footer.className = 'shv-actionbar';
+      if(getComputedStyle(panel).overflow === 'visible'){
+        footer.style.position = 'absolute';
+        footer.style.bottom   = '12px';
+        footer.style.left     = '0';
+        footer.style.right    = '0';
+      }
+      panel.appendChild(footer);
+    }
+    return footer;
+  }
+  function tweak(panel){
+    const { add, buy } = findButtons(panel);
+    if(!(add && buy)) return;
+    panel.style.position = 'relative';
+    panel.style.display  = 'flex';
+    panel.style.flexDirection = 'column';
+    [add, buy].forEach(b=>{
+      b.classList.add('shv-btn-sm');
+      b.style.height='42px'; b.style.fontSize='14px';
+      b.style.borderRadius='12px'; b.style.padding='0 14px';
+      b.style.flex='1';
+    });
+    const footer = ensureFooter(panel);
+    if (add.parentNode !== footer) footer.appendChild(add);
+    if (buy.parentNode !== footer) footer.appendChild(buy);
+  }
+  function scan(){
+    document.querySelectorAll('[role="dialog"], .modal, .sheet, .drawer, .shv-float-cart').forEach(tweak);
+  }
+  const init = () => { try{ scan(); }catch(e){} };
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  new MutationObserver(() => init()).observe(document.body, { childList:true, subtree:true });
+})();
+</script>
+
+</body>
+</html>
