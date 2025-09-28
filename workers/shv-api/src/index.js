@@ -445,7 +445,10 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
         if (!data || !meta) {
           return new Response('not found', { status: 404, headers: corsHeaders(req) });
         }
-        const h = { 'Content-Type': (meta && meta.type) || 'application/octet-stream',                    'Cache-Control': 'public, max-age=31536000, immutable',                    'Content-Length': String((meta && meta.size) || (data ? data.byteLength : 0) || 0),                    'Accept-Ranges': 'bytes' };        return new Response(data, { status: 200, headers: Object.assign(h, corsHeaders(req)) });      }
+        const h = { 'Content-Type': (meta && meta.type) || 'application/octet-stream',
+                    'Cache-Control': 'public, max-age=31536000, immutable' };
+        return new Response(data, { status: 200, headers: Object.assign(h, corsHeaders(req)) });
+      }
 
       // Responsive image proxy (Cloudflare Image Resizing)
       if (p.startsWith('/img/') && req.method === 'GET') {
@@ -862,6 +865,83 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         return json({ok:true, items, to_province, to_district}, {}, req);
       }
 
+
+      // Public API: unified shipping quote for FE (POST)
+      if(p==='/api/shipping/quote' && req.method==='POST'){
+        try{
+          const body = await readBody(req)||{};
+          const settings = await getJSON(env,'settings',{})||{};
+          const s = settings.shipping||{};
+
+          // Derive weight (grams)
+          let weight = 0;
+          if (body.package && body.package.weight_grams!=null) weight = Number(body.package.weight_grams)||0;
+          if (!weight && Array.isArray(body.items)){
+            weight = body.items.reduce((sum,it)=> sum + Number(it.weight_grams||it.weight||0) * Number(it.qty||it.quantity||1), 0);
+          }
+          if (!weight && body.weight_grams!=null) weight = Number(body.weight_grams)||0;
+
+          // Volumetric weight (if dims provided): (L*W*H)/5000 kg -> grams
+          let volGrams = 0;
+          const dim = (body.package && body.package.dim_cm) ? body.package.dim_cm : null;
+          const L = Number(dim?.l||body.length_cm||0), W = Number(dim?.w||body.width_cm||0), H = Number(dim?.h||body.height_cm||0);
+          if (L>0 && W>0 && H>0){
+            volGrams = Math.round((L*W*H)/5000*1000);
+          }
+          if (volGrams > weight) weight = volGrams;
+
+          // Receiver (to) codes
+          const to = body.to || body.receiver || {};
+          const payload = {
+            sender_province: String(body.from?.province_code || s.sender_province_code || s.sender_province || ''),
+            sender_district: String(body.from?.district_code || s.sender_district_code || s.sender_district || ''),
+            receiver_province: String(to.province_code || body.to_province || ''),
+            receiver_district: String(to.district_code || body.to_district || ''),
+            receiver_commune: String(to.commune_code || to.ward_code || body.to_ward || ''),
+            receiver_ward: String(to.commune_code || to.ward_code || body.to_ward || ''),
+            weight_gram: Number(weight)||0,
+            cod: Number(body.total_cod || body.cod || 0)||0,
+            option_id: String(body.option_id || s.option_id || '1')
+          };
+
+          // Call SuperAI platform price endpoint
+          const data = await superFetch(env, '/v1/platform/orders/price', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+
+          // Normalize response
+          const arr = (data?.data && (data.data.items||data.data.rates)) || data?.data || data || [];
+          const items = [];
+          const pushOne = (x)=>{
+            if(!x) return;
+            const fee = Number(x.fee ?? x.price ?? x.total_fee ?? x.amount ?? 0);
+            const eta = x.eta ?? x.leadtime_text ?? x.leadtime ?? '';
+            const provider = x.provider ?? x.carrier ?? x.brand ?? x.code ?? 'dvvc';
+            const service_code = x.service_code ?? x.service ?? x.serviceId ?? '';
+            const name = x.name ?? x.service_name ?? x.display ?? 'Dịch vụ';
+            if(fee>0) items.push({provider, service_code, name, fee, eta});
+          };
+          if(Array.isArray(arr)) arr.forEach(pushOne); else pushOne(arr);
+
+          if(items.length){
+            return json({ok:true, items, used: payload}, {}, req);
+          }
+
+          // Fallback estimates when upstream empty or fails silently
+          const unit = Math.max(1, Math.ceil((payload.weight_gram||0)/500));
+          const base = 12000 + unit*3000;
+          const fb = [
+            { provider:'jt',  service_code:'JT-FAST',  name:'Giao nhanh',  fee: Math.round(base*1.1), eta:'1-2 ngày' },
+            { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
+            { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
+          ];
+          return json({ok:true, items: fb, used: payload, fallback: true}, {}, req);
+        }catch(e){
+          return json({ok:false, error: String(e?.message||e)}, {status:500}, req);
+        }
+      }
 // ---- SuperAI Platform Areas ----
 if(p==='/shipping/areas/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
