@@ -751,7 +751,20 @@ try{
 }
 
 // Cart modal bottom sheet
-function cartItems(){ try{ const raw=JSON.parse(localStorage.getItem('CART')||'[]'); const merged=consolidateCart(raw); if(merged.length!==raw.length){ localStorage.setItem('CART', JSON.stringify(merged)); } return merged; }catch{ return []; } }
+function cartItems(){ 
+  try{ 
+    const A = JSON.parse(localStorage.getItem('CART')||'[]')||[];
+    const B = JSON.parse(localStorage.getItem('cart')||'[]')||[];
+    const raw = (Array.isArray(A)&&A.length)?A:B;
+    const merged = consolidateCart((raw||[]).map(it=>({ 
+      ...it, 
+      price: Number(String(it.price||0).toString().replace(/[^0-9.-]/g,''))||0,
+      qty: Number(it.qty||1)||1 
+    })));
+    if(merged.length!==raw.length){ localStorage.setItem('CART', JSON.stringify(merged)); }
+    return merged; 
+  }catch{ return []; } 
+} return merged; }catch{ return []; } }
 
 // SHV_PATCH: consolidate cart items by (id, variant, price)
 function keyOfItem(it){
@@ -952,10 +965,12 @@ function openCheckoutModal(){
   function updateAddrCard(){
     const name = (m.querySelector('#co-name')?.value||'').trim();
     const phone = (m.querySelector('#co-phone')?.value||'').trim();
-    const addr = (m.querySelector('#co-addr')?.value||'').trim();
-    const prov = (m.querySelector('#co-province')?.value||'').trim();
-    const dist = (m.querySelector('#co-district')?.value||'').trim();
+    const addr = (m.querySelector('#co-addr')?.value||'';
+    const prov = (m.querySelector('#co-province-code')?.value||m.querySelector('#co-province')?.value||'').trim();
+    const dist = (m.querySelector('#co-district-code')?.value||m.querySelector('#co-district')?.value||'').trim();
     const ward = (m.querySelector('#co-ward')?.value||'').trim();
+    m.querySelector('#co-addr')?.addEventListener('input', ()=>{ resolveFromText(); setTimeout(refreshShip,300); });
+    const addr = (m.querySelector('#co-addr')?.value||'').trim();
     const text = (name||phone||addr||prov||dist||ward)
       ? `${name?name:''} ${phone?('• '+phone):''}<br/>${addr?addr+', ':''}${ward?ward+', ':''}${dist?dist+', ':''}${prov?prov:''}`
       : 'Vui lòng nhập thông tin';
@@ -964,7 +979,7 @@ function openCheckoutModal(){
   ['#co-name','#co-phone','#co-addr','#co-province','#co-district','#co-ward'].forEach(sel=>{
     const el = m.querySelector(sel); if(el) el.addEventListener('input', updateAddrCard);
   });
-  updateAddrCard();
+  updateAddrCard(); resolveFromText();
 
   const list = cartItems();
   const box = m.querySelector('#co-items');
@@ -1011,6 +1026,38 @@ function openCheckoutModal(){
   shipWrap.innerHTML = `<div style="margin-top:10px"><div style="font-weight:700;margin:6px 0">Đơn vị vận chuyển</div><div id="co-ship-list" style="display:flex;flex-direction:column;gap:6px"></div><div id=\"co-ship-hint\" style=\"font-size:12px;color:#6b7280;margin-top:4px\">Chọn Tỉnh/Quận/Phường để xem phí vận chuyển ước tính</div></div>`;
   
   // === Area selects (receiver) ===
+
+  // --- Auto resolve province/district/ward from free text address ---
+  function slug(s){ return (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
+  async function resolveFromText(){
+    const addr = (m.querySelector('#co-addr')?.value||'';
+    if(!addr) return;
+    try{
+      const saddr = slug(addr);
+      // Province
+      const provs = await getAreas('/shipping/areas/province');
+      let p = provs.find(x=> saddr.includes(slug(x.name)));
+      if(p){ 
+        const sel = $('#co-province-sel'); if(sel){ sel.value = p.code; sel.dispatchEvent(new Event('change')); }
+        $('#co-province').value = p.name; $('#co-province-code').value = p.code;
+        // Districts
+        const dists = await getAreas('/shipping/areas/district?province='+encodeURIComponent(p.code));
+        let d = dists.find(x=> saddr.includes(slug(x.name)));
+        if(d){ 
+          const ds = $('#co-district-sel'); if(ds){ ds.innerHTML = ds.innerHTML; ds.value = d.code; ds.dispatchEvent(new Event('change')); }
+          $('#co-district').value = d.name; $('#co-district-code').value = d.code;
+          // Wards
+          const wards = await getAreas('/shipping/areas/ward?district='+encodeURIComponent(d.code));
+          let w = wards.find(x=> saddr.includes(slug(x.name)));
+          if(w){ 
+            const ws = $('#co-ward-sel'); if(ws){ ws.value = w.code; }
+            $('#co-ward').value = w.name; $('#co-ward-code').value = w.code;
+          }
+        }
+      }
+    }catch(e){}
+  }
+
   (async ()=>{
   const $ = (sel)=>m.querySelector(sel);
   async function getAreas(path){
@@ -1103,8 +1150,8 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
     }
     
     try{
-      const prov = (m.querySelector('#co-province')?.value||'').trim();
-      const dist = (m.querySelector('#co-district')?.value||'').trim();
+      const prov = (m.querySelector('#co-province-code')?.value||m.querySelector('#co-province')?.value||'').trim();
+      const dist = (m.querySelector('#co-district-code')?.value||m.querySelector('#co-district')?.value||'').trim();
       if(!prov || !dist) return;
       const items = cartItems();
       const weight = items.reduce((s,it)=> s + (Number(it.weight)||200)*(Number(it.qty)||1), 0);
