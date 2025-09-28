@@ -42,10 +42,3 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}  # tên secret khớp với bạn đang dùng
           workingDirectory: workers/shv-api
           command: publish
-// index.js (khu Public routes)
-const BUILD_ID = '2025-09-28-01'; // đổi mỗi lần deploy
-
-if (p === '/__version' && req.method === 'GET') {
-  return json({ ok: true, build: BUILD_ID, now: Date.now() },
-    { headers: { 'Cache-Control': 'no-store' } }, req);
-}
