@@ -1,4 +1,4 @@
-name: Deploy Worker
+name: Deploy Worker (shv-api)
 
 on:
   push:
@@ -26,8 +26,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # (Nếu project có package.json để bundle) – giữ lại, nếu không có thì bỏ
+      # ✅ In ra thông tin để chắc chắn đang build đúng thư mục
+      - name: Verify source (index.js must contain ward & weight map)
+        run: |
+          echo "----- wrangler.toml -----"
+          cat wrangler.toml
+          echo "----- src/index.js (grep markers) -----"
+          grep -n "/shipping/areas/ward" -n src/index.js || true
+          grep -n "payload.weight = Number(body.weight_gram" -n src/index.js || true
+
+      # (chỉ cần nếu thư mục worker có package.json)
       - name: Setup Node
+        if: hashFiles('**/package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -35,10 +45,24 @@ jobs:
         if: hashFiles('**/package.json') != ''
         run: npm ci
 
+      # ✅ Publish bằng official action (log rõ ràng)
       - name: Publish to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}  # tên secret khớp với bạn đang dùng
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # đúng tên secret
           workingDirectory: workers/shv-api
           command: publish
+        env:
+          # Nếu bạn KHÔNG đặt biến này ở Dashboard thì mới cần bơm qua env
+          SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
+          SUPER_BASE: ${{ secrets.SUPER_BASE }}
+
+      # ✅ In deployments để chắc là publish đúng script
+      - name: List deployments
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/shv-api
+          command: deployments list
