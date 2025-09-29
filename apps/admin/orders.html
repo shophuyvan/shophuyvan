@@ -368,23 +368,38 @@ btnC.onclick = async ()=>{
     const its = Array.isArray(o.items)? o.items: [];
     const weight = its.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
     const subtotal = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-    const payload = {
-      order_id: o.id || o._id || '',
-      provider: o.shipping_provider || (o.shipping && o.shipping.provider) || '',
-      service: o.shipping_service || (o.shipping && o.shipping.service) || '',
-      fee: Number(o.shipping_fee||0),
-      name: o.shipping_name || '',
-      eta: o.shipping_eta || '',
-      to_name: (o.customer&&o.customer.name)||o.customer_name||o.name||'',
-      to_phone: (o.customer&&o.customer.phone)||o.phone||'',
-      to_address: (o.customer&&o.customer.address)||o.address||'',
-      to_province: o.customer?.province || o.to_province || '',
-      to_district: o.customer?.district || o.to_district || '',
-      to_commune:  o.customer?.commune  || o.to_commune  || '',
-      weight, cod: subtotal,
-      items: its.map(it=>({ sku: it.sku||it.id||'', name: it.name||'', qty: Number(it.qty||1), price: Number(it.price||0), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) }))
-    };
-    const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
+    const nameVal = o.name || (its[0]?.name) || 'Đơn hàng';
+const serviceCode = o.shipping_service || (o.shipping && o.shipping.service) || '';
+const provider = o.shipping_provider || (o.shipping && o.shipping.provider) || '';
+const safeWeight = (weight && Number(weight)>0) ? Number(weight) : 500;
+
+const payload = {
+  order_id: o.id || o._id || '',
+  provider,
+  service_code: serviceCode,
+  fee: Number(o.shipping_fee||0),
+  name: nameVal,
+  eta: o.shipping_eta || '',
+  to_name: (o.customer&&o.customer.name)||o.customer_name||o.name||'',
+  to_phone: (o.customer&&o.customer.phone)||o.phone||'',
+  to_address: (o.customer&&o.customer.address)||o.address||'',
+  to_province_code: o.customer?.province_code || o.to_province_code || '',
+  to_district_code: o.customer?.district_code || o.to_district_code || '',
+  to_commune_code:  o.customer?.commune_code  || o.to_commune_code  || '',
+  to_province: o.customer?.province || o.to_province || '',
+  to_district: o.customer?.district || o.to_district || '',
+  to_commune:  o.customer?.commune  || o.to_commune  || '',
+  weight: safeWeight,
+  cod: subtotal,
+  items: (its && its.length) ? its.map(it=>({
+      sku: it.sku||it.id||'',
+      name: it.name || nameVal,
+      qty: Number(it.qty||1),
+      price: Number(it.price||0),
+      weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) || Math.round(safeWeight/(its.length||1))
+  })) : [{ sku: 'GEN', name: nameVal, qty: 1, price: subtotal, weight_grams: safeWeight }]
+};
+const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload}),{method:'POST', body: payload});
     if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking||''); }
     else{ Admin.toast('Tạo vận đơn thất bại'); console.warn('create-failed', r); }
   }catch(e){ Admin.toast('Lỗi tạo vận đơn'); console.error(e); }
