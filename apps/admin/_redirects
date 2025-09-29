@@ -1,10 +1,2 @@
-# Phục vụ trực tiếp trang đăng nhập quản trị (không redirect)
-# --> /admin/login sẽ trả thẳng file /login_admin.html
-/admin/login          /login_admin.html     200
-
-# Gom mọi biến thể/nhầm lẫn về URL chuẩn ở trên
-/login_admin          /admin/login          301
-/login_admin/         /admin/login          301
-/login_admin.html     /admin/login          301
-/login                /admin/login          301
-/admin                /admin/login          302
+/ /login_admin.html 200
+/index.html /login_admin.html 200
