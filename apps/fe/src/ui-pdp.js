@@ -956,9 +956,9 @@ function openCheckoutModal(){
     const okName=!!c.name; mark('#co-name', okName); if(!okName) errs.push('Vui lòng nhập họ tên.');
     const okPhone=phoneRe.test(c.phone||''); mark('#co-phone', okPhone); if(!okPhone) errs.push('Số điện thoại không hợp lệ.');
     const okAddr=!!c.address; mark('#co-addr', okAddr); if(!okAddr) errs.push('Vui lòng nhập địa chỉ.');
-    const okProv=!!c.province; mark('#co-province', okProv); if(!okProv) errs.push('Chọn Tỉnh/Thành.');
-    const okDist=!!c.district; mark('#co-district', okDist); if(!okDist) errs.push('Chọn Quận/Huyện.');
-    const okWard=!!c.ward; mark('#co-ward', okWard); if(!okWard) errs.push('Chọn Phường/Xã.');
+    const okProv=!!c.province && !!c.province_code; mark('#co-province', okProv); if(!okProv) errs.push('Chọn Tỉnh/Thành.');
+    const okDist=!!c.district && !!c.district_code; mark('#co-district', okDist); if(!okDist) errs.push('Chọn Quận/Huyện.');
+    const okWard=!!c.ward && !!c.ward_code; mark('#co-ward', okWard); if(!okWard) errs.push('Chọn Phường/Xã.');
     let box=m.querySelector('#co-errors'); if(!box){ box=document.createElement('div'); box.id='co-errors'; box.style.color='#ef4444'; box.style.margin='6px 0 0'; const t=m.querySelector('#co-title'); if(t) t.insertAdjacentElement('afterend', box); }
     box.innerHTML = errs.length? ('<ul style="padding-left:18px;list-style:disc">'+errs.map(e=>'<li>'+e+'</li>').join('')+'</ul>') : '';
     return errs.length===0;
@@ -1050,8 +1050,15 @@ function openCheckoutModal(){
   function syncNameAndCode(fromSel, textInput, codeInput){
     const sel = $(fromSel); if(!sel) return;
     const opt = sel.options[sel.selectedIndex];
-    if(opt){ $(textInput).value = (opt.text||''); $(codeInput).value = (sel.value||''); }
+    if(opt){
+      const code = (sel.value||'');
+      const name = (opt.text||'');
+      const isPlaceholder = !code || /Chọn/i.test(name);
+      $(textInput).value = isPlaceholder ? '' : name;
+      $(codeInput).value = code;
+    }
   }
+}
   async function loadProvinces(selectedName=''){
     const data = await getAreas('/shipping/areas/province');
     const sel = $('#co-province-sel'); sel.innerHTML='<option value="">— Chọn Tỉnh/Thành —</option>';
