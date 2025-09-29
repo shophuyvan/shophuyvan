@@ -1245,6 +1245,23 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
 
   // Normalize alias fields expected by provider
   // some providers expect root-level `phone`
+  // ensure receiver_address is filled from all possible sources
+  if(!payload.receiver_address){
+    const cand = [
+      payload.to_address,
+      body.to_address,
+      (order && order.shipping_address && (order.shipping_address.address || order.shipping_address.full || order.shipping_address.street)),
+      (order && order.customer && (order.customer.address || order.customer.full_address || order.customer.street)),
+      order && order.address,
+      body.address
+    ].filter(Boolean);
+    payload.receiver_address = (cand.length ? String(cand[0]) : '').trim();
+  }
+  // root-level address for providers that expect it
+  if(!payload.address){
+    payload.address = payload.receiver_address || payload.to_address || payload.sender_address || '';
+  }
+
   if(!payload.phone){
     payload.phone = payload.receiver_phone || payload.to_phone || payload.sender_phone || payload.from_phone || '';
   }
