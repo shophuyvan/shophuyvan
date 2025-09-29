@@ -45,9 +45,14 @@
 </div>
 <script>
 (function(){
+  // Require admin login
+  try{ ensureAuth(); }catch(_){}
+
   async function loadOrders(){
     try{
-      const res = await Admin.req('/api/orders',{method:'GET'});
+      let res;
+      try{ res = await Admin.req('/api/orders',{method:'GET'}); }
+      catch(e){ if((e&&e.status)==401){ try{ ensureAuth(); return; }catch(_){} } throw e; }
       const items = (res && res.items) || [];
       const tbody = document.getElementById('list');
       if(!tbody) return;
