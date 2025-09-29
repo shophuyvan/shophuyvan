@@ -200,7 +200,14 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
 <script>
 // --- Inject shipping actions on order detail modal ---
 (function(){
-  function sanitize(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function sanitize(v){ 
+    if(v===undefined || v===null) return ''; 
+    const s = String(v).trim();
+    if(!s) return '';
+    const sLower = s.toLowerCase();
+    if(sLower==='undefined' || sLower==='null' || sLower==='na' || sLower==='n/a' || sLower==='-') return '';
+    return s;
+  }
   function defaultService(provider){
     provider = (provider||'').toLowerCase();
     if(provider==='spx' || provider==='shopee' || provider==='shopee express') return 'SPX-REG';
