@@ -99,6 +99,24 @@ const SCH = {
 // === End Inline Schemas ===
 
 
+
+// === SHV SHIPPING TIERS (0–1kg → … → 6kg) ===
+const SHV_CARRIER_NAMES = { viettel:"Viettel Post", spx:"SPX Express", jt:"J&T Express", lazada:"Lazada Express", ghn:"GHN", best:"BEST Express" };
+const SHV_RATES_TIERS = [
+  { max_grams: 1000, rates: { viettel:23000, spx:25000, jt:20000, lazada:19000, ghn:19000, best:18000 } },
+  { max_grams: 2000, rates: { viettel:28000, spx:35000, jt:30000, lazada:23000, ghn:29000, best:28000 } },
+  { max_grams: 3000, rates: { viettel:33000, spx:45000, jt:35000, lazada:27000, ghn:34000, best:33000 } },
+  { max_grams: 4000, rates: { viettel:38000, spx:55000, jt:40000, lazada:31000, ghn:39000, best:38000 } },
+  { max_grams: 5000, rates: { viettel:43000, spx:65000, jt:40000, lazada:31000, ghn:39000, best:33000 } },
+  { max_grams: 6000, rates: { viettel:43000, spx:65000, jt:40000, lazada:31000, ghn:39000, best:33000 } },
+];
+function shvRatesFromTiers(weight_grams){
+  const t = SHV_RATES_TIERS.find(x=> weight_grams <= x.max_grams) || SHV_RATES_TIERS[SHV_RATES_TIERS.length-1];
+  const list = Object.entries(t.rates).map(([code, price])=>({provider:code, service_code:'standard', name: SHV_CARRIER_NAMES[code]||code, fee: price, price }));
+  list.sort((a,b)=> a.fee - b.fee);
+  return { weight_grams, slab: t.max_grams, items: list };
+}
+// === END SHIPPING TIERS ===
 /* SHV safe patch header */
 
 function corsHeaders(req){
@@ -704,6 +722,13 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       
 
 // === /api/orders (patch) ===
+if(p==='/api/shipping/tiers' && req.method==='GET'){
+  const url = new URL(req.url);
+  const weight = Number(url.searchParams.get('weight_grams')||url.searchParams.get('weight')||0)||0;
+  const out = shvRatesFromTiers(weight||1000);
+  return json({ ok:true, ...out }, {}, req);
+}
+
 if(p==='/api/orders' && req.method==='POST'){
   const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
   const body = await readBody(req)||{};
@@ -1088,7 +1113,9 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
 if(p==='/api/addresses/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  if(!items || !items.length){ const w = chargeableWeightGrams(body||{}); const r = shvRatesFromTiers(w||1000); items = r.items; }
+if(!items || !items.length){ const w = Number(url.searchParams.get('weight')||0)||0; const r = shvRatesFromTiers(w||1000); items = r.items; }
+return json({ok:true, items}, {}, req);
 }
 if(p==='/api/addresses/district' && req.method==='GET'){
   const u=new URL(req.url); const province=u.searchParams.get('province')||u.searchParams.get('province_code')||'';
@@ -1107,7 +1134,8 @@ if(p==='/api/addresses/commune' && req.method==='GET'){
 if(p==='/shipping/areas/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  if(!items || !items.length){ const w = chargeableWeightGrams(body||{}); const r = shvRatesFromTiers(w||1000); items = r.items; }
+return json({ok:true, items}, {}, req);
 }
 if(p==='/shipping/areas/district' && req.method==='GET'){
   const u=new URL(req.url); const province=u.searchParams.get('province')||'';
@@ -1126,7 +1154,8 @@ if(p==='/shipping/areas/commune' && req.method==='GET'){
 if(p==='/shipping/provinces' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  if(!items || !items.length){ const w = chargeableWeightGrams(body||{}); const r = shvRatesFromTiers(w||1000); items = r.items; }
+return json({ok:true, items}, {}, req);
 }
 if(p==='/shipping/districts' && req.method==='GET'){
   const u=new URL(req.url);
