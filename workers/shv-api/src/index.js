@@ -1258,6 +1258,45 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     payload.receiver_address = (cand.length ? String(cand[0]) : '').trim();
   }
   // root-level address for providers that expect it
+  // ---- Normalize province/district/commune (ward) ----
+  const pickText = (v)=> (v==null?'':String(v)).trim();
+  function firstNonEmpty(arr){ for(const x of arr){ if(x!=null && String(x).trim()!=='') return String(x).trim(); } return ''; }
+
+  if(!payload.receiver_province){
+    payload.receiver_province = firstNonEmpty([
+      payload.to_province,
+      body.to_province,
+      order?.shipping_address?.province,
+      order?.customer?.province,
+      order?.customer?.city,
+      order?.province
+    ]);
+  }
+  if(!payload.receiver_district){
+    payload.receiver_district = firstNonEmpty([
+      payload.to_district,
+      body.to_district,
+      order?.shipping_address?.district,
+      order?.customer?.district,
+      order?.district
+    ]);
+  }
+  if(!payload.receiver_commune){
+    payload.receiver_commune = firstNonEmpty([
+      payload.to_commune,
+      body.to_commune,
+      order?.shipping_address?.commune,
+      order?.shipping_address?.ward,
+      order?.customer?.commune,
+      order?.customer?.ward,
+      order?.ward
+    ]);
+  }
+  // some providers look for root-level keys
+  if(!payload.province){ payload.province = payload.receiver_province || payload.to_province || ''; }
+  if(!payload.district){ payload.district = payload.receiver_district || payload.to_district || ''; }
+  if(!payload.commune){ payload.commune = payload.receiver_commune || payload.to_commune || payload.ward || ''; }
+
   if(!payload.address){
     payload.address = payload.receiver_address || payload.to_address || payload.sender_address || '';
   }
