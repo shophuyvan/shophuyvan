@@ -1216,16 +1216,16 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
   const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
   // Admin creates real waybill
   const body = await req.json().catch(()=>({}));
-  const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{};
+  const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{}; const st = settings.store||{};
   const order = body.order || {};
   const ship = body.ship || {};
   const payload = {
     // Sender
-    sender_name: s.sender_name || settings.store?.name || 'Shop',
-    sender_phone: s.sender_phone || settings.store?.phone || '',
-    sender_address: s.sender_address || settings.store?.address || '',
-    sender_province: s.sender_province || '',
-    sender_district: s.sender_district || '',
+    sender_name: s.sender_name || st.name || 'Shop',
+    sender_phone: s.sender_phone || st.phone || st.owner_phone || '0900000000',
+    sender_address: s.sender_address || st.address || '',
+    sender_province: s.sender_province || st.province || st.city || '',
+    sender_district: s.sender_district || st.district || '',
     // Receiver
     receiver_name: order.customer?.name || body.to_name || '',
     receiver_phone: order.customer?.phone || body.to_phone || '',
@@ -1242,6 +1242,17 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     service_code: ship.service_code || body.service_code || order.shipping_service || ''
   };
 // ensure required fields for carrier (goods name & product list)
+
+  // Fallbacks to avoid CREATE_FAILED due to missing fields
+  if(!payload.receiver_phone){ payload.receiver_phone = (order.customer && order.customer.phone) || body.to_phone || ''; }
+  if(!payload.sender_phone){ payload.sender_phone = st.phone || st.owner_phone || '0900000000'; }
+  if(!payload.weight_gram || isNaN(payload.weight_gram) || Number(payload.weight_gram)<=0){
+    try{
+      const its = Array.isArray(order.items) ? order.items : [];
+      const w = its.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||it.quantity||1), 0);
+      payload.weight_gram = w>0 ? Math.ceil(w) : 1000;
+    }catch{ payload.weight_gram = 1000; }
+  }
 try{
   const __names = Array.isArray(order.items) ? order.items.map(x=>x?.name).filter(Boolean) : [];
   const __goods = (__names.join(', ').trim() || 'Hàng hóa').slice(0, 100);
