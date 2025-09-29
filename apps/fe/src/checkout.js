@@ -202,7 +202,7 @@ orderBtn?.addEventListener('click', async () => {
       shipping: { provider: (chosen?.provider || localStorage.getItem('ship_provider') || ''), service_code: (chosen?.service_code || localStorage.getItem('ship_service') || '') },
       totals: { shipping_fee: Number(ship_fee||0), discount: Number(localStorage.getItem('voucher_discount')||0), shipping_discount: Number(localStorage.getItem('voucher_ship_discount')||0) }
     };
-    const res = await api('/api/orders', { method:'POST', body });
+    const res = await api('/api/orders', { method:'POST', headers:{ 'Idempotency-Key': (localStorage.getItem('idem_order') || (function(){ const v='idem-'+Date.now(); localStorage.setItem('idem_order', v); return v;})()) }, body });
     if(res && res.ok){
       orderResult.textContent = `Đặt hàng thành công: ${res.id}`;
       localStorage.removeItem('cart');

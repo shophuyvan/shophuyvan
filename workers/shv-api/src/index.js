@@ -24,6 +24,28 @@ function logEntry(req){
 }
 // === End patch ===
 
+// === Volumetric helper (chargeable weight) ===
+function chargeableWeightGrams(body={}, order={}){
+  let w = Number(order.weight_gram || body.weight_gram || body.package?.weight_grams || 0) || 0;
+  const items = Array.isArray(body.items)? body.items : (Array.isArray(order.items)? order.items : []);
+  if(!w && items.length){
+    try{ w = items.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||it.quantity||1), 0);}catch{}
+  }
+  try{
+    const dim = body.package?.dim_cm || body.dim_cm || body.package?.dimensions || {};
+    const L = Number(dim.l||dim.length||0);
+    const W = Number(dim.w||dim.width||0);
+    const H = Number(dim.h||dim.height||0);
+    if(L>0 && W>0 && H>0){
+      const vol = Math.round((L*W*H)/5000*1000);
+      if(vol > w) w = vol;
+    }
+  }catch{}
+  return Math.max(0, Math.round(w));
+}
+// === End volumetric helper ===
+
+
 // === SHV Minimal Schema Validator (patch) ===
 function typeOf(v){
   if(v===null) return 'null';
@@ -1212,7 +1234,7 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     receiver_district: order.customer?.district || body.to_district || '',
     receiver_commune: order.customer?.ward || body.to_commune || '',
     // Parcel
-    weight_gram: Number(order.weight_gram || body.weight_gram || 0) || 0,
+    weight_gram: chargeableWeightGrams(body, order),
     cod: Number(order.cod || body.cod || 0) || 0,
     option_id: s.option_id || '1',
     // Service selected

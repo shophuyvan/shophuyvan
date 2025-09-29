@@ -34,7 +34,11 @@ window.Admin = (function(){
       body = JSON.stringify(body);
     }
     // Robust fetch + JSON convenience
-    const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
+    if((init.method||'GET').toUpperCase()!=='GET' && !headers.has('Idempotency-Key')){
+  headers.set('Idempotency-Key', 'idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
+}
+console.info('[Admin.req]', (init.method||'GET'), url);
+const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
     let data = null;
     const ctype = res.headers.get('content-type')||'';
     if (ctype.includes('application/json')) {
