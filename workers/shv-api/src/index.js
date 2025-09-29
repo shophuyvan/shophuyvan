@@ -1233,6 +1233,10 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     receiver_province: order.customer?.province || body.to_province || '',
     receiver_district: order.customer?.district || body.to_district || '',
     receiver_commune: order.customer?.ward || body.to_commune || '',
+    ,receiver_province_code: order.customer?.province_code || body.to_province_code || body.province_code || '',
+    receiver_district_code: order.customer?.district_code || body.to_district_code || body.district_code || '',
+    receiver_commune_code: order.customer?.commune_code || order.customer?.ward_code || body.to_commune_code || body.to_ward_code || body.commune_code || body.ward_code || ''
+
     // Parcel
     weight_gram: chargeableWeightGrams(body, order),
     cod: Number(order.cod || body.cod || 0) || 0,
@@ -1296,6 +1300,11 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
   if(!payload.province){ payload.province = payload.receiver_province || payload.to_province || ''; }
   if(!payload.district){ payload.district = payload.receiver_district || payload.to_district || ''; }
   if(!payload.commune){ payload.commune = payload.receiver_commune || payload.to_commune || payload.ward || ''; }
+
+  // numeric code aliases (some providers require *_code or *_id)
+  if(!payload.province_code){ payload.province_code = payload.receiver_province_code || payload.to_province_code || payload.province_id || ''; }
+  if(!payload.district_code){ payload.district_code = payload.receiver_district_code || payload.to_district_code || payload.district_id || ''; }
+  if(!payload.commune_code){ payload.commune_code = payload.receiver_commune_code || payload.to_commune_code || payload.ward_code || payload.commune_id || ''; }
 
   if(!payload.address){
     payload.address = payload.receiver_address || payload.to_address || payload.sender_address || '';
