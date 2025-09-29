@@ -1244,6 +1244,11 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
 // ensure required fields for carrier (goods name & product list)
 
   // Normalize alias fields expected by provider
+  // some providers expect root-level `phone`
+  if(!payload.phone){
+    payload.phone = payload.receiver_phone || payload.to_phone || payload.sender_phone || payload.from_phone || '';
+  }
+
   const __dig = (v)=> String(v||'').replace(/\D+/g,'');
   payload.receiver_phone = __dig(payload.receiver_phone);
   payload.sender_phone   = __dig(payload.sender_phone);
