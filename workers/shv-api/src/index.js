@@ -1233,9 +1233,6 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     receiver_province: order.customer?.province || body.to_province || '',
     receiver_district: order.customer?.district || body.to_district || '',
     receiver_commune: order.customer?.ward || body.to_commune || '',
-    ,receiver_province_code: order.customer?.province_code || body.to_province_code || body.province_code || '',
-    receiver_district_code: order.customer?.district_code || body.to_district_code || body.district_code || '',
-    receiver_commune_code: order.customer?.commune_code || order.customer?.ward_code || body.to_commune_code || body.to_ward_code || body.commune_code || body.ward_code || ''
 
     // Parcel
     weight_gram: chargeableWeightGrams(body, order),
