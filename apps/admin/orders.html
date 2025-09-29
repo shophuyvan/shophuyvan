@@ -223,14 +223,13 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
         package:{ weight_grams: weight_gram || 500, dim_cm:{l:20,w:15,h:8} }, 
         total_cod: cod||0 
       };
-      const res = await fetch('/api/shipping/quote',{
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-      });
-      const j = await res.json().catch(()=>null);
-      const arr = (j && j.items) || [];
+      // Use Admin.req so it hits the correct Worker domain instead of Pages (avoid 405)
+      const r = await Admin.req('/api/shipping/quote',{method:'POST', body});
+      const arr = (r && r.items) || [];
       arr.sort((a,b)=> Number(a.fee||0) - Number(b.fee||0));
       return arr[0] || null;
     }catch(e){ console.warn('quoteBest failed', e); return null; }
+  }
   }
 
   function openPrint(order, tracking){
