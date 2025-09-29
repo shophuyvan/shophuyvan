@@ -1,19 +1,22 @@
 /* SHV safe patch header */
 
 function corsHeaders(req){
-  const origin = req.headers.get('Origin') || '*';
-  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'authorization,content-type,x-token,x-requested-with';
+  const origin = (req && req.headers && (req.headers.get('Origin')||req.headers.get('origin'))) || '*'
+  const reqHdr = (req && req.headers && (req.headers.get('Access-Control-Request-Headers')||req.headers.get('access-control-request-headers'))) || 'authorization,content-type,x-token,x-requested-with'
   return {
     'Access-Control-Allow-Origin': origin,
-    'Vary': 'Origin',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Max-Age': '86400',
     'Access-Control-Allow-Headers': reqHdr,
-    'Access-Control-Expose-Headers': 'x-token', 'Access-Control-Allow-Credentials': 'true'
-  };
+    'Access-Control-Expose-Headers': 'x-token',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
+  }
 }
-function json(data, init={}){ return new Response(JSON.stringify(data||{}), {status: init.status||200, headers: {...corsHeaders(req), 'content-type':'application/json; charset=utf-8'}}); }
-
+function json(data, init={}){
+  return new Response(JSON.stringify(data||{}), {
+    status: (init && init.status) || 200,
+    headers: { ...(init && init.headers || {}), ...corsHeaders(__req), 'content-type':'application/json; charset=utf-8' }
+  })
+}
 
 // === SuperAI helpers injected ===
 async function superToken(env){
@@ -207,6 +210,7 @@ function aiAlt(p){
 
 export default {
   async fetch(req, env, ctx){
+    __req = req // bind for helpers
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
