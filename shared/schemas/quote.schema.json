@@ -1,0 +1,90 @@
+{
+  "$id": "quote.schema.json",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "sku": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "cost": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 1
+          },
+          "weight_grams": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "price",
+          "qty"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "weight_grams": {
+          "type": "number"
+        },
+        "dim_cm": {
+          "type": "object",
+          "properties": {
+            "l": {
+              "type": "number"
+            },
+            "w": {
+              "type": "number"
+            },
+            "h": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "from": {
+      "type": "object"
+    },
+    "to": {
+      "type": "object"
+    },
+    "total_cod": {
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  },
+  "required": [],
+  "additionalProperties": true
+}

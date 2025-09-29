@@ -1,0 +1,33 @@
+{
+  "$id": "address.schema.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "province_code": {
+      "type": "string"
+    },
+    "district_code": {
+      "type": "string"
+    },
+    "commune_code": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "phone",
+    "address",
+    "province_code",
+    "district_code",
+    "commune_code"
+  ],
+  "additionalProperties": true
+}

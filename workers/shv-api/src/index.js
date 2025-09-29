@@ -23,6 +23,60 @@ function logEntry(req){
   }catch(e){}
 }
 // === End patch ===
+
+// === SHV Minimal Schema Validator (patch) ===
+function typeOf(v){
+  if(v===null) return 'null';
+  if(Array.isArray(v)) return 'array';
+  return typeof v;
+}
+function validate(schema, data){
+  const errors = [];
+  function check(s, d, path){
+    if(!s) return;
+    if(s.type){
+      const types = Array.isArray(s.type)? s.type : [s.type];
+      const ok = types.includes(typeOf(d));
+      if(!ok && !(types.includes('number') && !isNaN(Number(d)))){
+        errors.push(`${path||'data'}: expected ${types.join('|')} got ${typeOf(d)}`);
+        return;
+      }
+    }
+    if(s.required && typeOf(d)==='object'){
+      for(const k of s.required){ if(!(k in d)) errors.push(`${path||'data'}.${k} is required`); }
+    }
+    if(s.properties && typeOf(d)==='object'){
+      for(const [k, sub] of Object.entries(s.properties)){
+        if(d[k]!==undefined) check(sub, d[k], (path?path+'.':'')+k);
+      }
+    }
+    if(s.items && typeOf(d)==='array'){
+      d.forEach((v,i)=> check(s.items, v, (path?path:'data')+'['+i+']'));
+    }
+    return;
+  }
+  check(schema, data, '');
+  return {ok: errors.length===0, errors};
+}
+// === End Validator (patch) ===
+
+// === Inline Schemas (patch) ===
+const SCH = {
+  address: { type:'object', required:['name','phone','address','province_code','district_code','commune_code'] },
+  orderItem: { type:'object', required:['name','price','qty'] },
+  orderCreate: {
+    type:'object',
+    required:['customer','items'],
+    properties:{
+      customer: { type:'object', required:['name','phone','address','province_code','district_code','commune_code'] },
+      items: { type:'array', items: { type:'object', required:['name','price','qty'] } },
+      totals: { type:'object', properties:{ shipping_fee:{type:'number'}, discount:{type:'number'}, shipping_discount:{type:'number'} } }
+    }
+  }
+};
+// === End Inline Schemas ===
+
+
 /* SHV safe patch header */
 
 function corsHeaders(req){
@@ -626,6 +680,43 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
 
       // Public checkout: POST /public/orders/create
       
+
+// === /api/orders (patch) ===
+if(p==='/api/orders' && req.method==='POST'){
+  const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
+  const body = await readBody(req)||{};
+  const v = validate(SCH.orderCreate, body);
+  if(!v.ok) return json({ok:false, error:'VALIDATION', details:v.errors}, {status:400}, req);
+  const id = body.id || crypto.randomUUID().replace(/-/g,'');
+  const createdAt = Date.now();
+  const items = Array.isArray(body.items)? body.items: [];
+  const subtotal = items.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
+  const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
+  const discount = Number(body?.totals?.discount || body.discount || 0);
+  const shipping_discount = Number(body?.totals?.shipping_discount || body.shipping_discount || 0);
+  const revenue = Math.max(0, subtotal + shipping_fee - (discount + shipping_discount));
+  const profit = items.reduce((s,it)=> s + (Number(it.price||0)-Number(it.cost||0))*Number(it.qty||1), 0) - (discount||0);
+  const order = {
+    id, createdAt, status:'confirmed',
+    customer: body.customer, items,
+    subtotal, shipping_fee, discount, shipping_discount,
+    revenue, profit,
+    note: body.note||'', source: 'fe'
+  };
+  await putJSON(env, 'order:'+id, order);
+  const list = await getJSON(env,'orders:list',[])||[];
+  list.unshift(order);
+  await putJSON(env,'orders:list', list);
+  const __res = json({ok:true, id, order}, {}, req);
+  await idemSet(__idem.key, env, __res);
+  return __res;
+}
+if(p==='/api/orders' && req.method==='GET'){
+  if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'}, {status:401}, req);
+  const list = await getJSON(env,'orders:list',[])||[];
+  return json({ok:true, items:list}, {}, req);
+}
+// === End /api/orders ===
 if(p==='/public/orders/create' && req.method==='POST'){
         const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
         const body = await readBody(req)||{};
@@ -970,6 +1061,26 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
           return json({ok:false, error: String(e?.message||e)}, {status:500}, req);
         }
       }
+
+// === /api/addresses/* aliases (patch) ===
+if(p==='/api/addresses/province' && req.method==='GET'){
+  const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items}, {}, req);
+}
+if(p==='/api/addresses/district' && req.method==='GET'){
+  const u=new URL(req.url); const province=u.searchParams.get('province')||u.searchParams.get('province_code')||'';
+  const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, province}, {}, req);
+}
+if(p==='/api/addresses/commune' && req.method==='GET'){
+  const u=new URL(req.url); const district=u.searchParams.get('district')||u.searchParams.get('district_code')||'';
+  const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
+  const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
+  return json({ok:true, items, district}, {}, req);
+}
+// === End /api/addresses/* ===
 // ---- SuperAI Platform Areas ----
 if(p==='/shipping/areas/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
