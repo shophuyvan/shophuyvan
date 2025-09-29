@@ -20,7 +20,136 @@
   <div class="card">
     <div class="row"><div class="col">
       
-<div id="live-orders"></div>
+<label>Tạo đơn</label>
+<div class="row">
+  <div class="col">
+    <div class="grid">
+      <div>
+        <div class="label">Họ tên</div>
+        <input id="c-name" class="input" placeholder="Nguyễn Văn A"/>
+      </div>
+      <div>
+        <div class="label">Số điện thoại</div>
+        <input id="c-phone" class="input" placeholder="09xx"/>
+      </div>
+    </div>
+    <div class="label" style="margin-top:6px">Địa chỉ</div>
+    <input id="c-addr" class="input" placeholder="Số nhà, đường, phường, quận, tỉnh/thành"/>
+  </div>
+</div>
+
+<div class="label" style="margin-top:10px">Sản phẩm</div>
+<table class="table" id="items-table">
+  <thead><tr>
+    <th style="width:22%">Mã SP</th>
+    <th>Tên/Phân loại</th>
+    <th style="width:10%">SL</th>
+    <th style="width:14%">Giá bán</th>
+    <th style="width:14%">Giá vốn</th>
+    <th style="width:6%"></th>
+  </tr></thead>
+  <tbody id="items-body"></tbody>
+</table>
+<div class="toolbar"><button id="add-row" class="btn">+ Thêm dòng</button></div>
+
+<div class="grid">
+  <div>
+    <div class="label">Phí vận chuyển</div>
+    <input id="ship-fee" class="input" type="number" value="0"/>
+  </div>
+  <div>
+    <div class="label">Giảm (voucher)</div>
+    <input id="discount" class="input" type="number" value="0"/>
+  </div>
+  <div>
+    <div class="label">Ghi chú</div>
+    <input id="note" class="input" placeholder="Ghi chú cho đơn"/>
+  </div>
+</div>
+
+<div class="card" style="margin-top:10px">
+  <div id="calc-summary" style="font-size:14px"></div>
+</div>
+
+<div class="toolbar">
+  <button id="create" class="btn primary">Tạo đơn</button>
+</div>
+
+<script>
+(function(){
+  const body = document.getElementById('items-body');
+  function addRow(data){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="input" placeholder="ID SP" value="${data?.id||''}"/></td>
+      <td><input class="input" placeholder="Tên / Phân loại" value="${data?.name||''}"/></td>
+      <td><input class="input" type="number" min="1" value="${data?.qty||1}"/></td>
+      <td><input class="input" type="number" min="0" value="${data?.price||0}"/></td>
+      <td><input class="input" type="number" min="0" value="${data?.cost||0}"/></td>
+      <td><button class="btn" data-del="1">X</button></td>`;
+    body.appendChild(tr);
+  }
+  document.getElementById('add-row').addEventListener('click', e=>{ addRow(); });
+
+  function collectItems(){
+    const rows = Array.from(body.querySelectorAll('tr'));
+    return rows.map(r=>{
+      const [id,name,qty,price,cost] = Array.from(r.querySelectorAll('input')).map(i=>i.value);
+      return { id, name, qty:Number(qty||1), price:Number(price||0), cost:Number(cost||0) };
+    }).filter(x=>x.id || x.name);
+  }
+
+  function renderCalc(){
+    const items = collectItems();
+    const sub = items.reduce((s,it)=>s+Number(it.price||0)*Number(it.qty||1),0);
+    const ship = Number(document.getElementById('ship-fee').value||0);
+    const disc = Number(document.getElementById('discount').value||0);
+    const total = Math.max(0, sub + ship - disc);
+    document.getElementById('calc-summary').innerHTML = `
+      <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${sub.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${ship.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between"><span>Giảm</span><b>-${disc.toLocaleString('vi-VN')}đ</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${total.toLocaleString('vi-VN')}đ</b></div>`;
+  }
+  ['keyup','change','input'].forEach(ev=>{
+    document.getElementById('items-table').addEventListener(ev, renderCalc);
+    document.getElementById('ship-fee').addEventListener(ev, renderCalc);
+    document.getElementById('discount').addEventListener(ev, renderCalc);
+  });
+  document.getElementById('items-table').addEventListener('click', e=>{
+    if(e.target.dataset.del){ e.target.closest('tr')?.remove(); renderCalc(); }
+  });
+  addRow();
+  renderCalc();
+
+  // Override create handler to send structured order
+  document.getElementById('create').addEventListener('click', async ()=>{
+    const order = {
+      id: '',
+      createdAt: Date.now(),
+      customer: { name: document.getElementById('c-name').value||'', phone: document.getElementById('c-phone').value||'', address: document.getElementById('c-addr').value||'' },
+      items: collectItems(),
+      shipping_fee: Number(document.getElementById('ship-fee').value||0),
+      discount: Number(document.getElementById('discount').value||0),
+      note: document.getElementById('note').value||'',
+      source: 'admin'
+    };
+    try{
+      const r = await Admin.req('/api/orders', {method:'POST', body: {
+        customer: order.customer,
+        items: order.items,
+        note: order.note,
+        totals: { shipping_fee: order.shipping_fee||order.shippingFee||0, discount: order.discount||0 }
+      }});
+      if(r && r.ok){ alert('Tạo đơn thành công: '+(r.id||'')); load(); }
+      else{ alert('Tạo đơn thất bại'); }
+    }catch(e){ alert('Lỗi: '+(e&&e.message||e)); }
+  }, { once: true });
+})();
+</script>
+
+
+  <div id="live-orders"></div>
 
   <div class="card"><div class="title">Danh sách</div>
     <table class="table md-table"><thead><tr><th>Mã</th><th>Khách</th><th>Tổng hàng</th><th>Ship</th><th>Doanh thu</th><th>Lợi nhuận</th><th></th></tr></thead>
@@ -33,9 +162,7 @@
 <script>
 const $=s=>document.querySelector(s);
 Admin.ensureAuth(); Admin.renderApiBase();
-$('#create').onclick = async ()=>{
-  try{ const body = JSON.parse($('#raw').value||'{}'); let r = await Admin.req('/admin/orders/upsert',{method:'POST',body}); if(r&&r.ok){ Admin.toast('Đã tạo'); load(); } else alert('Tạo thất bại'); }catch(e){ alert('JSON không hợp lệ'); }
-};
+
 
 
 async function load(){
