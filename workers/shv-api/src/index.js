@@ -972,6 +972,8 @@ if(p==='/shipping/price' && req.method==='POST'){
 
 
 // ---- SuperAI Platform Create Order ----
+// Alias: /api/shipping/create -> same as admin create
+if(p==='/api/shipping/create' && req.method==='POST'){ p='/admin/shipping/create'; }
 if(p==='/admin/shipping/create' && req.method==='POST'){
   try{
     const body = await (req.headers.get('content-type')||'').includes('application/json') ? (await req.json().catch(()=>({}))) : (await readBody(req)||{});
@@ -1100,9 +1102,89 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
         await putJSON(env,'settings', all);
         return json({ok:true}, {}, req);
       }
-      // Shipping quote (stub logic)
+      // Shipping quote (admin) -> use SuperAI when available; else fallback like public /shipping/quote
       if(p==='/admin/shipping/quote' && req.method==='POST'){
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        const body = await readBody(req)||{};
+        const pkg = body.package || {};
+        const to  = body.to || {};
+        const weight = Number(pkg.weight_grams || body.weight || 0) || 0;
+        const cod = Number(body.total_cod || body.cod || 0) || 0;
+
+        // Map codes -> names if provided as codes
+        let to_province = body.to_province || body.to?.province || '';
+        let to_district = body.to_district || body.to?.district || '';
+        const provCode = String(to.province_code || body.to_province_code || '').trim();
+        const distCode = String(to.district_code || body.to_district_code || '').trim();
+        if(!to_province && provCode){
+          try{
+            const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
+            const list = data?.data || data || [];
+            const hit = list.find(x=> String(x.code||x.id||x.value||'')===provCode);
+            to_province = hit?.name || '';
+          }catch(e){}
+        }
+        if(!to_district && distCode){
+          try{
+            const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(provCode), {method:'GET'});
+            const list = data?.data || data || [];
+            const hit = list.find(x=> String(x.code||x.id||x.value||'')===distCode);
+            to_district = hit?.name || '';
+          }catch(e){}
+        }
+
+        // Try SuperAI
+        const s = await getJSON(env,'settings',{})||{};
+        const bearer = (s?.shipping?.super_token) || '';
+        async function superQuote(){
+          if(!bearer) return null;
+          try{
+            const url = 'https://api.mysupership.vn/v1/ai/orders/superai';
+            const reqBody = {
+              receiver: { province: to_province, district: to_district },
+              weight_gram: Math.max(0, Math.round(weight||0)),
+              cod: cod
+            };
+            const r = await fetch(url, { method:'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+bearer }, body: JSON.stringify(reqBody) });
+            const data = await r.json().catch(()=>null);
+            let items = [];
+            const pushOne = (x)=>{
+              if(!x||typeof x!=='object') return;
+              const fee = Number(x.fee ?? x.price ?? x.total_fee ?? x.amount ?? 0);
+              const eta = x.eta ?? x.leadtime_text ?? x.leadtime ?? x.expected ?? '';
+              const provider = x.provider ?? x.carrier ?? x.brand ?? x.code ?? 'dvvc';
+              const service_code = x.service_code ?? x.service ?? x.serviceId ?? '';
+              const name = x.name ?? x.service_name ?? x.display ?? 'Dịch vụ';
+              if(fee>0) items.push({provider, service_code, name, fee, eta});
+            };
+            if(Array.isArray(data)) data.forEach(pushOne);
+            if(data && Array.isArray(data.items)) data.items.forEach(pushOne);
+            if(data && Array.isArray(data.services)) data.services.forEach(pushOne);
+            if(data && Array.isArray(data.data)) data.data.forEach(pushOne);
+            if(data && data.result && Array.isArray(data.result)) data.result.forEach(pushOne);
+            if(items.length) return {ok:true, items, raw:data};
+            return null;
+          }catch(e){ return null; }
+        }
+        const superRes = await superQuote();
+        if(superRes){ return json(superRes, {}, req); }
+
+        // Fallback pricing if SuperAI not available
+        const unit = Math.max(1, Math.ceil((weight||0)/500));
+        const base = 12000 + unit*3000;
+        const items = [
+          { provider:'jt',  service_code:'JT-FAST',  name:'Giao nhanh',  fee: Math.round(base*1.1), eta:'1-2 ngày' },
+          { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
+          { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
+        ];
+        return json({ok:true, items, to_province, to_district}, {}, req);
+      }
+      // Alias: /api/shipping/quote -> same as admin (POST)
+      if(p==='/api/shipping/quote' && req.method==='POST'){
+        // Re-dispatch to admin handler above by mutating path (simple fallthrough)
+        p = '/admin/shipping/quote';
+      }
+,{status:401},req);
         const body = await readBody(req)||{};
         const weight = Number(body.weight||0);
         const subtotal = (Array.isArray(body.items)?body.items:[]).reduce((s,it)=>s+Number(it.price||0)*(Number(it.qty||1)),0);
