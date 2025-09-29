@@ -1184,7 +1184,6 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
         // Re-dispatch to admin handler above by mutating path (simple fallthrough)
         p = '/admin/shipping/quote';
       }
-, {status:401});
         const body = await readBody(req)||{};
         const weight = Number(body.weight||0);
         const subtotal = (Array.isArray(body.items)?body.items:[]).reduce((s,it)=>s+Number(it.price||0)*(Number(it.qty||1)),0);
