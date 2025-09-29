@@ -1,0 +1,6 @@
+# URL đẹp cho trang đăng nhập admin
+/admin/login     /login_admin.html   200
+
+# Gom các biến thể/nhầm lẫn về /admin/login
+/login_admin     /admin/login        301
+/admin_login     /admin/login        301
