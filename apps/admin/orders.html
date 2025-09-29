@@ -152,6 +152,7 @@ if(btnP){ btnP.addEventListener('click', async ()=>{
       const o = (list&&list.items&&list.items[0])||null;
       openPrint(o, '');
     });
+  });
   obs.observe(container, { childList:true, subtree:true });
 })();
 </script>
