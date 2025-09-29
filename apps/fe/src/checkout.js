@@ -191,14 +191,26 @@ orderBtn?.addEventListener('click', async () => {
       shipping_provider: chosen?.provider || localStorage.getItem('ship_provider') || null,
       shipping_service: chosen?.service_code || localStorage.getItem('ship_service') || null
     };
-    const res = await api('/public/orders/create', { method:'POST', body });
-    if(res && res.orderId){
-      orderResult.textContent = `Đặt hàng thành công: ${res.orderId}`;
-      localStorage.removeItem('CART'); // clear cart after order
+    const body = {
+      customer: { name, phone, address,
+        province_code: document.getElementById('province')?.value||'',
+        district_code: document.getElementById('district')?.value||'',
+        commune_code: document.getElementById('ward')?.value||''
+      },
+      items: cart.map(it=>({ id: it.id||it.sku||'', sku: it.sku||it.id||'', name: it.name, qty: Number(it.qty||1), price: Number(it.price||0), cost: Number(it.cost||0||null), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) })),
+      note: '',
+      shipping: { provider: (chosen?.provider || localStorage.getItem('ship_provider') || ''), service_code: (chosen?.service_code || localStorage.getItem('ship_service') || '') },
+      totals: { shipping_fee: Number(ship_fee||0), discount: Number(localStorage.getItem('voucher_discount')||0), shipping_discount: Number(localStorage.getItem('voucher_ship_discount')||0) }
+    };
+    const res = await api('/api/orders', { method:'POST', body });
+    if(res && res.ok){
+      orderResult.textContent = `Đặt hàng thành công: ${res.id}`;
+      localStorage.removeItem('cart');
     }else{
       orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
     }
-  }catch(e){
+  }
+  catch(e){
     console.error(e);
     orderResult.textContent = 'Có lỗi xảy ra khi đặt hàng.';
   }finally{

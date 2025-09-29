@@ -135,7 +135,12 @@
       source: 'admin'
     };
     try{
-      const r = await Admin.req('/admin/orders/upsert', {method:'POST', body: order});
+      const r = await Admin.req('/api/orders', {method:'POST', body: {
+        customer: order.customer,
+        items: order.items,
+        note: order.note,
+        totals: { shipping_fee: order.shipping_fee||order.shippingFee||0, discount: order.discount||0 }
+      }});
       if(r && r.ok){ alert('Tạo đơn thành công: '+(r.id||'')); load(); }
       else{ alert('Tạo đơn thất bại'); }
     }catch(e){ alert('Lỗi: '+(e&&e.message||e)); }
@@ -164,7 +169,7 @@ $('#create').onclick = async ()=>{
 
 async function load(){
   try{
-    const r = await Admin.req('/admin/orders',{method:'GET'});
+    const r = await Admin.req('/api/orders',{method:'GET'});
     const items = (r && r.items) || [];
     const tb = document.getElementById('list');
     tb.innerHTML = '';
@@ -252,7 +257,7 @@ function renderLiveOrder(o){
 }
 async function pollNewOrders(){
   try{
-    const r = await Admin.req('/admin/orders?limit=1',{method:'GET'});
+    const r = await Admin.req('/api/orders?limit=1',{method:'GET'});
     const items = (r&&r.items)||r||[]; const first = items[0]; const id = first && (first.id||first._id);
     if(!__lastFirstId){ __lastFirstId = id; return; }
     if(id && id !== __lastFirstId){ __lastFirstId = id; renderLiveOrder(first); const b=document.getElementById('new-order-banner'); if(b) b.style.display='block'; }
@@ -359,7 +364,7 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
     
 btnC.onclick = async ()=>{
   try{
-    const list = await Admin.req('/admin/orders',{method:'GET'});
+    const list = await Admin.req('/api/orders',{method:'GET'});
     const items=(list&&list.items)||[];
     // Try get current order id from modal header
     const idTxt = modal.querySelector('.card b')?.textContent||'';
@@ -368,22 +373,7 @@ btnC.onclick = async ()=>{
     const its = Array.isArray(o.items)? o.items: [];
     const weight = its.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
     const subtotal = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
-    const payload = {
-      order_id: o.id || o._id || '',
-      provider: o.shipping_provider || (o.shipping && o.shipping.provider) || '',
-      service: o.shipping_service || (o.shipping && o.shipping.service) || '',
-      fee: Number(o.shipping_fee||0),
-      name: o.shipping_name || '',
-      eta: o.shipping_eta || '',
-      to_name: (o.customer&&o.customer.name)||o.customer_name||o.name||'',
-      to_phone: (o.customer&&o.customer.phone)||o.phone||'',
-      to_address: (o.customer&&o.customer.address)||o.address||'',
-      to_province: o.customer?.province || o.to_province || '',
-      to_district: o.customer?.district || o.to_district || '',
-      to_commune:  o.customer?.commune  || o.to_commune  || '',
-      weight, cod: subtotal,
-      items: its.map(it=>({ sku: it.sku||it.id||'', name: it.name||'', qty: Number(it.qty||1), price: Number(it.price||0), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) }))
-    };
+    const payload = { order_id: o.id || o._id || '' };
     const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
     if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking||''); }
     else{ Admin.toast('Tạo vận đơn thất bại'); console.warn('create-failed', r); }
@@ -391,7 +381,7 @@ btnC.onclick = async ()=>{
 };
 btnP.onclick
  = async ()=>{
-      const list = await Admin.req('/admin/orders',{method:'GET'});
+      const list = await Admin.req('/api/orders',{method:'GET'});
       const o = (list&&list.items&&list.items[0])||null;
       openPrint(o, '');
     };
