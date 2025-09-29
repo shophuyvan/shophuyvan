@@ -196,9 +196,19 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
 </script>
 
 
+
 <script>
 // --- Inject shipping actions on order detail modal ---
 (function(){
+  function sanitize(v){ return (v===undefined || v===null) ? '' : String(v).trim(); }
+  function defaultService(provider){
+    provider = (provider||'').toLowerCase();
+    if(provider==='spx' || provider==='shopee' || provider==='shopee express') return 'SPX-REG';
+    if(provider==='jt'  || provider==='j&t' || provider==='j&t express' || provider==='jtexpress') return 'JT-FAST';
+    if(provider==='aha' || provider==='ahamove' || provider==='best') return 'AHA-SAVE';
+    return '';
+  }
+
   async function quoteBest(to_codes, weight_gram, cod){
     try{
       const body = { 
@@ -257,16 +267,16 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
         const subtotal = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
 
         // Tên hàng/đơn
-        const nameVal = o.name || (its[0]?.name) || 'Đơn hàng';
+        const nameVal = sanitize(o.name) || sanitize(its[0]?.name) || 'Đơn hàng';
         // địa chỉ (mã + tên) phục vụ quote fallback
         const to_codes = {
-          province_code: o.customer?.province_code || o.to_province_code || '',
-          district_code: o.customer?.district_code || o.to_district_code || '',
-          commune_code:  o.customer?.commune_code  || o.to_commune_code  || ''
+          province_code: sanitize(o.customer?.province_code || o.to_province_code),
+          district_code: sanitize(o.customer?.district_code || o.to_district_code),
+          commune_code:  sanitize(o.customer?.commune_code  || o.to_commune_code)
         };
 
-        let provider = o.shipping_provider || (o.shipping && o.shipping.provider) || '';
-        let service_code = o.shipping_service || (o.shipping && o.shipping.service) || '';
+        let provider = sanitize(o.shipping_provider || o.shipping?.provider);
+        let service_code = sanitize(o.shipping_service || o.shipping?.service);
         let fee = Number(o.shipping_fee||0);
         const safeWeight = (weight && Number(weight)>0) ? Number(weight) : 500;
         const cod = subtotal || 0;
@@ -274,12 +284,18 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
         // Fallback: tự chọn DVVC nếu thiếu service_code
         if(!service_code){
           const pick = await quoteBest(to_codes, safeWeight, cod);
-          if(pick){ provider = pick.provider; service_code = pick.service_code; fee = Number(pick.fee||fee); }
+          if(pick){ provider = sanitize(pick.provider||provider); service_code = sanitize(pick.service_code||service_code); fee = Number(pick.fee||fee); }
         }
+        // Nếu vẫn trống, set mặc định theo provider
+        if(!service_code){
+          service_code = defaultService(provider);
+        }
+        // Đảm bảo không có 'undefined' trong payload
+        provider = sanitize(provider); service_code = sanitize(service_code);
 
         const items = (its && its.length) ? its.map(it=>({
-          sku: it.sku||it.id||'',
-          name: it.name || nameVal,
+          sku: sanitize(it.sku||it.id),
+          name: sanitize(it.name) || nameVal,
           qty: Number(it.qty||1),
           price: Number(it.price||0),
           weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) || Math.round(safeWeight/(its.length||1))
@@ -292,15 +308,15 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
           fee,
           name: nameVal,
           eta: o.shipping_eta || '',
-          to_name: (o.customer&&o.customer.name)||o.customer_name||o.name||'',
-          to_phone: (o.customer&&o.customer.phone)||o.phone||'',
-          to_address: (o.customer&&o.customer.address)||o.address||'',
+          to_name: sanitize(o.customer?.name || o.customer_name || o.name),
+          to_phone: sanitize(o.customer?.phone || o.phone),
+          to_address: sanitize(o.customer?.address || o.address),
           to_province_code: to_codes.province_code,
           to_district_code: to_codes.district_code,
           to_commune_code:  to_codes.commune_code,
-          to_province: o.customer?.province || o.to_province || '',
-          to_district: o.customer?.district || o.to_district || '',
-          to_commune:  o.customer?.commune  || o.to_commune  || '',
+          to_province: sanitize(o.customer?.province || o.to_province),
+          to_district: sanitize(o.customer?.district || o.to_district),
+          to_commune:  sanitize(o.customer?.commune  || o.to_commune),
           weight: safeWeight,
           cod,
           items
@@ -321,6 +337,7 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
   obs.observe(modal, { childList:true, subtree:true });
 })();
 </script>
+
 
 </body>
 </html>
