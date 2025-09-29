@@ -201,6 +201,8 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
 // --- Inject shipping actions on order detail modal ---
 (function(){
   function sanitize(v){ 
+    // normalize string
+    
     if(v===undefined || v===null) return ''; 
     const s = String(v).trim();
     if(!s) return '';
@@ -224,7 +226,7 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
         total_cod: cod||0 
       };
       // Use Admin.req so it hits the correct Worker domain instead of Pages (avoid 405)
-      const r = await Admin.req('/api/shipping/quote',{method:'POST', body});
+      const r = await Admin.req('/admin/shipping/quote',{method:'POST', body});
       const arr = (r && r.items) || [];
       arr.sort((a,b)=> Number(a.fee||0) - Number(b.fee||0));
       return arr[0] || null;
@@ -325,6 +327,11 @@ function openPrint(order, tracking){
           cod,
           items
         };
+        // Ensure mandatory fields are never empty
+        if(!payload.name || String(payload.name).trim()===''){ payload.name = 'Đơn hàng'; }
+        if(!payload.to_name || String(payload.to_name).trim()===''){ payload.to_name = payload.name; }
+        if(!payload.to_phone || String(payload.to_phone).trim()===''){ payload.to_phone = '0000000000'; }
+
 
         const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
         if(r && r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking||''); }
