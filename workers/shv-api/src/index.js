@@ -1244,7 +1244,17 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     // Service selected
     provider: ship.provider || body.provider || order.shipping_provider || '',
     service_code: ship.service_code || body.service_code || order.shipping_service || ''
-  };
+  }
+  // -- fill numeric geo codes after payload object is built
+  payload.receiver_province_code = payload.receiver_province_code || (order && order.customer && (order.customer.province_code)) || body.to_province_code || body.province_code || '';
+  payload.receiver_district_code = payload.receiver_district_code || (order && order.customer && (order.customer.district_code)) || body.to_district_code || body.district_code || '';
+  payload.receiver_commune_code = payload.receiver_commune_code || (order && order.customer && (order.customer.commune_code || order.customer.ward_code)) || body.to_commune_code || body.to_ward_code || body.commune_code || body.ward_code || '';
+
+  // root-level *_code aliases for providers that require them
+  payload.province_code = payload.province_code || payload.receiver_province_code || payload.to_province_code || payload.province_id || '';
+  payload.district_code = payload.district_code || payload.receiver_district_code || payload.to_district_code || payload.district_id || '';
+  payload.commune_code = payload.commune_code || payload.receiver_commune_code || payload.to_commune_code || payload.ward_code || payload.commune_id || '';
+;
 // ensure required fields for carrier (goods name & product list)
 
   // Normalize alias fields expected by provider
