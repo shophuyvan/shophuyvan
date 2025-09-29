@@ -1,3 +1,28 @@
+
+// === SHV Idempotency & Logs (patch) ===
+async function idemGet(req, env){
+  try{
+    const key = req.headers.get('Idempotency-Key');
+    if(!key) return {key:null, hit:false, body:null};
+    const body = await env.SHV.get('idem:'+key);
+    return {key, hit: !!body, body};
+  }catch(e){ return {key:null, hit:false, body:null}; }
+}
+async function idemSet(key, env, res){
+  if(!key || !res || !(res instanceof Response)) return;
+  try{
+    const txt = await res.clone().text();
+    await env.SHV.put('idem:'+key, txt, {expirationTtl: 24*3600});
+  }catch(e){}
+}
+// Structured entry log
+function logEntry(req){
+  try{
+    const url = new URL(req.url);
+    console.log(JSON.stringify({t:Date.now(), method:req.method, path:url.pathname}));
+  }catch(e){}
+}
+// === End patch ===
 /* SHV safe patch header */
 
 function corsHeaders(req){
@@ -207,6 +232,7 @@ function aiAlt(p){
 
 export default {
   async fetch(req, env, ctx){
+    logEntry(req);
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
@@ -601,6 +627,7 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
       // Public checkout: POST /public/orders/create
       
 if(p==='/public/orders/create' && req.method==='POST'){
+        const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
         const body = await readBody(req)||{};
         const id = (body.id)|| crypto.randomUUID().replace(/-/g,'');
         // Normalize fields
@@ -625,7 +652,9 @@ if(p==='/public/orders/create' && req.method==='POST'){
         const list = await getJSON(env,'orders:list',[])||[];
         list.unshift(order);
         await putJSON(env,'orders:list', list);
-        return json({ok:true, id}, {}, req);
+        const __res = json({ok:true, id}, {}, req);
+        await idemSet(__idem.key, env, __res);
+        return __res;
       }
 
 // Orders upsert
@@ -1051,6 +1080,7 @@ if(p==='/shipping/price' && req.method==='POST'){
 
 // ---- SuperAI Platform Create Order ----
 if(p==='/admin/shipping/create' && req.method==='POST'){
+  const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
   // Admin creates real waybill
   const body = await req.json().catch(()=>({}));
   const settings = await getJSON(env,'settings',{})||{}; const s = settings.shipping||{};
@@ -1083,7 +1113,9 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
   const tracking = data?.data?.tracking || data?.tracking || code || null;
   if(code){
     await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
-    return json({ok:true, code, tracking}, {}, req);
+    const __res = json({ok:true, code, tracking}, {}, req);
+    await idemSet(__idem.key, env, __res);
+    return __res;
   }
   return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
 }
@@ -1147,6 +1179,7 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
       }
       // Shipping create (stub) -> returns tracking code
       if(p==='/admin/shipping/create' && req.method==='POST'){
+  const __idem = await idemGet(req, env); if(__idem.hit) return new Response(__idem.body, {status:200, headers: corsHeaders(req)});
         if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
         const body = await readBody(req)||{}; const id = body.order_id || crypto.randomUUID().replace(/-/g,'');
         const tracking = (body.provider||'SHIP') + '-' + id.slice(-8).toUpperCase();
