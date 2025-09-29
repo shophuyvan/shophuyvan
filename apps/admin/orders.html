@@ -147,11 +147,13 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
     else{ Admin.toast(r && r.error === 'CREATE_FAILED' ? 'Không thể tạo vận đơn (thiếu cấu hình hoặc dữ liệu không hợp lệ)' : 'Tạo vận đơn thất bại');  }
   }catch(e){ Admin.toast('Không thể tạo vận đơn. Vui lòng kiểm tra cấu hình và dữ liệu đơn.');  }
 });
+  }
 if(btnP){ btnP.addEventListener('click', async ()=>{
       const list = await Admin.req('/api/orders',{method:'GET'});
       const o = (list&&list.items&&list.items[0])||null;
       openPrint(o, '');
     });
+  }
   });
   obs.observe(container, { childList:true, subtree:true });
 })();

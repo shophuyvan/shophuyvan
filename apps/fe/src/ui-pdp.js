@@ -60,9 +60,15 @@ function SHV_getFixedQuotes(weightGrams){
   return list.filter(o=>o.fee>=0);
 }
 ;
-async function shvGetShippingOptions(provinceName, districtName, weightGram){ try{ return SHV_getFixedQuotes(weightGram); }catch(e){ return []; } }catch(e){ console.error(e); return []; }
-}
 
+async function shvGetShippingOptions(provinceName, districtName, weightGram){
+  try{
+    return SHV_getFixedQuotes(weightGram);
+  }catch(e){
+    console.error(e);
+    return [];
+  }
+}
 import { formatPrice } from './lib/price.js';
 
 const $  = (s, r=document)=>r.querySelector(s);
