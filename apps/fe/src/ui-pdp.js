@@ -949,6 +949,22 @@ function openCheckoutModal(){
   m.querySelector('#co-back').onclick=()=>{ closeMask('shv-co-mask'); openCartModal(); };
   m.querySelector('#co-close').onclick=()=>closeMask('shv-co-mask');
 
+  function validateCustomer(c){
+    const errs=[];
+    const phoneRe=/^(03|05|07|08|09)\d{8}$/;
+    function mark(id, ok){ const el=m.querySelector(id); if(!el) return; el.style.borderColor = ok? '#e5e7eb' : '#ef4444'; }
+    const okName=!!c.name; mark('#co-name', okName); if(!okName) errs.push('Vui lòng nhập họ tên.');
+    const okPhone=phoneRe.test(c.phone||''); mark('#co-phone', okPhone); if(!okPhone) errs.push('Số điện thoại không hợp lệ.');
+    const okAddr=!!c.address; mark('#co-addr', okAddr); if(!okAddr) errs.push('Vui lòng nhập địa chỉ.');
+    const okProv=!!c.province; mark('#co-province', okProv); if(!okProv) errs.push('Chọn Tỉnh/Thành.');
+    const okDist=!!c.district; mark('#co-district', okDist); if(!okDist) errs.push('Chọn Quận/Huyện.');
+    const okWard=!!c.ward; mark('#co-ward', okWard); if(!okWard) errs.push('Chọn Phường/Xã.');
+    let box=m.querySelector('#co-errors'); if(!box){ box=document.createElement('div'); box.id='co-errors'; box.style.color='#ef4444'; box.style.margin='6px 0 0'; const t=m.querySelector('#co-title'); if(t) t.insertAdjacentElement('afterend', box); }
+    box.innerHTML = errs.length? ('<ul style="padding-left:18px;list-style:disc">'+errs.map(e=>'<li>'+e+'</li>').join('')+'</ul>') : '';
+    return errs.length===0;
+  }
+
+
 
   
   function renderTotals(){
@@ -994,6 +1010,7 @@ function openCheckoutModal(){
     </div>`;
     const target = m.querySelector('#co-items');
     if(target) target.insertAdjacentElement('afterend', totals);
+  renderTotals();
   })();
 
   const total = calcTotal();
@@ -1109,17 +1126,10 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
     const provText = (m.querySelector('#co-province')?.value||'').trim();
     const distText = (m.querySelector('#co-district')?.value||'').trim();
     const wardText = (m.querySelector('#co-ward')?.value||'').trim();
-    if(!(provText && distText && wardText)){
-      if(hint) hint.textContent = 'Chọn Tỉnh/Quận/Phường để xem phí vận chuyển ước tính';
-      return;
-    } else {
-      if(hint) hint.textContent = 'Đang tính phí vận chuyển...';
-    }
-    
-    try{
+    if(hint){ hint.textContent = 'Đang tính phí vận chuyển...'; }try{
       const prov = (m.querySelector('#co-province')?.value||'').trim();
       const dist = (m.querySelector('#co-district')?.value||'').trim();
-      if(!prov || !dist) return;
+      
       const items = cartItems();
       const weight = items.reduce((s,it)=> s + (Number(it.weight)||200)*(Number(it.qty)||1), 0);
       const arr = await shvGetShippingOptions(prov, dist, weight); const list = m.querySelector('#co-ship-list'); list.innerHTML = arr.map((o,i)=>`<label style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer">
@@ -1128,8 +1138,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
         <div style="font-size:12px;color:#6b7280">Thời gian: ${o.leadtime_text||o.leadtime||''}</div></div>
         <div style="white-space:nowrap">${(Number(o.fee||o.price||0)).toLocaleString('vi-VN')}đ</div>
       </label>`).join('');
-      const first = list.querySelector('input[name=ship]');
-      if(first){ first.dispatchEvent(new Event('change')); }
+      const first = list.querySelector('input[name=ship]'); if(first){ first.checked = true; shipFee = Number((first.closest('label').querySelector('div[style*="white-space"]').textContent||'0').replace(/[^0-9]/g,''))||0; chosenShip = first.value; renderTotals(); first.dispatchEvent(new Event('change')); }
       list.querySelectorAll('input[name=ship]').forEach(r=> r.onchange = ()=>{
         const fee = Number((r.closest('label').querySelector('div[style*="white-space"]').textContent||'0').replace(/[^0-9]/g,''));
         shipFee = fee; chosenShip = r.value; renderTotals();
@@ -1162,6 +1171,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
       district_code: m.querySelector('#co-district-code')?.value||'',
       ward_code: m.querySelector('#co-ward-code')?.value||''
     };
+    if(!validateCustomer(customer)) return;
 
     try{
       // read selected shipping option (if any)
@@ -1174,8 +1184,10 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
         const eta=(info?.querySelector('div>div+div')?.textContent||'').replace('Thời gian:','').trim();
         sp={provider, service, name, eta, fee: (shipFee||0)};
       }
+      const totalWeight = cartItems().reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
       const body = { 
         items: cartItems(), 
+        weight_grams_total: totalWeight,
         customer, 
         totals:{ amount: calcTotal(), ship: (shipFee||0) }, 
         shipping_fee: (shipFee||0),
