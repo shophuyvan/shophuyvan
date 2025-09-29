@@ -200,6 +200,19 @@ try{document.getElementById('reload-orders')?.addEventListener('click', ()=>{loa
 <script>
 // --- Inject shipping actions on order detail modal ---
 (function(){
+  async function getCurrentOrder(){
+    try{
+      const modal = document.getElementById('modal-detail');
+      const oid = modal?.dataset?.orderId || '';
+      const list = await Admin.req('/admin/orders',{method:'GET'});
+      const items = (list && list.items) || [];
+      if(oid){
+        return items.find(x => (x.id||x._id||'') === oid) || items.find(x => (x.id||'').endsWith(String(oid).slice(-6))) || items[0] || null;
+      }
+      return items[0] || null;
+    }catch(e){ console.warn('getCurrentOrder failed', e); return null; }
+  }
+
   function sanitize(v){ 
     // normalize string
     
@@ -259,9 +272,51 @@ function openPrint(order, tracking){
     panel.parentElement.insertBefore(bar, panel);
 
     const btnC = document.getElementById('btn-create-waybill');
+    let warn = document.getElementById('ship-warn');
+    if(!warn){
+      warn = document.createElement('div');
+      warn.id = 'ship-warn';
+      warn.style.cssText = 'margin:8px 0;padding:8px;border:1px solid #ef4444;background:#fef2f2;color:#991b1b;border-radius:8px;display:none';
+      panel.parentElement.insertBefore(warn, panel);
+    }
+
+    async function validateAndToggle(){
+      const o = await getCurrentOrder();
+      const its = Array.isArray(o?.items)? o.items: [];
+      const to_name = (o?.customer?.name || o?.customer_name || o?.name || '').trim();
+      const to_phone = (o?.customer?.phone || o?.phone || '').trim();
+      const street = (o?.address || o?.customer?.address || '').trim();
+      const province_code = (o?.customer?.province_code || o?.to_province_code || '').toString().trim();
+      const district_code = (o?.customer?.district_code || o?.to_district_code || '').toString().trim();
+      const commune_code  = (o?.customer?.commune_code  || o?.to_commune_code  || '').toString().trim();
+
+      const missing = [];
+      if(!to_name) missing.push('Tên người nhận');
+      if(!to_phone) missing.push('SĐT');
+      if(!street) missing.push('Địa chỉ');
+      if(!province_code) missing.push('Tỉnh/TP');
+      if(!district_code) missing.push('Quận/Huyện');
+      if(!commune_code) missing.push('Phường/Xã');
+      if(its.length===0) missing.push('Sản phẩm');
+
+      const ok = missing.length===0;
+      btnC.disabled = !ok;
+      btnC.title = ok ? '' : ('Thiếu: ' + missing.join(', '));
+      if(!ok){
+        warn.style.display='block';
+        warn.innerHTML = '<b>Không thể tạo mã vận đơn.</b><div style="margin-top:4px">Vui lòng bổ sung: '+missing.join(', ')+'</div>';
+      }else{
+        warn.style.display='none';
+        warn.innerHTML = '';
+      }
+    }
+
     const btnP = document.getElementById('btn-print-waybill');
 
-    btnC.onclick = async ()=>{
+    validateAndToggle();
+
+
+    btnC.onclick = async ()=>{ await validateAndToggle(); if(btnC.disabled){ return; }
       try{
         const list = await Admin.req('/admin/orders',{method:'GET'});
         const itemsAll = (list && list.items) || [];
@@ -320,7 +375,8 @@ function openPrint(order, tracking){
           to_province_code: to_codes.province_code,
           to_district_code: to_codes.district_code,
           to_commune_code:  to_codes.commune_code,
-          to_province: sanitize(o.customer?.province || o.to_province),
+                    to_commune:  sanitize(o.customer?.commune  || o.to_commune),
+to_province: sanitize(o.customer?.province || o.to_province),
           to_district: sanitize(o.customer?.district || o.to_district),
           to_commune:  sanitize(o.customer?.commune  || o.to_commune),
           weight: safeWeight,
