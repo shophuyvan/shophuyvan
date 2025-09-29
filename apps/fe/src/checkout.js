@@ -8,6 +8,39 @@ function releaseSubmit(btn){ __placing=false; btn?.removeAttribute('disabled'); 
 import { api } from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+
+// === Fixed Shipping Rate Table (weight in grams -> VND) ===
+function getFixedQuotes(weightGrams){
+  const kg = Math.max(1, Math.ceil(Number(weightGrams||0)/1000)); // 1..6+
+  const cap = Math.min(kg, 6);
+  const table = {
+    // index by kg 1..6
+    vtp: { name: 'Viettel Post', rates: {1:18000,2:23000,3:28000,4:33000,5:38000,6:43000} },
+    spx: { name: 'SPX Express',  rates: {1:15000,2:25000,3:35000,4:45000,5:55000,6:65000} },
+    jt:  { name: 'J&T Express',  rates: {1:20000,2:25000,3:25000,4:30000,5:35000,6:40000} },
+    lex: { name: 'Lazada Express',rates: {1:19000,2:19000,3:19000,4:24000,5:27000,6:31000} },
+    ghn: { name: 'GHN',           rates: {1:19000,2:19000,3:24000,4:29000,5:34000,6:39000} },
+    best:{ name: 'BEST Express',  rates: {1:18000,2:18000,3:23000,4:28000,5:33000,6:33000} },
+  };
+  // if >6kg, extend linearly based on last step where possible
+  function extend(code){
+    const r = table[code].rates;
+    if(kg<=6) return r[cap];
+    const last = r[6]; const prev = r[5];
+    const step = (last - prev) || 0;
+    return last + step*(kg-6);
+  }
+  const list = Object.entries(table).map(([code,info])=> ({
+    provider: code,
+    service_code: 'fixed',
+    name: info.name,
+    fee: kg<=6 ? info.rates[cap] : extend(code),
+    eta: ''
+  }));
+  return list.filter(o=>o.fee>=0);
+}
+
+
 const quoteBtn = document.getElementById('get-quote');
 const quoteList = document.getElementById('quote-list');
 const testVoucherBtn = document.getElementById('test-voucher');
@@ -43,8 +76,8 @@ async function fetchAndRenderQuote(){
       package: { weight_grams: Number(weight||0) },
       total_cod: subtotal
     };
-    let res = await api('/api/shipping/quote', { method:'POST', body: payload });
-    let arr = (res?.items || res?.data || res) || [];
+    // let res = await api('/api/shipping/quote', { method:'POST', body: payload });
+    let arr = getFixedQuotes(weight);
     if(!Array.isArray(arr) || arr.length===0){
       // Fallback to legacy
       res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${Number(weight)||0}&cod=${subtotal}`);

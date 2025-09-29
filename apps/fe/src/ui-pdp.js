@@ -40,23 +40,27 @@
 }catch(_e){}})();
 let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
 import api from './lib/api.js';
-async function shvGetShippingOptions(provinceName, districtName, weightGram){
-  try{
-    const body = { receiver_province: provinceName, receiver_district: districtName, weight_gram: weightGram, cod: 0 };
-    let res = await api('/shipping/price', { method:'POST', body });
-    let arr = (res?.items || res?.data || res) || [];
-    if(!Array.isArray(arr) || arr.length===0){
-      const qs = `/shipping/quote?to_province=${encodeURIComponent(provinceName)}&to_district=${encodeURIComponent(districtName)}&weight=${weightGram}&cod=0`;
-      res = await api.get(qs);
-      arr = (res?.items||res)||[];
-    }
-    return arr.map(o=>({ 
-      provider: o.provider||o.carrier||'',
-      name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),
-      fee: Number(o.fee || o.total_fee || o.price || 0),
-      eta: o.eta || o.leadtime || ''
-    })).filter(o=>o.fee>=0).sort((a,b)=>a.fee-b.fee);
-  }catch(e){ console.error(e); return []; }
+// === Fixed Shipping Rate Table (weight in grams -> VND) ===
+function SHV_getFixedQuotes(weightGrams){
+  const kg = Math.max(1, Math.ceil(Number(weightGrams||0)/1000));
+  const cap = Math.min(kg, 6);
+  const table = {
+    vtp: { name: 'Viettel Post', rates: {1:18000,2:23000,3:28000,4:33000,5:38000,6:43000} },
+    spx: { name: 'SPX Express',  rates: {1:15000,2:25000,3:35000,4:45000,5:55000,6:65000} },
+    jt:  { name: 'J&T Express',  rates: {1:20000,2:25000,3:25000,4:30000,5:35000,6:40000} },
+    lex: { name: 'Lazada Express',rates: {1:19000,2:19000,3:19000,4:24000,5:27000,6:31000} },
+    ghn: { name: 'GHN',           rates: {1:19000,2:19000,3:24000,4:29000,5:34000,6:39000} },
+    best:{ name: 'BEST Express',  rates: {1:18000,2:18000,3:23000,4:28000,5:33000,6:33000} },
+  };
+  function extend(code){
+    const r=table[code].rates; if(kg<=6) return r[cap];
+    const step=(r[6]-r[5])||0; return r[6]+step*(kg-6);
+  }
+  const list = Object.entries(table).map(([code,info])=>({ provider: code, name: info.name, fee: kg<=6?info.rates[cap]:extend(code), eta:'' }));
+  return list.filter(o=>o.fee>=0);
+}
+;
+async function shvGetShippingOptions(provinceName, districtName, weightGram){ try{ return SHV_getFixedQuotes(weightGram); }catch(e){ return []; } }catch(e){ console.error(e); return []; }
 }
 
 import { formatPrice } from './lib/price.js';
