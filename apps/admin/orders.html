@@ -45,6 +45,46 @@
 </div>
 <script>
 (function(){
+  async function loadOrders(){
+    try{
+      const res = await Admin.req('/api/orders',{method:'GET'});
+      const items = (res && res.items) || [];
+      const tbody = document.getElementById('list');
+      if(!tbody) return;
+      function sum(arr, f){ return (arr||[]).reduce((s,it)=> s + Number(f(it)||0)*Number(it.qty||1), 0); }
+      tbody.innerHTML = items.map(o=>{
+        const its = Array.isArray(o.items)?o.items:[];
+        const sub = sum(its, it=> it.price || it.sale_price || it.price_vnd);
+        const ship = Number(o.shipping_fee||0);
+        const cost = sum(its, it=> it.cost || it.cost_price || it.cost_vnd || 0);
+        const rev = Math.max(0, sub + ship);
+        const profit = Math.max(0, sub - cost);
+        const name = (o.customer && (o.customer.name||o.customer.fullname)) || o.customer_name || o.name || '';
+        const id = o.id || '';
+        return `<tr>
+          <td>${id}</td>
+          <td>${name}</td>
+          <td>${fmt(sub)}</td>
+          <td>${fmt(ship)}</td>
+          <td>${fmt(rev)}</td>
+          <td>${fmt(profit)}</td>
+          <td style="text-align:right"><button class="btn btn-sm" data-view="${id}">Xem</button></td>
+        </tr>`;
+      }).join('');
+      tbody.querySelectorAll('[data-view]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const id = btn.getAttribute('data-view');
+          const o = ((res && res.items)||[]).find(x=>(x.id||'')===id);
+          if(o) window.showOrderDetail(o);
+        };
+      });
+      document.getElementById('reload-orders')?.addEventListener('click', loadOrders);
+    }catch(e){
+      console.error(e);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', loadOrders);
+
   function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
   window.showOrderDetail = function(o){
     const b = document.getElementById('md-body');

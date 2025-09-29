@@ -1204,7 +1204,7 @@ m.querySelector('#co-items').insertAdjacentElement('afterend', shipWrap);
         shipping: { method: (sp? (sp.provider+':'+sp.service) : (chosenShip||'')), fee: (shipFee||0) }, 
         source:'pdp' 
       };
-      const r = await api.post('/api/orders', body);
+      const r = await api.post('/public/orders/create', body);
       if(r && r.ok){ setCartItems([]); closeMask('shv-co-mask'); openSuccessModal(r.id, customer); }
       else { alert('Đặt hàng lỗi'); }
     }catch(e){ alert('Đặt hàng lỗi: '+e.message); }
