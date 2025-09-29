@@ -1243,6 +1243,25 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
   };
 // ensure required fields for carrier (goods name & product list)
 
+  // Normalize alias fields expected by provider
+  const __dig = (v)=> String(v||'').replace(/\D+/g,'');
+  payload.receiver_phone = __dig(payload.receiver_phone);
+  payload.sender_phone   = __dig(payload.sender_phone);
+  if(!payload.receiver_phone && body.to_phone){ payload.receiver_phone = __dig(body.to_phone); }
+  // alias for some providers
+  payload.to_name     = payload.receiver_name;
+  payload.to_phone    = payload.receiver_phone;
+  payload.to_address  = payload.receiver_address;
+  payload.to_province = payload.receiver_province;
+  payload.to_district = payload.receiver_district;
+  payload.to_commune  = payload.receiver_commune;
+
+  payload.from_name     = payload.sender_name;
+  payload.from_phone    = payload.sender_phone;
+  payload.from_address  = payload.sender_address;
+  payload.from_province = payload.sender_province;
+  payload.from_district = payload.sender_district;
+
   // Fallbacks to avoid CREATE_FAILED due to missing fields
   if(!payload.receiver_phone){ payload.receiver_phone = (order.customer && order.customer.phone) || body.to_phone || ''; }
   if(!payload.sender_phone){ payload.sender_phone = st.phone || st.owner_phone || '0900000000'; }
