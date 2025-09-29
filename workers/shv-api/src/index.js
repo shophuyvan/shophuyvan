@@ -12,7 +12,7 @@ function corsHeaders(req){
     'Access-Control-Expose-Headers': 'x-token', 'Access-Control-Allow-Credentials': 'true'
   };
 }
-function json(data, init={}, req){ return new Response(JSON.stringify(data||{}), {status: init.status||200, headers: {...corsHeaders(req), 'content-type':'application/json; charset=utf-8'}}); }
+function json(data, init={}){ return new Response(JSON.stringify(data||{}), {status: init.status||200, headers: {...corsHeaders(req), 'content-type':'application/json; charset=utf-8'}}); }
 
 
 // === SuperAI helpers injected ===
@@ -214,11 +214,11 @@ export default {
 // --- SHV v22: vouchers, settings, orders, stats ---
 if(p==='/vouchers' && req.method==='GET'){
   const list = await getJSON(env,'vouchers',[]) || [];
-  return json({items:list}, {}, req);
+  return json({items:list}, {});
 }
 if(p==='/admin/vouchers/list' && req.method==='GET'){
   const list = await getJSON(env,'vouchers',[]) || [];
-  return json({items:list}, {}, req);
+  return json({items:list}, {});
 }
 if(p==='/admin/vouchers/upsert' && req.method==='POST'){
   const body = await req.json().catch(()=>({}));
@@ -227,11 +227,11 @@ if(p==='/admin/vouchers/upsert' && req.method==='POST'){
   if(idx>=0) list[idx] = {...list[idx], ...body};
   else list.push({code: body.code||'', off: Number(body.off||0), on: String(body.on||'ON')});
   await putJSON(env,'vouchers',list);
-  return json({ok:true, items:list}, {}, req);
+  return json({ok:true, items:list}, {});
 }
 if(p==='/public/settings' && req.method==='GET'){
   const s = await getJSON(env,'settings',{}) || {};
-  return json(s, {}, req);
+  return json(s, {});
 }
 if(p==='/admin/settings/upsert' && req.method==='POST'){
   const body = await req.json().catch(()=>({}));
@@ -246,11 +246,11 @@ if(p==='/admin/settings/upsert' && req.method==='POST'){
   }
   set(cur, body.path, body.value);
   await putJSON(env,'settings',cur);
-  return json({ok:true, settings:cur}, {}, req);
+  return json({ok:true, settings:cur}, {});
 }
 // Orders (unified)
 if(p==='/admin/orders' && req.method==='GET'){
-  if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+  if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
   const { searchParams } = new URL(req.url);
   const from = Number(searchParams.get('from')||0) || 0;
   const to   = Number(searchParams.get('to')||0)   || 0;
@@ -265,7 +265,7 @@ if(p==='/admin/orders' && req.method==='GET'){
       return true;
     });
   }
-  return json({ok:true, items:list}, {}, req);
+  return json({ok:true, items:list}, {});
 }
 
 
@@ -352,32 +352,32 @@ if(p==='/admin/stats' && req.method==='GET'){
   const labor = revenue * 0.10;
   const profit = Math.max(0, revenue - goodsCost - tax - ads - labor);
   const top_products = Object.values(topMap).sort((a,b)=> b.revenue-a.revenue).slice(0,20);
-  return json({ok:true, orders, revenue, profit, top_products, from, to, granularity:gran }, {}, req);
+  return json({ok:true, orders, revenue, profit, top_products, from, to, granularity:gran }, {});
 }
 if(p.startsWith('/products/') && req.method==='GET'){
         const id = decodeURIComponent(p.split('/')[2]||'').trim();
-        if(!id) return json({error:'No id'}, {status:400}, req);
+        if(!id) return json({error:'No id'}, {status:400});
         if(env && env.SHV){
           const obj = await getJSON(env, 'product:'+id, null);
-          if(obj) return json({item: obj}, {}, req);
+          if(obj) return json({item: obj}, {});
         }
         // fallback to list then find
         const lst = await listProducts(env);
         const found = (lst||[]).find(x=>String(x.id||x.key||'')===id);
-        if(found) return json({item: found}, {}, req);
-        return json({error:'Not Found'}, {status:404}, req);
+        if(found) return json({item: found}, {});
+        return json({error:'Not Found'}, {status:404});
       }
       if(p.startsWith('/public/products/') && req.method==='GET'){
         const id = decodeURIComponent(p.split('/')[3]||'').trim();
-        if(!id) return json({error:'No id'}, {status:400}, req);
+        if(!id) return json({error:'No id'}, {status:400});
         if(env && env.SHV){
           const obj = await getJSON(env, 'product:'+id, null);
-          if(obj) return json({item: obj}, {}, req);
+          if(obj) return json({item: obj}, {});
         }
         const lst = await listProducts(env);
         const found = (lst||[]).find(x=>String(x.id||x.key||'')===id);
-        if(found) return json({item: found}, {}, req);
-        return json({error:'Not Found'}, {status:404}, req);
+        if(found) return json({item: found}, {});
+        return json({error:'Not Found'}, {status:404});
       }
       // Public products list
       if(p==='/public/products' && req.method==='GET'){
@@ -392,19 +392,19 @@ if(p.startsWith('/products/') && req.method==='GET'){
               if(cached) prod = cached;
           }
             }
-          if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
-          return json({ok:true, item: prod}, {}, req);
+          if(!prod) return json({ok:false, error:'not found'}, {status:404});
+          return json({ok:true, item: prod}, {});
         }
         const cat = url.searchParams.get('category')||url.searchParams.get('cat');
         const limit = Number(url.searchParams.get('limit')||'24');
         let items = (await listProducts(env)) || [];
         if(cat){ items = items.filter(x=> (x.categories||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
-        return json({items: items.slice(0, limit)}, {}, req);
+        return json({items: items.slice(0, limit)}, {});
       }
 
 
-      if(p==='/' || p===''){ return json({ok:true, msg:'SHV API v3.1', hint:'GET /products, /admin/products, /banners, /admin/ai/*'}, {}, req); }
-      if(p==='/me' && req.method==='GET') return json({ok:true,msg:'worker alive'}, {}, req);
+      if(p==='/' || p===''){ return json({ok:true, msg:'SHV API v3.1', hint:'GET /products, /admin/products, /banners, /admin/ai/*'}, {}); }
+      if(p==='/me' && req.method==='GET') return json({ok:true,msg:'worker alive'}, {});
 
       if(p==='/admin/login'){
         let u='', pw='';
@@ -413,11 +413,11 @@ if(p.startsWith('/products/') && req.method==='GET'){
         // accept ADMIN_TOKEN from env or admin_pass/admin_token from KV
         let pass = (env && env.ADMIN_TOKEN) ? env.ADMIN_TOKEN : '';
         if(!pass && env && env.SHV){ pass = (await env.SHV.get('admin_pass')) || (await env.SHV.get('admin_token')) || ''; }
-        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401},req);
+        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401});
         let token='';
         if(env && env.SHV){ token = crypto.randomUUID().replace(/-/g,''); await env.SHV.put('admin_token', token, { expirationTtl: 60*60*24*7 }); }
         else { token = await expectedToken(env); }
-        return json({ok:true, token}, {}, req);
+        return json({ok:true, token}, {});
       }
 
       // Aliases for compatibility
@@ -427,13 +427,13 @@ if(p.startsWith('/products/') && req.method==='GET'){
         else { u=url.searchParams.get('u')||''; pw=url.searchParams.get('p')||''; }
         let pass = (env && env.ADMIN_TOKEN) ? env.ADMIN_TOKEN : '';
         if(!pass && env && env.SHV){ pass = (await env.SHV.get('admin_pass')) || (await env.SHV.get('admin_token')) || ''; }
-        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401},req);
+        if(!(u==='admin' && pw===pass)) return json({ok:false,error:'bad credentials'},{status:401});
         let token='';
         if(env && env.SHV){ token = crypto.randomUUID().replace(/-/g,''); await env.SHV.put('admin_token', token, { expirationTtl: 60*60*24*7 }); }
         else { token = await expectedToken(env); }
-        return json({ok:true, token}, {}, req);
+        return json({ok:true, token}, {});
       }
-if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}, req); }
+if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); return json({ok}, {}); }
 
       // File
       
@@ -463,9 +463,9 @@ if(p==='/admin/me' && req.method==='GET'){ const ok = await adminOK(req, env); r
       }
 
 if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const ct = req.headers.get('content-type')||'';
-        if(!ct.startsWith('multipart/form-data')) return json({ok:false,error:'expect multipart'}, {status:400}, req);
+        if(!ct.startsWith('multipart/form-data')) return json({ok:false,error:'expect multipart'}, {status:400});
         const form = await req.formData();
         const files = []; for(const [k,v] of form.entries()){ if(v && typeof v==='object' && 'arrayBuffer' in v){ files.push(v); } }
         const urls = [];
@@ -476,40 +476,40 @@ if((p==='/admin/upload' || p==='/admin/files') && req.method==='POST'){
           await env.SHV.put('file:'+id+':meta', JSON.stringify({name:f.name, type:f.type, size:f.size}));
           urls.push(url.origin+'/file/'+id);
         }
-        return json({ok:true, urls}, {}, req);
+        return json({ok:true, urls}, {});
       }
 
       
 // Categories
-if(p==='/admin/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list}, {}, req); }
-if(p==='/admin/categories/upsert' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401},req); const b=await readBody(req)||{}; const it={ id:b.id||crypto.randomUUID(), name:b.name||'', slug:b.slug||(b.name||'').toLowerCase().replace(/\s+/g,'-'), parent:b.parent||'', order:Number(b.order||0) }; const list=await getJSON(env,'cats:list',[])||[]; const i=list.findIndex(x=>x.id===it.id); if(i>=0) list[i]=it; else list.push(it); await putJSON(env,'cats:list',list); return json({ok:true,item:it}, {}, req); }
-if(p==='/admin/categories/delete' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401},req); const b=await readBody(req)||{}; const id=b.id; const list=(await getJSON(env,'cats:list',[])||[]).filter(x=>x.id!==id); await putJSON(env,'cats:list',list); return json({ok:true,deleted:id}, {}, req); }
-if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list.sort((a,b)=>Number(a.order||0)-Number(b.order||0))}, {}, req); }
+if(p==='/admin/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list}, {}); }
+if(p==='/admin/categories/upsert' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401}); const b=await readBody(req)||{}; const it={ id:b.id||crypto.randomUUID(), name:b.name||'', slug:b.slug||(b.name||'').toLowerCase().replace(/\s+/g,'-'), parent:b.parent||'', order:Number(b.order||0) }; const list=await getJSON(env,'cats:list',[])||[]; const i=list.findIndex(x=>x.id===it.id); if(i>=0) list[i]=it; else list.push(it); await putJSON(env,'cats:list',list); return json({ok:true,item:it}, {}); }
+if(p==='/admin/categories/delete' && req.method==='POST'){ if(!(await adminOK(req,env))) return json({ok:false},{status:401}); const b=await readBody(req)||{}; const id=b.id; const list=(await getJSON(env,'cats:list',[])||[]).filter(x=>x.id!==id); await putJSON(env,'cats:list',list); return json({ok:true,deleted:id}, {}); }
+if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(env,'cats:list',[])||[]; return json({items:list.sort((a,b)=>Number(a.order||0)-Number(b.order||0))}, {}); }
 // Banners
-      if(p==='/admin/banners' && req.method==='POST'){ req = new Request(new URL('/admin/banners/upsert', req.url), req); }
+      if(p==='/admin/banners' && req.method==='POST'){ req = new Request(new URL('/admin/banners/upsert', req.url)); }
       // Banners
       if((p==='/admin/banners/upsert' || p==='/admin/banner') && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const b = await readBody(req)||{}; b.id = b.id || crypto.randomUUID().replace(/-/g,'');
         const list = await getJSON(env,'banners:list',[]) || [];
         const i = list.findIndex(x=>x.id===b.id); if(i>=0) list[i]=b; else list.unshift(b);
         await putJSON(env, 'banners:list', list);
-        return json({ok:true, data:b}, {}, req);
+        return json({ok:true, data:b}, {});
       }
-      if(p==='/admin/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list}, {}, req); }
-      if(p==='/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list.filter(x=>x.on!==false)}, {}, req); }
+      if(p==='/admin/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list}, {}); }
+      if(p==='/banners' && req.method==='GET'){ const list = await getJSON(env,'banners:list',[])||[]; return json({ok:true, items:list.filter(x=>x.on!==false)}, {}); }
       if((p==='/admin/banners/delete' || p==='/admin/banner/delete') && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const b = await readBody(req)||{}; const id = b.id;
         const list = await getJSON(env,'banners:list',[])||[];
         const next = list.filter(x=>x.id!==id);
         await putJSON(env, 'banners:list', next);
-        return json({ok:true, deleted:id}, {}, req);
+        return json({ok:true, deleted:id}, {});
       }
 
       // Products
       if((p==='/admin/products/upsert' || p==='/admin/product') && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const prod = await readBody(req)||{}; prod.id = prod.id || crypto.randomUUID().replace(/-/g,''); prod.updatedAt = Date.now();
         const list = await listProducts(env);
         const summary = toSummary(prod);
@@ -517,11 +517,11 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
         await putJSON(env, 'products:list', list);
         await putJSON(env, 'product:'+prod.id, prod);
         await putJSON(env, 'products:'+prod.id, summary); // keep legacy-compat style
-        return json({ok:true, data:prod}, {}, req);
+        return json({ok:true, data:prod}, {});
       }
       if(p==='/admin/products' && req.method==='GET'){
         const list = await listProducts(env);
-        return json({ok:true, items:list}, {}, req);
+        return json({ok:true, items:list}, {});
       }
       if(p==='/products' && req.method==='GET'){
         const idQ = url.searchParams.get('id');
@@ -536,29 +536,29 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
               if(cached) prod = cached;
             }
           }
-          if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
-          return json({ok:true, item: prod}, {}, req);
+          if(!prod) return json({ok:false, error:'not found'}, {status:404});
+          return json({ok:true, item: prod}, {});
         }
         const list = await listProducts(env);
-        return json({ok:true, items:list.filter(x=>x.status!==0)}, {}, req);
+        return json({ok:true, items:list.filter(x=>x.status!==0)}, {});
       }
       if((p==='/admin/products/get' || p==='/product') && req.method==='GET'){
         const id = url.searchParams.get('id'); const slug = url.searchParams.get('slug');
-        if(!id && !slug) return json({ok:false,error:'missing id or slug'},{status:400},req);
+        if(!id && !slug) return json({ok:false,error:'missing id or slug'},{status:400});
         let prod=null;
         if(id) prod = await getJSON(env,'product:'+id,null);
         if(!prod && slug){
           const list=await listProducts(env); const item=list.find(x=>x.slug===slug);
           if(item) prod = await getJSON(env, 'product:'+item.id, null);
         }
-        if(!prod) return json({ok:false,error:'not found'},{status:404},req);
-        return json({ok:true, data:prod}, {}, req);
+        if(!prod) return json({ok:false,error:'not found'},{status:404});
+        return json({ok:true, data:prod}, {});
       }
       if(p==='/admin/products/delete' && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const b = await readBody(req)||{}; const id=b.id;
         const list = await listProducts(env); const next=list.filter(x=>x.id!==id); await putJSON(env,'products:list',next); await env.SHV.delete('product:'+id);
-        return json({ok:true, deleted:id}, {}, req);
+        return json({ok:true, deleted:id}, {});
       }
 
       // AI
@@ -570,9 +570,9 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
         let body = req.method==='POST' ? (await readBody(req)||{}) : Object.fromEntries(new URL(req.url).searchParams.entries());
         const map = { title: aiTitle, desc: aiDesc, seo: aiSEO, faq: aiFAQ, reviews: aiReviews, alt: aiAlt };
         const gen = map[kind];
-        if(!gen) return json({ok:false,error:'unknown ai endpoint'}, {status:404}, req);
+        if(!gen) return json({ok:false,error:'unknown ai endpoint'}, {status:404});
         const items = gen(body||{});
-        return json({ok:true, items, options:items}, {}, req);
+        return json({ok:true, items, options:items}, {});
       }
 
       
@@ -586,12 +586,12 @@ if(p==='/public/categories' && req.method==='GET'){ const list = await getJSON(e
           const ctx  = body.ctx||{};
           const map = { title: aiTitle, desc: aiDesc, seo: aiSEO, faq: aiFAQ, reviews: aiReviews, alt: aiAlt };
           const gen = map[type];
-          if(!gen) return json({ok:false, error:'unknown type'}, {status:400}, req);
+          if(!gen) return json({ok:false, error:'unknown type'}, {status:400});
           const items = await gen(ctx, env);
           // For SEO/FAQ return structured value
-          return json({ok:true, items, value: items}, {}, req);
+          return json({ok:true, items, value: items}, {});
         }catch(e){
-          return json({ok:false, error:String(e)}, {status:500}, req);
+          return json({ok:false, error:String(e)}, {status:500});
         }
       }
 
@@ -622,12 +622,12 @@ if(p==='/public/orders/create' && req.method==='POST'){
         const list = await getJSON(env,'orders:list',[])||[];
         list.unshift(order);
         await putJSON(env,'orders:list', list);
-        return json({ok:true, id}, {}, req);
+        return json({ok:true, id}, {});
       }
 
 // Orders upsert
       if((p==='/admin/orders/upsert') && (req.method==='POST')){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const o = await readBody(req)||{}; o.id = o.id || crypto.randomUUID().replace(/-/g,''); o.createdAt = o.createdAt || Date.now();
         const list = await getJSON(env,'orders:list',[])||[];
         // compute subtotal, revenue, profit
@@ -637,22 +637,22 @@ if(p==='/public/orders/create' && req.method==='POST'){
         o.subtotal = subtotal; o.revenue = subtotal - Number(o.shipping_fee||0); o.profit = o.revenue - cost;
         const idxExist = list.findIndex(x=>x.id===o.id); if(idxExist>=0) list[idxExist]=o; else list.unshift(o);
         await putJSON(env,'orders:list', list); await putJSON(env,'order:'+o.id, o);
-        return json({ok:true, id:o.id, data:o}, {}, req);
+        return json({ok:true, id:o.id, data:o}, {});
       }
-      if(p==='/admin/orders' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; return json({ok:true, items:list}, {}, req); }
-      if(p==='/admin/orders/delete' && req.method==='POST'){ if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req); const b=await readBody(req)||{}; const id=b.id; const list=await getJSON(env,'orders:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'orders:list', next); return json({ok:true, deleted:id}, {}, req); }
+      if(p==='/admin/orders' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; return json({ok:true, items:list}, {}); }
+      if(p==='/admin/orders/delete' && req.method==='POST'){ if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401}); const b=await readBody(req)||{}; const id=b.id; const list=await getJSON(env,'orders:list',[])||[]; const next=list.filter(x=>x.id!==id); await putJSON(env,'orders:list', next); return json({ok:true, deleted:id}, {}); }
       
       if(p==='/admin/orders/print' && req.method==='GET'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401}, req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
-        if(!id) return json({ok:false, error:'missing id'},{status:400}, req);
+        if(!id) return json({ok:false, error:'missing id'},{status:400});
         let o = await getJSON(env, 'order:'+id, null);
         if(!o){
           const list = await getJSON(env,'orders:list',[])||[];
           o = list.find(x=> String(x.id)===String(id)) || null;
         }
-        if(!o) return json({ok:false, error:'not found'},{status:404}, req);
+        if(!o) return json({ok:false, error:'not found'},{status:404});
         const its = Array.isArray(o.items)? o.items : [];
         const fmt = (n)=> new Intl.NumberFormat('vi-VN').format(Number(n||0));
         const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
@@ -699,9 +699,9 @@ if(p==='/public/orders/create' && req.method==='POST'){
           </div>
           <script>window.onload = ()=> setTimeout(()=>window.print(), 200);</script>
         </body></html>`;
-        return json({ok:true, html}, {}, req);
+        return json({ok:true, html}, {});
       }
-if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}, req); }
+if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'orders:list',[])||[]; const orders=list.length; const revenue=list.reduce((s,o)=>s+Number(o.revenue||0),0); const profit=list.reduce((s,o)=>s+Number(o.profit||0),0); const map={}; list.forEach(o=> (o.items||[]).forEach(it=>{ const k=it.id||it.productId||it.title||'unknown'; map[k]=map[k]||{id:k, title:it.title||it.name||k, qty:0, revenue:0}; map[k].qty += Number(it.qty||1); map[k].revenue += Number(it.price||0)*Number(it.qty||1); })); const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10); return json({ok:true, orders, revenue, profit, top_products:top}, {}); }
 
       
       // Public order create -> create order and store to KV
@@ -720,12 +720,12 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         list.unshift(o);
         await putJSON(env,'orders:list', list);
         await putJSON(env,'order:'+id, o);
-        return json({ok:true, id, data:o}, {}, req);
+        return json({ok:true, id, data:o}, {});
       }
 
       // Admin: GET /admin/orders?from=&to=
       if(p==='/admin/orders' && req.method==='GET'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const { searchParams } = new URL(req.url);
         const from = Number(searchParams.get('from')||0) || 0;
         const to   = Number(searchParams.get('to')||0)   || 0;
@@ -740,12 +740,12 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
             return true;
           });
         }
-        return json({ok:true, items:list}, {}, req);
+        return json({ok:true, items:list}, {});
       }
 
       // Stats with granularity day|month|year
       if(p==='/admin/stats' && req.method==='GET'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const { searchParams } = new URL(req.url);
         const gran = (searchParams.get('granularity')||'all').toLowerCase();
         const list = await getJSON(env,'orders:list',[])||[];
@@ -778,12 +778,12 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
           }
         }
         const top = Object.values(map).sort((a,b)=>b.qty-a.qty).slice(0,10);
-        return json({ok:true, revenue, profit, groups, top_products: top}, {}, req);
+        return json({ok:true, revenue, profit, groups, top_products: top}, {});
       }
 
       // Settings: upsert (pixels/shipping credentials etc.) to KV
       if(p==='/admin/settings/upsert' && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const body = await readBody(req)||{};
         const all = await getJSON(env,'settings',{})||{};
         const path = String(body.path||'').split('.').filter(Boolean);
@@ -792,11 +792,11 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
         if(path.length){ cur[path[0]] = body.value; }
         else if(body.data && typeof body.data==='object'){ Object.assign(all, body.data); }
         await putJSON(env,'settings', all);
-        return json({ok:true, settings: all}, {}, req);
+        return json({ok:true, settings: all}, {});
       }
       if(p==='/public/settings' && req.method==='GET'){
         const all = await getJSON(env,'settings',{})||{};
-        return json({ok:true, settings: all}, {}, req);
+        return json({ok:true, settings: all}, {});
       }
 
       
@@ -849,7 +849,7 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
           }catch(e){ return null; }
         }
         const superRes = await superQuote();
-        if(superRes){ return json(superRes, {}, req); }
+        if(superRes){ return json(superRes, {}); }
 
         // Fallback (if Super unreachable or no key)
         const unit = Math.max(1, Math.ceil((weight||0)/500));
@@ -859,47 +859,47 @@ if(p==='/admin/stats' && req.method==='GET'){ const list = await getJSON(env,'or
           { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
           { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
         ];
-        return json({ok:true, items, to_province, to_district}, {}, req);
+        return json({ok:true, items, to_province, to_district}, {});
       }
 
 // ---- SuperAI Platform Areas ----
 if(p==='/shipping/areas/province' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  return json({ok:true, items}, {});
 }
 if(p==='/shipping/areas/district' && req.method==='GET'){
   const u=new URL(req.url); const province=u.searchParams.get('province')||'';
   const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, province}, {}, req);
+  return json({ok:true, items, province}, {});
 }
 if(p==='/shipping/areas/commune' && req.method==='GET'){
   const u=new URL(req.url); const district=u.searchParams.get('district')||'';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, district}, {}, req);
+  return json({ok:true, items, district}, {});
 }
 
 // ---- Aliases for FE paths (provinces/districts/wards) ----
 if(p==='/shipping/provinces' && req.method==='GET'){
   const data = await superFetch(env, '/v1/platform/areas/province', {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items}, {}, req);
+  return json({ok:true, items}, {});
 }
 if(p==='/shipping/districts' && req.method==='GET'){
   const u=new URL(req.url);
   const province = u.searchParams.get('province_code') || u.searchParams.get('province') || '';
   const data = await superFetch(env, '/v1/platform/areas/district?province='+encodeURIComponent(province), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, province}, {}, req);
+  return json({ok:true, items, province}, {});
 }
 if(p==='/shipping/wards' && req.method==='GET'){
   const u=new URL(req.url);
   const district = u.searchParams.get('district_code') || u.searchParams.get('district') || '';
   const data = await superFetch(env, '/v1/platform/areas/commune?district='+encodeURIComponent(district), {method:'GET'});
   const items = (data?.data||data||[]).map(x=>({code: String(x.code||x.id||x.value||''), name: x.name||x.text||''}));
-  return json({ok:true, items, district}, {}, req);
+  return json({ok:true, items, district}, {});
 }
 
 // ---- SuperAI Platform Warehouses ----
@@ -926,9 +926,9 @@ if(p==='/shipping/warehouses' && (req.method==='POST' || req.method==='GET')){
       ward_code: String(x.commune_code || x.ward_code || ''),
       ward_name: String(x.commune || x.ward || x.ward_name || '')
     }));
-    return json({ok:true, items, raw:data}, {}, req);
+    return json({ok:true, items, raw:data}, {});
   }catch(e){
-    return json({ok:false, items:[], error:String(e?.message||e)}, {}, req);
+    return json({ok:false, items:[], error:String(e?.message||e)}, {});
   }
 }
 
@@ -966,8 +966,8 @@ if(p==='/shipping/price' && req.method==='POST'){
     if(fee>0) items.push({provider, service_code, name, fee, eta});
   };
   if(Array.isArray(arr)) arr.forEach(pushOne); else pushOne(arr);
-  return json({ok:true, items, raw:data}, {}, req);
-  }catch(e){ return json({ok:false, error:String(e && e.message || e || 'UNKNOWN')}, {}, req);}
+  return json({ok:true, items, raw:data}, {});
+  }catch(e){ return json({ok:false, error:String(e && e.message || e || 'UNKNOWN')}, {});}
 }
 
 
@@ -1062,18 +1062,18 @@ if(p==='/admin/shipping/create' && req.method==='POST'){
     const tracking = data?.data?.tracking || data?.tracking || code || null;
     if(code){
       await putJSON(env, 'shipment:'+ (order.id||body.order_id||code), { id: (order.id||body.order_id||code), provider: payload.provider, service_code: payload.service_code, code, tracking, raw: data, at: Date.now() });
-      return json({ok:true, code, tracking}, {}, req);
+      return json({ok:true, code, tracking}, {});
     }
-    return json({ok:false, error:'CREATE_FAILED', raw:data}, {}, req);
+    return json({ok:false, error:'CREATE_FAILED', raw:data}, {});
   }catch(e){
-    return json({ok:false, error:String(e?.message||e)}, {status:500}, req);
+    return json({ok:false, error:String(e?.message||e)}, {status:500});
   }
 }
 // ---- Order Info (Platform) ----
 if(p==='/admin/shipping/info' && req.method==='GET'){
   const u = new URL(req.url); const code = u.searchParams.get('code')||u.searchParams.get('id')||'';
   const data = await superFetch(env, '/v1/platform/orders/info?code='+encodeURIComponent(code), {method:'GET'});
-  return json({ok: !!data, data}, {}, req);
+  return json({ok: !!data, data}, {});
 }
 
 // ---- SuperAI Platform Label ----
@@ -1089,22 +1089,22 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
     const url = 'https://api.mysupership.vn/v1/platform/orders/label?token='+encodeURIComponent(printToken)+'&size='+encodeURIComponent(size);
     return Response.redirect(url, 302);
   }
-  return json({ok:false, error:'LABEL_TOKEN_FAILED', raw:tokData}, {}, req);
+  return json({ok:false, error:'LABEL_TOKEN_FAILED', raw:tokData}, {});
 }
 
 // Shipping credentials
       if(p==='/admin/shipping/credentials' && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const body = await readBody(req)||{};
         const all = await getJSON(env,'settings',{})||{};
         all.shipping = all.shipping || {}; all.shipping.credentials = all.shipping.credentials || {};
         if(body.provider && body.credentials){ all.shipping.credentials[body.provider] = body.credentials; }
         await putJSON(env,'settings', all);
-        return json({ok:true}, {}, req);
+        return json({ok:true}, {});
       }
       // Shipping quote (admin) -> use SuperAI when available; else fallback like public /shipping/quote
       if(p==='/admin/shipping/quote' && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const body = await readBody(req)||{};
         const pkg = body.package || {};
         const to  = body.to || {};
@@ -1167,7 +1167,7 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
           }catch(e){ return null; }
         }
         const superRes = await superQuote();
-        if(superRes){ return json(superRes, {}, req); }
+        if(superRes){ return json(superRes, {}); }
 
         // Fallback pricing if SuperAI not available
         const unit = Math.max(1, Math.ceil((weight||0)/500));
@@ -1177,32 +1177,32 @@ if(p==='/admin/shipping/label' && req.method==='GET'){
           { provider:'spx', service_code:'SPX-REG',  name:'Tiêu chuẩn',  fee: Math.round(base),      eta:'2-3 ngày' },
           { provider:'aha', service_code:'AHA-SAVE', name:'Tiết kiệm',   fee: Math.round(base*0.9),   eta:'3-5 ngày' }
         ];
-        return json({ok:true, items, to_province, to_district}, {}, req);
+        return json({ok:true, items, to_province, to_district}, {});
       }
       // Alias: /api/shipping/quote -> same as admin (POST)
       if(p==='/api/shipping/quote' && req.method==='POST'){
         // Re-dispatch to admin handler above by mutating path (simple fallthrough)
         p = '/admin/shipping/quote';
       }
-,{status:401},req);
+, {status:401});
         const body = await readBody(req)||{};
         const weight = Number(body.weight||0);
         const subtotal = (Array.isArray(body.items)?body.items:[]).reduce((s,it)=>s+Number(it.price||0)*(Number(it.qty||1)),0);
         const fee = Math.max(15000, Math.round(15000 + weight*100 + subtotal*0.02));
-        return json({ok:true, provider: body.provider||'stub', fee, eta:'1-3 ngày'}, {}, req);
+        return json({ok:true, provider: body.provider||'stub', fee, eta:'1-3 ngày'}, {});
       }
       // Shipping create (stub) -> returns tracking code
       if(p==='/admin/shipping/create' && req.method==='POST'){
-        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401},req);
+        if(!(await adminOK(req, env))) return json({ok:false, error:'unauthorized'},{status:401});
         const body = await readBody(req)||{}; const id = body.order_id || crypto.randomUUID().replace(/-/g,'');
         const tracking = (body.provider||'SHIP') + '-' + id.slice(-8).toUpperCase();
         await putJSON(env, 'shipment:'+id, {id, provider:body.provider||'stub', tracking, createdAt:Date.now(), body});
-        return json({ok:true, tracking, id}, {}, req);
+        return json({ok:true, tracking, id}, {});
       }
-return json({ok:false, error:'not found'}, {status:404}, req);
+return json({ok:false, error:'not found'}, {status:404});
 
     }catch(e){
-      return json({ok:false, error: (e && e.message) || String(e)}, {status:500}, req);
+      return json({ok:false, error: (e && e.message) || String(e)}, {status:500});
     }
   }
 };
