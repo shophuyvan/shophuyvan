@@ -1058,7 +1058,6 @@ function openCheckoutModal(){
       $(codeInput).value = code;
     }
   }
-}
   async function loadProvinces(selectedName=''){
     const data = await getAreas('/shipping/areas/province');
     const sel = $('#co-province-sel'); sel.innerHTML='<option value="">— Chọn Tỉnh/Thành —</option>';
