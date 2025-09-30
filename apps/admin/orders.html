@@ -123,7 +123,7 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
   function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
   window.showOrderDetail = function(o){ window.__currentOrder = o;
     const b = document.getElementById('md-body');
-    const c = document.getElementById('modal-detail');
+    const c = document.getElementById('modal-detail'); c && (c.dataset.orderId = (o && (o.id||o._id||''))||'');
     const its = Array.isArray(o.items)?o.items:[];
     const sub = its.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
     const ship = Number(o.shipping_fee||0);
@@ -210,6 +210,15 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
 if(btnC){ btnC.addEventListener('click', async ()=>{
   try{
     var o = (window && window.__currentOrder) || null;
+    try{
+      var md = document.getElementById('modal-detail');
+      var idHint = md ? (md.dataset && md.dataset.orderId) : '';
+      if((!o || (idHint && (String(o.id||o._id||'')!==String(idHint)))) && idHint){
+         const list2 = await Admin.req('/api/orders',{method:'GET'});
+         const items2=(list2&&list2.items)||[];
+         o = items2.find(function(x){ return String(x.id||'')===String(idHint); }) || o || null;
+      }
+    }catch(_e){}
     if(!o){ const list = await Admin.req('/api/orders',{method:'GET'});
       const items=(list&&list.items)||[]; var idTxt=(function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
       o = items.find(function(x){ return (String(x.id||'')===String(idTxt)) || (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0] || null; }
@@ -257,10 +266,47 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
       address: pick(o, ['address','receiver_address','shipping_address']) || ''
     };
     receiver.province_code = pick(o, ['receiver_province_code','to_province_code','province_code','toProvinceCode']);
+    // Extra: map from names if codes missing
+    var rProvName = pick(o, ['receiver_province_name','province_name','province','to_province_name','to_province']);
+    var rDistName = pick(o, ['receiver_district_name','district_name','district','to_district_name','to_district']);
+    var rWardName = pick(o, ['receiver_commune_name','receiver_ward_name','ward_name','commune_name','ward','to_commune_name','to_ward_name']);
+    if(!receiver.address){
+      receiver.address = [pick(o,['address','receiver_address','shipping_address']), rWardName, rDistName, rProvName].filter(Boolean).join(', ');
+    }
+
     receiver.district_code = pick(o, ['receiver_district_code','to_district_code','district_code','toDistrictCode']);
     receiver.ward_code     = pick(o, ['receiver_commune_code','receiver_ward_code','to_commune_code','ward_code','toWardCode']);
 
-    if(!(receiver.province_code) && receiver.address){
+    
+    if(!receiver.province_code && (receiver.address || rProvName)){
+      var provs2 = await fetchProvinces(); var hitP2=null;
+      if(rProvName){
+        for(var a=0;a<provs2.length;a++){ if(containsName(rProvName, provs2[a].name)){ hitP2 = provs2[a]; break; } }
+      }
+      if(!hitP2 && receiver.address){
+        for(var a2=0;a2<provs2.length;a2++){ if(containsName(receiver.address, provs2[a2].name)){ hitP2 = provs2[a2]; break; } }
+      }
+      if(hitP2){ receiver.province_code = hitP2.code; var dists2 = await fetchDistricts(hitP2.code);
+        var hitD2=null;
+        if(rDistName){
+          for(var b=0;b<dists2.length;b++){ if(containsName(rDistName, dists2[b].name)){ hitD2 = dists2[b]; break; } }
+        }
+        if(!hitD2 && receiver.address){
+          for(var b2=0;b2<dists2.length;b2++){ if(containsName(receiver.address, dists2[b2].name)){ hitD2 = dists2[b2]; break; } }
+        }
+        if(hitD2){ receiver.district_code = hitD2.code; var wards2 = await fetchWards(hitD2.code);
+          var hitW2=null;
+          if(rWardName){
+            for(var c2=0;c2<wards2.length;c2++){ if(containsName(rWardName, wards2[c2].name)){ hitW2 = wards2[c2]; break; } }
+          }
+          if(!hitW2 && receiver.address){
+            for(var c3=0;c3<wards2.length;c3++){ if(containsName(receiver.address, wards2[c3].name)){ hitW2 = wards2[c3]; break; } }
+          }
+          if(hitW2){ receiver.ward_code = hitW2.code; }
+        }
+      }
+    }
+
       var provs2 = await fetchProvinces(); var hitP2=null;
       for(var a=0;a<provs2.length;a++){ if(containsName(receiver.address, provs2[a].name)){ hitP2 = provs2[a]; break; } }
       if(hitP2){ receiver.province_code = hitP2.code; var dists2 = await fetchDistricts(hitP2.code);
@@ -296,7 +342,16 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
   }catch(e){ Admin.toast('Không thể tạo vận đơn. Vui lòng kiểm tra cấu hình và dữ liệu đơn.');  }
 }); }
 if(btnP){ btnP.addEventListener('click', async ()=>{
-      const o = (window && window.__currentOrder) || null;
+      var o = (window && window.__currentOrder) || null;
+      try{
+        var md = document.getElementById('modal-detail');
+        var idHint = md ? (md.dataset && md.dataset.orderId) : '';
+        if((!o || (idHint && (String(o.id||o._id||'')!==String(idHint)))) && idHint){
+           const list2 = await Admin.req('/api/orders',{method:'GET'});
+           const items2=(list2&&list2.items)||[];
+           o = items2.find(function(x){ return String(x.id||'')===String(idHint); }) || o || null;
+        }
+      }catch(_e){}
       if(o){ openPrint(o, ''); } else {
         const list = await Admin.req('/api/orders',{method:'GET'});
         const items=(list&&list.items)||[];
