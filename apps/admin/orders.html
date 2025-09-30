@@ -120,7 +120,7 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
   }
   document.addEventListener('DOMContentLoaded', loadOrders);
 
-  function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
+  function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch(e){return (n||0)+'đ';} }
   window.showOrderDetail = function(o){ window.__currentOrder = o;
     const b = document.getElementById('md-body');
     const c = document.getElementById('modal-detail'); c && (c.dataset.orderId = (o && (o.id||o._id||''))||'');

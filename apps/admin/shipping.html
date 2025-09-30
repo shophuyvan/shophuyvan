@@ -640,17 +640,21 @@ window.__shv_syncWarehouses_fallback = async function(){
 
 
 <script>
+
 (function(){
   function $(id){return document.getElementById(id);}
   function updateSummary(){
     var sum = $('sender_summary'); if(!sum) return;
-    var name  = $('sender_name')?.value||'';
-    var phone = $('sender_phone')?.value||'';
-    var addr1 = $('sender_address')?.value||'';
-    var prov  = $('sender_province_sel')?.selectedOptions[0]?.textContent||'';
-    var dist  = $('sender_district_sel')?.selectedOptions[0]?.textContent||'';
-    var ward  = $('sender_commune_sel')?.selectedOptions[0]?.textContent||'';
-    var addr = [addr1, ward, dist, prov].filter(Boolean).join(', ');
+    var elName = $('sender_name');  var name  = elName ? elName.value : '';
+    var elPhone= $('sender_phone'); var phone = elPhone ? elPhone.value : '';
+    var elAddr = $('sender_address');var addr1 = elAddr ? elAddr.value : '';
+    var pSel = $('sender_province_sel'); var prov = '';
+    if(pSel){ var opt = pSel.options && pSel.selectedIndex>=0 ? pSel.options[pSel.selectedIndex] : null; prov = opt ? opt.text : ''; }
+    var dSel = $('sender_district_sel'); var dist = '';
+    if(dSel){ var opt2 = dSel.options && dSel.selectedIndex>=0 ? dSel.options[dSel.selectedIndex] : null; dist = opt2 ? opt2.text : ''; }
+    var wSel = $('sender_commune_sel'); var ward = '';
+    if(wSel){ var opt3 = wSel.options && wSel.selectedIndex>=0 ? wSel.options[wSel.selectedIndex] : null; ward = opt3 ? opt3.text : ''; }
+    var addr = [addr1, ward, dist, prov].filter(function(x){return x;}).join(', ');
     var n = document.getElementById('s_name');  if(n) n.textContent = name;
     var ph= document.getElementById('s_phone'); if(ph) ph.textContent = phone;
     var ad= document.getElementById('s_addr');  if(ad) ad.textContent = addr;
@@ -665,11 +669,11 @@ window.__shv_syncWarehouses_fallback = async function(){
       });
     }
     setTimeout(updateSummary, 800);
-    // Observe changes on selects/inputs to refresh summary
     ['sender_name','sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
       .forEach(function(id){ var el=$(id); if(el) el.addEventListener('change', updateSummary); });
   });
 })();
+
 </script>
 
 </body>
