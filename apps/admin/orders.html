@@ -225,11 +225,11 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
   }
 if(btnP){ btnP.addEventListener('click', async ()=>{
       const list = await Admin.req('/api/orders',{method:'GET'});
-      const o = (list&&list.items&&list.items[0])||null;
+      const items=(list&&list.items)||[];
+      const idTxt = (function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
+      const o = items.find(function(x){ return (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0] || null;
       openPrint(o, '');
-    });
-  }
-  });
+    }); }});
   obs.observe(container, { childList:true, subtree:true });
 })();
 </script>
