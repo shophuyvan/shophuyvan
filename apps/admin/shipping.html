@@ -552,42 +552,76 @@ document.addEventListener('DOMContentLoaded', ()=>{
           return (cur==null?'':cur);
         }catch(_e){ return ''; }
       }
-    window.__shv_syncWarehouses_fallback = async function(){
-    try{
-      let rs = await apiGet('/shipping/warehouses');
-      let list = pickList(rs);
-      if(!list.length){ rs = await apiGet('/shipping/warehouses', {method:'POST', credentials:'include'}); list = pickList(rs); }
-      if(!list.length){ alert('Không lấy được warehouses'); return; }
-      const w = list[0] || {};
-      const name = w.name || w.contact_name || w.primary_name || w.wh_name || '';
-      const phone= w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
-      const addr = w.addr || w.address || w.formatted_address || w.wh_address || '';
+    
+window.__shv_syncWarehouses_fallback = async function(){
+  try{
+    // helpers
+    function norm(s){ try{ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }catch(_){ return (s||'').toString().toLowerCase(); } }
+    function findByName(list, name){ var ns=norm(name); for(var i=0;i<list.length;i++){ var it=list[i]; if(norm(it.name||it.label||'')===ns) return it; } return null; }
 
-      const p = String(w.province_code || _get(w,['province','code']) || w.provinceId || w.province_code_id || '');
-      const d = String(w.district_code || _get(w,['district','code']) || w.districtId || '');
-      const c = String(w.ward_code || w.commune_code || w?.ward?.code || '');
+    let rs = await apiGet('/shipping/warehouses');
+    let list = pickList(rs);
+    if(!list.length){ rs = await apiGet('/shipping/warehouses',{method:'POST', credentials:'include'}); list = pickList(rs); }
+    if(!list.length){ alert('Không lấy được warehouses'); return; }
+    const w = list[0] || {};
 
-      setVal(S.name, name);
-      setVal(S.phone, phone);
-      setVal(S.address, addr);
+    const name = w.name || w.contact_name || w.primary_name || w.wh_name || '';
+    const phone= w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
+    const addr = w.addr || w.address || w.formatted_address || w.wh_address || '';
 
-      await loadProvinces();
-      if(p){ pickEl(...S.provSel).value = p; }
-      await loadDistricts(p);
-      if(d){ pickEl(...S.distSel).value = d; }
-      await loadWards(d);
-      if(c){ pickEl(...S.wardSel).value = c; }
-      // cố gắng kích hoạt change để các code input khác tự đồng bộ nếu page đang lắng nghe
-      ['change','input'].forEach(evt=>{
-        [S.provSel,S.distSel,S.wardSel].forEach(ids=>{
-          const el = pickEl(...ids); if(el) el.dispatchEvent(new Event(evt,{bubbles:true}));
-        });
-      });
-      (window.toast||alert)('Đã đồng bộ từ Warehouses');
-    }catch(e){
-      console.error('fallback sync error', e);
-      (window.toast||alert)('Không lấy được warehouses');
+    var p = String(w.province_code || _get(w,['province','code']) || w.provinceId || w.province_code_id || '');
+    var d = String(w.district_code || _get(w,['district','code']) || w.districtId || '');
+    var c = String(w.ward_code || w.commune_code || _get(w,['ward','code']) || '');
+
+    // Fallback: map bằng tên nếu không có code
+    var pn = w.province_name || _get(w,['province','name']) || '';
+    var dn = w.district_name || _get(w,['district','name']) || '';
+    var cn = w.commune_name || w.ward_name || _get(w,['ward','name']) || '';
+
+    await loadProvinces();
+    if(!p && pn){
+      var provSel = pickEl.apply(null, S.provSel);
+      var provList = Array.prototype.slice.call(provSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
+      var hit = findByName(provList, pn);
+      if(hit){ p = hit.code; }
     }
+    if(p){ var elp = pickEl.apply(null, S.provSel); if(elp){ elp.value = p; } }
+    await loadDistricts(p);
+
+    if(!d && dn){
+      var distSel = pickEl.apply(null, S.distSel);
+      var distList = Array.prototype.slice.call(distSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
+      var hit2 = findByName(distList, dn);
+      if(hit2){ d = hit2.code; }
+    }
+    if(d){ var eld = pickEl.apply(null, S.distSel); if(eld){ eld.value = d; } }
+    await loadWards(d);
+
+    if(!c && cn){
+      var wardSel = pickEl.apply(null, S.wardSel);
+      var wardList = Array.prototype.slice.call(wardSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
+      var hit3 = findByName(wardList, cn);
+      if(hit3){ c = hit3.code; }
+    }
+    if(c){ var elw = pickEl.apply(null, S.wardSel); if(elw){ elw.value = c; } }
+
+    setVal(S.name, name);
+    if(phone){ setVal(S.phone, phone); }
+    setVal(S.address, addr);
+
+    // Kích hoạt change để hidden code tự cập nhật
+    ['change','input'].forEach(function(evt){
+      [S.provSel,S.distSel,S.wardSel].forEach(function(ids){
+        var el = pickEl.apply(null, ids); if(el){ el.dispatchEvent(new Event(evt,{bubbles:true})); }
+      });
+    });
+    (window.toast||alert)('Đã đồng bộ từ Warehouses');
+  }catch(e){
+    console.error('fallback sync error', e);
+    (window.toast||alert)('Không lấy được warehouses');
+  }
+};
+
   };
   // Nếu nút "Đồng bộ từ Warehouses" gọi syncWarehouses cũ -> hook lại
   const btn = Array.from(document.querySelectorAll('button, a'))
