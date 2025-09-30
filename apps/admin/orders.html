@@ -121,7 +121,7 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
   document.addEventListener('DOMContentLoaded', loadOrders);
 
   function fmt(n){ try{ return Number(n||0).toLocaleString('vi-VN')+'đ'; }catch{return (n||0)+'đ';} }
-  window.showOrderDetail = function(o){
+  window.showOrderDetail = function(o){ window.__currentOrder = o;
     const b = document.getElementById('md-body');
     const c = document.getElementById('modal-detail');
     const its = Array.isArray(o.items)?o.items:[];
@@ -209,10 +209,10 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
 
 if(btnC){ btnC.addEventListener('click', async ()=>{
   try{
-    const list = await Admin.req('/api/orders',{method:'GET'});
-    const items=(list&&list.items)||[];
-    var idTxt=(function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
-    var o = items.find(function(x){ return (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0];
+    var o = (window && window.__currentOrder) || null;
+    if(!o){ const list = await Admin.req('/api/orders',{method:'GET'});
+      const items=(list&&list.items)||[]; var idTxt=(function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
+      o = items.find(function(x){ return (String(x.id||'')===String(idTxt)) || (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0] || null; }
     if(!o){ Admin.toast('Không tìm thấy đơn để tạo vận đơn'); return; }
 
     function pick(obj, names){ for(var i=0;i<names.length;i++){ var k=names[i]; if(obj && obj[k]!=null && obj[k]!=='' ){ return obj[k]; } } return ''; }
@@ -220,8 +220,8 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
     function containsName(addr, name){ return norm(addr).indexOf(norm(name))>=0; }
 
     async function fetchProvinces(){ var rs = await Admin.req('/shipping/provinces',{method:'GET'}); return (rs&&rs.items)||[]; }
-    async function fetchDistricts(pcode){ if(!pcode) return []; var rs = await Admin.req('/shipping/district',{method:'GET', query:{ province: pcode }}); return (rs&&rs.items)||[]; }
-    async function fetchWards(dcode){ if(!dcode) return []; var rs = await Admin.req('/shipping/commune',{method:'GET', query:{ district: dcode }}); return (rs&&rs.items)||[]; }
+    async function fetchDistricts(pcode){ if(!pcode) return []; var rs = await Admin.req('/shipping/districts',{method:'GET', query:{ province_code: pcode }}); return (rs&&rs.items)||[]; }
+    async function fetchWards(dcode){ if(!dcode) return []; var rs = await Admin.req('/shipping/commune',{method:'GET', query:{ district_code: dcode }}); return (rs&&rs.items)||[]; }
 
     var w=null; try{
       var resW = await Admin.req('/shipping/warehouses',{method:'GET'});
@@ -289,17 +289,21 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
       weight_gram: mappedItems.reduce(function(s,it){return s + Number(it.weight_grams||0)*Number(it.qty||1)}, 0)
     };
 
+    if(!payload.receiver_province_code){ Admin.toast('Thiếu tỉnh/thành người nhận – hãy nhập địa chỉ đầy đủ hoặc cập nhật code.'); return; }
     const r = await Admin.req('/admin/shipping/create',{method:'POST', body: payload});
     if(r&&r.ok){ Admin.toast('Đã tạo vận đơn'); openPrint(o, r.tracking||r.tracking_code||''); }
     else { Admin.toast('Không thể tạo vận đơn (thiếu cấu hình hoặc dữ liệu).'); }
   }catch(e){ Admin.toast('Không thể tạo vận đơn. Vui lòng kiểm tra cấu hình và dữ liệu đơn.');  }
 }); }
 if(btnP){ btnP.addEventListener('click', async ()=>{
-      const list = await Admin.req('/api/orders',{method:'GET'});
-      const items=(list&&list.items)||[];
-      const idTxt = (function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
-      const o = items.find(function(x){ return (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0] || null;
-      openPrint(o, '');
+      const o = (window && window.__currentOrder) || null;
+      if(o){ openPrint(o, ''); } else {
+        const list = await Admin.req('/api/orders',{method:'GET'});
+        const items=(list&&list.items)||[];
+        const idTxt = (function(){ var el=modal.querySelector('.card b'); return el?el.textContent:''; })();
+        const oo = items.find(function(x){ return (String(x.id||'')===String(idTxt)) || (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0] || null;
+        openPrint(oo, '');
+      }
     }); }});
   obs.observe(container, { childList:true, subtree:true });
 })();
