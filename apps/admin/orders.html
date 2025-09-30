@@ -206,6 +206,7 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
     const btnP = document.getElementById('btn-print-waybill');
     
 
+
 if(btnC){ btnC.addEventListener('click', async ()=>{
   try{
     const list = await Admin.req('/api/orders',{method:'GET'});
@@ -214,7 +215,13 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
     var o = items.find(function(x){ return (String(x.id||'').endsWith(String(idTxt).slice(-6))); }) || items[0];
     if(!o){ Admin.toast('Không tìm thấy đơn để tạo vận đơn'); return; }
 
-    function pick(obj, names){ for(var i=0;i<names.length;i++){ var k=names[i]; if(obj && obj[k]!=null && obj[k]!==''){ return obj[k]; } } return ''; }
+    function pick(obj, names){ for(var i=0;i<names.length;i++){ var k=names[i]; if(obj && obj[k]!=null && obj[k]!=='' ){ return obj[k]; } } return ''; }
+    function norm(s){ try{ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }catch(_){ return (s||'').toString().toLowerCase(); } }
+    function containsName(addr, name){ return norm(addr).indexOf(norm(name))>=0; }
+
+    async function fetchProvinces(){ var rs = await Admin.req('/shipping/provinces',{method:'GET'}); return (rs&&rs.items)||[]; }
+    async function fetchDistricts(pcode){ if(!pcode) return []; var rs = await Admin.req('/shipping/district',{method:'GET', query:{ province: pcode }}); return (rs&&rs.items)||[]; }
+    async function fetchWards(dcode){ if(!dcode) return []; var rs = await Admin.req('/shipping/commune',{method:'GET', query:{ district: dcode }}); return (rs&&rs.items)||[]; }
 
     var w=null; try{
       var resW = await Admin.req('/shipping/warehouses',{method:'GET'});
@@ -229,6 +236,20 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
       district_code: (w && (w.district_code || (w.district&&w.district.code) || w.districtId)) || '',
       ward_code: (w && (w.ward_code || w.commune_code || w.wardId || w.communeId)) || ''
     };
+    if(!(sender.province_code&&sender.district_code&&sender.ward_code)){
+      var pn = (w&& (w.province_name || (w.province&&w.province.name))) || '';
+      var dn = (w&& (w.district_name || (w.district&&w.district.name))) || '';
+      var wn = (w&& (w.commune_name || w.ward_name || (w.ward&&w.ward.name))) || '';
+      var provs = await fetchProvinces();
+      var hitP = null; for(var i=0;i<provs.length;i++){ if(containsName(pn||sender.address, provs[i].name)){ hitP = provs[i]; break; } }
+      if(hitP){ sender.province_code = hitP.code; var dists = await fetchDistricts(hitP.code);
+        var hitD=null; for(var j=0;j<dists.length;j++){ if(containsName(dn||sender.address, dists[j].name)){ hitD = dists[j]; break; } }
+        if(hitD){ sender.district_code = hitD.code; var wards = await fetchWards(hitD.code);
+          var hitW=null; for(var k=0;k<wards.length;k++){ if(containsName(wn||sender.address, wards[k].name)){ hitW = wards[k]; break; } }
+          if(hitW){ sender.ward_code = hitW.code; }
+        }
+      }
+    }
 
     var receiver = {
       name: pick(o, ['customer_name','customerName','name','receiver_name']),
@@ -238,6 +259,18 @@ if(btnC){ btnC.addEventListener('click', async ()=>{
     receiver.province_code = pick(o, ['receiver_province_code','to_province_code','province_code','toProvinceCode']);
     receiver.district_code = pick(o, ['receiver_district_code','to_district_code','district_code','toDistrictCode']);
     receiver.ward_code     = pick(o, ['receiver_commune_code','receiver_ward_code','to_commune_code','ward_code','toWardCode']);
+
+    if(!(receiver.province_code) && receiver.address){
+      var provs2 = await fetchProvinces(); var hitP2=null;
+      for(var a=0;a<provs2.length;a++){ if(containsName(receiver.address, provs2[a].name)){ hitP2 = provs2[a]; break; } }
+      if(hitP2){ receiver.province_code = hitP2.code; var dists2 = await fetchDistricts(hitP2.code);
+        var hitD2=null; for(var b=0;b<dists2.length;b++){ if(containsName(receiver.address, dists2[b].name)){ hitD2 = dists2[b]; break; } }
+        if(hitD2){ receiver.district_code = hitD2.code; var wards2 = await fetchWards(hitD2.code);
+          var hitW2=null; for(var c2=0;c2<wards2.length;c2++){ if(containsName(receiver.address, wards2[c2].name)){ hitW2 = wards2[c2]; break; } }
+          if(hitW2){ receiver.ward_code = hitW2.code; }
+        }
+      }
+    }
 
     var its = Array.isArray(o.items)? o.items: [];
     var mappedItems = its.map(function(it){
