@@ -509,8 +509,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     sel.innerHTML = '<option value=\"\">— Chọn —</option>';
     (list||[]).forEach(it=>{
       const opt = document.createElement('option');
-      opt.value = String(it.code ?? it.id ?? it.value ?? '');
-      opt.textContent = String(it.name ?? it.label ?? it.text ?? '');
+      opt.value = String(it.code || it.id || it.value || '');
+      opt.textContent = String(it.name || it.label || it.text || '');
       sel.appendChild(opt);
     });
     sel.disabled = false;
@@ -541,7 +541,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!list.length){ rs = await apiGet('/shipping/areas/ward?district_code='+encodeURIComponent(d)); list = pickList(rs); }
     setOptions(sel, list);
   }
-  window.__shv_syncWarehouses_fallback = async function(){
+  
+      function _get(obj, keys){
+        try{
+          var cur=obj;
+          for(var i=0;i<keys.length;i++){
+            if(!cur || typeof cur!=='object') return '';
+            cur = cur[keys[i]];
+          }
+          return (cur==null?'':cur);
+        }catch(_e){ return ''; }
+      }
+    window.__shv_syncWarehouses_fallback = async function(){
     try{
       let rs = await apiGet('/shipping/warehouses');
       let list = pickList(rs);
@@ -552,8 +563,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const phone= w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
       const addr = w.addr || w.address || w.formatted_address || w.wh_address || '';
 
-      const p = String(w.province_code || w?.province?.code || w.provinceId || w.province_code_id || '');
-      const d = String(w.district_code || w?.district?.code || w.districtId || '');
+      const p = String(w.province_code || _get(w,['province','code']) || w.provinceId || w.province_code_id || '');
+      const d = String(w.district_code || _get(w,['district','code']) || w.districtId || '');
       const c = String(w.ward_code || w.commune_code || w?.ward?.code || '');
 
       setVal(S.name, name);

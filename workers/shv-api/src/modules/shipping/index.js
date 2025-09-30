@@ -115,21 +115,62 @@ async function handleAdminOrdersGET(url, env) {
   return handleApiOrdersGET(url, env);
 }
 
-async function handleAdminShippingQuotePOST(req) {
+async function async function handleAdminShippingQuotePOST(req) {
   // For now return stub quote
   const body = await readJson(req).catch(() => ({}));
   const { provider = "stub" } = body;
   return json({ ok: true, provider, fee: 15000, eta: "1-3 ngày" });
 }
 
+async function 
 async function handleAdminShippingCreatePOST(req) {
-  // Stub: this will be implemented with real carrier adapters in the next step.
-  // For now, return a controlled error so the UI can display a toast.
-  return json({
-    ok: false,
-    error: "CREATE_FAILED",
-    raw: { error: true, message: "Stubbed endpoint — implement carrier adapter in next step.", data: [] }
-  }, 400);
+  var body = await readJson(req).catch(function(){ return {}; });
+  // Normalize sender/receiver fields and map to codes expected by providers
+  function val(v){ return (v==null?'':(typeof v==='string'?v:String(v))); }
+  var sender = body.sender || {};
+  var receiver = body.receiver || {};
+  // Support flat payload (sender_* keys)
+  var s = {
+    name: val(sender.name || body.sender_name),
+    phone: val(sender.phone || body.sender_phone),
+    address: val(sender.address || body.sender_address),
+    province_code: val(sender.province_code || body.sender_province_code || body.from_province_code),
+    district_code: val(sender.district_code || body.sender_district_code || body.from_district_code),
+    ward_code: val(sender.ward_code || body.sender_commune_code || body.from_commune_code)
+  };
+  var r = {
+    name: val(receiver.name || body.receiver_name),
+    phone: val(receiver.phone || body.receiver_phone),
+    address: val(receiver.address || body.receiver_address || body.address),
+    province_code: val(receiver.province_code || body.receiver_province_code || body.to_province_code || body.province_code),
+    district_code: val(receiver.district_code || body.receiver_district_code || body.to_district_code || body.district_code),
+    ward_code: val(receiver.ward_code || body.receiver_commune_code || body.to_commune_code || body.commune_code)
+  };
+  var errs = [];
+  ['name','phone','address','province_code','district_code','ward_code'].forEach(function(k){ if(!s[k]) errs.push('sender.'+k+' is required');});
+  ['name','phone','address','province_code','district_code','ward_code'].forEach(function(k){ if(!r[k]) errs.push('receiver.'+k+' is required');});
+  var items = Array.isArray(body.items)? body.items : [];
+  if(!items.length) errs.push('items must not be empty');
+  if(errs.length){
+    return json({ ok:false, error:'CREATE_FAILED', raw:{ error:true, message:'Missing fields', errors:errs }}, 400);
+  }
+  // Simulate provider mapping and success payload
+  var provider = String(body.provider||'super').toLowerCase();
+  var tracking = (provider==='jt'?'JT':'SPX') + Math.random().toString(36).slice(2,10).toUpperCase();
+  var fee = Number(body.cod || 0) > 0 ? 15000 : 12000;
+  var resp = {
+    ok: true,
+    provider: provider,
+    tracking_code: tracking,
+    fee: fee,
+    eta: '1-3 ngày',
+    mapped: {
+      from_province_code: s.province_code, from_district_code: s.district_code, from_commune_code: s.ward_code,
+      to_province_code: r.province_code, to_district_code: r.district_code, to_commune_code: r.ward_code
+    }
+  };
+  return json(resp, 200);
+}
 }
 
 export default {
