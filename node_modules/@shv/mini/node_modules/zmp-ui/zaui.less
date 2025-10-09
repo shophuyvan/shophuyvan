@@ -1,0 +1,644 @@
+// css prefix
+@zaui-prefix: zaui;
+
+// global colors
+@wht-a100: #ffffff;
+@wht-a90: #ffffffe6;
+@wht-a80: #ffffffcc;
+@wht-a70: #ffffffb3;
+@wht-a60: #ffffff99;
+@wht-a50: #ffffff80;
+@wht-a40: #ffffff66;
+@wht-a30: #ffffff4d;
+@wht-a20: #ffffff33;
+@wht-a10: #ffffff1a;
+@wht-a0: #ffffff00;
+@blk-a100: #000000;
+@blk-a90: #000000e6;
+@blk-a80: #000000cc;
+@blk-a70: #000000b3;
+@blk-a60: #00000099;
+@blk-a50: #00000080;
+@blk-a40: #00000066;
+@blk-a30: #0000004d;
+@blk-a20: #00000033;
+@blk-a10: #0000001a;
+@blk-a0: #00000000;
+@ng10: #f4f5f6;
+@ng20: #e9ebed;
+@ng30: #d6d9dc;
+@ng40: #b9bdc1;
+@ng50: #8f9499;
+@ng60: #767a7f;
+@ng70: #53575a;
+@ng80: #36383a;
+@ng90: #252627;
+@ng100: #141415;
+@b10: #ebf4ff;
+@b20: #d6e9ff;
+@b30: #b8d9ff;
+@b40: #8fc1ff;
+@b50: #52a0ff;
+@b60: #006af5;
+@b70: #0250b6;
+@b80: #033e8c;
+@b90: #03316d;
+@b100: #03244e;
+@r10: #ffebeb;
+@r20: #fed8d7;
+@r30: #fcbdba;
+@r40: #f89996;
+@r50: #f1645f;
+@r60: #dc1f18;
+@r70: #a51712;
+@r80: #81120e;
+@r90: #650e0b;
+@r100: #490a08;
+@y10: #fef9e1;
+@y20: #fef4cd;
+@y30: #fdeeaf;
+@y40: #fee686;
+@y50: #fdd949;
+@y60: #e8ba02;
+@y70: #b89300;
+@y80: #8f7200;
+@y90: #705a00;
+@y100: #524100;
+@gr10: #e6faed;
+@gr20: #d1f5de;
+@gr30: #b5eeca;
+@gr40: #99e5b5;
+@gr50: #66d68f;
+@gr60: #34b764;
+@gr70: #288f4e;
+@gr80: #1f6f3d;
+@gr90: #195830;
+@gr100: #124023;
+@or10: #ffede0;
+@or20: #fee1cd;
+@or30: #fdd0af;
+@or40: #fbb888;
+@or50: #f8954f;
+@or60: #de640d;
+@or70: #ae4e09;
+@or80: #883d07;
+@or90: #6b3006;
+@or100: #4e2204;
+@skb10: #ecf8fe;
+@skb20: #d8f1fd;
+@skb30: #bbe8fb;
+@skb40: #94ddf9;
+@skb50: #5fcbf2;
+@skb60: #12aee2;
+@skb70: #0e83aa;
+@skb80: #0b6684;
+@skb90: #085068;
+@skb100: #063a4b;
+@stb10: #f0f4fa;
+@stb20: #e2eaf4;
+@stb30: #cddaea;
+@stb40: #b3c6db;
+@stb50: #8da6c4;
+@stb60: #58789d;
+@stb70: #415a77;
+@stb80: #31465e;
+@stb90: #25374b;
+@stb100: #192838;
+@tl10: #effbfb;
+@tl20: #dff6f5;
+@tl30: #c9eeec;
+@tl40: #abe3e0;
+@tl50: #7fd2ce;
+@tl60: #42b3ad;
+@tl70: #2e8a85;
+@tl80: #216e6a;
+@tl90: #185955;
+@tl100: #104240;
+@pu10: #efeafb;
+@pu20: #e0d6f5;
+@pu30: #cebeef;
+@pu40: #b69de7;
+@pu50: #9271d6;
+@pu60: #6a40bf;
+@pu70: #513091;
+@pu80: #3e2277;
+@pu90: #2f175e;
+@pu100: #24104c;
+@pk10: #fdedfa;
+@pk20: #fbdbf5;
+@pk30: #f8bfec;
+@pk40: #f49ae2;
+@pk50: #ee63d2;
+@pk60: #df16b7;
+@pk70: #a90f8a;
+@pk80: #850a6c;
+@pk90: #690756;
+@pk100: #4e043f;
+@b60-b50-vertical: linear-gradient(0deg, @b60 0%, @b50 100%);
+@b60-b50-horizontal: linear-gradient(90deg, #006af5 0%, #52a0ff 100%);
+@b60-b50-diagonal: linear-gradient(45deg, #006af5 0%, #52a0ff 100%);
+@b60-b40-vertical: linear-gradient(0deg, #006af5 0%, #8fc1ff 100%);
+@b60-b40-horizontal: linear-gradient(90deg, #006af5 0%, #8fc1ff 100%);
+@b60-b40-diagonal: linear-gradient(45deg, #006af5 0%, #8fc1ff 100%);
+@b60-skb50-vertical: linear-gradient(0deg, #006af5 0%, #5fcbf2 100%);
+@b60-skb50-horizontal: linear-gradient(90deg, #006af5 0%, #5fcbf2 100%);
+@b60-skb50-diagonal: linear-gradient(45deg, #006af5 0%, #5fcbf2 100%);
+@skb60-gr50-vertical: linear-gradient(0deg, #12aee2 0%, #66d68f 100%);
+@skb60-gr50-horizontal: linear-gradient(90deg, #12aee2 0%, #66d68f 100%);
+@skb60-gr50-diagonal: linear-gradient(45deg, #12aee2 0%, #66d68f 100%);
+@gr60-gr40-vertical: linear-gradient(0deg, #34b764 0%, #99e5b5 100%);
+@gr60-gr40-horizontal: linear-gradient(90deg, #34b764 0%, #99e5b5 100%);
+@gr60-gr40-diagonal: linear-gradient(45deg, #34b764 0%, #99e5b5 100%);
+@gr60-y50-vertical: linear-gradient(0deg, #34b764 0%, #fdd949 100%);
+@gr60-y50-horizontal: linear-gradient(90deg, #34b764 0%, #fdd949 100%);
+@gr60-y50-diagonal: linear-gradient(45deg, #34b764 0%, #fdd949 100%);
+@or60-y60-vertical: linear-gradient(0deg, #de640d 0%, #e8ba02 100%);
+@or60-y60-horizontal: linear-gradient(90deg, #de640d 0%, #e8ba02 100%);
+@or60-y60-diagonal: linear-gradient(45deg, #de640d 0%, #e8ba02 100%);
+@r60-or50-vertical: linear-gradient(0deg, #dc1f18 0%, #f8954f 100%);
+@r60-or50-horizontal: linear-gradient(90deg, #dc1f18 0%, #f8954f 100%);
+@r60-or50-diagonal: linear-gradient(45deg, #dc1f18 0%, #f8954f 100%);
+@pu60-b50-vertical: linear-gradient(0deg, #6a40bf 0%, #52a0ff 100%);
+@pu60-b50-horizontal: linear-gradient(90deg, #6a40bf 0%, #52a0ff 100%);
+@pu60-b50-diagonal: linear-gradient(45deg, #6a40bf 0%, #52a0ff 100%);
+@pu70-pu40-vertical: linear-gradient(0deg, #513091 0%, #b69de7 100%);
+@pu70-pu40-horizontal: linear-gradient(90deg, #513091 0%, #b69de7 100%);
+@pu70-pu40-diagonal: linear-gradient(45deg, #513091 0%, #b69de7 100%);
+@pu60-pk30-vertical: linear-gradient(0deg, #6a40bf 0%, #f8bfec 100%);
+@pu60-pk30-horizontal: linear-gradient(90deg, #6a40bf 0%, #f8bfec 100%);
+@pu60-pk30-diagonal: linear-gradient(45deg, #6a40bf 0%, #f8bfec 100%);
+@pk60-pk30-vertical: linear-gradient(0deg, #df16b7 0%, #f8bfec 100%);
+@pk60-pk30-horizontal: linear-gradient(90deg, #df16b7 0%, #f8bfec 100%);
+@pk60-pk30-diagonal: linear-gradient(45deg, #df16b7 0%, #f8bfec 100%);
+@r50-pk40-vertical: linear-gradient(0deg, #f1645f 0%, #f49ae2 100%);
+@r50-pk40-horizontal: linear-gradient(90deg, #f1645f 0%, #f49ae2 100%);
+@r50-pk40-diagonal: linear-gradient(45deg, #f1645f 0%, #f49ae2 100%);
+@blk-a0-blk-a50-vertical: linear-gradient(0deg, #00000000 0%, #00000080 100%);
+@blk-a50-blk-a0-vertical: linear-gradient(0deg, #00000080 0%, #00000000 100%);
+@skb50a0-b60-horizontal: linear-gradient(
+    90deg,
+    rgba(95, 203, 242, 0) 0%,
+    #006af5 100%
+);
+@shadow-bottom-level-01: 0px 2px 6px 0px #14141524;
+@shadow-bottom-level-02: 0px 5px 14px 0px #1414151f;
+@shadow-bottom-level-03: 0px 10px 24px 0px #14141517;
+@shadow-top-level-01: 0px -2px 6px 0px #14141524;
+@shadow-top-level-02: 0px -5px 14px 0px #1414151f;
+@shadow-top-level-03: 0px -10px 24px 0px #14141517;
+
+:root {
+    --zaui-light-color-primary: @b60;
+    --zaui-dark-color-primary: @b60;
+    --zaui-light-color-on-primary: @wht-a100;
+    --zaui-dark-color-on-primary: @wht-a100;
+    --zaui-light-text-color: @ng100;
+    --zaui-dark-text-color: @ng10;
+
+    --zaui-avatar-text-color: @wht-a100;
+    --zaui-avatar-background-gradient-01: @b60-b40-diagonal;
+    --zaui-avatar-background-gradient-02: @pu60-b50-diagonal;
+    --zaui-avatar-background-gradient-03: @skb60-gr50-diagonal;
+    --zaui-avatar-background-gradient-04: @gr60-gr40-diagonal;
+    --zaui-mask-overlay-color: @blk-a70;
+
+    --zaui-light-body-background-color: @ng20;
+    --zaui-light-avatar-border: @wht-a100;
+    --zaui-light-avatar-status-background: @wht-a100;
+    --zaui-light-avatar-status-online: @gr60;
+    --zaui-light-avatar-status-blocked: @r60;
+    --zaui-light-avatar-story-contour-color: @b60-skb50-diagonal;
+    --zaui-light-avatar-uploading: @skb50a0-b60-horizontal;
+    --zaui-light-avatar-story-seen: @ng30;
+    --zaui-light-avatar-counter-background: @ng20;
+    --zaui-light-bottom-navigation-color: @ng60;
+    --zaui-light-bottom-navigation-active-color: @b60;
+    --zaui-light-bottom-navigation-divider-color: @ng20;
+    --zaui-light-bottom-navigation-background-color: @wht-a100;
+    --zaui-light-button-primary-background: var(--zaui-light-color-primary);
+    --zaui-light-button-primary-background-pressed: @b70;
+    --zaui-light-button-primary-text: var(--zaui-light-color-on-primary);
+    --zaui-light-button-primary-icon: var(--zaui-light-color-on-primary);
+    --zaui-light-button-primary-danger-background: @r60;
+    --zaui-light-button-primary-danger-background-pressed: @r70;
+    --zaui-light-button-primary-danger-text: @wht-a100;
+    --zaui-light-button-secondary-background: @b20;
+    --zaui-light-button-secondary-background-pressed: @b30;
+    --zaui-light-button-secondary-text: @b60;
+    --zaui-light-button-secondary-icon: @b60;
+    --zaui-light-button-secondary-danger-background: @r20;
+    --zaui-light-button-secondary-danger-background-pressed: @r30;
+    --zaui-light-button-secondary-danger-text: @r60;
+    --zaui-light-button-secondary-danger-icon: @r60;
+    --zaui-light-button-secondary-neutral-background: @ng20;
+    --zaui-light-button-secondary-neutral-background-pressed: @ng30;
+    --zaui-light-button-secondary-neutral-text: @ng100;
+    --zaui-light-button-secondary-neutral-icon: @ng100;
+    --zaui-light-button-tertiary-background-pressed: @b10;
+    --zaui-light-button-tertiary-text: @b60;
+    --zaui-light-button-tertiary-icon: @b60;
+    --zaui-light-button-tertiary-danger-background-pressed: @r10;
+    --zaui-light-button-tertiary-danger-text: @r60;
+    --zaui-light-button-tertiary-danger-icon: @r60;
+    --zaui-light-button-tertiary-neutral-background-pressed: @ng20;
+    --zaui-light-button-tertiary-neutral-text: @ng100;
+    --zaui-light-button-tertiary-neutral-icon: @ng100;
+    --zaui-light-button-background-disabled: @ng30;
+    --zaui-light-button-text-disabled: @ng40;
+    --zaui-light-button-icon-disabled: @ng40;
+    --zaui-light-checkbox-border-color: @ng40;
+    --zaui-light-checkbox-uncheck-background: @wht-a100;
+    --zaui-light-checkbox-checked-background: @b60;
+    --zaui-light-checkbox-checked-mark-color: @wht-a100;
+    --zaui-light-checkbox-disabled-checked-background: @b40;
+    --zaui-light-checkbox-disabled-checked-mark-color: @wht-a80;
+    --zaui-light-checkbox-disabled-uncheck-background: @ng30;
+    --zaui-light-checkbox-disabled-label: @ng40;
+    --zaui-light-header-color: @ng100;
+    --zaui-light-header-background-color: @wht-a100;
+    --zaui-light-header-divider: @ng20;
+
+    // Component: input
+    --zaui-light-input-text-color: var(--zaui-light-text-color);
+    --zaui-light-input-border-color: @ng40;
+    --zaui-light-input-hover-border-color: @b60;
+    --zaui-light-input-placeholder-color: @ng40;
+    --zaui-light-input-background-color: @wht-a100;
+    --zaui-light-input-helper-text-color: @ng60;
+    --zaui-light-input-helper-icon-background-color: @ng60;
+    --zaui-light-input-error-text-color: @r60;
+    --zaui-light-input-error-icon-background-color: @r60;
+    --zaui-light-input-clear-icon-color: @ng100;
+    --zaui-light-input-status-success-icon-focus-visible-color: @gr60;
+    --zaui-light-input-status-success-icon-color: @gr60;
+    --zaui-light-input-status-error: @r60;
+    --zaui-light-input-disabled-color: @ng60;
+    --zaui-light-input-disabled-background-color: @blk-a10;
+
+    --zaui-dark-input-text-color: var(--zaui-dark-text-color);
+    --zaui-dark-input-border-color: @ng60;
+    --zaui-dark-input-hover-border-color: @b60;
+    --zaui-dark-input-placeholder-color: @ng70;
+    --zaui-dark-input-background-color: @ng100;
+    --zaui-dark-input-helper-text-color: @ng50;
+    --zaui-dark-input-helper-icon-background-color: @ng50;
+    --zaui-dark-input-error-text-color: @r60;
+    --zaui-dark-input-error-icon-background-color: @r60;
+    --zaui-dark-input-clear-icon-color: @ng10;
+    --zaui-dark-input-status-success-icon-focus-visible-color: @ng10;
+    --zaui-dark-input-status-success-icon-color: @gr60;
+    --zaui-dark-input-status-error: @r60;
+    --zaui-dark-input-disabled-color: @ng50;
+    --zaui-dark-input-disabled-background-color: @wht-a10;
+
+
+    --zaui-light-list-item-brackets-color: @ng60;
+    --zaui-light-list-item-subtitle-color: @ng60;
+    --zaui-light-list-item-icon-color: @ng60;
+    --zaui-light-list-item-icon-link-color: @b60;
+    --zaui-light-list-item-divider-color: @ng20;
+    --zaui-light-modal-background: @wht-a100;
+    --zaui-light-modal-divider: @ng20;
+    --zaui-light-picker-title-color: @ng100;
+    --zaui-light-picker-option-selected-color: @b60;
+    --zaui-light-picker-option-2nd-color: @ng60;
+    --zaui-light-picker-option-color: @ng40;
+    --zaui-light-picker-selected-background-color: @ng10;
+    --zaui-light-progress-completed: @b60;
+    --zaui-light-progress-background: @wht-a100;
+    --zaui-light-radio-border-color: @ng40;
+    --zaui-light-radio-uncheck-background: @wht-a100;
+    --zaui-light-radio-checked-background: @b60;
+    --zaui-light-radio-checked-mark-color: @wht-a100;
+    --zaui-light-radio-disabled-checked-background: @b40;
+    --zaui-light-radio-disabled-checked-mark-color: @wht-a80;
+    --zaui-light-radio-disabled-uncheck-background: @ng30;
+    --zaui-light-radio-disabled-label: @ng40;
+    --zaui-light-option-selected-color: @b60;
+    --zaui-light-option-divider-color: @ng20;
+    --zaui-light-option-color: @ng100;
+    --zaui-light-option-group-color: @ng60;
+    --zaui-light-pressed-bg-color: @ng20;
+    --zaui-light-select-title-color: @ng100;
+    --zaui-light-close-btn-color: @ng100;
+    --zaui-light-option-color-disabled: @ng60;
+    --zaui-light-sheet-title: @ng100;
+    --zaui-light-sheet-divider: @ng20;
+    --zaui-light-sheet-container: @wht-a100;
+    --zaui-light-sheet-handler: @ng20;
+    --zaui-light-action-sheet-title: @ng60;
+    --zaui-light-action-sheet-divider: @ng20;
+    --zaui-light-action-sheet-group-divider: @ng10;
+    --zaui-light-slider-track-bg-color: @ng30;
+    --zaui-light-slider-track-active-bg-color: @b60;
+    --zaui-light-slider-thumb-bg-color: @b60;
+    --zaui-light-slider-mark-bg-color: @ng30;
+    --zaui-light-slider-mark-filled-bg-color: @b60;
+    --zaui-light-slider-label-color: @ng60;
+    --zaui-light-slider-value-color: @ng100;
+    --zaui-light-slider-prefix-suffix-color: @ng60;
+    --zaui-light-snackbar-background: @ng90;
+    --zaui-light-snackbar-text-color: @wht-a100;
+    --zaui-light-snackbar-action-color: @b50;
+    --zaui-light-snackbar-default-icon-color: @ng60;
+    --zaui-light-snackbar-success-color: @gr60;
+    --zaui-light-snackbar-info-color: @b50;
+    --zaui-light-snackbar-error-color: @r60;
+    --zaui-light-snackbar-warning-color: @y60;
+    --zaui-light-snackbar-download-color: @ng60;
+    --zaui-light-snackbar-disconnect-color: @ng60;
+    --zaui-light-snackbar-connect-color: @gr60;
+    --zaui-light-snackbar-progress-color: @b50;
+    --zaui-light-countdown-bg-color: @wht-a100;
+    --zaui-light-countdown-progress-color: @b50;
+    --zaui-light-countdown-counter-color: @wht-a100;
+    --zaui-light-spinner-border-color: @ng30;
+    --zaui-light-spinner-dot-color: @b60;
+    --zaui-light-switch-bg-color: @b60;
+    --zaui-light-switch-disabled-bg-color: @b40;
+    --zaui-light-switch-off-bg-color: @ng40;
+    --zaui-light-switch-off-disabled-bg-color: @ng30;
+    --zaui-light-switch-handler-bg-color: @wht-a100;
+    --zaui-light-switch-handler-disabled-bg-color: @wht-a100;
+    --zaui-light-switch-label-color: @ng100;
+    --zaui-light-switch-label-disabled-color: @ng40;
+    --zaui-light-tabbar-divider: @ng20;
+    --zaui-light-tabbar-background: @wht-a100;
+    --zaui-light-tabbar-label: @ng60;
+    --zaui-light-tabbar-label-active: @ng100;
+    --zaui-light-tabbar-active-line: @b60;
+
+    --zaui-dark-body-background-color: @blk-a90;
+    --zaui-dark-avatar-border: @ng100;
+    --zaui-dark-avatar-status-background: @ng100;
+    --zaui-dark-avatar-status-online: @gr60;
+    --zaui-dark-avatar-status-blocked: @r60;
+    --zaui-dark-avatar-story-contour-color: @b60-skb50-diagonal;
+    --zaui-dark-avatar-uploading: @skb50a0-b60-horizontal;
+    --zaui-dark-avatar-story-seen: @ng70;
+    --zaui-dark-avatar-counter-background: @ng80;
+    --zaui-dark-bottom-navigation-color: @ng50;
+    --zaui-dark-bottom-navigation-active-color: @b50;
+    --zaui-dark-bottom-navigation-divider-color: @ng80;
+    --zaui-dark-bottom-navigation-background-color: @ng100;
+    --zaui-dark-button-primary-background: var(--zaui-dark-color-primary);;
+    --zaui-dark-button-primary-background-pressed: @b70;
+    --zaui-dark-button-primary-text: var(--zaui-dark-color-on-primary);
+    --zaui-dark-button-primary-icon: var(--zaui-dark-color-on-primary);
+    --zaui-dark-button-primary-danger-background: @r60;
+    --zaui-dark-button-primary-danger-background-pressed: @r70;
+    --zaui-dark-button-primary-danger-text: @wht-a100;
+    --zaui-dark-button-primary-danger-icon: @wht-a100;
+    --zaui-dark-button-secondary-background: @b90;
+    --zaui-dark-button-secondary-background-pressed: @b100;
+    --zaui-dark-button-secondary-text: @b40;
+    --zaui-dark-button-secondary-icon: @b40;
+    --zaui-dark-button-secondary-danger-background: @r90;
+    --zaui-dark-button-secondary-danger-background-pressed: @r100;
+    --zaui-dark-button-secondary-danger-text: @r40;
+    --zaui-dark-button-secondary-danger-icon: @r40;
+    --zaui-dark-button-secondary-neutral-background: @ng80;
+    --zaui-dark-button-secondary-neutral-background-pressed: @ng90;
+    --zaui-dark-button-secondary-neutral-text: @wht-a100;
+    --zaui-dark-button-secondary-neutral-icon: @wht-a100;
+    --zaui-dark-button-tertiary-background-pressed: @b90;
+    --zaui-dark-button-tertiary-text: @b50;
+    --zaui-dark-button-tertiary-icon: @b50;
+    --zaui-dark-button-tertiary-danger-background-pressed: @r90;
+    --zaui-dark-button-tertiary-danger-text: @r50;
+    --zaui-dark-button-tertiary-danger-icon: @r50;
+    --zaui-dark-button-tertiary-neutral-background-pressed: @ng80;
+    --zaui-dark-button-tertiary-neutral-text: @wht-a100;
+    --zaui-dark-button-tertiary-neutral-icon: @wht-a100;
+    --zaui-dark-button-background-disabled: @ng80;
+    --zaui-dark-button-text-disabled: @ng70;
+    --zaui-dark-button-icon-disabled: @ng70;
+    --zaui-dark-checkbox-border-color: @ng60;
+    --zaui-dark-checkbox-uncheck-background: @ng100;
+    --zaui-dark-checkbox-checked-background: @b60;
+    --zaui-dark-checkbox-checked-mark-color: @wht-a100;
+    --zaui-dark-checkbox-disabled-checked-background: @b80;
+    --zaui-dark-checkbox-disabled-checked-mark-color: @wht-a60;
+    --zaui-dark-checkbox-disabled-uncheck-background: @ng80;
+    --zaui-dark-checkbox-disabled-label: @ng70;
+    --zaui-dark-header-color: @ng10;
+    --zaui-dark-header-background-color: @ng100;
+    --zaui-dark-header-divider: @ng80;
+
+    --zaui-dark-list-item-brackets-color: @ng50;
+    --zaui-dark-list-item-subtitle-color: @ng50;
+    --zaui-dark-list-item-icon-color: @ng60;
+    --zaui-dark-list-item-icon-link-color: @b60;
+    --zaui-dark-list-item-divider-color: @ng80;
+    --zaui-dark-modal-background: @ng90;
+    --zaui-dark-modal-divider: @ng80;
+    --zaui-dark-picker-title-color: @ng10;
+    --zaui-dark-picker-option-selected-color: @b60;
+    --zaui-dark-picker-option-2nd-color: @ng50;
+    --zaui-dark-picker-option-color: @ng70;
+    --zaui-dark-picker-selected-background-color: @ng90;
+    --zaui-dark-progress-completed: @b50;
+    --zaui-dark-progress-background: @wht-a20;
+    --zaui-dark-radio-border-color: @ng60;
+    --zaui-dark-radio-uncheck-background: @ng100;
+    --zaui-dark-radio-checked-background: @b60;
+    --zaui-dark-radio-checked-mark-color: @wht-a100;
+    --zaui-dark-radio-disabled-checked-background: @b80;
+    --zaui-dark-radio-disabled-checked-mark-color: @wht-a60;
+    --zaui-dark-radio-disabled-uncheck-background: @ng80;
+    --zaui-dark-radio-disabled-label: @ng70;
+    --zaui-dark-option-selected-color: @b60;
+    --zaui-dark-option-divider-color: @ng80;
+    --zaui-dark-option-color: @ng10;
+    --zaui-dark-option-group-color: @ng50;
+    --zaui-dark-pressed-bg-color: @ng80;
+    --zaui-dark-select-title-color: @ng10;
+    --zaui-dark-close-btn-color: @ng10;
+    --zaui-dark-option-color-disabled: @ng50;
+    --zaui-dark-sheet-title: @ng10;
+    --zaui-dark-sheet-divider: @ng80;
+    --zaui-dark-sheet-container: @ng90;
+    --zaui-dark-sheet-handler: @ng80;
+    --zaui-dark-action-sheet-title: @ng50;
+    --zaui-dark-action-sheet-divider: @ng80;
+    --zaui-dark-action-sheet-group-divider: @blk-a100;
+    --zaui-dark-slider-track-bg-color: @ng30;
+    --zaui-dark-slider-track-active-bg-color: @b60;
+    --zaui-dark-slider-thumb-bg-color: @b60;
+    --zaui-dark-slider-mark-bg-color: @ng30;
+    --zaui-dark-slider-mark-filled-bg-color: @b60;
+    --zaui-dark-slider-label-color: @ng50;
+    --zaui-dark-slider-value-color: @ng10;
+    --zaui-dark-slider-prefix-suffix-color: @ng30;
+    --zaui-dark-snackbar-background: @ng70;
+    --zaui-dark-snackbar-text-color: @wht-a100;
+    --zaui-dark-snackbar-action-color: @b50;
+    --zaui-dark-snackbar-default-icon-color: @ng50;
+    --zaui-dark-snackbar-success-color: @gr60;
+    --zaui-dark-snackbar-info-color: @b50;
+    --zaui-dark-snackbar-error-color: @r60;
+    --zaui-dark-snackbar-warning-color: @y60;
+    --zaui-dark-snackbar-download-color: @ng50;
+    --zaui-dark-snackbar-disconnect-color: @ng50;
+    --zaui-dark-snackbar-connect-color: @gr60;
+    --zaui-dark-countdown-bg-color: @wht-a100;
+    --zaui-dark-countdown-progress-color: @b50;
+    --zaui-dark-countdown-counter-color: @wht-a100;
+    --zaui-dark-snackbar-progress-color: @b50;
+    --zaui-dark-spinner-border-color: @ng30;
+    --zaui-dark-spinner-dot-color: @b60;
+    --zaui-dark-switch-bg-color: @b60;
+    --zaui-dark-switch-disabled-bg-color: @b80;
+    --zaui-dark-switch-off-bg-color: @ng70;
+    --zaui-dark-switch-off-disabled-bg-color: @ng80;
+    --zaui-dark-switch-handler-bg-color: @wht-a100;
+    --zaui-dark-switch-handler-disabled-bg-color: @wht-a60;
+    --zaui-dark-switch-label-color: @ng10;
+    --zaui-dark-switch-label-disabled-color: @ng70;
+    --zaui-dark-tabbar-divider: @ng80;
+    --zaui-dark-tabbar-background: @ng100;
+    --zaui-dark-tabbar-label: @ng50;
+    --zaui-dark-tabbar-label-active: @ng10;
+    --zaui-dark-tabbar-active-line: @b60;
+}
+
+.flex(@direction, @justify, @align) {
+  display: flex;
+  flex-direction: @direction;
+  flex-wrap: nowrap;
+  align-items: @align;
+  justify-content: @justify;
+}
+
+.if-dark-theme(@ruleset) {
+  body[zaui-theme="dark"] {
+    @ruleset();
+  }
+}
+
+.text-overflow(@line: 1) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: initial;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  /*! autoprefixer: off */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: @line;
+}
+
+.scrollable() {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@keyframes loadingCircle {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes zoomIn {
+    0% {
+        opacity: 0;
+        transform: scale(0, 0);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1, 1);
+    }
+}
+@keyframes zoomOut {
+    0% {
+        transform: scale(1, 1);
+    }
+    50%{
+        opacity: 0.1;
+        transform: scale(0.5, 0.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0, 0);
+    }
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes slideUp {
+    0% {
+        transform: translateY(100%);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+@keyframes slideDown {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(100%);
+    }
+}
+
+@keyframes cursorAnimate {
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+@import url('./app/styles/index.less');
+@import url('./avatar/styles/index.less');
+@import url('./bottom-navigation/styles/index.less');
+@import url('./box/styles/index.less');
+@import url('./button/styles/index.less');
+@import url('./calendar/styles/index.less');
+@import url('./center/styles/index.less');
+@import url('./checkbox/styles/index.less');
+@import url('./cluster/styles/index.less');
+@import url('./date-picker/styles/index.less');
+@import url('./grid/styles/index.less');
+@import url('./header/styles/index.less');
+@import url('./icon/styles/index.less');
+@import url('./image-viewer/styles/index.less');
+@import url('./input/styles/index.less');
+@import url('./list/styles/index.less');
+@import url('./modal/styles/index.less');
+@import url('./page/styles/index.less');
+@import url('./picker/styles/index.less');
+@import url('./portal/styles/index.less');
+@import url('./progress/styles/index.less');
+@import url('./radio/styles/index.less');
+@import url('./router/styles/index.less');
+@import url('./select/styles/index.less');
+@import url('./sheet/styles/index.less');
+@import url('./slider/styles/index.less');
+@import url('./snackbar-provider/styles/index.less');
+@import url('./spinner/styles/index.less');
+@import url('./stack/styles/index.less');
+@import url('./swiper/styles/index.less');
+@import url('./switch/styles/index.less');
+@import url('./tabs/styles/index.less');
+@import url('./text/styles/index.less');
+@import url('./trigger/styles/index.less');
+@import url('./zbox/styles/index.less');

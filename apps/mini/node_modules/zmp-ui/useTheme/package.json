@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useTheme",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useTheme/index.js",
+  "module": "../esm/hooks/useTheme/index.js",
+  "jsnext:main": "../esm/hooks/useTheme/index.js",
+  "typings": "./index.d.ts"
+}

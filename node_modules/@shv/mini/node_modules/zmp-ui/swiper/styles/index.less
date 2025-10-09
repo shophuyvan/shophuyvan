@@ -1,0 +1,60 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{swiper-prefix-cls} {
+  position: relative;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: 12px;
+
+
+  &-wrapper {
+    width: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    touch-action: none;
+  }
+
+  &-item {
+    display: block;
+    width: 100%;
+    min-width: 100%;
+    overflow: hidden;
+    font-size: unset;
+  }
+
+  &-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: @blk-a20;
+    display: flex;
+    padding: 4px;
+    border-radius: 100px;
+    align-items: center;
+    transition: all 0.3s ease;
+
+    &-item {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      background-color: @wht-a60;
+      border-radius: 100%;
+
+      &:not(:last-child) {
+        margin-right: 4px;
+      }
+
+      &-active {
+        width: 6px;
+        height: 6px;
+        background-color: @wht-a100;
+      }
+    }
+  }
+}

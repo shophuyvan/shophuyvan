@@ -1,0 +1,2 @@
+export var DRAG_THRESHOLD = 100;
+export var ANIMATION_DURATION = 200;

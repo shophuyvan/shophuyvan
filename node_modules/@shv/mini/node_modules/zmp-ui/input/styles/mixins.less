@@ -1,0 +1,53 @@
+.input(@dark) {
+    font-size: @input-font-size;
+    font-weight: @input-font-weight;
+    line-height: @input-line-height;
+    font-family: inherit;
+    background-color: transparent;
+    color: @light-input-text-color;
+    border-radius: @input-border-radius;
+    height: @input-height-medium;
+    width: 100%;
+    border: @input-border-width solid @light-input-border-color;
+    padding: 0 @input-padding;
+    margin: @input-margin 0px;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+
+    &::placeholder {
+        color: @light-input-placeholder-color;
+    }
+
+    &:-ms-input-placeholder {
+        color: @light-input-placeholder-color;
+    }
+
+    &::-ms-input-placeholder {
+        color: @light-input-placeholder-color;
+    }
+
+    & when(@dark=true) {
+        color: @dark-input-text-color;
+        border-color: @dark-input-border-color;
+
+        &::placeholder {
+            color: @dark-input-placeholder-color;
+        }
+
+        &:-ms-input-placeholder {
+            color: @dark-input-placeholder-color;
+        }
+
+        &::-ms-input-placeholder {
+            color: @dark-input-placeholder-color;
+        }
+    }
+}
+
+.input-size(@minWidth, @height) {
+    min-width: @minWidth;
+    height: @height;
+}

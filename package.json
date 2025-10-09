@@ -1,0 +1,8 @@
+{
+  "name": "shv-monorepo-zmp",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

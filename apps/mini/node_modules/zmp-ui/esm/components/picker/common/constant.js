@@ -1,0 +1,1 @@
+export var DEFAULT_PICKER_ITEM_HEIGHT = 52;

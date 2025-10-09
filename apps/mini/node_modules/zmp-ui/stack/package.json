@@ -1,0 +1,12 @@
+{
+  "name": "zaui/stack",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/stack/index.js",
+  "module": "../esm/components/stack/index.js",
+  "jsnext:main": "../esm/components/stack/index.js",
+  "typings": "./index.d.ts"
+}

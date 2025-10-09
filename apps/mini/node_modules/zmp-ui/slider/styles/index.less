@@ -1,0 +1,116 @@
+@import "./variables.less";
+
+.@{slider-prefix-cls} {
+  &-header {
+    display: flex;
+    justify-content: space-between;
+    margin: @slider-header-margin;
+  }
+
+  &-label {
+    flex-grow: 1;
+    word-break: break-word;
+    color: @light-slider-label-color;
+  }
+
+  &-value {
+    word-break: break-word;
+    color: @light-slider-value-color;
+  }
+
+  &-handler {
+    height: @slider-thumb-size;
+    display: flex;
+    flex: auto;
+    align-items: center;
+    user-select: none;
+  }
+
+  &-track {
+    position: relative;
+    width: 100%;
+    height: @slider-track-height;
+    background-color: @light-slider-track-bg-color;
+    border-radius: @slider-track-border-radius;
+
+    &-bar {
+      content: "";
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background-color: @light-slider-track-active-bg-color;
+      border-radius: @slider-track-border-radius;
+    }
+  }
+
+  &-thumb {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: @slider-thumb-size;
+    height: @slider-thumb-size;
+    border-radius: @slider-thumb-size;
+    background-color: @light-slider-thumb-bg-color;
+  }
+
+  &-mark {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: @slider-mark-width;
+    height: @slider-mark-height;
+    border-radius: @slider-mark-height;
+    background-color: @light-slider-mark-bg-color;
+
+    &-filled {
+      background-color: @light-slider-mark-filled-bg-color;
+    }
+    
+  }
+  &-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &-prefix, &-suffix {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: @light-slider-prefix-suffix-color;
+  }
+
+  &-prefix {
+    margin-right: @slider-content-spacing;
+  }
+  &-suffix {
+    margin-left: @slider-content-spacing;
+  }
+}
+
+.if-dark-theme( {
+  .@{slider-prefix-cls} {
+    &-label {
+      color: @dark-slider-label-color;
+    }
+    &-value {
+      color: @dark-slider-value-color;
+    }
+    &-track {
+      background-color: @dark-slider-track-bg-color;
+    }
+    &-thumb {
+      background-color: @dark-slider-thumb-bg-color;
+    }
+    &-mark {
+      background-color: @dark-slider-mark-bg-color;
+      &-filled {
+        background-color: @dark-slider-mark-filled-bg-color;
+      }
+    }
+    &-prefix, &-suffix {
+      color: @dark-slider-prefix-suffix-color;
+    }
+  }
+});

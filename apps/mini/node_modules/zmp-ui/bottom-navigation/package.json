@@ -1,0 +1,12 @@
+{
+  "name": "zaui/bottom-navigation",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/bottom-navigation/index.js",
+  "module": "../esm/components/bottom-navigation/index.js",
+  "jsnext:main": "../esm/components/bottom-navigation/index.js",
+  "typings": "./index.d.ts"
+}

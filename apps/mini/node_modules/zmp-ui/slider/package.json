@@ -1,0 +1,12 @@
+{
+  "name": "zaui/slider",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/slider/index.js",
+  "module": "../esm/components/slider/index.js",
+  "jsnext:main": "../esm/components/slider/index.js",
+  "typings": "./index.d.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/progress",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/progress/index.js",
+  "module": "../esm/components/progress/index.js",
+  "jsnext:main": "../esm/components/progress/index.js",
+  "typings": "./index.d.ts"
+}

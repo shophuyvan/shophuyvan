@@ -1,0 +1,12 @@
+{
+  "name": "zaui/portal",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/portal/index.js",
+  "module": "../esm/components/portal/index.js",
+  "jsnext:main": "../esm/components/portal/index.js",
+  "typings": "./index.d.ts"
+}

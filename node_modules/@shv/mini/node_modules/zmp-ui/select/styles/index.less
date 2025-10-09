@@ -1,0 +1,149 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{select-prefix-cls} {
+  text-overflow: ellipsis;
+
+  &-icon {
+    margin-right: 12px;
+  }
+
+  &-options {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  &-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  &-group {
+    color: @light-option-group-color;
+    font-size: @option-group-font-size;
+    line-height: @option-group-line-height;
+    cursor: default;
+    padding: 8px 16px;
+
+    .@{select-prefix-cls}-option+& {
+      margin-top: 16px;
+    }
+  }
+
+  &-header {
+    display: flex;
+    flex-direction: row;
+    min-height: @select-panel-header-height;
+  }
+
+  &-close-icon,
+  .zaui-btn.zaui-btn-icon-only.zaui-btn-medium.@{select-prefix-cls}-close-icon {
+    position: absolute;
+    width: @close-icon-size;
+    height: @close-icon-size;
+    right: 16px;
+    top: 16px;
+    padding: 0px;
+    width: @close-icon-size;
+    height: @close-icon-size;
+    font-size: @close-icon-size;
+    color: @light-select-title-color;
+  }
+
+  &-title {
+    font-size: @select-title-font-size;
+    line-height: @select-title-line-height;
+    font-weight: @select-title-font-weight;
+    color: @light-select-title-color;
+    text-align: center;
+    flex: 1;
+    padding: 16px 32px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: block;
+  }
+
+  &-option {
+    padding: 16px 32px 16px 16px;
+    font-size: @option-font-size;
+    line-height: @option-line-height;
+    color: @light-option-color;
+    position: relative;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: block;
+
+    &::after {
+      width: 100%;
+      height: @option-divider-size;
+      content: '';
+      background-color: @light-option-divider-color;
+      bottom: 0;
+      left: 0;
+      position: absolute
+    }
+
+    &-disabled {
+      color: @light-option-color-disabled;
+      pointer-events: none;
+    }
+
+    &-check-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    &-selected {
+      color: @light-option-selected-color;
+    }
+
+    &:focus,
+    &:active {
+      background-color: @light-pressed-bg-color;
+
+    }
+  }
+}
+
+.if-dark-theme({
+
+.@{select-prefix-cls} {
+ 
+  &-group {
+    color: @dark-option-group-color;
+  }
+
+  &-close-icon,
+  .zaui-btn.zaui-btn-icon-only.zaui-btn-medium.@{select-prefix-cls}-close-icon {
+    color: @dark-select-title-color;
+  }
+
+  &-title {
+    color: @dark-select-title-color;
+  }
+
+  &-option {
+    color: @dark-option-color;
+    &::after {
+      background-color: @dark-option-divider-color;
+    }
+
+    &-disabled {
+      color: @dark-option-color-disabled;
+    }
+    &-selected {
+      color: @dark-option-selected-color;
+    }
+
+    &:focus,
+    &:active {
+      background-color: @dark-pressed-bg-color;
+    }
+  }
+}
+});

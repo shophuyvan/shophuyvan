@@ -1,0 +1,12 @@
+{
+  "name": "zaui/tabs",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/tabs/index.js",
+  "module": "../esm/components/tabs/index.js",
+  "jsnext:main": "../esm/components/tabs/index.js",
+  "typings": "./index.d.ts"
+}

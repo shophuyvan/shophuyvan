@@ -1,0 +1,29 @@
+.badge-position(@size: 10px, @avatar-size: 24px){
+	position: absolute;
+	box-sizing: content-box;
+	bottom: calc(
+		calc(@avatar-size * 0.1464) - calc(@size * 0.75)
+	);
+	right: calc(
+		calc(@avatar-size * 0.1464) - calc(@size * 0.75)
+	);
+}
+
+.avatar-text-size(@size : 'medium'){
+	& when (@size = 'xsmall') {
+		font-size: @avatar-text-xsmall;
+		line-height: @avatar-text-line-height-xsmall;
+	}
+	& when(@size = 'small'){
+		font-size: @avatar-text-small;
+		line-height: @avatar-text-line-height-small;
+	}
+	& when (@size = 'medium'){
+		font-size: @avatar-text-medium;
+		line-height: @avatar-text-line-height-medium;
+	}
+	& when (@size = 'large'){
+		font-size: @avatar-text-large;
+		line-height: @avatar-text-line-height-large;
+	}
+}

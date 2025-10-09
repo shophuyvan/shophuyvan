@@ -1,0 +1,45 @@
+{
+  "name": "Shop Huy V\u00e2n",
+  "bundleName": "com.shv.mini",
+  "icon": "public/icon.png",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "apis": [
+    "getUserInfo",
+    "openWebview",
+    "login",
+    "getAccessToken",
+    "authorize",
+    "requestPayment"
+  ],
+  "pages": [
+    "pages/home/index",
+    "pages/category/index",
+    "pages/product/index",
+    "pages/cart/index",
+    "pages/checkout/index"
+  ],
+  "tabs": [
+    {
+      "text": "Trang ch\u1ee7",
+      "pagePath": "pages/home/index",
+      "icon": "public/tab-home.png"
+    },
+    {
+      "text": "Gi\u1ecf h\u00e0ng",
+      "pagePath": "pages/cart/index",
+      "icon": "public/tab-cart.png"
+    }
+  ],
+  "window": {
+    "navigationBarTitleText": "Shop Huy V\u00e2n",
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#0ea5e9",
+    "navigationBarTextStyle": "white"
+  },
+  "permission": {
+    "scope.userInfo": {
+      "desc": "Hi\u1ec3n th\u1ecb t\u00ean & avatar \u0111\u1ec3 c\u00e1 nh\u00e2n ho\u00e1 mua s\u1eafm"
+    }
+  }
+}

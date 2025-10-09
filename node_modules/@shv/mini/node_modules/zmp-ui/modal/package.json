@@ -1,0 +1,12 @@
+{
+  "name": "zaui/modal",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/modal/index.js",
+  "module": "../esm/components/modal/index.js",
+  "jsnext:main": "../esm/components/modal/index.js",
+  "typings": "./index.d.ts"
+}

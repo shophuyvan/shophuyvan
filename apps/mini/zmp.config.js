@@ -1,0 +1,1 @@
+export default { app: { name: 'Shop Huy Vân', output: 'dist' } };

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/trigger",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/trigger/index.js",
+  "module": "../esm/components/trigger/index.js",
+  "jsnext:main": "../esm/components/trigger/index.js",
+  "typings": "./index.d.ts"
+}

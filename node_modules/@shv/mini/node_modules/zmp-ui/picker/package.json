@@ -1,0 +1,12 @@
+{
+  "name": "zaui/picker",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/picker/index.js",
+  "module": "../esm/components/picker/index.js",
+  "jsnext:main": "../esm/components/picker/index.js",
+  "typings": "./index.d.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useBuffer.ts",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useBuffer.ts/index.js",
+  "module": "../esm/hooks/useBuffer.ts/index.js",
+  "jsnext:main": "../esm/hooks/useBuffer.ts/index.js",
+  "typings": "./index.d.ts"
+}

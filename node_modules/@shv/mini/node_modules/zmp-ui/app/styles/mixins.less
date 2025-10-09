@@ -1,0 +1,8 @@
+.body(@dark){
+	background-color: @light-body-background-color;
+	color: @light-text-color;
+	& when(@dark=true){
+		background-color: @dark-body-background-color;
+		color: @dark-text-color;
+	}
+}

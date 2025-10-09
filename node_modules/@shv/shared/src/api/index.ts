@@ -1,0 +1,156 @@
+// packages/shared/src/api/index.ts
+import { pickLowestPrice, pickPrice, numLike } from '../utils/price';
+
+const API_BASE: string = (globalThis as any).API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+
+type FetchResult = { ok: boolean; status: number; data: any };
+
+async function _fetch(path: string, init?: RequestInit): Promise<FetchResult> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  const headers = new Headers(init?.headers || {});
+  try { const token = localStorage.getItem('x-token') || ''; if (token && !headers.has('x-token')) headers.set('x-token', token); } catch {}
+  const res = await fetch(url, { method: init?.method || 'GET', headers });
+  const ctype = res.headers.get('content-type') || '';
+  const data = ctype.includes('application/json') ? await res.json().catch(()=>null) : await res.text().catch(()=>'');
+  return { ok: res.ok, status: res.status, data };
+}
+
+function toArr(x:any): any[] {
+  if (!x) return [];
+  if (Array.isArray(x)) return x;
+  if (Array.isArray(x.items)) return x.items;
+  if (Array.isArray(x.list)) return x.list;
+  if (x.data) {
+    if (Array.isArray(x.data.items)) return x.data.items;
+    if (Array.isArray(x.data.list)) return x.data.list;
+    if (Array.isArray(x.data)) return x.data;
+  }
+  if (Array.isArray(x.results)) return x.results;
+  if (Array.isArray(x.rows)) return x.rows;
+  return [];
+}
+
+function imagesOf(p:any): string[] {
+  const arr:any[] = [];
+  if (Array.isArray(p?.images)) arr.push(...p.images);
+  if (p?.image) arr.unshift(p.image);
+  if (p?.thumb || p?.thumbnail) arr.push(p.thumb || p.thumbnail);
+  return arr.filter(Boolean).map(String);
+}
+function videosOf(p:any): string[] {
+  const arr:string[] = [];
+  if (Array.isArray(p?.videos)) arr.push(...p.videos);
+  if (p?.video) arr.unshift(p.video);
+  if (Array.isArray(p?.media)) {
+    for (const m of p.media) {
+      const u = m?.src || m?.url || '';
+      if (/\.(mp4|webm|m3u8)(\?.*)?$/i.test(u) || m?.type === 'video') arr.push(String(u));
+    }
+  }
+  return arr;
+}
+function variantsOf(p:any): any[] {
+  if (Array.isArray(p?.variants)) return p.variants;
+  const keys = ['skus','sku_list','children','items','options','variations','combos','list'];
+  for (const k of keys) { const v = p?.[k]; if (Array.isArray(v)) return v; }
+  if (Array.isArray(p?.options?.variants)) return p.options.variants;
+  return [];
+}
+function readRating(p:any): number {
+  const cand = [p?.rating, p?.rating_avg, p?.avg_rating, p?.star, p?.stars, p?.review_avg];
+  for (const v of cand) { const n = Number(v); if (!isNaN(n) && n>0) return n; }
+  return 0;
+}
+function readSold(p:any): number {
+  const cand = [p?.sold, p?.sold_count, p?.sales, p?.orders, p?.order_count, p?.purchases];
+  for (const v of cand) { const n = Number(v); if (!isNaN(n) && n>0) return n; }
+  return 0;
+}
+function normalizePrice(p:any) {
+  let pair = pickLowestPrice(p);
+  let base = numLike(pair?.base);
+  let original = numLike(pair?.original);
+
+  if (base <= 0) {
+    const pp = pickPrice(p);
+    base = numLike(pp?.base);
+    original = numLike(original || (pp?.original ?? 0));
+  }
+  if (base <= 0) {
+    const bCand = [
+      p?.min_price, p?.price_min, p?.minPrice, p?.priceFrom, p?.price_from, p?.lowest_price,
+      p?.sale_price, p?.price_sale, p?.deal_price, p?.special_price,
+      p?.price, p?.regular_price, p?.base_price, p?.priceText,
+      p?.price?.min, p?.price?.from, p?.price?.base, p?.price?.value
+    ];
+    for (const v of bCand) { const n = numLike(v); if (n>0) { base = n; break; } }
+  }
+  const maxLike = numLike(p?.price?.max ?? p?.price?.to ?? p?.max_price ?? p?.price_max ?? p?.original_price ?? p?.list_price);
+  if (maxLike > base) original = maxLike;
+  if (original <= 0) original = null as any;
+  return { base, original };
+}
+
+function normalizeProduct(p:any) {
+  if (!p) return null;
+  const id = p.id ?? p._id ?? p.sku ?? p.code ?? p.slug;
+  const name = p.name ?? p.title ?? p.product_name ?? p.full_name ?? 'Sản phẩm';
+  const images = imagesOf(p);
+  const image = images[0] || '';
+  const price = normalizePrice(p);
+  const variants = variantsOf(p);
+  const description = p.description_html || p.description || p.desc || '';
+  const videos = videosOf(p);
+  const rating = readRating(p);
+  const sold = readSold(p);
+  if (!id) return null;
+  return { id, name, image, images, price, variants, description, videos, rating, sold, raw: p };
+}
+
+async function discover<T>(candidates:string[], pick:(data:any)=>T|null): Promise<T> {
+  for (const p of candidates) {
+    const r = await _fetch(p);
+    if (!r.ok) continue;
+    const v = pick(r.data);
+    if (v != null) return v;
+  }
+  throw new Error('Không tìm thấy endpoint phù hợp.');
+}
+
+export const api = {
+  products: {
+    async list({ limit = 12 }: { limit?: number } = {}) {
+      const candidates = [
+        `/public/products?limit=${limit}`,
+        `/products?limit=${limit}`,
+        `/api/products?limit=${limit}`,
+        `/v1/product/list?limit=${limit}`,
+        `/product/list?limit=${limit}`,
+        `/items?limit=${limit}`,
+        `/v1/items?limit=${limit}`,
+      ];
+      return discover<any[]>(candidates, (data) => {
+        const arr = toArr(data).map(normalizeProduct).filter(Boolean);
+        return arr.length ? (arr as any[]) : null;
+      });
+    },
+    async detail(id: string | number) {
+      const candidates = [
+        `/public/products/${id}`,
+        `/products/${id}`,
+        `/api/products/${id}`,
+        `/v1/product/${id}`,
+        `/product/${id}`,
+        `/items/${id}`,
+        `/v1/items/${id}`,
+      ];
+      return discover<any>(candidates, (data) => {
+        const obj = (data && typeof data === 'object' && (data.item || data.product || data.data)) || data;
+        const norm = normalizeProduct(obj);
+        return norm;
+      });
+    },
+  },
+};
+
+export default api;

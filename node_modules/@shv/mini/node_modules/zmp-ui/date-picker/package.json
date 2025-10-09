@@ -1,0 +1,12 @@
+{
+  "name": "zaui/date-picker",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/date-picker/index.js",
+  "module": "../esm/components/date-picker/index.js",
+  "jsnext:main": "../esm/components/date-picker/index.js",
+  "typings": "./index.d.ts"
+}

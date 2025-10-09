@@ -1,0 +1,23 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{page-prefix-cls} {
+  .scrollable();
+  min-height: 100vh;
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+
+  &-hide-scrollbar {
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  &.disable-scrolling {
+    overflow: hidden;
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/input",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/input/index.js",
+  "module": "../esm/components/input/index.js",
+  "jsnext:main": "../esm/components/input/index.js",
+  "typings": "./index.d.ts"
+}

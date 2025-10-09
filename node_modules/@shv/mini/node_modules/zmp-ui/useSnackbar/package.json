@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useSnackbar",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useSnackbar/index.js",
+  "module": "../esm/hooks/useSnackbar/index.js",
+  "jsnext:main": "../esm/hooks/useSnackbar/index.js",
+  "typings": "./index.d.ts"
+}

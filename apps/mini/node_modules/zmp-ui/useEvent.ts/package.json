@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useEvent.ts",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useEvent.ts/index.js",
+  "module": "../esm/hooks/useEvent.ts/index.js",
+  "jsnext:main": "../esm/hooks/useEvent.ts/index.js",
+  "typings": "./index.d.ts"
+}

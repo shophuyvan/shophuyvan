@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useLayoutUpdateEffect.ts",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useLayoutUpdateEffect.ts/index.js",
+  "module": "../esm/hooks/useLayoutUpdateEffect.ts/index.js",
+  "jsnext:main": "../esm/hooks/useLayoutUpdateEffect.ts/index.js",
+  "typings": "./index.d.ts"
+}

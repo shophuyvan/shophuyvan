@@ -1,0 +1,304 @@
+@import "./variables.less";
+@import "./mixins.less";
+
+.@{btn-prefix-cls} {
+  padding: @btn-padding-large;
+  .btn();
+  .btn-default(false);
+  .btn-size(@btn-min-width-large, @btn-height-large);
+  .btn-text(@btn-font-size, @btn-line-height, @btn-font-weight);
+
+  &-disabled[disabled],
+  &-primary.@{btn-prefix-cls}-disabled[disabled],
+  &-secondary.@{btn-prefix-cls}-disabled[disabled] {
+    background-color: @light-button-background-disabled;
+    color: @light-button-text-disabled;
+  }
+  .@{btn-prefix-cls}-container {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  &-tertiary.@{btn-prefix-cls}-disabled[disabled] {
+    background-color: @light-button-tertiary-background;
+    color: @light-button-text-disabled;
+  }
+
+  &-small {
+    .btn-size(@btn-min-width-small, @btn-height-small);
+    .btn-text(@btn-font-size-small, @btn-line-height-small, @btn-font-weight);
+    padding: @btn-padding-small;
+  }
+
+  &-large {
+    .btn-size(@btn-min-width-large, @btn-height-large);
+  }
+
+  &-medium {
+    .btn-size(@btn-min-width-medium, @btn-height-medium);
+    padding: @btn-padding;
+  }
+
+  &-full-width {
+    width: 100%;
+    min-width: unset;
+  }
+
+  &-primary,
+  &-primary.@{btn-prefix-cls}-highlight {
+    .btn-primary(false);
+  }
+
+  &-secondary,
+  &-secondary.@{btn-prefix-cls}-highlight {
+    .btn-secondary(false);
+  }
+
+  &-tertiary,
+  &-tertiary.@{btn-prefix-cls}-highlight {
+    .btn-tertiary(false);
+  }
+
+  &-danger,
+  &-primary.@{btn-prefix-cls}-danger {
+    background-color: @light-button-primary-danger-background;
+    color: @light-button-primary-danger-text;
+
+    &:active,
+    &:focus-visible {
+      background-color: @light-button-primary-danger-background-pressed;
+    }
+  }
+
+  &-secondary.@{btn-prefix-cls}-danger {
+    background-color: @light-button-secondary-danger-background;
+    color: @light-button-secondary-danger-text;
+
+    &:active,
+    &:focus-visible {
+      background-color: @light-button-secondary-danger-background-pressed;
+    }
+  }
+
+  &-tertiary.@{btn-prefix-cls}-danger {
+    background-color: @light-button-tertiary-danger-background;
+    color: @light-button-tertiary-danger-text;
+
+    &:active,
+    &:focus-visible {
+      background-color: @light-button-tertiary-danger-background-pressed;
+    }
+  }
+
+  &-secondary.@{btn-prefix-cls}-neutral {
+    background-color: @light-button-secondary-neutral-background;
+    color: @light-button-secondary-neutral-text;
+
+    &:active,
+    &:focus-visible {
+      background-color: @light-button-secondary-neutral-background-pressed;
+    }
+  }
+
+  &-tertiary.@{btn-prefix-cls}-neutral {
+    background-color: @light-button-tertiary-neutral-background;
+    color: @light-button-tertiary-neutral-text;
+
+    &:active,
+    &:focus-visible {
+      background-color: @light-button-tertiary-neutral-background-pressed;
+    }
+  }
+
+  &-loading {
+    position: relative;
+    pointer-events: none;
+
+    >* {
+      visibility: hidden;
+    }
+
+    &-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      visibility: visible;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .@{btn-prefix-cls}-loading-icon {
+      width: @btn-icon-size;
+      height: @btn-icon-size;
+      display: inline-block;
+      animation: loadingCircle 1s infinite linear;
+    }
+  }
+
+  &-small {
+    &.@{btn-prefix-cls}-loading {
+      .@{btn-prefix-cls}-loading-icon {
+        width: @btn-icon-size-small;
+        height: @btn-icon-size-small;
+      }
+    }
+
+    .@{btn-prefix-cls}-icon {
+      .@{zaui-prefix}-icon {
+        font-size: @btn-icon-size-small;
+      }
+    }
+  }
+
+  &-icon-only {
+    min-width: unset;
+    width: @btn-icon-only-size-large;
+    height: @btn-icon-only-size-large;
+    padding: 12px 12px;
+    line-height: 1;
+
+    .@{btn-prefix-cls}-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: @btn-icon-size;
+      height: @btn-icon-size;
+      display: inline-block;
+
+      .@{zaui-prefix}-icon {
+        font-size: @btn-icon-size;
+      }
+    }
+
+    &.@{btn-prefix-cls}-small {
+      width: @btn-icon-only-size-small;
+      height: @btn-icon-only-size-small;
+      padding: 8px 8px;
+      .@{btn-prefix-cls}-icon {
+        width: @btn-icon-size-small;
+        height: @btn-icon-size-small;
+      }
+
+      .@{zaui-prefix}-icon {
+        font-size: @btn-icon-size-small;
+      }
+    }
+
+    &.@{btn-prefix-cls}-medium {
+      width: @btn-icon-only-size-medium;
+      height: @btn-icon-only-size-medium;
+      padding: 8px 8px;
+
+      .@{zaui-prefix}-icon {
+        font-size: @btn-icon-size;
+      }
+    }
+  }
+
+  &-suffix-icon {
+    .@{btn-prefix-cls}-icon {
+      .btn-icon(@btn-icon-size, false, true);
+    }
+
+    &.@{btn-prefix-cls}-small {
+      .@{btn-prefix-cls}-icon {
+        .btn-icon(@btn-icon-size-small, false, true, false);
+      }
+    }
+  }
+
+  &-prefix-icon {
+    .@{btn-prefix-cls}-icon {
+      .btn-icon(@btn-icon-size, true, false);
+    }
+
+    &.@{btn-prefix-cls}-small {
+      .@{btn-prefix-cls}-icon {
+        .btn-icon(@btn-icon-size-small, false, true, true);
+
+      }
+    }
+  }
+}
+
+.if-dark-theme( {
+    .@{btn-prefix-cls} {
+      .btn-default(true);
+
+      &-disabled[disabled], &-primary.@{btn-prefix-cls}-disabled[disabled], &-secondary.@{btn-prefix-cls}-disabled[disabled] {
+        background-color: @dark-button-background-disabled;
+        color: @dark-button-text-disabled;
+      }
+
+      &-tertiary.@{btn-prefix-cls}-disabled[disabled] {
+        background-color: @dark-button-tertiary-background;
+        color: @dark-button-text-disabled;
+      }
+
+      &-primary, &-primary.@{btn-prefix-cls}-highlight {
+        .btn-primary(true);
+      }
+
+      &-secondary, &-secondary.@{btn-prefix-cls}-highlight {
+        .btn-secondary(true);
+      }
+
+      &-tertiary, &-tertiary.@{btn-prefix-cls}-highlight {
+        .btn-tertiary(true);
+      }
+
+      &-danger, &-primary.@{btn-prefix-cls}-danger {
+        background-color: @dark-button-primary-danger-background;
+        color: @dark-button-primary-danger-text;
+
+        &:active, &:focus-visible {
+          background-color: @dark-button-primary-danger-background-pressed;
+        }
+      }
+
+      &-secondary.@{btn-prefix-cls}-danger {
+        background-color: @dark-button-secondary-danger-background;
+        color: @dark-button-secondary-danger-text;
+
+        &:active, &:focus-visible {
+          background-color: @dark-button-secondary-danger-background-pressed;
+        }
+      }
+
+      &-tertiary.@{btn-prefix-cls}-danger {
+        background-color: @dark-button-tertiary-danger-background;
+        color: @dark-button-tertiary-danger-text;
+
+        &:active, &:focus-visible {
+          background-color: @dark-button-tertiary-danger-background-pressed;
+        }
+      }
+
+
+      &-secondary.@{btn-prefix-cls}-neutral {
+        background-color: @dark-button-secondary-neutral-background;
+        color: @dark-button-secondary-neutral-text;
+
+        &:active, &:focus-visible {
+          background-color: @dark-button-secondary-neutral-background-pressed;
+        }
+      }
+
+      &-tertiary.@{btn-prefix-cls}-neutral {
+        background-color: @dark-button-tertiary-neutral-background;
+        color: @dark-button-tertiary-neutral-text;
+
+        &:active, &:focus-visible {
+          background-color: @dark-button-tertiary-neutral-background-pressed;
+        }
+      }
+    }
+  }
+
+);

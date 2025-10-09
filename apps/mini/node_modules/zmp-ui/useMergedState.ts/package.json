@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useMergedState.ts",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useMergedState.ts/index.js",
+  "module": "../esm/hooks/useMergedState.ts/index.js",
+  "jsnext:main": "../esm/hooks/useMergedState.ts/index.js",
+  "typings": "./index.d.ts"
+}

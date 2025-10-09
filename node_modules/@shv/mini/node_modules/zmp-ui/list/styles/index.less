@@ -1,0 +1,109 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{list-prefix-cls} {
+	.reset();
+	&-no-spacing.@{list-prefix-cls}{
+		.@{list-item-prefix-cls}{
+			&:not(:last-child){
+				margin-bottom: 0;
+			}
+		}
+	}
+	.@{list-item-prefix-cls}{
+		&:not(:last-child){
+			margin-bottom: @list-item-bottom-space;
+		}
+		
+		&:not(:last-child){
+			.@{list-item-prefix-cls}-right{
+				&::after{
+					content: '';
+					height: @list-item-divider-size;
+					background-color: @light-list-item-divider-color;
+					width: 100%;
+					position: absolute;
+					bottom: -@list-item-padding;
+					left: 0;
+				}	
+			}	
+		}
+	}
+	&-no-divider{
+		>.@{list-item-prefix-cls}{
+			>.@{list-item-prefix-cls}-right{
+				&::after{
+					display: none;
+				}	
+			}
+		}
+	}
+}
+.@{list-item-prefix-cls}{
+	padding: @list-item-padding;
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	&-subtitle{
+		color: @light-list-item-subtitle-color;
+		font-size: @list-item-subtitle-font-size;
+		line-height: @list-item-subtitle-line-height;
+	}
+	&-brackets{
+		color: @light-list-item-brackets-color;
+		display: inline-block;
+		margin-left: 4px;
+		font-size: @list-item-brackets-font-size;
+		line-height: @list-item-brackets-line-height;
+	}
+	&-title{
+		display: inline-block;
+		font-size: @list-item-title-font-size;
+		line-height: @list-item-title-line-height;
+	}
+	&-title-container{
+		white-space: nowrap;
+		overflow: hidden;
+	}
+	&-content{
+		flex: 1;
+		overflow-wrap: anywhere;
+	}
+	&-prefix{
+		margin-right: 16px;
+	}
+	&-suffix{
+		margin-left: 16px;
+	}
+
+	&-right{
+		position: relative;
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+	
+	}
+}
+.if-dark-theme({
+	.@{list-prefix-cls} {
+		.reset();
+		.@{list-item-prefix-cls}{
+	
+			&-subtitle{
+				color: @dark-list-item-subtitle-color;
+				
+			}
+			&-brackets{
+				color: @dark-list-item-brackets-color;		
+			}
+			&:not(:last-child){
+				.@{list-item-prefix-cls}-right{
+					&::after{
+						background-color: @dark-list-item-divider-color;
+					}
+				}
+			}
+		}
+	}
+});

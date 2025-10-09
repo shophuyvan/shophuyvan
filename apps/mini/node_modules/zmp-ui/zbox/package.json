@@ -1,0 +1,12 @@
+{
+  "name": "zaui/zbox",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/zbox/index.js",
+  "module": "../esm/components/zbox/index.js",
+  "jsnext:main": "../esm/components/zbox/index.js",
+  "typings": "./index.d.ts"
+}

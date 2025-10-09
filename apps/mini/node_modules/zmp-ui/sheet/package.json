@@ -1,0 +1,12 @@
+{
+  "name": "zaui/sheet",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/sheet/index.js",
+  "module": "../esm/components/sheet/index.js",
+  "jsnext:main": "../esm/components/sheet/index.js",
+  "typings": "./index.d.ts"
+}

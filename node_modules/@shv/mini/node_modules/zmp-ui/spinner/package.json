@@ -1,0 +1,12 @@
+{
+  "name": "zaui/spinner",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/spinner/index.js",
+  "module": "../esm/components/spinner/index.js",
+  "jsnext:main": "../esm/components/spinner/index.js",
+  "typings": "./index.d.ts"
+}

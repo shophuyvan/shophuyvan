@@ -1,0 +1,97 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{spinner-prefix-cls} {
+  position: relative;
+  width: @spinner-size;
+  height: @spinner-size;
+
+  &::after {
+    position: absolute;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 100%;
+    content: '';
+    border: @spinner-border-width solid @light-spinner-border-color;
+  }
+
+  &-ring {
+    position: absolute;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    border-radius: 50%;
+    -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - @spinner-ring-width), #000 calc(100% - calc(@spinner-ring-width - 1px)));
+    mask: radial-gradient(farthest-side, #0000 calc(100% - @spinner-ring-width), #000 calc(100% - calc(@spinner-ring-width - 1px)));
+    background: @light-spinner-ring-background;
+    -webkit-animation: loadingCircle @spinner-animation-duration infinite linear;
+    animation: loadingCircle @spinner-animation-duration infinite linear;
+  }
+
+  &-dot {
+    z-index: 2;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-animation: loadingCircle @spinner-animation-duration infinite linear;
+    animation: loadingCircle @spinner-animation-duration infinite linear;
+
+    &::after {
+      content: '';
+      width: @spinner-dot-size;
+      height: @spinner-dot-size;
+      background-color: @light-spinner-dot-color;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      position: absolute;
+      border-radius: 100%;
+    }
+  }
+
+  &-logo {
+    @logo-size: calc(100% - calc(calc(@spinner-ring-width * 2) + calc(@spinner-logo-space * 2)));
+    position: absolute;
+    width: @logo-size;
+    height: @logo-size;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 100%;
+    overflow: hidden;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+.if-dark-theme( {
+    @import './variables.less';
+    @import './mixins.less';
+
+    .@{spinner-prefix-cls} {
+      &::after {
+        border: @spinner-border-width solid @dark-spinner-border-color;
+      }
+
+      &-ring {
+        background: @dark-spinner-ring-background;
+      }
+
+      &-dot {
+        &::after {
+          background-color: @dark-spinner-dot-color;
+        }
+      }
+    }
+  }
+
+);

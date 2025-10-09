@@ -1,0 +1,12 @@
+{
+  "name": "zaui/icon",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/icon/index.js",
+  "module": "../esm/components/icon/index.js",
+  "jsnext:main": "../esm/components/icon/index.js",
+  "typings": "./index.d.ts"
+}

@@ -1,0 +1,157 @@
+.btn() {
+    position: relative;
+    display: inline-block;
+    font-weight: @btn-font-weight;
+    font-size: @btn-font-size;
+    white-space: nowrap;
+    text-align: center;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    cursor: pointer;
+    border-radius: @btn-height-large;
+    user-select: none;
+    touch-action: manipulation;
+    appearance: button;
+    -webkit-appearance: button;
+    text-decoration: none;
+    box-shadow: none;
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+    margin: 0;
+    &,
+    &:hover,
+    &:active,
+    &:focus {
+        outline: 0;
+        box-shadow: none;
+    }
+
+    &:not([disabled]):hover {
+        text-decoration: none;
+    }
+
+    &:not([disabled]):active {
+        outline: 0;
+        box-shadow: none;
+    }
+
+    &[disabled] {
+        cursor: not-allowed;
+        pointer-events: none;
+        > * {
+            pointer-events: none;
+        }
+    }
+}
+
+.btn-default(@dark) {
+    background-color: @light-button-primary-background;
+    color: @light-button-primary-text;
+
+    &:active,
+    &:focus-visible {
+        background-color: @light-button-primary-background-pressed;
+    }
+
+    & when(@dark=true) {
+        background-color: @dark-button-primary-background;
+        background: @dark-button-primary-background;
+        color: @dark-button-primary-text;
+
+        &:active,
+        &:focus-visible {
+            background-color: @dark-button-primary-background-pressed;
+            background: @dark-button-primary-background-pressed;
+        }
+    }
+}
+
+.btn-primary(@dark) {
+    background-color: @light-button-primary-background;
+    color: @light-button-primary-text;
+
+    &:active,
+    &:focus-visible {
+        background-color: @light-button-primary-background-pressed;
+    }
+
+    & when(@dark=true) {
+        background-color: @dark-button-primary-background;
+        color: @light-button-primary-text;
+
+        &:active,
+        &:focus-visible {
+            background-color: @dark-button-primary-background-pressed;
+        }
+    }
+}
+
+.btn-secondary(@dark) {
+    background-color: @light-button-secondary-background;
+    color: @light-button-secondary-text;
+
+    &:active,
+    &:focus-visible {
+        background-color: @light-button-secondary-background-pressed;
+    }
+
+    & when(@dark=true) {
+        background-color: @dark-button-secondary-background;
+        color: @light-button-secondary-text;
+
+        &:active,
+        &:focus-visible {
+            background-color: @light-button-secondary-background-pressed;
+        }
+    }
+}
+
+.btn-tertiary(@dark) {
+    background-color: @light-button-tertiary-background;
+    color: @light-button-tertiary-text;
+    &:active,
+    &:focus-visible {
+        background-color: @light-button-tertiary-background-pressed;
+    }
+    & when(@dark=true) {
+        background-color: @dark-button-tertiary-background;
+        color: @dark-button-tertiary-text;
+        &:active,
+        &:focus-visible {
+            background-color: @dark-button-tertiary-background-pressed;
+        }
+    }
+}
+
+.btn-size(@minWidth, @height) {
+    min-width: @minWidth;
+    height: @height;
+}
+
+.btn-text(@font-size, @line-height, @font-weight) {
+    font-size: @font-size;
+    line-height: @line-height;
+    font-weight: @font-weight;
+}
+
+.btn-icon(@size, @prefix, @suffix, @small: false) {
+    width: @size;
+    height: @size;
+    & when(@prefix=true) and (@small = false) {
+        margin-right: 8px;
+    }
+
+    & when(@suffix=true) and (@small = false) {
+        margin-left: 8px;
+    }
+
+    & when(@prefix=true) and (@small = true) {
+        margin-right: 4px;
+    }
+
+    & when(@suffix=true) and (@small = true) {
+        margin-left: 4px;
+    }
+}

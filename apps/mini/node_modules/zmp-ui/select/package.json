@@ -1,0 +1,12 @@
+{
+  "name": "zaui/select",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/select/index.js",
+  "module": "../esm/components/select/index.js",
+  "jsnext:main": "../esm/components/select/index.js",
+  "typings": "./index.d.ts"
+}

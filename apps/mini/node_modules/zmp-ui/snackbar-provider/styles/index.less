@@ -1,0 +1,220 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{snackbar-prefix-cls}{
+	box-sizing: border-box;
+	display: flex;
+  align-items: center;
+  position: fixed;
+  z-index: 1001;
+  transition: opacity 150ms, transform 150ms;
+	width: @snackbar-width;
+	background-color: @light-snackbar-background;
+	color: @light-snackbar-text-color;
+	padding: @snackbar-text-only-padding;
+	border-radius: @snackbar-border-radius;
+	flex-direction: row;
+	justify-content: space-between;
+	font-size: @snackbar-font-size;
+	line-height: @snackbar-line-height;
+	font-weight: @snackbar-font-weight;
+	>* {
+		&:not(:last-child){
+			margin-right: @snackbar-space;
+		}
+	}
+	&-desc-wrapper{
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		>* {
+			&:not(:last-child){
+				margin-right: @snackbar-space;
+			}
+		}
+	}
+
+	&-prefix-icon{
+		width: @snackbar-icon-size;
+		height: @snackbar-icon-size;
+	}
+
+	&-content{
+		flex: 1;
+		>*{
+			&:not(:last-child){
+				margin-bottom: @snackbar-space;
+			}
+		}
+	}
+
+	&-text-only{
+		width: max-content;
+		max-width: @snackbar-width;
+		.@{snackbar-prefix-cls}-desc{
+			text-align: center;
+		}
+	}
+	&-vertical-action{
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		>*{
+			margin-right: 0;
+
+			&:not(:last-child){
+				margin-right: 0;
+				margin-bottom: @snackbar-space;
+			}
+		}
+		.@{snackbar-prefix-cls}-content{
+			width: 100%;
+		}
+	}
+
+	&-success{
+		color: @light-snackbar-success-color;
+	}
+
+	&-error{
+		color: @light-snackbar-error-color;
+	}
+
+	&-warning{
+		color: @light-snackbar-warning-color;
+	}	
+
+	&-info{
+		color: @light-snackbar-info-color;
+	}
+
+	&-action{
+		height: @snackbar-action-height;
+		font-weight: @snackbar-action-font-weight;
+		color: @light-snackbar-action-color;
+		padding: 10px 8px;
+	}
+	&-loading{
+		animation: loadingCircle 1s infinite linear;
+	}
+	&-progress{
+		.@{progress-prefix-cls}-completed{
+			background-color: @light-snackbar-progress-color;
+		}
+	}
+
+	&-wifi-connected{
+		color: @light-snackbar-connect-color;
+	}
+
+	&-wifi-disconnected{
+		color: @light-snackbar-disconnect-color;
+	}
+	&-top{
+		left: 50%;
+		transform: translateX(-50%) translateY(-12px);	
+		top: 12px;
+		&-visible{
+			transform: translateX(-50%) translateY(0);		
+		}
+	}
+	
+	&-bottom{
+		left: 50%;
+		transform: translateX(-50%) translateY(12px);	
+		bottom: 12px;
+		&-visible{
+			transform: translateX(-50%) translateY(0);	
+		}
+	}
+	&-appear,&-exit-active{
+		opacity: 0;
+	}
+
+	&-enter{
+		opacity: 1;
+	}
+
+	&-enter-top, &-exit-active-top{
+		transform: translate(-50%,-12px);
+	}
+	&-enter-bottom, &-exit-active-bottom{
+		transform: translate(-50%,12px);
+	}
+	&-enter-active-top, &-enter-active-bottom{
+		transform: translate(-50%,0px);
+	}
+}
+
+.@{countdown-prefix-cls}{
+	&-background,&-progress{
+		fill: none;
+	}
+	&-background{
+		stroke: @light-countdown-bg-color;
+	}
+	&-progress{
+		transition: stroke-dashoffset .5s ease-in-out;
+    stroke: @light-countdown-progress-color;
+		stroke-linecap: round;
+		transform-origin: center;
+	}
+	&-counter {
+    font-size: @snackbar-countdown-font-size;
+    fill: @light-countdown-counter-color;
+    transform: translate(0 50%);
+	}
+}
+
+.if-dark-theme({
+	.@{snackbar-prefix-cls}{
+		background-color: @dark-snackbar-background;
+		color: @dark-snackbar-text-color;
+		&-success{
+			color: @dark-snackbar-success-color;
+		}
+	
+		&-error{
+			color: @dark-snackbar-error-color;
+		}
+	
+		&-warning{
+			color: @dark-snackbar-warning-color;
+		}	
+	
+		&-info{
+			color: @dark-snackbar-info-color;
+		}
+	
+		&-action{
+			color: @dark-snackbar-action-color;
+		}
+		
+		&-progress{
+			.@{progress-prefix-cls}-completed{
+				background-color: @dark-snackbar-progress-color;
+			}
+		}
+	
+		&-wifi-connected{
+			color: @dark-snackbar-connect-color;
+		}
+	
+		&-wifi-disconnected{
+			color: @dark-snackbar-disconnect-color;
+		}
+		
+	}
+	
+	.@{countdown-prefix-cls}{
+		&-background{
+			stroke: @dark-countdown-bg-color;
+		}
+		&-progress{
+			stroke: @dark-countdown-progress-color;
+		}
+		&-counter {
+			fill: @dark-countdown-counter-color;
+		}
+	}
+});

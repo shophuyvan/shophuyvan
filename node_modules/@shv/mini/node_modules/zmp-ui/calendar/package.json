@@ -1,0 +1,12 @@
+{
+  "name": "zaui/calendar",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/calendar/index.js",
+  "module": "../esm/components/calendar/index.js",
+  "jsnext:main": "../esm/components/calendar/index.js",
+  "typings": "./index.d.ts"
+}

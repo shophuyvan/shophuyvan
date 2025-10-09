@@ -1,0 +1,52 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{progress-prefix-cls}{
+	display: inline-block;
+	align-items: center;
+	width: 100%;
+	box-sizing: border-box;
+	&-outer{
+		width: 100%;
+		border-radius: @progress-radius;
+		overflow: hidden;
+		display: inline-block;
+	}
+	&-show-label{
+		display: inline-flex;
+		&-outer{
+			margin-right: calc(-2em - 8px);
+   	 	padding-right: calc(2em + 8px);
+		}
+	}
+	&-inner{
+		background-color: @light-progress-background;
+		width: 100%;
+		height: @progress-height;
+		border-radius: @progress-radius;
+	}
+	&-completed{
+		background-color: @light-progress-completed;
+		height: 100%;
+		border-radius: @progress-radius;
+		transition: all .5s linear;
+	}
+	&-label{
+		display: inline-block;
+		line-height: 1;
+    white-space: nowrap;
+		margin-left: 8px;
+		width: 2em;
+	}
+}
+
+.if-dark-theme({
+	.@{progress-prefix-cls}{
+		&-inner{
+			background-color: @dark-progress-background;
+		}
+		&-completed{
+			background-color: @dark-progress-completed;
+		}
+	}	
+});

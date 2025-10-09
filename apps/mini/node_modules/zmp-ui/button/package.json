@@ -1,0 +1,12 @@
+{
+  "name": "zaui/button",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/button/index.js",
+  "module": "../esm/components/button/index.js",
+  "jsnext:main": "../esm/components/button/index.js",
+  "typings": "./index.d.ts"
+}

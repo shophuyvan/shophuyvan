@@ -1,0 +1,12 @@
+{
+  "name": "zaui/text",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/text/index.js",
+  "module": "../esm/components/text/index.js",
+  "jsnext:main": "../esm/components/text/index.js",
+  "typings": "./index.d.ts"
+}

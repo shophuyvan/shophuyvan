@@ -1,0 +1,12 @@
+{
+  "name": "zaui/swiper",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/swiper/index.js",
+  "module": "../esm/components/swiper/index.js",
+  "jsnext:main": "../esm/components/swiper/index.js",
+  "typings": "./index.d.ts"
+}

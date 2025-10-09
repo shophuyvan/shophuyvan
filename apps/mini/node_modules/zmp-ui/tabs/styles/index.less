@@ -1,0 +1,148 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{tabs-prefix-cls} {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+
+  &-content {
+    &-holder {
+      flex: auto;
+    }
+
+    display: flex;
+    width: 100%;
+  }
+
+  &-tabpane {
+    width: 100%;
+    flex: none;
+  }
+
+  &-tabbar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    background-color: @light-tabbar-background;
+    position: relative;
+
+    &.@{tabs-prefix-cls}-tabbar-scrollable {
+      overflow-x: auto;
+
+      .@{tabs-prefix-cls}-tabbar-item {
+        text-overflow: unset;
+        overflow: unset;
+        max-width: unset;
+        min-width: unset;
+      }
+    }
+
+    &::after {
+      height: @tabbar-divider-height;
+      width: var(--zaui-tabbar-width, 100%);
+      position: absolute;
+      content: '';
+      background-color: @light-tabbar-divider;
+      bottom: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &-center {
+      justify-content: center;
+    }
+
+    &-item {
+      padding: @tabbar-item-padding;
+      font-size: @tabbar-label-font-size;
+      font-weight: @tabbar-label-font-weight;
+      line-height: @tabbar-label-line-height;
+      color: @light-tabbar-label;
+      white-space: nowrap;
+      display: block;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: @tabbar-item-max-width;
+      min-width: @tabbar-item-min-width;
+
+      &::before {
+        display: block;
+        font-weight: @tabbar-label-active-font-weight;
+        height: 1px;
+        font-size: @tabbar-label-font-size;
+        line-height: @tabbar-label-line-height;
+        white-space: nowrap;
+        color: transparent;
+        overflow: hidden;
+        visibility: hidden;
+      }
+
+      &.@{tabs-prefix-cls}-tabbar-item-active {
+        font-weight: @tabbar-label-active-font-weight;
+        color: @light-tabbar-label-active;
+        position: relative;
+      }
+
+      &:focus,
+      &:active {
+        outline: none;
+      }
+    }
+
+    &-active-line {
+      bottom: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+      content: '';
+      position: absolute;
+      background-color: @light-tabbar-active-line;
+      z-index: 2;
+      transition: left 0.3s ease-in-out, width 0.3s 0.10s;
+    }
+
+  }
+
+  &-bottom {
+    .@{tabs-prefix-cls}-tabbar {
+      .@{tabs-prefix-cls}-tabbar-active-line {
+        border-radius: 0 0 2px 2px;
+        bottom: unset;
+        top: 0;
+      }
+    }
+  }
+}
+
+.if-dark-theme( {
+    .@{tabs-prefix-cls} {
+      &-tabbar {
+        background-color: @dark-tabbar-background;
+
+        &::after {
+          background-color: @dark-tabbar-divider;
+        }
+
+        &-item {
+          color: @dark-tabbar-label;
+
+          &.@{tabs-prefix-cls}-tabbar-item-active {
+            color: @dark-tabbar-label-active;
+          }
+        }
+
+        &-active-line {
+
+          background-color: @dark-tabbar-active-line;
+
+        }
+      }
+    }
+  }
+
+);

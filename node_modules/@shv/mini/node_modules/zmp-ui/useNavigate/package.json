@@ -1,0 +1,12 @@
+{
+  "name": "zaui/useNavigate",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/hooks/useNavigate/index.js",
+  "module": "../esm/hooks/useNavigate/index.js",
+  "jsnext:main": "../esm/hooks/useNavigate/index.js",
+  "typings": "./index.d.ts"
+}

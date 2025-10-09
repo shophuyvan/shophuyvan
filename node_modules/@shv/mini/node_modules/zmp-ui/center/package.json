@@ -1,0 +1,12 @@
+{
+  "name": "zaui/center",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/center/index.js",
+  "module": "../esm/components/center/index.js",
+  "jsnext:main": "../esm/components/center/index.js",
+  "typings": "./index.d.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/radio",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/radio/index.js",
+  "module": "../esm/components/radio/index.js",
+  "jsnext:main": "../esm/components/radio/index.js",
+  "typings": "./index.d.ts"
+}

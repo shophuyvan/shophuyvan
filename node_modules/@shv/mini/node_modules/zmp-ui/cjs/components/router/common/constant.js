@@ -1,0 +1,10 @@
+"use strict";
+
+exports.__esModule = true;
+exports.PAGE_TRANSITION_DIRECTION = exports.NO_ANIMATION_DURATION = exports.ANIMATION_DURATION = void 0;
+var PAGE_TRANSITION_DIRECTION = exports.PAGE_TRANSITION_DIRECTION = {
+  FORWARD: "forward",
+  BACKWARD: "backward"
+};
+var ANIMATION_DURATION = exports.ANIMATION_DURATION = 400;
+var NO_ANIMATION_DURATION = exports.NO_ANIMATION_DURATION = 200;

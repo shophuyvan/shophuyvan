@@ -1,0 +1,12 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{stack-prefix-cls}{
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+
+  > * + * {
+    margin-block-start: var(--s1);
+  }
+}

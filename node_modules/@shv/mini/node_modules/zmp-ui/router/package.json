@@ -1,0 +1,12 @@
+{
+  "name": "zaui/router",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/router/index.js",
+  "module": "../esm/components/router/index.js",
+  "jsnext:main": "../esm/components/router/index.js",
+  "typings": "./index.d.ts"
+}

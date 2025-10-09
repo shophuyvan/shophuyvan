@@ -1,0 +1,12 @@
+{
+  "name": "zaui/grid",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/grid/index.js",
+  "module": "../esm/components/grid/index.js",
+  "jsnext:main": "../esm/components/grid/index.js",
+  "typings": "./index.d.ts"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "zaui/box",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/box/index.js",
+  "module": "../esm/components/box/index.js",
+  "jsnext:main": "../esm/components/box/index.js",
+  "typings": "./index.d.ts"
+}

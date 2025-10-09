@@ -1,0 +1,64 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{text-prefix-cls}{
+	display: block;
+	font-weight: @text-font-weight;
+	.text-size("normal");
+	&-bold{
+		font-weight: @text-bold-font-weight;
+	}
+	&-xLarge{
+		.text-size("xlarge");
+	}
+	&-large{
+		.text-size("large");
+	}
+
+	&-normal{
+		.text-size("normal");
+	}
+	&-small{
+		.text-size("small");
+	}
+	&-xSmall{
+		.text-size("xsmall");
+	}
+	&-xxSmall{
+		.text-size("xxsmall");
+	}
+	&-xxxSmall{
+		.text-size("xxxsmall");
+	}
+	&-xxxxSmall{
+		.text-size("xxxxsmall");
+	}
+	&-header{
+		font-weight: @header-font-weight;
+		display: block;
+		.header-size("normal");
+		&-normal{
+			.header-size("normal");
+		}
+		&-small{
+			.header-size("small");
+		}
+	}
+	&-title{
+		display:block;
+		.title-size("normal");
+		font-weight: @title-font-weight;
+		&-normal{
+			.title-size("normal");
+		}
+		&-xLarge{
+			.title-size("xlarge");
+		}
+		&-large{
+			.title-size("large");
+		}
+		&-small{
+			.title-size("small");
+		}
+	}
+}

@@ -1,0 +1,99 @@
+@import './variables.less';
+@import './mixins.less';
+
+.@{bottom-navigation-prefix-cls} {
+  width: 100%;
+  height: auto;
+
+  .no-safe-area &-content {
+    padding-bottom: unset;
+  }
+
+  &-content {
+    position: relative;
+    width: 100%;
+    display: flex;
+    height: calc(var(--zaui-safe-area-inset-bottom) + @bottom-navigation-height);
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    background-color: @light-bottom-navigation-background-color;
+    padding-bottom: var(--zaui-safe-area-inset-bottom);
+
+    &::after {
+      content: '';
+      top: -@divider-height;
+      left: 0;
+      position: absolute;
+      width: 100%;
+      height: @divider-height;
+      background-color: @light-bottom-navigation-divider-color;
+    }
+  }
+
+  &-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 999;
+  }
+
+  &-item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    cursor: pointer;
+    color: @light-bottom-navigation-color;
+    flex: 1;
+    padding: 0;
+
+    .@{bottom-navigation-prefix-cls}-item-icon {
+      font-size: @bottom-navigation-icon-size;
+      width: @bottom-navigation-icon-size;
+      height: @bottom-navigation-icon-size;
+      display: inline-flex;
+
+      ~.@{bottom-navigation-prefix-cls}-item-label {
+        margin-top: @bottom-navigation-label-mg-top;
+      }
+    }
+
+    .@{bottom-navigation-prefix-cls}-item-label {
+      font-size: @bottom-navigation-item-font-size;
+      font-weight: @bottom-navigation-font-weight;
+      line-height: @bottom-navigation-line-height;
+    }
+
+    &-active {
+      color: @light-bottom-navigation-active-color;
+    }
+  }
+}
+
+.if-dark-theme( {
+    .@{bottom-navigation-prefix-cls} {
+
+      &-content {
+        background-color: @dark-bottom-navigation-background-color;
+
+        &::after {
+          background-color: @dark-bottom-navigation-divider-color;
+        }
+      }
+
+      &-item {
+        color: @dark-bottom-navigation-color;
+        flex: 1;
+
+        &-active {
+          color: @dark-bottom-navigation-active-color;
+        }
+      }
+    }
+  }
+
+);

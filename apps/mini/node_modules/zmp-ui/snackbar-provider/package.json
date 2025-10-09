@@ -1,0 +1,12 @@
+{
+  "name": "zaui/snackbar-provider",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/snackbar-provider/index.js",
+  "module": "../esm/components/snackbar-provider/index.js",
+  "jsnext:main": "../esm/components/snackbar-provider/index.js",
+  "typings": "./index.d.ts"
+}

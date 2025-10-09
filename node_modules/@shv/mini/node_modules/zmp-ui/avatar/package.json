@@ -1,0 +1,12 @@
+{
+  "name": "zaui/avatar",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/avatar/index.js",
+  "module": "../esm/components/avatar/index.js",
+  "jsnext:main": "../esm/components/avatar/index.js",
+  "typings": "./index.d.ts"
+}

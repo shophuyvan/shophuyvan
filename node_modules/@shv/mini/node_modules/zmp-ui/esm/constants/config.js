@@ -1,0 +1,1 @@
+export var CLASS_PREFIX = "zaui";

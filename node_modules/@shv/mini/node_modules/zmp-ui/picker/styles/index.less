@@ -1,0 +1,101 @@
+@import "./variables.less";
+@import "./mixins.less";
+
+.@{picker-prefix-cls} {
+    padding: @picker-padding;
+    & *, & *:before, & *:after {
+      box-sizing: border-box;
+    }
+
+    &-header {
+        display: flex;
+        flex-direction: row;
+        min-height: @picker-panel-header-height;
+        margin-bottom: @picker-spacing;
+      }
+    
+      &-close-icon,
+      .zaui-btn.zaui-btn-icon-only.zaui-btn-medium.@{picker-prefix-cls}-close-icon {
+        position: absolute;
+        width: @close-icon-size;
+        height: @close-icon-size;
+        right: 16px;
+        top: 16px;
+        padding: 0px;
+        width: @close-icon-size;
+        height: @close-icon-size;
+        font-size: @close-icon-size;
+        color: @light-picker-title-color;
+      }
+    
+      &-title {
+        font-size: @picker-title-font-size;
+        line-height: @picker-title-line-height;
+        font-weight: @picker-title-font-weight;
+        color: @light-picker-title-color;
+        text-align: center;
+        flex: 1;
+        padding: 16px 32px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        display: block;
+      }
+    
+
+    &-inner {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        height: 100%;
+    }
+
+    &-column {
+        position: relative;
+        flex: 1;
+        max-height: 100%;
+        overflow: hidden;
+        &:not(:last-child){
+            margin-right: @picker-column-gap;
+        }
+    }
+
+    &-scroller {
+        transition: 300ms;
+        transition-timing-function: ease-out;
+    }
+
+    &-item {
+        position: relative;
+        padding: 0 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        line-height: 56px;
+        width: 100%;
+        font-size: @picker-option-font-size;
+        line-height: @picker-option-line-height;
+        font-weight: @picker-option-font-weight;
+        color: @light-picker-option-color;
+        height: @picker-item-default-height;
+        &-selected {
+            color: @light-picker-option-selected-color;
+            background: @light-picker-selected-background-color;
+            border-radius: @picker-option-selected-border-radius;
+            font-size: @picker-option-selected-font-size;
+            line-height: @picker-option-selected-line-height;
+            height: calc(@picker-item-default-height + 4px);
+            transition: all 200ms ease-out;
+        }
+        &-2nd{
+            font-size: @picker-option-2nd-font-size;
+            line-height: @picker-option-2nd-line-height;
+            color: @light-picker-option-2nd-color;
+            height: calc(@picker-item-default-height + 2px);
+        }
+    }
+    &-action{
+        margin-top: @picker-spacing;
+    }
+}

@@ -1,0 +1,109 @@
+@import "./variables.less";
+
+.@{switch-prefix-cls} {
+  flex: none;
+  position: relative;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  -ms-appearance: none;
+  border-radius: @switch-border-radius;
+  width: @switch-width-medium;
+  height: @switch-height-medium;
+  background-color: @light-switch-off-bg-color;
+  margin: 0;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: @switch-handler-size-medium;
+    height: @switch-handler-size-medium;
+    border-radius: 50%;
+    background-color: @light-switch-handler-bg-color;
+    transition: transform 150ms ease;
+  }
+
+  &:disabled {
+    background-color: @light-switch-off-disabled-bg-color;
+    &::before {
+      background-color: @light-switch-handler-disabled-bg-color;
+    }
+  }
+
+  &:checked {
+    background-color: @light-switch-bg-color;
+    &:disabled {
+      background-color: @light-switch-disabled-bg-color;
+    }
+
+    &::before {
+      transform: translate(@switch-handler-transform-medium);
+    }
+  }
+
+  &-wrapper {
+    display: inline-flex;
+    align-items: center;
+  }
+
+
+  &-small {
+    width: @switch-width-small;
+    height: @switch-height-small;
+    &::before {
+      width: @switch-handler-size-small;
+      height: @switch-handler-size-small;
+    }
+    &:checked {
+      &::before {
+        transform: translate(@switch-handler-transform-small);
+      }
+    }
+  }
+
+  &-label {
+    line-height: @switch-label-line-height;
+    flex: auto;
+    font-size: @switch-label-font-size;
+    margin-left: @switch-label-margin-left;
+
+    &-small {
+      font-size: @switch-label-font-size-small;
+      margin-left: @switch-label-margin-left-small;
+    }
+  }
+
+  &:disabled ~ &-label {
+    color: @light-switch-label-disabled-color;
+  }
+}
+
+.if-dark-theme( {
+  .@{switch-prefix-cls} {
+    background-color: @dark-switch-off-bg-color;
+    &::before {
+      background-color: @dark-switch-handler-bg-color;
+    }
+
+    &:disabled {
+      background-color: @dark-switch-off-bg-color;
+      &::before {
+        background-color: @dark-switch-handler-disabled-bg-color;
+      }
+    }
+
+    &:checked {
+      background-color: @dark-switch-bg-color;
+      &:disabled {
+        background-color: @dark-switch-disabled-bg-color;
+      }
+    }
+
+    &:disabled ~ &-label {
+      color: @dark-switch-label-disabled-color;
+    }
+  }
+});

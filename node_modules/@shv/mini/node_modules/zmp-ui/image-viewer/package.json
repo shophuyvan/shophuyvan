@@ -1,0 +1,12 @@
+{
+  "name": "zaui/image-viewer",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/image-viewer/index.js",
+  "module": "../esm/components/image-viewer/index.js",
+  "jsnext:main": "../esm/components/image-viewer/index.js",
+  "typings": "./index.d.ts"
+}

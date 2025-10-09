@@ -1,0 +1,12 @@
+{
+  "name": "zaui/cluster",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/cluster/index.js",
+  "module": "../esm/components/cluster/index.js",
+  "jsnext:main": "../esm/components/cluster/index.js",
+  "typings": "./index.d.ts"
+}

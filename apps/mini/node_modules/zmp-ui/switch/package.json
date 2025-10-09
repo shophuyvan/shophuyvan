@@ -1,0 +1,12 @@
+{
+  "name": "zaui/switch",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/switch/index.js",
+  "module": "../esm/components/switch/index.js",
+  "jsnext:main": "../esm/components/switch/index.js",
+  "typings": "./index.d.ts"
+}

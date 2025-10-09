@@ -1,0 +1,12 @@
+{
+  "name": "zaui/header",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/header/index.js",
+  "module": "../esm/components/header/index.js",
+  "jsnext:main": "../esm/components/header/index.js",
+  "typings": "./index.d.ts"
+}

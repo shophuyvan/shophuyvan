@@ -1,0 +1,12 @@
+{
+  "name": "zaui/checkbox",
+  "private": true,
+  "sideEffects": [
+    "*.less",
+    "*.css"
+  ],
+  "main": "../cjs/components/checkbox/index.js",
+  "module": "../esm/components/checkbox/index.js",
+  "jsnext:main": "../esm/components/checkbox/index.js",
+  "typings": "./index.d.ts"
+}
