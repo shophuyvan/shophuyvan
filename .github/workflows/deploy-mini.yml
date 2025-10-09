@@ -19,9 +19,6 @@ concurrency:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mini
 
     steps:
       - name: Checkout
@@ -32,24 +29,28 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: "apps/mini/package-lock.json"
+          # Lockfile ở ROOT do dùng npm workspaces
+          cache-dependency-path: |
+            package-lock.json
+            apps/mini/package-lock.json   # thêm cho “an toàn”, có cũng không sao
 
-      - name: Install deps & Build
-        run: |
-          npm ci
-          npm run build
+      - name: Install deps (root, workspaces)
+        run: npm ci
         env:
-          # Nếu bạn cần ENV cho build mini, khai báo ở đây (VD: VITE_*)
-          # VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
-          # ...
           NODE_OPTIONS: --max_old_space_size=4096
 
-      - name: Publish to Cloudflare Pages
+      - name: Build MINI workspace
+        run: npm -w apps/mini run build
+        # Nếu cần biến môi trường Vite, thêm vào env:
+        # env:
+        #   VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+
+      - name: Publish to Cloudflare Pages (MINI)
         uses: cloudflare/pages-action@v1
         with:
           apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName:   shv-mini           # <-- Đặt tên Project Pages riêng cho MINI
-          directory:     apps/mini/dist     # <-- Thư mục build đầu ra của Vite
+          projectName:   shv-mini
+          directory:     apps/mini/dist
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
