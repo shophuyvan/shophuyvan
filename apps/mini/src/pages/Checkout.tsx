@@ -4,7 +4,8 @@ import Footer from '../components/Footer';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 
-const API_BASE = 'https://shophuyvan1.pages.dev';
+const API_BASE  = import.meta.env.VITE_API_BASE;
+const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
 const API_TOKEN = '<<<PUT_TOKEN_HERE_IF_REQUIRED>>>';
 
 const FALLBACK_PRICING = {
