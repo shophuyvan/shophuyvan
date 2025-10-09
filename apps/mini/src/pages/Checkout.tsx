@@ -5,8 +5,7 @@ import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 
 const API_BASE  = import.meta.env.VITE_API_BASE;
-const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
-const API_TOKEN = '<<<PUT_TOKEN_HERE_IF_REQUIRED>>>';
+const API_TOKEN = (import.meta.env.VITE_API_TOKEN || '');
 
 const FALLBACK_PRICING = {
   'Viettel Post': [{limit:1000,price:18000},{limit:2000,price:23000},{limit:3000,price:28000},{limit:4000,price:33000},{limit:5000,price:38000},{limit:6000,price:43000}],
