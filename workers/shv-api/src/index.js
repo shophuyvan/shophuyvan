@@ -312,6 +312,75 @@ export default {
     try{
       if(req.method==='OPTIONS') return new Response(null,{status:204, headers:corsHeaders(req)});
       const url = new URL(req.url); const p = url.pathname;
+// === MINI proxy routes (areas + price) [patch] ===
+if (p === '/v1/platform/areas/province' && req.method === 'GET') {
+  try {
+    const data = await superFetch(env, '/v1/platform/areas/province', { method: 'GET' });
+    const items = (data?.data || data || []).map(x => ({ code: String(x.code||x.id||x.value||''), name: x.name || x.text || '' }));
+    return json({ ok: true, data: items }, {}, req);
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message||e) }, { status: 500 }, req);
+  }
+}
+if (p === '/v1/platform/areas/district' && req.method === 'GET') {
+  try {
+    const u = new URL(req.url);
+    const province = u.searchParams.get('province_code') || u.searchParams.get('province') || '';
+    const data = await superFetch(env, '/v1/platform/areas/district?province=' + encodeURIComponent(province), { method: 'GET' });
+    const items = (data?.data || data || []).map(x => ({ code: String(x.code||x.id||x.value||''), name: x.name || x.text || '' }));
+    return json({ ok: true, data: items, province }, {}, req);
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message||e) }, { status: 500 }, req);
+  }
+}
+if (p === '/v1/platform/areas/commune' && req.method === 'GET') {
+  try {
+    const u = new URL(req.url);
+    const district = u.searchParams.get('district_code') || u.searchParams.get('district') || '';
+    const data = await superFetch(env, '/v1/platform/areas/commune?district=' + encodeURIComponent(district), { method: 'GET' });
+    const items = (data?.data || data || []).map(x => ({ code: String(x.code||x.id||x.value||''), name: x.name || x.text || '' }));
+    return json({ ok: true, data: items, district }, {}, req);
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message||e) }, { status: 500 }, req);
+  }
+}
+if (p === '/v1/platform/orders/price' && req.method === 'POST') {
+  try {
+    const body = await readBody(req) || {};
+    const payload = {
+      sender_province: String(body.sender_province || body.from?.province_code || ''),
+      sender_district: String(body.sender_district || body.from?.district_code || ''),
+      receiver_province: String(body.receiver_province || body.to_province || body.to?.province_code || ''),
+      receiver_district: String(body.receiver_district || body.to_district || body.to?.district_code || ''),
+      receiver_commune: String(body.receiver_commune || body.to_ward || body.to?.commune_code || body.to?.ward_code || ''),
+      weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
+      cod: Number(body.cod || 0) || 0,
+      option_id: String(body.option_id || '1')
+    };
+    const data = await superFetch(env, '/v1/platform/orders/price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const arr = (data?.data && (data.data.items || data.data.rates)) || data?.data || data || [];
+    const items = [];
+    const pushOne = (x)=>{
+      if(!x) return;
+      const fee = Number(x.fee ?? x.price ?? x.total_fee ?? x.amount ?? 0);
+      const eta = x.eta ?? x.leadtime_text ?? x.leadtime ?? '';
+      const provider = x.provider ?? x.carrier ?? x.brand ?? x.code ?? 'dvvc';
+      const service_code = x.service_code ?? x.service ?? x.serviceId ?? '';
+      const name = x.name ?? x.service_name ?? x.display ?? 'Dịch vụ';
+      if(fee>0) items.push({provider, service_code, name, fee, eta});
+    };
+    if (Array.isArray(arr)) arr.forEach(pushOne); else pushOne(arr);
+    return json({ ok: true, data: items, used: payload }, {}, req);
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message||e) }, { status: 500 }, req);
+  }
+}
+// === end MINI proxy routes ===
+
 
 // --- SHV v22: vouchers, settings, orders, stats ---
 if(p==='/vouchers' && req.method==='GET'){
