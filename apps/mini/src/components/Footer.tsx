@@ -23,6 +23,13 @@ export default function Footer() {
     return () => { window.removeEventListener('popstate', onChange); window.removeEventListener('hashchange', onChange); };
   }, []);
 
+  // === SHV005: Ẩn Footer khi ở trang chi tiết sản phẩm ===
+  // Trang chi tiết sản phẩm có đường dẫn bắt đầu bằng '/product'
+  if (path.startsWith('/product')) {
+    return null;
+  }
+  // =======================================================
+
   return (
     <nav className="tabbar">
       {tabs.map(t => {

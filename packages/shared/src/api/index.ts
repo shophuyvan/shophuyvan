@@ -146,28 +146,41 @@ export const api = {
         const out = (arr.length ? (arr as any[]) : null);
         if (!out) return null;
         if (category) {
-          const key = String(category).toLowerCase();
-          const slugKey = toSlug(category);
-          const filtered = out.filter((p:any) => {
-            const cands = [
-              p?.raw?.category,
-              p?.raw?.category_name,
-              p?.raw?.category_slug,
-              p?.raw?.categoryId,
-              p?.raw?.cate,
-              p?.raw?.group,
-              p?.raw?.group_slug,
-              p?.raw?.type,
-            ];
-            return cands.some((v:any) => {
-              if (!v) return false;
-              const s = String(v);
-              const sv = s.toLowerCase();
-              const sl = toSlug(s);
-              return sv.includes(key) || sl === slugKey || (slugKey && sl.includes(slugKey));
-            });
-          });
-          return filtered.length ? filtered : out;
+          
+const key = String(category).toLowerCase();
+const slugKey = toSlug(category);
+const filtered = out.filter((p:any) => {
+  const raw:any = p?.raw || {};
+  const cands:any[] = [
+    raw.category, raw.category_name, raw.category_slug, raw.categoryId, raw.cate,
+    raw.group, raw.group_slug, raw.type,
+    raw?.meta?.category, raw?.meta?.category_name, raw?.meta?.category_slug,
+  ];
+  if (Array.isArray(raw.categories)) cands.push(...raw.categories);
+  if (Array.isArray(raw.tags)) cands.push(...raw.tags);
+
+  function hit(val:any): boolean {
+    if (!val) return false;
+    if (Array.isArray(val)) return val.some(hit);
+    if (typeof val === 'object') return hit(val.slug || val.code || val.name || val.title);
+    const s = String(val);
+    const sv = s.toLowerCase();
+    const sl = toSlug(s);
+    return sv.includes(key) || sl === slugKey || (slugKey && sl.includes(slugKey));
+  }
+
+  const alias:any = {
+    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
+  };
+  const syns = alias[slugKey] || [];
+  cands.push(...syns);
+  return cands.some(hit);
+});
+return filtered;  // strict: do NOT fall back to all items
+
         }
         return out;
       });
