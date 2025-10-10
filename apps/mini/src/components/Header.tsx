@@ -7,6 +7,16 @@ import cart from '@shared/cart';
  * màu chữ đồng bộ màu logo. Thanh tìm kiếm kéo dài chiếm phần còn lại.
  */
 export default function Header() {
+  // Ẩn header ở trang chi tiết sản phẩm
+  if (typeof window !== 'undefined') {
+    try {
+      const path = window.location.pathname;
+      if (path.includes('/product') || path.includes('/cart')) {
+        return null;
+      }
+    } catch (e) {}
+  }
+
   const [count, setCount] = useState(cart.count());
   useEffect(() => {
     const fn = () => setCount(cart.count());

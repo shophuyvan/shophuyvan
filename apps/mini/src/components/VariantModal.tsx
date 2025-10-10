@@ -10,7 +10,7 @@ export default function VariantModal({product, variants, open, onClose, onAdd, m
     let best = variants?.[0] || null;
     let bestVal = Number.MAX_SAFE_INTEGER;
     for(const v of (variants||[])){
-      const b = pickPrice(null, v).base;
+      const b = pickPrice(product?.raw || product, v).base;
       if(b>0 && b<bestVal){ best=v; bestVal=b; }
     }
     return best;
@@ -34,7 +34,7 @@ export default function VariantModal({product, variants, open, onClose, onAdd, m
             {(variants||[]).map((v:any, i:number)=>{
               const act = picked===v;
               const img = imagesOf(v)[0];
-              const p = pickPrice(null, v).base;
+              const p = pickPrice(product?.raw || product, v).base;
               return (
                 <button key={i} onClick={()=>setPicked(v)} className={"px-3 py-2 rounded-xl border flex items-center gap-2 " + (act? "border-rose-500 text-rose-600 bg-rose-50":"")}>
                   {img ? <img src={img} className="w-6 h-6 object-contain rounded" /> : null}
@@ -50,10 +50,10 @@ export default function VariantModal({product, variants, open, onClose, onAdd, m
           <input type="number" min={1} value={qty} onChange={e=>setQty(Math.max(1, Number(e.target.value||1)))} className="w-14 rounded border px-1 py-1 text-center"/>
           <button className="w-8 h-8 rounded border" onClick={()=>setQty(q=>q+1)}>+</button>
           <div className="ml-auto flex gap-2">
-            <button onClick={()=>{ onAdd?.(picked, qty, 'cart'); onClose?.(); }} className="rounded-xl border border-rose-500 text-rose-600 px-3 py-2 text-sm font-semibold">
+            <button onClick={()=>{ const _img = (imagesOf(picked)[0] || (picked && (picked.image || (Array.isArray(picked.images)?picked.images[0]:undefined))) || product?.image); const _v:any = picked ? {...picked} : null; if(_v){ _v.name = _v.name || _v.sku || "Biến thể"; if(_img){ _v.image = _img; _v.images = _v.images || [_img]; } } onAdd?.(_v, qty, 'cart'); }} className="rounded-xl bg-rose-600 text-white font-extrabold px-3 py-2 text-sm">
               Thêm Vào Giỏ Hàng
             </button>
-            <button onClick={()=>{ onAdd?.(picked, qty, 'buy'); onClose?.(); }} className="rounded-xl bg-rose-500 text-white px-3 py-2 text-sm font-semibold">
+            <button onClick={()=>{ const _img = (imagesOf(picked)[0] || (picked && (picked.image || (Array.isArray(picked.images)?picked.images[0]:undefined))) || product?.image); const _v:any = picked ? {...picked} : null; if(_v){ _v.name = _v.name || _v.sku || "Biến thể"; if(_img){ _v.image = _img; _v.images = _v.images || [_img]; } } onAdd?.(_v, qty, 'buy'); }} className="rounded-xl bg-sky-600 text-white font-extrabold px-3 py-2 text-sm">
               Mua Ngay
             </button>
           </div>

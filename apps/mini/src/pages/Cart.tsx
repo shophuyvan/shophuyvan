@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { routes } from '../routes';
@@ -18,7 +16,7 @@ export default function CartPage() {
 
   return (
     <div>
-      <Header />
+      
       <main className="max-w-4xl mx-auto p-3">
         <h1 className="text-xl font-bold mb-3">Giỏ hàng</h1>
 
@@ -28,9 +26,9 @@ export default function CartPage() {
           <div className="space-y-3">
             {state.lines.map((l) => (
               <div key={String(l.id)} className="bg-white rounded-2xl p-3 shadow flex gap-3">
-                <img src={l.image || '/public/icon.png'} className="w-20 h-20 rounded-xl object-cover" />
+                <img src={(l.variantImage || (l.variant && (l.variant.image || (Array.isArray(l.variant.images)?l.variant.images[0]:undefined))) || l.image) || '/public/icon.png'} className="w-20 h-20 rounded-xl object-cover" />
                 <div className="flex-1">
-                  <div className="font-medium line-clamp-2">{l.name}</div>
+                  <div className="font-medium line-clamp-2">{l.variantName && !String(l.name||"").includes(l.variantName) ? `${l.name} — ${l.variantName}` : l.name}</div>
                   <div className="text-sm mt-1">
                     <span className="text-sky-600 font-semibold mr-2">{fmtVND(l.price)}</span>
                     {l.original && l.original > l.price && (
@@ -70,7 +68,7 @@ export default function CartPage() {
           </div>
         )}
       </main>
-      <Footer />
+      
     </div>
   );
 }

@@ -4,6 +4,8 @@ export type CartLine = {
   id: string | number;
   name: string;
   image?: string;
+  variantName?: string;
+  variantImage?: string;
   price: number;        // unit price
   original?: number | null;
   qty: number;
@@ -66,14 +68,16 @@ const id = vKey ? `${productId}::${vKey}` : String(productId);
 const baseName = p.name ?? p.title ?? 'Sản phẩm';
 const variantLabel = (p.variantName ?? p.variant?.name ?? p.variant?.sku ?? '');
 const name = variantLabel ? `${baseName} — ${variantLabel}` : baseName;
+const variantName = variantLabel || undefined;
+const variantImage = p.variantImage || (p.variant?.image) || (Array.isArray(p.variant?.images) ? p.variant.images[0] : undefined);
 
-const image = p.variantImage || (p.variant?.image) || p.image || (Array.isArray(p.images) ? p.images[0] : p.thumbnail);
+const image = variantImage || p.image || (Array.isArray(p.images) ? p.images[0] : p.thumbnail);
 if (!id) return;
 const ix = st.lines.findIndex(l => String(l.id) === String(id));
 if (ix >= 0) {
   st.lines[ix].qty += qty;
 } else {
-  st.lines.push({ id, name, image, price, original, qty });
+  st.lines.push({ id, name, image, variantName, variantImage, price, original, qty });
 }
     write(recalc(st.lines));
   },
