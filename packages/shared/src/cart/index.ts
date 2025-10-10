@@ -42,7 +42,14 @@ function recalc(lines: CartLine[]): CartState {
 
 export const cart = {
   get(): CartState {
-    return recalc(read().lines);
+    const st = read();
+    const lines = (st.lines || []).map((l: any) => {
+      const variantName = l.variantName || l?.variant?.name || l?.variant?.sku || undefined;
+      const variantImage = l.variantImage || l?.variant?.image || (Array.isArray(l?.variant?.images) ? l.variant.images[0] : undefined);
+      const image = variantImage || l.image;
+      return { ...l, image, variantName, variantImage };
+    });
+    return recalc(lines);
   },
   count(): number {
     return read().lines.reduce((c, l) => c + l.qty, 0);

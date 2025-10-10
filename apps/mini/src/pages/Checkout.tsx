@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 
@@ -121,7 +119,7 @@ export default function Checkout() {
   };
 
   return (<div>
-    <Header />
+    
     <main className="max-w-4xl mx-auto p-3">
       <h1 className="text-xl font-bold mb-3">Thanh toán</h1>
       {st.lines.length === 0 && !done && <div>Giỏ hàng trống.</div>}
@@ -174,5 +172,5 @@ export default function Checkout() {
         </div>
       )}
     </main>
-    <Footer />
+    
   </div>); }

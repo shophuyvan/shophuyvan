@@ -11,7 +11,7 @@ export default function Header() {
   if (typeof window !== 'undefined') {
     try {
       const path = window.location.pathname;
-      if (path.includes('/product') || path.includes('/cart')) {
+      if (path.includes('/product') || path.includes('/cart') || path.includes('/checkout')) {
         return null;
       }
     } catch (e) {}

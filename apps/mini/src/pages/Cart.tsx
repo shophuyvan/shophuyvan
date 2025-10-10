@@ -28,7 +28,7 @@ export default function CartPage() {
               <div key={String(l.id)} className="bg-white rounded-2xl p-3 shadow flex gap-3">
                 <img src={(l.variantImage || (l.variant && (l.variant.image || (Array.isArray(l.variant.images)?l.variant.images[0]:undefined))) || l.image) || '/public/icon.png'} className="w-20 h-20 rounded-xl object-cover" />
                 <div className="flex-1">
-                  <div className="font-medium line-clamp-2">{l.variantName && !String(l.name||"").includes(l.variantName) ? `${l.name} — ${l.variantName}` : l.name}</div>
+                  <div className="font-medium line-clamp-2">{l.variantName || (l.variant && (l.variant.name || l.variant.sku)) || l.name}</div>
                   <div className="text-sm mt-1">
                     <span className="text-sky-600 font-semibold mr-2">{fmtVND(l.price)}</span>
                     {l.original && l.original > l.price && (
