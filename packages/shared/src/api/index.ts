@@ -107,6 +107,15 @@ function normalizeProduct(p:any) {
   return { id, name, image, images, price, variants, description, videos, rating, sold, raw: p };
 }
 
+
+function toSlug(input:any): string {
+  const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+}
+
 async function discover<T>(candidates:string[], pick:(data:any)=>T|null): Promise<T> {
   for (const p of candidates) {
     const r = await _fetch(p);
@@ -119,20 +128,66 @@ async function discover<T>(candidates:string[], pick:(data:any)=>T|null): Promis
 
 export const api = {
   products: {
-    async list({ limit = 12 }: { limit?: number } = {}) {
+    async list({ limit = 12, category }: { limit?: number; category?: string } = {}) {
+      const enc = category ? encodeURIComponent(String(category)) : '';
+      const qs = `?limit=${limit}` + (category ? `&category=${enc}&cate=${enc}&category_slug=${enc}&categoryId=${enc}` : '');
       const candidates = [
-        `/public/products?limit=${limit}`,
-        `/products?limit=${limit}`,
-        `/api/products?limit=${limit}`,
-        `/v1/product/list?limit=${limit}`,
-        `/product/list?limit=${limit}`,
-        `/items?limit=${limit}`,
-        `/v1/items?limit=${limit}`,
+        `/public/products${qs}`,
+        `/products${qs}`,
+        `/api/products${qs}`,
+        `/v1/product/list${qs}`,
+        `/product/list${qs}`,
+        `/items${qs}`,
+        `/v1/items${qs}`,
       ];
       return discover<any[]>(candidates, (data) => {
         const arr = toArr(data).map(normalizeProduct).filter(Boolean);
-        return arr.length ? (arr as any[]) : null;
+        // If backend doesn't filter by category, filter client-side using common fields
+        const out = (arr.length ? (arr as any[]) : null);
+        if (!out) return null;
+        if (category) {
+          const key = String(category).toLowerCase();
+          const slugKey = toSlug(category);
+          const filtered = out.filter((p:any) => {
+            const cands = [
+              p?.raw?.category,
+              p?.raw?.category_name,
+              p?.raw?.category_slug,
+              p?.raw?.categoryId,
+              p?.raw?.cate,
+              p?.raw?.group,
+              p?.raw?.group_slug,
+              p?.raw?.type,
+            ];
+            return cands.some((v:any) => {
+              if (!v) return false;
+              const s = String(v);
+              const sv = s.toLowerCase();
+              const sl = toSlug(s);
+              return sv.includes(key) || sl === slugKey || (slugKey && sl.includes(slugKey));
+            });
+          });
+          return filtered.length ? filtered : out;
+        }
+        return out;
       });
+    },
+    async listWithPrices({ limit = 12, category, concurrency = 4 }: { limit?: number; category?: string; concurrency?: number } = {}) {
+      const base = await this.list({ limit, category });
+      if (!base || !Array.isArray(base)) return base as any;
+      const items = [...base];
+      const need = items.map((p:any, i:number) => ({ i, p })).filter(x => !(x.p?.price && x.p.price.base > 0));
+      const q:any[] = [];
+      let idx = 0;
+      async function worker(){
+        while (idx < need.length){
+          const cur = need[idx++];
+          try { const d = await api.products.detail(cur.p.id); if (d?.price?.base > 0) items[cur.i] = d; } catch {}
+        }
+      }
+      const n = Math.max(1, Number(concurrency||1));
+      await Promise.all(Array.from({length:n}, worker));
+      return items;
     },
     async detail(id: string | number) {
       const candidates = [
@@ -151,6 +206,20 @@ export const api = {
       });
     },
   },
+  categories: {
+    async list() {
+      const candidates = [
+        `/public/categories`,
+        `/categories`,
+        `/api/categories`,
+        `/v1/categories`,
+      ];
+      return discover<any[]>(candidates, (data) => {
+        const arr = toArr(data);
+        return arr && arr.length ? arr : null;
+      });
+    },
+  }
 };
 
 export default api;

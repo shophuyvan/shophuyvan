@@ -18,13 +18,11 @@ export default function ProductCard({ p }: { p: Product }) {
   const href = `${routes.product}?id=${p.id}`;
 
   let base = 0, original = 0;
-  // price could be number, object, or our normalized {base, original}
   if (typeof (p as any)?.price === 'number') base = numLike((p as any).price);
   else {
     base = numLike((p as any)?.price?.base ?? (p as any)?.price?.min ?? (p as any)?.price?.from);
     original = numLike((p as any)?.price?.original ?? (p as any)?.price?.max ?? (p as any)?.price?.to);
   }
-
   if (base <= 0) {
     const pair = pickPrice((p as any)?.raw || p);
     base = numLike(base || pair.base);
@@ -43,6 +41,7 @@ export default function ProductCard({ p }: { p: Product }) {
     for (const v of origCand) { const n = numLike(v); if (n > base) { original = n; break; } }
   }
   const hasOriginal = original > base && original > 0;
+  const discount = hasOriginal ? Math.max(1, Math.round((1 - base / original) * 100)) : 0; // e.g. 31%
 
   const rating = Number((p as any)?.rating ?? (p as any)?.raw?.rating ?? 0) || 0;
   const sold = Number((p as any)?.sold ?? (p as any)?.raw?.sold ?? 0) || 0;
@@ -54,14 +53,17 @@ export default function ProductCard({ p }: { p: Product }) {
   };
 
   return (
-    <div className="card">
-      <a href={href} className="block">
+    <div className="card p-2">
+      <a href={href} className="block relative">
         <img
           src={p.image || '/public/icon.png'}
           alt={p.name}
           className="w-full aspect-square object-cover rounded-xl bg-gray-100"
           loading="lazy"
         />
+        {discount > 0 && (
+          <span className="badge-discount">-{discount}%</span>
+        )}
       </a>
 
       <div className="mt-2 line-clamp-2 min-h-[40px]">{p.name}</div>
@@ -79,8 +81,8 @@ export default function ProductCard({ p }: { p: Product }) {
           <span>Liên hệ</span>
         ) : hasOriginal ? (
           <>
-            <span className="text-rose-600 font-semibold">{fmtVND(base)}</span>
-            <span className="line-through text-gray-400 text-sm">{fmtVND(original)}</span>
+            <span className="price-sale">{fmtVND(base)}</span>
+            <span className="price-original">{fmtVND(original)}</span>
           </>
         ) : (
           <span className="text-sky-600 font-semibold">{fmtVND(base)}</span>
