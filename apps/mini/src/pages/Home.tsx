@@ -60,12 +60,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Card kích hoạt tài khoản */}
+      {/* Card kích hoạt tài khoản đã đổi màu xanh dương */}
       <section className="safe-x mt-3">
-        <div className="card-gradient p-4 rounded-2xl text-white">
+        {/* Đã thay thế card-gradient bằng gradient xanh dương trực tiếp */}
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white">
           <div className="text-sm opacity-90">Đặc biệt</div>
           <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
-          <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Homaz Gia dụng thông minh</div>
+          <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Shop Huy Vân </div>
           <a href="/account" className="mt-3 inline-flex items-center gap-2 bg-white/90 text-gray-800 text-sm font-medium px-3 py-2 rounded-xl">
             <span>🎁 Kích hoạt ngay</span>
           </a>

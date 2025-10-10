@@ -18,24 +18,28 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
-      <div className="safe-x mx-auto flex items-center gap-2 p-3">
-        {/* Logo + text bên dưới */}
-        <a href={routes.home} className="shrink-0 flex flex-col items-center w-12">
+      {/* Giảm padding-y (p-3 -> py-2) và giảm gap (gap-2 -> gap-3) */}
+      <div className="safe-x mx-auto flex items-center gap-3 py-2 px-3"> 
+        
+        {/* Logo + text đã chỉnh sửa */}
+        <a href={routes.home} className="shrink-0 flex items-center gap-1"> 
           <img
             src="/logo-hv.png"
             alt="Shop Huy Vân"
-            className="w-7 h-7 object-contain rounded-md"
+            // Tăng kích thước w-7 h-7 lên w-8 h-8
+            className="w-8 h-8 object-contain rounded-md" 
             loading="eager"
           />
-          <span className="mt-0.5 text-[11px] leading-tight font-semibold text-brand">
+          {/* Tên thương hiệu được đặt cạnh logo */}
+          <span className="text-sm font-bold text-brand"> 
             Shop Huy Vân
           </span>
         </a>
 
-        {/* Ô tìm kiếm kéo dài */}
+        {/* Ô tìm kiếm kéo dài, thêm margin-left để đẩy ra xa logo hơn */}
         <a
           href={routes.category}
-          className="search-pill flex-1 flex items-center gap-2 min-h-[36px]"
+          className="search-pill flex-1 flex items-center gap-2 min-h-[36px] ml-2" 
           aria-label="Tìm kiếm sản phẩm"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 opacity-70">
