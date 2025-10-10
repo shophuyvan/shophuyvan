@@ -151,24 +151,27 @@ const key = String(category).toLowerCase();
 const slugKey = toSlug(category);
 const filtered = out.filter((p:any) => {
   const raw:any = p?.raw || {};
+  const top:any = p || {};
   const cands:any[] = [
+    top.category, top.category_name, top.category_slug, top.categoryId, top.cate,
     raw.category, raw.category_name, raw.category_slug, raw.categoryId, raw.cate,
     raw.group, raw.group_slug, raw.type,
+    top?.meta?.category, top?.meta?.category_name, top?.meta?.category_slug,
     raw?.meta?.category, raw?.meta?.category_name, raw?.meta?.category_slug,
   ];
   if (Array.isArray(raw.categories)) cands.push(...raw.categories);
+  if (Array.isArray(top.categories)) cands.push(...top.categories);
   if (Array.isArray(raw.tags)) cands.push(...raw.tags);
-
+  if (Array.isArray(top.tags)) cands.push(...top.tags);
   function hit(val:any): boolean {
     if (!val) return false;
     if (Array.isArray(val)) return val.some(hit);
-    if (typeof val === 'object') return hit(val.slug || val.code || val.name || val.title);
+    if (typeof val === 'object') return hit(val.slug || val.code || val.name || val.title || val.label || val.text);
     const s = String(val);
     const sv = s.toLowerCase();
     const sl = toSlug(s);
     return sv.includes(key) || sl === slugKey || (slugKey && sl.includes(slugKey));
   }
-
   const alias:any = {
     'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
     'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
@@ -179,8 +182,7 @@ const filtered = out.filter((p:any) => {
   cands.push(...syns);
   return cands.some(hit);
 });
-return filtered;  // strict: do NOT fall back to all items
-
+return filtered;
         }
         return out;
       });
