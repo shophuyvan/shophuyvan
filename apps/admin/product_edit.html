@@ -818,14 +818,83 @@ const payload = {
 })();
 
 // categoriesHelper
+async function loadCategoriesFlex(){
+  const endpoints = [
+    '/public/categories',
+    '/categories',
+    '/api/categories',
+    '/admin/categories',
+    '/v1/categories',
+  ];
+  for (const ep of endpoints){
+    try{
+      const r = await Admin.req(ep);
+      const arr = Array.isArray(r) ? r
+                : Array.isArray(r?.items) ? r.items
+                : Array.isArray(r?.data) ? r.data
+                : Array.isArray(r?.result) ? r.result
+                : Array.isArray(r?.results) ? r.results
+                : null;
+      if (arr && arr.length) return arr;
+    }catch(e){ /* try next */ }
+  }
+  // fallback 4 categories
+  return [
+    { name: 'Thiết Bị Điện & Nước', slug: 'dien-nuoc', order: 1 },
+    { name: 'Nhà Cửa Đời Sống', slug: 'nha-cua-doi-song', order: 2 },
+    { name: 'Hoá Chất Gia Dụng', slug: 'hoa-chat-gia-dung', order: 3 },
+    { name: 'Dụng Cụ & Thiết Bị Tiện Ích', slug: 'dung-cu-thiet-bi-tien-ich', order: 4 },
+  ];
+}
+
+function renderCatPicker(items){
+  const ov = document.createElement('div'); ov.id='__cat_overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center';
+  const box = document.createElement('div');
+  box.style.cssText = 'width:min(540px,94vw);max-height:82vh;overflow:auto;background:#fff;border:1px solid #d0d7e1;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:14px';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:700">Chọn danh mục</div><button id="__cat_close" class="btn">Đóng</button></div>'
+                + '<input id="__cat_search" class="input" placeholder="Tìm tên/slug..." style="margin-bottom:8px"/>'
+                + '<div id="__cat_list"></div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  const list = box.querySelector('#__cat_list');
+  function paint(filter){
+    list.innerHTML = '';
+    const f = String(filter||'').trim().toLowerCase();
+    const arr = (items||[]).slice().sort((a,b)=> (a.order||0)-(b.order||0) || String(a.name||'').localeCompare(String(b.name||''),'vi'));
+    arr.forEach(c=>{
+      const name = c.name||c.title||''; const slug = c.slug||c.code||'';
+      if(f && !(String(name).toLowerCase().includes(f) || String(slug).toLowerCase().includes(f))) return;
+      const row = document.createElement('div');
+      row.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid #eef2f7;align-items:center';
+      row.innerHTML = '<div><div style="font-weight:600">'+name+'</div><div style="font-size:12px;color:#687385">'+slug+'</div></div>'
+                    + '<button class="btn primary" data-pick="'+slug+'">Chọn</button>';
+      list.appendChild(row);
+    });
+  }
+  paint('');
+  box.querySelector('#__cat_search').addEventListener('input', (e)=>paint(e.target.value));
+  box.addEventListener('click', (e)=>{
+    const btn = e.target && (e.target.closest ? e.target.closest('[data-pick]') : null);
+    if(!btn) return;
+    const slug = btn.dataset.pick;
+    const inp = document.getElementById('category');
+    if (inp) inp.value = slug;
+    const pv = document.getElementById('categoryPreview');
+    if (pv){ pv.textContent = slug; pv.style.display='inline-block'; }
+    (window.Admin?.toast||alert)('Đã chọn danh mục: '+slug);
+    ov.remove();
+  });
+  box.querySelector('#__cat_close').onclick = ()=> ov.remove();
+  ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.remove(); });
+}
+
 document.getElementById('pickCat')?.addEventListener('click', async ()=>{
   try{
-    let r = await Admin.req('/public/categories'); if(!(r&&r.items)) r = await Admin.req('/admin/categories'); const cats=(r&&r.items)||[];
-    const name = prompt('Chọn danh mục (nhập slug):\n'+cats.map(c=>`- ${c.slug} (${c.name})`).join('\n'));
-    if(!name) return; window.__pickedCats = window.__pickedCats||new Set(); name.split(/\s*,\s*|\s+/).forEach(s=>s&&window.__pickedCats.add(s)); Admin.toast('Đã chọn: '+Array.from(window.__pickedCats).join(', '));
+    const cats = await loadCategoriesFlex();
+    renderCatPicker(cats||[]);
   }catch(e){ alert('Không tải được danh mục'); }
 });
-
 // ===== SEO File Import =====
 function getSection(src, name){
   const re = new RegExp('---\\s*'+name.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+'\\s*---([\\s\\S]*?)(?=\n---|$)','i');
