@@ -8,7 +8,6 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
-
 // === SHV Cloudinary fetch helpers (Mini) ===
 function __cldName(): string | undefined {
   try {
@@ -41,7 +40,6 @@ function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 
 function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
   return cldFetch(u, t, 'image');
 }
-
 
 
 type MediaItem = { type: 'image' | 'video'; src: string };
@@ -199,22 +197,19 @@ export default function Product() {
                     ) : (
                       <div className="relative">
                         <video
-                          ref={i === activeIndex ? videoRef : null}
-                         
-                          muted
-                          playsInline
-                          preload="auto"
-                          className="w-full aspect-square"
-                          onPlay={() = src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')}> setIsPlaying(true)}
-                          onPause={() => setIsPlaying(false)}
-                          onLoadedData={() => {
-                            const v = videoRef.current;
-                            if (i === activeIndex && v) v.play().catch(() => {});
-                          }}
-                          controls={false}
-                          onClick={togglePlay}
-                        >
-</video>
+  id="pdp-video-mini"
+  className="w-full aspect-square"
+  muted
+  playsInline
+  preload="metadata"
+  src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')}
+  poster={cldFetch(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,dpr_auto,q_auto,f_auto', 'image')}
+  onPlay={() => setIsPlaying(true)}
+  onPause={() => setIsPlaying(false)}
+  onLoadedData={(e) => { try { e.currentTarget.currentTime = 0; } catch {} }}
+  controls={false}
+  onClick={togglePlay}
+/>
                         {i === activeIndex && !isPlaying && (
                           <button
                             onClick={togglePlay}
