@@ -9,11 +9,37 @@ import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
 
+// === SHV Cloudinary helper (safety) ===
+function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 type MediaItem = { type: 'image' | 'video'; src: string };
 
 function useQuery() {
   const u = new URL(location.href);
   return Object.fromEntries(u.searchParams.entries());
+}
+
+
+function isStr(x:any){return typeof x==='string' && x.trim().length>0}
+function sanitizeArray(a:any): string[]{ if(!Array.isArray(a)) return []; return a.filter(isStr) }
+function sanitizeProduct(d:any){
+  if(!d||typeof d!=='object') return null;
+  const image = isStr(d.image) ? d.image : (isStr(d.thumbnail)? d.thumbnail : undefined);
+  const images = sanitizeArray(d.images);
+  const videos = sanitizeArray(d.videos);
+  const variants = Array.isArray(d.variants) ? d.variants : [];
+  return {...d, image, images, videos, variants};
 }
 
 export default function Product() {
@@ -36,7 +62,7 @@ export default function Product() {
       try {
         if (!id) throw new Error('Thiếu id');
         const d = await api.products.detail(id);
-        setP(d);
+        setP(sanitizeProduct(d));
       } catch (e: any) {
         setError(e?.message || 'Lỗi tải sản phẩm');
       } finally {
@@ -48,8 +74,8 @@ export default function Product() {
   // ⬇️ Quan trọng: Cho video đứng đầu để auto-play khi vào trang
   const media: MediaItem[] = useMemo(() => {
     if (!p) return [];
-    const imgs = (p.images || []).map((src: string) => ({ type: 'image' as const, src }));
-    const vids = (p.videos || []).map((src: string) => ({ type: 'video' as const, src }));
+    const imgs = ((p.images||[]) as string[]).filter(isStr).map((src:string)=>({type:'image' as const, src}));
+    const vids = ((p.videos||[]) as string[]).filter(isStr).map((src:string)=>({type:'video' as const, src}));
     const first = p.image ? [{ type: 'image' as const, src: p.image }] : [];
     // Nếu có video -> video trước, sau đó đến ảnh đại diện & các ảnh còn lại
     const list = vids.length ? [...vids, ...first, ...imgs] : [...first, ...imgs];
@@ -103,7 +129,7 @@ export default function Product() {
     // Một số trình duyệt cần tương tác người dùng lần đầu
     const onceGesture = () => tryPlay();
     window.addEventListener('touchend', onceGesture, { once: true, passive: true });
-    return () => {
+    function renderContent(){ try { return () => {
       v.removeEventListener('loadeddata', onLoaded);
     };
   }, [active?.type, active?.src, activeIndex]);
@@ -169,8 +195,8 @@ export default function Product() {
                           muted
                           playsInline
                           preload="auto"
-                          className="w-full aspect-square" poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,q_auto,f_auto')}
-                          onPlay={() => setIsPlaying(true)}
+                          className="w-full aspect-square"
+                          onPlay={() = key={active?.src} poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, \'w_800,q_auto,f_auto\')} preload="metadata"> setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
                           onLoadedData={() => {
                             const v = videoRef.current;
@@ -351,3 +377,5 @@ export default function Product() {
     </div>
   );
 }
+
+return renderContent();
