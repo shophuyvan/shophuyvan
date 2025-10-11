@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { pickPrice, priceRange } from '@shared/utils/price';
 import { fmtVND } from '@shared/utils/fmtVND';
 
-// === SHV Cloudinary helper (Mini Plan A) ===
-function cloudify(u?: string, t: string = 'w_64,q_auto,f_auto,c_fill'): string | undefined {
+// === SHV Cloudinary helper (perf) ===
+function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
   try {
     if (!u) return u;
     const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
@@ -36,7 +36,7 @@ export default function VariantModal({product, variants, open, onClose, onAdd, m
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center" onClick={()=>onClose?.()}>
       <div className="w-full max-w-md bg-white rounded-t-2xl p-3" onClick={(e)=>e.stopPropagation()}>
         <div className="flex gap-2">
-          <img src={cloudify((imagesOf(picked)[0] || product.image), 'w_160,q_auto,f_auto,c_fill')} srcSet={`${cloudify((imagesOf(picked)[0] || product.image), 'w_320,q_auto,f_auto,c_fill')} 320w, ${cloudify((imagesOf(picked)[0] || product.image), 'w_480,q_auto,f_auto,c_fill')} 480w, ${cloudify((imagesOf(picked)[0] || product.image), 'w_768,q_auto,f_auto,c_fill')} 768w, ${cloudify((imagesOf(picked)[0] || product.image), 'w_1024,q_auto,f_auto,c_fill')} 1024w`} sizes="96px" loading="lazy" decoding="async" width="160" height="160" className="w-16 h-16 object-contain rounded-lg border bg-gray-50" />
+          <img src={(imagesOf(picked)[0] || product.image)} className="w-16 h-16 object-contain rounded-lg border bg-gray-50"/>
           <div className="flex-1">
             <div className="font-semibold text-sm line-clamp-2">{product.name}</div>
             <div className="text-rose-600 font-bold">{price ? fmtVND(price.base) : '--'}</div>
@@ -51,7 +51,7 @@ export default function VariantModal({product, variants, open, onClose, onAdd, m
               const p = pickPrice(product?.raw || product, v).base;
               return (
                 <button key={i} onClick={()=>setPicked(v)} className={"px-3 py-2 rounded-xl border flex items-center gap-2 " + (act? "border-rose-500 text-rose-600 bg-rose-50":"")}>
-                  {img ? <img src={cloudify(img, 'w_64,q_auto,f_auto,c_fill')} srcSet={`${cloudify(img, 'w_320,q_auto,f_auto,c_fill')} 320w, ${cloudify(img, 'w_480,q_auto,f_auto,c_fill')} 480w, ${cloudify(img, 'w_768,q_auto,f_auto,c_fill')} 768w, ${cloudify(img, 'w_1024,q_auto,f_auto,c_fill')} 1024w`} sizes="48px" loading="lazy" decoding="async" width="64" height="64" className="w-6 h-6 object-contain rounded" /> : null}
+                  {img ? <img src={img} className="w-6 h-6 object-contain rounded" /> : null}
                   <span className="text-sm">{v.name || v.sku || `Loại ${i+1}`}{p?` — ${fmtVND(p)}`:''}</span>
                 </button>
               );

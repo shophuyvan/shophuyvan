@@ -1,7 +1,6 @@
-import api from './lib/api.js';
 
-// === SHV Cloudinary helper (Plan A) ===
-function cloudify(u, t='w_800,q_auto,f_auto') {
+// === SHV perf helper ===
+function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   try {
     if (!u) return u;
     const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://example.com';
@@ -13,17 +12,7 @@ function cloudify(u, t='w_800,q_auto,f_auto') {
   } catch(e) { return u; }
 }
 
-// Build safe <img> HTML without nested template expressions
-function shvImg(u, opts) {
-  const o = Object.assign({t:'w_500,q_auto,f_auto', w:800, h:600, sizes:'(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px', cls:'w-full h-full object-cover'}, opts||{});
-  const src = cloudify(u, o.t);
-  const s320  = cloudify(u, 'w_320,q_auto,f_auto');
-  const s480  = cloudify(u, 'w_480,q_auto,f_auto');
-  const s768  = cloudify(u, 'w_768,q_auto,f_auto');
-  const s1024 = cloudify(u, 'w_1024,q_auto,f_auto');
-  return '<img loading="lazy" decoding="async" src="'+src+'" srcset="'+s320+' 320w, '+s480+' 480w, '+s768+' 768w, '+s1024+' 1024w" sizes="'+o.sizes+'" width="'+o.w+'" height="'+o.h+'" class="'+o.cls+'" alt="">';
-}
-
+import api from './lib/api.js';
 
 const bannerWrap  = document.getElementById('banner-wrap');
 const newWrap     = document.getElementById('new-products');
@@ -42,7 +31,7 @@ async function loadBanners() { if(!bannerWrap) return;
   const items = (data && (data.items || data.banners || data.data)) || [];
   bannerWrap.style.overflow='hidden'; bannerWrap.innerHTML = `<div id=\"banner-track\" class="flex transition-transform duration-700 ease-in-out"></div>`;
   const track = document.getElementById('banner-track');
-  items.forEach(b=>{ const d=document.createElement('div'); d.className='min-w-full overflow-hidden rounded-xl border'; d.innerHTML = (b.link?`<a href="${b.link}" target="_blank" rel="noopener">`:'') + `${shvImg(b.image||b.url,{t:\'w_1400,q_auto,f_auto\',w:1400,h:600,sizes:\'(max-width: 1024px) 100vw, 1400px\',cls:\'w-full h-full object-cover\'})}` + (b.link?`</a>`:''); track.appendChild(d); });
+  items.forEach(b=>{ const d=document.createElement('div'); d.className='min-w-full overflow-hidden rounded-xl border'; d.innerHTML = (b.link?`<a href="${b.link}" target="_blank" rel="noopener">`:'') + `<img src="${b.image||b.url}" class="w-full h-52 object-cover" alt="${b.alt||'banner'}"/>` + (b.link?`</a>`:''); track.appendChild(d); });
   let idx=0; setInterval(()=>{ idx=(idx+1)%Math.max(items.length,1); track.style.transform='translateX(' + (-idx*100) + '%)'; }, 3500);
 }
 
@@ -177,7 +166,7 @@ function card(p){
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
   const u = `/product.html?id=${encodeURIComponent(p.id||p.key||'')}`;
   return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(p.id||p.key||'')}">
-    ${shvImg(img,{t:'w_500,q_auto,f_auto',w:800,h:600,sizes:'(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px',cls:'w-full h-48 object-cover'})}
+    <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
       <div class="mt-1 text-blue-600 price" data-id="${(p.id||p.key||'')}">${priceStr(p)}</div>

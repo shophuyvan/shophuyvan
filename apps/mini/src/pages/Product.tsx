@@ -8,8 +8,9 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
-// === SHV Cloudinary helper (local to this module) ===
-function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
+
+// === SHV Cloudinary helper (perf) ===
+function cloudify(u?: string, t: string = 'w_1200,dpr_auto,q_auto,f_auto'): string | undefined {
   try {
     if (!u) return u;
     const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
@@ -20,7 +21,6 @@ function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undef
     return url.toString();
   } catch { return u; }
 }
-
 
 
 type MediaItem = { type: 'image' | 'video'; src: string };
@@ -179,7 +179,7 @@ export default function Product() {
                       <div className="relative">
                         <video
                           ref={i === activeIndex ? videoRef : null}
-                          autoPlay
+                          
                           muted
                           playsInline
                           preload="auto"

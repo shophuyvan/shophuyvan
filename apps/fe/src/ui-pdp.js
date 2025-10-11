@@ -1,3 +1,17 @@
+
+// === SHV perf helper ===
+function cloudify(u, t='w_1200,dpr_auto,q_auto,f_auto') {
+  try {
+    if (!u) return u;
+    const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch(e) { return u; }
+}
+
 // SHV_PATCH_11
 // /* SHV_PDP_HIDE_HEADER */
 (function(){try{
@@ -70,31 +84,6 @@ async function shvGetShippingOptions(provinceName, districtName, weightGram){
   }
 }
 import { formatPrice } from './lib/price.js';
-
-// === SHV Cloudinary helper (Plan A) ===
-function cloudify(u, t='w_1200,q_auto,f_auto') {
-  try {
-    if (!u) return u;
-    const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://example.com';
-    const url = new URL(u, base);
-    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
-    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
-    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
-    return url.toString();
-  } catch(e) { return u; }
-}
-
-// Build safe <img> HTML without nested template expressions
-function shvImg(u, opts) {
-  const o = Object.assign({t:'w_500,q_auto,f_auto', w:800, h:600, sizes:'(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px', cls:'w-full h-full object-cover'}, opts||{});
-  const src = cloudify(u, o.t);
-  const s320  = cloudify(u, 'w_320,q_auto,f_auto');
-  const s480  = cloudify(u, 'w_480,q_auto,f_auto');
-  const s768  = cloudify(u, 'w_768,q_auto,f_auto');
-  const s1024 = cloudify(u, 'w_1024,q_auto,f_auto');
-  return '<img loading="lazy" decoding="async" src="'+src+'" srcset="'+s320+' 320w, '+s480+' 480w, '+s768+' 768w, '+s1024+' 1024w" sizes="'+o.sizes+'" width="'+o.w+'" height="'+o.h+'" class="'+o.cls+'" alt="">';
-}
-
 
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));

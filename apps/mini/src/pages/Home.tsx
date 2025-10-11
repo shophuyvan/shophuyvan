@@ -5,8 +5,8 @@ import ProductCard, { Product } from '../components/ProductCard';
 import { api } from '@shared/api';
 import { numLike } from '@shared/utils/price';
 
-// === SHV Cloudinary helper (Mini Plan A) ===
-function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
+// === SHV Cloudinary helper (perf) ===
+function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
   try {
     if (!u) return u;
     const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';

@@ -14,7 +14,7 @@ const noImage = encodeURI(`
   </svg>
 `);
 
-function cloudify(u, t='w_500,q_auto,f_auto') {
+function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   try {
     if (!u) return noImage;
     const url = new URL(u);
@@ -36,7 +36,7 @@ function renderBanner(i){
   const b = banners[bIdx];
   bannerStage.innerHTML = `
     <a href="${b.href||'#'}" target="${b.href ? '_blank' : '_self'}">
-      <img loading="lazy" class="w-full h-full object-cover" src="${cloudify(b.image,'w_1400,q_auto,f_auto')}" alt="">
+      <img loading="lazy" class="w-full h-full object-cover" src="${cloudify(b.image,'w_1400,dpr_auto,q_auto,f_auto')}" alt="">
     </a>`;
   bannerDots.innerHTML = banners.map((_,k)=>`
     <button data-k="${k}" class="w-2 h-2 rounded-full ${k===bIdx?'bg-rose-600':'bg-gray-300'}"></button>
@@ -56,7 +56,7 @@ function card(p){
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
-      ${shvImg(thumb,{t:\'w_500,q_auto,f_auto,c_fill\',w:800,h:800,sizes:\'(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px\',cls:\'w-full aspect-square object-cover rounded-xl bg-white\'})}
+      <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="">
     </div>
     <div class="p-3">
       <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
