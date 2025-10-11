@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import VariantModal from '../components/VariantModal';
@@ -29,6 +29,7 @@ export default function Product() {
   const [modalMode, setModalMode] = useState<'cart' | 'buy'>('cart');
 
   const [expanded, setExpanded] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -44,18 +45,79 @@ export default function Product() {
     })();
   }, [id]);
 
+  // ⬇️ Quan trọng: Cho video đứng đầu để auto-play khi vào trang
   const media: MediaItem[] = useMemo(() => {
     if (!p) return [];
     const imgs = (p.images || []).map((src: string) => ({ type: 'image' as const, src }));
     const vids = (p.videos || []).map((src: string) => ({ type: 'video' as const, src }));
     const first = p.image ? [{ type: 'image' as const, src: p.image }] : [];
-    const list = [...first, ...imgs, ...vids];
+    // Nếu có video -> video trước, sau đó đến ảnh đại diện & các ảnh còn lại
+    const list = vids.length ? [...vids, ...first, ...imgs] : [...first, ...imgs];
     return list.length ? list : [{ type: 'image', src: '/public/icon.png' }];
   }, [p]);
 
   const active = media[Math.min(activeIndex, Math.max(0, media.length - 1))];
   const variants = Array.isArray(p?.variants) ? p.variants : [];
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const range = useMemo(() => priceRange(variants), [variants]);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const startXRef = useRef<number | null>(null);
+  const [dragPct, setDragPct] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startXRef.current = e.touches[0].clientX;
+    setDragPct(0);
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (startXRef.current == null || !containerRef.current) return;
+    const dx = e.touches[0].clientX - startXRef.current;
+    const pct = (dx / containerRef.current.clientWidth) * 100;
+    setDragPct(pct);
+  };
+  const onTouchEnd = () => {
+    if (startXRef.current == null || !containerRef.current) return;
+    const threshold = 15;
+    if (dragPct > threshold && activeIndex > 0) {
+      setActiveIndex((i) => i - 1);
+    } else if (dragPct < -threshold && activeIndex < media.length - 1) {
+      setActiveIndex((i) => i + 1);
+    }
+    startXRef.current = null;
+    setDragPct(0);
+  };
+
+  // Tự phát khi phần tử đang hiển thị là video
+  useEffect(() => {
+    if (active?.type !== 'video' || !videoRef.current) return;
+    const v = videoRef.current;
+    const tryPlay = () =>
+      v.play().then(() => setIsPlaying(!v.paused)).catch(() => setIsPlaying(false));
+    v.muted = true;
+    (v as any).playsInline = true;
+    v.preload = 'auto';
+    tryPlay();
+    const onLoaded = () => tryPlay();
+    v.addEventListener('loadeddata', onLoaded, { once: true });
+    // Một số trình duyệt cần tương tác người dùng lần đầu
+    const onceGesture = () => tryPlay();
+    window.addEventListener('touchend', onceGesture, { once: true, passive: true });
+    return () => {
+      v.removeEventListener('loadeddata', onLoaded);
+    };
+  }, [active?.type, active?.src, activeIndex]);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().then(() => setIsPlaying(true)).catch(() => {});
+    } else {
+      v.pause();
+      setIsPlaying(false);
+    }
+  };
 
   const addLine = (variant: any, q: number) => {
     const price = pickPrice(p?.raw || p, variant);
@@ -76,44 +138,125 @@ export default function Product() {
         {!loading && error && <div className="text-red-600 text-sm">{error}</div>}
         {!loading && p && (
           <div className="bg-white rounded-2xl p-3 shadow">
-            {/* media */}
-            <div className="w-full rounded-xl overflow-hidden bg-gray-100">
-              {active?.type === 'image' ? (
-                <img src={active.src} className="w-full aspect-square object-cover" />
-              ) : (
-                <video controls playsInline className="w-full aspect-square">
-                  <source src={active.src} />
-                </video>
-              )}
-            </div>
-
-            {media.length > 1 && (
-              <div className="mt-2 flex gap-2 overflow-auto">
+            <div
+              className="w-full rounded-xl overflow-hidden bg-gray-100 relative"
+              ref={containerRef}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
+              <div
+                className={'flex w-full ' + (startXRef.current == null ? 'transition-transform duration-300' : '')}
+                style={{ transform: `translateX(calc(-${activeIndex * 100}% + ${dragPct}%))` }}
+              >
                 {media.map((m, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveIndex(i)}
-                    className={
-                      'w-16 h-16 rounded-lg overflow-hidden ring-2 ' +
-                      (i === activeIndex ? 'ring-sky-500' : 'ring-transparent')
-                    }
-                  >
+                  <div key={'media-'+i+'-'+m.type+'-'+(m.src||'')} className="w-full shrink-0">
                     {m.type === 'image' ? (
-                      <img src={m.src} className="w-full h-full object-cover" />
+                      <img
+                        src={m.src}
+                        className="w-full aspect-square object-cover"
+                        // Ưu tiên tải ảnh đang hiển thị để nhanh hơn
+                        loading={i === activeIndex ? 'eager' : 'lazy'}
+                        decoding="async"
+                        fetchpriority={i === activeIndex ? ('high' as any) : ('low' as any)}
+                        alt={p?.name || 'image'}
+                      />
                     ) : (
-                      <div className="w-full h-full bg-black/80 grid place-items-center text-white text-xs">
-                        VIDEO
+                      <div className="relative">
+                        <video
+                          ref={i === activeIndex ? videoRef : null}
+                          autoPlay
+                          muted
+                          playsInline
+                          preload="auto"
+                          className="w-full aspect-square"
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                          onLoadedData={() => {
+                            const v = videoRef.current;
+                            if (i === activeIndex && v) v.play().catch(() => {});
+                          }}
+                          controls={false}
+                          onClick={togglePlay}
+                        >
+                          <source src={m.src} />
+                        </video>
+                        {i === activeIndex && !isPlaying && (
+                          <button
+                            onClick={togglePlay}
+                            className="absolute inset-0 grid place-items-center"
+                            aria-label="Play video"
+                          >
+                            <span className="w-14 h-14 rounded-full bg-black/60 text-white grid place-items-center text-lg">
+                              ▶
+                            </span>
+                          </button>
+                        )}
                       </div>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
-            )}
 
-            {/* title */}
+              {/* Nút nổi */}
+              <div className="absolute left-2 top-2 z-10">
+                <button
+                  onClick={() => { try { history.back(); } catch {} }}
+                  className="w-9 h-9 rounded-full bg-black/40 text-white grid place-items-center backdrop-blur"
+                  aria-label="Quay lại"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path fillRule="evenodd" d="M15.75 19.5a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 1 1 1.06 1.06L9.06 11.25l6.69 6.69a.75.75 0 0 1 0 1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShareOpen((x) => !x)}
+                    className="w-9 h-9 rounded-full bg-black/40 text-white grid place-items-center backdrop-blur"
+                    aria-label="Chia sẻ"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                      <path d="M7.5 12a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9-9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm0 12a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" />
+                      <path d="M8.67 13.06 15.33 9a3 3 0 0 1 .34-.16l.39-.13m-.73 9.39-6.66-4.07" stroke="currentColor" strokeWidth="1.2" />
+                    </svg>
+                  </button>
+                  {shareOpen && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white/95 rounded-xl shadow-lg border p-2 text-sm">
+                      <button
+                        onClick={() => { const u = location.href; const t = (p?.name||''); window.open('https://zalo.me/share?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t),'_blank'); setShareOpen(false); }}
+                        className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100"
+                      >
+                        Chia sẻ Zalo
+                      </button>
+                      <button
+                        onClick={() => { const u = location.href; window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(u),'_blank'); setShareOpen(false); }}
+                        className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100"
+                      >
+                        Chia sẻ Facebook
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => { try { location.href = routes.cart; } catch {} }}
+                  className="w-9 h-9 rounded-full bg-black/40 text-white grid place-items-center backdrop-blur"
+                  aria-label="Giỏ hàng"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path d="M3 3h2l.4 2M7 13h10l3-7H6.4M7 13l-1.6-8H3" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+                    <circle cx="9" cy="19" r="1.8" />
+                    <circle cx="17" cy="19" r="1.8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             <h1 className="text-lg font-semibold mt-3">{p?.name}</h1>
 
-            {/* price (range) */}
             {variants.length > 0 ? (
               <div className="mt-2">
                 <div className="text-rose-600 font-bold">
@@ -129,7 +272,6 @@ export default function Product() {
               </div>
             ) : null}
 
-            {/* description */}
             {!!descHTML && (
               <div className="mt-4">
                 <div
@@ -145,9 +287,8 @@ export default function Product() {
         )}
       </main>
 
-      {/* fixed bottom bar */}
       {!loading && p && (
-        <div className="fixed left-0 right-0 bottom-0 bg-white border-t">
+        <div className="fixed left-0 right-0 bottom-0 bg-white border">
           <div className="max-w-4xl mx-auto px-3 py-2 flex items-center gap-2">
             <div className="flex flex-col">
               <span className="text-xs text-gray-500">Số lượng</span>
@@ -190,7 +331,6 @@ export default function Product() {
         </div>
       )}
 
-      {/* choose variant modal */}
       <VariantModal
         product={p}
         variants={variants.length ? variants : [{ ...p, name: 'Mặc định' }]}
