@@ -24,6 +24,44 @@ function logEntry(req){
 }
 // === End patch ===
 
+
+function __toSlug(input){
+  const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+}
+function __collectCatVals(obj){
+  const vals = [];
+  const push=(v)=>{ if(v!==undefined && v!==null && v!=='') vals.push(v); };
+  const raw = (obj&&obj.raw)||{}; const meta = obj?.meta || raw?.meta || {};
+  [obj, raw, meta].forEach(o=>{
+    if(!o) return;
+    push(o.category); push(o.category_slug); push(o.cate); push(o.categoryId);
+    push(o.group); push(o.group_slug); push(o.type); push(o.collection);
+  });
+  if(Array.isArray(obj?.categories)) vals.push(...obj.categories);
+  if(Array.isArray(raw?.categories)) vals.push(...raw.categories);
+  if(Array.isArray(obj?.tags)) vals.push(...obj.tags);
+  if(Array.isArray(raw?.tags)) vals.push(...raw.tags);
+  return vals.flatMap(v=>{
+    if(Array.isArray(v)) return v.map(x=> __toSlug(x?.slug||x?.code||x?.name||x?.title||x?.label||x?.text||x));
+    if(typeof v==='object') return [__toSlug(v?.slug||v?.code||v?.name||v?.title||v?.label||v?.text)];
+    return [__toSlug(v)];
+  }).filter(Boolean);
+}
+function __matchCategoryStrict(doc, category){
+  if(!category) return true;
+  const want = __toSlug(category);
+  const alias = {
+    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
+  };
+  const wants = [want, ...(alias[want]||[]).map(__toSlug)];
+  const cands = __collectCatVals(doc);
+  return cands.some(v => wants.includes(v));
+}
+
 // === Volumetric helper (chargeable weight) ===
 function chargeableWeightGrams(body={}, order={}){
   let w = Number(order.weight_gram || body.weight_gram || body.package?.weight_grams || 0) || 0;
@@ -561,15 +599,16 @@ if(p.startsWith('/products/') && req.method==='GET'){
             if(prod){
               const cached = await getJSON(env, 'product:'+prod.id, null);
               if(cached) prod = cached;
-          }
             }
+          }
           if(!prod) return json({ok:false, error:'not found'}, {status:404}, req);
           return json({ok:true, item: prod}, {}, req);
         }
-        const cat = url.searchParams.get('category')||url.searchParams.get('cat');
+        const cat = url.searchParams.get('category')||url.searchParams.get('cat')||url.searchParams.get('category_slug')||url.searchParams.get('c')||'';
         const limit = Number(url.searchParams.get('limit')||'24');
-        let items = (await listProducts(env)) || [];
-        if(cat){ items = items.filter(x=> (x.categories||[]).includes(cat) || String(x.keywords||'').includes(cat)); }
+        let data = await listProducts(env, url.searchParams);
+        let items = Array.isArray(data?.items)? data.items.slice(): (Array.isArray(data)? data.slice(): []);
+        if(cat) items = items.filter(x => __matchCategoryStrict(x, cat));
         return json({items: items.slice(0, limit)}, {}, req);
       }
 

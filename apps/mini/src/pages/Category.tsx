@@ -31,6 +31,46 @@ function useSlug() {
   return slug;
 }
 
+
+function __toSlug(input: any): string{
+  const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+}
+function __collectCatVals(obj: any): string[]{
+  const vals:any[] = [];
+  const push=(v:any)=>{ if(v!==undefined && v!==null && v!=='') vals.push(v); };
+  const raw = (obj&&obj.raw)||{}; const meta = (obj&&obj.meta) || raw?.meta || {};
+  [obj, raw, meta].forEach((o:any)=>{
+    if(!o) return;
+    push(o.category); push(o.category_slug); push(o.cate); push(o.categoryId);
+    push(o.group); push(o.group_slug); push(o.type); push(o.collection);
+  });
+  if(Array.isArray(obj?.categories)) vals.push(...obj.categories);
+  if(Array.isArray(raw?.categories)) vals.push(...raw.categories);
+  if(Array.isArray(obj?.tags)) vals.push(...obj.tags);
+  if(Array.isArray(raw?.tags)) vals.push(...raw.tags);
+  return vals.flatMap((v:any)=>{
+    if(Array.isArray(v)) return v.map((x:any)=> __toSlug(x?.slug||x?.code||x?.name||x?.title||x?.label||x?.text||x));
+    if(typeof v === 'object') return [__toSlug(v?.slug||v?.code||v?.name||v?.title||v?.label||v?.text)];
+    return [__toSlug(v)];
+  }).filter(Boolean);
+}
+function __matchCategoryStrict(doc:any, categorySlug:string): boolean{
+  if(!categorySlug) return true;
+  const want = __toSlug(categorySlug);
+  const alias: Record<string,string[]> = {
+    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
+  };
+  const wants = [want, ...((alias[want]||[]).map(__toSlug))];
+  const cands = __collectCatVals(doc);
+  return cands.some(v => wants.includes(v));
+}
+
+
+
 export default function Category() {
   const slug = useSlug();
   const [items, setItems] = useState<any[]>([]);
@@ -42,12 +82,18 @@ export default function Category() {
       setLoading(true);
       setError(null);
       try {
-        // Quick-first list by category
-        const first = await api.products.list({ limit: 24, category: slug || undefined });
-        setItems(first || []);
-        // Enrich prices in-place with concurrency
-        const full = await api.products.listWithPrices({ limit: 24, category: slug || undefined, concurrency: 4 });
-        if (Array.isArray(full) && full.length) setItems(full);
+        const VIEW = 24;
+        const FETCH_LIMIT = 200; // lấy nhiều hơn rồi lọc client để chắc chắn
+
+        // 1) Lấy nhanh (chưa có giá) và lọc theo danh mục ở client (fallback)
+        const first = await api.products.list({ limit: FETCH_LIMIT, category: slug || undefined });
+        const filtered1 = (first || []).filter((p:any) => __matchCategoryStrict(p, slug)).slice(0, VIEW);
+        setItems(filtered1);
+
+        // 2) Lấy kèm giá và lọc lại
+        const full = await api.products.listWithPrices({ limit: FETCH_LIMIT, category: slug || undefined, concurrency: 4 });
+        const filtered2 = (full || []).filter((p:any) => __matchCategoryStrict(p, slug)).slice(0, VIEW);
+        if (filtered2.length) setItems(filtered2);
       } catch (e:any) {
         console.error(e);
         setError(e?.message || 'Lỗi tải dữ liệu');

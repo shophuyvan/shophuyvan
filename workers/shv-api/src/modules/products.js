@@ -1,3 +1,41 @@
+
+function __toSlug(input){
+  const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+}
+function __collectCatVals(obj){
+  const vals = [];
+  const push=(v)=>{ if(v!==undefined && v!==null && v!=='') vals.push(v); };
+  const raw = (obj&&obj.raw)||{}; const meta = obj?.meta || raw?.meta || {};
+  [obj, raw, meta].forEach(o=>{
+    if(!o) return;
+    push(o.category); push(o.category_slug); push(o.cate); push(o.categoryId);
+    push(o.group); push(o.group_slug); push(o.type); push(o.collection);
+  });
+  if(Array.isArray(obj?.categories)) vals.push(...obj.categories);
+  if(Array.isArray(raw?.categories)) vals.push(...raw.categories);
+  if(Array.isArray(obj?.tags)) vals.push(...obj.tags);
+  if(Array.isArray(raw?.tags)) vals.push(...raw.tags);
+  return vals.flatMap(v=>{
+    if(Array.isArray(v)) return v.map(x=> __toSlug(x?.slug||x?.code||x?.name||x?.title||x?.label||x?.text||x));
+    if(typeof v==='object') return [__toSlug(v?.slug||v?.code||v?.name||v?.title||v?.label||v?.text)];
+    return [__toSlug(v)];
+  }).filter(Boolean);
+}
+function __matchCategoryStrict(doc, category){
+  if(!category) return true;
+  const want = __toSlug(category);
+  const alias = {
+    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
+  };
+  const wants = [want, ...(alias[want]||[]).map(__toSlug)];
+  const cands = __collectCatVals(doc);
+  return cands.some(v => wants.includes(v));
+}
+
 /* SHV safe patch header */
 
 // src/modules/products.js
@@ -101,7 +139,7 @@ function toSlug(input){
   const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 }
-function matchesCategory(doc, category){
+function __matchCategoryStrict(doc, category){
   if (!category) return true;
   const slugKey = toSlug(category);
   const keyLc = String(category).toLowerCase();
@@ -149,22 +187,22 @@ function matchesCategory(doc, category){
  * Core actions used by admin & storefront
  */
 
-export async function listProducts(env, query) {
+export async function listProducts(env, query){
   const store = new Fire(env);
-  const onlyActive = query.get("active") === "1";
-  const limitRaw = Number(query.get("limit") || "50");
-  const limitToGet = Math.max(limitRaw, 200); // fetch more then slice after filter
-
-  // read category via multiple keys
-  const category = (query.get("category") || query.get("cate") || query.get("category_slug") || query.get("categoryId") || query.get("c") || "").trim();
-
-  // fetch list
+  const onlyActive = (query && query.get && query.get("active")==="1") ? true : false;
+  const limitRaw = Number((query && query.get && query.get("limit")) || "50");
+  const limitToGet = Math.max(limitRaw, 200);
+  const category = (query && query.get) ? ((query.get("category")||query.get("cate")||query.get("category_slug")||query.get("categoryId")||query.get("c")||"").trim()) : "";
   const data = await store.list("products", { limit: limitToGet, onlyActive });
+  let items = Array.isArray(data?.items) ? data.items.slice() : (Array.isArray(data)? data.slice(): []);
+  if (category) items = items.filter(p => __matchCategoryStrict(p, category));
+  return { items: items.slice(0, limitRaw || 50) };
+});
 
   // filter by category if provided
   let items = Array.isArray(data?.items) ? data.items.slice() : [];
   if (category) {
-    items = items.filter((p) => matchesCategory(p, category));
+    items = items.filter((p) => __matchCategoryStrict(p, category));
   }
 
   // final slice by requested limit
