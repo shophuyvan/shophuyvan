@@ -8,8 +8,17 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
-
-// === SHV Cloudinary helper (safety) ===
+function isStr(x:any){return typeof x==='string' && x.trim().length>0}
+function sanitizeArray(a:any): string[]{ if(!Array.isArray(a)) return []; return a.filter(isStr) }
+function sanitizeProduct(d:any){
+  if(!d||typeof d!=='object') return null;
+  const image = isStr(d.image) ? d.image : (isStr(d.thumbnail)? d.thumbnail : undefined);
+  const images = sanitizeArray(d.images);
+  const videos = sanitizeArray(d.videos);
+  const variants = Array.isArray(d.variants) ? d.variants : [];
+  return {...d, image, images, videos, variants};
+}
+// === SHV Cloudinary helper (Mini PDP) ===
 function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
   try {
     if (!u) return u;
@@ -22,24 +31,11 @@ function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undef
   } catch { return u; }
 }
 
-
 type MediaItem = { type: 'image' | 'video'; src: string };
 
 function useQuery() {
   const u = new URL(location.href);
   return Object.fromEntries(u.searchParams.entries());
-}
-
-
-function isStr(x:any){return typeof x==='string' && x.trim().length>0}
-function sanitizeArray(a:any): string[]{ if(!Array.isArray(a)) return []; return a.filter(isStr) }
-function sanitizeProduct(d:any){
-  if(!d||typeof d!=='object') return null;
-  const image = isStr(d.image) ? d.image : (isStr(d.thumbnail)? d.thumbnail : undefined);
-  const images = sanitizeArray(d.images);
-  const videos = sanitizeArray(d.videos);
-  const variants = Array.isArray(d.variants) ? d.variants : [];
-  return {...d, image, images, videos, variants};
 }
 
 export default function Product() {
@@ -129,7 +125,7 @@ export default function Product() {
     // Một số trình duyệt cần tương tác người dùng lần đầu
     const onceGesture = () => tryPlay();
     window.addEventListener('touchend', onceGesture, { once: true, passive: true });
-    function renderContent(){ try { return () => {
+    return () => {
       v.removeEventListener('loadeddata', onLoaded);
     };
   }, [active?.type, active?.src, activeIndex]);
@@ -377,5 +373,3 @@ export default function Product() {
     </div>
   );
 }
-
-return renderContent();
