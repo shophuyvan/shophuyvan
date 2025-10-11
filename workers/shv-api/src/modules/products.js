@@ -95,14 +95,82 @@ export class Fire {
   }
 }
 
+
+/** Slug helper & category matcher */
+function toSlug(input){
+  const s = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+}
+function matchesCategory(doc, category){
+  if (!category) return true;
+  const slugKey = toSlug(category);
+  const keyLc = String(category).toLowerCase();
+
+  const top = doc || {};
+  const raw = (doc && doc.raw) || {};
+  const cands = [];
+  const push = (v)=>{ if(v!=null) cands.push(v); };
+
+  // common fields
+  [top, raw, top.meta||{}, raw.meta||{}].forEach(o=>{
+    if(!o) return;
+    push(o.category); push(o.category_name); push(o.category_slug); push(o.categoryId); push(o.cate);
+    push(o.group); push(o.group_slug); push(o.type);
+  });
+
+  // arrays
+  if (Array.isArray(raw.categories)) cands.push(...raw.categories);
+  if (Array.isArray(top.categories)) cands.push(...top.categories);
+  if (Array.isArray(raw.tags)) cands.push(...raw.tags);
+  if (Array.isArray(top.tags)) cands.push(...top.tags);
+
+  // synonyms per business
+  const alias = {
+    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
+  };
+  const syns = alias[slugKey] || [];
+  cands.push(...syns);
+
+  function hit(val){
+    if (!val) return false;
+    if (Array.isArray(val)) return val.some(hit);
+    if (typeof val === 'object') return hit(val.slug || val.code || val.name || val.title || val.label || val.text);
+    const s = String(val);
+    const sv = s.toLowerCase();
+    const sl = toSlug(s);
+    return sv.includes(keyLc) || sl === slugKey || (slugKey && sl.includes(slugKey));
+  }
+  return cands.some(hit);
+}
 /**
  * Core actions used by admin & storefront
  */
+
 export async function listProducts(env, query) {
   const store = new Fire(env);
   const onlyActive = query.get("active") === "1";
-  const limit = query.get("limit") || "50";
-  return store.list("products", { limit, onlyActive });
+  const limitRaw = Number(query.get("limit") || "50");
+  const limitToGet = Math.max(limitRaw, 200); // fetch more then slice after filter
+
+  // read category via multiple keys
+  const category = (query.get("category") || query.get("cate") || query.get("category_slug") || query.get("categoryId") || query.get("c") || "").trim();
+
+  // fetch list
+  const data = await store.list("products", { limit: limitToGet, onlyActive });
+
+  // filter by category if provided
+  let items = Array.isArray(data?.items) ? data.items.slice() : [];
+  if (category) {
+    items = items.filter((p) => matchesCategory(p, category));
+  }
+
+  // final slice by requested limit
+  return { items: items.slice(0, limitRaw || 50) };
+}
+);
 }
 
 export async function getProduct(env, id) {
