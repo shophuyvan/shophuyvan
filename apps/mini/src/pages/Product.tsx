@@ -8,6 +8,20 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
+// === SHV Cloudinary helper (local to this module) ===
+function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 
 type MediaItem = { type: 'image' | 'video'; src: string };
 
@@ -164,21 +178,23 @@ export default function Product() {
                     ) : (
                       <div className="relative">
                         <video
-  id="pdp-video-mini"
-  className="w-full aspect-square"
-  autoPlay
-  muted
-  playsInline
-  preload="metadata"
-  poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,q_auto,f_auto')}
-  onPlay={() => setIsPlaying(true)}
-  onPause={() => setIsPlaying(false)}
-  onLoadedData={(e) => { try { e.currentTarget.currentTime = 0; } catch {} }}
-  controls={false}
-  onClick={togglePlay}
->
-  <source src={m.src} />
-</video>
+                          ref={i === activeIndex ? videoRef : null}
+                          autoPlay
+                          muted
+                          playsInline
+                          preload="auto"
+                          className="w-full aspect-square"
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                          onLoadedData={() => {
+                            const v = videoRef.current;
+                            if (i === activeIndex && v) v.play().catch(() => {});
+                          }}
+                          controls={false}
+                          onClick={togglePlay}
+                        >
+                          <source src={m.src} />
+                        </video>
                         {i === activeIndex && !isPlaying && (
                           <button
                             onClick={togglePlay}
