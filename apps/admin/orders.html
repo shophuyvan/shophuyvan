@@ -18,6 +18,8 @@
 .nowrap{ white-space:nowrap; }
 </style>
 
+<link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+<link rel="dns-prefetch" href="//res.cloudinary.com">
 </head><body>
 <div class="container">
   <div class="header">
@@ -73,7 +75,7 @@ function g(o,arr){ try{ var v=o; for(var i=0;i<arr.length;i++){ if(!v||typeof v!
         function sum(arr, f){ var s=0; (arr||[]).forEach(function(it){ s += Number(f(it)||0)*Number(it.qty||1); }); return s; }
         var its = Array.isArray(o.items)?o.items:[];
         var first = its[0]||{};
-        var img = first.image || first.img || first.thumbnail || '';
+        var img = first.image || first.img || first.thumbnail || ''; img = cloudify(img, 'w_96,q_auto,f_auto,c_fill');
         if(!img){
           img = 'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="%23f3f4f6"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%239ca3af">no img</text></svg>');
         }

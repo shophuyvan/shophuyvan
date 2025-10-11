@@ -1,3 +1,17 @@
+
+// === SHV Cloudinary helper (Admin Plan A) ===
+function cloudify(u, t='w_800,q_auto,f_auto'){
+  try{
+    if(!u) return u;
+    var base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://example.com';
+    var url = new URL(u, base);
+    if(!/res\.cloudinary\.com/i.test(url.hostname)) return u; // only transform Cloudinary URLs
+    if(/\/upload\/[^/]+\/.*/.test(url.pathname)) return url.toString(); // already has transforms
+    url.pathname = url.pathname.replace('/upload/', '/upload/'+t+'/');
+    return url.toString();
+  }catch(_){ return u; }
+}
+
 /* SHV admin patch v46 */
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
