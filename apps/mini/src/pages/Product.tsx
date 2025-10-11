@@ -163,17 +163,22 @@ export default function Product() {
                       />
                     ) : (
                       <div className="relative">
-                        <video autoPlay muted playsInline preload="metadata" className="w-full aspect-square" poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,q_auto,f_auto')} key={active?.src} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onLoadedData={() => { try { const v = document.querySelector('#pdp-video-mini') as HTMLVideoElement | null; if (v) v.currentTime = 0; } catch {} }}> setIsPlaying(true)}
-                          onPause={() => setIsPlaying(false)}
-                          onLoadedData={() => {
-                            const v = videoRef.current;
-                            if (i === activeIndex && v) v.play().catch(() => {});
-                          }}
-                          controls={false}
-                          onClick={togglePlay}
-                        >
-                          <source src={m.src} />
-                        </video>
+                        <video
+  id="pdp-video-mini"
+  className="w-full aspect-square"
+  autoPlay
+  muted
+  playsInline
+  preload="metadata"
+  poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,q_auto,f_auto')}
+  onPlay={() => setIsPlaying(true)}
+  onPause={() => setIsPlaying(false)}
+  onLoadedData={(e) => { try { e.currentTarget.currentTime = 0; } catch {} }}
+  controls={false}
+  onClick={togglePlay}
+>
+  <source src={m.src} />
+</video>
                         {i === activeIndex && !isPlaying && (
                           <button
                             onClick={togglePlay}
