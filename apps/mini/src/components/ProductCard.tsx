@@ -4,18 +4,42 @@ import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
 import cart from '@shared/cart';
 
-// === SHV Cloudinary helper (perf) ===
-function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
+// === SHV Cloudinary fetch helpers (Mini) ===
+// Expect VITE_CLOUDINARY_CLOUD to be set (Cloudflare Pages > Project > Settings > Environment variables)
+function __cldName(): string | undefined {
+  try {
+    // @ts-ignore
+    const v = (import.meta as any)?.env?.VITE_CLOUDINARY_CLOUD || (window as any)?.__CLD_CLOUD__;
+    return (typeof v === 'string' && v.trim()) ? v.trim() : undefined;
+  } catch { return undefined; }
+}
+function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 'image'|'video' = 'image'): string | undefined {
   try {
     if (!u) return u;
     const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
     const url = new URL(u, base);
-    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
-    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
-    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
-    return url.toString();
+    const isCLD = /res\.cloudinary\.com/i.test(url.hostname);
+    if (isCLD) {
+      // If it's already a Cloudinary URL with /upload/, inject transforms
+      if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+      if (/\/upload\//.test(url.pathname)) {
+        url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
+        return url.toString();
+      }
+      return url.toString();
+    }
+    const cloud = __cldName();
+    if (!cloud) return u; // no cloud name configured -> fallback original
+    const enc = encodeURIComponent(u);
+    const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
+    return `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
   } catch { return u; }
 }
+// Backward-compat alias:
+function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
+  return cldFetch(u, t, 'image');
+}
+
 
 
 export type Product = {
