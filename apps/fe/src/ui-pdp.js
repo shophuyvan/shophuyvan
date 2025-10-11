@@ -75,12 +75,24 @@ import { formatPrice } from './lib/price.js';
 function cloudify(u, t='w_1200,q_auto,f_auto') {
   try {
     if (!u) return u;
-    const url = new URL(u, location.origin);
+    const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
     if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
     if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
     url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
     return url.toString();
   } catch(e) { return u; }
+}
+
+// Build safe <img> HTML without nested template expressions
+function shvImg(u, opts) {
+  const o = Object.assign({t:'w_500,q_auto,f_auto', w:800, h:600, sizes:'(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px', cls:'w-full h-full object-cover'}, opts||{});
+  const src = cloudify(u, o.t);
+  const s320  = cloudify(u, 'w_320,q_auto,f_auto');
+  const s480  = cloudify(u, 'w_480,q_auto,f_auto');
+  const s768  = cloudify(u, 'w_768,q_auto,f_auto');
+  const s1024 = cloudify(u, 'w_1024,q_auto,f_auto');
+  return '<img loading="lazy" decoding="async" src="'+src+'" srcset="'+s320+' 320w, '+s480+' 480w, '+s768+' 768w, '+s1024+' 1024w" sizes="'+o.sizes+'" width="'+o.w+'" height="'+o.h+'" class="'+o.cls+'" alt="">';
 }
 
 
@@ -276,13 +288,9 @@ function renderMedia(prefer){
     const it = items[idx];
     if(it.type==='video'){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
-      \1try{
-      const imgs = imagesOf(PRODUCT)||[];
-      if (imgs && imgs[0]) v.setAttribute('poster', cloudify(imgs[0], 'w_1200,q_auto,f_auto'));
-      main.onclick = function(){ try{ v.play().catch(()=>{}); }catch{} };
-      v.addEventListener('pointerdown', ()=>{ try{ v.play().catch(()=>{});}catch{} });
-    }catch(e){}}else{
-      main.innerHTML = shvCldImg(it.src);
+      const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
+    }else{
+      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
     }
     draw();
   }
@@ -1303,9 +1311,3 @@ function openSuccessModal(orderId, customer){
     });
   }catch(e){}
 })();
-
-// === SHV PDP image helper ===
-function shvCldImg(u, t='w_1200,q_auto,f_auto'){
-  const s = cloudify(u, t);
-  return '<img loading="eager" decoding="async" src="'+s+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />';
-}
