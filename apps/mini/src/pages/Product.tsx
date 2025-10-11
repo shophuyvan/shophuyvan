@@ -8,28 +8,6 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
-function isStr(x:any){return typeof x==='string' && x.trim().length>0}
-function sanitizeArray(a:any): string[]{ if(!Array.isArray(a)) return []; return a.filter(isStr) }
-function sanitizeProduct(d:any){
-  if(!d||typeof d!=='object') return null;
-  const image = isStr(d.image) ? d.image : (isStr(d.thumbnail)? d.thumbnail : undefined);
-  const images = sanitizeArray(d.images);
-  const videos = sanitizeArray(d.videos);
-  const variants = Array.isArray(d.variants) ? d.variants : [];
-  return {...d, image, images, videos, variants};
-}
-// === SHV Cloudinary helper (Mini PDP) ===
-function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
-  try {
-    if (!u) return u;
-    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
-    const url = new URL(u, base);
-    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
-    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
-    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
-    return url.toString();
-  } catch { return u; }
-}
 
 type MediaItem = { type: 'image' | 'video'; src: string };
 
@@ -58,7 +36,7 @@ export default function Product() {
       try {
         if (!id) throw new Error('Thiếu id');
         const d = await api.products.detail(id);
-        setP(sanitizeProduct(d));
+        setP(d);
       } catch (e: any) {
         setError(e?.message || 'Lỗi tải sản phẩm');
       } finally {
@@ -70,8 +48,8 @@ export default function Product() {
   // ⬇️ Quan trọng: Cho video đứng đầu để auto-play khi vào trang
   const media: MediaItem[] = useMemo(() => {
     if (!p) return [];
-    const imgs = ((p.images||[]) as string[]).filter(isStr).map((src:string)=>({type:'image' as const, src}));
-    const vids = ((p.videos||[]) as string[]).filter(isStr).map((src:string)=>({type:'video' as const, src}));
+    const imgs = (p.images || []).map((src: string) => ({ type: 'image' as const, src }));
+    const vids = (p.videos || []).map((src: string) => ({ type: 'video' as const, src }));
     const first = p.image ? [{ type: 'image' as const, src: p.image }] : [];
     // Nếu có video -> video trước, sau đó đến ảnh đại diện & các ảnh còn lại
     const list = vids.length ? [...vids, ...first, ...imgs] : [...first, ...imgs];
@@ -185,14 +163,7 @@ export default function Product() {
                       />
                     ) : (
                       <div className="relative">
-                        <video
-                          ref={i === activeIndex ? videoRef : null}
-                          autoPlay
-                          muted
-                          playsInline
-                          preload="auto"
-                          className="w-full aspect-square"
-                          onPlay={() = key={active?.src} poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, \'w_800,q_auto,f_auto\')} preload="metadata"> setIsPlaying(true)}
+                        <video autoPlay muted playsInline preload="metadata" className="w-full aspect-square" poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,q_auto,f_auto')} key={active?.src} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onLoadedData={() => { try { const v = document.querySelector('#pdp-video-mini') as HTMLVideoElement | null; if (v) v.currentTime = 0; } catch {} }}> setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
                           onLoadedData={() => {
                             const v = videoRef.current;
