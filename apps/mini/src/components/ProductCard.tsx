@@ -4,6 +4,20 @@ import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
 import cart from '@shared/cart';
 
+// === SHV Cloudinary helper (Mini Plan A) ===
+function cloudify(u?: string, t: string = 'w_500,q_auto,f_auto,c_fill'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 export type Product = {
   id: string | number;
   name: string;
@@ -55,12 +69,7 @@ export default function ProductCard({ p }: { p: Product }) {
   return (
     <div className="card p-2">
       <a href={href} className="block relative">
-        <img
-          src={p.image || '/public/icon.png'}
-          alt={p.name}
-          className="w-full aspect-square object-cover rounded-xl bg-gray-100"
-          loading="lazy"
-        />
+        <img src={cloudify(p.image || '/public/icon.png', 'w_500,q_auto,f_auto,c_fill')} srcSet={`${cloudify(p.image || '/public/icon.png', 'w_320,q_auto,f_auto,c_fill')} 320w, ${cloudify(p.image || '/public/icon.png', 'w_480,q_auto,f_auto,c_fill')} 480w, ${cloudify(p.image || '/public/icon.png', 'w_768,q_auto,f_auto,c_fill')} 768w, ${cloudify(p.image || '/public/icon.png', 'w_1024,q_auto,f_auto,c_fill')} 1024w`} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px" loading="lazy" decoding="async" width="800" height="800" class="w-full aspect-square object-cover rounded-xl bg-gray-100" alt={p.name} />
         {discount > 0 && (
           <span className="badge-discount">-{discount}%</span>
         )}

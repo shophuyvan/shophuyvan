@@ -1,5 +1,18 @@
 import api from './lib/api.js';
 
+// === SHV Cloudinary helper (Plan A) ===
+function cloudify(u, t='w_800,q_auto,f_auto') {
+  try {
+    if (!u) return u;
+    const url = new URL(u, location.origin);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch(e) { return u; }
+}
+
+
 const bannerWrap  = document.getElementById('banner-wrap');
 const newWrap     = document.getElementById('new-products');
 const allWrap     = document.getElementById('all-products');
@@ -17,7 +30,7 @@ async function loadBanners() { if(!bannerWrap) return;
   const items = (data && (data.items || data.banners || data.data)) || [];
   bannerWrap.style.overflow='hidden'; bannerWrap.innerHTML = `<div id=\"banner-track\" class="flex transition-transform duration-700 ease-in-out"></div>`;
   const track = document.getElementById('banner-track');
-  items.forEach(b=>{ const d=document.createElement('div'); d.className='min-w-full overflow-hidden rounded-xl border'; d.innerHTML = (b.link?`<a href="${b.link}" target="_blank" rel="noopener">`:'') + `<img src="${b.image||b.url}" class="w-full h-52 object-cover" alt="${b.alt||'banner'}"/>` + (b.link?`</a>`:''); track.appendChild(d); });
+  items.forEach(b=>{ const d=document.createElement('div'); d.className='min-w-full overflow-hidden rounded-xl border'; d.innerHTML = (b.link?`<a href="${b.link}" target="_blank" rel="noopener">`:'') + `<img loading="lazy" decoding="async" src="${cloudify(b.image||b.url, \'w_1400,q_auto,f_auto\')}" class="w-full h-52 object-cover" alt="${b.alt||'banner'}"/>` + (b.link?`</a>`:''); track.appendChild(d); });
   let idx=0; setInterval(()=>{ idx=(idx+1)%Math.max(items.length,1); track.style.transform='translateX(' + (-idx*100) + '%)'; }, 3500);
 }
 
@@ -152,7 +165,7 @@ function card(p){
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
   const u = `/product.html?id=${encodeURIComponent(p.id||p.key||'')}`;
   return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(p.id||p.key||'')}">
-    <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
+    <img loading="lazy" decoding="async" src="${cloudify(img, 'w_500,q_auto,f_auto')}" srcset="${cloudify(img, 'w_320,q_auto,f_auto')}" 320w, ${cloudify(img, 'w_480,q_auto,f_auto')} 480w, ${cloudify(img, 'w_768,q_auto,f_auto')} 768w, ${cloudify(img, 'w_1024,q_auto,f_auto')} 1024w" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 300px" width="800" height="600" class="w-full h-full object-cover" alt="">
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
       <div class="mt-1 text-blue-600 price" data-id="${(p.id||p.key||'')}">${priceStr(p)}</div>

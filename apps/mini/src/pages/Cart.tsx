@@ -3,6 +3,20 @@ import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { routes } from '../routes';
 
+// === SHV Cloudinary helper (Mini Plan A) ===
+function cloudify(u?: string, t: string = 'w_160,q_auto,f_auto,c_fill'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 export default function CartPage() {
   const [state, setState] = useState(cart.get());
 

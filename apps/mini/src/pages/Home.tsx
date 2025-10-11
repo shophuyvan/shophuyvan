@@ -5,6 +5,20 @@ import ProductCard, { Product } from '../components/ProductCard';
 import { api } from '@shared/api';
 import { numLike } from '@shared/utils/price';
 
+// === SHV Cloudinary helper (Mini Plan A) ===
+function cloudify(u?: string, t: string = 'w_800,q_auto,f_auto'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 /** Tăng giá trị hiển thị: nếu list không có giá, gọi detail để bù */
 async function enrichPrices(list: Product[]): Promise<Product[]> {
   const tasks = list.map(async (p) => {

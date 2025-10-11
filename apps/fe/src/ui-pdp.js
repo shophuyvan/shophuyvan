@@ -71,6 +71,19 @@ async function shvGetShippingOptions(provinceName, districtName, weightGram){
 }
 import { formatPrice } from './lib/price.js';
 
+// === SHV Cloudinary helper (Plan A) ===
+function cloudify(u, t='w_1200,q_auto,f_auto') {
+  try {
+    if (!u) return u;
+    const url = new URL(u, location.origin);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch(e) { return u; }
+}
+
+
 const $  = (s, r=document)=>r.querySelector(s);
 const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
@@ -263,9 +276,13 @@ function renderMedia(prefer){
     const it = items[idx];
     if(it.type==='video'){
       main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
-      const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
-    }else{
-      main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
+      \1try{
+      const imgs = imagesOf(PRODUCT)||[];
+      if (imgs && imgs[0]) v.setAttribute('poster', cloudify(imgs[0], 'w_1200,q_auto,f_auto'));
+      main.onclick = function(){ try{ v.play().catch(()=>{}); }catch{} };
+      v.addEventListener('pointerdown', ()=>{ try{ v.play().catch(()=>{});}catch{} });
+    }catch(e){}}else{
+      main.innerHTML = shvCldImg(it.src);
     }
     draw();
   }
@@ -1286,3 +1303,9 @@ function openSuccessModal(orderId, customer){
     });
   }catch(e){}
 })();
+
+// === SHV PDP image helper ===
+function shvCldImg(u, t='w_1200,q_auto,f_auto'){
+  const s = cloudify(u, t);
+  return '<img loading="eager" decoding="async" src="'+s+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />';
+}

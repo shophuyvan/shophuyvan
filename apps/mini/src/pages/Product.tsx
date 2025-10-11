@@ -9,6 +9,20 @@ import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
 
+// === SHV Cloudinary helper (Mini Plan A) ===
+function cloudify(u?: string, t: string = 'w_1200,q_auto,f_auto'): string | undefined {
+  try {
+    if (!u) return u;
+    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
+    const url = new URL(u, base);
+    if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
+    if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
+    url.pathname = url.pathname.replace('/upload/', '/upload/' + t + '/');
+    return url.toString();
+  } catch { return u; }
+}
+
+
 type MediaItem = { type: 'image' | 'video'; src: string };
 
 function useQuery() {
@@ -152,15 +166,7 @@ export default function Product() {
                 {media.map((m, i) => (
                   <div key={'media-'+i+'-'+m.type+'-'+(m.src||'')} className="w-full shrink-0">
                     {m.type === 'image' ? (
-                      <img
-                        src={m.src}
-                        className="w-full aspect-square object-cover"
-                        // Ưu tiên tải ảnh đang hiển thị để nhanh hơn
-                        loading={i === activeIndex ? 'eager' : 'lazy'}
-                        decoding="async"
-                        fetchpriority={i === activeIndex ? ('high' as any) : ('low' as any)}
-                        alt={p?.name || 'image'}
-                      />
+                      <img src={cloudify(m.src, 'w_800,q_auto,f_auto')} srcSet={`${cloudify(m.src, 'w_320,q_auto,f_auto')} 320w, ${cloudify(m.src, 'w_480,q_auto,f_auto')} 480w, ${cloudify(m.src, 'w_768,q_auto,f_auto')} 768w, ${cloudify(m.src, 'w_1024,q_auto,f_auto')} 1024w`} sizes="(max-width: 640px) 100vw, 640px" loading={i === activeIndex ? ('eager' as any) : ('lazy' as any)} decoding="async" className="w-full aspect-square object-cover" alt={p?.name || 'image'} />
                     ) : (
                       <div className="relative">
                         <video
@@ -170,7 +176,7 @@ export default function Product() {
                           playsInline
                           preload="auto"
                           className="w-full aspect-square"
-                          onPlay={() => setIsPlaying(true)}
+                          onPlay={() = poster={cloudify(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, \'w_800,q_auto,f_auto\')} > setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
                           onLoadedData={() => {
                             const v = videoRef.current;
