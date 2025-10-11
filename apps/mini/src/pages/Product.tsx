@@ -10,7 +10,6 @@ import cart from '@shared/cart';
 import { routes } from '../routes';
 
 // === SHV Cloudinary fetch helpers (Mini) ===
-// Expect VITE_CLOUDINARY_CLOUD to be set (Cloudflare Pages > Project > Settings > Environment variables)
 function __cldName(): string | undefined {
   try {
     // @ts-ignore
@@ -25,7 +24,6 @@ function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 
     const url = new URL(u, base);
     const isCLD = /res\.cloudinary\.com/i.test(url.hostname);
     if (isCLD) {
-      // If it's already a Cloudinary URL with /upload/, inject transforms
       if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
       if (/\/upload\//.test(url.pathname)) {
         url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
@@ -34,13 +32,12 @@ function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 
       return url.toString();
     }
     const cloud = __cldName();
-    if (!cloud) return u; // no cloud name configured -> fallback original
+    if (!cloud) return u;
     const enc = encodeURIComponent(u);
     const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
     return `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
   } catch { return u; }
 }
-// Backward-compat alias:
 function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
   return cldFetch(u, t, 'image');
 }
@@ -203,12 +200,12 @@ export default function Product() {
                       <div className="relative">
                         <video
                           ref={i === activeIndex ? videoRef : null}
-                          
+                         
                           muted
                           playsInline
                           preload="auto"
                           className="w-full aspect-square"
-                          onPlay={() => setIsPlaying(true)}
+                          onPlay={() = src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')}> setIsPlaying(true)}
                           onPause={() => setIsPlaying(false)}
                           onLoadedData={() => {
                             const v = videoRef.current;
@@ -217,8 +214,7 @@ export default function Product() {
                           controls={false}
                           onClick={togglePlay}
                         >
-                          <source src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')} />
-                        </video>
+</video>
                         {i === activeIndex && !isPlaying && (
                           <button
                             onClick={togglePlay}
