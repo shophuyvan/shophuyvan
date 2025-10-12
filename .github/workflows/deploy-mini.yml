@@ -32,7 +32,7 @@ jobs:
           # Lockfile ở ROOT do dùng npm workspaces
           cache-dependency-path: |
             package-lock.json
-            apps/mini/package-lock.json   # thêm cho “an toàn”, có cũng không sao
+            apps/mini/package-lock.json
 
       - name: Install deps (root, workspaces)
         run: npm ci
@@ -54,3 +54,15 @@ jobs:
           directory:     apps/mini/dist
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
+
+      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
+      - name: Upload media to Cloudinary
+        run: |
+          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
+          -F "file=@path/to/image_or_video" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
+
+      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
+      - name: Verify Upload to Cloudinary
+        run: |
+          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
