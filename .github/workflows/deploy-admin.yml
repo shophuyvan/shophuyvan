@@ -22,32 +22,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Nếu Admin có bước build, thêm ở đây
-      # - name: Build Admin
-      #   working-directory: apps/admin
-      #   run: |
-      #     npm ci
-      #     npm run build
+      # Bước build Admin Panel nếu cần
+      - name: Build Admin Panel
+        working-directory: apps/admin
+        run: |
+          npm install
+          npm run build
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName:   adminshophuyvan
-          directory:     apps/admin
-          gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: adminshophuyvan
+          directory: apps/admin/dist  # Hoặc thư mục build của Admin Panel
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
-
-      # (Bước bổ sung để xử lý ảnh/video)
-      - name: Upload Images/Videos to Cloudinary via API
-        run: |
-          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
-          -F "file=@path/to/image_or_video" \
-          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
-
-      # (Nếu cần, thêm bước kiểm tra upload đã thành công)
-      - name: Verify Image/Video Upload Success
-        run: |
-          # Gọi API của Worker hoặc kiểm tra kết quả upload
-          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
