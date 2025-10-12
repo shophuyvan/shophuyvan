@@ -20,15 +20,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Kiểm tra thư mục làm việc hiện tại
+      - name: Print current working directory
+        run: |
+          echo "Current directory: $(pwd)"  # In ra thư mục làm việc hiện tại
 
-      # Nếu FE có bước build, thêm ở đây
-      # - name: Build FE
-      #   working-directory: apps/fe
-      #   run: |
-      #     npm ci
-      #     npm run build
+      # Liệt kê tất cả các tệp trong thư mục làm việc
+      - name: List all files in the current directory
+        run: |
+          ls -al  # Liệt kê tất cả các tệp trong thư mục hiện tại
 
+      # Kiểm tra tệp có tồn tại hay không
+      - name: Check if file exists
+        run: |
+          if [ -f "apps/fe/images/your_image_or_video.jpg" ]; then  # Kiểm tra tệp có tồn tại không
+            echo "File exists"
+          else
+            echo "File does not exist"
+            exit 1  # Nếu tệp không tồn tại, dừng quy trình
+          fi
+
+      # Tiến hành deploy sau khi kiểm tra
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
@@ -38,15 +50,10 @@ jobs:
           directory:     apps/fe     # Hoặc đổi sang thư mục build (vd: apps/fe/dist)
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
-
-      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
-      - name: Upload media to Cloudinary
+      
+      # Upload image/video to Cloudinary (sau khi đảm bảo tệp tồn tại)
+      - name: Upload Images/Videos to Cloudinary
         run: |
           curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
-          -F "file=@path/to/image_or_video" \
+          -F "file=@apps/fe/images/your_image_or_video.jpg" \
           -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
-
-      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
-      - name: Verify Upload to Cloudinary
-        run: |
-          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
