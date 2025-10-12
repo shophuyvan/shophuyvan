@@ -29,10 +29,6 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          # Lockfile ở ROOT do dùng npm workspaces
-          cache-dependency-path: |
-            package-lock.json
-            apps/mini/package-lock.json
 
       - name: Install deps (root, workspaces)
         run: npm ci
@@ -41,9 +37,6 @@ jobs:
 
       - name: Build MINI workspace
         run: npm -w apps/mini run build
-        # Nếu cần biến môi trường Vite, thêm vào env:
-        # env:
-        #   VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
 
       - name: Publish to Cloudflare Pages (MINI)
         uses: cloudflare/pages-action@v1
@@ -55,14 +48,8 @@ jobs:
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
 
-      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
-      - name: Upload media to Cloudinary
+      # Lấy URL hình ảnh từ Admin API để hiển thị trong Mini App (Zalo)
+      - name: Fetch product images and details
         run: |
-          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
-          -F "file=@path/to/image_or_video" \
-          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
-
-      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
-      - name: Verify Upload to Cloudinary
-        run: |
-          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
+          curl -X GET "https://admin-api.example.com/products"  # API Admin để lấy dữ liệu sản phẩm
+          # Sau khi có URL hình ảnh, hiển thị trên Zalo Mini App
