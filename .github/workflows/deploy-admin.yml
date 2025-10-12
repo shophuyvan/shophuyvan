@@ -1,3 +1,4 @@
+# .github/workflows/deploy-admin.yml
 name: Deploy Admin to Cloudflare Pages
 
 on:
@@ -22,19 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Bước build Admin Panel nếu cần
-      - name: Build Admin Panel
-        working-directory: apps/admin
-        run: |
-          npm install
-          npm run build
+      # (Nếu Admin có bước build, thêm ở đây – và đổi 'directory' bên dưới trỏ vào thư mục output)
+      # - name: Build Admin
+      #   working-directory: apps/admin
+      #   run: |
+      #     npm ci
+      #     npm run build
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: adminshophuyvan
-          directory: apps/admin/dist  # Hoặc thư mục build của Admin Panel
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName:   adminshophuyvan  # <- đúng tên project Pages cho Admin
+          directory:     apps/admin       # <- hoặc đổi sang thư mục build (vd: apps/admin/dist)
+          gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
