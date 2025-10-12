@@ -60,3 +60,15 @@ jobs:
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
           WRANGLER_LOG:     debug
         run: wrangler deploy
+
+      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
+      - name: Upload media to Cloudinary
+        run: |
+          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
+          -F "file=@path/to/image_or_video" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
+          
+      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
+      - name: Verify Upload to Cloudinary
+        run: |
+          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
