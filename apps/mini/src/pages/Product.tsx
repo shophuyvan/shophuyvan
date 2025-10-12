@@ -1,52 +1,86 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import VariantModal from '../components/VariantModal';
 import { api } from '@shared/api';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
 import cart from '@shared/cart';
 import { routes } from '../routes';
-// === SHV Cloudinary fetch helpers (Mini) ===
+
+// Lazy load modal để giảm bundle size
+const VariantModal = lazy(() => import('../components/VariantModal'));
+
+// Cache cho Cloudinary URLs
+const cloudCache = new Map<string, string>();
+
 function __cldName(): string | undefined {
   try {
-    // @ts-ignore
     const v = (import.meta as any)?.env?.VITE_CLOUDINARY_CLOUD || (window as any)?.__CLD_CLOUD__;
     return (typeof v === 'string' && v.trim()) ? v.trim() : undefined;
   } catch { return undefined; }
 }
-function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 'image'|'video' = 'image'): string | undefined {
+
+function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto:eco,f_auto', kind: 'image'|'video' = 'image'): string | undefined {
+  if (!u) return u;
+  
+  const cacheKey = `${u}-${t}-${kind}`;
+  if (cloudCache.has(cacheKey)) return cloudCache.get(cacheKey);
+  
   try {
-    if (!u) return u;
     const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
     const url = new URL(u, base);
     const isCLD = /res\.cloudinary\.com/i.test(url.hostname);
+    
     if (isCLD) {
-      if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
-      if (/\/upload\//.test(url.pathname)) {
-        url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
+      if (/\/upload\/[^/]+\//.test(url.pathname)) {
+        cloudCache.set(cacheKey, url.toString());
         return url.toString();
       }
+      if (/\/upload\//.test(url.pathname)) {
+        url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
+        const result = url.toString();
+        cloudCache.set(cacheKey, result);
+        return result;
+      }
+      cloudCache.set(cacheKey, url.toString());
       return url.toString();
     }
+    
     const cloud = __cldName();
     if (!cloud) return u;
+    
     const enc = encodeURIComponent(u);
     const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
-    return `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
+    const result = `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
+    cloudCache.set(cacheKey, result);
+    return result;
   } catch { return u; }
 }
-function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
-  return cldFetch(u, t, 'image');
-}
-
 
 type MediaItem = { type: 'image' | 'video'; src: string };
 
 function useQuery() {
   const u = new URL(location.href);
   return Object.fromEntries(u.searchParams.entries());
+}
+
+// Intersection Observer hook để lazy load media
+function useIntersectionObserver(ref: React.RefObject<Element>, options?: IntersectionObserverInit) {
+  const [isIntersecting, setIsIntersecting] = useState(false);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsIntersecting(entry.isIntersecting);
+    }, options);
+
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [ref, options]);
+
+  return isIntersecting;
 }
 
 export default function Product() {
@@ -65,32 +99,35 @@ export default function Product() {
   const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
     (async () => {
       try {
         if (!id) throw new Error('Thiếu id');
         const d = await api.products.detail(id);
-        setP(d);
+        if (isMounted) setP(d);
       } catch (e: any) {
-        setError(e?.message || 'Lỗi tải sản phẩm');
+        if (isMounted) setError(e?.message || 'Lỗi tải sản phẩm');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
+    
+    return () => { isMounted = false; };
   }, [id]);
 
-  // ⬇️ Quan trọng: Cho video đứng đầu để auto-play khi vào trang
+  // Video/images ưu tiên - video đầu để auto-play
   const media: MediaItem[] = useMemo(() => {
     if (!p) return [];
     const imgs = (p.images || []).map((src: string) => ({ type: 'image' as const, src }));
     const vids = (p.videos || []).map((src: string) => ({ type: 'video' as const, src }));
     const first = p.image ? [{ type: 'image' as const, src: p.image }] : [];
-    // Nếu có video -> video trước, sau đó đến ảnh đại diện & các ảnh còn lại
     const list = vids.length ? [...vids, ...first, ...imgs] : [...first, ...imgs];
     return list.length ? list : [{ type: 'image', src: '/public/icon.png' }];
   }, [p]);
 
   const active = media[Math.min(activeIndex, Math.max(0, media.length - 1))];
-  const variants = Array.isArray(p?.variants) ? p.variants : [];
+  const variants = useMemo(() => Array.isArray(p?.variants) ? p.variants : [], [p]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const range = useMemo(() => priceRange(variants), [variants]);
 
@@ -99,16 +136,19 @@ export default function Product() {
   const [dragPct, setDragPct] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Touch handlers - tối ưu với useCallback sẽ tốt hơn nhưng giữ nguyên logic
   const onTouchStart = (e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
     setDragPct(0);
   };
+  
   const onTouchMove = (e: React.TouchEvent) => {
     if (startXRef.current == null || !containerRef.current) return;
     const dx = e.touches[0].clientX - startXRef.current;
     const pct = (dx / containerRef.current.clientWidth) * 100;
     setDragPct(pct);
   };
+  
   const onTouchEnd = () => {
     if (startXRef.current == null || !containerRef.current) return;
     const threshold = 15;
@@ -121,22 +161,35 @@ export default function Product() {
     setDragPct(0);
   };
 
-  // Tự phát khi phần tử đang hiển thị là video
+  // Video auto-play tối ưu
   useEffect(() => {
     if (active?.type !== 'video' || !videoRef.current) return;
+    
     const v = videoRef.current;
-    const tryPlay = () =>
-      v.play().then(() => setIsPlaying(!v.paused)).catch(() => setIsPlaying(false));
+    let mounted = true;
+    
+    const tryPlay = async () => {
+      if (!mounted) return;
+      try {
+        await v.play();
+        if (mounted) setIsPlaying(!v.paused);
+      } catch {
+        if (mounted) setIsPlaying(false);
+      }
+    };
+    
     v.muted = true;
     (v as any).playsInline = true;
-    v.preload = 'auto';
-    tryPlay();
+    v.preload = 'metadata'; // Chỉ load metadata để nhanh hơn
+    
     const onLoaded = () => tryPlay();
     v.addEventListener('loadeddata', onLoaded, { once: true });
-    // Một số trình duyệt cần tương tác người dùng lần đầu
+    
     const onceGesture = () => tryPlay();
     window.addEventListener('touchend', onceGesture, { once: true, passive: true });
+    
     return () => {
+      mounted = false;
       v.removeEventListener('loadeddata', onLoaded);
     };
   }, [active?.type, active?.src, activeIndex]);
@@ -158,17 +211,42 @@ export default function Product() {
     cart.add(line, q);
   };
 
+  // Memoize description rendering
   const descHTML = useMemo(
     () => renderDescription(p?.description || p?.raw?.description_html || p?.raw?.description || ''),
     [p]
   );
 
+  // Preload next/prev images khi swipe
+  useEffect(() => {
+    if (media.length <= 1) return;
+    
+    const preloadIndices = [activeIndex - 1, activeIndex + 1].filter(i => i >= 0 && i < media.length);
+    preloadIndices.forEach(i => {
+      const item = media[i];
+      if (item.type === 'image') {
+        const img = new Image();
+        img.src = cldFetch(item.src, 'w_800,dpr_auto,q_auto:eco,f_auto') || item.src;
+      }
+    });
+  }, [activeIndex, media]);
+
   return (
     <div className="pb-24">
       <Header />
       <main className="max-w-4xl mx-auto p-3">
-        {loading && <div>Đang tải…</div>}
-        {!loading && error && <div className="text-red-600 text-sm">{error}</div>}
+        {loading && (
+          <div className="bg-white rounded-2xl p-3 shadow animate-pulse">
+            <div className="aspect-square bg-gray-200 rounded-xl mb-3"></div>
+            <div className="h-6 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        )}
+        
+        {!loading && error && (
+          <div className="text-red-600 text-sm bg-red-50 p-4 rounded-xl">{error}</div>
+        )}
+        
         {!loading && p && (
           <div className="bg-white rounded-2xl p-3 shadow">
             <div
@@ -186,30 +264,28 @@ export default function Product() {
                   <div key={'media-'+i+'-'+m.type+'-'+(m.src||'')} className="w-full shrink-0">
                     {m.type === 'image' ? (
                       <img
-                        src={m.src}
+                        src={cldFetch(m.src, i === 0 ? 'w_800,dpr_auto,q_auto:eco,f_auto' : 'w_400,dpr_auto,q_auto:eco,f_auto') || m.src}
                         className="w-full aspect-square object-cover"
-                        // Ưu tiên tải ảnh đang hiển thị để nhanh hơn
-                        loading={i === activeIndex ? 'eager' : 'lazy'}
+                        loading={i === 0 ? 'eager' : 'lazy'}
                         decoding="async"
-                        fetchpriority={i === activeIndex ? ('high' as any) : ('low' as any)}
+                        fetchPriority={i === 0 ? ('high' as any) : ('low' as any)}
                         alt={p?.name || 'image'}
                       />
                     ) : (
                       <div className="relative">
                         <video
-  id="pdp-video-mini"
-  className="w-full aspect-square"
-  muted
-  playsInline
-  preload="metadata"
-  src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')}
-  poster={cldFetch(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_800,dpr_auto,q_auto,f_auto', 'image')}
-  onPlay={() => setIsPlaying(true)}
-  onPause={() => setIsPlaying(false)}
-  onLoadedData={(e) => { try { e.currentTarget.currentTime = 0; } catch {} }}
-  controls={false}
-  onClick={togglePlay}
-/>
+                          ref={i === activeIndex ? videoRef : null}
+                          className="w-full aspect-square"
+                          muted
+                          playsInline
+                          preload="metadata"
+                          src={cldFetch(m.src, 'q_auto:eco,vc_auto', 'video')}
+                          poster={cldFetch(p?.image || (Array.isArray(p?.images) && p.images[0]) || undefined, 'w_400,dpr_auto,q_auto:eco,f_auto', 'image')}
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                          controls={false}
+                          onClick={togglePlay}
+                        />
                         {i === activeIndex && !isPlaying && (
                           <button
                             onClick={togglePlay}
@@ -227,7 +303,7 @@ export default function Product() {
                 ))}
               </div>
 
-              {/* Nút nổi */}
+              {/* Navigation buttons */}
               <div className="absolute left-2 top-2 z-10">
                 <button
                   onClick={() => { try { history.back(); } catch {} }}
@@ -282,6 +358,20 @@ export default function Product() {
                   </svg>
                 </button>
               </div>
+
+              {/* Dots indicator */}
+              {media.length > 1 && (
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+                  {media.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveIndex(i)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeIndex ? 'bg-white w-4' : 'bg-white/50'}`}
+                      aria-label={`Slide ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <h1 className="text-lg font-semibold mt-3">{p?.name}</h1>
@@ -304,10 +394,13 @@ export default function Product() {
             {!!descHTML && (
               <div className="mt-4">
                 <div
-                  className={'prose prose-sm max-w-none ' + (expanded ? '' : 'max-h-56 overflow-hidden')}
+                  className={'prose prose-sm max-w-none ' + (expanded ? '' : 'max-h-56 overflow-hidden relative')}
                   dangerouslySetInnerHTML={{ __html: descHTML }}
                 />
-                <button onClick={() => setExpanded((x) => !x)} className="mt-2 text-sky-600 text-sm">
+                {!expanded && (
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                )}
+                <button onClick={() => setExpanded((x) => !x)} className="mt-2 text-sky-600 text-sm font-medium">
                   {expanded ? 'Thu gọn' : 'Xem thêm'}
                 </button>
               </div>
@@ -317,12 +410,12 @@ export default function Product() {
       </main>
 
       {!loading && p && (
-        <div className="fixed left-0 right-0 bottom-0 bg-white border">
+        <div className="fixed left-0 right-0 bottom-0 bg-white border-t shadow-lg z-50">
           <div className="max-w-4xl mx-auto px-3 py-2 flex items-center gap-2">
             <div className="flex flex-col">
               <span className="text-xs text-gray-500">Số lượng</span>
               <div className="flex items-center gap-1">
-                <button className="w-7 h-7 rounded border" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+                <button className="w-7 h-7 rounded border hover:bg-gray-50" onClick={() => setQty((q) => Math.max(1, q - 1))}>
                   −
                 </button>
                 <input
@@ -332,7 +425,7 @@ export default function Product() {
                   onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
                   className="w-14 rounded border px-1 py-1 text-center"
                 />
-                <button className="w-7 h-7 rounded border" onClick={() => setQty((q) => q + 1)}>
+                <button className="w-7 h-7 rounded border hover:bg-gray-50" onClick={() => setQty((q) => q + 1)}>
                   +
                 </button>
               </div>
@@ -343,7 +436,7 @@ export default function Product() {
                 setModalMode('cart');
                 setModalOpen(true);
               }}
-              className="ml-auto rounded-2xl border border-rose-500 text-rose-600 px-4 py-2"
+              className="ml-auto rounded-2xl border border-rose-500 text-rose-600 px-4 py-2 hover:bg-rose-50 transition-colors"
             >
               Thêm giỏ hàng
             </button>
@@ -352,7 +445,7 @@ export default function Product() {
                 setModalMode('buy');
                 setModalOpen(true);
               }}
-              className="rounded-2xl bg-rose-500 text-white px-4 py-2"
+              className="rounded-2xl bg-rose-500 text-white px-4 py-2 hover:bg-rose-600 transition-colors"
             >
               MUA NGAY
             </button>
@@ -360,21 +453,23 @@ export default function Product() {
         </div>
       )}
 
-      <VariantModal
-        product={p}
-        variants={variants.length ? variants : [{ ...p, name: 'Mặc định' }]}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onAdd={(variant: any, q: number) => {
-          addLine(variant, q);
-          if (modalMode === 'buy') {
-            try {
-              location.href = routes.checkout;
-            } catch {}
-          }
-        }}
-        mode={modalMode}
-      />
+      <Suspense fallback={<div className="fixed inset-0 bg-black/20 z-50"></div>}>
+        <VariantModal
+          product={p}
+          variants={variants.length ? variants : [{ ...p, name: 'Mặc định' }]}
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onAdd={(variant: any, q: number) => {
+            addLine(variant, q);
+            if (modalMode === 'buy') {
+              try {
+                location.href = routes.checkout;
+              } catch {}
+            }
+          }}
+          mode={modalMode}
+        />
+      </Suspense>
 
       <Footer />
     </div>
