@@ -34,41 +34,36 @@ jobs:
       - name: Install Wrangler
         run: npm i -g wrangler@3
 
-      # ==== KIỂM TRA BIẾN MÔI TRƯỜNG ====
+      # ==== Kiểm tra môi trường ====
       - name: Echo env (debug)
         shell: bash
         run: |
           echo "CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
           if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then echo "API TOKEN: OK"; else echo "API TOKEN: MISSING"; fi
 
-      # ==== BUILD THỬ ====
+      # ==== Build và Deploy ====
       - name: Build dry-run (debug)
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # << dùng tên đúng
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
           WRANGLER_LOG:     debug
         run: wrangler deploy --dry-run
 
-      # ==== DEPLOY THẬT ====
       - name: Deploy wrangler
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # << dùng tên đúng
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SHIPPING_API_KEY: ${{ secrets.SHIPPING_API_KEY }}
           SUPER_BASE:       ${{ secrets.SUPER_BASE }}
           WRANGLER_LOG:     debug
         run: wrangler deploy
 
-      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
-      - name: Upload media to Cloudinary
-        run: |
-          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
-          -F "file=@path/to/image_or_video" \
-          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
-          
-      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
-      - name: Verify Upload to Cloudinary
-        run: |
-          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
+      # ==== Gửi Media (Hình ảnh/Video) ĐẾN Cloudinary đã có sẵn từ Admin - loại bỏ
+      # (Bỏ bước upload media ở đây vì Admin đã xử lý)
+      # - name: Upload media to Cloudinary
+      #   run: |
+      #     curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
+      #     -F "file=@path/to/your/image_or_video" \
+      #     -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
