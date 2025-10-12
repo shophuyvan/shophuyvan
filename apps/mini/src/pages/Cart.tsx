@@ -86,10 +86,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    // R2 storage logic added for Cloudinary images
-    const r2Url = (cloudinaryUrl) => {
-        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-    };
-    

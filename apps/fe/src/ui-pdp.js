@@ -276,7 +276,7 @@ function renderMedia(prefer){
     idx = (i+items.length)%items.length;
     const it = items[idx];
     if(it.type==='video'){
-      main.innerHTML = `<video id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
+      main.innerHTML = `<video autoplay muted playsinline id="pdp-video" playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
       const v=main.querySelector('#pdp-video'); v.src=it.src; v.load();
     }else{
       main.innerHTML = `<img src="${it.src}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.dataset.err=1;this.src='';this.closest('#media-main') && (function(){try{window.__pdp_show && __pdp_show('next');}catch{}})()" />`;
