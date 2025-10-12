@@ -1,16 +1,4 @@
 
-// Cloudinary SDK removed, using fetch API
-
-// Configure Cloudinary with your credentials
-cloudinary.config({
-  cloud_name: 'dtemskptf', // Your Cloudinary cloud name
-  api_key: '49963168148423', // Your Cloudinary API key
-  api_secret: 'OabB0WIvnIwLMvRU0bkczV49Hxc' // Your Cloudinary API secret
-});
-
-// Your R2 bucket endpoint (public development URL)
-const R2_BUCKET_URL = 'https://pub-7bc6e804e5364f50af9ce2bbcbc3d0d1.r2.dev';
-
 // === SHV Idempotency & Logs (patch) ===
 async function idemGet(req, env){
   try{
@@ -1569,9 +1557,3 @@ return json({ok:false, error:'not found'}, {status:404}, req);
     }
   }
 };
-// Cloudinary API integration using fetch
-async function fetchFromCloudinary(imageUrl) {
-    const response = await fetch(imageUrl);
-    const imageBlob = await response.blob();
-    return imageBlob;
-}
