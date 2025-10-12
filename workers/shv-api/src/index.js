@@ -1,5 +1,5 @@
 
-const cloudinary = require('cloudinary').v2;
+// Cloudinary SDK removed, using fetch API
 
 // Configure Cloudinary with your credentials
 cloudinary.config({
@@ -1569,3 +1569,9 @@ return json({ok:false, error:'not found'}, {status:404}, req);
     }
   }
 };
+// Cloudinary API integration using fetch
+async function fetchFromCloudinary(imageUrl) {
+    const response = await fetch(imageUrl);
+    const imageBlob = await response.blob();
+    return imageBlob;
+}
