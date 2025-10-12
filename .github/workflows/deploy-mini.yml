@@ -48,8 +48,4 @@ jobs:
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
 
-      # Lấy URL hình ảnh từ Admin API để hiển thị trong Mini App (Zalo)
-      - name: Fetch product images and details
-        run: |
-          curl -X GET "https://admin-api.example.com/products"  # API Admin để lấy dữ liệu sản phẩm
-          # Sau khi có URL hình ảnh, hiển thị trên Zalo Mini App
+      # Không cần Upload Images/Videos trong Mini App vì Admin đã xử lý upload
