@@ -1,4 +1,3 @@
-# .github/workflows/deploy-fe.yml
 name: Deploy FE to Cloudflare Pages
 
 on:
@@ -23,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # (Nếu FE có bước build, thêm ở đây – và đổi 'directory' bên dưới trỏ vào thư mục output)
+      # Nếu FE có bước build, thêm ở đây
       # - name: Build FE
       #   working-directory: apps/fe
       #   run: |
@@ -35,7 +34,19 @@ jobs:
         with:
           apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName:   shophuyvan      # <- đúng tên project Pages cho FE
-          directory:     apps/fe         # <- hoặc đổi sang thư mục build (vd: apps/fe/dist)
+          projectName:   shophuyvan  # Tên đúng của project Pages cho FE
+          directory:     apps/fe     # Hoặc đổi sang thư mục build (vd: apps/fe/dist)
           gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
           wranglerVersion: '3'
+
+      # ==== GỬI MEDIA (HÌNH ẢNH/VIDEO) ĐẾN CLOUDINARY (HOẶC R2) ====
+      - name: Upload media to Cloudinary
+        run: |
+          curl -X POST "https://shv-api.shophuyvan.workers.dev/upload" \
+          -F "file=@path/to/image_or_video" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDINARY_API_TOKEN }}"
+
+      # ==== (TUỲ CHỌN) KIỂM TRA KẾT QUẢ UPLOAD ====
+      - name: Verify Upload to Cloudinary
+        run: |
+          curl -X GET "https://shv-api.shophuyvan.workers.dev/check-upload-status"
