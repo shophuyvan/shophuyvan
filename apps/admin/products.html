@@ -34,14 +34,22 @@
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
 
+// ===== 🔥 CDN URL Helper =====
+function cdnUrl(url, transforms = 'w_400,dpr_auto,q_auto:eco,f_auto') {
+  if (!url) return './no-image.svg';
+  if (url.includes('res.cloudinary.com')) return url; // Already CDN
+  
+  // Hiển thị trực tiếp từ Workers.dev (không qua Cloudinary để tránh CORS)
+  return url;
+}
 
 function row(p){
   const frag = document.createDocumentFragment();
   const tr = document.createElement('tr');
-  const img = (p.images&&p.images[0]) || './no-image.svg';
+  const imgUrl = cdnUrl((p.images&&p.images[0]) || '');
   const price = p.price_sale || p.price || 0;
   tr.innerHTML = `
-    <td><img class="thumb" src="${img}"/></td>
+    <td><img class="thumb" src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/></td>
     <td>${p.title||p.name||''}</td>
     <td>${price}</td>
     <td>${p.slug||''}</td>

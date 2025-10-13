@@ -28,20 +28,18 @@
       <label>Tiêu đề</label>
       <div class="row">
         <div class="col"><input id="title" class="input" placeholder="Tên sản phẩm"/></div>
-        <div><button class="btn" id="aiTitle">AI gợi ý</button></div>
       </div>
 
       <label>Mô tả</label>
       <div class="row">
         <div class="col"><textarea id="desc" class="input" rows="6" placeholder="Mô tả chi tiết..."></textarea></div>
-        <div><button class="btn" id="aiDesc">AI gợi ý</button></div>
       </div>
 
       <div class="grid">
         <div class="row">
           <div class="col">
             <label>SEO Title</label>
-            <div class="row"><div class="col"><input id="seoTitle" class="input"/></div><div><button class="btn" id="aiSEO">AI SEO</button></div></div>
+            <div class="row"><div class="col"><input id="seoTitle" class="input"/></div></div>
             <label>SEO Desc</label><input id="seoDesc" class="input"/>
             <label>Keywords (phân tách dấu phẩy)</label>
             <div class="toolbar"><button id="pickCat" class="btn">+ Chọn danh mục</button></div>
@@ -53,10 +51,8 @@
             </div>
           </div>
           <div class="col">
-            <label>FAQ</label>
-            <div class="row"><div class="col"><textarea id="faq" class="input" rows="6" placeholder="Hỏi: ... | Đáp: ..."></textarea></div><div><button class="btn" id="aiFAQ">AI FAQ</button></div></div>
             <label>Đánh giá mẫu</label>
-            <div class="row"><div class="col"><textarea id="reviews" class="input" rows="4" placeholder='JSON reviews[]'></textarea></div><div><button class="btn" id="aiReviews">AI Reviews</button></div></div>
+            <div class="row"><div class="col"><textarea id="reviews" class="input" rows="4" placeholder='JSON reviews[]'></textarea></div></div>
           </div>
         </div>
       </div>
@@ -82,7 +78,6 @@
       <div class="row">
         <div class="col"><input id="imgFile" class="input" type="file" accept="image/*" multiple/></div>
         <div><button class="btn" id="upImg">Upload</button></div>
-        <div><button class="btn" id="aiAltAll">AI ALT ảnh</button></div>
       </div>
       <div id="imgs" class="list-images"></div>
 
@@ -93,20 +88,8 @@
     </div>
 
     <div class="col">
-      <label>Gợi ý</label>
-      <div id="suggest" class="ai-box"></div>
-
       <hr/>
       
-      <div class="toolbar">
-        <div class="title">AI SEO Studio</div>
-        <div class="row" style="gap:8px;align-items:center">
-          <button class="btn" id="openStudio">Mở Studio</button>
-          <button class="btn" id="pasteFromStudio">Dán từ Studio (Clipboard)</button>
-          <span class="hint">Ghép với https://ai.studio/… để soạn SEO trực tiếp</span>
-        </div>
-      </div>
-
       <div class="toolbar">
         <div class="title">Nhập gói ZIP sản phẩm</div>
         <input type="file" id="zipFile" accept=".zip" />
@@ -153,694 +136,331 @@
 #studioFrame{flex:1;border:0;width:100%}
 </style>
 
-<div id="studioModal">
-  <div id="studioWrap">
-    <div id="studioHead">
-      <div class="title">AI SEO Studio</div>
-      <div class="row" style="gap:8px">
-        <button class="btn" id="studioSend">Gửi dữ liệu hiện tại</button>
-        <button class="btn" id="studioClose">Đóng</button>
-      </div>
-    </div>
-    <iframe id="studioFrame" referrerpolicy="no-referrer"></iframe>
-  </div>
-</div>
-
 <script>
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>Array.from(document.querySelectorAll(s));
-const qs = (k)=> new URL(location.href).searchParams.get(k);
+// ===== CLOUDINARY UPLOAD HELPER =====
+// Thêm vào đầu file product_edit.html (trong thẻ <script>)
 
-Admin.ensureAuth();
-let state = { id: qs('id')||'', images:[], variants:[] };
+// Cloudinary config từ env
+const CLOUDINARY_CONFIG = {
+  cloudName: 'dtemskptf',
+  uploadPreset: 'shophuyvan', // unsigned preset
+  apiKey: '49963168148423'
+};
 
-// ===== 🔥 FIX: CDN URL Helper =====
-function cdnUrl(url, transforms = 'w_800,dpr_auto,q_auto:eco,f_auto') {
-  if (!url) return url;
-  if (url.includes('res.cloudinary.com')) return url; // Already CDN
-  
-  // Wrap Workers.dev URL through Cloudinary fetch
+/**
+ * Upload file lên Cloudinary
+ * @param {File} file - File cần upload (image/video)
+ * @param {Object} options - Tùy chọn upload
+ * @returns {Promise<string>} - URL của file trên Cloudinary
+ */
+async function uploadToCloudinary(file, options = {}) {
+  const {
+    folder = 'products',
+    transformation = null,
+    resourceType = null // auto-detect
+  } = options;
+
   try {
-    return `https://res.cloudinary.com/shophuyan/image/fetch/${transforms}/${encodeURIComponent(url)}`;
-  } catch(e) {
-    return url; // Fallback to original
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+    formData.append('folder', folder);
+    
+    // Tự động phát hiện loại file
+    const type = resourceType || (file.type.startsWith('video/') ? 'video' : 'image');
+    
+    // Thêm transformation nếu có (resize, quality, format)
+    if (transformation) {
+      formData.append('transformation', transformation);
+    }
+    
+    // Upload URL
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/${type}/upload`;
+    
+    console.log(`📤 Uploading ${type} to Cloudinary:`, file.name);
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message || 'Upload failed');
+    }
+    
+    console.log('✅ Cloudinary upload success:', data.secure_url);
+    
+    // Return optimized URL với transformations
+    return data.secure_url;
+    
+  } catch (error) {
+    console.error('❌ Cloudinary upload error:', error);
+    throw error;
   }
 }
 
-function normalizeItems(items){
-  try{
-    if(items==null) return [];
-    if(Array.isArray(items)) return items;
-    if(typeof items==='string'){
-      try{ const j = JSON.parse(items); return Array.isArray(j)?j:(j? [j]:[]); }catch{
-        const lines = items.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-        return lines.length ? lines : [items];
+/**
+ * Upload nhiều files song song
+ * @param {File[]} files - Array of files
+ * @param {Function} onProgress - Progress callback
+ * @returns {Promise<string[]>} - Array of URLs
+ */
+async function uploadMultipleToCloudinary(files, onProgress = null) {
+  const total = files.length;
+  let completed = 0;
+  const results = [];
+  
+  // Upload song song (max 3 concurrent)
+  const CHUNK_SIZE = 3;
+  for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+    const chunk = files.slice(i, i + CHUNK_SIZE);
+    const uploads = chunk.map(async (file) => {
+      try {
+        const url = await uploadToCloudinary(file);
+        completed++;
+        if (onProgress) {
+          onProgress(completed, total);
+        }
+        return url;
+      } catch (e) {
+        console.error('Failed to upload:', file.name, e);
+        return null;
       }
-    }
-    if(typeof items==='object'){
-      return [items];
-    }
-    return [];
-  }catch(e){ return []; }
-}
-
-function pushSuggest(items, apply){
-  const box = $('#suggest'); if (!box) return;
-  box.innerHTML='';
-  normalizeItems(items).forEach(it=>{
-    const div = document.createElement('div');
-    div.className='ai-item'; div.textContent = (typeof it==='string')? it : JSON.stringify(it);
-    div.onclick = ()=>apply(it);
-    box.appendChild(div);
-  });
-}
-
-async function ai(kind, payload, apply){
-  const r = await Admin.tryPaths([`/admin/ai/${kind}`], { method:'POST', body: payload });
-  if (r && r.ok){
-    const items = r.items||r.item||r.data||r.result||r.suggestions||r.text||r.output;
-    pushSuggest(items, apply);
-  } else {
-    Admin.toast('AI không phản hồi'); console.log(r);
+    });
+    
+    const chunkResults = await Promise.all(uploads);
+    results.push(...chunkResults);
   }
+  
+  return results.filter(Boolean);
 }
 
-$('#aiTitle')?.addEventListener('click', ()=>{
-  ai('title', { title: $('#title').value, price: Number($('#price_sale').value||$('#price').value||0) }, (text)=>{
-    $('#title').value = String(text).slice(0,120);
-  });
-});
-$('#aiDesc')?.addEventListener('click', ()=>{
-  ai('desc', { title: $('#title').value, desc: $('#desc').value }, (text)=>{ $('#desc').value = text; });
-});
-$('#aiSEO')?.addEventListener('click', ()=>{
-  ai('seo', { title:$('#title').value, desc:$('#desc').value }, (it)=>{
-    $('#seoTitle').value = it.title||'';
-    $('#seoDesc').value  = it.desc||'';
-    $('#keywords').value = (it.keywords||[]).join(', ');
-  });
-});
-$('#aiFAQ')?.addEventListener('click', ()=>{
-  ai('faq', { title:$('#title').value, desc:$('#desc').value }, (items)=>{
-    const s = (items||[]).map(x=>`Hỏi: ${x.q||x.question} | Đáp: ${x.a||x.answer}`).join('\n');
-    $('#faq').value = s;
-  });
-});
-$('#aiReviews')?.addEventListener('click', ()=>{
-  ai('reviews', { title:$('#title').value }, (items)=>{
-    $('#reviews').value = JSON.stringify(items||[], null, 2);
-  });
-});
-
-// ====== Upload helpers with dedupe ======
-async function blobHashSHA1(blob){
-  const buf = await blob.arrayBuffer();
-  const hash = await crypto.subtle.digest('SHA-1', buf);
-  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+/**
+ * Generate optimized Cloudinary URL
+ * @param {string} url - Original Cloudinary URL
+ * @param {Object} options - Transformation options
+ * @returns {string} - Optimized URL
+ */
+function optimizeCloudinaryUrl(url, options = {}) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  
+  const {
+    width = 800,
+    quality = 'auto',
+    format = 'auto',
+    crop = 'limit'
+  } = options;
+  
+  // Insert transformation vào URL
+  // From: https://res.cloudinary.com/dtemskptf/image/upload/v123/products/abc.jpg
+  // To:   https://res.cloudinary.com/dtemskptf/image/upload/w_800,q_auto,f_auto,c_limit/v123/products/abc.jpg
+  
+  const transformation = `w_${width},q_${quality},f_${format},c_${crop}`;
+  return url.replace('/upload/', `/upload/${transformation}/`);
 }
 
-async function doUpload(fileOrFiles){
-  const arr = (Array.isArray(fileOrFiles)?fileOrFiles:[fileOrFiles]).filter(Boolean);
+// ===== OVERRIDE HÀM doUpload CŨ =====
+// Thay thế hàm doUpload cũ trong product_edit.html
+
+async function doUpload(fileOrFiles) {
+  const arr = (Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles]).filter(Boolean);
+  
+  // Dedupe by name
   window.__UPLOAD_NAME_SET__ = window.__UPLOAD_NAME_SET__ || new Set();
-  window.__UPLOAD_HASH_SET__ = window.__UPLOAD_HASH_SET__ || new Set();
   const filtered = [];
-  for (const f of arr){
-    try{
-      const nameKey = (f.name||'').toLowerCase();
-      if (nameKey && window.__UPLOAD_NAME_SET__.has(nameKey)) continue;
-      let ok = true;
-      if (f && f.arrayBuffer){
-        const h = await blobHashSHA1(f);
-        if (window.__UPLOAD_HASH_SET__.has(h)) ok = false;
-        else window.__UPLOAD_HASH_SET__.add(h);
-      }
-      if(ok){
-        if(nameKey) window.__UPLOAD_NAME_SET__.add(nameKey);
-        filtered.push(f);
-      }
-    }catch(e){ filtered.push(f); }
+  for (const f of arr) {
+    const nameKey = (f.name || '').toLowerCase();
+    if (nameKey && window.__UPLOAD_NAME_SET__.has(nameKey)) {
+      console.log('⏭️ Skipping duplicate:', nameKey);
+      continue;
+    }
+    if (nameKey) window.__UPLOAD_NAME_SET__.add(nameKey);
+    filtered.push(f);
   }
-  if (!filtered.length) return [];
-  const fd = new FormData();
-  filtered.forEach(f=>fd.append('file', f));
-  let r = await Admin.req('/admin/upload', { method:'POST', body:fd });
-  if (!(r && r.ok)) r = await Admin.req('/admin/files', { method:'POST', body:fd });
-  if (r && r.ok && r.urls) return r.urls;
-  return [];
+  
+  if (!filtered.length) {
+    console.log('⚠️ No files to upload');
+    return [];
+  }
+  
+  // Show progress
+  const toast = (msg) => {
+    if (window.Admin && Admin.toast) {
+      Admin.toast(msg);
+    } else {
+      console.log(msg);
+    }
+  };
+  
+  toast(`Đang upload ${filtered.length} file...`);
+  
+  try {
+    // Upload to Cloudinary
+    const urls = await uploadMultipleToCloudinary(filtered, (completed, total) => {
+      console.log(`📊 Progress: ${completed}/${total}`);
+    });
+    
+    if (urls.length > 0) {
+      toast(`✅ Đã upload ${urls.length}/${filtered.length} file`);
+    } else {
+      toast('❌ Upload thất bại');
+    }
+    
+    return urls;
+    
+  } catch (error) {
+    console.error('Upload error:', error);
+    toast('❌ Lỗi upload: ' + error.message);
+    return [];
+  }
 }
 
-$('#upImg')?.addEventListener('click', async ()=>{
-  const files = Array.from($('#imgFile').files||[]);
-  if (!files.length) return alert('Chọn ảnh');
-  const urls = await doUpload(files);
-  if (urls.length){ state.images.push(...urls); renderImgs(); }
-});
+// ===== HELPER: Hiển thị ảnh từ Cloudinary =====
+// Không cần wrap URL nữa, dùng thẳng
 
-$('#upVideo')?.addEventListener('click', async ()=>{
-  const f = ($('#videoFile').files||[])[0];
-  if (!f) return alert('Chọn video');
-  const urls = await doUpload(f);
-  if (urls[0]) $('#video').value = urls[0];
-});
-
-// ===== 🔥 FIX: Render Images with CDN =====
-function renderImgs(){
-  const box = $('#imgs'); box.innerHTML='';
-  (state.images||[]).forEach((url, idx)=>{
-    const wrap = document.createElement('div'); wrap.className='image-card';
+function renderImgs() {
+  const box = $('#imgs');
+  if (!box) return;
+  
+  box.innerHTML = '';
+  
+  (state.images || []).forEach((url, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'image-card';
+    
+    // Optimize URL cho thumbnail
+    const thumbUrl = optimizeCloudinaryUrl(url, { width: 400, quality: 'auto:eco' });
+    
     wrap.innerHTML = `
-      <img src="${cdnUrl(url)}" alt="image-${idx}" loading="lazy" onerror="this.onerror=null; this.src='${url}'"/>
+      <img src="${thumbUrl}" 
+           alt="image-${idx}" 
+           loading="lazy"
+           onerror="this.src='${url}'"/>
       <div class="row" style="margin-top:6px">
         <button class="btn" onclick="setCover(${idx})">Đặt cover</button>
         <button class="btn danger" onclick="delImg(${idx})">Xoá</button>
       </div>`;
+    
     box.appendChild(wrap);
   });
 }
 
-window.setCover = (idx)=>{
-  if (idx>0){
-    const t = state.images[0]; state.images[0] = state.images[idx]; state.images[idx] = t;
-    renderImgs();
-  }
-};
-window.delImg = (idx)=>{ state.images.splice(idx,1); renderImgs(); };
+// ===== VIDEO UPLOAD =====
+// Sửa event listener cho video upload
 
-$('#aiAltAll')?.addEventListener('click', async ()=>{
-  const urls = (state.images||[]).slice(0,8);
-  if (!urls.length) return;
-  const r = await Admin.req('/admin/ai/alt', { method:'POST', body:{ images: urls } });
-  if (r && r.ok && r.items) pushSuggest(r.items, (text)=>{ /* keep as suggestions only */ });
+$('#upVideo')?.addEventListener('click', async () => {
+  const f = ($('#videoFile').files || [])[0];
+  if (!f) return alert('Chọn video');
+  
+  try {
+    // Video cần upload riêng vì lâu hơn
+    if (window.Admin && Admin.toast) {
+      Admin.toast('Đang upload video, vui lòng đợi...');
+    }
+    
+    const url = await uploadToCloudinary(f, { folder: 'products/videos' });
+    
+    if (url) {
+      $('#video').value = url;
+      if (window.Admin && Admin.toast) {
+        Admin.toast('✅ Upload video thành công');
+      }
+    }
+  } catch (e) {
+    alert('Upload video thất bại: ' + e.message);
+  }
 });
 
-// ===== 🔥 FIX: Variants with CDN =====
-$('#addVar')?.addEventListener('click', ()=> addVar({}));
+// ===== VARIANTS IMAGE =====
+// Sửa hàm addVar để dùng Cloudinary
 
-function addVar(v={}){
-  const id = Math.random().toString(36).slice(2,8);
-  const box = document.createElement('div'); box.className='card';
+function addVar(v = {}) {
+  const id = Math.random().toString(36).slice(2, 8);
+  const box = document.createElement('div');
+  box.className = 'card';
+  
+  // Optimize variant image
+  const variantImg = v.image ? optimizeCloudinaryUrl(v.image, { width: 200 }) : './no-image.svg';
+  
   box.innerHTML = `
     <div class="row">
       <div class="col">
-        <label>Tên biến thể</label><input class="input" data-f="name" value="${v.name||''}"/>
+        <label>Tên biến thể</label><input class="input" data-f="name" value="${v.name || ''}"/>
       </div>
       <div><button class="btn danger" data-del>Xoá</button></div>
     </div>
     <div class="row">
-      <div class="col"><label>Giá bán</label><input class="input" type="number" data-f="price" value="${v.price||0}"/></div>
-      <div class="col"><label>Giá sale</label><input class="input" type="number" data-f="price_sale" value="${v.price_sale||0}"/></div>
-      <div class="col"><label>Giá nhập</label><input class="input" type="number" data-f="cost" value="${v.cost||0}"/></div>
-      <div class="col"><label>Cân nặng (gram)</label><input class="input" type="number" step="1" data-f="weight" placeholder="vd: 300 (gram)" value="${v.weight||0}"/></div>
-      <div class="col"><label>Tồn kho</label><input class="input" type="number" data-f="stock" value="${v.stock||0}"/></div>
+      <div class="col"><label>Giá bán</label><input class="input" type="number" data-f="price" value="${v.price || 0}"/></div>
+      <div class="col"><label>Giá sale</label><input class="input" type="number" data-f="price_sale" value="${v.price_sale || 0}"/></div>
+      <div class="col"><label>Giá nhập</label><input class="input" type="number" data-f="cost" value="${v.cost || 0}"/></div>
+      <div class="col"><label>Cân nặng (gram)</label><input class="input" type="number" step="1" data-f="weight" placeholder="vd: 300 (gram)" value="${v.weight || 0}"/></div>
+      <div class="col"><label>Tồn kho</label><input class="input" type="number" data-f="stock" value="${v.stock || 0}"/></div>
     </div>
     <div class="row">
       <div class="col"><label>Ảnh</label><input type="file" data-f="file" accept="image/*"/></div>
-      <div><img data-f="thumb" class="thumb" src="${v.image ? cdnUrl(v.image) : './no-image.svg'}"/></div>
+      <div><img data-f="thumb" class="thumb" src="${variantImg}"/></div>
       <div><button class="btn" data-up>Upload</button></div>
     </div>`;
-  const variants = $('#variants'); variants.appendChild(box);
-  box.querySelector('[data-del]').onclick = ()=> box.remove();
-  box.querySelector('[data-up]').onclick = async ()=>{
+  
+  const variants = $('#variants');
+  if (variants) variants.appendChild(box);
+  
+  box.querySelector('[data-del]').onclick = () => box.remove();
+  
+  box.querySelector('[data-up]').onclick = async () => {
     const f = box.querySelector('[data-f="file"]').files[0];
     if (!f) return alert('Chọn ảnh');
-    const urls = await doUpload(f);
-    if (urls[0]) box.querySelector('[data-f="thumb"]').src = cdnUrl(urls[0]);
-  };
-}
-
-function parseFaq(text){
-  const lines = (text||'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
-  return lines.map(s=>{
-    const m = s.split('|');
-    const q = (m[0]||'').replace(/^Hỏi:\s*/i,'').trim();
-    const a = (m[1]||'').replace(/^Đáp:\s*/i,'').trim();
-    return { q, a };
-  });
-}
-
-function parseReviews(text){
-  try{ const j = JSON.parse(text); if(Array.isArray(j)) return j; }catch(e){}
-  return [];
-}
-
-function gramsOf(v){
-  const raw = String(v||'').trim().replace(',','.');
-  if(!raw) return 0;
-  let num = Number(raw);
-  if(isNaN(num)) return 0;
-  if(/[.,]/.test(raw) && num > 0 && num <= 50) return Math.round(num * 1000);
-  return Math.round(num);
-}
-
-$('#saveBtn')?.addEventListener('click', async ()=>{
-  const vs = Array.from($('#variants').children||[]).map(div=>{
-    const g = (sel)=> div.querySelector(sel);
-    return {
-      name: g('[data-f="name"]').value.trim(),
-      price: Number(g('[data-f="price"]').value||0),
-      price_sale: Number(g('[data-f="price_sale"]').value||0),
-      cost: Number(g('[data-f="cost"]').value||0),
-      weight: gramsOf(g('[data-f="weight"]').value),
-      stock: Number(g('[data-f="stock"]').value||0),
-      image: g('[data-f="thumb"]').src
-    };
-  });
-
-  const payload = {
-    id: state.id||undefined,
-    title: $('#title').value.trim(),
-    slug:  $('#slug').value.trim(),
-    desc:  $('#desc').value.trim(),
-    seoTitle: $('#seoTitle').value.trim(),
-    seoDesc: $('#seoDesc').value.trim(),
-    keywords: ($('#keywords').value||'').split(',').map(s=>s.trim()).filter(Boolean),
-    faq: parseFaq($('#faq').value),
-    reviews: parseReviews($('#reviews').value),
-    price: Number($('#price').value||0),
-    price_sale: Number($('#price_sale').value||0),
-    cost: Number($('#cost').value||0),
-    weight: gramsOf($('#weight').value),
-    stock: Number($('#stock').value||0),
-    images: state.images||[],
-    category: ($('#category')?.value||'').trim(),
-    category_slug: ($('#category')?.value||'').trim(),
-    video: $('#video').value.trim(),
-    variants: vs,
-    schema_json: (function(){ const el=$('#schemaJson'); if(!el) return null; const v=el.value.trim(); try{ return JSON.parse(v);}catch(_){ return v||null; } })(),
-    desc_template: $('#descTemplate')?.value||''
-  };
-
-  let r = await Admin.req('/admin/products/upsert', { method:'POST', body: payload });
-  if (!(r && r.ok)) r = await Admin.req('/admin/product', { method:'POST', body: payload });
-  if (!(r && r.ok)) r = await Admin.req('/admin/product/upsert', { method:'POST', body: payload });
-  if (r && r.ok){
-    Admin.toast('Đã lưu');
-    if (!state.id && r.id) state.id = r.id;
-    setTimeout(()=>{ location.href = './products.html?v='+Date.now(); }, 600);
-  } else {
-    alert('Lưu thất bại'); console.log(r);
-  }
-});
-
-// Pre-fill when editing
-(async function init(){
-  Admin.renderApiBase();
-  document.getElementById('btnGemini').onclick = async ()=>{ const r = await Admin.req('/admin/ai/ping'); alert(r && r.ok ? ('Gemini: '+(r.ready?'READY':'MISSING KEY')) : 'Không kết nối được'); };
-  const id = state.id;
-  if (!id) return;
-  const r = await Admin.tryPaths([
-    '/admin/products/get?id='+encodeURIComponent(id),
-    '/admin/product?id='+encodeURIComponent(id)
-  ]);
-  if (r && (r.item || r.data)){
-    const d = r.item || r.data;
-    $('#title').value = d.title||d.name||'';
-    $('#desc').value  = d.desc||d.description||'';
-    $('#slug').value  = d.slug||'';
-    $('#price').value = d.price||0;
-    $('#price_sale').value = d.price_sale||0;
-    $('#cost').value = d.cost||0;
-    $('#weight').value = d.weight||0;
-    $('#stock').value = d.stock||0;
-    $('#seoTitle').value = (d.seo?.title) || d.seoTitle || '';
-    $('#seoDesc').value  = (d.seo?.desc)  || d.seoDesc  || '';
-    $('#keywords').value = ((d.seo?.keywords)||d.keywords||[]).join(', ');
-    $('#video').value = d.video||'';
-    state.images = d.images||[]; renderImgs();
-    if($('#category')){ const slugPref = d.category_slug||d.category||d.categoryId||''; $('#category').value = slugPref; const pv = $('#categoryPreview'); if(pv && slugPref){ pv.textContent = slugPref; pv.style.display='inline-block'; } }
-    (d.variants||[]).forEach(v=> addVar(v));
-  }
-})();
-
-// Categories Helper
-async function loadCategoriesFlex(){
-  const endpoints = ['/public/categories','/categories','/api/categories','/admin/categories','/v1/categories'];
-  for (const ep of endpoints){
-    try{
-      const r = await Admin.req(ep);
-      const arr = Array.isArray(r) ? r : Array.isArray(r?.items) ? r.items : Array.isArray(r?.data) ? r.data : Array.isArray(r?.result) ? r.result : Array.isArray(r?.results) ? r.results : null;
-      if (arr && arr.length) return arr;
-    }catch(e){}
-  }
-  return [
-    { name: 'Thiết Bị Điện & Nước', slug: 'dien-nuoc', order: 1 },
-    { name: 'Nhà Cửa Đời Sống', slug: 'nha-cua-doi-song', order: 2 },
-    { name: 'Hoá Chất Gia Dụng', slug: 'hoa-chat-gia-dung', order: 3 },
-    { name: 'Dụng Cụ & Thiết Bị Tiện Ích', slug: 'dung-cu-thiet-bi-tien-ich', order: 4 },
-  ];
-}
-
-function renderCatPicker(items){
-  const ov = document.createElement('div'); ov.id='__cat_overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center';
-  const box = document.createElement('div');
-  box.style.cssText = 'width:min(540px,94vw);max-height:82vh;overflow:auto;background:#fff;border:1px solid #d0d7e1;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:14px';
-  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:700">Chọn danh mục</div><button id="__cat_close" class="btn">Đóng</button></div>'
-                + '<input id="__cat_search" class="input" placeholder="Tìm tên/slug..." style="margin-bottom:8px"/>'
-                + '<div id="__cat_list"></div>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  const list = box.querySelector('#__cat_list');
-  function paint(filter){
-    list.innerHTML = '';
-    const f = String(filter||'').trim().toLowerCase();
-    const arr = (items||[]).slice().sort((a,b)=> (a.order||0)-(b.order||0) || String(a.name||'').localeCompare(String(b.name||''),'vi'));
-    arr.forEach(c=>{
-      const name = c.name||c.title||''; const slug = c.slug||c.code||'';
-      if(f && !(String(name).toLowerCase().includes(f) || String(slug).toLowerCase().includes(f))) return;
-      const row = document.createElement('div');
-      row.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid #eef2f7;align-items:center';
-      row.innerHTML = '<div><div style="font-weight:600">'+name+'</div><div style="font-size:12px;color:#687385">'+slug+'</div></div>'
-                    + '<button class="btn primary" data-pick="'+slug+'">Chọn</button>';
-      list.appendChild(row);
-    });
-  }
-  paint('');
-  box.querySelector('#__cat_search').addEventListener('input', (e)=>paint(e.target.value));
-  box.addEventListener('click', (e)=>{
-    const btn = e.target && (e.target.closest ? e.target.closest('[data-pick]') : null);
-    if(!btn) return;
-    const slug = btn.dataset.pick;
-    const inp = $('#category');
-    if (inp) inp.value = slug;
-    const pv = $('#categoryPreview');
-    if (pv){ pv.textContent = slug; pv.style.display='inline-block'; }
-    (window.Admin?.toast||alert)('Đã chọn danh mục: '+slug);
-    ov.remove();
-  });
-  box.querySelector('#__cat_close').onclick = ()=> ov.remove();
-  ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.remove(); });
-}
-
-$('#pickCat')?.addEventListener('click', async ()=>{
-  try{
-    const cats = await loadCategoriesFlex();
-    renderCatPicker(cats||[]);
-  }catch(e){ alert('Không tải được danh mục'); }
-});
-
-// ===== SEO File Import =====
-function getSection(src, name){
-  const re = new RegExp('---\\s*'+name.replace(/[.*+?^${}()|[\\]\\]/g,'\\      row.innerHTML = '<div><div style="font-weight:600">'+name+'</div><div style="font-size:12px;color:#687385">'+slug+'</div></div>'
-                    + '<button class="')+'\\s*---([\\s\\S]*?)(?=\n---|$)','i');
-  const m = src.match(re);
-  return m ? (m[1]||'').trim() : '';
-}
-function getTitle(src){
-  const m = src.match(/TÊN\s*SẢN\s*PHẨM\s*:\s*(.+)/i);
-  return m ? m[1].trim() : '';
-}
-function parseFaqPairs(block){
-  const out = [];
-  const re = /Hỏi\s*:\s*([^\n]+)[\s\S]*?Đáp\s*:\s*([^\n]+)(?:\n\n|$)/gi;
-  let m; while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
-  if(!out.length){ return block.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
-  return out;
-}
-$('#applySeo')?.addEventListener('click', async ()=>{
-  const f = $('#seoFile')?.files?.[0];
-  if(!f) return alert('Chọn file .txt hoặc .md trước');
-  const txtFile = await f.text();
-  const title = getTitle(txtFile);
-  const seoTitle = getSection(txtFile, 'TIÊU ĐỀ SEO');
-  const shortDesc = getSection(txtFile, 'MÔ TẢ NGẮN');
-  const details = getSection(txtFile, 'THÔNG TIN CHI TIẾT');
-  const keywords = getSection(txtFile, 'TỪ KHOÁ|TỪ KHÓA');
-  const faq = getSection(txtFile, 'CÂU HỎI THƯỜNG GẶP \\(FAQ\\)');
-  const videoTitle = getSection(txtFile, 'TIÊU ĐỀ VIDEO');
-  if(title) $('#title').value = title;
-  if(seoTitle) $('#seoTitle').value = seoTitle;
-  const desc = [shortDesc, details].filter(Boolean).join('\n\n');
-  if(desc) $('#desc').value = desc;
-  if(keywords){
-    const ks = keywords.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
-    $('#keywords').value = ks.join(', ');
-  }
-  if(faq){
-    const lines = parseFaqPairs(faq);
-    $('#faq').value = lines.join('\n');
-  }
-  if(videoTitle && !$('#video').value){
-    const sd = $('#seoDesc');
-    if(sd && !sd.value) sd.value = videoTitle;
-  }
-  (window.Admin?.toast||alert)('Đã nhập dữ liệu SEO từ file');
-});
-
-// ===== Helpers: SEO parse & layout =====
-function _sec(src, name){
-  const re = new RegExp('---\\s*'+name+'\\s*---([\\s\\S]*?)(?=\\n---|$)','i'); const m = src.match(re);
-  return m ? (m[1]||'').trim() : '';
-}
-function _titleOf(src){
-  const m = src.match(/TÊN\s*SẢN\s*PHẨM\s*:\s*(.+)/i); return m ? m[1].trim() : '';
-}
-function _slugOf(src){
-  return _sec(src, 'URL SLUG').split(/\s+/).join('-').replace(/[^a-z0-9-]/gi,'').toLowerCase();
-}
-function _keywordsOf(src){
-  const ks = _sec(src, 'TỪ KHOÁ|TỪ KHÓA'); 
-  return ks ? ks.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ') : '';
-}
-function _faqOf(src){
-  const block = _sec(src, 'CÂU HỎI THƯỜNG GẶP \\(FAQ\\)'); if(!block) return '';
-  const out=[]; const re=/Hỏi\s*:\s*([^\n]+)[\s\S]*?Đáp\s*:\s*([^\n]+)(?:\n\n|$)/gi; let m;
-  while((m=re.exec(block))){ out.push('Hỏi: '+m[1].trim()+' | Đáp: '+m[2].trim()); }
-  return out.length? out.join('\n') : block;
-}
-function _formatDesc(shortTxt, detailsTxt){
-  function bullets(txt){
-    if(!txt) return '';
-    const items = txt.replace(/[*•]/g,'').split(/\n+|;|\u2022/).map(s=>s.trim()).filter(Boolean);
-    if(!items.length) return txt;
-    return items.map(s=>'- '+s).join('\n');
-  }
-  const h = (t)=> (t?('## '+t+'\n'):'');
-  const short = bullets(shortTxt);
-  const details = bullets(detailsTxt);
-  return h('Mô tả ngắn')+short+'\n\n'+h('Thông tin chi tiết')+details;
-}
-
-// ===== ZIP Import =====
-$('#applyZip')?.addEventListener('click', async ()=>{
-  if(window.__SHV_ZIP_BUSY__) return alert('Đang xử lý ZIP, vui lòng đợi...');
-  window.__SHV_ZIP_BUSY__ = true;
-  try{
-  const f = $('#zipFile')?.files?.[0];
-  if(!f) return alert('Chọn file .zip trước');
-  let zip;
-  try{ zip = await JSZip.loadAsync(f); }catch(e){ return alert('Không đọc được ZIP: '+e); }
-  const getText = async (name)=>{
-    let file = zip.file(name) || zip.file(new RegExp(name, 'i'))[0];
-    return file ? await file.async('string') : '';
-  };
-  const listFiles = (prefix, exts)=>{
-    const out=[];
-    zip.forEach((path, file)=>{
-      if(file.dir) return;
-      if(prefix && !path.toLowerCase().startsWith(prefix)) return;
-      if(exts && !exts.test(path)) return;
-      out.push(path);
-    });
-    return out;
-  };
-
-  const seo = await getText('ket-qua-seo.txt');
-  if(seo){
-    const title = _titleOf(seo);
-    const seoTitle = _sec(seo, 'TIÊU ĐỀ SEO');
-    const shortDesc = _sec(seo, 'MÔ TẢ NGẮN');
-    const details = _sec(seo, 'THÔNG TIN CHI TIẾT');
-    const slug = _sec(seo, 'URL SLUG') || (title?title.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s-]/ig,'').trim().replace(/\s+/g,'-').toLowerCase():'');
-    if(title) $('#title').value = title;
-    if(seoTitle) $('#seoTitle').value = seoTitle;
-    if(slug) $('#slug').value = slug;
-    const kw = _keywordsOf(seo); if(kw) $('#keywords').value = kw;
-    const faq = _faqOf(seo); if(faq) $('#faq').value = faq;
-    const desc = _formatDesc(shortDesc, details);
-    if(desc) $('#desc').value = desc;
-  }
-
-  const schemaText = await getText('schema.json');
-  if(schemaText){ try{ $('#schemaJson').value = schemaText; }catch(e){} }
-
-  const vids = listFiles('', /\.(mp4|webm|mov)$/i);
-  if(vids[0]){
-    if(!$('#video').value){
-      const blob = await zip.file(vids[0]).async('blob');
-      const file = new File([blob], vids[0].split('/').pop(), {type: blob.type||'video/mp4'});
-      try{
-        const urls = await doUpload(file);
-        if(urls[0]) $('#video').value = urls[0];
-      }catch(e){ console.log('Upload video lỗi', e); }
-    }
-  }
-
-  const imgs = listFiles('images', /\.(png|jpe?g|webp|gif)$/i);
-  if(imgs.length){
-    const files = [];
-    const existNames = new Set((state.images||[]).map(u=>String(u).split('/').pop().toLowerCase()));
-    for (const p of imgs){
-      const blob = await zip.file(p).async('blob');
-      const name = p.split('/').pop();
-      if(existNames.has(String(name).toLowerCase())) continue;
-      files.push(new File([blob], name, {type: blob.type||'image/*'}));
-    }
-    try{
-      if(files.length){
-        const urls = await doUpload(files);
-        if(urls?.length){
-          const before = new Set(state.images||[]);
-          (state.images = [...before, ...urls]);
-          renderImgs();
-        }
+    
+    try {
+      const url = await uploadToCloudinary(f);
+      if (url) {
+        const optimized = optimizeCloudinaryUrl(url, { width: 200 });
+        box.querySelector('[data-f="thumb"]').src = optimized;
+        // Lưu URL gốc vào data attribute
+        box.querySelector('[data-f="thumb"]').dataset.original = url;
       }
-    }catch(e){ console.log('Upload ảnh lỗi', e); }
-  }
-
-  (window.Admin?.toast||alert)('Đã áp dụng nội dung từ ZIP');
-  } finally { window.__SHV_ZIP_BUSY__ = false; }
-});
-
-// === Description templates by category ===
-function templateByCat(cat, title){
-  const H = (t)=> (t?('## '+t+'\n'):''); const bl = (arr)=> arr.map(s=>'- '+s).join('\n');
-  switch(cat){
-    case 'gia-dung':
-      return H(title) + H('Đặc điểm nổi bật') + bl(['Chất liệu bền bỉ, an toàn','Thiết kế tiện dụng, dễ vệ sinh','Phù hợp nhiều không gian']);
-    case 'thoi-trang':
-      return H(title) + H('Thông tin sản phẩm') + bl(['Chất liệu thoáng mát','Form chuẩn, dễ phối đồ','Màu sắc/Size đa dạng']) + '\n\n'+H('Hướng dẫn bảo quản')+bl(['Giặt nhẹ, tránh phai màu','Phơi nơi thoáng mát']);
-    case 'dien-tu':
-      return H(title) + H('Tính năng chính') + bl(['Hiệu suất ổn định','Tiết kiệm năng lượng','Bảo hành chính hãng']) + '\n\n'+H('Thông số kỹ thuật')+bl(['Điện áp: ...','Công suất: ...','Kích thước: ...']);
-    case 'my-pham':
-      return H(title) + H('Công dụng') + bl(['Dưỡng ẩm, làm mềm da','Hỗ trợ phục hồi da','Phù hợp nhiều loại da']) + '\n\n'+H('Thành phần & HDSD')+bl(['Thành phần chính: ...','Cách dùng: ...']) + '\n\n'+H('Lưu ý')+bl(['Test trước khi dùng','Tránh xa tầm tay trẻ em']);
-    default: return '';
-  }
-}
-$('#applyTemplate')?.addEventListener('click', ()=>{
-  const cat = $('#descTemplate').value;
-  if(!cat) return alert('Chọn ngành hàng');
-  const title = $('#title').value.trim();
-  const t = templateByCat(cat, title);
-  if(!t) return;
-  const cur = $('#desc').value.trim();
-  $('#desc').value = (cur? (t+'\n\n'+cur) : t);
-  (window.Admin?.toast||alert)('Đã áp dụng template mô tả');
-});
-
-// === Schema JSON-LD generator ===
-function buildSchemaFromForm(){
-  const title = $('#title').value.trim();
-  const desc  = $('#desc').value.trim();
-  const slug  = $('#slug').value.trim();
-  const imgs  = (state.images||[]).slice(0,8);
-  const price = Number($('#price_sale').value||$('#price').value||0) || 0;
-  const weightG = gramsOf($('#weight').value)||0;
-  const sku = slug || title.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/gi,'');
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: title,
-    description: desc,
-    sku: sku,
-    image: imgs,
-    weight: {'@type':'QuantitativeValue', value: weightG, unitCode: 'GRM'},
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'VND',
-      price: String(price),
-      availability: 'https://schema.org/InStock',
-      url: (window.location && window.location.href) || ''
+    } catch (e) {
+      alert('Upload thất bại: ' + e.message);
     }
   };
-  return JSON.stringify(schema, null, 2);
 }
-$('#schemaAuto')?.addEventListener('click', ()=>{
-  $('#schemaJson').value = buildSchemaFromForm();
-  (window.Admin?.toast||alert)('Đã tạo Schema JSON-LD từ dữ liệu form');
-});
 
-// ===== AI SEO Studio Integration =====
-(function(){
-  const STUDIO_URL = 'https://ai.studio/apps/drive/1I360f-vc91CdgftIdA5k_6jMJF3B4jUJ';
-  const modal = $('#studioModal');
-  const frame = $('#studioFrame');
+// ===== TEST CLOUDINARY =====
+// Thêm button test trong admin
 
-  function openStudio(){
-    try{
-      frame.src = STUDIO_URL;
-      modal.style.display = 'block';
-      (window.Admin?.toast||console.log)('Đang mở AI SEO Studio...');
-    }catch(e){
-      window.open(STUDIO_URL, '_blank');
-    }
-  }
-  function closeStudio(){ modal.style.display='none'; frame.src='about:blank'; }
-
-  function dataForStudio(){
-    return {
-      type: 'SEO_STUDIO_INPUT',
-      payload: {
-        title: $('#title')?.value||'',
-        seoTitle: $('#seoTitle')?.value||'',
-        desc: $('#desc')?.value||'',
-        keywords: $('#keywords')?.value||'',
-        faq: $('#faq')?.value||'',
-      }
-    };
-  }
-
-  $('#openStudio')?.addEventListener('click', openStudio);
-  $('#studioClose')?.addEventListener('click', closeStudio);
-  $('#studioSend')?.addEventListener('click', ()=>{
-    try{ frame.contentWindow.postMessage(dataForStudio(), '*'); }catch(e){}
-  });
-
-  window.addEventListener('message', (e)=>{
-    if(!String(e.origin||'').includes('ai.studio')) return;
-    const data = e.data||{};
-    if(data.type==='SEO_STUDIO_SAVE' || data.type==='SEO_STUDIO_PUBLISH'){
-      applySeoPayload(data.payload||{});
-      (window.Admin?.toast||alert)('Đã nhận nội dung từ AI Studio');
-      if(data.type==='SEO_STUDIO_PUBLISH'){
-        $('#saveBtn')?.click();
-      }
+function testCloudinaryConnection() {
+  // Test upload với 1x1 pixel image
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], 'test.png', { type: 'image/png' });
+    
+    try {
+      const url = await uploadToCloudinary(file, { folder: 'test' });
+      console.log('✅ Cloudinary connection OK:', url);
+      alert('Cloudinary kết nối thành công!\n' + url);
+    } catch (e) {
+      console.error('❌ Cloudinary connection failed:', e);
+      alert('Cloudinary kết nối thất bại:\n' + e.message);
     }
   });
+}
 
-  $('#pasteFromStudio')?.addEventListener('click', async ()=>{
-    try{
-      const t = await navigator.clipboard.readText();
-      if(!t) return alert('Clipboard trống');
-      applySeoText(t);
-      (window.Admin?.toast||alert)('Đã dán nội dung từ clipboard');
-    }catch(e){ alert('Không đọc được clipboard: ' + e); }
-  });
+// Expose to window for testing
+window.testCloudinaryConnection = testCloudinaryConnection;
+window.uploadToCloudinary = uploadToCloudinary;
+window.optimizeCloudinaryUrl = optimizeCloudinaryUrl;
 
-  function applySeoPayload(p){
-    if(p.title) $('#title').value = p.title;
-    if(p.seoTitle) $('#seoTitle').value = p.seoTitle;
-    if(p.desc) $('#desc').value = p.desc;
-    if(p.keywords) $('#keywords').value = Array.isArray(p.keywords)? p.keywords.join(', ') : p.keywords;
-    if(p.faq) $('#faq').value = Array.isArray(p.faq)? p.faq.map(x=>`Hỏi: ${x.q} | Đáp: ${x.a}`).join('\n') : p.faq;
-  }
-
-  function applySeoText(src){
-    function sec(name){ const re = new RegExp('---\\s*'+name+'\\s*---([\\s\\S]*?)(?=\\n---|$)','i'); const m = src.match(re); return m? (m[1]||'').trim():''; }
-    const title = (src.match(/TÊN\s*SẢN\s*PHẨM\s*:\s*(.+)/i)||[])[1] || (src.split(/\n+/).map(s=>s.trim()).filter(Boolean)[0]||'');
-    const seoTitle = sec('TIÊU ĐỀ SEO');
-    const shortDesc = sec('MÔ TẢ NGẮN');
-    const details = sec('THÔNG TIN CHI TIẾT');
-    const keywords = sec('TỪ KHOÁ|TỪ KHÓA');
-    const faq = sec('CÂU HỎI THƯỜNG GẶP \\(FAQ\\)');
-    if(title) $('#title').value = title;
-    if(seoTitle) $('#seoTitle').value = seoTitle;
-    const desc = [shortDesc, details].filter(Boolean).join('\n\n');
-    if(desc) $('#desc').value = desc;
-    if(keywords) $('#keywords').value = keywords.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean).join(', ');
-    if(faq) $('#faq').value = faq.split(/\n+/).map(s=>s.trim()).filter(Boolean).join('\n');
-  }
-})();
+console.log('✅ Cloudinary upload module loaded');
+console.log('📝 Test: window.testCloudinaryConnection()');
 </script>
 
 </body></html>

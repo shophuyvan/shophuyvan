@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0ea5e9">
+  <title>Offline - Shop Huy Vân</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 420px;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon {
+      font-size: 6rem;
+      margin-bottom: 1.5rem;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    p {
+      font-size: 1.125rem;
+      opacity: 0.95;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 1rem 2rem;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      backdrop-filter: blur(10px);
+    }
+
+    .info {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      font-size: 0.875rem;
+      opacity: 0.9;
+    }
+
+    .info strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background: rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .icon {
+        font-size: 4rem;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    
+    <h1>Bạn đang offline</h1>
+    
+    <p>
+      Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng của bạn và thử lại.
+    </p>
+
+    <div class="status">
+      <span class="status-dot"></span>
+      <span>Không có kết nối internet</span>
+    </div>
+
+    <div class="button-group">
+      <button onclick="window.location.reload()" class="primary">
+        <span>🔄</span>
+        <span>Thử lại</span>
+      </button>
+      
+      <button onclick="goHome()" class="secondary">
+        <span>🏠</span>
+        <span>Về trang chủ</span>
+      </button>
+    </div>
+
+    <div class="info">
+      <strong>💡 Gợi ý:</strong>
+      <p style="margin: 0.5rem 0 0 0; line-height: 1.6;">
+        • Kiểm tra WiFi/4G của bạn<br>
+        • Bật lại chế độ máy bay nếu đang bật<br>
+        • Di chuyển đến nơi có sóng tốt hơn
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function goHome() {
+      window.location.href = '/';
+    }
+
+    // Auto retry khi có network
+    window.addEventListener('online', () => {
+      console.log('🟢 Back online, reloading...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    });
+
+    // Check connection every 5 seconds
+    setInterval(() => {
+      if (navigator.onLine) {
+        window.location.reload();
+      }
+    }, 5000);
+  </script>
+</body>
+</html>
