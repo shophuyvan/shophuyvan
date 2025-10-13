@@ -24,28 +24,28 @@
   <div class="grid cols-2">
     <div class="col">
       <div class="toolbar">
-        <button id="btnGemini" class="btn">Kiểm tra Gemini</button>
         <button id="btnTestCloudinary" class="btn">Test Cloudinary</button>
+        <label for="zipFile" class="btn primary" style="cursor:pointer">📦 Import từ ZIP</label>
+        <input id="zipFile" type="file" accept=".zip" style="display:none"/>
       </div>
       
       <label>Tiêu đề</label>
-      <div class="row">
-        <div class="col"><input id="title" class="input" placeholder="Tên sản phẩm"/></div>
-        <div><button class="btn" id="aiTitle">AI gợi ý</button></div>
-      </div>
+      <input id="title" class="input" placeholder="Tên sản phẩm"/>
 
-      <label>Mô tả</label>
-      <div class="row">
-        <div class="col"><textarea id="desc" class="input" rows="6" placeholder="Mô tả chi tiết..."></textarea></div>
-        <div><button class="btn" id="aiDesc">AI gợi ý</button></div>
-      </div>
+      <label>Mô tả ngắn (Hiển thị trong danh sách sản phẩm)</label>
+      <textarea id="shortDesc" class="input" rows="3" placeholder="Mô tả ngắn gọn về sản phẩm..."></textarea>
+
+      <label>Mô tả chi tiết (Nội dung chính - Hỗ trợ HTML)</label>
+      <textarea id="desc" class="input" rows="12" placeholder="Nội dung chi tiết với cấu trúc HTML...&#10;Ví dụ:&#10;<h1>Tiêu đề chính</h1>&#10;<h2>Tiêu đề phụ</h2>&#10;<p>Đoạn văn...</p>"></textarea>
+      <div class="hint">💡 Sử dụng &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt; để tạo cấu trúc tiêu đề rõ ràng</div>
 
       <div class="grid">
         <div class="row">
           <div class="col">
             <label>SEO Title</label>
-            <div class="row"><div class="col"><input id="seoTitle" class="input"/></div><div><button class="btn" id="aiSEO">AI SEO</button></div></div>
-            <label>SEO Desc</label><input id="seoDesc" class="input"/>
+            <input id="seoTitle" class="input"/>
+            <label>SEO Desc</label>
+            <input id="seoDesc" class="input"/>
             <label>Keywords (phân tách dấu phẩy)</label>
             <div class="toolbar"><button id="pickCat" class="btn">+ Chọn danh mục</button></div>
             <input id="keywords" class="input"/>
@@ -57,9 +57,9 @@
           </div>
           <div class="col">
             <label>FAQ</label>
-            <div class="row"><div class="col"><textarea id="faq" class="input" rows="6" placeholder="Hỏi: ... | Đáp: ..."></textarea></div><div><button class="btn" id="aiFAQ">AI FAQ</button></div></div>
-            <label>Đánh giá mẫu</label>
-            <div class="row"><div class="col"><textarea id="reviews" class="input" rows="4" placeholder='JSON reviews[]'></textarea></div><div><button class="btn" id="aiReviews">AI Reviews</button></div></div>
+            <textarea id="faq" class="input" rows="6" placeholder="Hỏi: ... | Đáp: ..."></textarea>
+            <label>Đánh giá mẫu (JSON)</label>
+            <textarea id="reviews" class="input" rows="4" placeholder='[{"name":"Nguyễn A","rating":5,"comment":"Tốt"}]'></textarea>
           </div>
         </div>
       </div>
@@ -85,7 +85,6 @@
       <div class="row">
         <div class="col"><input id="imgFile" class="input" type="file" accept="image/*" multiple/></div>
         <div><button class="btn" id="upImg">Upload</button></div>
-        <div><button class="btn" id="aiAltAll">AI ALT ảnh</button></div>
       </div>
       <div id="imgs" class="list-images"></div>
 
@@ -96,9 +95,6 @@
     </div>
 
     <div class="col">
-      <label>Gợi ý</label>
-      <div id="suggest" class="ai-box"></div>
-      <hr/>
       <div class="toolbar">
         <div class="title">Biến thể</div>
         <button id="addVar" class="btn">+ Thêm biến thể</button>
@@ -213,6 +209,185 @@ async function doUpload(fileOrFiles) {
   }
 }
 
+// ===== ZIP IMPORT FUNCTIONS =====
+function extractTextFromZip(txtContent) {
+  const sections = {};
+  const lines = txtContent.split('\n');
+  let currentKey = null;
+  let currentValue = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('---') && trimmed.endsWith('---')) {
+      if (currentKey) {
+        sections[currentKey] = currentValue.join('\n').trim();
+      }
+      currentKey = trimmed.replace(/^---\s*/, '').replace(/\s*---$/, '').trim();
+      currentValue = [];
+    } else if (currentKey) {
+      currentValue.push(line);
+    }
+  }
+  
+  if (currentKey) {
+    sections[currentKey] = currentValue.join('\n').trim();
+  }
+  
+  return sections;
+}
+
+function parseDetailedContent(content) {
+  if (!content) return '';
+  
+  // Chuyển markdown thành HTML với cấu trúc rõ ràng
+  let html = content;
+  
+  // Xử lý tiêu đề với thứ tự ưu tiên
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  
+  // Xử lý bullet points
+  html = html.replace(/^[✅✓] (.+)$/gm, '<li>$1</li>');
+  
+  // Xử lý in đậm
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  
+  // Wrap các li vào ul
+  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+  
+  // Xử lý đoạn văn (các dòng không phải heading hoặc list)
+  const parts = html.split(/(<h[123]>.*?<\/h[123]>|<ul>.*?<\/ul>)/gs);
+  html = parts.map(part => {
+    if (part.match(/^<(h[123]|ul)>/)) return part;
+    return part.trim() ? `<p>${part.trim()}</p>` : '';
+  }).join('\n');
+  
+  return html;
+}
+
+async function importFromZip(file) {
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const toast = (msg) => (window.Admin?.toast || console.log)(msg);
+    
+    toast('📦 Đang xử lý file ZIP...');
+    
+    // Tìm file .txt
+    let txtFile = null;
+    let txtContent = '';
+    
+    for (const [filename, zipEntry] of Object.entries(zip.files)) {
+      if (filename.endsWith('.txt') && !zipEntry.dir) {
+        txtFile = zipEntry;
+        txtContent = await txtFile.async('text');
+        break;
+      }
+    }
+    
+    if (!txtContent) {
+      alert('Không tìm thấy file .txt trong ZIP');
+      return;
+    }
+    
+    // Parse nội dung
+    const sections = extractTextFromZip(txtContent);
+    console.log('Sections found:', Object.keys(sections));
+    
+    // Điền thông tin vào form
+    if (sections['TÊN SẢN PHẨM']) {
+      $('#title').value = sections['TÊN SẢN PHẨM'];
+    }
+    
+    if (sections['URL SLUG']) {
+      $('#slug').value = sections['URL SLUG'];
+    }
+    
+    if (sections['MÔ TẢ NGẮN']) {
+      $('#shortDesc').value = sections['MÔ TẢ NGẮN'];
+    }
+    
+    if (sections['THÔNG TIN CHI TIẾT']) {
+      const htmlContent = parseDetailedContent(sections['THÔNG TIN CHI TIẾT']);
+      $('#desc').value = htmlContent;
+    }
+    
+    if (sections['TIÊU ĐỀ SEO']) {
+      $('#seoTitle').value = sections['TIÊU ĐỀ SEO'];
+    }
+    
+    if (sections['MÔ TẢ NGẮN']) {
+      $('#seoDesc').value = sections['MÔ TẢ NGẮN'];
+    }
+    
+    // Parse keywords
+    const kwSources = [
+      sections['TỪ KHÓA TIÊU ĐỀ'],
+      sections['TỪ KHÓA MÔ TẢ'],
+      sections['TỪ KHÓA CHÍNH']
+    ].filter(Boolean);
+    
+    if (kwSources.length > 0) {
+      const allKeywords = new Set();
+      kwSources.forEach(kw => {
+        kw.split(',').forEach(k => allKeywords.add(k.trim()));
+      });
+      $('#keywords').value = Array.from(allKeywords).join(', ');
+    }
+    
+    // Parse FAQ
+    if (sections['CÂU HỎI THƯỜNG GẶP (FAQ)']) {
+      const faqLines = sections['CÂU HỎI THƯỜNG GẶP (FAQ)']
+        .split('\n')
+        .filter(line => line.includes('Hỏi:') || line.includes('Đáp:'));
+      
+      const faqPairs = [];
+      for (let i = 0; i < faqLines.length; i += 2) {
+        if (faqLines[i] && faqLines[i + 1]) {
+          faqPairs.push(`${faqLines[i].trim()}\n${faqLines[i + 1].trim()}`);
+        }
+      }
+      $('#faq').value = faqPairs.join('\n');
+    }
+    
+    // Parse Schema.org để lấy thông tin sản phẩm
+    if (sections['SCHEMA.ORG JSON-LD']) {
+      try {
+        const schema = JSON.parse(sections['SCHEMA.ORG JSON-LD']);
+        // Có thể extract thêm thông tin từ schema nếu cần
+      } catch (e) {
+        console.error('Schema parse error:', e);
+      }
+    }
+    
+    // Upload hình ảnh từ ZIP
+    const imageFiles = [];
+    for (const [filename, zipEntry] of Object.entries(zip.files)) {
+      if (filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) && !zipEntry.dir) {
+        const blob = await zipEntry.async('blob');
+        const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+        imageFiles.push(file);
+      }
+    }
+    
+    if (imageFiles.length > 0) {
+      toast(`📤 Đang upload ${imageFiles.length} hình ảnh...`);
+      const urls = await doUpload(imageFiles);
+      if (urls.length) {
+        state.images.push(...urls);
+        renderImgs();
+        toast(`✅ Đã upload ${urls.length} hình ảnh`);
+      }
+    }
+    
+    toast('✅ Import thành công!');
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    alert('Lỗi khi import ZIP: ' + error.message);
+  }
+}
+
 // ===== MAIN SCRIPT =====
 const $ = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
@@ -220,73 +395,6 @@ const qs = (k)=> new URL(location.href).searchParams.get(k);
 
 Admin.ensureAuth();
 let state = { id: qs('id')||'', images:[], variants:[] };
-
-function normalizeItems(items){
-  try{
-    if(items==null) return [];
-    if(Array.isArray(items)) return items;
-    if(typeof items==='string'){
-      try{ const j = JSON.parse(items); return Array.isArray(j)?j:(j? [j]:[]); }catch{
-        return items.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-      }
-    }
-    if(typeof items==='object') return [items];
-    return [];
-  }catch(e){ return []; }
-}
-
-function pushSuggest(items, apply){
-  const box = $('#suggest'); if (!box) return;
-  box.innerHTML='';
-  normalizeItems(items).forEach(it=>{
-    const div = document.createElement('div');
-    div.className='ai-item'; 
-    div.textContent = (typeof it==='string')? it : JSON.stringify(it);
-    div.onclick = ()=>apply(it);
-    box.appendChild(div);
-  });
-}
-
-async function ai(kind, payload, apply){
-  const r = await Admin.tryPaths([`/admin/ai/${kind}`], { method:'POST', body: payload });
-  if (r && r.ok){
-    const items = r.items||r.item||r.data||r.result||r.suggestions||r.text||r.output;
-    pushSuggest(items, apply);
-  } else {
-    Admin.toast('AI không phản hồi');
-  }
-}
-
-$('#aiTitle')?.addEventListener('click', ()=>{
-  ai('title', { title: $('#title').value, price: Number($('#price_sale').value||$('#price').value||0) }, (text)=>{
-    $('#title').value = String(text).slice(0,120);
-  });
-});
-
-$('#aiDesc')?.addEventListener('click', ()=>{
-  ai('desc', { title: $('#title').value, desc: $('#desc').value }, (text)=>{ $('#desc').value = text; });
-});
-
-$('#aiSEO')?.addEventListener('click', ()=>{
-  ai('seo', { title:$('#title').value, desc:$('#desc').value }, (it)=>{
-    $('#seoTitle').value = it.title||'';
-    $('#seoDesc').value  = it.desc||'';
-    $('#keywords').value = (it.keywords||[]).join(', ');
-  });
-});
-
-$('#aiFAQ')?.addEventListener('click', ()=>{
-  ai('faq', { title:$('#title').value, desc:$('#desc').value }, (items)=>{
-    const s = (items||[]).map(x=>`Hỏi: ${x.q||x.question} | Đáp: ${x.a||x.answer}`).join('\n');
-    $('#faq').value = s;
-  });
-});
-
-$('#aiReviews')?.addEventListener('click', ()=>{
-  ai('reviews', { title:$('#title').value }, (items)=>{
-    $('#reviews').value = JSON.stringify(items||[], null, 2);
-  });
-});
 
 $('#upImg')?.addEventListener('click', async ()=>{
   const files = Array.from($('#imgFile').files||[]);
@@ -334,13 +442,6 @@ window.setCover = (idx)=>{
 };
 window.delImg = (idx)=>{ state.images.splice(idx,1); renderImgs(); };
 
-$('#aiAltAll')?.addEventListener('click', async ()=>{
-  const urls = (state.images||[]).slice(0,8);
-  if (!urls.length) return;
-  const r = await Admin.req('/admin/ai/alt', { method:'POST', body:{ images: urls } });
-  if (r && r.ok && r.items) pushSuggest(r.items, (text)=>{ });
-});
-
 $('#addVar')?.addEventListener('click', ()=> addVar({}));
 
 function addVar(v={}){
@@ -351,6 +452,9 @@ function addVar(v={}){
     <div class="row">
       <div class="col">
         <label>Tên biến thể</label><input class="input" data-f="name" value="${v.name||''}"/>
+      </div>
+      <div class="col">
+        <label>SKU</label><input class="input" data-f="sku" value="${v.sku||''}" placeholder="Mã SKU"/>
       </div>
       <div><button class="btn danger" data-del>Xoá</button></div>
     </div>
@@ -418,6 +522,7 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
     const thumb = g('[data-f="thumb"]');
     return {
       name: g('[data-f="name"]').value.trim(),
+      sku: g('[data-f="sku"]').value.trim(),
       price: Number(g('[data-f="price"]').value||0),
       price_sale: Number(g('[data-f="price_sale"]').value||0),
       cost: Number(g('[data-f="cost"]').value||0),
@@ -431,6 +536,7 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
     id: state.id||undefined,
     title: $('#title').value.trim(),
     slug:  $('#slug').value.trim(),
+    shortDesc: $('#shortDesc').value.trim(),
     desc:  $('#desc').value.trim(),
     seoTitle: $('#seoTitle').value.trim(),
     seoDesc: $('#seoDesc').value.trim(),
@@ -461,13 +567,17 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
   }
 });
 
+// ===== ZIP IMPORT =====
+$('#zipFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    await importFromZip(file);
+    e.target.value = ''; // Reset input
+  }
+});
+
 (async function init(){
   Admin.renderApiBase();
-  
-  document.getElementById('btnGemini').onclick = async ()=>{ 
-    const r = await Admin.req('/admin/ai/ping'); 
-    alert(r && r.ok ? ('Gemini: '+(r.ready?'READY':'MISSING KEY')) : 'Không kết nối được'); 
-  };
   
   document.getElementById('btnTestCloudinary').onclick = async ()=>{
     const canvas = document.createElement('canvas');
@@ -494,6 +604,7 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
   if (r && (r.item || r.data)){
     const d = r.item || r.data;
     $('#title').value = d.title||d.name||'';
+    $('#shortDesc').value = d.shortDesc||'';
     $('#desc').value  = d.desc||d.description||'';
     $('#slug').value  = d.slug||'';
     $('#price').value = d.price||0;
@@ -522,79 +633,4 @@ $('#saveBtn')?.addEventListener('click', async ()=>{
   }
 })();
 
-async function loadCategoriesFlex(){
-  const endpoints = ['/public/categories','/categories','/api/categories','/admin/categories'];
-  for (const ep of endpoints){
-    try{
-      const r = await Admin.req(ep);
-      const arr = Array.isArray(r) ? r : Array.isArray(r?.items) ? r.items : null;
-      if (arr && arr.length) return arr;
-    }catch(e){}
-  }
-  return [
-    { name: 'Thiết Bị Điện & Nước', slug: 'dien-nuoc', order: 1 },
-    { name: 'Nhà Cửa Đời Sống', slug: 'nha-cua-doi-song', order: 2 },
-    { name: 'Hoá Chất Gia Dụng', slug: 'hoa-chat-gia-dung', order: 3 },
-    { name: 'Dụng Cụ & Thiết Bị Tiện Ích', slug: 'dung-cu-thiet-bi-tien-ich', order: 4 }
-  ];
-}
-
-function renderCatPicker(items){
-  const ov = document.createElement('div'); 
-  ov.id='__cat_overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center';
-  const box = document.createElement('div');
-  box.style.cssText = 'width:min(540px,94vw);max-height:82vh;overflow:auto;background:#fff;border:1px solid #d0d7e1;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:14px';
-  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:700">Chọn danh mục</div><button id="__cat_close" class="btn">Đóng</button></div>'
-                + '<input id="__cat_search" class="input" placeholder="Tìm tên/slug..." style="margin-bottom:8px"/>'
-                + '<div id="__cat_list"></div>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  
-  const list = box.querySelector('#__cat_list');
-  function paint(filter){
-    list.innerHTML = '';
-    const f = String(filter||'').trim().toLowerCase();
-    const arr = (items||[]).slice().sort((a,b)=> (a.order||0)-(b.order||0));
-    arr.forEach(c=>{
-      const name = c.name||c.title||''; 
-      const slug = c.slug||c.code||'';
-      if(f && !(String(name).toLowerCase().includes(f) || String(slug).toLowerCase().includes(f))) return;
-      const row = document.createElement('div');
-      row.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid #eef2f7;align-items:center';
-      row.innerHTML = '<div><div style="font-weight:600">'+name+'</div><div style="font-size:12px;color:#687385">'+slug+'</div></div>'
-                    + '<button class="btn primary" data-pick="'+slug+'">Chọn</button>';
-      list.appendChild(row);
-    });
-  }
-  
-  paint('');
-  box.querySelector('#__cat_search').addEventListener('input', (e)=>paint(e.target.value));
-  box.addEventListener('click', (e)=>{
-    const btn = e.target && (e.target.closest ? e.target.closest('[data-pick]') : null);
-    if(!btn) return;
-    const slug = btn.dataset.pick;
-    const inp = $('#category');
-    if (inp) inp.value = slug;
-    const pv = $('#categoryPreview');
-    if (pv){ pv.textContent = slug; pv.style.display='inline-block'; }
-    Admin.toast('Đã chọn danh mục: '+slug);
-    ov.remove();
-  });
-  
-  box.querySelector('#__cat_close').onclick = ()=> ov.remove();
-  ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.remove(); });
-}
-
-$('#pickCat')?.addEventListener('click', async ()=>{
-  try{
-    const cats = await loadCategoriesFlex();
-    renderCatPicker(cats||[]);
-  }catch(e){ alert('Không tải được danh mục'); }
-});
-
-console.log('✅ Cloudinary upload ready');
-console.log('📝 Config:', CLOUDINARY_CONFIG);
-</script>
-
-</body></html>
+async function loadCategor
