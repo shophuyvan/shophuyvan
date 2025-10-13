@@ -5,82 +5,17 @@ import { api } from '@shared/api';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, priceRange } from '@shared/utils/price';
 import { renderDescription } from '@shared/utils/md';
+import { cldFetch } from '@shared/utils/cloudinary';
 import cart from '@shared/cart';
 import { routes } from '../routes';
 
-// Lazy load modal để giảm bundle size
 const VariantModal = lazy(() => import('../components/VariantModal'));
-
-// Cache cho Cloudinary URLs
-const cloudCache = new Map<string, string>();
-
-function __cldName(): string | undefined {
-  try {
-    const v = (import.meta as any)?.env?.VITE_CLOUDINARY_CLOUD || (window as any)?.__CLD_CLOUD__;
-    return (typeof v === 'string' && v.trim()) ? v.trim() : undefined;
-  } catch { return undefined; }
-}
-
-function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto:eco,f_auto', kind: 'image'|'video' = 'image'): string | undefined {
-  if (!u) return u;
-  
-  const cacheKey = `${u}-${t}-${kind}`;
-  if (cloudCache.has(cacheKey)) return cloudCache.get(cacheKey);
-  
-  try {
-    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
-    const url = new URL(u, base);
-    const isCLD = /res\.cloudinary\.com/i.test(url.hostname);
-    
-    if (isCLD) {
-      if (/\/upload\/[^/]+\//.test(url.pathname)) {
-        cloudCache.set(cacheKey, url.toString());
-        return url.toString();
-      }
-      if (/\/upload\//.test(url.pathname)) {
-        url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
-        const result = url.toString();
-        cloudCache.set(cacheKey, result);
-        return result;
-      }
-      cloudCache.set(cacheKey, url.toString());
-      return url.toString();
-    }
-    
-    const cloud = __cldName();
-    if (!cloud) return u;
-    
-    const enc = encodeURIComponent(u);
-    const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
-    const result = `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
-    cloudCache.set(cacheKey, result);
-    return result;
-  } catch { return u; }
-}
 
 type MediaItem = { type: 'image' | 'video'; src: string };
 
 function useQuery() {
   const u = new URL(location.href);
   return Object.fromEntries(u.searchParams.entries());
-}
-
-// Intersection Observer hook để lazy load media
-function useIntersectionObserver(ref: React.RefObject<Element>, options?: IntersectionObserverInit) {
-  const [isIntersecting, setIsIntersecting] = useState(false);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    
-    const observer = new IntersectionObserver(([entry]) => {
-      setIsIntersecting(entry.isIntersecting);
-    }, options);
-
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [ref, options]);
-
-  return isIntersecting;
 }
 
 export default function Product() {
@@ -91,10 +26,8 @@ export default function Product() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [qty, setQty] = useState(1);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'cart' | 'buy'>('cart');
-
   const [expanded, setExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -113,17 +46,18 @@ export default function Product() {
       }
     })();
     
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
-  // Video/images ưu tiên - video đầu để auto-play
   const media: MediaItem[] = useMemo(() => {
     if (!p) return [];
     const imgs = (p.images || []).map((src: string) => ({ type: 'image' as const, src }));
     const vids = (p.videos || []).map((src: string) => ({ type: 'video' as const, src }));
     const first = p.image ? [{ type: 'image' as const, src: p.image }] : [];
     const list = vids.length ? [...vids, ...first, ...imgs] : [...first, ...imgs];
-    return list.length ? list : [{ type: 'image', src: '/public/icon.png' }];
+    return list.length ? list : [{ type: 'image', src: '/icon.png' }];
   }, [p]);
 
   const active = media[Math.min(activeIndex, Math.max(0, media.length - 1))];
@@ -136,7 +70,6 @@ export default function Product() {
   const [dragPct, setDragPct] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Touch handlers - tối ưu với useCallback sẽ tốt hơn nhưng giữ nguyên logic
   const onTouchStart = (e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
     setDragPct(0);
@@ -161,7 +94,6 @@ export default function Product() {
     setDragPct(0);
   };
 
-  // Video auto-play tối ưu
   useEffect(() => {
     if (active?.type !== 'video' || !videoRef.current) return;
     
@@ -180,7 +112,7 @@ export default function Product() {
     
     v.muted = true;
     (v as any).playsInline = true;
-    v.preload = 'metadata'; // Chỉ load metadata để nhanh hơn
+    v.preload = 'metadata';
     
     const onLoaded = () => tryPlay();
     v.addEventListener('loadeddata', onLoaded, { once: true });
@@ -211,13 +143,11 @@ export default function Product() {
     cart.add(line, q);
   };
 
-  // Memoize description rendering
   const descHTML = useMemo(
     () => renderDescription(p?.description || p?.raw?.description_html || p?.raw?.description || ''),
     [p]
   );
 
-  // Preload next/prev images khi swipe
   useEffect(() => {
     if (media.length <= 1) return;
     
@@ -261,7 +191,7 @@ export default function Product() {
                 style={{ transform: `translateX(calc(-${activeIndex * 100}% + ${dragPct}%))` }}
               >
                 {media.map((m, i) => (
-                  <div key={'media-'+i+'-'+m.type+'-'+(m.src||'')} className="w-full shrink-0">
+                  <div key={`media-${i}-${m.type}-${m.src}`} className="w-full shrink-0">
                     {m.type === 'image' ? (
                       <img
                         src={cldFetch(m.src, i === 0 ? 'w_800,dpr_auto,q_auto:eco,f_auto' : 'w_400,dpr_auto,q_auto:eco,f_auto') || m.src}
@@ -303,7 +233,6 @@ export default function Product() {
                 ))}
               </div>
 
-              {/* Navigation buttons */}
               <div className="absolute left-2 top-2 z-10">
                 <button
                   onClick={() => { try { history.back(); } catch {} }}
@@ -329,15 +258,24 @@ export default function Product() {
                     </svg>
                   </button>
                   {shareOpen && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white/95 rounded-xl shadow-lg border p-2 text-sm">
+                    <div className="absolute right-0 mt-2 w-40 bg-white/95 rounded-xl shadow-lg border p-2 text-sm z-50">
                       <button
-                        onClick={() => { const u = location.href; const t = (p?.name||''); window.open('https://zalo.me/share?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t),'_blank'); setShareOpen(false); }}
+                        onClick={() => {
+                          const u = location.href;
+                          const t = p?.name || '';
+                          window.open(`https://zalo.me/share?url=${encodeURIComponent(u)}&title=${encodeURIComponent(t)}`, '_blank');
+                          setShareOpen(false);
+                        }}
                         className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100"
                       >
                         Chia sẻ Zalo
                       </button>
                       <button
-                        onClick={() => { const u = location.href; window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(u),'_blank'); setShareOpen(false); }}
+                        onClick={() => {
+                          const u = location.href;
+                          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}`, '_blank');
+                          setShareOpen(false);
+                        }}
                         className="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100"
                       >
                         Chia sẻ Facebook
@@ -359,7 +297,6 @@ export default function Product() {
                 </button>
               </div>
 
-              {/* Dots indicator */}
               {media.length > 1 && (
                 <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
                   {media.map((_, i) => (
@@ -392,17 +329,22 @@ export default function Product() {
             ) : null}
 
             {!!descHTML && (
-              <div className="mt-4">
+              <div className="mt-4 relative">
                 <div
-                  className={'prose prose-sm max-w-none ' + (expanded ? '' : 'max-h-56 overflow-hidden relative')}
+                  className={'prose prose-sm max-w-none ' + (expanded ? '' : 'max-h-56 overflow-hidden')}
                   dangerouslySetInnerHTML={{ __html: descHTML }}
                 />
-                {!expanded && (
+                {!expanded && descHTML.length > 500 && (
                   <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
                 )}
-                <button onClick={() => setExpanded((x) => !x)} className="mt-2 text-sky-600 text-sm font-medium">
-                  {expanded ? 'Thu gọn' : 'Xem thêm'}
-                </button>
+                {descHTML.length > 500 && (
+                  <button
+                    onClick={() => setExpanded((x) => !x)}
+                    className="mt-2 text-sky-600 text-sm font-medium"
+                  >
+                    {expanded ? 'Thu gọn' : 'Xem thêm'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -415,7 +357,10 @@ export default function Product() {
             <div className="flex flex-col">
               <span className="text-xs text-gray-500">Số lượng</span>
               <div className="flex items-center gap-1">
-                <button className="w-7 h-7 rounded border hover:bg-gray-50" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+                <button
+                  className="w-7 h-7 rounded border hover:bg-gray-50"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                >
                   −
                 </button>
                 <input
@@ -425,7 +370,10 @@ export default function Product() {
                   onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
                   className="w-14 rounded border px-1 py-1 text-center"
                 />
-                <button className="w-7 h-7 rounded border hover:bg-gray-50" onClick={() => setQty((q) => q + 1)}>
+                <button
+                  className="w-7 h-7 rounded border hover:bg-gray-50"
+                  onClick={() => setQty((q) => q + 1)}
+                >
                   +
                 </button>
               </div>
