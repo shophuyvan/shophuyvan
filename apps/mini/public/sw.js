@@ -1,14 +1,13 @@
 // ================================================
-// SERVICE WORKER - Shop Huy Vân Mini App
-// Đặt file này vào: apps/mini/public/sw.js
+// SERVICE WORKER - FIXED VERSION
+// apps/mini/public/sw.js
 // ================================================
 
-const CACHE_VERSION = 'shv-v1.0.0';
+const CACHE_VERSION = 'shv-v1.0.1'; // Tăng version
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 
-// Files cần cache ngay (critical)
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -16,13 +15,11 @@ const PRECACHE_URLS = [
   '/manifest.json',
 ];
 
-// Cloudinary domain
 const IMAGE_DOMAINS = [
   'res.cloudinary.com',
   'dtemskptf.cloudinary.com',
 ];
 
-// API endpoints cần cache
 const API_PATTERNS = {
   '/v1/products': 'network-first',
   '/v1/platform/areas': 'cache-first',
@@ -75,25 +72,30 @@ self.addEventListener('activate', (event) => {
 });
 
 // ================================================
-// FETCH - Request Interceptor
+// FETCH
 // ================================================
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bỏ qua non-http requests
+  // Skip non-http
   if (!url.protocol.startsWith('http')) {
     return;
   }
 
-  // Strategy 1: Images - Cache First
+  // Skip chrome-extension and other protocols
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
+  // Images
   if (request.destination === 'image' || isImageDomain(url.hostname)) {
     event.respondWith(handleImageRequest(request));
     return;
   }
 
-  // Strategy 2: API - Network First hoặc Cache First
-  if (isAPIRequest(url.pathname)) {
+  // API
+  if (isAPIRequest(url.pathname) || isAPIRequest(url.hostname)) {
     const strategy = getAPIStrategy(url.pathname);
     
     if (strategy === 'cache-first') {
@@ -104,75 +106,94 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 3: Navigation - Network First
+  // Navigation
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigationRequest(request));
     return;
   }
 
-  // Strategy 4: Static assets - Cache First
+  // Default: Cache First
   event.respondWith(handleCacheFirst(request, STATIC_CACHE));
 });
 
 // ================================================
-// CACHING STRATEGIES
+// CACHING STRATEGIES - FIXED
 // ================================================
 
 /**
- * Cache First - Ưu tiên cache
+ * Cache First - FIXED clone issue
  */
 async function handleCacheFirst(request, cacheName) {
   try {
+    // Check cache first
     const cached = await caches.match(request);
-    
     if (cached) {
-      // Tìm thấy trong cache
       return cached;
     }
 
-    // Không có cache, fetch từ network
+    // Fetch from network
     const response = await fetch(request);
     
-    if (response && response.status === 200) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+    // ✅ FIX: Clone BEFORE caching
+    if (response && response.ok && response.status === 200) {
+      const responseToCache = response.clone();
+      
+      // Cache asynchronously (don't await)
+      caches.open(cacheName).then(cache => {
+        cache.put(request, responseToCache);
+      }).catch(err => {
+        console.warn('[SW] Cache put failed:', err);
+      });
     }
     
+    // Return original response
     return response;
+    
   } catch (error) {
     console.error('[SW] Cache first failed:', request.url, error);
     
-    // Fallback: offline page
+    // Fallback for documents
     if (request.destination === 'document') {
       const offlineCache = await caches.match('/offline.html');
       if (offlineCache) return offlineCache;
     }
     
-    throw error;
+    // Return error response
+    return new Response('Network error', {
+      status: 408,
+      statusText: 'Request Timeout'
+    });
   }
 }
 
 /**
- * Network First - Ưu tiên network
+ * Network First - FIXED clone issue
  */
 async function handleNetworkFirst(request, cacheName, timeout = 3000) {
   try {
-    // Thử fetch từ network với timeout
+    // Try network with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     const response = await fetch(request, { signal: controller.signal });
     clearTimeout(timeoutId);
     
-    // Cache response thành công
-    if (response && response.status === 200) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+    // ✅ FIX: Clone BEFORE caching
+    if (response && response.ok && response.status === 200) {
+      const responseToCache = response.clone();
+      
+      // Cache asynchronously
+      caches.open(cacheName).then(cache => {
+        cache.put(request, responseToCache);
+      }).catch(err => {
+        console.warn('[SW] Cache put failed:', err);
+      });
     }
     
     return response;
+    
   } catch (error) {
-    console.warn('[SW] Network failed, using cache:', request.url);
+    console.warn('[SW] Network failed, trying cache:', request.url);
     
     // Fallback to cache
     const cached = await caches.match(request);
@@ -180,45 +201,75 @@ async function handleNetworkFirst(request, cacheName, timeout = 3000) {
       return cached;
     }
     
-    throw error;
+    // No cache, return error
+    return new Response(JSON.stringify({ error: 'Offline' }), {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 /**
- * Stale While Revalidate - Cho images
+ * Stale While Revalidate - FIXED clone issue
  */
 async function handleImageRequest(request) {
-  const cached = await caches.match(request);
-  
-  // Fetch mới trong background
-  const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response && response.status === 200) {
-        caches.open(IMAGE_CACHE).then(cache => {
-          cache.put(request, response.clone());
-        });
-      }
-      return response;
-    })
-    .catch(() => cached); // Fallback to cache on error
+  try {
+    const cached = await caches.match(request);
+    
+    // Fetch new version in background
+    const fetchPromise = fetch(request)
+      .then((response) => {
+        if (response && response.ok && response.status === 200) {
+          // ✅ FIX: Clone BEFORE caching
+          const responseToCache = response.clone();
+          
+          caches.open(IMAGE_CACHE).then(cache => {
+            cache.put(request, responseToCache);
+          }).catch(err => {
+            console.warn('[SW] Image cache failed:', err);
+          });
+        }
+        return response;
+      })
+      .catch(() => cached); // Fallback to cache on error
 
-  // Return cache ngay nếu có, không thì đợi fetch
-  return cached || fetchPromise;
+    // Return cache immediately if available
+    return cached || fetchPromise;
+    
+  } catch (error) {
+    console.error('[SW] Image request failed:', error);
+    
+    // Return placeholder or cached version
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    
+    // Return 404
+    return new Response('Image not found', {
+      status: 404,
+      statusText: 'Not Found'
+    });
+  }
 }
 
 /**
- * Navigation Request Handler
+ * Navigation Request Handler - FIXED
  */
 async function handleNavigationRequest(request) {
   try {
     const response = await fetch(request);
     
-    if (response && response.status === 200) {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, response.clone());
+    // ✅ FIX: Clone BEFORE caching
+    if (response && response.ok && response.status === 200) {
+      const responseToCache = response.clone();
+      
+      caches.open(DYNAMIC_CACHE).then(cache => {
+        cache.put(request, responseToCache);
+      });
     }
     
     return response;
+    
   } catch (error) {
     console.error('[SW] Navigation failed:', request.url);
     
@@ -243,10 +294,11 @@ function isImageDomain(hostname) {
   return IMAGE_DOMAINS.some(domain => hostname.includes(domain));
 }
 
-function isAPIRequest(pathname) {
-  return pathname.startsWith('/v1/') || 
-         pathname.startsWith('/api/') ||
-         pathname.includes('shv-api.shophuyvan.workers.dev');
+function isAPIRequest(pathOrHost) {
+  return pathOrHost.startsWith('/v1/') || 
+         pathOrHost.startsWith('/api/') ||
+         pathOrHost.includes('shv-api.shophuyvan.workers.dev') ||
+         pathOrHost.includes('workers.dev');
 }
 
 function getAPIStrategy(pathname) {
@@ -255,53 +307,13 @@ function getAPIStrategy(pathname) {
       return strategy;
     }
   }
-  return 'network-first'; // Default
-}
-
-// ================================================
-// BACKGROUND SYNC (Optional)
-// ================================================
-self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync:', event.tag);
-  
-  if (event.tag === 'sync-orders') {
-    event.waitUntil(syncOrders());
-  }
-});
-
-async function syncOrders() {
-  try {
-    // Lấy orders từ localStorage (vì IndexedDB phức tạp hơn)
-    const pendingOrders = JSON.parse(localStorage.getItem('pending_orders') || '[]');
-    
-    for (const order of pendingOrders) {
-      try {
-        const response = await fetch('https://shv-api.shophuyvan.workers.dev/v1/platform/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(order)
-        });
-        
-        if (response.ok) {
-          // Xóa order đã sync thành công
-          const remaining = pendingOrders.filter(o => o.id !== order.id);
-          localStorage.setItem('pending_orders', JSON.stringify(remaining));
-        }
-      } catch (err) {
-        console.error('[SW] Failed to sync order:', order.id, err);
-      }
-    }
-  } catch (error) {
-    console.error('[SW] Background sync failed:', error);
-  }
+  return 'network-first';
 }
 
 // ================================================
 // MESSAGE HANDLER
 // ================================================
 self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
-  
   if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
@@ -313,43 +325,6 @@ self.addEventListener('message', (event) => {
       })
     );
   }
-  
-  if (event.data.type === 'CACHE_URLS') {
-    event.waitUntil(
-      caches.open(DYNAMIC_CACHE).then(cache => {
-        return cache.addAll(event.data.urls);
-      })
-    );
-  }
-});
-
-// ================================================
-// PUSH NOTIFICATIONS (Optional - cho Zalo Mini App)
-// ================================================
-self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
-  
-  const options = {
-    body: data.body || 'Bạn có thông báo mới từ Shop Huy Vân',
-    icon: '/icon.png',
-    badge: '/icon.png',
-    data: data.url || '/',
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(
-      data.title || 'Shop Huy Vân', 
-      options
-    )
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  
-  event.waitUntil(
-    clients.openWindow(event.notification.data)
-  );
 });
 
 console.log('[SW] Service Worker loaded:', CACHE_VERSION);
