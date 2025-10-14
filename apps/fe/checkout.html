@@ -6,164 +6,507 @@
   <title>Thanh toán - Shop Huy Vân</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module" src="/src/pixels.js?v=99"></script>
-\n</head>
+</head>
 <body class="bg-gray-50">
 <header class="border-b bg-white">
   <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-    <a href="/" class="flex items-center gap-2"><img src="/public/logo.png" class="w-7 h-7"/><span class="font-bold">SHOP HUY VÂN</span></a>
+    <a href="/" class="flex items-center gap-2">
+      <img src="/public/logo.png" class="w-7 h-7"/>
+      <span class="font-bold">SHOP HUY VÂN</span>
+    </a>
   </div>
 </header>
 
 <main class="max-w-3xl mx-auto px-4 py-6 space-y-4">
   <h1 class="font-semibold text-lg">Thanh toán</h1>
+  
   <section class="bg-white border rounded p-4">
-    <h2 class="font-semibold">Địa chỉ nhận</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-      <input id="name" placeholder="Họ tên" class="border rounded px-3 py-2" />
-      <input id="phone" placeholder="Số điện thoại" class="border rounded px-3 py-2" />
-      <input id="province" placeholder="Tỉnh/Thành" class="border rounded px-3 py-2" />
-      <input id="district" placeholder="Quận/Huyện" class="border rounded px-3 py-2" />
-      <input id="ward" placeholder="Phường/Xã" class="border rounded px-3 py-2" />
-      <input id="address" placeholder="Địa chỉ chi tiết" class="md:col-span-2 border rounded px-3 py-2" />
+    <h2 class="font-semibold mb-3">Địa chỉ nhận hàng</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <input id="name" placeholder="Họ tên *" class="border rounded px-3 py-2" required />
+      <input id="phone" placeholder="Số điện thoại *" class="border rounded px-3 py-2" required />
+      
+      <select id="province" class="border rounded px-3 py-2">
+        <option value="">-- Chọn Tỉnh/Thành phố *</option>
+      </select>
+      
+      <select id="district" class="border rounded px-3 py-2" disabled>
+        <option value="">-- Chọn Quận/Huyện *</option>
+      </select>
+      
+      <select id="ward" class="border rounded px-3 py-2 md:col-span-2" disabled>
+        <option value="">-- Chọn Phường/Xã *</option>
+      </select>
+      
+      <input id="address" placeholder="Địa chỉ chi tiết (số nhà, tên đường) *" 
+             class="md:col-span-2 border rounded px-3 py-2" required />
+      
+      <input id="note" placeholder="Ghi chú (không bắt buộc)" 
+             class="md:col-span-2 border rounded px-3 py-2" />
     </div>
+    <input type="hidden" id="province_code" />
+    <input type="hidden" id="district_code" />
+    <input type="hidden" id="ward_code" />
   </section>
 
   <section class="bg-white border rounded p-4">
     <h2 class="font-semibold">Vận chuyển</h2>
-    <button id="get-quote" class="border rounded px-3 py-1 mt-2">Lấy báo giá</button>
-    <div id="quote-list" class="mt-3 grid gap-2"></div>
-  </section>
-
-  <section class="bg-white border rounded p-4">
-    <h2 class="font-semibold">Mã giảm</h2>
-    <div class="flex gap-2 mt-2">
-      <input id="voucher" placeholder="Nhập mã" class="border rounded px-3 py-2">
-      <button id="test-voucher" class="border rounded px-3 py-2">Áp dụng</button>
+    <div id="quote-list" class="mt-3 grid gap-2">
+      <div class="text-sm text-gray-500">Vui lòng chọn địa chỉ để xem phí vận chuyển</div>
     </div>
-    <div id="voucher-result" class="text-sm mt-2"></div>
-  </section>
-
-  <section class="bg-white border rounded p-4">
-    <h2 class="font-semibold">Đặt hàng</h2>
-    <button id="place-order" class="bg-emerald-600 text-white px-4 py-2 rounded">Đặt hàng</button>
-    <div id="order-result" class="text-sm mt-2"></div>
   </section>
 
   <section class="bg-white border rounded p-4">
     <h2 class="font-semibold mb-2">Mã khuyến mãi</h2>
     <div class="flex gap-2">
-      <input id="voucher" class="border rounded px-3 py-2 flex-1" placeholder="Nhập mã voucher (miễn phí ship / giảm giá)">
-      <button id="apply-voucher" class="bg-rose-600 text-white px-4 py-2 rounded">Áp dụng</button>
+      <input id="voucher" class="border rounded px-3 py-2 flex-1" 
+             placeholder="Nhập mã voucher (miễn phí ship / giảm giá)">
+      <button id="apply-voucher" class="bg-rose-600 text-white px-4 py-2 rounded">
+        Áp dụng
+      </button>
     </div>
     <div id="voucher-result" class="text-sm mt-2"></div>
+    
     <div class="font-semibold mt-4 mb-2">Chi tiết thanh toán</div>
-    <div id="cart-summary" class="text-sm"></div>
+    <div id="cart-summary" class="text-sm space-y-1">
+      <div class="flex justify-between">
+        <span>Tổng sản phẩm:</span>
+        <span id="subtotal">0đ</span>
+      </div>
+      <div class="flex justify-between">
+        <span>Phí vận chuyển:</span>
+        <span id="shipping-fee">0đ</span>
+      </div>
+      <div class="flex justify-between" id="discount-row" style="display:none">
+        <span>Giảm giá:</span>
+        <span id="discount" class="text-green-600">-0đ</span>
+      </div>
+      <div class="flex justify-between font-bold text-lg border-t pt-2">
+        <span>Tổng thanh toán:</span>
+        <span id="total">0đ</span>
+      </div>
+    </div>
   </section>
 
+  <section class="bg-white border rounded p-4">
+    <button id="place-order" class="w-full bg-emerald-600 text-white px-4 py-3 rounded font-semibold hover:bg-emerald-700">
+      Đặt hàng
+    </button>
+    <div id="order-result" class="text-sm mt-2"></div>
+  </section>
 </main>
 
 <script type="module" src="/src/checkout.js?v=99"></script>
 <script type="module" src="/src/tracking.js?v=99"></script>
 <script type="module" src="/src/frontend.js?v=99"></script>
-<script type="module" src="/src/voucher-ui.js?v=99"></script>
 
-<!-- SHV fallback: auto shipping quote via API if original /src scripts don't run or return mock -->
 <script>
-(function(){
-  if (window.SHV_FALLBACK_SHIPPING) return; window.SHV_FALLBACK_SHIPPING = true;
-  const api = (path, opt={}) => fetch((window.Admin?.getApiBase?.()||'https://shv-api.shophuyvan.workers.dev') + path, Object.assign({headers:{'content-type':'application/json'}}, opt)).then(r=>r.json()).catch(()=>null);
-  const el = (id)=>document.getElementById(id);
-  const money = (v)=> (Number(v||0)).toLocaleString('vi-VN') + 'đ';
-
-  async function autoQuote(){
-    const to_province = el('province')?.value?.trim() || '';
-    const to_district = el('district')?.value?.trim() || '';
-    if(!to_province || !to_district) return; // wait until address filled
-
-    // naive weight fallback: 500g if không có dữ liệu
-    let weight = window.__SHV_TOTAL_WEIGHT__ || 0; if(!weight){ try{ const wDom = document.querySelector('[data-cart-weight]')?.dataset?.cartWeight || ''; weight = Math.max(0, parseInt(wDom)) || 500; }catch(e){ weight = 500; } } }
-
-    const params = new URLSearchParams({ weight: String(weight), to_province, to_district });
-    const rs = await fetch((window.Admin?.getApiBase?.()||'https://shv-api.shophuyvan.workers.dev') + '/shipping/quote?' + params.toString()).then(r=>r.json()).catch(()=>null);
-    if(!(rs && (rs.ok||Array.isArray(rs)))) return;
-
-    const list = Array.isArray(rs) ? rs : (rs.items||[]);
-    const ql = el('quote-list'); if(!ql) return;
-    if(!list.length){ ql.innerHTML = '<div class="text-sm text-gray-500">Không có DVVC khả dụng.</div>'; return; }
-    ql.innerHTML = list.map((x,i)=>{
-      const id = 'ship_'+(i+1);
-      return \`<label class="flex items-center justify-between border rounded p-2 cursor-pointer">
-        <div class="flex items-center gap-2">
-          <input type="radio" name="ship_opt" value="\${x.provider}|\\${x.service_code}|\\${x.fee}" \${i===0?'checked':''}/>
-          <div class="font-semibold">\${x.provider} - \${x.name||x.service_code||''}</div>
-        </div>
-        <div class="font-semibold">\${money(x.fee||0)}</div>
-      </label>\`;
-    }).join('');
-
-    // Update totals on change
-    const radios = ql.querySelectorAll('input[name="ship_opt"]');
-    const updateFee = ()=>{
-      const val = ql.querySelector('input[name="ship_opt"]:checked')?.value||'';
-      const fee = Number(val.split('|')[2]||0);
-      let feeRow = document.getElementById('shv-fee-row');
-      if(!feeRow){
-        feeRow = document.createElement('div');
-        feeRow.id = 'shv-fee-row';
-        feeRow.className = 'mt-2 text-sm';
-        const wrap = document.querySelector('section.bg-white.border.rounded.p-4:nth-of-type(3)') || document.body;
-        wrap.appendChild(feeRow);
-      }
-      feeRow.innerHTML = '<div><span class="font-semibold">Phí vận chuyển (API):</span> '+money(fee)+'</div>';
-      // Nếu có dòng "Tổng tiền phí vận chuyển" cũ, thay số 0đ
-      const old = Array.from(document.querySelectorAll('section .font-semibold')).find(n=>/Tổng tiền phí vận chuyển/i.test(n.textContent||''));
-      if(old && old.nextSibling){ old.nextSibling.textContent = ' '+money(fee); }
-    };
-    radios.forEach(r=>r.addEventListener('change', updateFee));
-    updateFee();
-  }
-
-  // Auto run when user nhập địa chỉ, và chạy 1 lần khi load
-  ['province','district','ward','address'].forEach(id=>{
-    const E = el(id); if(E){ ['change','blur','keyup'].forEach(ev=>E.addEventListener(ev, ()=>autoQuote())); }
-  });
-  document.addEventListener('DOMContentLoaded', autoQuote);
-  setTimeout(autoQuote, 800);
-})();
-</script>
-
-
-<!-- SHV: compute cart total weight (gram) and attach to shipping quote -->
-<script>
-(function(){
-  function readCart(){
-    try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch(e){ return []; }
-  }
-  function totalWeightGram(){
-    const arr = readCart();
-    let total = 0;
-    for(const it of arr){
-      const w = Number(it.weight_gram || it.weight || 0) || 0;
-      const qty = Number(it.qty||1)||1;
-      total += w*qty;
+// === SHV Checkout with Address Codes ===
+(function() {
+  const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+  const $ = id => document.getElementById(id);
+  const money = v => Number(v || 0).toLocaleString('vi-VN') + 'đ';
+  
+  let selectedShipping = null;
+  let appliedVoucher = null;
+  
+  // Get cart from localStorage
+  function getCart() {
+    try {
+      return JSON.parse(localStorage.getItem('cart') || '[]');
+    } catch (e) {
+      return [];
     }
-    return total||0;
   }
-  // patch fallback quote code if exists
-  const oldAuto = window.autoQuote;
-  window.autoQuote = async function(){
-    if(typeof oldAuto === 'function') try{ await oldAuto(); }catch(e){};
-    const w = totalWeightGram();
-    // if our fallback exists, it uses wDom or 500; ensure we override
-    window.__SHV_TOTAL_WEIGHT__ = w;
-  };
-  // if our own fallback script (from earlier patch) is present
-  setInterval(function(){
-    const el = document.getElementById('quote-list');
-    if(!el) return;
-    // store weight to dataset for any consumer
-    el.dataset.totalWeightGram = String(totalWeightGram());
-  }, 1000);
+  
+  function clearCart() {
+    localStorage.removeItem('cart');
+  }
+  
+  // Calculate totals
+  function calculateTotals() {
+    const cart = getCart();
+    const subtotal = cart.reduce((sum, item) => {
+      return sum + Number(item.price || 0) * Number(item.qty || 1);
+    }, 0);
+    
+    const shippingFee = selectedShipping ? Number(selectedShipping.fee || 0) : 0;
+    let discount = 0;
+    let shippingDiscount = 0;
+    
+    if (appliedVoucher) {
+      if (appliedVoucher.type === 'free_ship') {
+        shippingDiscount = shippingFee;
+      } else if (appliedVoucher.type === 'percent') {
+        discount = Math.round(subtotal * Number(appliedVoucher.value || 0) / 100);
+      } else if (appliedVoucher.type === 'fixed') {
+        discount = Number(appliedVoucher.value || 0);
+      }
+    }
+    
+    const total = Math.max(0, subtotal + shippingFee - discount - shippingDiscount);
+    
+    return { subtotal, shippingFee, discount, shippingDiscount, total };
+  }
+  
+  function updateSummary() {
+    const { subtotal, shippingFee, discount, shippingDiscount, total } = calculateTotals();
+    
+    $('subtotal').textContent = money(subtotal);
+    $('shipping-fee').textContent = money(shippingFee);
+    
+    if (discount > 0 || shippingDiscount > 0) {
+      $('discount-row').style.display = 'flex';
+      $('discount').textContent = '-' + money(discount + shippingDiscount);
+    } else {
+      $('discount-row').style.display = 'none';
+    }
+    
+    $('total').textContent = money(total);
+  }
+  
+  // Load provinces
+  async function loadProvinces() {
+    try {
+      const res = await fetch(`${API_BASE}/shipping/provinces`);
+      const data = await res.json();
+      const items = data.items || data.data || [];
+      
+      const select = $('province');
+      select.innerHTML = '<option value="">-- Chọn Tỉnh/Thành phố *</option>';
+      
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.code;
+        opt.textContent = item.name;
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      console.error('Load provinces error:', e);
+    }
+  }
+  
+  // Load districts
+  async function loadDistricts(provinceCode) {
+    try {
+      const res = await fetch(`${API_BASE}/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
+      const data = await res.json();
+      const items = data.items || data.data || [];
+      
+      const select = $('district');
+      select.innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
+      select.disabled = false;
+      
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.code;
+        opt.textContent = item.name;
+        select.appendChild(opt);
+      });
+      
+      // Reset dependent fields
+      $('ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+      $('ward').disabled = true;
+      $('district_code').value = '';
+      $('ward_code').value = '';
+    } catch (e) {
+      console.error('Load districts error:', e);
+    }
+  }
+  
+  // Load wards
+  async function loadWards(districtCode) {
+    try {
+      const res = await fetch(`${API_BASE}/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
+      const data = await res.json();
+      const items = data.items || data.data || [];
+      
+      const select = $('ward');
+      select.innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+      select.disabled = false;
+      
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.code;
+        opt.textContent = item.name;
+        select.appendChild(opt);
+      });
+      
+      $('ward_code').value = '';
+    } catch (e) {
+      console.error('Load wards error:', e);
+    }
+  }
+  
+  // Get shipping quote
+  async function getShippingQuote() {
+    const provinceCode = $('province_code').value;
+    const districtCode = $('district_code').value;
+    
+    if (!provinceCode || !districtCode) {
+      $('quote-list').innerHTML = '<div class="text-sm text-gray-500">Vui lòng chọn địa chỉ đầy đủ</div>';
+      return;
+    }
+    
+    try {
+      $('quote-list').innerHTML = '<div class="text-sm text-gray-500">Đang tải phí vận chuyển...</div>';
+      
+      const cart = getCart();
+      const weight = cart.reduce((sum, item) => {
+        return sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1);
+      }, 0) || 500;
+      
+      const res = await fetch(`${API_BASE}/shipping/price`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiver_province_code: provinceCode,
+          receiver_district_code: districtCode,
+          weight_gram: weight,
+          cod: 0
+        })
+      });
+      
+      const data = await res.json();
+      const items = data.items || data.data || [];
+      
+      if (!items.length) {
+        $('quote-list').innerHTML = '<div class="text-sm text-gray-500">Không có dịch vụ vận chuyển khả dụng</div>';
+        return;
+      }
+      
+      $('quote-list').innerHTML = items.map((item, idx) => `
+        <label class="flex items-center justify-between border rounded p-3 cursor-pointer hover:bg-gray-50">
+          <div class="flex items-center gap-3">
+            <input type="radio" name="ship_opt" value="${idx}" ${idx === 0 ? 'checked' : ''} 
+                   class="w-4 h-4" data-provider="${item.provider}" data-service="${item.service_code}" 
+                   data-fee="${item.fee}" data-eta="${item.eta || ''}" />
+            <div>
+              <div class="font-semibold">${item.name || item.provider}</div>
+              <div class="text-sm text-gray-600">${item.eta || 'Giao hàng tiêu chuẩn'}</div>
+            </div>
+          </div>
+          <div class="font-bold text-emerald-600">${money(item.fee)}</div>
+        </label>
+      `).join('');
+      
+      // Wire change events
+      document.querySelectorAll('input[name="ship_opt"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+          selectedShipping = {
+            provider: this.dataset.provider,
+            service_code: this.dataset.service,
+            fee: Number(this.dataset.fee || 0),
+            eta: this.dataset.eta,
+            name: this.parentElement.querySelector('.font-semibold').textContent
+          };
+          updateSummary();
+        });
+      });
+      
+      // Auto select first
+      const firstRadio = document.querySelector('input[name="ship_opt"]');
+      if (firstRadio) {
+        selectedShipping = {
+          provider: firstRadio.dataset.provider,
+          service_code: firstRadio.dataset.service,
+          fee: Number(firstRadio.dataset.fee || 0),
+          eta: firstRadio.dataset.eta,
+          name: firstRadio.parentElement.querySelector('.font-semibold').textContent
+        };
+        updateSummary();
+      }
+    } catch (e) {
+      console.error('Get quote error:', e);
+      $('quote-list').innerHTML = '<div class="text-sm text-red-600">Lỗi khi lấy phí vận chuyển</div>';
+    }
+  }
+  
+  // Apply voucher
+  async function applyVoucher() {
+    const code = $('voucher').value.trim().toUpperCase();
+    if (!code) {
+      $('voucher-result').innerHTML = '<span class="text-red-600">Vui lòng nhập mã voucher</span>';
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_BASE}/vouchers`);
+      const data = await res.json();
+      const vouchers = data.items || [];
+      
+      const voucher = vouchers.find(v => String(v.code || '').toUpperCase() === code);
+      
+      if (!voucher || voucher.on !== 'ON') {
+        $('voucher-result').innerHTML = '<span class="text-red-600">Mã không hợp lệ hoặc đã hết hạn</span>';
+        appliedVoucher = null;
+        updateSummary();
+        return;
+      }
+      
+      appliedVoucher = {
+        code: voucher.code,
+        type: voucher.type || 'fixed',
+        value: voucher.off || 0
+      };
+      
+      $('voucher-result').innerHTML = `<span class="text-green-600">✓ Đã áp dụng mã ${code}</span>`;
+      updateSummary();
+    } catch (e) {
+      console.error('Apply voucher error:', e);
+      $('voucher-result').innerHTML = '<span class="text-red-600">Lỗi khi áp dụng mã</span>';
+    }
+  }
+  
+  // Place order
+  async function placeOrder() {
+    const name = $('name').value.trim();
+    const phone = $('phone').value.trim();
+    const address = $('address').value.trim();
+    const provinceCode = $('province_code').value;
+    const districtCode = $('district_code').value;
+    const wardCode = $('ward_code').value;
+    const note = $('note').value.trim();
+    
+    // Validate
+    if (!name || !phone || !address || !provinceCode || !districtCode || !wardCode) {
+      alert('Vui lòng điền đầy đủ thông tin địa chỉ nhận hàng!');
+      return;
+    }
+    
+    if (!/^\d{8,11}$/.test(phone.replace(/\D/g, ''))) {
+      alert('Số điện thoại không hợp lệ!');
+      return;
+    }
+    
+    if (!selectedShipping) {
+      alert('Vui lòng chọn phương thức vận chuyển!');
+      return;
+    }
+    
+    const cart = getCart();
+    if (!cart.length) {
+      alert('Giỏ hàng trống!');
+      return;
+    }
+    
+    const { subtotal, shippingFee, discount, shippingDiscount, total } = calculateTotals();
+    
+    const btn = $('place-order');
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
+    
+    try {
+      const payload = {
+        customer: {
+          name: name,
+          phone: phone.replace(/\D/g, ''),
+          address: address,
+          province_code: provinceCode,
+          district_code: districtCode,
+          commune_code: wardCode,
+          ward_code: wardCode
+        },
+        items: cart.map(item => ({
+          id: item.id,
+          sku: item.sku || item.id,
+          name: item.name || item.title,
+          price: Number(item.price || 0),
+          cost: Number(item.cost || 0),
+          qty: Number(item.qty || 1),
+          weight_gram: Number(item.weight_gram || item.weight || 0),
+          variant: item.variant || '',
+          image: item.image || ''
+        })),
+        totals: {
+          subtotal: subtotal,
+          shipping_fee: shippingFee,
+          discount: discount,
+          shipping_discount: shippingDiscount,
+          total: total
+        },
+        shipping_provider: selectedShipping.provider,
+        shipping_service: selectedShipping.service_code,
+        shipping_name: selectedShipping.name,
+        shipping_eta: selectedShipping.eta,
+        shipping_fee: shippingFee,
+        discount: discount,
+        shipping_discount: shippingDiscount,
+        voucher_code: appliedVoucher ? appliedVoucher.code : '',
+        note: note,
+        source: 'web',
+        status: 'pending'
+      };
+      
+      console.log('Order payload:', payload);
+      
+      const res = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2)
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      
+      if (data.ok || data.id) {
+        $('order-result').innerHTML = '<div class="text-green-600 font-semibold">✓ Đặt hàng thành công!</div>';
+        
+        // Clear cart
+        clearCart();
+        
+        // Redirect to success page
+        setTimeout(() => {
+          window.location.href = '/thank-you.html?order=' + (data.id || data.order_id || '');
+        }, 1500);
+      } else {
+        throw new Error(data.error || data.message || 'Đặt hàng thất bại');
+      }
+    } catch (e) {
+      console.error('Place order error:', e);
+      $('order-result').innerHTML = '<div class="text-red-600">Lỗi: ' + e.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = 'Đặt hàng';
+    }
+  }
+  
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadProvinces();
+    updateSummary();
+    
+    $('province').addEventListener('change', function() {
+      $('province_code').value = this.value;
+      if (this.value) {
+        loadDistricts(this.value);
+      }
+      getShippingQuote();
+    });
+    
+    $('district').addEventListener('change', function() {
+      $('district_code').value = this.value;
+      if (this.value) {
+        loadWards(this.value);
+      }
+      getShippingQuote();
+    });
+    
+    $('ward').addEventListener('change', function() {
+      $('ward_code').value = this.value;
+    });
+    
+    $('apply-voucher').addEventListener('click', applyVoucher);
+    $('place-order').addEventListener('click', placeOrder);
+    
+    // Load initial cart summary
+    const cart = getCart();
+    if (!cart.length) {
+      alert('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.');
+      window.location.href = '/';
+    }
+  });
 })();
 </script>
 

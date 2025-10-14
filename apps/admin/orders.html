@@ -304,15 +304,39 @@ async function createWaybill() {
       commune_code: g(settings, ['settings', 'shipping', 'sender_commune_code']) || ''
     };
 
-    // Receiver info
+    // Receiver info - check multiple possible fields
+    const customer = o.customer || {};
     const receiver = {
-      name: g(o, ['customer_name']) || g(o, ['name']) || 'Khách',
-      phone: g(o, ['phone']) || g(o, ['customer', 'phone']) || '',
-      address: g(o, ['address']) || g(o, ['customer', 'address']) || '',
-      province_code: g(o, ['receiver_province_code']) || g(o, ['province_code']) || '',
-      district_code: g(o, ['receiver_district_code']) || g(o, ['district_code']) || '',
-      commune_code: g(o, ['receiver_commune_code']) || g(o, ['ward_code']) || ''
+      name: customer.name || o.customer_name || o.name || 'Khách',
+      phone: customer.phone || o.phone || '',
+      address: customer.address || o.address || '',
+      province_code: customer.province_code || o.receiver_province_code || o.province_code || o.to_province_code || '',
+      district_code: customer.district_code || o.receiver_district_code || o.district_code || o.to_district_code || '',
+      commune_code: customer.commune_code || customer.ward_code || o.receiver_commune_code || o.commune_code || o.ward_code || o.to_commune_code || ''
     };
+
+    // Validate receiver address codes
+    if (!receiver.province_code || !receiver.district_code) {
+      const missingFields = [];
+      if (!receiver.province_code) missingFields.push('Tỉnh/Thành phố');
+      if (!receiver.district_code) missingFields.push('Quận/Huyện');
+      if (!receiver.commune_code) missingFields.push('Phường/Xã');
+      
+      Admin.toast('❌ Thiếu thông tin: ' + missingFields.join(', '));
+      
+      // Show helper message
+      alert(
+        'Đơn hàng thiếu mã địa chỉ người nhận!\n\n' +
+        'Thông tin hiện tại:\n' +
+        '• Tỉnh: ' + (receiver.province_code || 'CHƯA CÓ') + '\n' +
+        '• Quận: ' + (receiver.district_code || 'CHƯA CÓ') + '\n' +
+        '• Phường: ' + (receiver.commune_code || 'CHƯA CÓ') + '\n\n' +
+        'Vui lòng:\n' +
+        '1. Cập nhật đơn hàng với địa chỉ đầy đủ\n' +
+        '2. Hoặc liên hệ khách hàng để lấy thông tin'
+      );
+      return;
+    }
 
     // Items
     const its = Array.isArray(o.items) ? o.items : [];
