@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { pickPrice, priceRange } from '@shared/utils/price';
 import { fmtVND } from '@shared/utils/fmtVND';
+import { cloudify } from '@shared/utils/cloudinary';
 
 // === SHV Cloudinary fetch helpers (Mini) ===
 // Expect VITE_CLOUDINARY_CLOUD to be set (Cloudflare Pages > Project > Settings > Environment variables)

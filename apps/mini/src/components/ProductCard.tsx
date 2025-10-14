@@ -3,6 +3,7 @@ import { routes } from '../routes';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
 import cart from '@shared/cart';
+import { cloudify } from '@shared/utils/cloudinary';
 
 // === SHV Cloudinary fetch helpers (Mini) ===
 // Expect VITE_CLOUDINARY_CLOUD to be set (Cloudflare Pages > Project > Settings > Environment variables)
@@ -87,7 +88,9 @@ export default function ProductCard({ p }: { p: Product }) {
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     cart.add(p, 1);
-    try { alert('Đã thêm vào giỏ'); } catch {}
+    
+    window.dispatchEvent(new Event('shv:cart-changed'));
+try { alert('Đã thêm vào giỏ'); } catch {}
   };
 
   return (

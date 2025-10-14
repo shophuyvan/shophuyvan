@@ -34,8 +34,9 @@ export default function Header() {
   const [count, setCount] = useState(cart.count());
   useEffect(() => {
     const fn = () => setCount(cart.count());
-    const onStorage = (e: StorageEvent) => { if (e.key === 'shv_cart_v1') fn(); };
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key.includes('shv_cart')) fn(); };
     window.addEventListener('storage', onStorage);
+    window.addEventListener('shv:cart-changed', fn);
     const id = setInterval(fn, 1000);
     return () => { window.removeEventListener('storage', onStorage); clearInterval(id); };
   }, []);
