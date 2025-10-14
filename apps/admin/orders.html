@@ -315,6 +315,43 @@ async function createWaybill() {
       commune_code: customer.commune_code || customer.ward_code || o.receiver_commune_code || o.commune_code || o.ward_code || o.to_commune_code || ''
     };
 
+    // Normalize short codes to full codes (VN provinces)
+    const provinceMap = {
+      '1': '01', '2': '02', '92': '79', '48': '48', '46': '46', // Common mappings
+      '01': '01', '79': '79' // Already full codes
+    };
+    
+    if (receiver.province_code && receiver.province_code.length < 3) {
+      receiver.province_code = provinceMap[receiver.province_code] || receiver.province_code.padStart(2, '0');
+    }
+    
+    // Get full province/district names if only have codes
+    let provinceName = customer.province || o.province || '';
+    let districtName = customer.district || o.district || '';
+    
+    // If we have code but no name, try to fetch name from API
+    if (receiver.province_code && !provinceName) {
+      try {
+        const pRes = await Admin.req('/shipping/provinces', { method: 'GET' });
+        const provinces = pRes.items || [];
+        const prov = provinces.find(p => p.code === receiver.province_code);
+        if (prov) provinceName = prov.name;
+      } catch (e) {
+        console.error('Fetch province name error:', e);
+      }
+    }
+    
+    if (receiver.district_code && !districtName) {
+      try {
+        const dRes = await Admin.req(`/shipping/districts?province_code=${receiver.province_code}`, { method: 'GET' });
+        const districts = dRes.items || [];
+        const dist = districts.find(d => d.code === receiver.district_code);
+        if (dist) districtName = dist.name;
+      } catch (e) {
+        console.error('Fetch district name error:', e);
+      }
+    }
+
     // Validate receiver address codes
     if (!receiver.province_code || !receiver.district_code) {
       const missingFields = [];
@@ -349,45 +386,94 @@ async function createWaybill() {
       };
     });
 
+    // Calculate total weight
+    const totalWeight = mappedItems.reduce(function(s, it) {
+      return s + Number(it.weight_grams || 0) * Number(it.qty || 1);
+    }, 0);
+
     const payload = {
-      provider: (o.shipping_provider || o.provider || '').toString().toLowerCase(),
+      provider: (o.shipping_provider || o.provider || 'vtp').toString().toLowerCase(),
       order_id: o.id || o._id || '',
+      
+      // Sender
       sender_name: sender.name,
       sender_phone: sender.phone,
       sender_address: sender.address,
-      sender_province_code: String(sender.province_code || ''),
-      sender_district_code: String(sender.district_code || ''),
+      sender_province_code: String(sender.province_code || '79'), // Default HCM
+      sender_district_code: String(sender.district_code || '760'), // Default Bình Chánh
       sender_commune_code: String(sender.commune_code || ''),
+      sender_province: sender.province || 'Hồ Chí Minh',
+      sender_district: sender.district || 'Bình Chánh',
+      
+      // Receiver
       receiver_name: receiver.name,
       receiver_phone: receiver.phone,
       receiver_address: receiver.address,
       receiver_province_code: String(receiver.province_code || ''),
       receiver_district_code: String(receiver.district_code || ''),
       receiver_commune_code: String(receiver.commune_code || ''),
+      receiver_province: provinceName || 'Tỉnh/TP',
+      receiver_district: districtName || 'Quận/Huyện',
+      
+      // Aliases (some carriers need these)
+      province_code: String(receiver.province_code || ''),
+      district_code: String(receiver.district_code || ''),
+      commune_code: String(receiver.commune_code || ''),
+      to_province_code: String(receiver.province_code || ''),
+      to_district_code: String(receiver.district_code || ''),
+      to_commune_code: String(receiver.commune_code || ''),
+      
+      // Package info
       items: mappedItems,
       cod: Number(o.cod || 0),
-      weight_gram: mappedItems.reduce(function(s, it) {
-        return s + Number(it.weight_grams || 0) * Number(it.qty || 1)
-      }, 0)
+      weight_gram: totalWeight || 500,
+      
+      // Additional
+      note: o.note || '',
+      service_code: o.shipping_service || o.service_code || ''
     };
 
-    if (!payload.receiver_province_code) {
-      Admin.toast('Thiếu tỉnh/thành người nhận – hãy nhập địa chỉ đầy đủ hoặc cập nhật code.');
-      return;
-    }
+    console.log('Payload gửi đi:', payload);
 
     const r = await Admin.req('/admin/shipping/create', { method: 'POST', body: payload });
+    
     if (r && r.ok) {
       Admin.toast('✅ Đã tạo vận đơn');
-      openPrint(o, r.tracking || r.tracking_code || '');
-      // Reload order to update tracking
+      const tracking = r.tracking || r.tracking_code || r.code || '';
+      
+      if (tracking) {
+        // Update order with tracking code
+        try {
+          await Admin.req('/admin/orders/upsert', {
+            method: 'POST',
+            body: {
+              id: o.id,
+              tracking_code: tracking,
+              shipping_provider: payload.provider,
+              status: 'shipping'
+            }
+          });
+        } catch (e) {
+          console.error('Update tracking error:', e);
+        }
+        
+        openPrint(o, tracking);
+      }
+      
+      // Reload order list
       setTimeout(loadOrders, 1000);
     } else {
-      Admin.toast('Không thể tạo vận đơn (thiếu cấu hình hoặc dữ liệu).');
+      const errorMsg = r?.error || r?.message || 'Không rõ lỗi';
+      Admin.toast('❌ Không thể tạo vận đơn: ' + errorMsg);
+      
+      // Show detailed error
+      console.error('Create waybill error:', r);
+      alert('Lỗi tạo vận đơn:\n\n' + errorMsg + '\n\n' + JSON.stringify(r, null, 2));
     }
   } catch (e) {
     console.error('Create waybill error:', e);
-    Admin.toast('Không thể tạo vận đơn. Vui lòng kiểm tra cấu hình.');
+    Admin.toast('❌ Lỗi: ' + e.message);
+    alert('Lỗi tạo vận đơn:\n\n' + e.message);
   }
 }
 
