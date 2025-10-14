@@ -295,14 +295,25 @@ async function createWaybill() {
 
     // Get sender info from settings
     const settings = await Admin.req('/public/settings', { method: 'GET' });
-    const sender = {
-      name: g(settings, ['settings', 'shipping', 'sender_name']) || 'Kho #1',
-      phone: g(settings, ['settings', 'shipping', 'sender_phone']) || '0000000000',
-      address: g(settings, ['settings', 'shipping', 'sender_address']) || '',
+    let sender = {
+      name: g(settings, ['settings', 'shipping', 'sender_name']) || 'SHOP HUY VÂN',
+      phone: g(settings, ['settings', 'shipping', 'sender_phone']) || '0909127967',
+      address: g(settings, ['settings', 'shipping', 'sender_address']) || '91/6 Liên Khu 5-11-12',
       province_code: g(settings, ['settings', 'shipping', 'sender_province_code']) || '',
       district_code: g(settings, ['settings', 'shipping', 'sender_district_code']) || '',
       commune_code: g(settings, ['settings', 'shipping', 'sender_commune_code']) || ''
     };
+    
+    // FALLBACK: Hardcode HCM nếu chưa cấu hình
+    if (!sender.province_code || !sender.district_code) {
+      console.warn('Sender chưa cấu hình đầy đủ, dùng HCM mặc định');
+      sender.province_code = '79'; // TP. Hồ Chí Minh
+      sender.district_code = '760'; // Quận Bình Tân
+      sender.commune_code = ''; // Để trống nếu không có
+      
+      // Hiển thị cảnh báo cho user
+      Admin.toast('⚠️ Chưa cấu hình kho, dùng địa chỉ HCM mặc định');
+    }
 
     // Receiver info - check multiple possible fields
     const customer = o.customer || {};
