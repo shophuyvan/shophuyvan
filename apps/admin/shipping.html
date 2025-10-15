@@ -66,7 +66,7 @@
 </div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px;flex-wrap:wrap">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>    <button id="check_ship_api" class="btn" style="background:#065f46">Kiểm tra API vận chuyển</button>  </div>  </div></div>
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px;flex-wrap:wrap">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>    <button id="check_ship_api" class="btn" style="background:#065f46">Kiểm tra API vận chuyển</button>    <button id="quote_with_sender" class="btn" style="background:#2563eb">Báo giá với người gửi hiện tại</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
   <div class="card" style="display:none"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
@@ -172,6 +172,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       const lines = steps.map(s=> (s.ok?'✅':'❌')+' '+s.name+' '+(s.extra?JSON.stringify(s.extra):'')).join('\n');
       alert('Kiểm tra API vận chuyển:\n'+lines+'\n\nAPI: '+base);
     }catch(e){ alert('Lỗi kiểm tra API: '+e.message); }
+  });}
+
+  // Quote using current sender selection to surface token/payload issues
+  const btnQuote=document.getElementById('quote_with_sender');
+  if(btnQuote && !btnQuote.__wired){ btnQuote.__wired=true; btnQuote.addEventListener('click', async ()=>{
+    try{
+      const provName = document.getElementById('sender_province')?.value||'';
+      const distName = document.getElementById('sender_district')?.value||'';
+      const provCode = document.getElementById('sender_province_sel')?.value||'';
+      const distCode = document.getElementById('sender_district_sel')?.value||'';
+      const body = { receiver_province: provName || 'Hồ Chí Minh', receiver_district: distName || 'Quận 1', to_province: provName, to_district: distName, receiver_province_code: provCode, receiver_district_code: distCode, weight_gram: 500, cod: 0 };
+      const r = await Admin.req('/shipping/price', { method:'POST', body });
+      alert('Báo giá với người gửi hiện tại:\nok='+r?.ok+' items='+(r?.items?.length||0)+'\n\nPayload:\n'+JSON.stringify(body, null, 2).slice(0,600));
+    }catch(e){ alert('Lỗi báo giá: '+e.message); }
   });}
 });
 </script>
