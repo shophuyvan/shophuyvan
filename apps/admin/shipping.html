@@ -189,7 +189,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   });}
 
   // Auto-persist sender on change to avoid losing after F5
+  // Debounced auto-save to tránh 429
+  let __saveTimer=null; let __lastSaved={};
   async function persistSenderQuick(){
+    if(__saveTimer){ clearTimeout(__saveTimer); }
+    __saveTimer = setTimeout(async ()=>{
     try{
       const phone = (document.getElementById('sender_phone')?.value||'').replace(/\D+/g,'');
       const provName = document.getElementById('sender_province')?.value||'';
@@ -207,8 +211,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         ['shipping.sender_district_code', distCode],
         ['shipping.sender_commune_code', wardCode]
       ];
-      for(const [path, value] of pairs){ await Admin.req('/admin/settings/upsert', { method:'POST', body:{ path, value } }); }
+      for(const [path, value] of pairs){
+        if(__lastSaved[path]===value) continue;
+        await Admin.req('/admin/settings/upsert', { method:'POST', body:{ path, value } });
+        __lastSaved[path]=value;
+      }
     }catch(e){ console.warn('persistSenderQuick failed', e); }
+    }, 800);
   }
   ['sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
     .forEach(id=>{ const el=document.getElementById(id); if(el && !el.__autosave){ el.__autosave=true; el.addEventListener('change', persistSenderQuick); el.addEventListener('blur', persistSenderQuick); }});
