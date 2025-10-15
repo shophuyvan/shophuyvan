@@ -1,9 +1,40 @@
 import { json } from '../../lib/response.js';
-import * as areas from './areas.js';import * as waybill from './waybill.js';import * as pricing from './pricing.js';import * as warehouses from './warehouses.js';
-export async function handle(req, env, ctx){const url=new URL(req.url);const p=url.pathname;
-  if(p.startsWith('/shipping/areas')||p.startsWith('/shipping/provinces')||p.startsWith('/shipping/districts')||p.startsWith('/shipping/wards')) return areas.handle(req,env,ctx);
-  if(p.startsWith('/shipping/warehouses')) return warehouses.handle(req,env,ctx);
-  if(p.startsWith('/shipping/price')||p.startsWith('/shipping/quote')) return pricing.handle(req,env,ctx);
-  if(p.startsWith('/admin/shipping/create')) return waybill.createWaybill(req,env,ctx);
-  return json({ok:false,error:'Not found'},{status:404},req);
+import * as areas from './areas.js';
+import * as warehouses from './warehouses.js';
+import * as pricing from './pricing.js';
+import { createWaybill } from './waybill.js';
+
+export async function handle(req, env, ctx) {
+  const url = new URL(req.url);
+  const path = url.pathname;
+
+  // Areas (provinces/districts/wards)
+  if (path.startsWith('/shipping/provinces') || 
+      path.startsWith('/shipping/districts') ||
+      path.startsWith('/shipping/wards') ||
+      path.startsWith('/shipping/areas') ||
+      path.startsWith('/api/addresses') ||
+      path.startsWith('/v1/platform/areas')) {
+    return areas.handle(req, env, ctx);
+  }
+
+  // Warehouses
+  if (path === '/shipping/warehouses') {
+    return warehouses.handle(req, env, ctx);
+  }
+
+  // Pricing/Quote
+  if (path === '/shipping/price' || 
+      path === '/shipping/quote' ||
+      path === '/api/shipping/quote' ||
+      path === '/v1/platform/orders/price') {
+    return pricing.handle(req, env, ctx);
+  }
+
+  // Waybill creation
+  if (path === '/admin/shipping/create' && req.method === 'POST') {
+    return createWaybill(req, env);
+  }
+
+  return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
 }

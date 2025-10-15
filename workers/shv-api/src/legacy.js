@@ -5,9 +5,9 @@
 import { json, corsHeaders } from './lib/response.js';
 import * as categories from './modules/categories.js';
 // Import thêm các module khác khi đã tách xong:
-// import * as products from './modules/products.js';
-// import * as orders from './modules/orders.js';
-// import * as shipping from './modules/shipping/index.js';
+import * as products from './modules/products.js';
+import * as orders from './modules/orders.js';
+import * as shipping from './modules/shipping/index.js';
 // import * as auth from './modules/auth.js';
 // import * as settings from './modules/settings.js';
 
@@ -59,23 +59,31 @@ export default {
 
       // TODO: Uncomment khi đã tách module
       // Products module
-      // if (path.startsWith('/products') || 
-      //     path.startsWith('/admin/products')) {
-      //   return products.handle(req, env, ctx);
-      // }
+      if (p.startsWith('/products') || 
+        p.startsWith('/public/products') ||
+        p.startsWith('/admin/products') ||
+        p.startsWith('/product') ||
+        (p === '/products' && req.method === 'GET')) {
+      return products.handle(req, env, ctx);
+    }
 
       // Orders module
-      // if (path.startsWith('/orders') || 
-      //     path.startsWith('/api/orders') ||
-      //     path.startsWith('/admin/orders')) {
-      //   return orders.handle(req, env, ctx);
-      // }
+      if (p.startsWith('/api/orders') || 
+    p.startsWith('/admin/orders') ||
+    p.startsWith('/public/orders') ||
+    p.startsWith('/public/order-create') ||
+    p === '/admin/stats') {
+  return orders.handle(req, env, ctx);
+}
 
       // Shipping module
-      // if (path.startsWith('/shipping') || 
-      //     path.startsWith('/admin/shipping')) {
-      //   return shipping.handle(req, env, ctx);
-      // }
+      if (path.startsWith('/shipping') || 
+    path.startsWith('/admin/shipping') ||
+    path.startsWith('/api/addresses') ||
+    path.startsWith('/v1/platform/areas') ||
+    path.startsWith('/v1/platform/orders/price')) {
+  return shipping.handle(req, env, ctx);
+    }
 
       // Auth module
       // if (path === '/admin/login' || path === '/login') {
