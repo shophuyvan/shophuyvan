@@ -73,7 +73,10 @@ async function getShippingPrice(req, env) {
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
-      body: payload
+      body: payload,
+      // Some environments require Bearer Auth instead of Token header
+      headers: {},
+      useBearer: true
     });
 
     const items = normalizeShippingRates(data);
