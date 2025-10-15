@@ -110,10 +110,13 @@
   let selectedShipping = null;
   let appliedVoucher = null;
   
-  // Get cart from localStorage
+  // Get cart from localStorage (supports both keys: cart, CART)
   function getCart() {
     try {
-      return JSON.parse(localStorage.getItem('cart') || '[]');
+      const lower = JSON.parse(localStorage.getItem('cart') || '[]');
+      if (Array.isArray(lower) && lower.length) return lower;
+      const upper = JSON.parse(localStorage.getItem('CART') || '[]');
+      return Array.isArray(upper) ? upper : [];
     } catch (e) {
       return [];
     }
@@ -121,6 +124,7 @@
   
   function clearCart() {
     localStorage.removeItem('cart');
+    localStorage.removeItem('CART');
   }
   
   // Calculate totals
@@ -151,18 +155,25 @@
   
   function updateSummary() {
     const { subtotal, shippingFee, discount, shippingDiscount, total } = calculateTotals();
+    // Guard against missing elements in older builds
+    const subtotalEl = $('subtotal');
+    const shipEl = $('shipping-fee');
+    const discRow = $('discount-row');
+    const discEl = $('discount');
+    const totalEl = $('total');
+    if (!subtotalEl || !shipEl || !totalEl) return;
     
-    $('subtotal').textContent = money(subtotal);
-    $('shipping-fee').textContent = money(shippingFee);
+    subtotalEl.textContent = money(subtotal);
+    shipEl.textContent = money(shippingFee);
     
-    if (discount > 0 || shippingDiscount > 0) {
-      $('discount-row').style.display = 'flex';
-      $('discount').textContent = '-' + money(discount + shippingDiscount);
+    if (discRow && discEl && (discount > 0 || shippingDiscount > 0)) {
+      discRow.style.display = 'flex';
+      discEl.textContent = '-' + money(discount + shippingDiscount);
     } else {
-      $('discount-row').style.display = 'none';
+      if (discRow) discRow.style.display = 'none';
     }
     
-    $('total').textContent = money(total);
+    totalEl.textContent = money(total);
   }
   
   // Load provinces
