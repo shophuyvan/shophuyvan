@@ -1,0 +1,1 @@
+import { json } from '../../lib/response.js';export async function handle(req,env,ctx){if(req.method==='GET'||req.method==='POST')return json({ok:true,items:[]}, {}, req);return json({ok:false,error:'Not found'},{status:404},req);}
