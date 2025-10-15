@@ -42,11 +42,27 @@ async function getShippingPrice(req, env) {
     const shipping = settings.shipping || {};
 
     const payload = {
+      // Names
       sender_province: body.sender_province || shipping.sender_province || '',
       sender_district: body.sender_district || shipping.sender_district || '',
       receiver_province: body.receiver_province || body.to_province || '',
       receiver_district: body.receiver_district || body.to_district || '',
       receiver_commune: body.receiver_commune || body.to_ward || '',
+      // Codes (added for aggregator compatibility)
+      sender_province_code: body.sender_province_code || shipping.sender_province_code || '',
+      sender_district_code: body.sender_district_code || shipping.sender_district_code || '',
+      sender_commune_code: body.sender_commune_code || shipping.sender_commune_code || '',
+      receiver_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+      receiver_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+      receiver_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+      // Root-level aliases some providers expect
+      province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+      district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+      commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+      to_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+      to_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+      to_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+      // Parcel
       weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
       cod: Number(body.cod || 0) || 0,
       length_cm: Number(body.length_cm || 0) || 0,
