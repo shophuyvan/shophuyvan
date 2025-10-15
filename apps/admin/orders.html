@@ -313,14 +313,14 @@ async function createWaybill() {
     
     // === SENDER INFO ===
     const sender = {
-      name: getSetting('shipping.sender_name') || 'SHOP HUY VÂN',
-      phone: getSetting('shipping.sender_phone') || '0909127967',
-      address: getSetting('shipping.sender_address') || '91/6 Liên Khu 5-11-12',
-      province_code: getSetting('shipping.sender_province_code') || '79',
-      district_code: getSetting('shipping.sender_district_code') || '760',
+      name: getSetting('shipping.sender_name') || '',
+      phone: (getSetting('shipping.sender_phone') || '').replace(/\D+/g,''),
+      address: getSetting('shipping.sender_address') || '',
+      province_code: getSetting('shipping.sender_province_code') || '',
+      district_code: getSetting('shipping.sender_district_code') || '',
       commune_code: getSetting('shipping.sender_commune_code') || '',
-      province: getSetting('shipping.sender_province') || 'Hồ Chí Minh',
-      district: getSetting('shipping.sender_district') || 'Bình Tân'
+      province: getSetting('shipping.sender_province') || '',
+      district: getSetting('shipping.sender_district') || ''
     };
     
     console.log('📤 Sender info:', sender);
