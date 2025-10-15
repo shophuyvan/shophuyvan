@@ -310,19 +310,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
     btnSave.__wired = true;
     btnSave.addEventListener('click', async (ev)=>{
       ev.preventDefault();
+      // Client-side validation
+      const phone = (document.getElementById('sender_phone')?.value||'').replace(/\D+/g,'');
+      const provCode = document.getElementById('sender_province_sel')?.value || document.getElementById('sender_province_code')?.value || '';
+      const distCode = document.getElementById('sender_district_sel')?.value || document.getElementById('sender_district_code')?.value || '';
+      if(!phone){ alert('Vui lòng nhập SĐT người gửi (chỉ số).'); return; }
+      if(!provCode){ alert('Vui lòng chọn Tỉnh/Thành của người gửi từ danh sách.'); return; }
+      if(!distCode){ alert('Vui lòng chọn Quận/Huyện của người gửi từ danh sách.'); return; }
       const upserts = (list)=>Promise.all(list.map(([path, value])=>{
         return Admin.req('/admin/settings/upsert', {method:'POST', body:{path, value}});
       }));
       try{ try{ await upserts([
 ['shipping.sender_name',     $('sender_name').value.trim()],
-        ['shipping.sender_phone',    $('sender_phone').value.trim()],
+        ['shipping.sender_phone',    phone],
         ['shipping.sender_address',  $('sender_address').value.trim()],
         ['shipping.sender_province', $('sender_province').value.trim()],
         ['shipping.sender_district', $('sender_district').value.trim()],
                 ['shipping.sender_commune', ($('sender_commune_sel').selectedOptions[0]?.textContent||'').trim() || '' ],
         ['shipping.option_id',       $('option_id').value.trim() || '1'],
-        ['shipping.sender_province_code', $('sender_province_sel').value || $('sender_province_code').value || '' ],
-        ['shipping.sender_district_code', $('sender_district_sel').value || $('sender_district_code').value || '' ],
+        ['shipping.sender_province_code', provCode ],
+        ['shipping.sender_district_code', distCode ],
         ['shipping.sender_commune_code',  $('sender_commune_sel').value  || $('sender_commune_code').value  || '' ],
       
 ]);
@@ -506,7 +513,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   };
   const setOptions = (sel, list)=>{
     if(!sel) return;
-    sel.innerHTML = '<option value=\"\">— Chọn —</option>';
+    sel.innerHTML = '<option value=\"">— Chọn —</option>';
     (list||[]).forEach(it=>{
       const opt = document.createElement('option');
       opt.value = String(it.code || it.id || it.value || '');
@@ -778,7 +785,27 @@ window.__shv_syncWarehouses_fallback = async function(){
         }
       }
       ['sender_province_sel', 'sender_district_sel', 'sender_commune_sel'].forEach(id => { const el = $(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
-      alert('✅ Đã đồng bộ thông tin từ Warehouse');
+      // Auto-save sender settings immediately after sync
+      try {
+        const upserts = async (pairs) => {
+          for (const [path, value] of pairs) {
+            await Admin.req('/admin/settings/upsert', { method: 'POST', body: { path, value } });
+          }
+        };
+        await upserts([
+          ['shipping.sender_name', $('sender_name')?.value?.trim()||''],
+          ['shipping.sender_phone', ($('sender_phone')?.value||'').replace(/\D+/g,'')],
+          ['shipping.sender_address', $('sender_address')?.value?.trim()||''],
+          ['shipping.sender_province', $('sender_province')?.value?.trim()||''],
+          ['shipping.sender_district', $('sender_district')?.value?.trim()||''],
+          ['shipping.sender_commune', ($('sender_commune_sel')?.selectedOptions?.[0]?.textContent||'').trim()],
+          ['shipping.sender_province_code', $('sender_province_sel')?.value||''],
+          ['shipping.sender_district_code', $('sender_district_sel')?.value||''],
+          ['shipping.sender_commune_code', $('sender_commune_sel')?.value||''],
+          ['shipping.option_id', $('option_id')?.value?.trim()||'1']
+        ]);
+      } catch(e) { console.warn('Auto-save sender failed', e); }
+      alert('✅ Đã đồng bộ và lưu thông tin người gửi');
       if (typeof updateSummary === 'function') setTimeout(updateSummary, 100);
     } catch (error) {
       console.error('❌ Warehouse sync error:', error);
