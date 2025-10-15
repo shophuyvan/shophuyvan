@@ -7,12 +7,39 @@ import { routes } from '../routes';
 export default function CartPage() {
   const [state, setState] = useState(cart.get());
 
+  // Fire a custom event so Header/other tabs sync instantly when Cart changes here
+  const notify = useCallback(() => {
+    try { window.dispatchEvent(new Event('shv:cart-changed')); } catch {}
+  }, []);
+
   useEffect(() => {
+    const refresh = () => setState(cart.get());
+
+    // storage only fires across tabs; relax key to tolerate version changes
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'shv_cart_v1') setState(cart.get());
+      if (!e.key || (typeof e.key === 'string' && e.key.includes('shv_cart'))) refresh();
     };
+
+    // listen custom event to update in the same tab
+    const onChanged = () => refresh();
+
+    // also refresh when tab regains focus / visibility
+    const onFocusOrVisible = () => refresh();
+
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('shv:cart-changed', onChanged);
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+
+    // first hydration
+    refresh();
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('shv:cart-changed', onChanged);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
   }, []);
 
   const update = useCallback(() => setState(cart.get()), []);
@@ -20,22 +47,24 @@ export default function CartPage() {
   const handleQtyChange = useCallback((lineId: any, newQty: number) => {
     cart.setQty(lineId, Math.max(1, newQty));
     update();
-  }, [update]);
+    notify(); // keep Header badges/other tabs in sync
+  }, [update, notify]);
 
   const handleRemove = useCallback((lineId: any) => {
     cart.remove(lineId);
     update();
-  }, [update]);
+    notify();
+  }, [update, notify]);
 
   const getLineImage = useCallback((l: any) => {
-    const rawImg = l.variantImage || 
-                   (l.variant && (l.variant.image || (Array.isArray(l.variant.images) ? l.variant.images[0] : undefined))) || 
-                   l.image || 
+    const rawImg = l.variantImage ||
+                   (l.variant && (l.variant.image || (Array.isArray(l.variant.images) ? l.variant.images[0] : undefined))) ||
+                   l.image ||
                    '/icon.png';
     return cloudify(rawImg, 'w_160,q_auto:eco,f_auto,c_fill');
   }, []);
 
-  const isEmpty = state.lines.length === 0;
+  const isEmpty = !state || state.lines.length === 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -46,8 +75,8 @@ export default function CartPage() {
           <div className="bg-white rounded-2xl p-8 shadow text-center">
             <div className="text-6xl mb-3">🛒</div>
             <div className="text-gray-500 mb-4">Giỏ hàng trống.</div>
-            <a 
-              href="/" 
+            <a
+              href="/"
               className="inline-block px-6 py-2 bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition-colors"
             >
               Tiếp tục mua sắm
@@ -55,9 +84,9 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {state.lines.map((l) => (
-              <div 
-                key={String(l.id)} 
+            {state.lines.map((l: any) => (
+              <div
+                key={String(l.id)}
                 className="bg-white rounded-2xl p-3 shadow flex gap-3 hover:shadow-md transition-shadow"
               >
                 <img

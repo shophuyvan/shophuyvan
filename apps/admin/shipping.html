@@ -676,5 +676,121 @@ window.__shv_syncWarehouses_fallback = async function(){
 
 </script>
 
+<!-- PATCH: Fix warehouse sync and robust sender bindings -->
+<script>
+(function() { 
+  const $ = (id) => document.getElementById(id);
+  const BASE = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
+  function normalize(text) {
+    return (text || '').toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  function findByName(list, searchName) {
+    const normalized = normalize(searchName);
+    return list.find(item => normalize(item.name || item.label || '') === normalized);
+  }
+  async function apiCall(path, options = {}) {
+    try {
+      const url = path.startsWith('http') ? path : BASE + path;
+      const token = localStorage.getItem('x-token') || $('super_token')?.value || '';
+      const config = {
+        method: options.method || 'GET',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-token': token } : {}) },
+        credentials: 'include'
+      };
+      if (options.body && config.method === 'POST') config.body = JSON.stringify(options.body);
+      const response = await fetch(url, config);
+      return await response.json();
+    } catch (error) {
+      console.error('API call failed:', path, error);
+      return { error: true, message: error.message };
+    }
+  }
+  async function loadProvinces() {
+    const data = await apiCall('/shipping/provinces');
+    const sel = $('sender_province_sel'); if (!sel) return [];
+    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
+    const items = data?.items || [];
+    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
+    sel.disabled = false; return items;
+  }
+  async function loadDistricts(provinceCode) {
+    if (!provinceCode) return [];
+    const data = await apiCall(`/shipping/districts?province_code=${provinceCode}`);
+    const sel = $('sender_district_sel'); if (!sel) return [];
+    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
+    const items = data?.items || [];
+    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
+    sel.disabled = false; return items;
+  }
+  async function loadWards(districtCode) {
+    if (!districtCode) return [];
+    const data = await apiCall(`/shipping/wards?district_code=${districtCode}`);
+    const sel = $('sender_commune_sel'); if (!sel) return [];
+    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
+    const items = data?.items || [];
+    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
+    sel.disabled = false; return items;
+  }
+  window.syncSenderFromWarehousesFixed = async function() {
+    try {
+      let response = await apiCall('/shipping/warehouses');
+      let warehouses = response?.items || response?.data || [];
+      if (!warehouses.length) { response = await apiCall('/shipping/warehouses', { method: 'POST' }); warehouses = response?.items || response?.data || []; }
+      if (!warehouses.length) { alert('❌ Không lấy được thông tin warehouse.'); return; }
+      const warehouse = warehouses[0];
+      const name = warehouse.name || warehouse.contact_name || warehouse.wh_name || '';
+      const phone = warehouse.phone || warehouse.contact_phone || warehouse.mobile || '';
+      const address = warehouse.addr || warehouse.address || warehouse.formatted_address || '';
+      let provinceCode = warehouse.province_code || warehouse.provinceId || warehouse.province?.code || '';
+      let districtCode = warehouse.district_code || warehouse.districtId || warehouse.district?.code || '';
+      let wardCode = warehouse.ward_code || warehouse.commune_code || warehouse.ward?.code || '';
+      const provinceName = warehouse.province_name || warehouse.province?.name || '';
+      const districtName = warehouse.district_name || warehouse.district?.name || '';
+      const wardName = warehouse.ward_name || warehouse.commune_name || warehouse.ward?.name || '';
+      if ($('sender_name')) $('sender_name').value = name;
+      if ($('sender_phone')) $('sender_phone').value = phone;
+      if ($('sender_address')) $('sender_address').value = address;
+      const provinces = await loadProvinces();
+      if (!provinceCode && provinceName) { const match = findByName(provinces, provinceName); if (match) provinceCode = match.code; }
+      if (provinceCode) {
+        $('sender_province_sel').value = provinceCode;
+        if ($('sender_province_code')) $('sender_province_code').value = provinceCode;
+        if ($('sender_province')) $('sender_province').value = provinceName || provinces.find(p => p.code === provinceCode)?.name || '';
+        const districts = await loadDistricts(provinceCode);
+        if (!districtCode && districtName) { const m = findByName(districts, districtName); if (m) districtCode = m.code; }
+        if (districtCode) {
+          $('sender_district_sel').value = districtCode;
+          if ($('sender_district_code')) $('sender_district_code').value = districtCode;
+          if ($('sender_district')) $('sender_district').value = districtName || districts.find(d => d.code === districtCode)?.name || '';
+          const wards = await loadWards(districtCode);
+          if (!wardCode && wardName) { const mw = findByName(wards, wardName); if (mw) wardCode = mw.code; }
+          if (wardCode) {
+            $('sender_commune_sel').value = wardCode;
+            if ($('sender_commune_code')) $('sender_commune_code').value = wardCode;
+          }
+        }
+      }
+      ['sender_province_sel', 'sender_district_sel', 'sender_commune_sel'].forEach(id => { const el = $(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
+      alert('✅ Đã đồng bộ thông tin từ Warehouse');
+      if (typeof updateSummary === 'function') setTimeout(updateSummary, 100);
+    } catch (error) {
+      console.error('❌ Warehouse sync error:', error);
+      alert('❌ Lỗi đồng bộ warehouse:\\n' + error.message);
+    }
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = $('sync-warehouses');
+    if (btn) btn.onclick = window.syncSenderFromWarehousesFixed;
+  });
+})();
+</script>
+
 </body>
 </html>

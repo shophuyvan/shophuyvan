@@ -283,174 +283,168 @@ function openPrint(order, tracking) {
 }
 
 // Create waybill
+// PATCH 2: Thay thế hàm createWaybill trong orders.html
+// Tìm hàm async function createWaybill() cũ và thay bằng code này:
+
 async function createWaybill() {
   try {
-    var o = window.__currentOrder;
-    if (!o) {
-      Admin.toast('Không tìm thấy đơn để tạo vận đơn');
+    const order = window.__currentOrder;
+    if (!order) {
+      Admin.toast('❌ Không tìm thấy đơn hàng');
       return;
     }
-
-    Admin.toast('Đang tạo vận đơn...');
-
-    // Get sender info from settings
+    
+    console.log('📦 Creating waybill for order:', order);
+    Admin.toast('🔄 Đang tạo vận đơn...');
+    
+    // Get settings
     const settings = await Admin.req('/public/settings', { method: 'GET' });
-    let sender = {
-      name: g(settings, ['settings', 'shipping', 'sender_name']) || 'SHOP HUY VÂN',
-      phone: g(settings, ['settings', 'shipping', 'sender_phone']) || '0909127967',
-      address: g(settings, ['settings', 'shipping', 'sender_address']) || '91/6 Liên Khu 5-11-12',
-      province_code: g(settings, ['settings', 'shipping', 'sender_province_code']) || '',
-      district_code: g(settings, ['settings', 'shipping', 'sender_district_code']) || '',
-      commune_code: g(settings, ['settings', 'shipping', 'sender_commune_code']) || ''
+    
+    // Helper to get nested setting value
+    const getSetting = (path) => {
+      const keys = path.split('.');
+      let value = settings?.settings || settings;
+      for (const key of keys) {
+        value = value?.[key];
+        if (value === undefined) return '';
+      }
+      return value || '';
     };
     
-    // FALLBACK: Hardcode HCM nếu chưa cấu hình
+    // === SENDER INFO ===
+    const sender = {
+      name: getSetting('shipping.sender_name') || 'SHOP HUY VÂN',
+      phone: getSetting('shipping.sender_phone') || '0909127967',
+      address: getSetting('shipping.sender_address') || '91/6 Liên Khu 5-11-12',
+      province_code: getSetting('shipping.sender_province_code') || '79',
+      district_code: getSetting('shipping.sender_district_code') || '760',
+      commune_code: getSetting('shipping.sender_commune_code') || '',
+      province: getSetting('shipping.sender_province') || 'Hồ Chí Minh',
+      district: getSetting('shipping.sender_district') || 'Bình Tân'
+    };
+    
+    console.log('📤 Sender info:', sender);
+    
+    // Validate sender - QUAN TRỌNG!
     if (!sender.province_code || !sender.district_code) {
-      console.warn('Sender chưa cấu hình đầy đủ, dùng HCM mặc định');
-      sender.province_code = '79'; // TP. Hồ Chí Minh
-      sender.district_code = '760'; // Quận Bình Tân
-      sender.commune_code = ''; // Để trống nếu không có
-      
-      // Hiển thị cảnh báo cho user
-      Admin.toast('⚠️ Chưa cấu hình kho, dùng địa chỉ HCM mặc định');
-    }
-
-    // Receiver info - check multiple possible fields
-    const customer = o.customer || {};
-    const receiver = {
-      name: customer.name || o.customer_name || o.name || 'Khách',
-      phone: customer.phone || o.phone || '',
-      address: customer.address || o.address || '',
-      province_code: customer.province_code || o.receiver_province_code || o.province_code || o.to_province_code || '',
-      district_code: customer.district_code || o.receiver_district_code || o.district_code || o.to_district_code || '',
-      commune_code: customer.commune_code || customer.ward_code || o.receiver_commune_code || o.commune_code || o.ward_code || o.to_commune_code || ''
-    };
-
-    // Normalize short codes to full codes (VN provinces)
-    const provinceMap = {
-      '1': '01', '2': '02', '92': '79', '48': '48', '46': '46', // Common mappings
-      '01': '01', '79': '79' // Already full codes
-    };
-    
-    if (receiver.province_code && receiver.province_code.length < 3) {
-      receiver.province_code = provinceMap[receiver.province_code] || receiver.province_code.padStart(2, '0');
-    }
-    
-    // Get full province/district names if only have codes
-    let provinceName = customer.province || o.province || '';
-    let districtName = customer.district || o.district || '';
-    
-    // If we have code but no name, try to fetch name from API
-    if (receiver.province_code && !provinceName) {
-      try {
-        const pRes = await Admin.req('/shipping/provinces', { method: 'GET' });
-        const provinces = pRes.items || [];
-        const prov = provinces.find(p => p.code === receiver.province_code);
-        if (prov) provinceName = prov.name;
-      } catch (e) {
-        console.error('Fetch province name error:', e);
-      }
-    }
-    
-    if (receiver.district_code && !districtName) {
-      try {
-        const dRes = await Admin.req(`/shipping/districts?province_code=${receiver.province_code}`, { method: 'GET' });
-        const districts = dRes.items || [];
-        const dist = districts.find(d => d.code === receiver.district_code);
-        if (dist) districtName = dist.name;
-      } catch (e) {
-        console.error('Fetch district name error:', e);
-      }
-    }
-
-    // Validate receiver address codes
-    if (!receiver.province_code || !receiver.district_code) {
-      const missingFields = [];
-      if (!receiver.province_code) missingFields.push('Tỉnh/Thành phố');
-      if (!receiver.district_code) missingFields.push('Quận/Huyện');
-      if (!receiver.commune_code) missingFields.push('Phường/Xã');
-      
-      Admin.toast('❌ Thiếu thông tin: ' + missingFields.join(', '));
-      
-      // Show helper message
-      alert(
-        'Đơn hàng thiếu mã địa chỉ người nhận!\n\n' +
-        'Thông tin hiện tại:\n' +
-        '• Tỉnh: ' + (receiver.province_code || 'CHƯA CÓ') + '\n' +
-        '• Quận: ' + (receiver.district_code || 'CHƯA CÓ') + '\n' +
-        '• Phường: ' + (receiver.commune_code || 'CHƯA CÓ') + '\n\n' +
-        'Vui lòng:\n' +
-        '1. Cập nhật đơn hàng với địa chỉ đầy đủ\n' +
-        '2. Hoặc liên hệ khách hàng để lấy thông tin'
-      );
+      alert('⚠️ THÔNG TIN NGƯỜI GỬI CHƯA ĐẦY ĐỦ!\n\n' +
+            'Hiện tại:\n' +
+            `• Tỉnh: ${sender.province_code || 'CHƯA CÓ'}\n` +
+            `• Quận: ${sender.district_code || 'CHƯA CÓ'}\n\n` +
+            'Vui lòng:\n' +
+            '1. Vào trang "Vận chuyển"\n' +
+            '2. Bấm "Đồng bộ từ Warehouses"\n' +
+            '3. Kiểm tra thông tin và bấm "Lưu người gửi"');
       return;
     }
-
-    // Items
-    const its = Array.isArray(o.items) ? o.items : [];
-    const mappedItems = its.map(function(it) {
-      return {
-        name: (it.name || it.title || 'Item'),
-        qty: Number(it.qty || 1),
-        price: Number(it.price || 0),
-        weight_grams: Number(it.weight_gram || it.weight_grams || it.weight || 0)
-      };
-    });
-
+    
+    // === RECEIVER INFO ===
+    const customer = order.customer || {};
+    const receiver = {
+      name: customer.name || order.customer_name || order.name || 'Khách',
+      phone: customer.phone || order.phone || '',
+      address: customer.address || order.address || '',
+      // Try multiple possible field names for codes
+      province_code: customer.province_code || order.receiver_province_code || 
+                    order.province_code || order.to_province_code || '',
+      district_code: customer.district_code || order.receiver_district_code || 
+                    order.district_code || order.to_district_code || '',
+      commune_code: customer.commune_code || customer.ward_code || 
+                   order.receiver_commune_code || order.commune_code || 
+                   order.ward_code || order.to_commune_code || '',
+      // Names for display
+      province: customer.province || order.province || '',
+      district: customer.district || order.district || ''
+    };
+    
+    console.log('📥 Receiver info:', receiver);
+    
+    // Validate receiver - QUAN TRỌNG!
+    const missingFields = [];
+    if (!receiver.province_code) missingFields.push('Tỉnh/Thành phố');
+    if (!receiver.district_code) missingFields.push('Quận/Huyện');
+    
+    if (missingFields.length > 0) {
+      alert('⚠️ ĐƠN HÀNG THIẾU THÔNG TIN NGƯỜI NHẬN!\n\n' +
+            'Thiếu: ' + missingFields.join(', ') + '\n\n' +
+            'Thông tin hiện tại:\n' +
+            `• Tỉnh code: ${receiver.province_code || 'CHƯA CÓ'}\n` +
+            `• Quận code: ${receiver.district_code || 'CHƯA CÓ'}\n` +
+            `• Phường code: ${receiver.commune_code || 'CHƯA CÓ'}\n\n` +
+            'Vui lòng:\n' +
+            '1. Cập nhật địa chỉ đầy đủ cho khách hàng\n' +
+            '2. Đảm bảo chọn từ dropdown (để có mã tỉnh/quận)\n' +
+            '3. Thử tạo vận đơn lại');
+      return;
+    }
+    
+    // === ITEMS ===
+    const items = (order.items || []).map(item => ({
+      name: item.name || item.title || 'Sản phẩm',
+      qty: Number(item.qty || 1),
+      price: Number(item.price || 0),
+      weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0)
+    }));
+    
     // Calculate total weight
-    const totalWeight = mappedItems.reduce(function(s, it) {
-      return s + Number(it.weight_grams || 0) * Number(it.qty || 1);
-    }, 0);
-
+    const totalWeight = items.reduce((sum, item) => 
+      sum + (item.weight_grams || 0) * (item.qty || 1), 0);
+    
+    // === BUILD PAYLOAD ===
     const payload = {
-      provider: (o.shipping_provider || o.provider || 'vtp').toString().toLowerCase(),
-      order_id: o.id || o._id || '',
+      provider: (order.shipping_provider || order.provider || 'vtp').toLowerCase(),
+      order_id: order.id || order._id || '',
       
-      // Sender
+      // Sender (người gửi)
       sender_name: sender.name,
       sender_phone: sender.phone,
       sender_address: sender.address,
-      sender_province_code: String(sender.province_code || '79'), // Default HCM
-      sender_district_code: String(sender.district_code || '760'), // Default Bình Chánh
-      sender_commune_code: String(sender.commune_code || ''),
-      sender_province: sender.province || 'Hồ Chí Minh',
-      sender_district: sender.district || 'Bình Chánh',
+      sender_province_code: String(sender.province_code),
+      sender_district_code: String(sender.district_code),
+      sender_commune_code: String(sender.commune_code),
+      sender_province: sender.province,
+      sender_district: sender.district,
       
-      // Receiver
+      // Receiver (người nhận)
       receiver_name: receiver.name,
       receiver_phone: receiver.phone,
       receiver_address: receiver.address,
-      receiver_province_code: String(receiver.province_code || ''),
-      receiver_district_code: String(receiver.district_code || ''),
-      receiver_commune_code: String(receiver.commune_code || ''),
-      receiver_province: provinceName || 'Tỉnh/TP',
-      receiver_district: districtName || 'Quận/Huyện',
+      receiver_province_code: String(receiver.province_code),
+      receiver_district_code: String(receiver.district_code),
+      receiver_commune_code: String(receiver.commune_code),
+      receiver_province: receiver.province || 'Tỉnh/TP',
+      receiver_district: receiver.district || 'Quận/Huyện',
       
-      // Aliases (some carriers need these)
-      province_code: String(receiver.province_code || ''),
-      district_code: String(receiver.district_code || ''),
-      commune_code: String(receiver.commune_code || ''),
-      to_province_code: String(receiver.province_code || ''),
-      to_district_code: String(receiver.district_code || ''),
-      to_commune_code: String(receiver.commune_code || ''),
+      // Aliases (một số carrier cần các field này)
+      province_code: String(receiver.province_code),
+      district_code: String(receiver.district_code),
+      commune_code: String(receiver.commune_code),
+      to_province_code: String(receiver.province_code),
+      to_district_code: String(receiver.district_code),
+      to_commune_code: String(receiver.commune_code),
       
       // Package info
-      items: mappedItems,
-      cod: Number(o.cod || 0),
+      items: items,
+      cod: Number(order.cod || 0),
       weight_gram: totalWeight || 500,
-      
-      // Additional
-      note: o.note || '',
-      service_code: o.shipping_service || o.service_code || ''
+      note: order.note || '',
+      service_code: order.shipping_service || order.service_code || ''
     };
-
-    console.log('Payload gửi đi:', payload);
-
-    const r = await Admin.req('/admin/shipping/create', { method: 'POST', body: payload });
     
-    if (r && r.ok) {
-      Admin.toast('✅ Đã tạo vận đơn');
-      const tracking = r.tracking || r.tracking_code || r.code || '';
+    console.log('📋 Waybill payload:', JSON.stringify(payload, null, 2));
+    
+    // === CALL API ===
+    const result = await Admin.req('/admin/shipping/create', {
+      method: 'POST',
+      body: payload
+    });
+    
+    console.log('📬 Waybill result:', result);
+    
+    // === HANDLE RESULT ===
+    if (result && result.ok) {
+      Admin.toast('✅ Đã tạo vận đơn thành công');
+      const tracking = result.tracking || result.tracking_code || result.code || '';
       
       if (tracking) {
         // Update order with tracking code
@@ -458,33 +452,46 @@ async function createWaybill() {
           await Admin.req('/admin/orders/upsert', {
             method: 'POST',
             body: {
-              id: o.id,
+              id: order.id,
               tracking_code: tracking,
               shipping_provider: payload.provider,
               status: 'shipping'
             }
           });
+          console.log('✅ Updated order with tracking:', tracking);
         } catch (e) {
-          console.error('Update tracking error:', e);
+          console.error('⚠️ Update order error:', e);
         }
         
-        openPrint(o, tracking);
+        // Print waybill
+        openPrint(order, tracking);
       }
       
-      // Reload order list
+      // Reload orders list
       setTimeout(loadOrders, 1000);
-    } else {
-      const errorMsg = r?.error || r?.message || 'Không rõ lỗi';
-      Admin.toast('❌ Không thể tạo vận đơn: ' + errorMsg);
       
-      // Show detailed error
-      console.error('Create waybill error:', r);
-      alert('Lỗi tạo vận đơn:\n\n' + errorMsg + '\n\n' + JSON.stringify(r, null, 2));
+    } else {
+      // Error handling
+      const errorMsg = result?.error || result?.message || 'Không rõ lỗi';
+      console.error('❌ Waybill creation failed:', result);
+      
+      Admin.toast('❌ Lỗi: ' + errorMsg);
+      
+      alert('❌ TẠO VẬN ĐƠN THẤT BẠI\n\n' +
+            'Lỗi: ' + errorMsg + '\n\n' +
+            'Chi tiết:\n' + JSON.stringify(result, null, 2) + '\n\n' +
+            'Kiểm tra:\n' +
+            '1. Thông tin người gửi đã đầy đủ?\n' +
+            '2. Thông tin người nhận có đúng?\n' +
+            '3. API token còn hiệu lực?');
     }
-  } catch (e) {
-    console.error('Create waybill error:', e);
-    Admin.toast('❌ Lỗi: ' + e.message);
-    alert('Lỗi tạo vận đơn:\n\n' + e.message);
+    
+  } catch (error) {
+    console.error('❌ Create waybill exception:', error);
+    Admin.toast('❌ Lỗi: ' + error.message);
+    alert('❌ LỖI TẠO VẬN ĐƠN\n\n' + 
+          'Message: ' + error.message + '\n\n' +
+          'Stack: ' + (error.stack || 'N/A'));
   }
 }
 
