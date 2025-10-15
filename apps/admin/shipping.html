@@ -66,7 +66,7 @@
 </div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>  </div>  </div></div>
+  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px;flex-wrap:wrap">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>    <button id="check_ship_api" class="btn" style="background:#065f46">Kiểm tra API vận chuyển</button>  </div>  </div></div>
   <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
   <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
   <div class="card" style="display:none"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
@@ -147,6 +147,31 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(btnTest && !btnTest.__wired){ btnTest.__wired=true; btnTest.addEventListener('click', async ()=>{
     const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:500, cod:0 } });
     alert('Kết quả: '+JSON.stringify(r).slice(0,400));
+  });}
+
+  // Deep health-check button
+  const btnCheck=document.getElementById('check_ship_api');
+  if(btnCheck && !btnCheck.__wired){ btnCheck.__wired=true; btnCheck.addEventListener('click', async ()=>{
+    try{
+      const base = Admin.getApiBase();
+      const steps = [];
+      const push = (name, ok, extra)=>steps.push({ name, ok, extra });
+      // 1) Provinces
+      let r1 = await Admin.req('/shipping/provinces', { method:'GET' });
+      push('Provinces', (!!r1 && Array.isArray(r1.items) && r1.items.length>0), { count: (r1?.items||[]).length });
+      // 2) Districts (HCM 79)
+      let r2 = await Admin.req('/shipping/districts?province_code=79', { method:'GET' });
+      push('Districts[79]', (!!r2 && Array.isArray(r2.items) && r2.items.length>0), { count: (r2?.items||[]).length });
+      // 3) Wards (sample 760/774 etc.) pick first district
+      const dCode = (r2?.items?.[0]?.code)||'760';
+      let r3 = await Admin.req('/shipping/wards?district_code='+dCode, { method:'GET' });
+      push('Wards['+dCode+']', (!!r3 && Array.isArray(r3.items) && r3.items.length>0), { count: (r3?.items||[]).length });
+      // 4) Price (quote)
+      let r4 = await Admin.req('/shipping/price', { method:'POST', body: { receiver_province: 'Hồ Chí Minh', receiver_district: (r2?.items?.[0]?.name || 'Quận 1'), weight_gram: 500, cod: 0 } });
+      push('Price', (!!r4 && (Array.isArray(r4.items) ? r4.items.length>0 : r4.ok)), { items: (r4?.items||[]).length, ok:r4?.ok });
+      const lines = steps.map(s=> (s.ok?'✅':'❌')+' '+s.name+' '+(s.extra?JSON.stringify(s.extra):'')).join('\n');
+      alert('Kiểm tra API vận chuyển:\n'+lines+'\n\nAPI: '+base);
+    }catch(e){ alert('Lỗi kiểm tra API: '+e.message); }
   });}
 });
 </script>
