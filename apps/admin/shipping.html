@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       let r3 = await Admin.req('/shipping/wards?district_code='+dCode, { method:'GET' });
       push('Wards['+dCode+']', (!!r3 && Array.isArray(r3.items) && r3.items.length>0), { count: (r3?.items||[]).length });
       // 4) Price (quote)
-      let r4 = await Admin.req('/shipping/price', { method:'POST', body: { receiver_province: 'Hồ Chí Minh', receiver_district: (r2?.items?.[0]?.name || 'Quận 1'), weight_gram: 500, cod: 0 } });
+      let r4 = await Admin.req('/shipping/price', { method:'POST', body: { receiver_province: 'Hồ Chí Minh', receiver_district: (r2?.items?.[0]?.name || 'Quận 1'), weight_gram: 500, weight: 500, cod: 0, option_id: '1' } });
       push('Price', (!!r4 && (Array.isArray(r4.items) ? r4.items.length>0 : r4.ok)), { items: (r4?.items||[]).length, ok:r4?.ok });
       const lines = steps.map(s=> (s.ok?'✅':'❌')+' '+s.name+' '+(s.extra?JSON.stringify(s.extra):'')).join('\n');
       alert('Kiểm tra API vận chuyển:\n'+lines+'\n\nAPI: '+base);
@@ -182,11 +182,36 @@ document.addEventListener('DOMContentLoaded',()=>{
       const distName = document.getElementById('sender_district')?.value||'';
       const provCode = document.getElementById('sender_province_sel')?.value||'';
       const distCode = document.getElementById('sender_district_sel')?.value||'';
-      const body = { receiver_province: provName || 'Hồ Chí Minh', receiver_district: distName || 'Quận 1', to_province: provName, to_district: distName, receiver_province_code: provCode, receiver_district_code: distCode, weight_gram: 500, cod: 0 };
+      const body = { receiver_province: provName || 'Hồ Chí Minh', receiver_district: distName || 'Quận 1', to_province: provName, to_district: distName, receiver_province_code: provCode, receiver_district_code: distCode, weight_gram: 500, weight: 500, cod: 0, option_id: '1' };
       const r = await Admin.req('/shipping/price', { method:'POST', body });
       alert('Báo giá với người gửi hiện tại:\nok='+r?.ok+' items='+(r?.items?.length||0)+'\n\nPayload:\n'+JSON.stringify(body, null, 2).slice(0,600));
     }catch(e){ alert('Lỗi báo giá: '+e.message); }
   });}
+
+  // Auto-persist sender on change to avoid losing after F5
+  async function persistSenderQuick(){
+    try{
+      const phone = (document.getElementById('sender_phone')?.value||'').replace(/\D+/g,'');
+      const provName = document.getElementById('sender_province')?.value||'';
+      const distName = document.getElementById('sender_district')?.value||'';
+      const addr = document.getElementById('sender_address')?.value||'';
+      const provCode = document.getElementById('sender_province_sel')?.value||'';
+      const distCode = document.getElementById('sender_district_sel')?.value||'';
+      const wardCode = document.getElementById('sender_commune_sel')?.value||'';
+      const pairs = [
+        ['shipping.sender_phone', phone],
+        ['shipping.sender_address', addr],
+        ['shipping.sender_province', provName],
+        ['shipping.sender_district', distName],
+        ['shipping.sender_province_code', provCode],
+        ['shipping.sender_district_code', distCode],
+        ['shipping.sender_commune_code', wardCode]
+      ];
+      for(const [path, value] of pairs){ await Admin.req('/admin/settings/upsert', { method:'POST', body:{ path, value } }); }
+    }catch(e){ console.warn('persistSenderQuick failed', e); }
+  }
+  ['sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
+    .forEach(id=>{ const el=document.getElementById(id); if(el && !el.__autosave){ el.__autosave=true; el.addEventListener('change', persistSenderQuick); el.addEventListener('blur', persistSenderQuick); }});
 });
 </script>
 <script>
