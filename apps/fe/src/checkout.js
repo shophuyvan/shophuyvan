@@ -64,7 +64,7 @@ async function fetchAndRenderQuote(){
   const to_province = document.getElementById('province')?.value?.trim() || '';
   const to_district = document.getElementById('district')?.value?.trim() || '';
   const to_ward     = document.getElementById('ward')?.value?.trim() || '';
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+  const cart = getCart();
   const weight = calcWeight(cart);
   const subtotal = (cart||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
 
@@ -131,7 +131,7 @@ async function fetchAndRenderQuote(){
   }
 }
 testVoucherBtn?.addEventListener('click', async ()=> {
-  const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+  const cart = getCart();
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
   const res = await api('/pricing/preview', { method:'POST', body: { items, shipping_fee: chosen?.fee||0, voucher_code: voucherInput.value||null } });
   lastPricing = res;
@@ -139,7 +139,14 @@ testVoucherBtn?.addEventListener('click', async ()=> {
 });
 
 
-function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
+function getCart(){
+  try{
+    const lower = JSON.parse(localStorage.getItem('cart')||'[]');
+    if(Array.isArray(lower) && lower.length) return lower;
+    const upper = JSON.parse(localStorage.getItem('CART')||'[]');
+    return Array.isArray(upper) ? upper : [];
+  }catch{ return []; }
+}
 function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
 
 function renderSummary(){
@@ -202,7 +209,7 @@ orderBtn?.addEventListener('click', async () => {
   const btn = orderBtn;
   if(!guardSubmit(btn)) return;
   try{
-    const cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    const cart = getCart();
     if(!cart.length){ orderResult.textContent='Giỏ hàng trống.'; return releaseSubmit(btn); }
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -213,17 +220,7 @@ orderBtn?.addEventListener('click', async () => {
     const items = cart.map(it => ({ product_id: it.id, name: it.name, qty: it.qty, price: it.price, variant: it.variant||null }));
     const voucher_code = (localStorage.getItem('voucher_code') || (voucherInput?.value||'').trim() || null);
     const ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
-    const body = {
-      customer_name: name,
-      phone, address,
-      items,
-      voucher_code,
-      shipping_fee: ship_fee,
-      shipping_name: chosen?.name ?? localStorage.getItem('ship_name') || null,
-      shipping_eta: chosen?.eta ?? localStorage.getItem('ship_eta') || null,
-      shipping_provider: chosen?.provider || localStorage.getItem('ship_provider') || null,
-      shipping_service: chosen?.service_code || localStorage.getItem('ship_service') || null
-    };
+    // legacy body removed; using consolidated payload below
     const body = {
       customer: { name, phone, address,
         province_code: document.getElementById('province')?.value||'',
@@ -239,6 +236,7 @@ orderBtn?.addEventListener('click', async () => {
     if(res && res.ok){
       orderResult.textContent = `Đặt hàng thành công: ${res.id}`;
       localStorage.removeItem('cart');
+      localStorage.removeItem('CART');
     }else{
       orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
     }
