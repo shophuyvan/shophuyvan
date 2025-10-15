@@ -271,8 +271,9 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          receiver_province_code: provinceCode,
-          receiver_district_code: districtCode,
+          // Backend expects receiver_province/receiver_district (or to_province/to_district)
+          receiver_province: provinceCode,
+          receiver_district: districtCode,
           weight_gram: weight,
           cod: 0
         })
