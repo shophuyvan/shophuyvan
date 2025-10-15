@@ -1,21 +1,34 @@
-import { json } from '../lib/response.js';
+// ===================================================================
+// modules/banners.js - Banners Module
+// ===================================================================
+
+import { json, errorResponse } from '../lib/response.js';
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
 
+/**
+ * Main handler for banner routes
+ */
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
 
-  // Admin: List banners
+  // Public: Get active banners
+  if (path === '/banners' && method === 'GET') {
+    return getPublicBanners(req, env);
+  }
+
+  // Admin: List all banners
   if (path === '/admin/banners' && method === 'GET') {
-    return listBanners(req, env);
+    return listAdminBanners(req, env);
   }
 
   // Admin: Upsert banner
   if ((path === '/admin/banners/upsert' || 
-       path === '/admin/banner') && method === 'POST') {
+       path === '/admin/banner' || 
+       path === '/admin/banners') && method === 'POST') {
     return upsertBanner(req, env);
   }
 
@@ -25,57 +38,89 @@ export async function handle(req, env, ctx) {
     return deleteBanner(req, env);
   }
 
-  // Public: Get active banners
-  if (path === '/banners' && method === 'GET') {
-    return publicBanners(req, env);
+  return errorResponse('Route not found', 404, req);
+}
+
+/**
+ * Public: Get active banners only
+ */
+async function getPublicBanners(req, env) {
+  try {
+    const list = await getJSON(env, 'banners:list', []);
+    const active = list.filter(banner => banner.on !== false);
+    
+    return json({ ok: true, items: active }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Admin: List all banners
+ */
+async function listAdminBanners(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
   }
 
-  return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
+  try {
+    const list = await getJSON(env, 'banners:list', []);
+    return json({ ok: true, items: list }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
 }
 
-async function listBanners(req, env) {
-  const list = await getJSON(env, 'banners:list', []);
-  return json({ ok: true, items: list }, {}, req);
-}
-
+/**
+ * Admin: Create or update banner
+ */
 async function upsertBanner(req, env) {
   if (!(await adminOK(req, env))) {
-    return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    return errorResponse('Unauthorized', 401, req);
   }
 
-  const body = await readBody(req) || {};
-  body.id = body.id || crypto.randomUUID().replace(/-/g, '');
+  try {
+    const banner = await readBody(req) || {};
+    banner.id = banner.id || crypto.randomUUID().replace(/-/g, '');
 
-  const list = await getJSON(env, 'banners:list', []);
-  const index = list.findIndex(x => x.id === body.id);
+    const list = await getJSON(env, 'banners:list', []);
+    const index = list.findIndex(b => b.id === banner.id);
 
-  if (index >= 0) {
-    list[index] = body;
-  } else {
-    list.unshift(body);
+    if (index >= 0) {
+      list[index] = banner;
+    } else {
+      list.unshift(banner);
+    }
+
+    await putJSON(env, 'banners:list', list);
+    return json({ ok: true, data: banner }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
   }
-
-  await putJSON(env, 'banners:list', list);
-  return json({ ok: true, data: body }, {}, req);
 }
 
+/**
+ * Admin: Delete banner
+ */
 async function deleteBanner(req, env) {
   if (!(await adminOK(req, env))) {
-    return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    return errorResponse('Unauthorized', 401, req);
   }
 
-  const body = await readBody(req) || {};
-  const id = body.id;
+  try {
+    const body = await readBody(req) || {};
+    const id = body.id;
 
-  const list = await getJSON(env, 'banners:list', []);
-  const newList = list.filter(x => x.id !== id);
+    if (!id) {
+      return errorResponse('Banner ID is required', 400, req);
+    }
 
-  await putJSON(env, 'banners:list', newList);
-  return json({ ok: true, deleted: id }, {}, req);
-}
+    const list = await getJSON(env, 'banners:list', []);
+    const newList = list.filter(b => b.id !== id);
 
-async function publicBanners(req, env) {
-  const list = await getJSON(env, 'banners:list', []);
-  const active = list.filter(x => x.on !== false);
-  return json({ ok: true, items: active }, {}, req);
+    await putJSON(env, 'banners:list', newList);
+    return json({ ok: true, deleted: id }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
 }

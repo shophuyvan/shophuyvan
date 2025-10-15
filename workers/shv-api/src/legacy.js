@@ -8,8 +8,8 @@ import * as categories from './modules/categories.js';
 import * as products from './modules/products.js';
 import * as orders from './modules/orders.js';
 import * as shipping from './modules/shipping/index.js';
-// import * as auth from './modules/auth.js';
-// import * as settings from './modules/settings.js';
+import * as auth from './modules/auth.js';
+import * as settings from './modules/settings.js';
 
 /**
  * Logger middleware
@@ -86,15 +86,15 @@ export default {
     }
 
       // Auth module
-      // if (path === '/admin/login' || path === '/login') {
-      //   return auth.handle(req, env, ctx);
-      // }
+      if (path === '/admin/login' || path === '/login') {
+         return auth.handle(req, env, ctx);
+       }
 
       // Settings module
-      // if (path.startsWith('/admin/settings') || 
-      //     path.startsWith('/public/settings')) {
-      //   return settings.handle(req, env, ctx);
-      // }
+      if (path.startsWith('/admin/settings') || 
+           path.startsWith('/public/settings')) {
+         return settings.handle(req, env, ctx);
+       }
 
       // =====================================================
       // LEGACY ROUTES (chưa tách - giữ nguyên từ file cũ)
