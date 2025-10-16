@@ -297,6 +297,7 @@
           console.log('[Waybill] Creating for order:', order.id);
           Admin.toast('📄 Đang tạo vận đơn...');
 
+          // Get settings for sender info
           const response = await fetch(this.baseURL + '/public/settings');
           const data = await response.json();
           const settings = data.settings || data;
@@ -306,9 +307,7 @@
             name: get('shipping.sender_name'),
             phone: get('shipping.sender_phone').replace(/\D+/g, ''),
             address: get('shipping.sender_address'),
-            province: get('shipping.sender_province'),
             province_code: get('shipping.sender_province_code'),
-            district: get('shipping.sender_district'),
             district_code: get('shipping.sender_district_code'),
             commune_code: get('shipping.sender_commune_code')
           };
@@ -325,71 +324,154 @@
           }
 
           const customer = order.customer || {};
-          const receiver = {
-            name: customer.name || order.customer_name || order.name || 'Khách',
-            phone: (customer.phone || order.phone || '').replace(/\D+/g, ''),
-            address: customer.address || order.address || '',
-            province_code: customer.province_code || order.receiver_province_code || order.province_code || '',
-            district_code: customer.district_code || order.receiver_district_code || order.district_code || '',
-            commune_code: customer.commune_code || customer.ward_code || order.receiver_commune_code || order.commune_code || ''
-          };
+          const receiverName = customer.name || order.customer_name || order.name || '';
+          const receiverPhone = (customer.phone || order.phone || '').replace(/\D+/g, '');
+          const receiverAddress = customer.address || order.address || '';
+          const receiverProvinceCode = customer.province_code || order.receiver_province_code || order.province_code || '';
+          const receiverDistrictCode = customer.district_code || order.receiver_district_code || order.district_code || '';
+          const receiverCommuneCode = customer.commune_code || customer.ward_code || order.receiver_commune_code || order.commune_code || '';
 
           const receiverErrors = [];
-          if (!receiver.name) receiverErrors.push('Tên người nhận');
-          if (!receiver.phone) receiverErrors.push('SĐT người nhận');
-          if (!receiver.province_code) receiverErrors.push('Mã tỉnh người nhận');
-          if (!receiver.district_code) receiverErrors.push('Mã quận người nhận');
+          if (!receiverName) receiverErrors.push('Tên người nhận');
+          if (!receiverPhone) receiverErrors.push('SĐT người nhận');
+          if (!receiverAddress) receiverErrors.push('Địa chỉ người nhận');
+          if (!receiverProvinceCode) receiverErrors.push('Mã tỉnh người nhận');
+          if (!receiverDistrictCode) receiverErrors.push('Mã quận người nhận');
 
           if (receiverErrors.length > 0) {
-            alert(`⚠️ ĐƠN HÀNG THIẾU THÔNG TIN NGƯỜI NHẬN!\n\nThiếu: ${receiverErrors.join(', ')}\n\nVui lòng cập nhật địa chỉ đầy đủ cho khách hàng.`);
+            alert(`⚠️ ĐƠN HÀNG THIẾU THÔNG TIN NGƯỜI NHẬN!\n\nThiếu: ${receiverErrors.join(', ')}\n\nHiện tại:\n` +
+                  `• Tên: ${receiverName || 'CHƯA CÓ'}\n` +
+                  `• SĐT: ${receiverPhone || 'CHƯA CÓ'}\n` +
+                  `• Địa chỉ: ${receiverAddress || 'CHƯA CÓ'}\n` +
+                  `• Tỉnh code: ${receiverProvinceCode || 'CHƯA CÓ'}\n` +
+                  `• Quận code: ${receiverDistrictCode || 'CHƯA CÓ'}\n\n` +
+                  `Vui lòng cập nhật địa chỉ đầy đủ cho khách hàng.`);
             return;
           }
 
           const items = (order.items || []).map(item => ({
             name: item.name || 'Sản phẩm',
-            qty: Number(item.qty || 1),
+            quantity: Number(item.qty || 1),
             price: Number(item.price || 0),
-            weight_grams: Number(item.weight_gram || 0)
+            weight: Number(item.weight_gram || 100)
           }));
 
-          const totalWeight = items.reduce((sum, item) => sum + (item.weight_grams || 0) * (item.qty || 1), 0);
+          const totalWeight = Math.max(100, items.reduce((sum, item) => 
+            sum + (item.weight || 100) * (item.quantity || 1), 0));
 
+          // CRITICAL: Payload structure theo đúng waybill.js validation
           const payload = {
-            provider: (order.shipping_provider || 'vtp').toLowerCase(),
+            // Order reference
             order_id: String(order.id),
-            sender_name: sender.name, sender_phone: sender.phone, sender_address: sender.address,
-            sender_province_code: String(sender.province_code), sender_district_code: String(sender.district_code),
-            sender_commune_code: String(sender.commune_code),
-            receiver_name: receiver.name, receiver_phone: receiver.phone, receiver_address: receiver.address,
-            receiver_province_code: String(receiver.province_code), receiver_district_code: String(receiver.district_code),
-            receiver_commune_code: String(receiver.commune_code),
-            items, cod: Number(order.cod || 0), weight_gram: totalWeight || 500, note: order.note || ''
+            
+            // Sender object (nested)
+            sender: {
+              name: sender.name,
+              phone: sender.phone,
+              address: sender.address,
+              province_code: String(sender.province_code),
+              district_code: String(sender.district_code),
+              commune_code: String(sender.commune_code || '')
+            },
+            
+            // Receiver object (nested) - CRITICAL
+            receiver: {
+              name: receiverName,
+              phone: receiverPhone,
+              address: receiverAddress,
+              province_code: String(receiverProvinceCode),
+              district_code: String(receiverDistrictCode),
+              commune_code: String(receiverCommuneCode || '')
+            },
+            
+            // Package details
+            weight: totalWeight,
+            cod: Number(order.cod || 0),
+            
+            // Items
+            items: items,
+            
+            // Provider
+            provider: (order.shipping_provider || order.provider || 'vtp').toLowerCase(),
+            
+            // Optional
+            note: order.note || '',
+            service_code: order.service_code || ''
           };
 
           console.log('[Waybill] Payload:', JSON.stringify(payload, null, 2));
 
-          const result = await Admin.req('/admin/shipping/create', { method: 'POST', body: payload });
+          // Get token
+          const token = get('shipping.super_token') || localStorage.getItem('x-token') || localStorage.getItem('super_token') || '';
+          
+          if (!token) {
+            alert('⚠️ CHƯA CÓ TOKEN!\n\nVui lòng vào trang "Vận chuyển" để lưu Super Token.');
+            return;
+          }
+
+          // Call API
+          const result = await Admin.req('/admin/shipping/create', {
+            method: 'POST',
+            body: payload
+          });
+
           console.log('[Waybill] Result:', result);
 
-          if (result && result.ok) {
-            const tracking = result.tracking || result.tracking_code || result.code || '';
+          if (result && result.ok !== false && !result.error) {
+            const tracking = result.tracking_code || result.tracking || result.code || result.order_code || '';
+            const provider = result.provider || result.carrier || payload.provider;
+            
             if (tracking) {
-              await Admin.req('/admin/orders/upsert', {
-                method: 'POST',
-                body: { id: order.id, tracking_code: tracking, status: 'shipping' }
-              });
-              alert(`✅ TẠO VẬN ĐƠN THÀNH CÔNG!\n\nMã vận đơn: ${tracking}`);
+              // Update order with tracking
+              try {
+                await Admin.req('/admin/orders/upsert', {
+                  method: 'POST',
+                  body: { 
+                    id: order.id, 
+                    tracking_code: tracking,
+                    shipping_provider: provider,
+                    status: 'shipping' 
+                  }
+                });
+              } catch (e) {
+                console.warn('[Waybill] Update order failed:', e);
+              }
+              
+              alert(`✅ TẠO VẬN ĐƠN THÀNH CÔNG!\n\n` +
+                    `Mã vận đơn: ${tracking}\n` +
+                    `Nhà vận chuyển: ${provider}\n` +
+                    `Đơn hàng: ${order.id}`);
+              
               this.openPrintWaybill(order, tracking);
+              setTimeout(() => this.loadOrders(), 1000);
+              document.getElementById('modal-detail').style.display = 'none';
+            } else {
+              alert(`✅ Tạo vận đơn thành công!\n\n${JSON.stringify(result, null, 2).substring(0, 300)}`);
             }
-            setTimeout(() => this.loadOrders(), 1000);
-            document.getElementById('modal-detail').style.display = 'none';
           } else {
-            const errorMsg = result?.error || result?.message || 'Không rõ lỗi';
-            alert(`❌ TẠO VẬN ĐƠN THẤT BẠI\n\nLỗi: ${errorMsg}\n\nChi tiết:\n${JSON.stringify(result, null, 2).substring(0, 400)}`);
+            const errorMsg = result?.message || result?.error || 'Không rõ lỗi';
+            const details = result?.details || result?.raw || result;
+            
+            console.error('[Waybill] Error:', result);
+            
+            let errorText = `❌ TẠO VẬN ĐƠN THẤT BẠI\n\nLỗi: ${errorMsg}\n\n`;
+            
+            if (Array.isArray(details)) {
+              errorText += `Chi tiết:\n${details.map((d, i) => `${i+1}. ${d}`).join('\n')}\n\n`;
+            } else {
+              errorText += `Chi tiết:\n${JSON.stringify(details, null, 2).substring(0, 300)}\n\n`;
+            }
+            
+            errorText += `Kiểm tra:\n` +
+                        `1. Token còn hiệu lực?\n` +
+                        `2. Thông tin địa chỉ đúng?\n` +
+                        `3. Nhà vận chuyển có hoạt động?`;
+            
+            alert(errorText);
           }
         } catch (error) {
           console.error('[Waybill] Exception:', error);
-          alert(`❌ LỖI TẠO VẬN ĐƠN\n\n${error.message}`);
+          alert(`❌ LỖI TẠO VẬN ĐƠN\n\n${error.message}\n\nXem Console (F12) để biết chi tiết.`);
         }
       }
 
