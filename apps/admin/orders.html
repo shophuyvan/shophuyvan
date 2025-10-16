@@ -359,36 +359,51 @@
           const totalWeight = Math.max(100, items.reduce((sum, item) => 
             sum + (item.weight || 100) * (item.quantity || 1), 0));
 
-          // CRITICAL: Payload structure theo đúng waybill.js validation
+          // CRITICAL: Payload theo đúng waybill.js - ROOT LEVEL FIELDS, NOT NESTED!
           const payload = {
             // Order reference
             order_id: String(order.id),
             
-            // Sender object (nested)
-            sender: {
-              name: sender.name,
-              phone: sender.phone,
-              address: sender.address,
-              province_code: String(sender.province_code),
-              district_code: String(sender.district_code),
-              commune_code: String(sender.commune_code || '')
-            },
+            // Sender fields (ROOT LEVEL)
+            sender_name: sender.name,
+            sender_phone: sender.phone,
+            sender_address: sender.address,
+            sender_province_code: String(sender.province_code),
+            sender_district_code: String(sender.district_code),
+            sender_commune_code: String(sender.commune_code || ''),
             
-            // Receiver object (nested) - CRITICAL
-            receiver: {
-              name: receiverName,
-              phone: receiverPhone,
-              address: receiverAddress,
-              province_code: String(receiverProvinceCode),
-              district_code: String(receiverDistrictCode),
-              commune_code: String(receiverCommuneCode || '')
-            },
+            // Receiver fields (ROOT LEVEL)
+            receiver_name: receiverName,
+            receiver_phone: receiverPhone,
+            receiver_address: receiverAddress,
+            receiver_province_code: String(receiverProvinceCode),
+            receiver_district_code: String(receiverDistrictCode),
+            receiver_commune_code: String(receiverCommuneCode || ''),
+            
+            // Aliases (waybill.js adds these)
+            to_name: receiverName,
+            to_phone: receiverPhone,
+            to_address: receiverAddress,
+            to_province_code: String(receiverProvinceCode),
+            to_district_code: String(receiverDistrictCode),
+            to_commune_code: String(receiverCommuneCode || ''),
+            
+            from_name: sender.name,
+            from_phone: sender.phone,
+            from_address: sender.address,
+            from_province_code: String(sender.province_code),
+            from_district_code: String(sender.district_code),
+            
+            province_code: String(receiverProvinceCode),
+            district_code: String(receiverDistrictCode),
+            commune_code: String(receiverCommuneCode || ''),
             
             // Package details
+            weight_gram: totalWeight,
             weight: totalWeight,
             cod: Number(order.cod || 0),
             
-            // Items
+            // Items array
             items: items,
             
             // Provider
@@ -396,7 +411,8 @@
             
             // Optional
             note: order.note || '',
-            service_code: order.service_code || ''
+            service_code: order.service_code || '',
+            option_id: '1'
           };
 
           console.log('[Waybill] Payload:', JSON.stringify(payload, null, 2));
