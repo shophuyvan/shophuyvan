@@ -1,0 +1,404 @@
+/**
+ * Orders Manager - Quản lý đơn hàng
+ * Version: 2.0
+ */
+
+class OrdersManager {
+  constructor() {
+    this.orders = [];
+    this.currentOrder = null;
+  }
+
+  // ==================== UTILITIES ====================
+  
+  cloudify(url, transform = 'w_96,q_auto,f_auto,c_fill') {
+    if (!url || !url.includes('cloudinary.com')) return url;
+    return url.replace('/upload/', `/upload/${transform}/`);
+  }
+
+  formatPrice(n) {
+    try {
+      return Number(n || 0).toLocaleString('vi-VN') + 'đ';
+    } catch (e) {
+      return (n || 0) + 'đ';
+    }
+  }
+
+  getNestedValue(obj, path) {
+    try {
+      return path.split('.').reduce((value, key) => 
+        (value && typeof value === 'object') ? value[key] : '', obj) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  formatDate(dateInput) {
+    try {
+      const date = typeof dateInput === 'number' || /^[0-9]+$/.test(dateInput)
+        ? new Date(Number(dateInput))
+        : new Date(dateInput);
+      return date.toLocaleString('vi-VN');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  getPlaceholderImage() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48">' +
+      '<rect width="48" height="48" fill="#f3f4f6"/>' +
+      '<text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="#9ca3af">no img</text>' +
+      '</svg>';
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  // ==================== LOAD ORDERS ====================
+  
+  async loadOrders() {
+    try {
+      const response = await Admin.req('/api/orders', { method: 'GET' });
+      this.orders = response?.items || [];
+      this.renderOrdersList();
+    } catch (error) {
+      console.error('[OrdersManager] Load orders error:', error);
+      Admin.toast('❌ Lỗi tải danh sách đơn hàng');
+    }
+  }
+
+  // ==================== CALCULATE ORDER TOTALS ====================
+  
+  calculateOrderTotals(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const subtotal = items.reduce((sum, item) => 
+      sum + Number(item.price || 0) * Number(item.qty || 1), 0);
+    const shipping = Number(order.shipping_fee || 0);
+    const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+    const total = Math.max(0, subtotal + shipping - discount);
+
+    return { subtotal, shipping, discount, total };
+  }
+
+  // ==================== RENDER ORDERS LIST ====================
+  
+  renderOrdersList() {
+    const tbody = document.getElementById('list');
+    if (!tbody) return;
+
+    if (this.orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:2rem">Chưa có đơn hàng</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = this.orders.map(order => this.renderOrderRow(order)).join('');
+
+    // Wire event listeners
+    this.wireOrderRowEvents();
+  }
+
+  renderOrderRow(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const firstItem = items[0] || {};
+    
+    // Image
+    let img = firstItem.image || firstItem.img || firstItem.thumbnail || '';
+    img = img ? this.cloudify(img) : this.getPlaceholderImage();
+
+    // Item info
+    const itemTitle = String(firstItem.name || firstItem.title || firstItem.sku || 'Sản phẩm');
+    const itemQty = Number(firstItem.qty || firstItem.quantity || 1);
+
+    // Totals
+    const { total } = this.calculateOrderTotals(order);
+
+    // Shipping info
+    const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
+    const tracking = String(order.tracking_code || order.shipping_tracking || 
+                           order.ship_tracking || order.shipping?.tracking_code || '');
+
+    // Other info
+    const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
+    const source = String(order.source || order.channel || order.platform || 'Web');
+    const orderId = String(order.id || '');
+
+    return `
+      <tr>
+        <td>
+          <div class="item-cell">
+            <img src="${img}" alt="${itemTitle}"/>
+            <div class="item-meta">
+              <div class="name">${itemTitle}</div>
+              <div>x${itemQty}</div>
+            </div>
+          </div>
+        </td>
+        <td class="nowrap">${orderId}</td>
+        <td class="nowrap">${provider || '-'}</td>
+        <td class="nowrap">${tracking || '-'}</td>
+        <td class="nowrap">${this.formatPrice(total)}</td>
+        <td class="nowrap">${created}</td>
+        <td>${source}</td>
+        <td class="text-right">
+          <div class="btn-group">
+            <button class="btn btn-sm" data-view="${orderId}">Xem</button>
+            <button class="btn btn-sm btn-danger" data-delete="${orderId}">Xoá</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  wireOrderRowEvents() {
+    // View buttons
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-view');
+        const order = this.orders.find(o => String(o.id || '') === id);
+        if (order) this.showOrderDetail(order);
+      };
+    });
+
+    // Delete buttons
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute('data-delete');
+        await this.deleteOrder(id);
+      };
+    });
+  }
+
+  // ==================== DELETE ORDER ====================
+  
+  async deleteOrder(orderId) {
+    if (!confirm(`Xác nhận xoá đơn hàng ${orderId}?`)) return;
+
+    try {
+      const result = await Admin.req('/admin/orders/delete', {
+        method: 'POST',
+        body: { id: orderId }
+      });
+
+      if (result?.ok) {
+        Admin.toast('✅ Đã xoá đơn hàng');
+        this.loadOrders();
+      } else {
+        alert('Xoá thất bại: ' + (result?.message || 'Lỗi'));
+      }
+    } catch (error) {
+      alert('Lỗi xoá đơn: ' + error.message);
+    }
+  }
+
+  // ==================== SHOW ORDER DETAIL ====================
+  
+  showOrderDetail(order) {
+    this.currentOrder = order;
+    window.__currentOrder = order; // Backward compatibility
+
+    const modal = document.getElementById('modal-detail');
+    const body = document.getElementById('md-body');
+    const actions = document.getElementById('ship-actions');
+
+    if (!modal || !body) return;
+
+    modal.dataset.orderId = String(order.id || order._id || '');
+
+    // Render detail
+    body.innerHTML = this.renderOrderDetail(order);
+
+    // Show shipping actions
+    if (actions) actions.style.display = 'flex';
+
+    // Show modal
+    modal.style.display = 'flex';
+  }
+
+  renderOrderDetail(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const { subtotal, shipping, discount, total } = this.calculateOrderTotals(order);
+
+    // Customer info
+    const customer = order.customer || {};
+    const custName = customer.name || order.customer_name || order.name || 'Khách';
+    const custPhone = customer.phone || order.phone || '';
+    const address = order.address || customer.address || '';
+
+    // Shipping info
+    const shipName = order.shipping_name || order.ship_name || 
+                     order.shipping_provider || order.provider || '';
+    const tracking = order.tracking_code || order.shipping_tracking || '';
+    const eta = order.shipping_eta || '';
+    const created = this.formatDate(order.createdAt || order.created_at);
+
+    // Items table rows
+    const itemRows = items.map(item => `
+      <tr>
+        <td>${item.sku || item.id || ''}</td>
+        <td>${item.name || ''}${item.variant ? (' - ' + item.variant) : ''}</td>
+        <td style="text-align:right">${item.qty || 1}</td>
+        <td style="text-align:right">${this.formatPrice(item.price || 0)}</td>
+        <td style="text-align:right">${this.formatPrice(item.cost || 0)}</td>
+        <td style="text-align:right">${this.formatPrice((item.price || 0) * (item.qty || 1))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div style="margin-bottom:8px">
+        <div><b>Khách:</b> ${custName}${custPhone ? ' • ' + custPhone : ''}</div>
+        ${address ? `<div><b>Địa chỉ:</b> ${address}</div>` : ''}
+        ${shipName ? `<div><b>Vận chuyển:</b> ${shipName}${tracking ? ' • Mã: ' + tracking : ''}${eta ? ' • ' + eta : ''}</div>` : ''}
+        ${created ? `<div><b>Ngày tạo:</b> ${created}</div>` : ''}
+        <div><b>Trạng thái:</b> ${order.status || 'pending'}</div>
+      </div>
+
+      <div class="card">
+        <table class="table md-table">
+          <thead>
+            <tr>
+              <th>Mã SP</th>
+              <th>Tên/Phân loại</th>
+              <th>SL</th>
+              <th>Giá bán</th>
+              <th>Giá vốn</th>
+              <th>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}
+          </tbody>
+        </table>
+
+        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
+          <div style="display:flex;justify-content:space-between">
+            <span>Tổng hàng</span>
+            <b>${this.formatPrice(subtotal)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Phí vận chuyển</span>
+            <b>${this.formatPrice(shipping)}</b>
+          </div>
+          ${discount ? `
+            <div style="display:flex;justify-content:space-between;color:#059669">
+              <span>Giảm</span>
+              <b>-${this.formatPrice(discount)}</b>
+            </div>
+          ` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:16px">
+            <span>Tổng thanh toán</span>
+            <b>${this.formatPrice(total)}</b>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ==================== PRINT WAYBILL ====================
+  
+  openPrintWaybill(order, tracking) {
+    const customer = order.customer || {};
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Vận đơn</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 16px;
+          }
+          .box {
+            border: 1px dashed #444;
+            padding: 12px;
+            margin-bottom: 12px;
+          }
+          .row {
+            display: flex;
+            justify-content: space-between;
+          }
+        </style>
+      </head>
+      <body>
+        <h2>Vận đơn - ${order.shipping_name || order.shipping_provider || ''}</h2>
+        <div class="box">
+          <div><b>Tracking:</b> ${tracking || order.tracking || ''}</div>
+          <div><b>Đơn hàng:</b> ${order.id || ''}</div>
+          <div><b>Khách:</b> ${customer.name || order.customer_name || order.name || ''}</div>
+          <div><b>ĐT:</b> ${customer.phone || order.phone || ''}</div>
+          <div><b>Địa chỉ:</b> ${customer.address || order.address || ''}</div>
+        </div>
+        <div class="box">
+          <div class="row">
+            <span>Phí VC:</span>
+            <b>${this.formatPrice(order.shipping_fee || 0)}</b>
+          </div>
+          <div class="row">
+            <span>Tổng:</span>
+            <b>${this.formatPrice(order.revenue || 0)}</b>
+          </div>
+        </div>
+        <script>window.onload = () => window.print();</script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
+
+  // ==================== INIT ====================
+  
+  init() {
+    this.loadOrders();
+    this.wireGlobalEvents();
+    console.log('[OrdersManager] Initialized ✅');
+  }
+
+  wireGlobalEvents() {
+    // Reload button
+    const reloadBtn = document.getElementById('reload-orders');
+    if (reloadBtn) {
+      reloadBtn.onclick = () => this.loadOrders();
+    }
+
+    // Close modal button
+    const closeBtn = document.getElementById('md-close');
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        document.getElementById('modal-detail').style.display = 'none';
+      };
+    }
+
+    // Click outside modal to close
+    const modal = document.getElementById('modal-detail');
+    if (modal) {
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+        }
+      };
+    }
+
+    // Print waybill button
+    const printBtn = document.getElementById('btn-print-waybill');
+    if (printBtn) {
+      printBtn.onclick = () => {
+        if (this.currentOrder) {
+          const tracking = this.currentOrder.tracking_code || 
+                          this.currentOrder.shipping_tracking || '';
+          this.openPrintWaybill(this.currentOrder, tracking);
+        }
+      };
+    }
+  }
+}
+
+// Global instance
+window.ordersManager = new OrdersManager();
+
+// Auto-init when DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => window.ordersManager.init());
+} else {
+  window.ordersManager.init();
+}

@@ -1,48 +1,132 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Đơn hàng</title>
-<link rel="stylesheet" href="./styles.css"/>
-<script src="./admin_real.js?v=25"></script>
-<style>
-.table.order-table { width:100%; border-collapse:separate; border-spacing:0; }
-.table.order-table thead th{ background:#f8fafc; border-bottom:1px solid #e5e7eb; font-weight:600; padding:10px 8px; text-align:left; color:#111827; }
-.table.order-table tbody td{ border-bottom:1px solid #eef2f7; padding:10px 8px; vertical-align:top; color:#111827; }
-.item-cell{ display:flex; gap:10px; align-items:flex-start; }
-.item-cell img{ width:48px; height:48px; object-fit:cover; border:1px solid #e5e7eb; border-radius:6px; background:#fff; }
-.item-meta .name{ font-weight:600; line-height:1.2; margin-bottom:2px; }
-.badge-sm{ display:inline-block; padding:2px 6px; font-size:12px; border:1px solid #e5e7eb; color:#374151; border-radius:6px; background:#f9fafb; }
-.text-right{ text-align:right; }
-.nowrap{ white-space:nowrap; }
-.btn-group{ display:flex; gap:4px; }
-.btn-danger{ background:#dc2626; color:#fff; }
-.btn-danger:hover{ background:#b91c1c; }
-</style>
-<link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Đơn hàng</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js?v=25"></script>
+  
+  <style>
+    .table.order-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    
+    .table.order-table thead th {
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 600;
+      padding: 10px 8px;
+      text-align: left;
+      color: #111827;
+    }
+    
+    .table.order-table tbody td {
+      border-bottom: 1px solid #eef2f7;
+      padding: 10px 8px;
+      vertical-align: top;
+      color: #111827;
+    }
+    
+    .item-cell {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    
+    .item-cell img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fff;
+    }
+    
+    .item-meta .name {
+      font-weight: 600;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    
+    .badge-sm {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 12px;
+      border: 1px solid #e5e7eb;
+      color: #374151;
+      border-radius: 6px;
+      background: #f9fafb;
+    }
+    
+    .text-right {
+      text-align: right;
+    }
+    
+    .nowrap {
+      white-space: nowrap;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+    }
+    
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .md-table {
+      width: 100%;
+      font-size: 14px;
+    }
+
+    .md-table th,
+    .md-table td {
+      padding: 8px;
+      text-align: left;
+    }
+
+    .md-table thead th {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+  </style>
+  
+  <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
 </head>
+
 <body>
-<div class="container">
-  <div class="header">
-    <div class="title">Đơn hàng</div>
-    <div class="nav">
-      <a href="./products.html" class="badge">Sản phẩm</a>
-      <a href="./banners.html" class="badge">Banner</a>
-      <a href="./vouchers.html" class="badge">Voucher</a>
-      <a href="./orders.html" class="badge">Đơn hàng</a>
-      <a href="./stats.html" class="badge">Thống kê</a>
-      <a href="./shipping.html" class="badge">Vận chuyển</a>
-      <a href="./ads.html" class="badge">Quảng cáo</a>
-      <span class="badge">API: <span data-api-base></span></span>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="title">Đơn hàng</div>
+      <div class="nav">
+        <a href="./products.html" class="badge">Sản phẩm</a>
+        <a href="./banners.html" class="badge">Banner</a>
+        <a href="./vouchers.html" class="badge">Voucher</a>
+        <a href="./orders.html" class="badge">Đơn hàng</a>
+        <a href="./stats.html" class="badge">Thống kê</a>
+        <a href="./shipping.html" class="badge">Vận chuyển</a>
+        <a href="./ads.html" class="badge">Quảng cáo</a>
+        <span class="badge">API: <span data-api-base></span></span>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
+    <!-- New order banner -->
     <div id="new-order-banner" style="display:none;margin:10px 0;padding:10px;border:1px solid #16a34a;background:#ecfdf5;color:#065f46;border-radius:6px;">
-      Có <strong>đơn hàng mới</strong>. <button id="reload-orders" class="btn">Tải lại</button>
+      Có <strong>đơn hàng mới</strong>. 
+      <button id="reload-orders" class="btn">Tải lại</button>
     </div>
 
+    <!-- Orders list -->
     <div class="card">
       <div class="title">Danh sách</div>
       <table class="table order-table">
@@ -62,482 +146,54 @@
       </table>
     </div>
   </div>
-</div>
 
-<!-- Modal Chi tiết -->
-<div id="modal-detail" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:60">
-  <div style="width:min(720px,92vw);background:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px;max-height:90vh;overflow:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:700;font-size:18px">Chi tiết đơn hàng</div>
-      <button id="md-close" class="btn">Đóng</button>
-    </div>
-    <div id="md-body" style="font-size:14px;color:#111827"></div>
-    <div id="ship-actions" class="toolbar" style="margin-top:12px;display:none">
-      <button id="btn-create-waybill" class="btn">Tạo vận đơn</button>
-      <button id="btn-print-waybill" class="btn">In vận đơn</button>
+  <!-- Modal Chi tiết -->
+  <div id="modal-detail" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:60">
+    <div style="width:min(720px,92vw);background:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px;max-height:90vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;font-size:18px">Chi tiết đơn hàng</div>
+        <button id="md-close" class="btn">Đóng</button>
+      </div>
+      <div id="md-body" style="font-size:14px;color:#111827"></div>
+      <div id="ship-actions" class="toolbar" style="margin-top:12px;display:none">
+        <button id="btn-create-waybill" class="btn">Tạo vận đơn</button>
+        <button id="btn-print-waybill" class="btn">In vận đơn</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-// Cloudinary helper
-function cloudify(url, transform) {
-  if (!url || !url.includes('cloudinary.com')) return url;
-  return url.replace('/upload/', '/upload/' + transform + '/');
-}
+  <!-- Load modules -->
+  <script src="./orders-manager.js"></script>
+  <script src="./waybill-creator.js"></script>
 
-// Format number
-function fmt(n) {
-  try {
-    return Number(n || 0).toLocaleString('vi-VN') + 'đ';
-  } catch (e) {
-    return (n || 0) + 'đ';
-  }
-}
-
-// Get nested value
-function g(o, arr) {
-  try {
-    var v = o;
-    for (var i = 0; i < arr.length; i++) {
-      if (!v || typeof v !== 'object') return '';
-      v = v[arr[i]];
-    }
-    return (v == null ? '' : v);
-  } catch (e) {
-    return '';
-  }
-}
-
-// State
-let allOrders = [];
-
-// Load orders
-async function loadOrders() {
-  try {
-    const res = await Admin.req('/api/orders', { method: 'GET' });
-    const items = (res && res.items) || [];
-    allOrders = items;
-    
-    const tbody = document.getElementById('list');
-    if (!tbody) return;
-
-    function sum(arr, f) {
-      return (arr || []).reduce((s, it) => s + Number(f(it) || 0) * Number(it.qty || 1), 0);
-    }
-
-    tbody.innerHTML = items.map(function(o) {
-      var its = Array.isArray(o.items) ? o.items : [];
-      var first = its[0] || {};
-      var img = first.image || first.img || first.thumbnail || '';
-      img = cloudify(img, 'w_96,q_auto,f_auto,c_fill');
-      if (!img) {
-        img = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="%23f3f4f6"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%239ca3af">no img</text></svg>');
+  <!-- Wire create waybill button -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Render API base
+      if (window.Admin?.renderApiBase) {
+        window.Admin.renderApiBase();
       }
-      var itemTitle = String(first.name || first.title || first.sku || 'Sản phẩm');
-      var itemQty = Number(first.qty || first.quantity || 1);
-      var sub = sum(its, function(it) { return Number(it.price || 0); });
-      var ship = Number(o.shipping_fee || 0);
-      var disc = Number(o.discount || 0) + Number(o.shipping_discount || 0);
-      var rev = Math.max(0, sub + ship - disc);
-      var provider = (o.shipping_provider || o.provider || o.shipping_name || o.ship_name || '').toString();
-      var tracking = (o.tracking_code || o.shipping_tracking || o.ship_tracking || (o.shipping && o.shipping.tracking_code) || '').toString();
-      var created = (o.created_at || o.createdAt || o.createdAtMs || o.createdAtISO || '');
-      var tStr = '';
-      try {
-        var d = (typeof created === 'number' || /^[0-9]+$/.test(created)) ? new Date(Number(created)) : (created ? new Date(created) : null);
-        tStr = d ? d.toLocaleString('vi-VN') : '';
-      } catch (e) {
-        tStr = '';
-      }
-      var source = (o.source || o.channel || o.platform || 'Web').toString();
-      var id = (o.id || '').toString();
-      
-      return '<tr>' +
-        '<td><div class="item-cell"><img src="' + img + '"/><div class="item-meta"><div class="name">' + itemTitle + '</div><div>x' + itemQty + '</div></div></div></td>' +
-        '<td class="nowrap">' + id + '</td>' +
-        '<td class="nowrap">' + provider + '</td>' +
-        '<td class="nowrap">' + (tracking || '-') + '</td>' +
-        '<td class="nowrap">' + fmt(rev) + '</td>' +
-        '<td class="nowrap">' + tStr + '</td>' +
-        '<td>' + (source || '') + '</td>' +
-        '<td class="text-right"><div class="btn-group"><button class="btn btn-sm" data-view="' + id + '">Xem</button><button class="btn btn-sm btn-danger" data-delete="' + id + '">Xoá</button></div></td>' +
-        '</tr>';
-    }).join('');
 
-    // Wire view buttons
-    tbody.querySelectorAll('[data-view]').forEach(btn => {
-      btn.onclick = () => {
-        const id = btn.getAttribute('data-view');
-        const o = allOrders.find(x => (x.id || '') === id);
-        if (o) showOrderDetail(o);
-      };
-    });
-
-    // Wire delete buttons
-    tbody.querySelectorAll('[data-delete]').forEach(btn => {
-      btn.onclick = async () => {
-        const id = btn.getAttribute('data-delete');
-        if (!confirm('Xác nhận xoá đơn hàng ' + id + '?')) return;
-        try {
-          const r = await Admin.req('/admin/orders/delete', { method: 'POST', body: { id: id } });
-          if (r && r.ok) {
-            Admin.toast('✅ Đã xoá đơn hàng');
-            loadOrders();
-          } else {
-            alert('Xoá thất bại: ' + (r?.message || 'Lỗi'));
+      // Wire create waybill button
+      const btnCreateWaybill = document.getElementById('btn-create-waybill');
+      if (btnCreateWaybill) {
+        btnCreateWaybill.onclick = async () => {
+          const order = window.ordersManager?.currentOrder || window.__currentOrder;
+          if (!order) {
+            alert('❌ Không tìm thấy đơn hàng');
+            return;
           }
-        } catch (e) {
-          alert('Lỗi xoá đơn: ' + e.message);
-        }
-      };
+          
+          if (window.waybillCreator) {
+            await window.waybillCreator.createWaybill(order);
+          } else {
+            alert('❌ Module tạo vận đơn chưa được tải');
+          }
+        };
+      }
+
+      console.log('✅ Orders page ready');
     });
-
-    var reloadBtn = document.getElementById('reload-orders');
-    if (reloadBtn) {
-      reloadBtn.onclick = loadOrders;
-    }
-  } catch (e) {
-    console.error('Load orders error:', e);
-  }
-}
-
-// Show order detail
-function showOrderDetail(o) {
-  window.__currentOrder = o;
-  const modal = document.getElementById('modal-detail');
-  const body = document.getElementById('md-body');
-  const actions = document.getElementById('ship-actions');
-  
-  if (modal) modal.dataset.orderId = (o && (o.id || o._id || '')) || '';
-
-  const its = Array.isArray(o.items) ? o.items : [];
-  const sub = its.reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0);
-  const ship = Number(o.shipping_fee || 0);
-  const disc = Number(o.discount || 0) + Number(o.shipping_discount || 0);
-  const total = Math.max(0, sub + ship - disc);
-  const addr = (o.address || (o.customer && o.customer.address) || '');
-  const shipName = o.shipping_name || o.ship_name || o.shipping_provider || o.provider || '';
-  const tracking = o.tracking_code || o.shipping_tracking || '';
-  const eta = o.shipping_eta || '';
-  const when = o.createdAt ? new Date(Number(o.createdAt)).toLocaleString('vi-VN') : '';
-  const cust = o.customer || {};
-
-  const rows = its.map(it => `
-    <tr>
-      <td>${it.sku || it.id || ''}</td>
-      <td>${(it.name || '') + (it.variant ? (' - ' + it.variant) : '')}</td>
-      <td style="text-align:right">${it.qty || 1}</td>
-      <td style="text-align:right">${fmt(it.price || 0)}</td>
-      <td style="text-align:right">${fmt(it.cost || 0)}</td>
-      <td style="text-align:right">${fmt((it.price || 0) * (it.qty || 1))}</td>
-    </tr>`).join('');
-
-  body.innerHTML = `
-    <div style="margin-bottom:8px">
-      <div><b>Khách:</b> ${cust.name || o.customer_name || o.name || 'Khách'} ${cust.phone ? ('• ' + cust.phone) : ''}</div>
-      ${addr ? ('<div><b>Địa chỉ:</b> ' + addr + '</div>') : ''}
-      ${shipName ? ('<div><b>Vận chuyển:</b> ' + shipName + (tracking ? (' • Mã: ' + tracking) : '') + (eta ? (' • ' + eta) : '') + '</div>') : ''}
-      ${when ? ('<div><b>Ngày tạo:</b> ' + when + '</div>') : ''}
-      <div><b>Trạng thái:</b> ${o.status || 'pending'}</div>
-    </div>
-    <div class="card">
-      <table class="table md-table">
-        <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
-      </table>
-      <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
-        <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${fmt(sub)}</b></div>
-        <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${fmt(ship)}</b></div>
-        ${disc ? ('<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-' + fmt(disc) + '</b></div>') : ''}
-        <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}</b></div>
-      </div>
-    </div>`;
-
-  // Show shipping actions if has tracking or can create
-  if (actions) {
-    actions.style.display = 'flex';
-  }
-
-  modal.style.display = 'flex';
-}
-
-// Print waybill
-function openPrint(order, tracking) {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vận đơn</title>
-    <style>body{font-family:system-ui,-apple-system,sans-serif;padding:16px}
-    .box{border:1px dashed #444;padding:12px;margin-bottom:12px}
-    .row{display:flex;justify-content:space-between}</style></head><body>
-    <h2>Vận đơn - ${(g(order, ['shipping_name']) || g(order, ['shipping_provider']) || '')}</h2>
-    <div class="box"><div><b>Tracking:</b> ${tracking || (g(order, ['tracking']) || '')}</div>
-    <div><b>Đơn hàng:</b> ${(g(order, ['id']) || '')}</div>
-    <div><b>Khách:</b> ${(g(order, ['customer', 'name']) || g(order, ['customer_name']) || g(order, ['name']) || '')}</div>
-    <div><b>ĐT:</b> ${(g(order, ['customer', 'phone']) || g(order, ['phone']) || '')}</div>
-    <div><b>Địa chỉ:</b> ${(g(order, ['customer', 'address']) || g(order, ['address']) || '')}</div></div>
-    <div class="box"><div class="row"><span>Phí VC:</span><b>${(Number(g(order, ['shipping_fee']) || 0).toLocaleString('vi-VN'))}đ</b></div>
-    <div class="row"><span>Tổng:</span><b>${(Number(g(order, ['revenue']) || 0).toLocaleString('vi-VN'))}đ</b></div></div>
-    <script>window.onload=()=>window.print()<\/script></body></html>`;
-  const w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
-}
-
-// Create waybill
-// PATCH 2: Thay thế hàm createWaybill trong orders.html
-// Tìm hàm async function createWaybill() cũ và thay bằng code này:
-
-async function createWaybill() {
-  try {
-    const order = window.__currentOrder;
-    if (!order) {
-      Admin.toast('❌ Không tìm thấy đơn hàng');
-      return;
-    }
-    
-    console.log('📦 Creating waybill for order:', order);
-    Admin.toast('🔄 Đang tạo vận đơn...');
-    
-    // Get settings
-    const settings = await Admin.req('/public/settings', { method: 'GET' });
-    
-    // Helper to get nested setting value
-    const getSetting = (path) => {
-      const keys = path.split('.');
-      let value = settings?.settings || settings;
-      for (const key of keys) {
-        value = value?.[key];
-        if (value === undefined) return '';
-      }
-      return value || '';
-    };
-    
-    // === SENDER INFO ===
-    const sender = {
-      name: getSetting('shipping.sender_name') || '',
-      phone: (getSetting('shipping.sender_phone') || '').replace(/\D+/g,''),
-      address: getSetting('shipping.sender_address') || '',
-      province_code: getSetting('shipping.sender_province_code') || '',
-      district_code: getSetting('shipping.sender_district_code') || '',
-      commune_code: getSetting('shipping.sender_commune_code') || '',
-      province: getSetting('shipping.sender_province') || '',
-      district: getSetting('shipping.sender_district') || ''
-    };
-    
-    console.log('📤 Sender info:', sender);
-    
-    // Validate sender - QUAN TRỌNG!
-    if (!sender.province_code || !sender.district_code) {
-      alert('⚠️ THÔNG TIN NGƯỜI GỬI CHƯA ĐẦY ĐỦ!\n\n' +
-            'Hiện tại:\n' +
-            `• Tỉnh: ${sender.province_code || 'CHƯA CÓ'}\n` +
-            `• Quận: ${sender.district_code || 'CHƯA CÓ'}\n\n` +
-            'Vui lòng:\n' +
-            '1. Vào trang "Vận chuyển"\n' +
-            '2. Bấm "Đồng bộ từ Warehouses"\n' +
-            '3. Kiểm tra thông tin và bấm "Lưu người gửi"');
-      return;
-    }
-    
-    // === RECEIVER INFO ===
-    const customer = order.customer || {};
-    const receiver = {
-      name: customer.name || order.customer_name || order.name || 'Khách',
-      phone: customer.phone || order.phone || '',
-      address: customer.address || order.address || '',
-      // Try multiple possible field names for codes
-      province_code: customer.province_code || order.receiver_province_code || 
-                    order.province_code || order.to_province_code || '',
-      district_code: customer.district_code || order.receiver_district_code || 
-                    order.district_code || order.to_district_code || '',
-      commune_code: customer.commune_code || customer.ward_code || 
-                   order.receiver_commune_code || order.commune_code || 
-                   order.ward_code || order.to_commune_code || '',
-      // Names for display
-      province: customer.province || order.province || '',
-      district: customer.district || order.district || ''
-    };
-    
-    console.log('📥 Receiver info:', receiver);
-    
-    // Validate receiver - QUAN TRỌNG!
-    const missingFields = [];
-    if (!receiver.province_code) missingFields.push('Tỉnh/Thành phố');
-    if (!receiver.district_code) missingFields.push('Quận/Huyện');
-    
-    if (missingFields.length > 0) {
-      alert('⚠️ ĐƠN HÀNG THIẾU THÔNG TIN NGƯỜI NHẬN!\n\n' +
-            'Thiếu: ' + missingFields.join(', ') + '\n\n' +
-            'Thông tin hiện tại:\n' +
-            `• Tỉnh code: ${receiver.province_code || 'CHƯA CÓ'}\n` +
-            `• Quận code: ${receiver.district_code || 'CHƯA CÓ'}\n` +
-            `• Phường code: ${receiver.commune_code || 'CHƯA CÓ'}\n\n` +
-            'Vui lòng:\n' +
-            '1. Cập nhật địa chỉ đầy đủ cho khách hàng\n' +
-            '2. Đảm bảo chọn từ dropdown (để có mã tỉnh/quận)\n' +
-            '3. Thử tạo vận đơn lại');
-      return;
-    }
-    
-    // === ITEMS ===
-    const items = (order.items || []).map(item => ({
-      name: item.name || item.title || 'Sản phẩm',
-      qty: Number(item.qty || 1),
-      price: Number(item.price || 0),
-      weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0)
-    }));
-    
-    // Calculate total weight
-    const totalWeight = items.reduce((sum, item) => 
-      sum + (item.weight_grams || 0) * (item.qty || 1), 0);
-    
-    // === BUILD PAYLOAD ===
-    const payload = {
-      provider: (order.shipping_provider || order.provider || 'vtp').toLowerCase(),
-      order_id: order.id || order._id || '',
-      
-      // Sender (người gửi)
-      sender_name: sender.name,
-      sender_phone: sender.phone,
-      sender_address: sender.address,
-      sender_province_code: String(sender.province_code),
-      sender_district_code: String(sender.district_code),
-      sender_commune_code: String(sender.commune_code),
-      sender_province: sender.province,
-      sender_district: sender.district,
-      
-      // Receiver (người nhận)
-      receiver_name: receiver.name,
-      receiver_phone: receiver.phone,
-      receiver_address: receiver.address,
-      receiver_province_code: String(receiver.province_code),
-      receiver_district_code: String(receiver.district_code),
-      receiver_commune_code: String(receiver.commune_code),
-      receiver_province: receiver.province || 'Tỉnh/TP',
-      receiver_district: receiver.district || 'Quận/Huyện',
-      
-      // Aliases (một số carrier cần các field này)
-      province_code: String(receiver.province_code),
-      district_code: String(receiver.district_code),
-      commune_code: String(receiver.commune_code),
-      to_province_code: String(receiver.province_code),
-      to_district_code: String(receiver.district_code),
-      to_commune_code: String(receiver.commune_code),
-      
-      // Package info
-      items: items,
-      cod: Number(order.cod || 0),
-      weight_gram: totalWeight || 500,
-      note: order.note || '',
-      service_code: order.shipping_service || order.service_code || ''
-    };
-    
-    console.log('📋 Waybill payload:', JSON.stringify(payload, null, 2));
-    
-    // === CALL API ===
-    const result = await Admin.req('/admin/shipping/create', {
-      method: 'POST',
-      body: payload
-    });
-    
-    console.log('📬 Waybill result:', result);
-    
-    // === HANDLE RESULT ===
-    if (result && result.ok) {
-      Admin.toast('✅ Đã tạo vận đơn thành công');
-      const tracking = result.tracking || result.tracking_code || result.code || '';
-      
-      if (tracking) {
-        // Update order with tracking code
-        try {
-          await Admin.req('/admin/orders/upsert', {
-            method: 'POST',
-            body: {
-              id: order.id,
-              tracking_code: tracking,
-              shipping_provider: payload.provider,
-              status: 'shipping'
-            }
-          });
-          console.log('✅ Updated order with tracking:', tracking);
-        } catch (e) {
-          console.error('⚠️ Update order error:', e);
-        }
-        
-        // Print waybill
-        openPrint(order, tracking);
-      }
-      
-      // Reload orders list
-      setTimeout(loadOrders, 1000);
-      
-    } else {
-      // Error handling
-      const errorMsg = result?.error || result?.message || 'Không rõ lỗi';
-      console.error('❌ Waybill creation failed:', result);
-      
-      Admin.toast('❌ Lỗi: ' + errorMsg);
-      
-      alert('❌ TẠO VẬN ĐƠN THẤT BẠI\n\n' +
-            'Lỗi: ' + errorMsg + '\n\n' +
-            'Chi tiết:\n' + JSON.stringify(result, null, 2) + '\n\n' +
-            'Kiểm tra:\n' +
-            '1. Thông tin người gửi đã đầy đủ?\n' +
-            '2. Thông tin người nhận có đúng?\n' +
-            '3. API token còn hiệu lực?');
-    }
-    
-  } catch (error) {
-    console.error('❌ Create waybill exception:', error);
-    Admin.toast('❌ Lỗi: ' + error.message);
-    alert('❌ LỖI TẠO VẬN ĐƠN\n\n' + 
-          'Message: ' + error.message + '\n\n' +
-          'Stack: ' + (error.stack || 'N/A'));
-  }
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-  Admin.renderApiBase();
-  loadOrders();
-
-  // Close modal
-  const btnClose = document.getElementById('md-close');
-  if (btnClose) {
-    btnClose.onclick = () => {
-      document.getElementById('modal-detail').style.display = 'none';
-    };
-  }
-
-  // Click outside to close
-  const modal = document.getElementById('modal-detail');
-  if (modal) {
-    modal.onclick = (e) => {
-      if (e.target === modal) {
-        modal.style.display = 'none';
-      }
-    };
-  }
-
-  // Create waybill button
-  const btnCreate = document.getElementById('btn-create-waybill');
-  if (btnCreate) {
-    btnCreate.onclick = createWaybill;
-  }
-
-  // Print waybill button
-  const btnPrint = document.getElementById('btn-print-waybill');
-  if (btnPrint) {
-    btnPrint.onclick = () => {
-      const o = window.__currentOrder;
-      if (o) {
-        openPrint(o, o.tracking_code || o.shipping_tracking || '');
-      }
-    };
-  }
-});
-
-console.log('✅ Orders page ready');
-</script>
-
+  </script>
 </body>
 </html>
