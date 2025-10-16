@@ -681,14 +681,15 @@ function formatPercent(n) {
   return Number(n || 0).toFixed(1) + '%';
 }
 
-function setToday() {
+// Declare functions globally first
+window.setToday = function() {
   const today = new Date().toISOString().split('T')[0];
   $('#fromDate').value = today;
   $('#toDate').value = today;
   loadStats();
-}
+};
 
-function setThisWeek() {
+window.setThisWeek = function() {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const monday = new Date(today);
@@ -697,16 +698,16 @@ function setThisWeek() {
   $('#fromDate').value = monday.toISOString().split('T')[0];
   $('#toDate').value = new Date().toISOString().split('T')[0];
   loadStats();
-}
+};
 
-function setThisMonth() {
+window.setThisMonth = function() {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   
   $('#fromDate').value = firstDay.toISOString().split('T')[0];
   $('#toDate').value = new Date().toISOString().split('T')[0];
   loadStats();
-}
+};
 
 function saveCosts() {
   renderCostList();
