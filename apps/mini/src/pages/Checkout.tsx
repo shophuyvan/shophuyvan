@@ -2,20 +2,16 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 
-const API_BASE = import.meta.env.VITE_API_BASE;
-const API_TOKEN = (import.meta.env.VITE_API_TOKEN || '');
+// ĐỒNG BỘ VỚI FE WEB
+const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
 
 const FALLBACK_PRICING = {
   'Viettel Post': [{limit:1000,price:18000},{limit:2000,price:23000},{limit:3000,price:28000},{limit:4000,price:33000},{limit:5000,price:38000},{limit:6000,price:43000}],
   'SPX Express': [{limit:1000,price:15000},{limit:2000,price:25000},{limit:3000,price:35000},{limit:4000,price:45000},{limit:5000,price:55000},{limit:6000,price:65000}],
   'J&T Express': [{limit:1000,price:20000},{limit:2000,price:20000},{limit:3000,price:25000},{limit:4000,price:23000},{limit:5000,price:35000},{limit:6000,price:40000}],
-  'Lazada Express': [{limit:1000,price:19000},{limit:2000,price:19000},{limit:3000,price:19000},{limit:4000,price:23000},{limit:5000,price:27000},{limit:6000,price:31000}],
-  'GHN': [{limit:1000,price:19000},{limit:2000,price:19000},{limit:3000,price:24000},{limit:4000,price:29000},{limit:5000,price:34000},{limit:6000,price:39000}],
-  'BEST Express': [{limit:1000,price:18000},{limit:2000,price:18000},{limit:3000,price:18000},{limit:4000,price:23000},{limit:5000,price:28000},{limit:6000,price:33000}],
 };
 const CARRIER_ORDER = Object.keys(FALLBACK_PRICING);
 
-// Memoize calculation
 function calcFallbackFee(weightGram: number, carrier: string): number {
   const arr = FALLBACK_PRICING[carrier] || [];
   for (const step of arr) {
@@ -29,27 +25,6 @@ function calcFallbackFee(weightGram: number, carrier: string): number {
   return 0;
 }
 
-// Cache cho API calls
-const apiCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 phút
-
-async function cachedFetch(url: string, options?: RequestInit): Promise<Response> {
-  const cacheKey = `${url}-${JSON.stringify(options)}`;
-  const cached = apiCache.get(cacheKey);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return new Response(JSON.stringify(cached.data), { status: 200 });
-  }
-  
-  const response = await fetch(url, options);
-  if (response.ok) {
-    const data = await response.json();
-    apiCache.set(cacheKey, { data, timestamp: Date.now() });
-  }
-  
-  return response;
-}
-
 export default function Checkout() {
   const [st, setSt] = useState(cart.get());
   const [form, setForm] = useState({ 
@@ -58,7 +33,8 @@ export default function Checkout() {
     province: '', 
     district: '', 
     ward: '', 
-    address: '' 
+    address: '',
+    note: ''
   });
   const [done, setDone] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +43,9 @@ export default function Checkout() {
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
 
   const totalWeightGram = useMemo(
     () => st.lines.reduce((s, l) => s + (l.weight_gram ?? l.weight ?? 0) * (l.qty ?? 1), 0),
@@ -75,149 +54,166 @@ export default function Checkout() {
 
   const [shippingList, setShippingList] = useState<any[]>([]);
   const [shippingFee, setShippingFee] = useState(0);
-  const [carrier, setCarrier] = useState('');
+  const [selectedShipping, setSelectedShipping] = useState<any>(null);
 
   const disabled = st.lines.length === 0 || submitting;
 
-  // Load provinces một lần
+  // Load provinces - ĐỒNG BỘ VỚI FE
   useEffect(() => {
     let isMounted = true;
+    setLoadingProvinces(true);
     
     (async () => {
       try {
-        const r = await cachedFetch(API_BASE + '/v1/platform/areas/province', {
-          headers: { 'Authorization': 'Bearer ' + API_TOKEN }
-        });
-        if (r.ok && isMounted) {
-          const js = await r.json();
-          const arr = Array.isArray(js?.data) ? js.data : (Array.isArray(js) ? js : []);
-          setProvinces(arr);
+        const res = await fetch(`${API_BASE}/shipping/provinces`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const items = data.items || data.data || [];
+          setProvinces(items);
         }
       } catch (e) {
-        console.error('Failed to load provinces:', e);
+        console.error('Load provinces error:', e);
+      } finally {
+        if (isMounted) setLoadingProvinces(false);
       }
     })();
     
     return () => { isMounted = false; };
   }, []);
 
-  // Load districts khi province thay đổi
+  // Load districts - ĐỒNG BỘ VỚI FE
   useEffect(() => {
     setDistricts([]);
     setWards([]);
     if (!form.province) return;
     
     let isMounted = true;
+    setLoadingDistricts(true);
     
     (async () => {
       try {
-        const r = await cachedFetch(
-          API_BASE + '/v1/platform/areas/district?province_code=' + encodeURIComponent(form.province),
-          { headers: { 'Authorization': 'Bearer ' + API_TOKEN } }
+        const res = await fetch(
+          `${API_BASE}/shipping/districts?province_code=${encodeURIComponent(form.province)}`
         );
-        if (r.ok && isMounted) {
-          const js = await r.json();
-          const arr = Array.isArray(js?.data) ? js.data : (Array.isArray(js) ? js : []);
-          setDistricts(arr);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const items = data.items || data.data || [];
+          setDistricts(items);
         }
       } catch (e) {
-        console.error('Failed to load districts:', e);
+        console.error('Load districts error:', e);
+      } finally {
+        if (isMounted) setLoadingDistricts(false);
       }
     })();
     
     return () => { isMounted = false; };
   }, [form.province]);
 
-  // Load wards khi district thay đổi
+  // Load wards - ĐỒNG BỘ VỚI FE
   useEffect(() => {
     setWards([]);
     if (!form.district) return;
     
     let isMounted = true;
+    setLoadingWards(true);
     
     (async () => {
       try {
-        const r = await cachedFetch(
-          API_BASE + '/v1/platform/areas/commune?district_code=' + encodeURIComponent(form.district),
-          { headers: { 'Authorization': 'Bearer ' + API_TOKEN } }
+        const res = await fetch(
+          `${API_BASE}/shipping/wards?district_code=${encodeURIComponent(form.district)}`
         );
-        if (r.ok && isMounted) {
-          const js = await r.json();
-          const arr = Array.isArray(js?.data) ? js.data : (Array.isArray(js) ? js : []);
-          setWards(arr);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const items = data.items || data.data || [];
+          setWards(items);
         }
       } catch (e) {
-        console.error('Failed to load wards:', e);
+        console.error('Load wards error:', e);
+      } finally {
+        if (isMounted) setLoadingWards(false);
       }
     })();
     
     return () => { isMounted = false; };
   }, [form.district]);
 
-  // Calculate shipping với debounce
+  // Calculate shipping - ĐỒNG BỘ VỚI FE
   useEffect(() => {
     const timer = setTimeout(() => {
       (async () => {
-        if (!form.province || !form.district || totalWeightGram <= 0) {
+        if (!form.province || !form.district) {
           const arr = CARRIER_ORDER.map(c => ({
-            carrier: c,
-            fee: calcFallbackFee(totalWeightGram || 1000, c)
+            provider: c,
+            name: c,
+            service_code: 'standard',
+            fee: calcFallbackFee(totalWeightGram || 500, c),
+            eta: 'Giao hàng tiêu chuẩn'
           }));
           setShippingList(arr);
-          setCarrier(arr[0]?.carrier || '');
+          setSelectedShipping(arr[0]);
           setShippingFee(arr[0]?.fee || 0);
           return;
         }
 
         try {
-          const r = await fetch(API_BASE + '/v1/platform/orders/price', {
+          const weight = totalWeightGram || 500;
+          
+          // ĐỒNG BỘ VỚI FE: dùng receiver_province, receiver_district
+          const res = await fetch(`${API_BASE}/shipping/price`, {
             method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'Authorization': 'Bearer ' + API_TOKEN
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              to_province: form.province,
-              to_district: form.district,
-              weight_gram: totalWeightGram
+              receiver_province: form.province,
+              receiver_district: form.district,
+              weight_gram: weight,
+              cod: 0
             })
           });
 
-          if (r.ok) {
-            const js = await r.json();
-            const items = Array.isArray(js?.data) ? js.data : (Array.isArray(js) ? js : []);
-            const mapped = items.map(x => ({
-              carrier: x?.carrier_name || x?.carrier || 'Khác',
-              fee: Number(x?.fee || x?.price || 0)
-            }));
+          if (res.ok) {
+            const data = await res.json();
+            const items = data.items || data.data || [];
             
-            if (mapped.length) {
+            if (items.length > 0) {
+              const mapped = items.map(item => ({
+                provider: item.provider,
+                name: item.name || item.provider,
+                service_code: item.service_code,
+                fee: Number(item.fee || 0),
+                eta: item.eta || 'Giao hàng tiêu chuẩn'
+              }));
+              
               setShippingList(mapped);
-              setCarrier(mapped[0].carrier);
+              setSelectedShipping(mapped[0]);
               setShippingFee(mapped[0].fee);
               return;
             }
           }
         } catch (e) {
-          console.error('Failed to calculate shipping:', e);
+          console.error('Get shipping quote error:', e);
         }
 
         // Fallback
         const arr = CARRIER_ORDER.map(c => ({
-          carrier: c,
-          fee: calcFallbackFee(totalWeightGram, c)
+          provider: c,
+          name: c,
+          service_code: 'standard',
+          fee: calcFallbackFee(totalWeightGram || 500, c),
+          eta: 'Giao hàng tiêu chuẩn'
         }));
         setShippingList(arr);
-        setCarrier(arr[0]?.carrier || '');
+        setSelectedShipping(arr[0]);
         setShippingFee(arr[0]?.fee || 0);
       })();
-    }, 300); // Debounce 300ms
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [form.province, form.district, totalWeightGram]);
 
   const grandTotal = st.total + (shippingFee || 0);
 
+  // Place order - ĐỒNG BỘ VỚI FE
   const submit = useCallback(async () => {
     setError(null);
     setSubmitting(true);
@@ -227,82 +223,106 @@ export default function Checkout() {
       setSubmitting(false);
       return;
     }
-    if (!carrier) {
-      setError('Vui lòng chọn đơn vị vận chuyển');
+    
+    if (!form.province || !form.district || !form.ward) {
+      setError('Vui lòng chọn đầy đủ địa chỉ');
+      setSubmitting(false);
+      return;
+    }
+    
+    if (!form.address.trim()) {
+      setError('Vui lòng nhập địa chỉ chi tiết');
+      setSubmitting(false);
+      return;
+    }
+    
+    if (!selectedShipping) {
+      setError('Vui lòng chọn phương thức vận chuyển');
       setSubmitting(false);
       return;
     }
 
-    const order = {
-      contact: {
+    // ĐỒNG BỘ VỚI FE: format payload giống y hệt
+    const payload = {
+      customer: {
         name: form.name,
-        phone: form.phone,
-        province: form.province,
-        district: form.district,
-        ward: form.ward,
-        address: form.address
+        phone: form.phone.replace(/\D/g, ''),
+        address: form.address,
+        province_code: form.province,
+        district_code: form.district,
+        commune_code: form.ward,
+        ward_code: form.ward
       },
-      lines: st.lines,
-      shipping: { carrier, fee: shippingFee, weight_gram: totalWeightGram },
-      totals: { subtotal: st.subtotal, savings: st.savings, shipping: shippingFee, total: grandTotal },
-      createdAt: new Date().toISOString(),
+      items: st.lines.map(item => ({
+        id: item.id,
+        sku: item.sku || item.id,
+        name: item.name || item.title,
+        price: Number(item.price || 0),
+        cost: Number(item.cost || 0),
+        qty: Number(item.qty || 1),
+        weight_gram: Number(item.weight_gram || item.weight || 0),
+        variant: item.variant || '',
+        image: item.image || ''
+      })),
+      totals: {
+        subtotal: st.subtotal,
+        shipping_fee: shippingFee,
+        discount: 0,
+        shipping_discount: 0,
+        total: grandTotal
+      },
+      shipping_provider: selectedShipping.provider,
+      shipping_service: selectedShipping.service_code,
+      shipping_name: selectedShipping.name,
+      shipping_eta: selectedShipping.eta,
+      shipping_fee: shippingFee,
+      discount: 0,
+      shipping_discount: 0,
+      voucher_code: '',
+      note: form.note || '',
+      source: 'mini',
+      status: 'pending'
     };
 
+    console.log('Order payload:', payload);
+
     try {
-      const res = await fetch(API_BASE + '/v1/platform/orders/create', {
+      // ĐỒNG BỘ VỚI FE: dùng /api/orders
+      const res = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'Authorization': 'Bearer ' + API_TOKEN
+        headers: { 
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2)
         },
-        body: JSON.stringify(order)
+        body: JSON.stringify(payload)
       });
       
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setDone({ kind: 'server', data, endpoint: '/v1/platform/orders/create' });
+      const data = await res.json();
+      
+      if (data.ok || data.id) {
+        setDone({ 
+          kind: 'server', 
+          data, 
+          endpoint: '/api/orders',
+          orderId: data.id || data.order_id 
+        });
         cart.clear();
         setSt(cart.get());
         return;
+      } else {
+        throw new Error(data.error || data.message || 'Đặt hàng thất bại');
       }
-    } catch (e) {
-      console.error('Order submission failed:', e);
+    } catch (e: any) {
+      console.error('Place order error:', e);
+      setError(e.message || 'Có lỗi xảy ra khi đặt hàng');
+    } finally {
+      setSubmitting(false);
     }
-
-    // Fallback endpoints
-    const candidates = ['/orders', '/api/orders', '/v1/orders', '/checkout/order'];
-    for (const p of candidates) {
-      try {
-        const res = await fetch((window.API_BASE ? window.API_BASE.replace(/\/+$/, '') + p : p), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(order)
-        });
-        
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}));
-          setDone({ kind: 'server', data, endpoint: p });
-          cart.clear();
-          setSt(cart.get());
-          return;
-        }
-      } catch {}
-    }
-
-    // Last resort: localStorage
-    try {
-      localStorage.setItem('shv_last_order', JSON.stringify(order));
-    } catch {}
-    
-    setDone({ kind: 'local', data: order });
-    cart.clear();
-    setSt(cart.get());
-    setSubmitting(false);
-  }, [form, carrier, shippingFee, st, totalWeightGram, grandTotal]);
+  }, [form, selectedShipping, shippingFee, st, grandTotal]);
 
   return (
-    <div>
-      <main className="max-w-4xl mx-auto p-3">
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-4xl mx-auto p-3 pb-20">
         <h1 className="text-xl font-bold mb-3">Thanh toán</h1>
         
         {st.lines.length === 0 && !done && (
@@ -310,168 +330,211 @@ export default function Checkout() {
         )}
         
         {done ? (
-          <div className="bg-white rounded-2xl p-4 shadow">
+          <div className="bg-white rounded-2xl p-6 shadow">
             <div className="text-center">
-              <div className="text-5xl mb-3">✅</div>
-              <div className="text-lg font-semibold mb-2">Đặt hàng thành công!</div>
-              {done.kind === 'server' ? (
-                <div className="text-sm text-gray-600">Đã gửi đơn lên máy chủ ({done.endpoint}).</div>
-              ) : (
-                <div className="text-sm text-gray-600">Đơn tạm lưu trong máy (chưa gửi server).</div>
+              <div className="text-6xl mb-4">✅</div>
+              <div className="text-xl font-bold mb-2">Đặt hàng thành công!</div>
+              <div className="text-sm text-gray-600 mb-1">
+                Đã gửi đơn lên máy chủ ({done.endpoint})
+              </div>
+              {done.orderId && (
+                <div className="text-sm text-gray-500 mb-4">
+                  Mã đơn hàng: <span className="font-mono font-semibold">{done.orderId}</span>
+                </div>
               )}
-              <div className="mt-3 text-sm">Cảm ơn bạn đã mua hàng.</div>
-              <a href="/" className="mt-4 inline-block px-6 py-2 bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition-colors">
+              <div className="text-gray-700 mb-6">Cảm ơn bạn đã mua hàng.</div>
+              <a 
+                href="/" 
+                className="inline-block px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold"
+              >
                 Về trang chủ
               </a>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Order summary */}
-            <div className="bg-white rounded-2xl p-3 shadow">
-              <div className="font-semibold mb-2">Đơn hàng ({st.lines.length} sản phẩm)</div>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
+            <div className="bg-white rounded-2xl p-4 shadow">
+              <div className="font-semibold mb-3">Đơn hàng ({st.lines.length} sản phẩm)</div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {st.lines.map((l) => (
-                  <div key={String(l.id)} className="flex justify-between py-1 text-sm">
-                    <span className="line-clamp-1 pr-2">{l.name} × {l.qty}</span>
-                    <span className="font-medium">{fmtVND(l.price * l.qty)}</span>
+                  <div key={String(l.id)} className="flex justify-between items-start py-2 border-b last:border-0">
+                    <div className="flex-1 pr-3">
+                      <div className="font-medium line-clamp-1">{l.name}</div>
+                      <div className="text-sm text-gray-500">Số lượng: {l.qty}</div>
+                    </div>
+                    <div className="font-semibold text-right whitespace-nowrap">
+                      {fmtVND(l.price * l.qty)}
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between py-2 border-t mt-2 font-semibold">
+              <div className="flex justify-between py-3 border-t mt-3 font-semibold text-lg">
                 <span>Tạm tính</span>
                 <span>{fmtVND(st.total)}</span>
               </div>
             </div>
 
             {/* Contact form */}
-            <div className="bg-white rounded-2xl p-3 shadow space-y-2">
-              <div className="font-semibold">Thông tin nhận hàng</div>
+            <div className="bg-white rounded-2xl p-4 shadow space-y-3">
+              <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
+              
               <input
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="Họ tên *"
-                className="w-full rounded-xl border px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                 required
               />
+              
               <input
                 value={form.phone}
                 onChange={e => setForm({ ...form, phone: e.target.value })}
                 placeholder="Số điện thoại *"
                 type="tel"
-                className="w-full rounded-xl border px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                 required
               />
-              <div className="grid grid-cols-3 gap-2">
-                <select
-                  value={form.province}
-                  onChange={e => setForm({ ...form, province: e.target.value, district: '', ward: '' })}
-                  className="rounded-xl border px-2 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
-                >
-                  <option value="">Tỉnh/Thành</option>
-                  {provinces.map((p) => (
-                    <option key={p.code || p.id} value={p.code || p.id}>
-                      {p.name || p.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={form.district}
-                  onChange={e => setForm({ ...form, district: e.target.value, ward: '' })}
-                  className="rounded-xl border px-2 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
-                  disabled={!form.province}
-                >
-                  <option value="">Quận/Huyện</option>
-                  {districts.map((d) => (
-                    <option key={d.code || d.id} value={d.code || d.id}>
-                      {d.name || d.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={form.ward}
-                  onChange={e => setForm({ ...form, ward: e.target.value })}
-                  className="rounded-xl border px-2 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
-                  disabled={!form.district}
-                >
-                  <option value="">Phường/Xã</option>
-                  {wards.map((w) => (
-                    <option key={w.code || w.id} value={w.code || w.id}>
-                      {w.name || w.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              
+              <select
+                value={form.province}
+                onChange={e => setForm({ ...form, province: e.target.value, district: '', ward: '' })}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                disabled={loadingProvinces}
+              >
+                <option value="">-- Chọn Tỉnh/Thành phố *</option>
+                {provinces.map((p) => (
+                  <option key={p.code || p.id} value={p.code || p.id}>
+                    {p.name || p.label}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                value={form.district}
+                onChange={e => setForm({ ...form, district: e.target.value, ward: '' })}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                disabled={!form.province || loadingDistricts}
+              >
+                <option value="">
+                  {loadingDistricts ? 'Đang tải...' : '-- Chọn Quận/Huyện *'}
+                </option>
+                {districts.map((d) => (
+                  <option key={d.code || d.id} value={d.code || d.id}>
+                    {d.name || d.label}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                value={form.ward}
+                onChange={e => setForm({ ...form, ward: e.target.value })}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                disabled={!form.district || loadingWards}
+              >
+                <option value="">
+                  {loadingWards ? 'Đang tải...' : '-- Chọn Phường/Xã *'}
+                </option>
+                {wards.map((w) => (
+                  <option key={w.code || w.id} value={w.code || w.id}>
+                    {w.name || w.label}
+                  </option>
+                ))}
+              </select>
+              
               <input
                 value={form.address}
                 onChange={e => setForm({ ...form, address: e.target.value })}
-                placeholder="Địa chỉ chi tiết"
-                className="w-full rounded-xl border px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none"
+                placeholder="Địa chỉ chi tiết (số nhà, tên đường) *"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                required
+              />
+              
+              <input
+                value={form.note}
+                onChange={e => setForm({ ...form, note: e.target.value })}
+                placeholder="Ghi chú (không bắt buộc)"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
               />
             </div>
 
             {/* Shipping options */}
-            <div className="bg-white rounded-2xl p-3 shadow space-y-2">
-              <div className="font-semibold">Vận chuyển</div>
-              <div className="text-xs text-gray-500">
+            <div className="bg-white rounded-2xl p-4 shadow space-y-3">
+              <div className="font-semibold text-lg">Vận chuyển</div>
+              <div className="text-sm text-gray-600">
                 Khối lượng: {Math.max(1, Math.ceil((totalWeightGram || 0) / 1000))} kg
               </div>
+              
               {shippingList.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
-                  {shippingList.map((x, idx) => (
+                <div className="space-y-2">
+                  {shippingList.map((item, idx) => (
                     <label
                       key={idx}
-                      className="flex items-center justify-between rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                      className={`flex items-center justify-between border rounded-xl p-4 cursor-pointer transition-all ${
+                        selectedShipping?.provider === item.provider 
+                          ? 'border-emerald-500 bg-emerald-50' 
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3 flex-1">
                         <input
                           type="radio"
-                          name="ship"
-                          checked={carrier === x.carrier}
+                          name="ship_opt"
+                          checked={selectedShipping?.provider === item.provider}
                           onChange={() => {
-                            setCarrier(x.carrier);
-                            setShippingFee(x.fee);
+                            setSelectedShipping(item);
+                            setShippingFee(item.fee);
                           }}
-                          className="w-4 h-4"
+                          className="w-4 h-4 text-emerald-600"
                         />
-                        <span className="text-sm">{x.carrier}</span>
+                        <div>
+                          <div className="font-semibold">{item.name}</div>
+                          <div className="text-sm text-gray-600">{item.eta}</div>
+                        </div>
                       </div>
-                      <div className="font-semibold text-sky-600">{fmtVND(x.fee)}</div>
+                      <div className="font-bold text-emerald-600 text-lg">
+                        {fmtVND(item.fee)}
+                      </div>
                     </label>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 py-2">
-                  Đang tính phí vận chuyển...
+                <div className="text-sm text-gray-500 py-4 text-center">
+                  Vui lòng chọn địa chỉ để xem phí vận chuyển
                 </div>
               )}
             </div>
 
             {/* Total and submit */}
-            <div className="bg-white rounded-2xl p-3 shadow">
-              <div className="flex justify-between py-1 text-sm">
-                <span>Tạm tính</span>
-                <span>{fmtVND(st.total)}</span>
+            <div className="bg-white rounded-2xl p-4 shadow">
+              <div className="font-semibold mb-3">Chi tiết thanh toán</div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Tổng sản phẩm:</span>
+                  <span>{fmtVND(st.total)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Phí vận chuyển:</span>
+                  <span className="text-emerald-600 font-semibold">{fmtVND(shippingFee)}</span>
+                </div>
               </div>
-              <div className="flex justify-between py-1 text-sm">
-                <span>Phí vận chuyển</span>
-                <span className="text-sky-600">{fmtVND(shippingFee)}</span>
-              </div>
-              <div className="flex justify-between py-2 border-t mt-2 text-lg font-semibold">
-                <span>Tổng cộng</span>
-                <span className="text-rose-600">{fmtVND(grandTotal)}</span>
+              
+              <div className="flex justify-between py-3 border-t mt-3 text-lg font-bold">
+                <span>Tổng thanh toán:</span>
+                <span className="text-emerald-600 text-xl">{fmtVND(grandTotal)}</span>
               </div>
               
               {error && (
-                <div className="text-red-600 text-sm mt-2 bg-red-50 p-2 rounded-lg">
-                  {error}
+                <div className="text-red-600 text-sm mt-3 bg-red-50 p-3 rounded-lg border border-red-200">
+                  ⚠️ {error}
                 </div>
               )}
               
               <button
                 disabled={disabled}
                 onClick={submit}
-                className="w-full rounded-2xl bg-sky-500 disabled:bg-gray-300 text-white py-3 mt-3 font-semibold hover:bg-sky-600 transition-colors disabled:cursor-not-allowed"
+                className="w-full rounded-xl bg-emerald-600 disabled:bg-gray-300 text-white py-4 mt-4 font-bold text-lg hover:bg-emerald-700 transition-colors disabled:cursor-not-allowed shadow-lg"
               >
                 {submitting ? 'Đang xử lý...' : 'Đặt hàng'}
               </button>
