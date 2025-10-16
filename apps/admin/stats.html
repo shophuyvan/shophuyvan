@@ -882,3 +882,138 @@ function updateCharts() {
   
   if (orderChart) orderChart.destroy();
   if (revenueChart) revenueChart.destroy();
+  
+  const orderCtx = document.getElementById('orderChart').getContext('2d');
+  orderChart = new Chart(orderCtx, {
+    type: 'doughnut',
+    data: {
+      labels: platforms.map(p => p.name),
+      datasets: [{
+        data: platforms.map(p => p.orders),
+        backgroundColor: platforms.map(p => p.color),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${ctx.parsed} đơn`
+          }
+        }
+      }
+    }
+  });
+  
+  const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+  revenueChart = new Chart(revenueCtx, {
+    type: 'doughnut',
+    data: {
+      labels: platforms.map(p => p.name),
+      datasets: [{
+        data: platforms.map(p => p.revenue),
+        backgroundColor: platforms.map(p => p.color),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${formatMoney(ctx.parsed)}`
+          }
+        }
+      }
+    }
+  });
+  
+  updateLegends(platforms);
+}
+
+function updateLegends(platforms) {
+  const orderLegend = platforms.map(p => `
+    <div class="legend-item">
+      <div class="legend-color" style="background:${p.color}"></div>
+      <span>${p.name}</span>
+    </div>
+  `).join('');
+  
+  $('#orderLegend').innerHTML = orderLegend;
+  $('#revenueLegend').innerHTML = orderLegend;
+}
+
+function updateTables() {
+  const platforms = statsData.platforms || [
+    { name: 'Website', orders: 55, revenue: 4500000, cost_price: 1800000, success: 50, cancel: 3, return: 2 },
+    { name: 'Zalo MiniApp', orders: 40, revenue: 2960554, cost_price: 1127200, success: 34, cancel: 8, return: 0 }
+  ];
+  
+  const platformTable = $('#platformTable');
+  platformTable.innerHTML = platforms.map(p => {
+    const profit = (p.revenue || 0) - (p.cost_price || 0);
+    const badgeClass = p.name === 'Website' ? 'website' : 'miniapp';
+    
+    return `
+      <tr>
+        <td><span class="platform-badge ${badgeClass}">${p.name}</span></td>
+        <td style="text-align:right">${p.orders || 0}</td>
+        <td style="text-align:right">${formatMoney(p.revenue)}</td>
+        <td style="text-align:right">${formatMoney(profit)}</td>
+        <td style="text-align:right">${p.success || 0}</td>
+        <td style="text-align:right">${p.cancel || 0}</td>
+        <td style="text-align:right">${p.return || 0}</td>
+      </tr>
+    `;
+  }).join('');
+  
+  const topProducts = statsData.top_products || [];
+  const topProductsTable = $('#topProducts');
+  
+  if (topProducts.length === 0) {
+    topProductsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Chưa có dữ liệu</td></tr>';
+    return;
+  }
+  
+  topProductsTable.innerHTML = topProducts.map((p, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>
+        <div class="product-item">
+          <img class="product-img" src="./no-image.svg" alt="" onerror="this.src='./no-image.svg'"/>
+          <span>${p.name || ''}</span>
+        </div>
+      </td>
+      <td style="text-align:right">${p.qty || 0}</td>
+      <td style="text-align:right">${formatMoney(p.revenue)}</td>
+    </tr>
+  `).join('');
+}
+
+// Initialize
+if (window.Admin) {
+  Admin.ensureAuth();
+  Admin.renderApiBase();
+}
+
+$('#applyFilter').addEventListener('click', loadStats);
+
+// Set default to today
+setToday();
+loadInventoryValue();
+
+window.showCostModal = showCostModal;
+window.closeCostModal = closeCostModal;
+window.addCost = addCost;
+window.deleteCost = deleteCost;
+window.setToday = setToday;
+window.setThisWeek = setThisWeek;
+window.setThisMonth = setThisMonth;
+  
