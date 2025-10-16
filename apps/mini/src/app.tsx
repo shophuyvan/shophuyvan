@@ -61,10 +61,8 @@ const Account: React.FC = () => (
   </div>
 );
 
-
 /**
  * Minimal router: uses location.pathname (or hash) to choose a page component.
- * This avoids relying on zmp-react router APIs that vary by version.
  */
 function usePath() {
   const get = () => (location.hash?.startsWith('#') ? location.hash.slice(1) : location.pathname) || '/';
@@ -81,6 +79,9 @@ function usePath() {
   return path;
 }
 
+// ✅ Bước 6: Tích hợp Cart Sync vào Mini App
+import { initMiniCartSync } from './lib/cart-sync-init';
+
 export default function App() {
   const path = usePath();
   let Page: React.FC = Home;
@@ -92,11 +93,16 @@ export default function App() {
   else if (path.startsWith('/account') || path.startsWith('account')) Page = Account;
   else Page = Home;
 
+  // Gọi hàm khởi tạo Cart Sync khi app load
+  useEffect(() => {
+    initMiniCartSync();
+  }, []);
+
   return <Page />;
 }
-    // R2 storage logic added for Cloudinary images
-    const r2Url = (cloudinaryUrl) => {
-        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-    };
-    
+
+// R2 storage logic added for Cloudinary images
+const r2Url = (cloudinaryUrl) => {
+  const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
+  return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
+};

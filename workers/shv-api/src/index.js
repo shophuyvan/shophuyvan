@@ -1,5 +1,5 @@
 // ===================================================================
-// src/index.js - Main Router (FULLY MODULARIZED)
+// src/index.js - Main Router (FULLY MODULARIZED + Cart Sync)
 // ===================================================================
 
 import { json, corsHeaders } from './lib/response.js';
@@ -11,6 +11,7 @@ import * as settings from './modules/settings.js';
 import * as banners from './modules/banners.js';
 import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
+import { handleCartSync } from './modules/cart-sync-handler.js';
 
 /**
  * Logger middleware
@@ -34,12 +35,12 @@ function logEntry(req) {
 export default {
   async fetch(req, env, ctx) {
     logEntry(req);
-    
+
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-      return new Response(null, { 
-        status: 204, 
-        headers: corsHeaders(req) 
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders(req)
       });
     }
 
@@ -50,23 +51,23 @@ export default {
       // ============================================
       // MODULARIZED ROUTES
       // ============================================
-      
+
       // Auth module
-      if (path === '/admin/login' || 
-          path === '/login' || 
+      if (path === '/admin/login' ||
+          path === '/login' ||
           path === '/admin_auth/login' ||
           path === '/admin/me') {
         return auth.handle(req, env, ctx);
       }
 
       // Categories module
-      if (path.startsWith('/admin/categories') || 
+      if (path.startsWith('/admin/categories') ||
           path.startsWith('/public/categories')) {
         return categories.handle(req, env, ctx);
       }
 
       // Products module
-      if (path.startsWith('/products') || 
+      if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
           path.startsWith('/admin/products') ||
           path === '/product') {
@@ -74,7 +75,7 @@ export default {
       }
 
       // Orders module
-      if (path.startsWith('/api/orders') || 
+      if (path.startsWith('/api/orders') ||
           path.startsWith('/admin/orders') ||
           path.startsWith('/public/orders') ||
           path.startsWith('/public/order-create') ||
@@ -83,12 +84,17 @@ export default {
       }
 
       // Shipping module
-      if (path.startsWith('/shipping') || 
+      if (path.startsWith('/shipping') ||
           path.startsWith('/admin/shipping') ||
           path.startsWith('/api/addresses') ||
           path.startsWith('/v1/platform/areas') ||
           path.startsWith('/v1/platform/orders/price')) {
         return shipping.handle(req, env, ctx);
+      }
+
+      // Cart Sync module (NEW)
+      if (path.startsWith('/api/cart/sync')) {
+        return handleCartSync(req, env);
       }
 
       // Settings module
@@ -113,13 +119,12 @@ export default {
       // ============================================
       // ROOT ENDPOINTS
       // ============================================
-      
-      // Root
+
       if (path === '/' || path === '') {
         return json({
           ok: true,
-          msg: 'SHV API v4.0 (Fully Modularized)',
-          hint: 'All routes modularized',
+          msg: 'SHV API v4.1 (Cart Sync Integrated)',
+          hint: 'All routes modularized + Cart Sync enabled',
           modules: {
             auth: '✅ Complete',
             categories: '✅ Complete',
@@ -128,24 +133,24 @@ export default {
             shipping: '✅ Complete',
             settings: '✅ Complete',
             banners: '✅ Complete',
-            vouchers: '✅ Complete'
+            vouchers: '✅ Complete',
+            cart_sync: '✅ Added'
           }
         }, {}, req);
       }
 
-      // Health check
       if (path === '/me' && req.method === 'GET') {
-        return json({ 
-          ok: true, 
+        return json({
+          ok: true,
           msg: 'Worker alive',
-          version: 'v4.0'
+          version: 'v4.1'
         }, {}, req);
       }
 
       // Not found
-      return json({ 
-        ok: false, 
-        error: 'Route not found' 
+      return json({
+        ok: false,
+        error: 'Route not found'
       }, { status: 404 }, req);
 
     } catch (e) {
