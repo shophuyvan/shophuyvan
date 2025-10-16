@@ -1,896 +1,227 @@
-<!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Vận chuyển</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width,initial-scale=1'/>
+  <title>Vận chuyển</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js?v=25"></script>
+  
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-dark: #1e40af;
+      --muted: #e5e7eb;
+    }
+    body { background: #f8fafc; }
+    .header { 
+      background: linear-gradient(180deg, #eff6ff 0, #ffffff 100%); 
+      border-bottom: 1px solid #e5e7eb; 
+      padding: 1rem;
+    }
+    .badge { 
+      background: #eff6ff; 
+      color: var(--primary); 
+      border: 1px solid #dbeafe;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin: 0.25rem;
+    }
+    .card { 
+      background: #fff; 
+      border: 1px solid #e5e7eb; 
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .title { 
+      color: var(--primary); 
+      font-weight: 600;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .btn { 
+      background: var(--primary); 
+      color: #fff; 
+      border: 0; 
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn-secondary { background: #6b7280; }
+    .btn-secondary:hover { background: #4b5563; }
+    .input { 
+      border: 1px solid #dbeafe; 
+      border-radius: 8px; 
+      background: #fff;
+      padding: 0.75rem;
+      width: 100%;
+      font-size: 0.9rem;
+    }
+    .grid { 
+      display: grid; 
+      gap: 1rem;
+    }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    small { color: #6b7280; display: block; margin-top: 0.5rem; }
+    .alert {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .alert-info {
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      color: #1e40af;
+    }
+  </style>
+</head>
 
-<style>
-  :root{
-    --primary:#1d4ed8; /* blue-700 */
-    --primary-dark:#1e40af;
-    --muted:#e5e7eb;
-  }
-  body{ background:#f8fafc; }
-  .header{ background:linear-gradient(180deg,#eff6ff 0,#ffffff 100%); border-bottom:1px solid #e5e7eb; }
-  .badge{ background:#eff6ff; color:var(--primary); border:1px solid #dbeafe; }
-  .card{ background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
-  .title{ color:var(--primary); font-weight:600; }
-  .btn{ background:var(--primary); color:#fff; border:0; border-radius:8px; }
-  .btn:hover{ background:var(--primary-dark); }
-  .input{ border:1px solid #dbeafe; border-radius:8px; background:#fff; }
-  /* Hide duplicate text inputs – use dropdowns only */
-  #sender_province, #sender_district { display:block !important; }
-
-  /* Hide manual sender block; we will auto-sync from Warehouses */
-  .sender-manual{ display:block !important; }
-</style>
-
-
-</head><body><div class='container'><div class='header'><div class='title'>Vận chuyển</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span> <button id='sync-warehouses' class='btn' style='margin-left:8px'>Đồng bộ từ Warehouses</button></div></div>
-<div class="grid">
-  <div class="card"><div class="title">Thông tin người gửi</div>
-    
-    <!-- Summary (read-only) -->
-    <div id="sender_summary" class="info-block" style="padding:8px 0; display:none">
-      <div><b>Tên:</b> <span id="s_name"></span></div>
-      <div><b>SĐT:</b> <span id="s_phone"></span></div>
-      <div><b>Địa chỉ:</b> <span id="s_addr"></span></div>
-      <div style="margin-top:8px">
-        <button id="edit_sender" class="btn" style="background:#6b7280">Chỉnh sửa thủ công</button>
+<body>
+  <div class='container'>
+    <!-- Header -->
+    <div class='header'>
+      <div class='title'>Vận chuyển</div>
+      <div class='nav'>
+        <a href='./products.html' class='badge'>Sản phẩm</a>
+        <a href='./banners.html' class='badge'>Banner</a>
+        <a href='./vouchers.html' class='badge'>Voucher</a>
+        <a href='./orders.html' class='badge'>Đơn hàng</a>
+        <a href='./stats.html' class='badge'>Thống kê</a>
+        <a href='./shipping.html' class='badge'>Vận chuyển</a>
+        <a href='./ads.html' class='badge'>Quảng cáo</a>
+        <span class='badge'>API: <span data-api-base></span></span>
+        <button id='sync-warehouses' class='btn'>Đồng bộ từ Warehouses</button>
       </div>
     </div>
-<div class='sender-manual'>
-<div class="grid" style="grid-template-columns:1fr 1fr; gap:8px">
-      <input id="sender_name" class="input" placeholder="Tên người gửi">
-      <input id="sender_phone" class="input" placeholder="SĐT người gửi">
-      <input id="sender_province" class="input" placeholder="Tỉnh/Thành (VD: Hồ Chí Minh)">
-      <input id="sender_district" class="input" placeholder="Quận/Huyện (VD: Bình Chánh)">
-      <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
-      <input id="option_id" class="input" placeholder="Option tối ưu (mặc định: 1)">
-    
-    <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px">
-      <select id="sender_province_sel" class="input">
-        <option value="">— Chọn Tỉnh/Thành —</option>
-      </select>
-      <select id="sender_district_sel" class="input" disabled>
-        <option value="">— Chọn Quận/Huyện —</option>
-      </select>
-      <select id="sender_commune_sel" class="input" disabled>
-        <option value="">— Chọn Phường/Xã —</option>
-      </select>
+
+    <!-- Alert -->
+    <div class="alert alert-info" style="margin: 1rem 0;">
+      <strong>💡 Lưu ý:</strong> Nhập và lưu Super Token trước khi đồng bộ warehouse.
     </div>
-    <input type="hidden" id="sender_province_code">
-    <input type="hidden" id="sender_district_code">
-    <input type="hidden" id="sender_commune_code">
-    <small style="display:block;margin:6px 0 0;color:#6b7280">Mẹo: chọn từ danh sách để tránh sai chính tả; hệ thống sẽ tự điền lại vào ô văn bản.</small>
-</div>
-    <div style="margin-top:8px">
-      <button id="save_sender" class="btn">Lưu người gửi</button>
+
+    <div class="grid">
+      <!-- Người gửi -->
+      <div class="card">
+        <div class="title">Thông tin người gửi</div>
+        
+        <div class="grid grid-2">
+          <input id="sender_name" class="input" placeholder="Tên người gửi">
+          <input id="sender_phone" class="input" placeholder="SĐT người gửi">
+        </div>
+
+        <div style="margin-top: 1rem;">
+          <input id="sender_address" class="input" placeholder="Địa chỉ chi tiết">
+        </div>
+
+        <div class="grid grid-3" style="margin-top: 1rem;">
+          <select id="sender_province_sel" class="input">
+            <option value="">— Chọn Tỉnh/Thành —</option>
+          </select>
+          <select id="sender_district_sel" class="input" disabled>
+            <option value="">— Chọn Quận/Huyện —</option>
+          </select>
+          <select id="sender_commune_sel" class="input" disabled>
+            <option value="">— Chọn Phường/Xã —</option>
+          </select>
+        </div>
+
+        <!-- Hidden fields -->
+        <input type="hidden" id="sender_province">
+        <input type="hidden" id="sender_district">
+        <input type="hidden" id="sender_province_code">
+        <input type="hidden" id="sender_district_code">
+        <input type="hidden" id="sender_commune_code">
+        <input type="hidden" id="option_id" value="1">
+
+        <small>Mẹo: chọn từ danh sách để tránh sai chính tả</small>
+
+        <div style="margin-top: 1rem;">
+          <button id="save_sender" class="btn">Lưu người gửi</button>
+        </div>
+      </div>
+
+      <!-- Super Token -->
+      <div class="card">
+        <div class="title">Super (Aggregator)</div>
+        <div class="grid">
+          <input id="super_key" class="input" placeholder="API Super Key (Token header)"/>
+          <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)"/>
+          <button id="save_super" class="btn">Lưu token</button>
+        </div>
+      </div>
+
+      <!-- J&T -->
+      <div class="card">
+        <div class="title">J&T</div>
+        <div class="grid">
+          <input id="jt_key" class="input" placeholder="API Key"/>
+          <button id="save_jt" class="btn">Lưu</button>
+        </div>
+      </div>
+
+      <!-- SPX -->
+      <div class="card">
+        <div class="title">SPX</div>
+        <div class="grid">
+          <input id="spx_key" class="input" placeholder="API Key"/>
+          <button id="save_spx" class="btn">Lưu</button>
+        </div>
+      </div>
+
+      <!-- Grab -->
+      <div class="card">
+        <div class="title">Grab</div>
+        <div class="grid">
+          <input id="grab_key" class="input" placeholder="API Key"/>
+          <button id="save_grab" class="btn">Lưu</button>
+        </div>
+      </div>
     </div>
-</div>
   </div>
 
-  <div class="card"><div class="title">Super (Aggregator)</div>  <div style="display:grid;gap:8px">  <input id="super_key" class="input" placeholder="API Super Key (Token header: Fxxxx…)"/>  <input id="super_token" class="input" placeholder="Bearer Token (eyJ...)" />  <div class="label">Hoặc dùng Password API Token</div>  <input id="super_user" style="display:none" class="input" placeholder="username (phone/email)"/>  <input id="super_pass" style="display:none" class="input" placeholder="password" type="password"/>  <input id="super_partner" style="display:none" class="input" placeholder="partner secret"/>  <div style="display:flex;gap:8px;flex-wrap:wrap">    <button id="save_super" class="btn">Lưu token</button>    <button id="save_super_pwd" class="btn">Lưu tài khoản</button>    <button id="test_super" class="btn">Thử gọi báo giá</button>    <button id="check_ship_api" class="btn" style="background:#065f46">Kiểm tra API vận chuyển</button>    <button id="quote_with_sender" class="btn" style="background:#2563eb">Báo giá với người gửi hiện tại</button>  </div>  </div></div>
-  <div class="card"><div class="title">J&T</div><input id="jt_key" class="input" placeholder="API Key"/><button id="save_jt" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">SPX</div><input id="spx_key" class="input" placeholder="API Key"/><button id="save_spx" class="btn">Lưu</button></div>
-  <div class="card" style="display:none"><div class="title">Ahamove</div><input id="aha_key" class="input" placeholder="API Key"/><button id="save_aha" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Grab</div><input id="grab_key" class="input" placeholder="API Key"/><button id="save_grab" class="btn">Lưu</button></div>
-</div>
-<script>
-['super','jt','spx','aha','grab'].forEach(k=>{
-  let key=''; fetch(Admin.getApiBase()+'/public/settings').then(r=>r.json()).then(d=>{key=((d.settings||{}).shipping||{}).credentials?.[k]?.key||''; if(inp) inp.value=key;}).catch(()=>{if(inp) inp.value='';}); const inp = document.getElementById(k+'_key'); if(inp) inp.value = key;
-  const btn = document.getElementById('save_'+k); if(btn) btn.onclick = ()=>{ localStorage.setItem('ship_'+k, document.getElementById(k+'_key').value.trim()); Admin.toast('Đã lưu '+k.toUpperCase()); };
-});
-</script>
-</div><script>document.addEventListener('DOMContentLoaded',()=>Admin&&Admin.renderApiBase());</script>
-<script>
-document.addEventListener('DOMContentLoaded',()=>{
-  try{
-    fetch(Admin.getApiBase()+'/public/settings').then(r=>r.json()).then(s=>{
-      const val = (s && s.shipping && s.shipping.super_key) || '';
-      var el=document.getElementById('super_key'); if(el && !el.value) el.value=val;
-    });
-  }catch(e){}
-  const btn = document.getElementById('save_super');
-  if(btn && !btn.__wired){ btn.__wired=true; btn.addEventListener('click', async ()=>{
-    const v = (document.getElementById('super_key')||{}).value||'';
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
-    Admin.toast('Đã lưu Super Key');
-  });}
-});
-</script>
+  <!-- Load shipping manager -->
+  <script src="./shipping-manager.js"></script>
 
-<script>
-document.addEventListener('DOMContentLoaded',()=>{
-  // Load settings
-  (async ()=>{
-    try{
-      const s = await (await fetch(Admin.getApiBase()+'/public/settings')).json();
-      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], (s && s.settings) ? s.settings : s) || d;
-      const set = (id, v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=v||''; };
-      set('super_key', g('shipping.super_key',''));
-      set('super_user', g('shipping.super_user',''));
-      var __sv_t = g('shipping.super_token','') || (localStorage.getItem('x-token')||'');
-      set('super_token', __sv_t);
-      set('super_pass', g('shipping.super_pass',''));
-      set('super_partner', g('shipping.super_partner',''));
-    }catch(e){}
-  })();
-
-  // Wire sync warehouses
-  const syncBtn = document.getElementById('sync-warehouses');
-  if(syncBtn && !syncBtn.__wired){ syncBtn.__wired=true; syncBtn.addEventListener('click', ()=> (window.syncSenderFromWarehouses && window.syncSenderFromWarehouses())); }
-
-  // Save static token
-  const btnTok=document.getElementById('save_super');
-  if(btnTok && !btnTok.__wired){ btnTok.__wired=true; btnTok.addEventListener('click', async ()=>{
-    const v=document.getElementById('super_key')?.value||'';
-    const bt=document.getElementById('super_token')?.value||'';
-    if(v) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_key', value:v}});
-    if(bt) await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_token', value:bt}});
-    try{ localStorage.setItem('x-token', (document.getElementById('super_token')?.value||'')); }catch(_e){}
-    try{ (window.Admin?.toast||alert)('Đã lưu khóa API'); }catch(e){ alert('Đã lưu khóa API'); }
-    
-    Admin.toast('Đã lưu Super token');
-  });}
-
-  // Save username/password/partner
-  const btnPwd=document.getElementById('save_super_pwd');
-  if(btnPwd && !btnPwd.__wired){ btnPwd.__wired=true; btnPwd.addEventListener('click', async ()=>{
-    const user=document.getElementById('super_user')?.value||'';
-    const pass=document.getElementById('super_pass')?.value||'';
-    const partner=document.getElementById('super_partner')?.value||'';
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_user', value:user}});
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_pass', value:pass}});
-    await Admin.req('/admin/settings/upsert',{method:'POST', body:{path:'shipping.super_partner', value:partner}});
-    Admin.toast('Đã lưu tài khoản SuperAI');
-  });}
-
-  // Quick test: call quote with HCM/HCM (dummy 500g) to verify token ok
-  const btnTest=document.getElementById('test_super');
-  if(btnTest && !btnTest.__wired){ btnTest.__wired=true; btnTest.addEventListener('click', async ()=>{
-    const r = await Admin.req('/shipping/price',{method:'POST', body:{ receiver_province:'Hồ Chí Minh', receiver_district:'Quận 1', weight_gram:500, cod:0 } });
-    alert('Kết quả: '+JSON.stringify(r).slice(0,400));
-  });}
-
-  // Deep health-check button
-  const btnCheck=document.getElementById('check_ship_api');
-  if(btnCheck && !btnCheck.__wired){ btnCheck.__wired=true; btnCheck.addEventListener('click', async ()=>{
-    try{
-      const base = Admin.getApiBase();
-      const steps = [];
-      const push = (name, ok, extra)=>steps.push({ name, ok, extra });
-      // 1) Provinces
-      let r1 = await Admin.req('/shipping/provinces', { method:'GET' });
-      push('Provinces', (!!r1 && Array.isArray(r1.items) && r1.items.length>0), { count: (r1?.items||[]).length });
-      // 2) Districts (HCM 79)
-      let r2 = await Admin.req('/shipping/districts?province_code=79', { method:'GET' });
-      push('Districts[79]', (!!r2 && Array.isArray(r2.items) && r2.items.length>0), { count: (r2?.items||[]).length });
-      // 3) Wards (sample 760/774 etc.) pick first district
-      const dCode = (r2?.items?.[0]?.code)||'760';
-      let r3 = await Admin.req('/shipping/wards?district_code='+dCode, { method:'GET' });
-      push('Wards['+dCode+']', (!!r3 && Array.isArray(r3.items) && r3.items.length>0), { count: (r3?.items||[]).length });
-      // 4) Price (quote)
-      let r4 = await Admin.req('/shipping/price', { method:'POST', body: { receiver_province: 'Hồ Chí Minh', receiver_district: (r2?.items?.[0]?.name || 'Quận 1'), weight_gram: 500, weight: 500, cod: 0, option_id: '1' } });
-      push('Price', (!!r4 && (Array.isArray(r4.items) ? r4.items.length>0 : r4.ok)), { items: (r4?.items||[]).length, ok:r4?.ok });
-      const lines = steps.map(s=> (s.ok?'✅':'❌')+' '+s.name+' '+(s.extra?JSON.stringify(s.extra):'')).join('\n');
-      alert('Kiểm tra API vận chuyển:\n'+lines+'\n\nAPI: '+base);
-    }catch(e){ alert('Lỗi kiểm tra API: '+e.message); }
-  });}
-
-  // Quote using current sender selection to surface token/payload issues
-  const btnQuote=document.getElementById('quote_with_sender');
-  if(btnQuote && !btnQuote.__wired){ btnQuote.__wired=true; btnQuote.addEventListener('click', async ()=>{
-    try{
-      const provName = document.getElementById('sender_province')?.value||'';
-      const distName = document.getElementById('sender_district')?.value||'';
-      const provCode = document.getElementById('sender_province_sel')?.value||'';
-      const distCode = document.getElementById('sender_district_sel')?.value||'';
-      const body = { receiver_province: provName || 'Hồ Chí Minh', receiver_district: distName || 'Quận 1', to_province: provName, to_district: distName, receiver_province_code: provCode, receiver_district_code: distCode, weight_gram: 500, weight: 500, cod: 0, option_id: '1' };
-      const r = await Admin.req('/shipping/price', { method:'POST', body });
-      alert('Báo giá với người gửi hiện tại:\nok='+r?.ok+' items='+(r?.items?.length||0)+'\n\nPayload:\n'+JSON.stringify(body, null, 2).slice(0,600));
-    }catch(e){ alert('Lỗi báo giá: '+e.message); }
-  });}
-
-  // Auto-persist sender on change to avoid losing after F5
-  // Debounced auto-save to tránh 429
-  let __saveTimer=null; let __lastSaved={};
-  async function persistSenderQuick(){
-    if(__saveTimer){ clearTimeout(__saveTimer); }
-    __saveTimer = setTimeout(async ()=>{
-    try{
-      const phone = (document.getElementById('sender_phone')?.value||'').replace(/\D+/g,'');
-      const provName = document.getElementById('sender_province')?.value||'';
-      const distName = document.getElementById('sender_district')?.value||'';
-      const addr = document.getElementById('sender_address')?.value||'';
-      const provCode = document.getElementById('sender_province_sel')?.value||'';
-      const distCode = document.getElementById('sender_district_sel')?.value||'';
-      const wardCode = document.getElementById('sender_commune_sel')?.value||'';
-      const pairs = [
-        ['shipping.sender_phone', phone],
-        ['shipping.sender_address', addr],
-        ['shipping.sender_province', provName],
-        ['shipping.sender_district', distName],
-        ['shipping.sender_province_code', provCode],
-        ['shipping.sender_district_code', distCode],
-        ['shipping.sender_commune_code', wardCode]
-      ];
-      for(const [path, value] of pairs){
-        if(__lastSaved[path]===value) continue;
-        await Admin.req('/admin/settings/upsert', { method:'POST', body:{ path, value } });
-        __lastSaved[path]=value;
-      }
-    }catch(e){ console.warn('persistSenderQuick failed', e); }
-    }, 800);
-  }
-  ['sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
-    .forEach(id=>{ const el=document.getElementById(id); if(el && !el.__autosave){ el.__autosave=true; el.addEventListener('change', persistSenderQuick); el.addEventListener('blur', persistSenderQuick); }});
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  const api = Admin.getApiBase();
-
-  const $ = id => document.getElementById(id);
-  const set = (id, v)=>{ const el=$(id); if(el) el.value = v||''; };
-
-  async function getJSON(p){
-    try{ const r = await fetch(api + p); return await r.json(); }catch(e){ return null; }
-  }
-
-  // Populate selects
-  async function loadProvinces(selectedName){
-    const data = await getJSON('/shipping/areas/province');
-    const sel = $('sender_province_sel'); if(!sel) return;
-    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
-    if(data && data.items){
-      data.items.forEach(it=>{
-        const opt = document.createElement('option');
-        opt.value = it.code; opt.textContent = it.name;
-        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-    sel.disabled = false;
-    if(sel.value){ await loadDistricts(sel.value, $('sender_district').value); }
-    // Sync text input + code
-    syncProvinceToInputs();
-  }
-
-  async function loadDistricts(provinceCode, selectedName){
-    const data = await getJSON('/shipping/areas/district?province=' + encodeURIComponent(provinceCode||''));
-    const sel = $('sender_district_sel'); if(!sel) return;
-    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
-    if(data && data.items){
-      data.items.forEach(it=>{
-        const opt = document.createElement('option');
-        opt.value = it.code; opt.textContent = it.name;
-        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-    sel.disabled = !provinceCode;
-    if(sel.value){ await loadCommunes(sel.value, $('sender_commune')?.value || ''); }
-    syncDistrictToInputs();
-  }
-
-  async function loadCommunes(districtCode, selectedName){
-    const sel = $('sender_commune_sel'); if(!sel) return;
-    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
-    const data = await getJSON('/shipping/areas/commune?district=' + encodeURIComponent(districtCode||''));
-    if(data && data.items){
-      data.items.forEach(it=>{
-        const opt = document.createElement('option');
-        opt.value = it.code; opt.textContent = it.name;
-        if(selectedName && it.name.trim().toLowerCase() === selectedName.trim().toLowerCase()) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-    sel.disabled = !districtCode;
-    syncCommuneToInputs();
-  }
-
-  function syncProvinceToInputs(){
-    const sel = $('sender_province_sel');
-    const name = sel.selectedOptions[0]?.textContent || '';
-    const code = sel.value || '';
-    if(name){ set('sender_province', name); }
-    set('sender_province_code', code);
-  }
-  function syncDistrictToInputs(){
-    const sel = $('sender_district_sel');
-    const name = sel.selectedOptions[0]?.textContent || '';
-    const code = sel.value || '';
-    if(name){ set('sender_district', name); }
-    set('sender_district_code', code);
-  }
-  function syncCommuneToInputs(){
-    const sel = $('sender_commune_sel');
-    const name = sel.selectedOptions[0]?.textContent || '';
-    const code = sel.value || '';
-    set('sender_commune_code', code);
-    // Không bắt buộc điền phường vào text; nhưng nếu có input 'sender_commune' thì điền
-    if($('sender_commune')) set('sender_commune', name);
-  }
-
-  // 
-  // === Wire change listeners for selects ===
-  const GET = (id)=>document.getElementById(id);
-  const provinceSel = GET('sender_province_sel');
-  const districtSel = GET('sender_district_sel');
-  const communeSel  = GET('sender_commune_sel');
-  if(provinceSel && !provinceSel.__wired){
-    provinceSel.__wired = true;
-    provinceSel.addEventListener('change', async ()=>{
-      if (typeof syncProvinceToInputs==='function') syncProvinceToInputs();
-      // clear dependents
-      if(districtSel){ districtSel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>'; districtSel.disabled = !provinceSel.value; }
-      if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = true; }
-      if(provinceSel.value && typeof loadDistricts==='function'){ await loadDistricts(provinceSel.value, ''); }
-    });
-  }
-  if(districtSel && !districtSel.__wired){
-    districtSel.__wired = true;
-    districtSel.addEventListener('change', async ()=>{
-      if (typeof syncDistrictToInputs==='function') syncDistrictToInputs();
-      if(communeSel){ communeSel.innerHTML  = '<option value="">— Chọn Phường/Xã —</option>'; communeSel.disabled  = !districtSel.value; }
-      if(districtSel.value && typeof loadCommunes==='function'){ await loadCommunes(districtSel.value, ''); }
-    });
-  }
-  if(communeSel && !communeSel.__wired){
-    communeSel.__wired = true;
-    communeSel.addEventListener('change', ()=>{
-      if (typeof syncCommuneToInputs==='function') syncCommuneToInputs();
-    });
-  }
-// Prefill from settings, then load selects with matching selection
-  (async ()=>{
-    try{
-      const s = await (await fetch(api + '/public/settings')).json();
-      const g = (p, d='') => p.split('.').reduce((o,k)=>(o||{})[k], (s && s.settings) ? s.settings : s) || d;
-      set('sender_name',     g('shipping.sender_name',''));
-      set('sender_phone',    g('shipping.sender_phone',''));
-      set('sender_address',  g('shipping.sender_address',''));
-      set('sender_province', g('shipping.sender_province',''));
-      set('sender_district', g('shipping.sender_district',''));
-      set('option_id',       g('shipping.option_id','1'));
-      set('sender_province_code', g('shipping.sender_province_code',''));
-      set('sender_district_code', g('shipping.sender_district_code',''));
-      set('sender_commune_code',  g('shipping.sender_commune_code',''));
-      // load select options and try select by saved name first; if code exists, use that value
-      await loadProvinces(g('shipping.sender_province',''));
-      // If we have code, set it and cascade loads
-      if($('sender_province_code').value){
-        $('sender_province_sel').value = $('sender_province_code').value;
-        await loadDistricts($('sender_province_code').value, g('shipping.sender_district',''));
-      }
-      if($('sender_district_code').value){
-        $('sender_district_sel').value = $('sender_district_code').value;
-        await loadCommunes($('sender_district_code').value, g('shipping.sender_commune',''));
-        if ($('sender_commune_code').value) {
-          $('sender_commune_sel').value = $('sender_commune_code').value;
-          try { $('sender_commune_sel').dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
-        }
-        // After loading communes, prefer selecting by saved code (if any)
-        if ($('sender_commune_code').value) {
-          $('sender_commune_sel').value = $('sender_commune_code').value;
-          try { $('sender_commune_sel').dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
-        }
-
-      }
-    }catch(e){}
-  })();
-
-  // Save sender handler (upsert names + codes)
-  const btnSave = $('save_sender');
-  if(btnSave && !btnSave.__wired){
-    btnSave.__wired = true;
-    btnSave.addEventListener('click', async (ev)=>{
-      ev.preventDefault();
-      // Client-side validation
-      const phone = (document.getElementById('sender_phone')?.value||'').replace(/\D+/g,'');
-      const provCode = document.getElementById('sender_province_sel')?.value || document.getElementById('sender_province_code')?.value || '';
-      const distCode = document.getElementById('sender_district_sel')?.value || document.getElementById('sender_district_code')?.value || '';
-      if(!phone){ alert('Vui lòng nhập SĐT người gửi (chỉ số).'); return; }
-      if(!provCode){ alert('Vui lòng chọn Tỉnh/Thành của người gửi từ danh sách.'); return; }
-      if(!distCode){ alert('Vui lòng chọn Quận/Huyện của người gửi từ danh sách.'); return; }
-      const upserts = (list)=>Promise.all(list.map(([path, value])=>{
-        return Admin.req('/admin/settings/upsert', {method:'POST', body:{path, value}});
-      }));
-      try{ try{ await upserts([
-['shipping.sender_name',     $('sender_name').value.trim()],
-        ['shipping.sender_phone',    phone],
-        ['shipping.sender_address',  $('sender_address').value.trim()],
-        ['shipping.sender_province', $('sender_province').value.trim()],
-        ['shipping.sender_district', $('sender_district').value.trim()],
-                ['shipping.sender_commune', ($('sender_commune_sel').selectedOptions[0]?.textContent||'').trim() || '' ],
-        ['shipping.option_id',       $('option_id').value.trim() || '1'],
-        ['shipping.sender_province_code', provCode ],
-        ['shipping.sender_district_code', distCode ],
-        ['shipping.sender_commune_code',  $('sender_commune_sel').value  || $('sender_commune_code').value  || '' ],
-      
-]);
-      Admin.toast('Đã lưu người gửi');
-    }catch(e){ Admin.toast('Lỗi lưu cài đặt: '+(e?.message||e)); console.error(e);}
-    }catch(e){ Admin.toast('Lỗi lưu cài đặt: '+(e?.message||e)); console.error(e);}
-    });
-  }
-});
-</script>
-
-
-
-
-<script>
- document.addEventListener('DOMContentLoaded', function(){
-   var $id=function(id){return document.getElementById(id)};
-   var st=$id('super_token')||$id('super_key');
-   if(st && !st.placeholder){st.placeholder='Nhập Super Token (Bearer) từ Aggregator';}
-   var sp=document.getElementById('super_partner');
-   if(sp && !sp.placeholder){sp.placeholder='Partner secret (nếu có)';}
- });
-</script>
-
-
-
-
-
-
-<script>
-(function(){
-  function $(id){ return document.getElementById(id); }
-  function toast(t){ try{ var el=$('__toast'); el.textContent=t; el.style.opacity='1'; setTimeout(()=>el.style.opacity='0', 1800);}catch(e){ alert(t); } }
-  function token(){ return ($('super_token')?.value || localStorage.getItem('x-token') || '').trim(); }
-  const BASE = 'https://shv-api.shophuyvan.workers.dev'; // dùng API base tuyệt đối để tránh _redirects khác site
-
-  async function api(path, body){
-    const needsGet = (!body || Object.keys(body).length===0) || (/\/shipping\/(provinces|districts|wards|warehouses)\b/.test(path));
-    const opt = { method: needsGet ? 'GET' : 'POST' };
-    if(!needsGet) opt.body = body || {};
-    opt.headers = opt.headers || {};
-    if(token()) opt.headers['x-token'] = token();
-
-    // Ưu tiên Admin.req nếu có, nhưng luôn dùng absolute URL
-    if(window.Admin?.req){
-      try{ return await Admin.req(BASE + path, opt); }catch(e){ return { ok:false, error:true, message:String(e) }; }
-    }
-    // Fallback fetch
-    const res = await fetch(BASE + path, {
-      method: opt.method,
-      headers: { 'Content-Type':'application/json', ...(token()?{'x-token':token()}: {}) },
-      body: opt.method==='POST' ? JSON.stringify(opt.body||{}) : undefined
-    });
-    try{ return await res.json(); }catch(_){ return { ok: res.ok, status: res.status }; }
-  }
-
-  async function loadProvinces(){
-    const rs = await api('/shipping/provinces', {});
-    const sel = $('sender_province_sel');
-    if(!sel || !rs || !Array.isArray(rs.items)) return;
-    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
-    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=> sel.innerHTML += `<option value="${p.code}">${p.name}</option>`);
-  }
-  async function loadDistricts(provinceCode){
-    const sel=$('sender_district_sel'); if(!sel) return;
-    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
-    if(!provinceCode) return;
-    const rs = await api('/shipping/districts', { province_code: provinceCode });
-    if(!rs || !Array.isArray(rs.items)) return;
-    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(d=> sel.innerHTML += `<option value="${d.code}">${d.name}</option>`);
-    sel.removeAttribute('disabled');
-  }
-  async function loadWards(districtCode){
-    const sel=$('sender_commune_sel'); if(!sel) return;
-    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
-    if(!districtCode) return;
-    const rs = await api('/shipping/wards', { district_code: districtCode });
-    if(!rs || !Array.isArray(rs.items)) return;
-    rs.items.sort((a,b)=>a.name.localeCompare(b.name)).forEach(w=> sel.innerHTML += `<option value="${w.code}">${w.name}</option>`);
-    sel.removeAttribute('disabled');
-  }
-  async function syncWarehouses(){
-  function pickList(rs){
-    try{
-      if(!rs) return [];
-      if(Array.isArray(rs)) return rs;
-      if(Array.isArray(rs.items)) return rs.items;
-      if(rs.data && Array.isArray(rs.data)) return rs.data;
-      if(rs.result && Array.isArray(rs.result)) return rs.result;
-      if(rs.items && rs.items.data && Array.isArray(rs.items.data)) return rs.items.data;
-      return [];
-    }catch(_){ return []; }
-  }
-  let rs = await api('/shipping/warehouses', {});
-  let list = pickList(rs);
-  if(!list.length){
-    // fallback POST (một số API yêu cầu POST)
-    rs = await api('/shipping/warehouses', { __post:true });
-    list = pickList(rs);
-  }
-  if(!list.length){
-    toast('Không lấy được warehouses' + (rs?.status?(' (status '+rs.status+')'):'') );
-    alert('Warehouses error: '+JSON.stringify(rs));
-    return;
-  }
-  const w = list[0];
-  $('sender_name') && ($('sender_name').value = w.name || w.contact_name || '');
-  $('sender_phone') && ($('sender_phone').value = w.phone || w.contact_phone || '');
-  $('sender_address') && ($('sender_address').value = w.addr || w.address || '');
-  const p = w.province_code || w.province?.code || ''; const d = w.district_code || w.district?.code || ''; const c = w.ward_code || w.commune_code || w.ward?.code || '';
-  await loadProvinces();
-  if(p){ $('sender_province_sel').value = p; $('sender_province_code') && ($('sender_province_code').value=p); }
-  await loadDistricts(p);
-  if(d){ $('sender_district_sel').value = d; $('sender_district_code') && ($('sender_district_code').value=d); }
-  await loadWards(d);
-  if(c){ $('sender_commune_sel').value = c; $('sender_commune_code') && ($('sender_commune_code').value=c); }
-  toast('Đã đồng bộ từ Warehouses');
-}
-  async function testQuote(){
-    const sender = {
-      name: $('sender_name')?.value||'',
-      phone: $('sender_phone')?.value||'',
-      address: $('sender_address')?.value||'',
-      province_code: $('sender_province_sel')?.value||$('sender_province_code')?.value||'',
-      district_code: $('sender_district_sel')?.value||$('sender_district_code')?.value||'',
-      commune_code: $('sender_commune_sel')?.value||$('sender_commune_code')?.value||''
-    };
-    let weight = Number($('order_weight')?.value||0) || Number($('weight')?.value||0);
-    if(!weight || weight<=0) weight = 500; // gram
-    const option = Number($('option_id')?.value||1) || 1;
-    const body = { sender, weight, option };
-    // dùng endpoint thật giống FE
-    const rs = await api('/shipping/price', body);
-    if(rs && !rs.error){ alert('Kết quả: ok='+rs.ok+', items='+(rs.items?rs.items.length:0)); }
-    else{ alert('Kết quả: '+JSON.stringify(rs)); }
-  }
-  document.addEventListener('DOMContentLoaded', ()=>{
-    $('sync-warehouses') && $('sync-warehouses').addEventListener('click', syncWarehouses);
-    $('sender_province_sel') && $('sender_province_sel').addEventListener('change', (e)=> loadDistricts(e.target.value));
-    $('sender_district_sel') && $('sender_district_sel').addEventListener('change', (e)=> loadWards(e.target.value));
-    $('test_super') && $('test_super').addEventListener('click', testQuote);
-  });
-})();
-</script>
-
-
-<!-- SHV fallback auto-fill + robust loaders -->
-<script>
-(function(){
-  const $ = (id)=>document.getElementById(id);
-  const pickEl = (...ids)=> ids.map(id=>$(id)).find(Boolean);
-  const setVal = (ids, v)=>{ const el = pickEl(...ids); if(el) el.value = v||''; };
-  const getVal = (ids)=>{ const el = pickEl(...ids); return el ? el.value : ''; };
-  const S = {
-    name:    ['sender_name','co-name','co_name'],
-    phone:   ['sender_phone','co-phone','co_phone'],
-    address: ['sender_address','co-addr','co_address'],
-    provSel: ['sender_province_sel','co-province-sel'],
-    distSel: ['sender_district_sel','co-district-sel'],
-    wardSel: ['sender_commune_sel','co-ward-sel'],
-  };
-  const apiGet = async (p,init)=>{
-    try{
-      const rs = await fetch(p, init || {credentials:'include'});
-      return await rs.json();
-    }catch(_){ return {}; }
-  };
-  const pickList = (rs)=>{
-    try{
-      if(Array.isArray(rs)) return rs;
-      if(Array.isArray(rs.items)) return rs.items;
-      if(rs.data && Array.isArray(rs.data)) return rs.data;
-      if(rs.result && Array.isArray(rs.result)) return rs.result;
-      if(rs.items && rs.items.data && Array.isArray(rs.items.data)) return rs.items.data;
-      if(rs.raw && Array.isArray(rs.raw.warehouses)) return rs.raw.warehouses;
-      if(rs.raw && rs.raw.data && Array.isArray(rs.raw.data.warehouses)) return rs.raw.data.warehouses;
-      if(rs.data && Array.isArray(rs.data.warehouses)) return rs.data.warehouses;
-      if(Array.isArray(rs.warehouses)) return rs.warehouses;
-      return [];
-    }catch(_){ return []; }
-  };
-  const setOptions = (sel, list)=>{
-    if(!sel) return;
-    sel.innerHTML = '<option value=\"">— Chọn —</option>';
-    (list||[]).forEach(it=>{
-      const opt = document.createElement('option');
-      opt.value = String(it.code || it.id || it.value || '');
-      opt.textContent = String(it.name || it.label || it.text || '');
-      sel.appendChild(opt);
-    });
-    sel.disabled = false;
-  };
-  async function loadProvinces(){
-    const sel = pickEl(...S.provSel); if(!sel) return;
-    sel.disabled = true;
-    let rs = await apiGet('/shipping/provinces');
-    let list = pickList(rs);
-    if(!list.length){ rs = await apiGet('/shipping/areas/province'); list = pickList(rs); }
-    setOptions(sel, list);
-  }
-  async function loadDistricts(p){
-    const sel = pickEl(...S.distSel); if(!sel) return;
-    sel.disabled = true;
-    p = p || pickEl(...S.provSel)?.value || '';
-    let rs = await apiGet('/shipping/districts?province_code='+encodeURIComponent(p));
-    let list = pickList(rs);
-    if(!list.length){ rs = await apiGet('/shipping/areas/district?province_code='+encodeURIComponent(p)); list = pickList(rs); }
-    setOptions(sel, list);
-  }
-  async function loadWards(d){
-    const sel = pickEl(...S.wardSel); if(!sel) return;
-    sel.disabled = true;
-    d = d || pickEl(...S.distSel)?.value || '';
-    let rs = await apiGet('/shipping/wards?district_code='+encodeURIComponent(d));
-    let list = pickList(rs);
-    if(!list.length){ rs = await apiGet('/shipping/areas/ward?district_code='+encodeURIComponent(d)); list = pickList(rs); }
-    setOptions(sel, list);
-  }
-  
-      function _get(obj, keys){
-        try{
-          var cur=obj;
-          for(var i=0;i<keys.length;i++){
-            if(!cur || typeof cur!=='object') return '';
-            cur = cur[keys[i]];
-          }
-          return (cur==null?'':cur);
-        }catch(_e){ return ''; }
-      }
-    
-window.__shv_syncWarehouses_fallback = async function(){
-  try{
-    // helpers
-    function norm(s){ try{ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }catch(_){ return (s||'').toString().toLowerCase(); } }
-    function findByName(list, name){ var ns=norm(name); for(var i=0;i<list.length;i++){ var it=list[i]; if(norm(it.name||it.label||'')===ns) return it; } return null; }
-
-    let rs = await apiGet('/shipping/warehouses');
-    let list = pickList(rs);
-    if(!list.length){ rs = await apiGet('/shipping/warehouses',{method:'POST', credentials:'include'}); list = pickList(rs); }
-    if(!list.length){ alert('Không lấy được warehouses'); return; }
-    const w = list[0] || {};
-
-    const name = w.name || w.contact_name || w.primary_name || w.wh_name || '';
-    const phone= w.phone || w.contact_phone || w.wh_phone || w.mobile || '';
-    const addr = w.addr || w.address || w.formatted_address || w.wh_address || '';
-
-    var p = String(w.province_code || _get(w,['province','code']) || w.provinceId || w.province_code_id || '');
-    var d = String(w.district_code || _get(w,['district','code']) || w.districtId || '');
-    var c = String(w.ward_code || w.commune_code || _get(w,['ward','code']) || '');
-
-    // Fallback: map bằng tên nếu không có code
-    var pn = w.province_name || _get(w,['province','name']) || '';
-    var dn = w.district_name || _get(w,['district','name']) || '';
-    var cn = w.commune_name || w.ward_name || _get(w,['ward','name']) || '';
-
-    await loadProvinces();
-    if(!p && pn){
-      var provSel = pickEl.apply(null, S.provSel);
-      var provList = Array.prototype.slice.call(provSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
-      var hit = findByName(provList, pn);
-      if(hit){ p = hit.code; }
-    }
-    if(p){ var elp = pickEl.apply(null, S.provSel); if(elp){ elp.value = p; } }
-    await loadDistricts(p);
-
-    if(!d && dn){
-      var distSel = pickEl.apply(null, S.distSel);
-      var distList = Array.prototype.slice.call(distSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
-      var hit2 = findByName(distList, dn);
-      if(hit2){ d = hit2.code; }
-    }
-    if(d){ var eld = pickEl.apply(null, S.distSel); if(eld){ eld.value = d; } }
-    await loadWards(d);
-
-    if(!c && cn){
-      var wardSel = pickEl.apply(null, S.wardSel);
-      var wardList = Array.prototype.slice.call(wardSel.options).map(function(op){ return {code:op.value, name:op.textContent}; }).filter(function(x){return x.code;});
-      var hit3 = findByName(wardList, cn);
-      if(hit3){ c = hit3.code; }
-    }
-    if(c){ var elw = pickEl.apply(null, S.wardSel); if(elw){ elw.value = c; } }
-
-    setVal(S.name, name);
-    if(phone){ setVal(S.phone, phone); }
-    setVal(S.address, addr);
-
-    // Kích hoạt change để hidden code tự cập nhật
-    ['change','input'].forEach(function(evt){
-      [S.provSel,S.distSel,S.wardSel].forEach(function(ids){
-        var el = pickEl.apply(null, ids); if(el){ el.dispatchEvent(new Event(evt,{bubbles:true})); }
-      });
-    });
-    (window.toast||alert)('Đã đồng bộ từ Warehouses');
-  }catch(e){
-    console.error('fallback sync error', e);
-    (window.toast||alert)('Không lấy được warehouses');
-  }
-};
-
-
-  // Nếu nút "Đồng bộ từ Warehouses" gọi syncWarehouses cũ -> hook lại
-  const btn = Array.from(document.querySelectorAll('button, a'))
-    .find(x=>/đồng bộ từ warehouses/i.test(x.textContent||''));
-  if(btn){
-    btn.addEventListener('click', function(ev){
-      // cho phép handler gốc chạy, nhưng nếu 1s sau vẫn chưa điền gì thì chạy fallback
-      setTimeout(()=>{
-        const already = getVal(S.name) || getVal(S.phone) || getVal(S.address);
-        if(!already) window.__shv_syncWarehouses_fallback();
-      }, 1000);
-    }, {capture:true});
-  }
-})();
-</script>
-
-
-<script>
-
-(function(){
-  function $(id){return document.getElementById(id);}
-  function updateSummary(){
-    var sum = $('sender_summary'); if(!sum) return;
-    var elName = $('sender_name');  var name  = elName ? elName.value : '';
-    var elPhone= $('sender_phone'); var phone = elPhone ? elPhone.value : '';
-    var elAddr = $('sender_address');var addr1 = elAddr ? elAddr.value : '';
-    var pSel = $('sender_province_sel'); var prov = '';
-    if(pSel){ var opt = pSel.options && pSel.selectedIndex>=0 ? pSel.options[pSel.selectedIndex] : null; prov = opt ? opt.text : ''; }
-    var dSel = $('sender_district_sel'); var dist = '';
-    if(dSel){ var opt2 = dSel.options && dSel.selectedIndex>=0 ? dSel.options[dSel.selectedIndex] : null; dist = opt2 ? opt2.text : ''; }
-    var wSel = $('sender_commune_sel'); var ward = '';
-    if(wSel){ var opt3 = wSel.options && wSel.selectedIndex>=0 ? wSel.options[wSel.selectedIndex] : null; ward = opt3 ? opt3.text : ''; }
-    var addr = [addr1, ward, dist, prov].filter(function(x){return x;}).join(', ');
-    var n = document.getElementById('s_name');  if(n) n.textContent = name;
-    var ph= document.getElementById('s_phone'); if(ph) ph.textContent = phone;
-    var ad= document.getElementById('s_addr');  if(ad) ad.textContent = addr;
-    sum.style.display = (name||phone||addr)?'block':'none';
-  }
-  document.addEventListener('DOMContentLoaded', function(){
-    var btn = document.getElementById('sync-warehouses');
-    if(btn && !btn.__wired_summary){
-      btn.__wired_summary = true;
-      btn.addEventListener('click', function(){
-        setTimeout(updateSummary, 1200);
-      });
-    }
-    setTimeout(updateSummary, 800);
-    ['sender_name','sender_phone','sender_address','sender_province_sel','sender_district_sel','sender_commune_sel']
-      .forEach(function(id){ var el=$(id); if(el) el.addEventListener('change', updateSummary); });
-  });
-})();
-
-</script>
-
-<!-- PATCH: Fix warehouse sync and robust sender bindings -->
-<script>
-(function() { 
-  const $ = (id) => document.getElementById(id);
-  const BASE = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
-  function normalize(text) {
-    return (text || '').toString()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd')
-      .replace(/[^a-z0-9 ]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-  function findByName(list, searchName) {
-    const normalized = normalize(searchName);
-    return list.find(item => normalize(item.name || item.label || '') === normalized);
-  }
-  async function apiCall(path, options = {}) {
-    try {
-      const url = path.startsWith('http') ? path : BASE + path;
-      const token = localStorage.getItem('x-token') || $('super_token')?.value || '';
-      const config = {
-        method: options.method || 'GET',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-token': token } : {}) },
-        credentials: 'include'
-      };
-      if (options.body && config.method === 'POST') config.body = JSON.stringify(options.body);
-      const response = await fetch(url, config);
-      return await response.json();
-    } catch (error) {
-      console.error('API call failed:', path, error);
-      return { error: true, message: error.message };
-    }
-  }
-  async function loadProvinces() {
-    const data = await apiCall('/shipping/provinces');
-    const sel = $('sender_province_sel'); if (!sel) return [];
-    sel.innerHTML = '<option value="">— Chọn Tỉnh/Thành —</option>';
-    const items = data?.items || [];
-    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
-    sel.disabled = false; return items;
-  }
-  async function loadDistricts(provinceCode) {
-    if (!provinceCode) return [];
-    const data = await apiCall(`/shipping/districts?province_code=${provinceCode}`);
-    const sel = $('sender_district_sel'); if (!sel) return [];
-    sel.innerHTML = '<option value="">— Chọn Quận/Huyện —</option>';
-    const items = data?.items || [];
-    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
-    sel.disabled = false; return items;
-  }
-  async function loadWards(districtCode) {
-    if (!districtCode) return [];
-    const data = await apiCall(`/shipping/wards?district_code=${districtCode}`);
-    const sel = $('sender_commune_sel'); if (!sel) return [];
-    sel.innerHTML = '<option value="">— Chọn Phường/Xã —</option>';
-    const items = data?.items || [];
-    items.forEach(item => { const opt = document.createElement('option'); opt.value = item.code; opt.textContent = item.name; sel.appendChild(opt); });
-    sel.disabled = false; return items;
-  }
-  window.syncSenderFromWarehousesFixed = async function() {
-    try {
-      let response = await apiCall('/shipping/warehouses');
-      let warehouses = response?.items || response?.data || [];
-      if (!warehouses.length) { response = await apiCall('/shipping/warehouses', { method: 'POST' }); warehouses = response?.items || response?.data || []; }
-      if (!warehouses.length) { alert('❌ Không lấy được thông tin warehouse.'); return; }
-      const warehouse = warehouses[0];
-      const name = warehouse.name || warehouse.contact_name || warehouse.wh_name || '';
-      const phone = warehouse.phone || warehouse.contact_phone || warehouse.mobile || '';
-      const address = warehouse.addr || warehouse.address || warehouse.formatted_address || '';
-      let provinceCode = warehouse.province_code || warehouse.provinceId || warehouse.province?.code || '';
-      let districtCode = warehouse.district_code || warehouse.districtId || warehouse.district?.code || '';
-      let wardCode = warehouse.ward_code || warehouse.commune_code || warehouse.ward?.code || '';
-      const provinceName = warehouse.province_name || warehouse.province?.name || '';
-      const districtName = warehouse.district_name || warehouse.district?.name || '';
-      const wardName = warehouse.ward_name || warehouse.commune_name || warehouse.ward?.name || '';
-      if ($('sender_name')) $('sender_name').value = name;
-      if ($('sender_phone')) $('sender_phone').value = phone;
-      if ($('sender_address')) $('sender_address').value = address;
-      const provinces = await loadProvinces();
-      if (!provinceCode && provinceName) { const match = findByName(provinces, provinceName); if (match) provinceCode = match.code; }
-      if (provinceCode) {
-        $('sender_province_sel').value = provinceCode;
-        if ($('sender_province_code')) $('sender_province_code').value = provinceCode;
-        if ($('sender_province')) $('sender_province').value = provinceName || provinces.find(p => p.code === provinceCode)?.name || '';
-        const districts = await loadDistricts(provinceCode);
-        if (!districtCode && districtName) { const m = findByName(districts, districtName); if (m) districtCode = m.code; }
-        if (districtCode) {
-          $('sender_district_sel').value = districtCode;
-          if ($('sender_district_code')) $('sender_district_code').value = districtCode;
-          if ($('sender_district')) $('sender_district').value = districtName || districts.find(d => d.code === districtCode)?.name || '';
-          const wards = await loadWards(districtCode);
-          if (!wardCode && wardName) { const mw = findByName(wards, wardName); if (mw) wardCode = mw.code; }
-          if (wardCode) {
-            $('sender_commune_sel').value = wardCode;
-            if ($('sender_commune_code')) $('sender_commune_code').value = wardCode;
-          }
-        }
-      }
-      ['sender_province_sel', 'sender_district_sel', 'sender_commune_sel'].forEach(id => { const el = $(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); });
-      // Auto-save sender settings immediately after sync
-      try {
-        const upserts = async (pairs) => {
-          for (const [path, value] of pairs) {
-            await Admin.req('/admin/settings/upsert', { method: 'POST', body: { path, value } });
+  <!-- Simple credentials handlers -->
+  <script>
+    ['jt', 'spx', 'grab'].forEach(provider => {
+      const btn = document.getElementById(`save_${provider}`);
+      if (btn) {
+        btn.onclick = () => {
+          const value = document.getElementById(`${provider}_key`)?.value?.trim() || '';
+          localStorage.setItem(`ship_${provider}`, value);
+          if (window.Admin?.toast) {
+            window.Admin.toast(`Đã lưu ${provider.toUpperCase()}`);
+          } else {
+            alert(`Đã lưu ${provider.toUpperCase()}`);
           }
         };
-        await upserts([
-          ['shipping.sender_name', $('sender_name')?.value?.trim()||''],
-          ['shipping.sender_phone', ($('sender_phone')?.value||'').replace(/\D+/g,'')],
-          ['shipping.sender_address', $('sender_address')?.value?.trim()||''],
-          ['shipping.sender_province', $('sender_province')?.value?.trim()||''],
-          ['shipping.sender_district', $('sender_district')?.value?.trim()||''],
-          ['shipping.sender_commune', ($('sender_commune_sel')?.selectedOptions?.[0]?.textContent||'').trim()],
-          ['shipping.sender_province_code', $('sender_province_sel')?.value||''],
-          ['shipping.sender_district_code', $('sender_district_sel')?.value||''],
-          ['shipping.sender_commune_code', $('sender_commune_sel')?.value||''],
-          ['shipping.option_id', $('option_id')?.value?.trim()||'1']
-        ]);
-      } catch(e) { console.warn('Auto-save sender failed', e); }
-      alert('✅ Đã đồng bộ và lưu thông tin người gửi');
-      if (typeof updateSummary === 'function') setTimeout(updateSummary, 100);
-    } catch (error) {
-      console.error('❌ Warehouse sync error:', error);
-      alert('❌ Lỗi đồng bộ warehouse:\\n' + error.message);
-    }
-  };
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = $('sync-warehouses');
-    if (btn) btn.onclick = window.syncSenderFromWarehousesFixed;
-  });
-})();
-</script>
+      }
+    });
 
+    // Render API base
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Admin?.renderApiBase) {
+        window.Admin.renderApiBase();
+      }
+    });
+  </script>
 </body>
 </html>
