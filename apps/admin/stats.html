@@ -780,43 +780,131 @@ function calculateTotalCosts(orderCount) {
 
 async function loadStats() {
   try {
+    console.log('Loading stats...');
     const fromDate = $('#fromDate').value;
     const toDate = $('#toDate').value;
     
-    const params = new URLSearchParams();
-    if (fromDate) params.set('from', new Date(fromDate + 'T00:00:00+07:00').getTime());
-    if (toDate) params.set('to', new Date(toDate + 'T23:59:59+07:00').getTime());
+    // Try to get stats from API first
+    try {
+      const params = new URLSearchParams();
+      if (fromDate) params.set('from', new Date(fromDate + 'T00:00:00+07:00').getTime());
+      if (toDate) params.set('to', new Date(toDate + 'T23:59:59+07:00').getTime());
+      
+      const res = await Admin.req('/admin/stats?' + params.toString(), { method: 'GET' });
+      if (res && res.orders !== undefined) {
+        console.log('Stats from API:', res);
+        statsData = res;
+        updateStats();
+        updateCharts();
+        updateTables();
+        return;
+      }
+    } catch (apiError) {
+      console.log('Stats API not available, calculating from orders...');
+    }
     
-    const res = await Admin.req('/admin/stats?' + params.toString(), { method: 'GET' });
-    statsData = res || {};
+    // Calculate from orders if stats API not available
+    const ordersRes = await Admin.tryPaths(['/admin/orders', '/admin/order/list', '/admin/orders/list']);
+    let orders = ordersRes.items || ordersRes.data || ordersRes.orders || [];
+    console.log('Total orders:', orders.length);
+    
+    // Filter by date range
+    if (fromDate || toDate) {
+      const fromTime = fromDate ? new Date(fromDate + 'T00:00:00+07:00').getTime() : 0;
+      const toTime = toDate ? new Date(toDate + 'T23:59:59+07:00').getTime() : Date.now();
+      
+      orders = orders.filter(o => {
+        const orderTime = o.created_at || o.createdAt || o.timestamp || o.date;
+        const time = typeof orderTime === 'number' ? orderTime : new Date(orderTime).getTime();
+        return time >= fromTime && time <= toTime;
+      });
+      console.log('Filtered orders:', orders.length);
+    }
+    
+    // Calculate statistics
+    let totalOrders = orders.length;
+    let cancelOrders = 0;
+    let returnOrders = 0;
+    let totalRevenue = 0;
+    let totalCostPrice = 0;
+    
+    const platformStats = {
+      'Website': { orders: 0, revenue: 0, cost_price: 0, success: 0, cancel: 0, return: 0 },
+      'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, success: 0, cancel: 0, return: 0 }
+    };
+    
+    const productStats = {};
+    
+    orders.forEach(order => {
+      const status = (order.status || '').toLowerCase();
+      const source = order.source || order.channel || 'Website';
+      const platform = source.toLowerCase().includes('zalo') || source.toLowerCase().includes('mini') ? 'Zalo MiniApp' : 'Website';
+      
+      // Count by status
+      if (status.includes('cancel') || status.includes('hủy') || status.includes('huy')) {
+        cancelOrders++;
+        platformStats[platform].cancel++;
+      } else if (status.includes('return') || status.includes('trả') || status.includes('tra')) {
+        returnOrders++;
+        platformStats[platform].return++;
+      } else if (status.includes('delivered') || status.includes('completed') || status.includes('giao') || status.includes('hoàn')) {
+        platformStats[platform].success++;
+      }
+      
+      platformStats[platform].orders++;
+      
+      // Calculate revenue and cost
+      const orderTotal = order.total || order.amount || order.total_price || 0;
+      const orderCost = order.cost_price || order.total_cost || 0;
+      
+      if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy')) {
+        totalRevenue += orderTotal;
+        totalCostPrice += orderCost;
+        platformStats[platform].revenue += orderTotal;
+        platformStats[platform].cost_price += orderCost;
+      }
+      
+      // Count products
+      const items = order.items || order.products || order.line_items || [];
+      items.forEach(item => {
+        const productName = item.name || item.title || item.product_name || 'Unknown';
+        const qty = item.quantity || item.qty || 1;
+        const price = item.price || item.unit_price || 0;
+        
+        if (!productStats[productName]) {
+          productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+        }
+        productStats[productName].qty += qty;
+        productStats[productName].revenue += price * qty;
+      });
+    });
+    
+    // Convert product stats to array and sort
+    const topProducts = Object.values(productStats)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+    
+    statsData = {
+      orders: totalOrders,
+      cancels: cancelOrders,
+      returns: returnOrders,
+      revenue: totalRevenue,
+      cost_price: totalCostPrice,
+      platforms: [
+        { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
+        { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
+      ],
+      top_products: topProducts
+    };
+    
+    console.log('Calculated stats:', statsData);
     
     updateStats();
     updateCharts();
     updateTables();
   } catch (error) {
     console.error('Error loading stats:', error);
-    // Fallback với dữ liệu mẫu để test giao diện
-    statsData = {
-      orders: 95,
-      returns: 0,
-      cancels: 11,
-      revenue: 7460554,
-      cost_price: 2927200,
-      platforms: [
-        { name: 'Website', orders: 55, revenue: 4500000, cost_price: 1800000, success: 50, cancel: 3, return: 2 },
-        { name: 'Zalo MiniApp', orders: 40, revenue: 2960554, cost_price: 1127200, success: 34, cancel: 8, return: 0 }
-      ],
-      top_products: [
-        { name: '1 MÁY HÚT CHÂN KHÔNG 200W', qty: 2, revenue: 479460 },
-        { name: 'Set 10 Miếng Dán Ma Thuật Keo 3M', qty: 1, revenue: 98234 },
-        { name: 'Băng Định Gai Lăm Gọn Dây Điện', qty: 1, revenue: 196468 },
-        { name: 'TÚI HÚT CHÂN KHÔNG QUẤN ÁO', qty: 1, revenue: 634520 },
-        { name: 'Keo Chống Thấm Tự Dóng Và Vết Nứt', qty: 1, revenue: 901200 }
-      ]
-    };
-    updateStats();
-    updateCharts();
-    updateTables();
+    alert('Lỗi tải dữ liệu thống kê. Vui lòng kiểm tra console để biết chi tiết.');
   }
 }
 
