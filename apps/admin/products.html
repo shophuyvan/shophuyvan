@@ -1,120 +1,643 @@
-<!doctype html><html lang="vi"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Quản lý Sản phẩm</title>
-<link rel="stylesheet" href="./styles.css"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+  background: #f5f5f5;
+  color: #333;
+}
+
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+.header {
+  background: white;
+  padding: 16px 24px;
+  margin: -16px -16px 16px -16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title { font-size: 24px; font-weight: 600; }
+
+.nav { 
+  display: flex; 
+  gap: 8px; 
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #333;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.badge:hover { background: #e0e0e0; }
+
+.toolbar {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.toolbar-left {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 250px;
+}
+
+.input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.input:focus { outline: none; border-color: #1976d2; }
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: #333;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn:hover { background: #f5f5f5; }
+
+.btn.primary {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.btn.primary:hover { background: #1565c0; }
+
+.btn.danger { 
+  background: #d32f2f; 
+  color: white; 
+  border-color: #d32f2f; 
+}
+
+.btn.danger:hover { background: #c62828; }
+
+.btn.icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.product-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.product-card.selected {
+  border: 2px solid #1976d2;
+}
+
+.card-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.card-image {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  background: #f9f9f9;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.badge-stock {
+  background: #4caf50;
+  color: white;
+}
+
+.badge-out {
+  background: #f44336;
+  color: white;
+}
+
+.card-content {
+  padding: 12px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 40px;
+}
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.card-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #d32f2f;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.card-actions .btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.variants-section {
+  padding: 12px;
+  background: #f9f9f9;
+  border-top: 1px solid #f0f0f0;
+}
+
+.variants-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.variant-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.variant-item:last-child { border-bottom: none; }
+
+.variant-name { color: #333; flex: 1; }
+
+.variant-price { 
+  color: #d32f2f; 
+  font-weight: 500;
+  margin: 0 8px;
+}
+
+.variant-stock { 
+  color: #666;
+  min-width: 50px;
+  text-align: right;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+}
+
+.page-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.page-btn:hover { background: #f5f5f5; }
+
+.page-btn.active {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bulk-actions {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bulk-actions.show { display: flex; }
+
+.bulk-actions-text {
+  flex: 1;
+  font-size: 14px;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  
+  .card-image { height: 180px; }
+  
+  .card-title {
+    font-size: 13px;
+    min-height: 36px;
+  }
+  
+  .card-price { font-size: 14px; }
+  
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-left {
+    flex-direction: column;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .container { padding: 8px; }
+  
+  .card-image { height: 140px; }
+  
+  .card-content { padding: 8px; }
+  
+  .card-title {
+    font-size: 12px;
+    min-height: 32px;
+  }
+  
+  .card-actions {
+    flex-direction: column;
+    padding: 6px 8px;
+  }
+  
+  .card-actions .btn {
+    font-size: 12px;
+    padding: 6px;
+  }
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+</style>
 <script src="./admin_real.js?v=25"></script>
-<!-- build:21 -->
-</head><body>
+</head>
+<body>
 <div class="container">
   <div class="header">
     <div class="title">Sản phẩm</div>
     <div class="nav">
       <a href="./products.html" class="badge">Sản phẩm</a>
       <a href="./banners.html" class="badge">Banner</a>
-      <a href="./shipping.html" class="badge">Vận chuyển</a><a href="./ads.html" class="badge">Quảng cáo</a>
+      <a href="./shipping.html" class="badge">Vận chuyển</a>
+      <a href="./ads.html" class="badge">Quảng cáo</a>
       <span class="badge">API: <span data-api-base></span></span>
     </div>
   </div>
 
   <div class="toolbar">
-    <div class="flex">
+    <div class="toolbar-left">
       <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
-      <button class="btn" id="reload">Tải lại</button>
+      <button class="btn" id="reload">🔄 Tải lại</button>
     </div>
-    <div><a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a></div>
+    <div class="stats">
+      <span>Tổng: <strong id="total-count">0</strong></span>
+      <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
+    </div>
   </div>
 
-  <table class="table" id="tbl">
-    <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Giá</th><th>Slug</th><th>Hành động</th></tr></thead>
-    <tbody></tbody>
-  </table>
+  <div id="bulk-actions" class="bulk-actions">
+    <input type="checkbox" id="select-all"/>
+    <span class="bulk-actions-text"><span id="selected-count">0</span> sản phẩm được chọn</span>
+    <button class="btn danger" id="bulk-delete">Xóa đã chọn</button>
+  </div>
+
+  <div id="grid" class="grid">
+    <div class="loading">Đang tải...</div>
+  </div>
+
+  <div id="pagination" class="pagination"></div>
 </div>
 
 <script>
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>Array.from(document.querySelectorAll(s));
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-// ===== 🔥 CDN URL Helper =====
-function cdnUrl(url, transforms = 'w_400,dpr_auto,q_auto:eco,f_auto') {
+let allProducts = [];
+let selectedIds = new Set();
+
+function cdnUrl(url) {
   if (!url) return './no-image.svg';
-  if (url.includes('res.cloudinary.com')) return url; // Already CDN
-  
-  // Hiển thị trực tiếp từ Workers.dev (không qua Cloudinary để tránh CORS)
   return url;
 }
 
-function row(p){
-  const frag = document.createDocumentFragment();
-  const tr = document.createElement('tr');
-  const imgUrl = cdnUrl((p.images&&p.images[0]) || '');
+function formatPrice(price) {
+  return Number(price || 0).toLocaleString('vi-VN') + 'đ';
+}
+
+function createProductCard(p) {
   const price = p.price_sale || p.price || 0;
-  tr.innerHTML = `
-    <td><img class="thumb" src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/></td>
-    <td>${p.title||p.name||''}</td>
-    <td>${price}</td>
-    <td>${p.slug||''}</td>
-    <td>
-      <a class="btn" href="./product_edit.html?id=${encodeURIComponent(p.id||p._id||p.key||'')}">Sửa</a>
-      <button class="btn danger" data-del="${p.id||p._id||p.key||''}">Xoá</button>
-    </td>`;
-  frag.appendChild(tr);
-
-  const variants = Array.isArray(p.variants)? p.variants :
-                   Array.isArray(p.options)? p.options :
-                   Array.isArray(p.skus)? p.skus :
-                   Array.isArray(p.children)? p.children :
-                   Array.isArray(p.items)? p.items : [];
-  if(variants && variants.length){
-    const tr2 = document.createElement('tr');
-    const cols = 5;
-    const rows = variants.map(v=>{
-      const name = v.name||v.title||v.variant||v.option||v.sku||v.id||'';
-      const price = v.price_sale||v.price||v.sell_price||v.min_price||v.max_price||0;
-      const stock = v.stock??v.inventory??v.qty??v.quantity??v.available??0;
-      const stockStr = (typeof stock==='boolean') ? (stock?'Còn':'Hết') : stock;
-      return `<tr><td class="px-4 py-2">${name}</td><td class="px-4 py-2" style="text-align:right">${Number(price||0).toLocaleString('vi-VN')}</td><td class="px-4 py-2" style="text-align:right">${stockStr}</td></tr>`;
+  const imgUrl = cdnUrl((p.images && p.images[0]) || '');
+  const id = p.id || p._id || p.key || '';
+  
+  const variants = Array.isArray(p.variants) ? p.variants :
+                   Array.isArray(p.options) ? p.options :
+                   Array.isArray(p.skus) ? p.skus : [];
+  
+  const hasStock = variants.length > 0 
+    ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0)
+    : true;
+  
+  let variantsHtml = '';
+  if (variants.length > 0) {
+    const variantItems = variants.slice(0, 3).map(v => {
+      const name = v.name || v.title || v.variant || '';
+      const vPrice = v.price_sale || v.price || 0;
+      const stock = v.stock ?? v.inventory ?? 0;
+      return `
+        <div class="variant-item">
+          <span class="variant-name">${name}</span>
+          <span class="variant-price">${formatPrice(vPrice)}</span>
+          <span class="variant-stock">SL: ${stock}</span>
+        </div>
+      `;
     }).join('');
-    tr2.innerHTML = `<td colspan="${cols}" style="background:#f9fafb;padding:0">
-      <table class="table variants" style="margin:0;border:0">
-        <thead><tr><th>Phân loại</th><th>Giá</th><th>Tồn kho</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </td>`;
-    frag.appendChild(tr2);
+    
+    variantsHtml = `
+      <div class="variants-section">
+        <div class="variants-title">Phân loại (${variants.length})</div>
+        ${variantItems}
+        ${variants.length > 3 ? `<div style="text-align:center;margin-top:8px;font-size:11px;color:#999">+${variants.length - 3} phân loại khác</div>` : ''}
+      </div>
+    `;
   }
-  return frag;
+  
+  return `
+    <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
+      <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
+      <div class="card-image">
+        <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
+        <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
+          ${hasStock ? 'Còn hàng' : 'Hết hàng'}
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
+        <div class="card-meta">
+          <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
+          <div class="card-price">${formatPrice(price)}</div>
+        </div>
+      </div>
+      ${variantsHtml}
+      <div class="card-actions">
+        <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
+        <button class="btn danger" onclick="deleteProduct('${id}')">🗑️ Xóa</button>
+      </div>
+    </div>
+  `;
 }
 
-async function load(){
-  const r = await Admin.tryPaths(['/admin/products','/admin/product/list','/admin/products/list']);
-  const items = r.items || r.data || r.products || [];
-  const q = ($('#q').value||'').toLowerCase();
-  const tbody = $('#tbl tbody'); tbody.innerHTML='';
-  items
-    .filter(p => {
-      const t = (p.title||p.name||'').toLowerCase();
-      const slug = String(p.slug||'').toLowerCase();
-      const sku = String(p.sku||'').toLowerCase();
+async function load() {
+  try {
+    const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
+    allProducts = r.items || r.data || r.products || [];
+    
+    const q = ($('#q').value || '').toLowerCase();
+    const filtered = allProducts.filter(p => {
+      const t = (p.title || p.name || '').toLowerCase();
+      const slug = String(p.slug || '').toLowerCase();
+      const sku = String(p.sku || '').toLowerCase();
       return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
-    })
-    .forEach(p=> tbody.appendChild(row(p)));
-
-  $$('[data-del]').forEach(btn=>{
-    btn.onclick = ()=> del(btn.getAttribute('data-del'));
-  });
+    });
+    
+    $('#total-count').textContent = filtered.length;
+    
+    const grid = $('#grid');
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
+      return;
+    }
+    
+    grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
+    
+    $$('.card-checkbox').forEach(cb => {
+      cb.addEventListener('change', handleCheckboxChange);
+    });
+    
+    updateBulkActions();
+  } catch (error) {
+    $('#grid').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+    console.error(error);
+  }
 }
 
-async function del(id){
+function handleCheckboxChange(e) {
+  const id = e.target.getAttribute('data-id');
+  const card = $(`.product-card[data-id="${id}"]`);
+  
+  if (e.target.checked) {
+    selectedIds.add(id);
+    card.classList.add('selected');
+  } else {
+    selectedIds.delete(id);
+    card.classList.remove('selected');
+  }
+  
+  updateBulkActions();
+}
+
+function updateBulkActions() {
+  const bulkActions = $('#bulk-actions');
+  const selectAll = $('#select-all');
+  const selectedCount = $('#selected-count');
+  
+  selectedCount.textContent = selectedIds.size;
+  
+  if (selectedIds.size > 0) {
+    bulkActions.classList.add('show');
+  } else {
+    bulkActions.classList.remove('show');
+  }
+  
+  selectAll.checked = selectedIds.size === allProducts.length && allProducts.length > 0;
+}
+
+$('#select-all').addEventListener('change', (e) => {
+  if (e.target.checked) {
+    allProducts.forEach(p => {
+      const id = p.id || p._id || p.key;
+      selectedIds.add(id);
+    });
+  } else {
+    selectedIds.clear();
+  }
+  load();
+});
+
+async function deleteProduct(id) {
   if (!id) return;
-  if (!confirm('Xác nhận xoá sản phẩm?')) return;
-  let r = await Admin.req('/admin/products/delete', { method:'POST', body:{ id } });
-  if(!(r && r.ok)) r = await Admin.req('/admin/product/delete?id='+encodeURIComponent(id), { method:'POST' });
-  if(!(r && r.ok)) r = await Admin.req('/admin/product?id='+encodeURIComponent(id), { method:'DELETE' });
-  if(r && r.ok){ alert('Đã xoá'); load(); } else { alert('Xoá thất bại'); }
+  if (!confirm('Xác nhận xóa sản phẩm này?')) return;
+  
+  try {
+    let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
+    if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+    if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+    
+    if (r && r.ok) {
+      alert('Đã xóa sản phẩm');
+      selectedIds.delete(id);
+      load();
+    } else {
+      alert('Xóa thất bại');
+    }
+  } catch (error) {
+    alert('Xóa thất bại: ' + error.message);
+  }
 }
+
+$('#bulk-delete').addEventListener('click', async () => {
+  if (selectedIds.size === 0) return;
+  if (!confirm(`Xác nhận xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
+  
+  let success = 0;
+  for (const id of selectedIds) {
+    try {
+      let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
+      if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+      if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      if (r && r.ok) success++;
+    } catch (error) {
+      console.error('Error deleting:', id, error);
+    }
+  }
+  
+  alert(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
+  selectedIds.clear();
+  load();
+});
 
 $('#reload').onclick = load;
 $('#q').addEventListener('input', load);
+
+window.deleteProduct = deleteProduct;
+
 load();
 </script>
-</body></html>
+</body>
+</html>
