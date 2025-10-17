@@ -411,6 +411,15 @@ function injectStickyCTA() {
   const zBtn = $('#btn-zalo');
   if (zBtn && zBtn.href) {
     $('#shv-cta-zalo').href = zBtn.href;
+  $('#shv-cta-add')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (typeof openVariantModal === 'function') {
+      openVariantModal('cart');
+    } else {
+      window.location.href = '/cart.html';
+    }
+  });
+
   }
 
   $('#shv-cta-add')?.addEventListener('click', (e) => {
@@ -551,7 +560,7 @@ function openVariantModal(mode) {
       qty: qty
     };
 
-    addToCart(item, 0); // qty already in item
+    addToCart(item, qty); // qty already in item
   }
 
   mask.querySelector('#vm-add').onclick = () => {
