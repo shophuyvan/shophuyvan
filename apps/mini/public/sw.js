@@ -3,7 +3,7 @@
 // apps/mini/public/sw.js
 // ================================================
 
-const CACHE_VERSION = 'shv-v1.0.1'; // Tăng version
+const CACHE_VERSION = 'shv-v1.0.2'; // Tăng version
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -75,8 +75,13 @@ self.addEventListener('activate', (event) => {
 // FETCH
 // ================================================
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const request = event.request;
   const url = new URL(request.url);
+    // Bỏ qua mọi request KHÔNG phải GET (POST/PUT/DELETE… không cache)
+  if (request.method !== 'GET') return;
+
+  // Bỏ qua API đồng bộ giỏ hàng và các API động khác cần realtime
+  if (url.pathname.startsWith('/api/cart/sync')) return;
 
   // Skip non-http
   if (!url.protocol.startsWith('http')) {
@@ -97,7 +102,6 @@ self.addEventListener('fetch', (event) => {
   // API
   if (isAPIRequest(url.pathname) || isAPIRequest(url.hostname)) {
     const strategy = getAPIStrategy(url.pathname);
-    
     if (strategy === 'cache-first') {
       event.respondWith(handleCacheFirst(request, DYNAMIC_CACHE));
     } else {
@@ -105,6 +109,7 @@ self.addEventListener('fetch', (event) => {
     }
     return;
   }
+
 
   // Navigation
   if (request.mode === 'navigate') {
@@ -136,15 +141,13 @@ async function handleCacheFirst(request, cacheName) {
     
     // ✅ FIX: Clone BEFORE caching
     if (response && response.ok && response.status === 200) {
-      const responseToCache = response.clone();
-      
-      // Cache asynchronously (don't await)
-      caches.open(cacheName).then(cache => {
-        cache.put(request, responseToCache);
-      }).catch(err => {
-        console.warn('[SW] Cache put failed:', err);
-      });
-    }
+  const responseToCache = response.clone();
+  if (request.method === 'GET') {
+    caches.open(cacheName).then(cache => {
+      cache.put(request, responseToCache);
+    }).catch(err => console.warn('[SW] Cache put failed:', err));
+  }
+}
     
     // Return original response
     return response;
@@ -180,17 +183,14 @@ async function handleNetworkFirst(request, cacheName, timeout = 3000) {
     
     // ✅ FIX: Clone BEFORE caching
     if (response && response.ok && response.status === 200) {
-      const responseToCache = response.clone();
-      
-      // Cache asynchronously
-      caches.open(cacheName).then(cache => {
-        cache.put(request, responseToCache);
-      }).catch(err => {
-        console.warn('[SW] Cache put failed:', err);
-      });
-    }
-    
-    return response;
+  const responseToCache = response.clone();
+  if (request.method === 'GET') {
+    caches.open(cacheName).then(cache => {
+      cache.put(request, responseToCache);
+    }).catch(err => console.warn('[SW] Cache put failed:', err));
+  }
+}
+return response;
     
   } catch (error) {
     console.warn('[SW] Network failed, trying cache:', request.url);
@@ -221,16 +221,14 @@ async function handleImageRequest(request) {
     const fetchPromise = fetch(request)
       .then((response) => {
         if (response && response.ok && response.status === 200) {
-          // ✅ FIX: Clone BEFORE caching
-          const responseToCache = response.clone();
-          
-          caches.open(IMAGE_CACHE).then(cache => {
-            cache.put(request, responseToCache);
-          }).catch(err => {
-            console.warn('[SW] Image cache failed:', err);
-          });
-        }
-        return response;
+  const responseToCache = response.clone();
+  if (request.method === 'GET') {
+    caches.open(IMAGE_CACHE).then(cache => {
+      cache.put(request, responseToCache);
+    }).catch(err => console.warn('[SW] Image cache failed:', err));
+  }
+}
+return response;
       })
       .catch(() => cached); // Fallback to cache on error
 
