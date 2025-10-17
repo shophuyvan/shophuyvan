@@ -516,7 +516,7 @@
   </main>
 
   <script type="module">
-    import { formatPrice } from './lib/price.js';
+    import { formatPrice } from './src/lib/price.js';
     
     let cart = [];
     let selectedItems = new Set();
@@ -526,7 +526,23 @@
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
     }
 
-    function loadCart() {
+    
+  // ==== START PATCH: normalize util ====
+  // Chuẩn hoá item từ nhiều định dạng khác nhau
+  function normalizeItems(arr) {
+    return (arr || []).map(it => ({
+      id: it.id || it.product_id || it.sku || '',
+      name: it.name || it.title || 'Sản phẩm',
+      image: it.image || it.img || it.variantImage || '',
+      variantName: it.variantName || it.variant || '',
+      price: Number(it.price || it.sale_price || it.final_price || 0),
+      qty: Number(it.qty || it.quantity || 1),
+      original: it.original ?? null,
+      source: it.source || 'website',
+    }));
+  }
+  // ==== END PATCH: normalize util ====
+function loadCart() {
       const raw = localStorage.getItem('cart');
       if (!raw) return [];
       

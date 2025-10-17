@@ -330,9 +330,11 @@ function attachCart(){
       qty: 1
     };
     try{
-      const cart = JSON.parse(localStorage.getItem('CART')||'[]'); cart.push(item);
-      localStorage.setItem('CART', JSON.stringify(cart));
-      alert('Đã thêm vào giỏ!');
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+cart.push(item);
+localStorage.setItem('cart', JSON.stringify(cart));
+// phát sự kiện để badge / đồng bộ biết giỏ đã đổi
+window.dispatchEvent(new CustomEvent('shv:cart-changed'));
     }catch(e){ console.warn(e); }
   });
 }
@@ -765,19 +767,55 @@ try{
   m.querySelector('#vm-inc').onclick = inc;
 
   // Actions
-  function addSelectedToCart(){
-    const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
-    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
-    const item = { id:String(PRODUCT.id||PRODUCT._id||PRODUCT.slug||Date.now()), title: PRODUCT.title||PRODUCT.name||'', image: imagesOf(src||PRODUCT)[0]||'', variant: (CURRENT && (CURRENT.name||CURRENT.sku||''))||'', price: pricePair(src).base||0, qty };
-    try{
-      const cart = JSON.parse(localStorage.getItem('CART')||'[]')||[];
-      const k = keyOfItem(item);
-      const idx = cart.findIndex(x=>keyOfItem(x)===k);
-      if(idx>-1){ cart[idx].qty = (Number(cart[idx].qty)||1) + qty; }
-      else { cart.push(item); }
-      localStorage.setItem('CART', JSON.stringify(consolidateCart(cart)));
-    }catch(e){}
+  // ==== START PATCH: addSelectedToCart -> write to 'cart' (lowercase) ====
+function addSelectedToCart(){
+  const qty = Math.max(1, parseInt(m.querySelector('#vm-qty').value||'1',10));
+  const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
+
+  // Chuẩn hoá sản phẩm thành 1 item thống nhất
+  const item = {
+    id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+    name: PRODUCT.title || PRODUCT.name || '',
+    title: PRODUCT.title || PRODUCT.name || '',          // để tương thích chỗ khác nếu còn dùng 'title'
+    image: (imagesOf(src||PRODUCT)[0] || ''),
+    variantName: (CURRENT && (CURRENT.name || CURRENT.sku || '')) || '',
+    variant: (CURRENT && (CURRENT.name || CURRENT.sku || '')) || '',  // tương thích nếu nơi khác dùng 'variant'
+    price: Number((pricePair(src).base) || 0),
+    qty: Number(qty)
+  };
+
+  try {
+    // Đọc giỏ hiện tại từ 'cart' (lowercase). Nếu lỡ còn dữ liệu cũ trong 'CART' thì migrate 1 lần.
+    let raw = localStorage.getItem('cart');
+    if (!raw && localStorage.getItem('CART')) {
+      raw = localStorage.getItem('CART');
+      localStorage.setItem('cart', raw);
+      localStorage.removeItem('CART');
+    }
+
+    const cart = raw ? JSON.parse(raw) : [];
+
+    // Gộp theo key (nếu đã có cùng item + biến thể)
+    const k = keyOfItem(item); // hàm cũ của bạn
+    const idx = cart.findIndex(x => keyOfItem(x) === k);
+    if (idx > -1) {
+      cart[idx].qty = (Number(cart[idx].qty) || 1) + item.qty;
+    } else {
+      cart.push(item);
+    }
+
+    // Nếu có hàm consolidateCart thì dùng, không thì ghi trực tiếp
+    const out = (typeof consolidateCart === 'function') ? consolidateCart(cart) : cart;
+    localStorage.setItem('cart', JSON.stringify(out));
+
+    // Thông báo cho UI khác (badge, sync) biết giỏ đã đổi
+    window.dispatchEvent(new CustomEvent('shv:cart-changed'));
+  } catch (e) {
+    console.warn('[cart] addSelectedToCart failed:', e);
   }
+}
+// ==== END PATCH ====
+
 
   m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); window.location.href = '/cart.html'; };
   m.querySelector('#vm-buy').onclick = ()=>{ addSelectedToCart(); closeMask(); window.location.href = '/checkout.html'; };
