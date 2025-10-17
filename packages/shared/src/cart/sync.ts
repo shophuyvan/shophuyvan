@@ -344,14 +344,3 @@ export function getCartSync(): CartSyncManager | null {
   return cartSyncInstance;
 }
 
-// Auto-init nếu có cart trong localStorage
-if (typeof window !== 'undefined') {
-  const hasCart = localStorage.getItem('cart') || localStorage.getItem('shv_cart_v1');
-  if (hasCart) {
-    console.log('[CartSync] Auto-initializing...');
-    setTimeout(() => {
-      const cartKey = localStorage.getItem('cart') ? 'cart' : 'shv_cart_v1';
-      initCartSync(cartKey);
-    }, 1000);
-  }
-}

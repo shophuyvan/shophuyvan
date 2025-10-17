@@ -18,7 +18,7 @@ export type CartState = {
   total: number;
 };
 
-const LS_KEY = 'shv_cart_v1';
+const LS_KEY = 'cart';
 
 function read(): CartState {
   try {
