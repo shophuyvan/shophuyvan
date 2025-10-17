@@ -247,14 +247,24 @@
         const tracking = order.tracking_code || order.shipping_tracking || '';
         const created = this.formatDate(order.createdAt || order.created_at);
 
-        const itemRows = items.map(item => `<tr>
+        const itemRows = items.map(item => {
+          // Tạo tên đầy đủ: Tên sản phẩm - Variant
+          let displayName = item.name || item.title || item.product_name || '';
+          if (item.variant || item.variant_name) {
+            const variantName = item.variant || item.variant_name || '';
+            displayName = displayName ? `${displayName} - ${variantName}` : variantName;
+          }
+          if (!displayName) displayName = 'Sản phẩm';
+          
+          return `<tr>
           <td>${item.sku || ''}</td>
-          <td>${item.name || ''}${item.variant ? ' - ' + item.variant : ''}</td>
+          <td>${displayName}</td>
           <td style="text-align:right">${item.qty || 1}</td>
           <td style="text-align:right">${this.formatPrice(item.price || 0)}</td>
           <td style="text-align:right">${this.formatPrice(item.cost || 0)}</td>
           <td style="text-align:right">${this.formatPrice((item.price || 0) * (item.qty || 1))}</td>
-        </tr>`).join('');
+        </tr>`;
+        }).join('');
 
         return `<div style="margin-bottom:8px">
           <div><b>Khách:</b> ${custName}${custPhone ? ' • ' + custPhone : ''}</div>
@@ -349,20 +359,37 @@
             return;
           }
 
-          const items = (order.items || []).map(item => ({
-            name: item.name || 'Sản phẩm',
-            quantity: Number(item.qty || 1),
-            price: Number(item.price || 0),
-            weight: Number(item.weight_gram || 100)
-          }));
+          const items = (order.items || []).map(item => {
+            // CRITICAL: Đảm bảo có tên sản phẩm, không được để trống
+            let itemName = item.name || item.title || item.product_name || item.product?.name || '';
+            
+            // Nếu có variant, ghép vào
+            if (item.variant || item.variant_name) {
+              const variantName = item.variant || item.variant_name || '';
+              itemName = itemName ? `${itemName} - ${variantName}` : variantName;
+            }
+            
+            // Fallback nếu vẫn trống
+            if (!itemName || itemName.trim() === '' || itemName === '-') {
+              itemName = 'Sản phẩm';
+            }
+            
+            return {
+              name: itemName.trim(),
+              quantity: Number(item.qty || item.quantity || 1),
+              price: Number(item.price || 0),
+              weight: Number(item.weight_gram || item.weight_grams || item.weight || 100)
+            };
+          });
 
           const totalWeight = Math.max(100, items.reduce((sum, item) => 
             sum + (item.weight || 100) * (item.quantity || 1), 0));
 
-          // CRITICAL: Payload theo đúng waybill.js - ROOT LEVEL FIELDS, NOT NESTED!
+          // CRITICAL: SuperAI platform might use 'note' as order name
           const payload = {
             // Order reference
             order_id: String(order.id),
+            note: `Đơn hàng #${order.id}` + (order.note ? ` - ${order.note}` : ''),
             
             // Sender fields (ROOT LEVEL)
             sender_name: sender.name,
