@@ -13,45 +13,6 @@ function cloudify(u, t='w_1200,dpr_auto,q_auto,f_auto') {
 }
 
 // SHV_PATCH_11
-// /* SHV_PDP_HIDE_HEADER */
-(function(){try{
-// SHV_PATCH: responsive width for checkout modal
-(function(){
-  try{
-    const id='shv-co-responsive-style';
-    if(!document.getElementById(id)){
-      const st=document.createElement('style');
-      st.id=id;
-      st.textContent = `        /* modal width & margins */
-        #shv-co-mask .co-modal{ box-sizing:border-box; width: calc(100vw - 32px); max-width: 600px; margin: 0 16px; }
-        @media (min-width: 640px){ #shv-co-mask .co-modal{ width: calc(100vw - 64px); max-width: 760px; margin: 0 24px; } }
-        @media (min-width: 1024px){ #shv-co-mask .co-modal{ width: calc(100vw - 96px); max-width: 840px; margin: 0 32px; } }
-        /* form grid: 1 col mobile, 2 cols tablet/desktop */
-        #shv-co-mask #co-form{ display:grid; grid-template-columns: 1fr; gap: 10px; }
-        #shv-co-mask #co-form input, #shv-co-mask #co-form textarea{ width:100%; }
-        @media (min-width: 768px){
-          #shv-co-mask #co-form{ grid-template-columns: 1fr 1fr; gap: 12px; }
-          #shv-co-mask #co-addr, #shv-co-mask #co-note{ grid-column: 1 / -1; }
-        }
-        /* widen and full-span location selects */
-        #shv-co-mask #co-form #co-province-sel,
-        #shv-co-mask #co-form #co-district-sel,
-        #shv-co-mask #co-form #co-ward-sel{ grid-column: 1 / -1 !important; width:100% !important; }`; (document.head||document.documentElement).appendChild(st);
-    }
-  }catch(e){}
-})();
-  var b=document.body||document.documentElement;
-  if(b && !b.classList.contains('pdp')) b.classList.add('pdp');
-  var id='shv-pdp-hide-header';
-  if(!document.getElementById(id)){
-    var css = [
-      'body.pdp header','body.pdp .topbar','body.pdp .site-header',
-      'body.pdp .shv-header','body.pdp .navbar','body.pdp nav'
-    ].join(',') + '{display:none !important;}';
-    var s=document.createElement('style'); s.id=id; s.textContent=css;
-    (document.head||document.documentElement).appendChild(s);
-  }
-}catch(_e){}})();
 let PRODUCT = (window.PRODUCT||{}); let CURRENT = null;
 import api from './lib/api.js';
 // === Fixed Shipping Rate Table (weight in grams -> VND) ===
@@ -415,7 +376,7 @@ async function getSettings(){
   return {};
 }
 function cartCount(){ try{ return (JSON.parse(localStorage.getItem('CART')||'[]')||[]).reduce((s,it)=>s+(Number(it.qty)||1),0) }catch{ return 0 } }
-function goCart(){ try{ openCartModal(); }catch(e){ /* no-op */ } }
+function goCart(){ window.location.href = '/cart.html'; }
 
 function injectFloatingCart(){
   if(document.getElementById('shv-float-cart')) return;
@@ -425,13 +386,29 @@ function injectFloatingCart(){
   btn.setAttribute('aria-label','Giỏ hàng');
   btn.style.cssText = 'position:fixed;right:14px;bottom:90px;z-index:60;background:#111827;color:#fff;width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.2)';
   btn.innerHTML = '<span style="font-size:22px;line-height:1">🛒</span><span id="shv-float-cart-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:12px;font-weight:700;">0</span>';
-  document.body.appendChild(btn); btn.addEventListener('click', function(e){ e.preventDefault(); try{ openCartModal(); }catch{} });
-  const upd=()=>{ const c=cartCount(); const b=document.getElementById('shv-float-cart-badge'); if(b) b.textContent=String(c) };
-  upd(); setInterval(upd, 1500);
+
+  // ==== START PATCH: floating cart goes to /cart.html ====
+  document.body.appendChild(btn);
+  btn.addEventListener('click', function (e) {
+    e.preventDefault();
+    window.location.href = '/cart.html';
+  });
+  // ==== END PATCH ====
+
+  const upd = () => {
+    const c = cartCount();
+    const b = document.getElementById('shv-float-cart-badge');
+    if (b) b.textContent = String(c);
+  };
+  upd();
+  setInterval(upd, 1500);
 }
 
+
+// ==== START PATCH: sticky CTA - use page flows instead of checkout modal ====
 function injectStickyCTA(){
-  if(document.getElementById('shv-sticky-cta')) return;
+  if (document.getElementById('shv-sticky-cta')) return;
+
   const wrap = document.createElement('div');
   wrap.id = 'shv-sticky-cta';
   wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:50;background:#ffffff;box-shadow:0 -4px 18px rgba(0,0,0,.08);border-top:1px solid #e5e7eb';
@@ -443,15 +420,46 @@ function injectStickyCTA(){
     </div>`;
   document.body.appendChild(wrap);
 
-  const dec = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)-1); inp.value=String(v); };
-  const inc = ()=>{ const inp=document.getElementById('shv-cta-qty'); let v=Math.max(1, parseInt(inp.value||'1',10)+1); inp.value=String(v); };
-  var _decEl=document.getElementById('shv-cta-dec'); if(_decEl) _decEl.onclick = dec;
-  var _incEl=document.getElementById('shv-cta-inc'); if(_incEl) _incEl.onclick = inc;
+  // qty +/- giữ nguyên nếu có input số lượng
+  const dec = () => { const inp = document.getElementById('shv-cta-qty'); if (!inp) return; let v = Math.max(1, parseInt(inp.value||'1',10)-1); inp.value = String(v); };
+  const inc = () => { const inp = document.getElementById('shv-cta-qty'); if (!inp) return; let v = Math.max(1, parseInt(inp.value||'1',10)+1); inp.value = String(v); };
+  document.getElementById('shv-cta-dec')?.addEventListener('click', dec);
+  document.getElementById('shv-cta-inc')?.addEventListener('click', inc);
+
+  // Zalo: lấy link có sẵn nếu có
   const zHref = (document.getElementById('btn-zalo') && document.getElementById('btn-zalo').href) || 'https://zalo.me/';
   document.getElementById('shv-cta-zalo').href = zHref;
-  document.getElementById('shv-cta-add').onclick = ()=> openVariantModal('cart');
-  document.getElementById('shv-cta-buy').onclick = ()=> openVariantModal('buy');
+
+  // Thêm giỏ hàng -> ưu tiên mở modal chọn biến thể (nếu dự án đang dùng), nếu không thì đi /cart.html
+  document.getElementById('shv-cta-add')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (typeof openVariantModal === 'function') {
+      try { openVariantModal('cart'); } catch {}
+    } else {
+      window.location.href = '/cart.html';
+    }
+  });
+
+  // MUA NGAY -> cố gắng thêm đúng biến thể rồi điều hướng /checkout.html
+  document.getElementById('shv-cta-buy')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      if (typeof openVariantModal === 'function') {
+        // nếu openVariantModal trả Promise thì đợi ngắn rồi chuyển trang
+        const maybePromise = openVariantModal('buy');
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
+        } else {
+          // nếu không phải Promise, cho thời gian thêm giỏ
+          await new Promise(r => setTimeout(r, 150));
+        }
+      }
+    } catch {}
+    window.location.href = '/checkout.html';
+  });
 }
+// ==== END PATCH ====
+
   /* legacy (direct add) fully removed */
 function updateStickyCTA(){}
 function renderCountdown(untilMs){
@@ -771,8 +779,8 @@ try{
     }catch(e){}
   }
 
-  m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); openCartModal(); };
-  m.querySelector('#vm-buy').onclick = ()=>{ addSelectedToCart(); closeMask(); openCheckoutModal(); };
+  m.querySelector('#vm-add').onclick = ()=>{ addSelectedToCart(); closeMask(); window.location.href = '/cart.html'; };
+  m.querySelector('#vm-buy').onclick = ()=>{ addSelectedToCart(); closeMask(); window.location.href = '/checkout.html'; };
   m.querySelector('#vm-close').onclick = ()=> closeMask();
 
   if(mode==='buy'){/* nothing extra */}

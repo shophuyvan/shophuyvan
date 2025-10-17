@@ -279,39 +279,6 @@ function initCartUISync() {
     updateFloatingBadge();
   });
   
-  // Open cart modal event
-  const headerCartBtn = document.getElementById('header-cart-btn');
-  if (headerCartBtn) {
-    headerCartBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const modal = document.getElementById('shv-cart-modal');
-      if (modal) {
-        modal.style.display = 'block';
-        renderCartModal();
-      }
-    });
-  }
-  
-  // Close cart modal
-  const cartClose = document.getElementById('cart-close');
-  if (cartClose) {
-    cartClose.addEventListener('click', () => {
-      const modal = document.getElementById('shv-cart-modal');
-      if (modal) modal.style.display = 'none';
-    });
-  }
-  
-  // Close on mask click
-  const modal = document.getElementById('shv-cart-modal');
-  if (modal) {
-    const mask = modal.querySelector('.mask');
-    if (mask) {
-      mask.addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-    }
-  }
-  
   // Expose global function for backward compatibility
   window.updateCartBadge = updateAllUI;
   
@@ -324,6 +291,19 @@ if (document.readyState === 'loading') {
 } else {
   initCartUISync();
 }
+// ==== START PATCH: force all cart entry points to open /cart.html ====
+document.getElementById('header-cart-btn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  location.href = '/cart.html';
+});
+
+document.querySelectorAll('a[href="#"][data-open-cart], button[data-open-cart]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    location.href = '/cart.html';
+  });
+});
+// ==== END PATCH ====
 
 // Export for modules
 export { getCart, setCart, updateAllUI, updateHeaderBadge, renderCartModal };
