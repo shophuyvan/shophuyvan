@@ -251,17 +251,19 @@ export default function CartPage() {
               />
 
               {/* Details */}
-              <div className="font-medium text-sm leading-5 mb-1">
-  <span className="block line-clamp-2">{l.name}</span>
-  {l.variantName && (
-    <span
-      className="inline-block mt-0.5 px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600"
-      title={l.variantName}
-    >
-      {l.variantName}
-    </span>
-  )}
-</div>
+              {/* ==== START PATCH: name + variant badge ==== */}
+  <div className="font-medium text-sm leading-5 mb-1">
+    <span className="block line-clamp-2">{l.name}</span>
+    {l.variantName && (
+      <span
+        className="inline-block mt-0.5 px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600"
+        title={l.variantName}
+      >
+        {l.variantName}
+      </span>
+    )}
+  </div>
+  {/* ==== END PATCH ==== */}
                 {/* Price */}
                 <div className="text-sm mb-2">
                   <span className="text-rose-600 font-semibold mr-2">
