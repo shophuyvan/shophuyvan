@@ -19,7 +19,15 @@ export async function handleCartSync(request, env) {
   if (method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+    // ==== START FIX: validate KV binding ====
+  if (!env || !env.CART_KV) {
+    return Response.json(
+      { ok: false, error: 'CART_KV not bound in environment' },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+  // ==== END FIX: validate KV binding ====
+
   try {
     let response;
     
