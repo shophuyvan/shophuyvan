@@ -248,12 +248,14 @@
         const created = this.formatDate(order.createdAt || order.created_at);
 
         const itemRows = items.map(item => {
-          // Tạo tên đầy đủ: Tên sản phẩm - Variant
-          let displayName = item.name || item.title || item.product_name || '';
-          if (item.variant || item.variant_name) {
-            const variantName = item.variant || item.variant_name || '';
+          // Tạo tên đầy đủ từ product_name + variant_name
+          let displayName = item.product_name || item.name || item.title || '';
+          const variantName = item.variant_name || item.variant || '';
+          
+          if (variantName) {
             displayName = displayName ? `${displayName} - ${variantName}` : variantName;
           }
+          
           if (!displayName) displayName = 'Sản phẩm';
           
           return `<tr>
@@ -305,6 +307,7 @@
       async createWaybill(order) {
         try {
           console.log('[Waybill] Creating for order:', order.id);
+          console.log('[Waybill] Order items:', JSON.stringify(order.items, null, 2));
           Admin.toast('📄 Đang tạo vận đơn...');
 
           // Get settings for sender info
@@ -360,12 +363,12 @@
           }
 
           const items = (order.items || []).map(item => {
-            // CRITICAL: Đảm bảo có tên sản phẩm, không được để trống
-            let itemName = item.name || item.title || item.product_name || item.product?.name || '';
+            // CRITICAL: Mapping đúng fields từ order items
+            let itemName = item.product_name || item.name || item.title || '';
+            const variantName = item.variant_name || item.variant || '';
             
-            // Nếu có variant, ghép vào
-            if (item.variant || item.variant_name) {
-              const variantName = item.variant || item.variant_name || '';
+            // Ghép product_name + variant_name
+            if (variantName) {
               itemName = itemName ? `${itemName} - ${variantName}` : variantName;
             }
             
@@ -373,6 +376,13 @@
             if (!itemName || itemName.trim() === '' || itemName === '-') {
               itemName = 'Sản phẩm';
             }
+            
+            console.log('[Item mapping]', { 
+              original: item, 
+              mapped_name: itemName,
+              product_name: item.product_name,
+              variant_name: item.variant_name
+            });
             
             return {
               name: itemName.trim(),
