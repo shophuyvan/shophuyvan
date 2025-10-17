@@ -714,16 +714,16 @@ function saveCosts() {
   updateStats();
 }
 
-function showCostModal() {
+window.showCostModal = function() {
   $('#costModal').classList.add('show');
   renderCostList();
-}
+};
 
-function closeCostModal() {
+window.closeCostModal = function() {
   $('#costModal').classList.remove('show');
-}
+};
 
-function addCost() {
+window.addCost = function() {
   const name = $('#costName').value.trim();
   const amount = parseFloat($('#costAmount').value) || 0;
   const type = document.querySelector('input[name="costType"]:checked').value;
@@ -739,13 +739,13 @@ function addCost() {
   $('#costAmount').value = '';
   
   saveCosts();
-}
+};
 
-function deleteCost(id) {
+window.deleteCost = function(id) {
   if (!confirm('Xác nhận xóa chi phí này?')) return;
   costs = costs.filter(c => c.id !== id);
   saveCosts();
-}
+};
 
 function renderCostList() {
   const container = $('#costListContainer');
@@ -785,27 +785,8 @@ async function loadStats() {
     const fromDate = $('#fromDate').value;
     const toDate = $('#toDate').value;
     
-    // Try to get stats from API first
-    try {
-      const params = new URLSearchParams();
-      if (fromDate) params.set('from', new Date(fromDate + 'T00:00:00+07:00').getTime());
-      if (toDate) params.set('to', new Date(toDate + 'T23:59:59+07:00').getTime());
-      
-      const res = await Admin.req('/admin/stats?' + params.toString(), { method: 'GET' });
-      if (res && res.orders !== undefined) {
-        console.log('Stats from API:', res);
-        statsData = res;
-        updateStats();
-        updateCharts();
-        updateTables();
-        return;
-      }
-    } catch (apiError) {
-      console.log('Stats API not available, calculating from orders...');
-    }
-    
-    // Calculate from orders if stats API not available
-    const ordersRes = await Admin.tryPaths(['/admin/orders', '/admin/order/list', '/admin/orders/list']);
+    // Get orders from API
+    const ordersRes = await Admin.req('/admin/orders', { method: 'GET' });
     let orders = ordersRes.items || ordersRes.data || ordersRes.orders || [];
     console.log('Total orders:', orders.length);
     
@@ -815,7 +796,7 @@ async function loadStats() {
       const toTime = toDate ? new Date(toDate + 'T23:59:59+07:00').getTime() : Date.now();
       
       orders = orders.filter(o => {
-        const orderTime = o.created_at || o.createdAt || o.timestamp || o.date;
+        const orderTime = o.createdAt || o.created_at || o.timestamp || o.date;
         const time = typeof orderTime === 'number' ? orderTime : new Date(orderTime).getTime();
         return time >= fromTime && time <= toTime;
       });
@@ -826,58 +807,69 @@ async function loadStats() {
     let totalOrders = orders.length;
     let cancelOrders = 0;
     let returnOrders = 0;
+    let confirmedOrders = 0;
     let totalRevenue = 0;
     let totalCostPrice = 0;
     
     const platformStats = {
-      'Website': { orders: 0, revenue: 0, cost_price: 0, success: 0, cancel: 0, return: 0 },
-      'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, success: 0, cancel: 0, return: 0 }
+      'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
+      'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 }
     };
     
     const productStats = {};
     
     orders.forEach(order => {
       const status = (order.status || '').toLowerCase();
-      const source = order.source || order.channel || 'Website';
-      const platform = source.toLowerCase().includes('zalo') || source.toLowerCase().includes('mini') ? 'Zalo MiniApp' : 'Website';
+      const source = (order.source || '').toLowerCase();
       
-      // Count by status
-      if (status.includes('cancel') || status.includes('hủy') || status.includes('huy')) {
-        cancelOrders++;
-        platformStats[platform].cancel++;
-      } else if (status.includes('return') || status.includes('trả') || status.includes('tra')) {
-        returnOrders++;
-        platformStats[platform].return++;
-      } else if (status.includes('delivered') || status.includes('completed') || status.includes('giao') || status.includes('hoàn')) {
-        platformStats[platform].success++;
-      }
+      // Detect platform - check if from Zalo Mini App or Website
+      const platform = source.includes('zalo') || source.includes('mini') || source.includes('zmp') 
+        ? 'Zalo MiniApp' 
+        : 'Website';
       
       platformStats[platform].orders++;
       
-      // Calculate revenue and cost
-      const orderTotal = order.total || order.amount || order.total_price || 0;
-      const orderCost = order.cost_price || order.total_cost || 0;
-      
-      if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy')) {
-        totalRevenue += orderTotal;
-        totalCostPrice += orderCost;
-        platformStats[platform].revenue += orderTotal;
-        platformStats[platform].cost_price += orderCost;
+      // Count by status
+      if (status.includes('cancel') || status.includes('hủy') || status.includes('huy') || status === 'cancelled') {
+        cancelOrders++;
+        platformStats[platform].cancel++;
+      } else if (status.includes('return') || status.includes('trả') || status.includes('tra') || status === 'returned') {
+        returnOrders++;
+        platformStats[platform].return++;
+      } else if (status.includes('confirm') || status === 'confirmed' || status.includes('deliver') || status.includes('completed')) {
+        confirmedOrders++;
+        platformStats[platform].success++;
       }
       
-      // Count products
-      const items = order.items || order.products || order.line_items || [];
-      items.forEach(item => {
-        const productName = item.name || item.title || item.product_name || 'Unknown';
-        const qty = item.quantity || item.qty || 1;
-        const price = item.price || item.unit_price || 0;
+      // Calculate revenue and cost - only for non-cancelled orders
+      if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy') && status !== 'cancelled') {
+        const orderRevenue = order.revenue || order.subtotal || order.total || 0;
+        const orderProfit = order.profit || 0;
         
-        if (!productStats[productName]) {
-          productStats[productName] = { name: productName, qty: 0, revenue: 0 };
-        }
-        productStats[productName].qty += qty;
-        productStats[productName].revenue += price * qty;
-      });
+        // Calculate cost price from revenue - profit
+        const orderCost = orderRevenue - orderProfit;
+        
+        totalRevenue += orderRevenue;
+        totalCostPrice += orderCost;
+        
+        platformStats[platform].revenue += orderRevenue;
+        platformStats[platform].cost_price += orderCost;
+        platformStats[platform].profit += orderProfit;
+        
+        // Count products
+        const items = order.items || [];
+        items.forEach(item => {
+          const productName = item.title || item.name || item.product_name || 'Unknown';
+          const qty = item.qty || item.quantity || 1;
+          const price = item.price || item.unit_price || 0;
+          
+          if (!productStats[productName]) {
+            productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+          }
+          productStats[productName].qty += qty;
+          productStats[productName].revenue += price * qty;
+        });
+      }
     });
     
     // Convert product stats to array and sort
@@ -889,6 +881,7 @@ async function loadStats() {
       orders: totalOrders,
       cancels: cancelOrders,
       returns: returnOrders,
+      confirmed: confirmedOrders,
       revenue: totalRevenue,
       cost_price: totalCostPrice,
       platforms: [
@@ -905,7 +898,7 @@ async function loadStats() {
     updateTables();
   } catch (error) {
     console.error('Error loading stats:', error);
-    alert('Lỗi tải dữ liệu thống kê. Vui lòng kiểm tra console để biết chi tiết.');
+    alert('Lỗi tải dữ liệu thống kê: ' + error.message);
   }
 }
 
@@ -1094,15 +1087,9 @@ if (window.Admin) {
 
 $('#applyFilter').addEventListener('click', loadStats);
 
-// Set default to today
-setToday();
-loadInventoryValue();
-
-window.showCostModal = showCostModal;
-window.closeCostModal = closeCostModal;
-window.addCost = addCost;
-window.deleteCost = deleteCost;
-window.setToday = setToday;
-window.setThisWeek = setThisWeek;
-window.setThisMonth = setThisMonth;
+// Set default to today on page load
+setTimeout(() => {
+  window.setToday();
+  loadInventoryValue();
+}, 500);
   
