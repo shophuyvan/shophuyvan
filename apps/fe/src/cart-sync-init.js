@@ -1,7 +1,8 @@
 // ==== FE-ONLY: apps/fe/src/cart-sync-init.js ====
 // Khởi tạo cart sync cho FE web
 
-import { initCartSync, getSessionId } from '@shared/cart/sync';
+// ĐÚNG (dùng file cục bộ vừa tạo):
+import { initCartSync, getSessionId } from './lib/cart-sync-shared.js';
 
 console.log('[FE] Initializing cart sync...');
 console.log('[FE] Session ID:', getSessionId());
