@@ -486,9 +486,9 @@ body {
     <span>→</span>
     <input type="date" id="toDate" class="input"/>
     <button id="applyFilter" class="btn">Áp dụng</button>
-    <button class="btn secondary" onclick="setToday()">Hôm nay</button>
-    <button class="btn secondary" onclick="setThisWeek()">Tuần này</button>
-    <button class="btn secondary" onclick="setThisMonth()">Tháng này</button>
+    <button class="btn secondary" id="btnToday">Hôm nay</button>
+    <button class="btn secondary" id="btnThisWeek">Tuần này</button>
+    <button class="btn secondary" id="btnThisMonth">Tháng này</button>
   </div>
 
   <div class="stats-grid">
@@ -534,7 +534,7 @@ body {
       </div>
     </div>
     
-    <div class="stat-card clickable" onclick="showCostModal()">
+    <div class="stat-card clickable" id="costCard">
       <div class="stat-icon red">💸</div>
       <div class="stat-content">
         <div class="stat-label">Chi phí thêm <span style="font-size:16px">+</span></div>
@@ -624,11 +624,11 @@ body {
 </div>
 
 <!-- Modal Chi phí -->
-<div id="costModal" class="modal" onclick="if(event.target===this)closeCostModal()">
+<div id="costModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
       <div class="modal-title">Quản lý Chi phí</div>
-      <button class="modal-close" onclick="closeCostModal()">×</button>
+      <button class="modal-close" id="closeModal">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -661,7 +661,7 @@ body {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="addCost()">+ Thêm chi phí</button>
+      <button class="btn" id="btnAddCost">+ Thêm chi phí</button>
     </div>
   </div>
 </div>
@@ -682,14 +682,14 @@ function formatPercent(n) {
 }
 
 // Declare functions globally first
-window.setToday = function() {
+function setToday() {
   const today = new Date().toISOString().split('T')[0];
   $('#fromDate').value = today;
   $('#toDate').value = today;
   loadStats();
-};
+}
 
-window.setThisWeek = function() {
+function setThisWeek() {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const monday = new Date(today);
@@ -698,32 +698,32 @@ window.setThisWeek = function() {
   $('#fromDate').value = monday.toISOString().split('T')[0];
   $('#toDate').value = new Date().toISOString().split('T')[0];
   loadStats();
-};
+}
 
-window.setThisMonth = function() {
+function setThisMonth() {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   
   $('#fromDate').value = firstDay.toISOString().split('T')[0];
   $('#toDate').value = new Date().toISOString().split('T')[0];
   loadStats();
-};
+}
 
 function saveCosts() {
   renderCostList();
   updateStats();
 }
 
-window.showCostModal = function() {
+function showCostModal() {
   $('#costModal').classList.add('show');
   renderCostList();
-};
+}
 
-window.closeCostModal = function() {
+function closeCostModal() {
   $('#costModal').classList.remove('show');
-};
+}
 
-window.addCost = function() {
+function addCost() {
   const name = $('#costName').value.trim();
   const amount = parseFloat($('#costAmount').value) || 0;
   const type = document.querySelector('input[name="costType"]:checked').value;
@@ -739,13 +739,13 @@ window.addCost = function() {
   $('#costAmount').value = '';
   
   saveCosts();
-};
+}
 
-window.deleteCost = function(id) {
+function deleteCost(id) {
   if (!confirm('Xác nhận xóa chi phí này?')) return;
   costs = costs.filter(c => c.id !== id);
   saveCosts();
-};
+}
 
 function renderCostList() {
   const container = $('#costListContainer');
@@ -915,18 +915,19 @@ async function loadInventoryValue() {
       
       if (variants.length > 0) {
         variants.forEach(v => {
-          const stock = v.stock ?? v.inventory ?? 0;
-          const costPrice = v.cost_price ?? v.import_price ?? v.price_import ?? p.cost_price ?? 0;
+          const stock = v.stock ?? v.inventory ?? v.quantity ?? 0;
+          const costPrice = v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? 0;
           totalValue += stock * costPrice;
         });
       } else {
-        const stock = p.stock ?? p.inventory ?? 0;
-        const costPrice = p.cost_price ?? p.import_price ?? p.price_import ?? 0;
+        const stock = p.stock ?? p.inventory ?? p.quantity ?? 0;
+        const costPrice = p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? 0;
         totalValue += stock * costPrice;
       }
     });
     
     $('#inventoryValue').textContent = formatMoney(totalValue);
+    console.log('Inventory value:', totalValue, 'from', products.length, 'products');
   } catch (error) {
     console.error('Error loading inventory:', error);
     $('#inventoryValue').textContent = '0đ';
@@ -1085,11 +1086,21 @@ if (window.Admin) {
   Admin.renderApiBase();
 }
 
+// Event listeners
 $('#applyFilter').addEventListener('click', loadStats);
+$('#btnToday').addEventListener('click', setToday);
+$('#btnThisWeek').addEventListener('click', setThisWeek);
+$('#btnThisMonth').addEventListener('click', setThisMonth);
+$('#costCard').addEventListener('click', showCostModal);
+$('#closeModal').addEventListener('click', closeCostModal);
+$('#btnAddCost').addEventListener('click', addCost);
+$('#costModal').addEventListener('click', (e) => {
+  if (e.target.id === 'costModal') closeCostModal();
+});
 
 // Set default to today on page load
 setTimeout(() => {
-  window.setToday();
+  setToday();
   loadInventoryValue();
 }, 500);
   
