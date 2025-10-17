@@ -435,39 +435,6 @@ function injectStickyCTA() {
     window.location.href = '/checkout.html';
   });
 }
-  $('#shv-cta-add')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (typeof openVariantModal === 'function') {
-      openVariantModal('cart');
-    } else {
-      window.location.href = '/cart.html';
-    }
-  });
- else {
-      window.location.href = '/cart.html';
-    }
-  });
-
-  }
-
-  $('#shv-cta-add')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    openVariantModal('cart');
-  });
-
-  $('#shv-cta-buy')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      const maybePromise = openVariantModal('buy');
-      if (maybePromise && typeof maybePromise.then === 'function') {
-        await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
-      } else {
-        await new Promise(r => setTimeout(r, 150));
-      }
-    } catch {}
-    window.location.href = '/checkout.html';
-  });
-}
 
 // === VARIANT MODAL ===
 function openVariantModal(mode) {
