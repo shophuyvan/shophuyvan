@@ -411,11 +411,17 @@ function injectStickyCTA() {
   const zBtn = $('#btn-zalo');
   if (zBtn && zBtn.href) {
     $('#shv-cta-zalo').href = zBtn.href;
+  }
+
   $('#shv-cta-add')?.addEventListener('click', (e) => {
     e.preventDefault();
     if (typeof openVariantModal === 'function') {
       openVariantModal('cart');
     } else {
+      window.location.href = '/cart.html';
+    }
+  });
+ else {
       window.location.href = '/cart.html';
     }
   });

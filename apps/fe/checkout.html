@@ -6,6 +6,23 @@
   <title>Thanh toán - Shop Huy Vân</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module" src="/src/pixels.js?v=99"></script>
+
+<style>
+  /* --- Mini look & feel (lightweight) --- */
+  .brand-card{border:1px solid #e5e7eb;border-radius:16px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.04)}
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+  .section-head h2{font-weight:700}
+  .safe-x{max-width:64rem;margin-left:auto;margin-right:auto;padding-left:1rem;padding-right:1rem}
+  .list-tile{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid #f1f5f9}
+  .btn-primary{background:#059669;color:#fff;border:none;border-radius:.75rem;padding:.75rem 1rem;font-weight:700}
+  .btn-primary:hover{background:#047857}
+  .badge{display:inline-flex;align-items:center;gap:.25rem;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;padding:.25rem .5rem;font-size:.75rem}
+  .ship-card{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;border-radius:12px;padding:.75rem 1rem;background:#fff}
+  .ship-card:hover{background:#f9fafb}
+  .sum-row{display:flex;justify-content:space-between;align-items:center}
+  .sum-row strong{font-weight:800}
+</style>
+
 </head>
 <body class="bg-gray-50">
 <header class="border-b bg-white">
@@ -20,7 +37,7 @@
 <main class="max-w-3xl mx-auto px-4 py-6 space-y-4">
   <h1 class="font-semibold text-lg">Thanh toán</h1>
   
-  <section class="bg-white border rounded p-4">
+  <section class="brand-card p-4">
     <h2 class="font-semibold mb-3">Địa chỉ nhận hàng</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <input id="name" placeholder="Họ tên *" class="border rounded px-3 py-2" required />
@@ -49,14 +66,14 @@
     <input type="hidden" id="ward_code" />
   </section>
 
-  <section class="bg-white border rounded p-4">
+  <section class="brand-card p-4">
     <h2 class="font-semibold">Vận chuyển</h2>
     <div id="quote-list" class="mt-3 grid gap-2">
       <div class="text-sm text-gray-500">Vui lòng chọn địa chỉ để xem phí vận chuyển</div>
     </div>
   </section>
 
-  <section class="bg-white border rounded p-4">
+  <section class="brand-card p-4">
     <h2 class="font-semibold mb-2">Mã khuyến mãi</h2>
     <div class="flex gap-2">
       <input id="voucher" class="border rounded px-3 py-2 flex-1" 
@@ -88,7 +105,7 @@
     </div>
   </section>
 
-  <section class="bg-white border rounded p-4">
+  <section class="brand-card p-4">
     <button id="place-order" class="w-full bg-emerald-600 text-white px-4 py-3 rounded font-semibold hover:bg-emerald-700">
       Đặt hàng
     </button>
