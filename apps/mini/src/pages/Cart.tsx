@@ -246,16 +246,22 @@ export default function CartPage() {
               <img
                 src={getLineImage(l)}
                 className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
-                alt={l.variantName || l.name}
+                alt={l.variantName ? `${l.name} — ${l.variantName}` : l.name}
                 loading="lazy"
               />
 
               {/* Details */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm line-clamp-2 mb-1">
-                  {l.variantName || l.name}
-                </div>
-
+              <div className="font-medium text-sm leading-5 mb-1">
+  <span className="block line-clamp-2">{l.name}</span>
+  {l.variantName && (
+    <span
+      className="inline-block mt-0.5 px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600"
+      title={l.variantName}
+    >
+      {l.variantName}
+    </span>
+  )}
+</div>
                 {/* Price */}
                 <div className="text-sm mb-2">
                   <span className="text-rose-600 font-semibold mr-2">
