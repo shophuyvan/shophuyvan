@@ -497,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   ['fe-pc', 'fe-mobile', 'mini-pc', 'mini-mobile'].forEach(setupPreview);
 
-  // Upload image
+  // Upload image to Cloudinary via signed upload
   window.uploadImage = async function(prefix) {
     console.log('[Banners] Uploading image for:', prefix);
     
@@ -516,42 +516,63 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('[Banners] File selected:', file.name, file.size, 'bytes');
     
-    const fd = new FormData();
-    fd.append('file', file);
-    
     try {
-      console.log('[Banners] Trying upload endpoints...');
+      // Step 1: Get signature from API
+      console.log('[Banners] Step 1/2: Getting signature...');
+      const apiBase = Admin.getBase();
+      const token = Admin.token();
       
-      let r = await Admin.req('/admin/upload', { method: 'POST', body: fd });
-      console.log('[Banners] /admin/upload response:', r);
+      const sigResponse = await fetch(`${apiBase}/upload/signature`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-token': token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ folder: 'shv' })
+      });
       
-      if (!(r && r.ok)) {
-        console.log('[Banners] Trying /admin/files endpoint...');
-        r = await Admin.req('/admin/files', { method: 'POST', body: fd });
-        console.log('[Banners] /admin/files response:', r);
+      if (!sigResponse.ok) {
+        const errorText = await sigResponse.text();
+        throw new Error('Signature error: ' + errorText);
       }
       
-      if (r && r.ok && r.urls && r.urls[0]) {
-        const imgInput = $(`#${prefix}-img`);
-        if (imgInput) {
-          imgInput.value = r.urls[0];
-          imgInput.dispatchEvent(new Event('input'));
-        }
-        Admin.toast('Upload thành công');
-        console.log('[Banners] Upload success:', r.urls[0]);
-      } else if (r && r.ok && r.url) {
-        // Some APIs return single url instead of urls array
-        const imgInput = $(`#${prefix}-img`);
-        if (imgInput) {
-          imgInput.value = r.url;
-          imgInput.dispatchEvent(new Event('input'));
-        }
-        Admin.toast('Upload thành công');
-        console.log('[Banners] Upload success:', r.url);
-      } else {
-        console.error('[Banners] Upload failed:', r);
-        alert('Upload thất bại: ' + (r.error || 'Unknown error'));
+      const sig = await sigResponse.json();
+      console.log('[Banners] Signature received:', sig);
+      
+      // Step 2: Upload to Cloudinary
+      console.log('[Banners] Step 2/2: Uploading to Cloudinary...');
+      const fd = new FormData();
+      fd.append('timestamp', sig.timestamp);
+      fd.append('signature', sig.signature);
+      fd.append('api_key', sig.api_key);
+      fd.append('upload_preset', sig.upload_preset);
+      fd.append('folder', sig.folder);
+      fd.append('file', file);
+      
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`;
+      const uploadResponse = await fetch(cloudinaryUrl, {
+        method: 'POST',
+        body: fd
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error('Cloudinary upload error: ' + errorText);
       }
+      
+      const result = await uploadResponse.json();
+      console.log('[Banners] Upload success:', result.secure_url);
+      
+      // Set the uploaded URL to input
+      const imgInput = $(`#${prefix}-img`);
+      if (imgInput) {
+        imgInput.value = result.secure_url;
+        imgInput.dispatchEvent(new Event('input'));
+      }
+      
+      Admin.toast('Upload thành công!');
+      
     } catch (e) {
       console.error('[Banners] Upload error:', e);
       alert('Lỗi khi upload: ' + e.message);
@@ -727,22 +748,22 @@ document.addEventListener('DOMContentLoaded', function() {
     return card;
   }
 
-   // Delete banner
+  // Delete banner
   window.deleteBanner = async function(id, platform) {
     if (!confirm('Xác nhận xóa banner này?')) return;
-
+    
     console.log('[Banners] Deleting banner:', id);
-
+    
     try {
       let r = await Admin.req('/admin/banners/delete', { method: 'POST', body: { id } });
       console.log('[Banners] /admin/banners/delete response:', r);
-
+      
       if (!(r && r.ok)) {
         console.log('[Banners] Trying /admin/banner/delete endpoint...');
         r = await Admin.req('/admin/banner/delete', { method: 'POST', body: { id } });
         console.log('[Banners] /admin/banner/delete response:', r);
       }
-
+      
       if (r && r.ok) {
         Admin.toast('Đã xóa');
         loadBanners(platform);
@@ -751,13 +772,4 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('[Banners] Delete failed:', r);
         alert('Xóa thất bại: ' + (r.error || 'Unknown error'));
       }
-    } catch (e) {
-      console.error('[Banners] Delete error:', e);
-      alert('Lỗi khi xóa: ' + e.message);
-    }
-  };
-
-  // Lần đầu vào trang: tải banner FE
-  loadBanners('fe');
-});  // <-- đóng DOMContentLoaded
-</script>
+    
