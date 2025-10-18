@@ -62,8 +62,8 @@ export async function createWaybill(req, env) {
       provider: ship.provider || body.provider || order.shipping_provider || '',
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
-      // Items (FIXED)
-      items: buildWaybillItems(body, order),
+      // Products (FIXED: đổi từ items → products)
+      products: buildWaybillItems(body, order),
       
       // Additional
       note: body.note || order.note || ''
@@ -97,6 +97,7 @@ export async function createWaybill(req, env) {
     // Validate required fields
     const validation = validateWaybillPayload(payload);
     if (!validation.ok) {
+      console.error('[Waybill] Validation failed:', validation.errors);
       return json({
         ok: false,
         error: 'VALIDATION_FAILED',
@@ -104,7 +105,7 @@ export async function createWaybill(req, env) {
       }, { status: 400 }, req);
     }
 
-    console.log('Creating waybill with payload:', JSON.stringify(payload, null, 2));
+    console.log('[Waybill] Creating with payload:', JSON.stringify(payload, null, 2));
 
     // Call SuperAI API
     const data = await superFetch(env, '/v1/platform/orders/create', {
@@ -112,7 +113,7 @@ export async function createWaybill(req, env) {
       body: payload
     });
 
-    console.log('SuperAI response:', JSON.stringify(data, null, 2));
+    console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
 
     const code = data?.data?.code || data?.code || null;
     const tracking = data?.data?.tracking || data?.tracking || code || null;
@@ -133,15 +134,16 @@ export async function createWaybill(req, env) {
     }
 
     // Better error handling
+    const errorMessage = data?.message || data?.error || 'Không tạo được vận đơn';
     return json({
       ok: false,
       error: 'CREATE_FAILED',
-      message: data?.message || data?.error?.message || 'Không tạo được vận đơn',
+      message: errorMessage,
       raw: data
     }, { status: 400 }, req);
 
   } catch (e) {
-    console.error('Waybill creation error:', e);
+    console.error('[Waybill] Exception:', e);
     return json({
       ok: false,
       error: 'EXCEPTION',
@@ -150,18 +152,18 @@ export async function createWaybill(req, env) {
   }
 }
 
-// ===== FIXED: buildWaybillItems with default weight and name truncation =====
+// ===== FIXED: buildWaybillItems with product_price and product_code =====
 function buildWaybillItems(body, order) {
   const items = Array.isArray(order.items) ? order.items : 
                (Array.isArray(body.items) ? body.items : []);
 
   if (!items.length) {
-    // Return default item if empty
     return [{
       name: 'Sản phẩm',
-      price: 0,
+      product_price: 0,
       quantity: 1,
-      weight: 500 // Default 500g
+      weight: 500,
+      product_code: 'DEFAULT'
     }];
   }
 
@@ -169,7 +171,7 @@ function buildWaybillItems(body, order) {
     // Get weight with fallback
     let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
     if (weight <= 0) {
-      weight = 500; // Default 500g per item if not specified
+      weight = 500;
     }
 
     // Get name with fallback and truncate if too long
@@ -183,9 +185,10 @@ function buildWaybillItems(body, order) {
 
     return {
       name: name,
-      price: Number(item.price || 0),
+      product_price: Number(item.price || 0),
       quantity: Number(item.qty || item.quantity || 1),
-      weight: weight
+      weight: weight,
+      product_code: item.sku || item.id || `ITEM${index + 1}`
     };
   });
 }
@@ -212,16 +215,16 @@ function validateWaybillPayload(payload) {
     errors.push('Invalid weight (must be > 0)');
   }
 
-  // Items validation
-  if (!Array.isArray(payload.items) || payload.items.length === 0) {
-    errors.push('Items array is empty');
+  // Products validation (đổi từ items)
+  if (!Array.isArray(payload.products) || payload.products.length === 0) {
+    errors.push('Products array is empty');
   } else {
-    payload.items.forEach((item, idx) => {
+    payload.products.forEach((item, idx) => {
       if (!item.name || !item.name.trim()) {
-        errors.push(`Item ${idx + 1}: name is required`);
+        errors.push(`Product ${idx + 1}: name is required`);
       }
       if (!item.weight || item.weight <= 0) {
-        errors.push(`Item ${idx + 1}: weight must be > 0`);
+        errors.push(`Product ${idx + 1}: weight must be > 0`);
       }
     });
   }
