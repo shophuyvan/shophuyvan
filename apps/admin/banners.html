@@ -453,7 +453,8 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const device = this.getAttribute('data-device');
       section.querySelectorAll('.device-content').forEach(c => c.classList.remove('active'));
-      section.getElementById(device).classList.add('active');
+      const targetContent = section.querySelector('#' + device);
+      if (targetContent) targetContent.classList.add('active');
     });
   });
 
