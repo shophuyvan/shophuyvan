@@ -1,6 +1,6 @@
 /**
  * Waybill Creator - Tạo vận đơn (Complete Version)
- * Version: 2.1
+ * Version: 2.1 - FIXED
  */
 
 class WaybillCreator {
@@ -8,44 +8,7 @@ class WaybillCreator {
     this.baseURL = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
   }
 
-  // ==================== SHOW VALIDATION ERROR ====================
-  
-  showValidationError(type, errors, data) {
-    const errorList = errors.map((err, i) => `${i + 1}. ${err}`).join('\n');
-    
-    let dataInfo = '';
-    if (type === 'NGƯỜI GỬI') {
-      dataInfo = `Thông tin hiện tại:\n` +
-                `• Tên: ${data.name || 'CHƯA CÓ'}\n` +
-                `• SĐT: ${data.phone || 'CHƯA CÓ'}\n` +
-                `• Địa chỉ: ${data.address || 'CHƯA CÓ'}\n` +
-                `• Tỉnh code: ${data.province_code || 'CHƯA CÓ'}\n` +
-                `• Quận code: ${data.district_code || 'CHƯA CÓ'}\n\n` +
-                `👉 Vui lòng cập nhật trong Settings → Shipping`;
-    } else {
-      dataInfo = `Thông tin hiện tại:\n` +
-                `• Tên: ${data.name || 'CHƯA CÓ'}\n` +
-                `• SĐT: ${data.phone || 'CHƯA CÓ'}\n` +
-                `• Địa chỉ: ${data.address || 'CHƯA CÓ'}\n` +
-                `• Tỉnh code: ${data.province_code || 'CHƯA CÓ'}\n` +
-                `• Quận code: ${data.district_code || 'CHƯA CÓ'}`;
-    }
-    
-    alert(`⚠️ LỖI THÔNG TIN ${type}\n\n` +
-          `Các lỗi:\n${errorList}\n\n` +
-          `${dataInfo}`);
-    
-    if (window.Admin && window.Admin.toast) {
-      Admin.toast(`❌ Lỗi thông tin ${type}`);
-    }
-  }
-}
-
-// Global instance
-window.waybillCreator = new WaybillCreator();
-window.WaybillCreator = WaybillCreator;
-
-console.log('[WaybillCreator] Initialized ✅'); GET SENDER INFO ====================
+  // ==================== GET SENDER INFO ====================
   
   async getSenderInfo() {
     try {
@@ -372,4 +335,41 @@ console.log('[WaybillCreator] Initialized ✅'); GET SENDER INFO ===============
           `Vui lòng kiểm tra Console (F12) để xem chi tiết.`);
   }
 
-  // ====================
+  // ==================== SHOW VALIDATION ERROR ====================
+  
+  showValidationError(type, errors, data) {
+    const errorList = errors.map((err, i) => `${i + 1}. ${err}`).join('\n');
+    
+    let dataInfo = '';
+    if (type === 'NGƯỜI GỬI') {
+      dataInfo = `Thông tin hiện tại:\n` +
+                `• Tên: ${data.name || 'CHƯA CÓ'}\n` +
+                `• SĐT: ${data.phone || 'CHƯA CÓ'}\n` +
+                `• Địa chỉ: ${data.address || 'CHƯA CÓ'}\n` +
+                `• Tỉnh code: ${data.province_code || 'CHƯA CÓ'}\n` +
+                `• Quận code: ${data.district_code || 'CHƯA CÓ'}\n\n` +
+                `👉 Vui lòng cập nhật trong Settings → Shipping`;
+    } else {
+      dataInfo = `Thông tin hiện tại:\n` +
+                `• Tên: ${data.name || 'CHƯA CÓ'}\n` +
+                `• SĐT: ${data.phone || 'CHƯA CÓ'}\n` +
+                `• Địa chỉ: ${data.address || 'CHƯA CÓ'}\n` +
+                `• Tỉnh code: ${data.province_code || 'CHƯA CÓ'}\n` +
+                `• Quận code: ${data.district_code || 'CHƯA CÓ'}`;
+    }
+    
+    alert(`⚠️ LỖI THÔNG TIN ${type}\n\n` +
+          `Các lỗi:\n${errorList}\n\n` +
+          `${dataInfo}`);
+    
+    if (window.Admin && window.Admin.toast) {
+      Admin.toast(`❌ Lỗi thông tin ${type}`);
+    }
+  }
+}
+
+// Global instance
+window.waybillCreator = new WaybillCreator();
+window.WaybillCreator = WaybillCreator;
+
+console.log('[WaybillCreator] Initialized ✅');
