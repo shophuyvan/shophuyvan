@@ -138,15 +138,32 @@ class WaybillCreator {
   // ==================== BUILD PAYLOAD ====================
   
   buildPayload(order, sender, receiver) {
-    const items = (order.items || []).map(item => ({
-      name: item.name || item.title || 'Sản phẩm',
-      qty: Number(item.qty || 1),
-      price: Number(item.price || 0),
-      weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0)
-    }));
+    const items = (order.items || []).map((item, idx) => {
+      // Fix weight - default 500g per item if missing
+      let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
+      if (weight <= 0) {
+        weight = 500; // Default 500g
+      }
+      
+      // Fix name - truncate if too long
+      let name = String(item.name || item.title || `Sản phẩm ${idx + 1}`).trim();
+      if (name.length > 100) {
+        name = name.substring(0, 97) + '...';
+      }
+      if (!name) {
+        name = `Sản phẩm ${idx + 1}`;
+      }
+      
+      return {
+        name: name,
+        qty: Number(item.qty || 1),
+        price: Number(item.price || 0),
+        weight_grams: weight
+      };
+    });
 
     const totalWeight = items.reduce((sum, item) => 
-      sum + (item.weight_grams || 0) * (item.qty || 1), 0);
+      sum + (item.weight_grams || 500) * (item.qty || 1), 0);
 
     const payload = {
       provider: (order.shipping_provider || order.provider || 'vtp').toLowerCase(),

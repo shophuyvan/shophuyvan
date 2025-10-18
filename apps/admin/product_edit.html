@@ -46,6 +46,17 @@
             <div class="col"><input id="category" class="input" placeholder="vd: dien-nuoc"/></div>
             <div id="categoryPreview" class="badge" style="display:none"></div>
           </div>
+		  <div class="row" style="gap:8px;align-items:center;margin-top:6px;">
+  <div class="col">
+    <select id="categorySelect" class="input">
+      <option value="">-- Chọn danh mục --</option>
+    </select>
+  </div>
+  <div>
+    <button id="refreshCategories" class="btn">🔄 Cập nhật danh mục</button>
+  </div>
+</div>
+<!-- === END CATEGORY DROPDOWN === -->
         </div>
         <div class="col">
           <label>FAQ</label>
@@ -521,9 +532,48 @@ function formatFaqForTextarea(faqArray) {
     return `Hỏi: ${q} | Đáp: ${a}`;
   }).join('\n');
 }
+/* === START LOAD CATEGORIES TO SELECT === */
+async function loadCategoriesToSelect() {
+  const sel = document.getElementById('categorySelect');
+  if (!sel) return;
 
+  sel.innerHTML = '<option value="">-- Đang tải danh mục... --</option>';
+  try {
+    // Lấy danh mục từ API (dùng lại hàm có sẵn)
+    const cats = await loadCategoriesFlex();
+    sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
+      cats.map(c => `<option value="${c.slug}">${c.name}</option>`).join('');
+
+    // Nếu form đang sửa sản phẩm có sẵn slug danh mục → tự chọn
+    const currentSlug = document.getElementById('category')?.value || '';
+    if (currentSlug) sel.value = currentSlug;
+  } catch (e) {
+    sel.innerHTML = '<option value="">(Lỗi tải danh mục)</option>';
+    console.error('Lỗi tải danh mục:', e);
+  }
+}
+
+// Khi chọn dropdown, cập nhật input slug và badge preview
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'categorySelect') {
+    const val = e.target.value;
+    const inp = document.getElementById('category');
+    const pv = document.getElementById('categoryPreview');
+    if (inp) inp.value = val;
+    if (pv) { pv.textContent = val; pv.style.display = val ? 'inline-block' : 'none'; }
+  }
+});
+
+// Nút refresh danh mục
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'refreshCategories') {
+    loadCategoriesToSelect();
+  }
+});
+/* === END LOAD CATEGORIES TO SELECT === */
 window.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing sidebar...');
+  loadCategoriesToSelect();
   
   // Initialize sidebar layout
   if (window.AdminLayout) {

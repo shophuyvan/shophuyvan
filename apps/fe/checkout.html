@@ -4,10 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Thanh toán - Shop Huy Vân</title>
-  
   <meta name="description" content="Thanh toán đơn hàng tại Shop Huy Vân - Nhanh chóng, an toàn, bảo mật">
   <meta name="robots" content="noindex, nofollow">
-  
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
@@ -44,7 +42,7 @@
   <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <div class="p-4 border-b bg-gradient-to-r from-rose-50 to-pink-50">
       <h2 class="font-semibold text-lg flex items-center gap-2">
-        <span>🛍️</span>
+        <span>🛒</span>
         <span>Đơn hàng (<span id="cart-count">0</span> sản phẩm)</span>
       </h2>
     </div>
@@ -127,7 +125,6 @@
 
 <script type="module">
 const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
-const SHIP_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZTZhN2UwMjQyYjZiZDlhNDFkM2M2OWVlZmFmNjA5YWUzMDRkMmZhMTFiOWE5ZmVlMjJlYjEzZTY4ZTk1OTRmNWQ4YjFmODRlMDZjMWNkIn0.eyJhdWQiOiIxIiwianRpIjoiNWRlNmE3ZTAyNDJiNmJkOWE0MWQzYzY5ZWVmYWY2MDlhZTMwNGQyZmExMWI5YTlmZWUyMmViMTNlNjhlOTU5NGY1ZDhiMWY4NGUwNmMxY2QiLCJpYXQiOjE3NTgyNTA1ODgsIm5iZiI6MTc1ODI1MDU4OCwiZXhwIjoxNzg5Nzg2NTg4LCJzdWIiOiIxOTMwNjUiLCJzY29wZXMiOltdfQ.CYAL821UmGat9sqOptml5eluNA9C0DEW4BMVETx7Kj5rBwcFgIkG2nH4LmFfzcWE34O5AtgV3o3-DUnxvC0K6V5vA4JJBlJuG5AwGRZrtEl6hgGqCYVOsyIZSuLA6pLAI17WPOZzBSq_SLNkD1BkBDlNAwCzFLVis2b88cx2iS6Hl-HPvNhLWpiUQu1UNcWJYoi5DhqEYxLMWk51mRMlRSYFXZzUQ1FBKFKOc3rI1BHn3zrQPrfIxAJpVhVG0xhsbbekcq_kGZwzKB_-bBlU2_BDsYIj9fMaN0Be8J_BWEb3qTUog21anb9ka2biPd1Exb4rLyyRPfVh7JQarQWhugGnH8YLjSbbDX1oPnDpcYD7Q6wzwmTHLxHfdQUEB4F2vx4sQHJ8o9E1DZaOcm-AVtqXCOzqTr8S6NYVOupkcbl3AP99McRKjQ_xha3rNiyaZ_NwUiVBscnqx-41zn-nwFsWFI6oybsMSpFVixOwD_Ub7NGkkNObuUoEccFAwlrS1JOa4jHID1-ZzN3GX_koERcAC0oht4BgGlmayr59gEoxYc5p_E-59pDyZ7zRfdyxcjpjZhWC4MelA8zkDfIXIkUpuvzz2IWSPtfuVXoKF_Mr0wMVKwxuo-sU0QDrUnTpiu1g3fXeHpw1OiJQvNEdLV2-ODi9fFYhltJPPttUs_w';
 const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
 const $ = id => document.getElementById(id);
 const fmtVND = v => (Number(v)||0).toLocaleString('vi-VN') + '₫';
@@ -191,6 +188,8 @@ function getCart() {
 function clearCart() {
   localStorage.removeItem('cart');
   localStorage.removeItem('CART');
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('cart-cleared'));
 }
 
 function calculateTotals() {
@@ -349,47 +348,24 @@ async function getShippingQuote() {
         weight_gram: weight,
         cod: subtotal
       };
-      const res = await fetch('https://services.giaohangtietkiem.vn/services/shipment/fee', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Token': SHIP_TOKEN
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success && data.fee) {
-        items.push({
-          provider: 'ghtk',
-          service_code: 'standard',
-          name: 'Giao Hàng Tiết Kiệm',
-          fee: data.fee.fee || 0,
-          eta: data.fee.delivery_date || 'Giao hàng tiêu chuẩn'
-        });
-      }
-    } catch (e) {
-      console.log('GHTK endpoint failed, using fallback');
-    }
-    
-    if (!items.length) {
-      items = getFixedQuotes(weight);
-    }
-    
-    try {
       const res = await api('/shipping/price', {
         method: 'POST',
-        body: { receiver_province: provinceCode, receiver_district: districtCode, weight_gram: weight, cod: 0 }
+        body: payload
       });
       const apiItems = res.items || res.data || [];
-      items.push(...apiItems.map(o => ({
+      items = apiItems.map(o => ({
         provider: o.provider || o.carrier || '',
         service_code: o.service_code || o.service || '',
         name: o.name || o.service_name || o.provider,
         fee: Number(o.fee || o.total_fee || 0),
         eta: o.eta || o.leadtime || ''
-      })));
+      }));
     } catch (e) {
-      console.log('Internal API failed');
+      console.log('API shipping failed, using fallback');
+    }
+    
+    if (!items.length) {
+      items = getFixedQuotes(weight);
     }
     
     items = items.filter(o => o.fee > 0);
@@ -565,23 +541,25 @@ async function placeOrder() {
     
     if (res.ok || res.id) {
       const orderId = res.id || res.order_id || '';
-      resultEl.innerHTML = '<div class="text-green-600 font-semibold">✓ Đặt hàng thành công!</div>';
+      
+      resultEl.innerHTML = `
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-3">
+          <div class="flex items-center gap-2 text-green-700 font-semibold mb-2">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>✓ Đặt hàng thành công!</span>
+          </div>
+          <p class="text-sm text-gray-600">Mã đơn hàng: <strong>${orderId}</strong></p>
+          <p class="text-sm text-gray-600 mt-1">Chúng tôi sẽ liên hệ với bạn sớm nhất.</p>
+        </div>
+      `;
+      
       clearCart();
       
-      // Check if admin is logged in
-      const isAdmin = localStorage.getItem('x-token') || false;
-      
-      if (isAdmin) {
-        // Redirect to admin orders page with auto-waybill flag
-        setTimeout(() => {
-          window.location.href = `https://adminshophuyvan.pages.dev/orders.html?order_id=${orderId}&auto_waybill=1`;
-        }, 1000);
-      } else {
-        // Redirect to thank you page for customers
-        setTimeout(() => {
-          window.location.href = '/thank-you.html?order=' + orderId;
-        }, 1500);
-      }
+      setTimeout(() => {
+        window.location.href = '/?order_success=1&order_id=' + orderId;
+      }, 2000);
     } else {
       throw new Error(res.error || res.message || 'Đặt hàng thất bại');
     }
@@ -636,8 +614,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+
+console.log('✅ Checkout page loaded - CORS & Cart Clear FIXED');
 </script>
 
 </body>
 </html>
-  
