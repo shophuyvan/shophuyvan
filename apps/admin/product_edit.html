@@ -6,127 +6,110 @@
 <title>Thêm / Sửa sản phẩm</title>
 <link rel="stylesheet" href="./styles.css"/>
 <script src="./admin_real.js?v=25"></script>
+<script src="./sidebar-layout.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <div class="title">Thêm / Sửa sản phẩm</div>
-    <div class="nav">
-      <a href="./products.html" class="badge">Sản phẩm</a>
-      <a href="./banners.html" class="badge">Banner</a>
-      <a href="./vouchers.html" class="badge">Voucher</a>
-      <a href="./orders.html" class="badge">Đơn hàng</a>
-      <a href="./stats.html" class="badge">Thống kê</a>
-      <a href="./shipping.html" class="badge">Vận chuyển</a>
-      <a href="./ads.html" class="badge">Quảng cáo</a>
-      <span class="badge">API: <span data-api-base></span></span>
+<!-- Content will be wrapped by sidebar-layout.js -->
+
+<div class="toolbar">
+  <button id="btnTestCloudinary" class="btn">Test Cloudinary</button>
+  <label for="zipFile" class="btn primary" style="cursor:pointer">📦 Import từ ZIP</label>
+  <input id="zipFile" type="file" accept=".zip" style="display:none"/>
+</div>
+
+<div class="grid cols-2">
+  <div class="col">
+    <label>Tiêu đề</label>
+    <input id="title" class="input" placeholder="Tên sản phẩm"/>
+
+    <label>Mô tả ngắn</label>
+    <textarea id="shortDesc" class="input" rows="3" placeholder="Mô tả ngắn..."></textarea>
+
+    <label>Mô tả chi tiết (HTML)</label>
+    <textarea id="desc" class="input" rows="12" placeholder="<h1>Tiêu đề</h1><p>Nội dung...</p>"></textarea>
+    <div class="hint">💡 Dùng &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt; cho cấu trúc rõ ràng</div>
+
+    <div class="grid">
+      <div class="row">
+        <div class="col">
+          <label>SEO Title</label>
+          <input id="seoTitle" class="input"/>
+          <label>SEO Desc</label>
+          <input id="seoDesc" class="input"/>
+          <label>Keywords (phân tách dấu phẩy)</label>
+          <div class="toolbar"><button id="pickCat" class="btn">+ Chọn danh mục</button></div>
+          <input id="keywords" class="input"/>
+          <label>Danh mục (slug)</label>
+          <div class="row" style="gap:8px;align-items:center">
+            <div class="col"><input id="category" class="input" placeholder="vd: dien-nuoc"/></div>
+            <div id="categoryPreview" class="badge" style="display:none"></div>
+          </div>
+        </div>
+        <div class="col">
+          <label>FAQ</label>
+          <textarea id="faq" class="input" rows="6" placeholder="Hỏi: ... | Đáp: ..."></textarea>
+          <label>Đánh giá mẫu (JSON)</label>
+          <textarea id="reviews" class="input" rows="4" placeholder='[{"name":"A","rating":5}]'></textarea>
+        </div>
+      </div>
+    </div>
+
+    <label>Slug</label>
+    <input id="slug" class="input" placeholder="duong-dan-san-pham"/>
+
+    <div class="row">
+      <div class="col"><label>Giá bán</label><input id="price" class="input" type="number" min="0"/></div>
+      <div class="col"><label>Giá sale</label><input id="price_sale" class="input" type="number" min="0"/></div>
+      <div class="col"><label>Giá nhập</label><input id="cost" class="input" type="number" min="0"/></div>
+      <div class="col"><label>Cân nặng (g)</label><input id="weight" class="input" type="number" min="0"/></div>
+      <div class="col"><label>Tồn kho</label><input id="stock" class="input" type="number" min="0"/></div>
+    </div>
+
+    <label>Video (URL)</label>
+    <div class="row">
+      <div class="col"><input id="video" class="input" placeholder="https://..."/></div>
+      <div><input id="videoFile" type="file" accept="video/*"/></div>
+      <div><button id="upVideo" class="btn">Upload video</button></div>
+    </div>
+
+    <label>Hình ảnh</label>
+    <div class="row">
+      <div class="col"><input id="imgFile" class="input" type="file" accept="image/*" multiple/></div>
+      <div><button class="btn" id="upImg">Upload</button></div>
+    </div>
+    <div id="imgs" class="list-images"></div>
+
+    <div class="toolbar">
+      <button id="saveBtn" class="btn primary">Lưu sản phẩm</button>
+      <span class="hint">Dữ liệu gửi tới /admin/products/upsert</span>
     </div>
   </div>
 
-  <div class="grid cols-2">
-    <div class="col">
-      <div class="toolbar">
-        <button id="btnTestCloudinary" class="btn">Test Cloudinary</button>
-        <label for="zipFile" class="btn primary" style="cursor:pointer">📦 Import từ ZIP</label>
-        <input id="zipFile" type="file" accept=".zip" style="display:none"/>
-      </div>
-      
-      <label>Tiêu đề</label>
-      <input id="title" class="input" placeholder="Tên sản phẩm"/>
-
-      <label>Mô tả ngắn</label>
-      <textarea id="shortDesc" class="input" rows="3" placeholder="Mô tả ngắn..."></textarea>
-
-      <label>Mô tả chi tiết (HTML)</label>
-      <textarea id="desc" class="input" rows="12" placeholder="<h1>Tiêu đề</h1><p>Nội dung...</p>"></textarea>
-      <div class="hint">💡 Dùng &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt; cho cấu trúc rõ ràng</div>
-
-      <div class="grid">
-        <div class="row">
-          <div class="col">
-            <label>SEO Title</label>
-            <input id="seoTitle" class="input"/>
-            <label>SEO Desc</label>
-            <input id="seoDesc" class="input"/>
-            <label>Keywords (phân tách dấu phẩy)</label>
-            <div class="toolbar"><button id="pickCat" class="btn">+ Chọn danh mục</button></div>
-            <input id="keywords" class="input"/>
-            <label>Danh mục (slug)</label>
-            <div class="row" style="gap:8px;align-items:center">
-              <div class="col"><input id="category" class="input" placeholder="vd: dien-nuoc"/></div>
-              <div id="categoryPreview" class="badge" style="display:none"></div>
-            </div>
-          </div>
-          <div class="col">
-            <label>FAQ</label>
-            <textarea id="faq" class="input" rows="6" placeholder="Hỏi: ... | Đáp: ..."></textarea>
-            <label>Đánh giá mẫu (JSON)</label>
-            <textarea id="reviews" class="input" rows="4" placeholder='[{"name":"A","rating":5}]'></textarea>
-          </div>
-        </div>
-      </div>
-
-      <label>Slug</label>
-      <input id="slug" class="input" placeholder="duong-dan-san-pham"/>
-
-      <div class="row">
-        <div class="col"><label>Giá bán</label><input id="price" class="input" type="number" min="0"/></div>
-        <div class="col"><label>Giá sale</label><input id="price_sale" class="input" type="number" min="0"/></div>
-        <div class="col"><label>Giá nhập</label><input id="cost" class="input" type="number" min="0"/></div>
-        <div class="col"><label>Cân nặng (g)</label><input id="weight" class="input" type="number" min="0"/></div>
-        <div class="col"><label>Tồn kho</label><input id="stock" class="input" type="number" min="0"/></div>
-      </div>
-
-      <label>Video (URL)</label>
-      <div class="row">
-        <div class="col"><input id="video" class="input" placeholder="https://..."/></div>
-        <div><input id="videoFile" type="file" accept="video/*"/></div>
-        <div><button id="upVideo" class="btn">Upload video</button></div>
-      </div>
-
-      <label>Hình ảnh</label>
-      <div class="row">
-        <div class="col"><input id="imgFile" class="input" type="file" accept="image/*" multiple/></div>
-        <div><button class="btn" id="upImg">Upload</button></div>
-      </div>
-      <div id="imgs" class="list-images"></div>
-
-      <div class="toolbar">
-        <button id="saveBtn" class="btn primary">Lưu sản phẩm</button>
-        <span class="hint">Dữ liệu gửi tới /admin/products/upsert</span>
-      </div>
+  <div class="col">
+    <div class="toolbar">
+      <div class="title">Biến thể</div>
+      <button id="addVar" class="btn">+ Thêm biến thể</button>
     </div>
-
-    <div class="col">
-      <div class="toolbar">
-        <div class="title">Biến thể</div>
-        <button id="addVar" class="btn">+ Thêm biến thể</button>
-      </div>
-      <div id="variants"></div>
-    </div>
+    <div id="variants"></div>
   </div>
 </div>
 
 <script>
-// Config
 const CLOUDINARY_CONFIG = {
   cloudName: 'dtemskptf',
   uploadPreset: 'shophuyvan',
   apiKey: '49963168148423'
 };
 
-// Helper functions
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const qs = (k) => new URL(location.href).searchParams.get(k);
 
-// State
 Admin.ensureAuth();
 let state = { id: qs('id') || '', images: [], variants: [] };
 
-// Toast helper
 function toast(msg) {
   if (window.Admin && window.Admin.toast) {
     window.Admin.toast(msg);
@@ -136,7 +119,6 @@ function toast(msg) {
   }
 }
 
-// Cloudinary upload
 async function uploadToCloudinary(file, options = {}) {
   const { folder = 'products', resourceType = null } = options;
   
@@ -236,7 +218,6 @@ async function doUpload(fileOrFiles) {
   }
 }
 
-// ZIP Import functions
 function extractTextFromZip(txtContent) {
   const sections = {};
   const lines = txtContent.split('\n');
@@ -268,18 +249,12 @@ function parseDetailedContent(content) {
   
   let html = content;
   
-  // Parse headings
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  
-  // Parse list items
   html = html.replace(/^[✅✓-] (.+)$/gm, '<li>$1</li>');
-  
-  // Parse bold
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   
-  // Group list items
   let inList = false;
   const lines = html.split('\n');
   const processed = [];
@@ -322,7 +297,6 @@ async function importFromZip(file) {
     const zip = await JSZip.loadAsync(file);
     console.log('ZIP loaded');
     
-    // Find .txt file
     let txtContent = '';
     for (const [filename, zipEntry] of Object.entries(zip.files)) {
       if (filename.endsWith('.txt') && !zipEntry.dir) {
@@ -337,11 +311,9 @@ async function importFromZip(file) {
       return;
     }
     
-    // Parse sections
     const sections = extractTextFromZip(txtContent);
     console.log('Sections found:', Object.keys(sections));
     
-    // Fill form
     if (sections['TÊN SẢN PHẨM']) {
       $('#title').value = sections['TÊN SẢN PHẨM'];
       console.log('Title set:', sections['TÊN SẢN PHẨM']);
@@ -369,7 +341,6 @@ async function importFromZip(file) {
       console.log('SEO Title set');
     }
     
-    // Parse keywords
     const kwSources = [
       sections['TỪ KHÓA TIÊU ĐỀ'],
       sections['TỪ KHÓA MÔ TẢ'],
@@ -385,7 +356,6 @@ async function importFromZip(file) {
       console.log('Keywords set:', allKeywords.size);
     }
     
-    // Parse FAQ
     if (sections['CÂU HỎI THƯỜNG GẶP (FAQ)']) {
       const faqText = sections['CÂU HỎI THƯỜNG GẶP (FAQ)'];
       const faqLines = faqText.split('\n').filter(line => {
@@ -403,7 +373,6 @@ async function importFromZip(file) {
       console.log('FAQ set:', faqPairs.length, 'pairs');
     }
     
-    // Upload images
     const imageFiles = [];
     for (const [filename, zipEntry] of Object.entries(zip.files)) {
       if (filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) && !zipEntry.dir) {
@@ -433,7 +402,6 @@ async function importFromZip(file) {
   }
 }
 
-// Render images
 function renderImgs() {
   const box = $('#imgs');
   if (!box) return;
@@ -467,7 +435,6 @@ window.delImg = (idx) => {
   renderImgs();
 };
 
-// Add variant
 function addVar(v = {}) {
   const box = document.createElement('div');
   box.className = 'card';
@@ -519,7 +486,6 @@ function addVar(v = {}) {
   };
 }
 
-// Parse functions
 function parseFaq(text) {
   const lines = (text || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
   return lines.map(s => {
@@ -547,11 +513,26 @@ function gramsOf(v) {
   return Math.round(num);
 }
 
-// Event listeners - MUST BE AFTER DOM LOAD
+function formatFaqForTextarea(faqArray) {
+  if (!Array.isArray(faqArray) || faqArray.length === 0) return '';
+  return faqArray.map(item => {
+    const q = item.q || item.question || '';
+    const a = item.a || item.answer || '';
+    return `Hỏi: ${q} | Đáp: ${a}`;
+  }).join('\n');
+}
+
 window.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, attaching events...');
+  console.log('DOM loaded, initializing sidebar...');
   
-  // Test Cloudinary button
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    const pageTitle = state.id ? 'Sửa sản phẩm' : 'Thêm sản phẩm';
+    AdminLayout.init(pageTitle);
+  }
+  
+  console.log('Attaching events...');
+  
   const btnTest = document.getElementById('btnTestCloudinary');
   if (btnTest) {
     btnTest.addEventListener('click', async function() {
@@ -572,7 +553,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Test button attached');
   }
   
-  // ZIP import
   const zipInput = document.getElementById('zipFile');
   if (zipInput) {
     zipInput.addEventListener('change', async function(e) {
@@ -586,7 +566,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('ZIP input attached');
   }
   
-  // Upload images
   const btnUpImg = document.getElementById('upImg');
   if (btnUpImg) {
     btnUpImg.addEventListener('click', async function() {
@@ -602,7 +581,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Upload image button attached');
   }
   
-  // Upload video
   const btnUpVideo = document.getElementById('upVideo');
   if (btnUpVideo) {
     btnUpVideo.addEventListener('click', async function() {
@@ -624,7 +602,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Upload video button attached');
   }
   
-  // Add variant
   const btnAddVar = document.getElementById('addVar');
   if (btnAddVar) {
     btnAddVar.addEventListener('click', function() {
@@ -634,7 +611,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Add variant button attached');
   }
   
-  // Save button
   const btnSave = document.getElementById('saveBtn');
   if (btnSave) {
     btnSave.addEventListener('click', async function() {
@@ -695,7 +671,6 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Save button attached');
   }
   
-  // Pick category
   const btnPickCat = document.getElementById('pickCat');
   if (btnPickCat) {
     btnPickCat.addEventListener('click', async function() {
@@ -712,7 +687,6 @@ window.addEventListener('DOMContentLoaded', function() {
   console.log('All events attached successfully');
 });
 
-// Category functions
 async function loadCategoriesFlex() {
   const endpoints = ['/public/categories', '/categories', '/api/categories', '/admin/categories'];
   for (const ep of endpoints) {
@@ -782,7 +756,6 @@ function renderCatPicker(items) {
   });
 }
 
-// Init function
 (async function init() {
   Admin.renderApiBase();
   
@@ -809,6 +782,15 @@ function renderCatPicker(items) {
     $('#seoDesc').value = (d.seo?.desc) || d.seoDesc || '';
     $('#keywords').value = ((d.seo?.keywords) || d.keywords || []).join(', ');
     $('#video').value = d.video || '';
+    
+    // ✅ FIX: Load FAQ vào textarea
+    $('#faq').value = formatFaqForTextarea(d.faq || []);
+    
+    // ✅ FIX: Load Reviews vào textarea
+    $('#reviews').value = (d.reviews && Array.isArray(d.reviews) && d.reviews.length > 0) 
+      ? JSON.stringify(d.reviews, null, 2) 
+      : '';
+    
     state.images = d.images || [];
     renderImgs();
     
@@ -826,7 +808,7 @@ function renderCatPicker(items) {
   }
 })();
 
-console.log('✅ Product edit script loaded');
+console.log('✅ Product edit script loaded - FAQ FIX + SIDEBAR APPLIED');
 console.log('📦 Cloudinary config:', CLOUDINARY_CONFIG.cloudName);
 </script>
 
