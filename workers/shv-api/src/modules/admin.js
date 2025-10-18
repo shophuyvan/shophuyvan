@@ -1,5 +1,5 @@
 // File: workers/shv-api/src/modules/admin.js
-// Admin management module
+// Admin management module - FIXED
 
 import { json, corsHeaders } from '../lib/response.js';
 
@@ -17,7 +17,7 @@ export async function handle(req, env, ctx) {
       return await setupSuperAdmin(req, env);
     }
 
-    // Login routes - HỖ TRỢ NHIỀU ENDPOINT
+    // Login routes - Hỗ trợ nhiều endpoint
     if ((path === '/admin/auth/login' || 
          path === '/admin/login' || 
          path === '/login' || 
@@ -254,382 +254,11 @@ async function handleLogin(req, env) {
       return json({ ok: false, error: 'Tài khoản đã bị khóa' }, { status: 403 }, req);
     }
 
-    // Simple password check (demo only - use bcrypt in production)
+    // ===== FIX: Simple password check (demo only - use bcrypt in production) =====
     // Accept password "Admin@123" hoặc password được set
     const validPassword = password === 'Admin@123' || 
                          password === admin.password_hash ||
-                         btoa(password) === admin.password_hash.replace('$2a$10
-
-/**
- * Get current admin info - TƯƠNG THÍCH VỚI x-token HEADER
- */
-async function handleMe(req, env) {
-  try {
-    // Support cả Authorization Bearer và x-token header
-    let token = null;
-    
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-    
-    // Fallback: check x-token header (admin_real.js dùng)
-    if (!token) {
-      token = req.headers.get('x-token');
-    }
-    
-    if (!token) {
-      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
-    }
-
-    const decoded = atob(token);
-    const adminId = decoded.split(':')[0];
-
-    const adminData = await env.SHV.get(`admin:${adminId}`);
-    if (!adminData) {
-      return json({ ok: false, error: 'Admin not found' }, { status: 404 }, req);
-    }
-
-    const admin = JSON.parse(adminData);
-    const { password_hash, ...safeAdmin } = admin;
-
-    const roleData = await env.SHV.get(`admin:role:${admin.role_id}`);
-    const role = roleData ? JSON.parse(roleData) : null;
-
-    return json({
-      ok: true,
-      admin: {
-        ...safeAdmin,
-        role: role,
-        permissions: role?.permissions || []
-      }
-    }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Me error:', e);
-    return json({ ok: false, error: 'Invalid token' }, { status: 401 }, req);
-  }
-}
-
-/**
- * List all admins
- */
-async function listAdmins(req, env) {
-  try {
-    const listData = await env.SHV.get('admin:list');
-    const list = listData ? JSON.parse(listData) : [];
-
-    const admins = [];
-    for (const adminId of list) {
-      const adminData = await env.SHV.get(`admin:${adminId}`);
-      if (adminData) {
-        const admin = JSON.parse(adminData);
-        const { password_hash, ...safeAdmin } = admin;
-
-        const roleData = await env.SHV.get(`admin:role:${admin.role_id}`);
-        const role = roleData ? JSON.parse(roleData) : null;
-
-        admins.push({
-          ...safeAdmin,
-          role_name: role?.name || 'Unknown'
-        });
-      }
-    }
-
-    return json({ ok: true, admins, total: admins.length }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] List error:', e);
-    return json({ ok: false, error: 'Failed to list admins' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Create new admin
- */
-async function createAdmin(req, env) {
-  try {
-    const body = await req.json();
-    const { email, password, full_name, phone, role_id } = body;
-
-    if (!email || !password || !full_name || !role_id) {
-      return json({ ok: false, error: 'Missing required fields' }, { status: 400 }, req);
-    }
-
-    // Check if email exists
-    const emailKey = `admin:email:${email.toLowerCase()}`;
-    const existing = await env.SHV.get(emailKey);
-    if (existing) {
-      return json({ ok: false, error: 'Email already exists' }, { status: 409 }, req);
-    }
-
-    const adminId = 'admin_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
-    const now = new Date().toISOString();
-
-    // Simple hash (use bcrypt in production)
-    const password_hash = '$2a$10$' + btoa(password).slice(0, 53);
-
-    const newAdmin = {
-      id: adminId,
-      email: email.toLowerCase(),
-      password_hash,
-      full_name,
-      phone: phone || '',
-      avatar: '',
-      role_id,
-      status: 'active',
-      created_at: now,
-      updated_at: now,
-      last_login: null,
-      created_by: 'admin'
-    };
-
-    await env.SHV.put(`admin:${adminId}`, JSON.stringify(newAdmin));
-    await env.SHV.put(emailKey, JSON.stringify(newAdmin));
-
-    const listData = await env.SHV.get('admin:list');
-    const list = listData ? JSON.parse(listData) : [];
-    list.push(adminId);
-    await env.SHV.put('admin:list', JSON.stringify(list));
-
-    const { password_hash: _, ...safeAdmin } = newAdmin;
-
-    return json({ ok: true, admin: safeAdmin }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Create error:', e);
-    return json({ ok: false, error: 'Failed to create admin' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Get admin by ID
- */
-async function getAdmin(req, env, adminId) {
-  try {
-    const adminData = await env.SHV.get(`admin:${adminId}`);
-    if (!adminData) {
-      return json({ ok: false, error: 'Admin not found' }, { status: 404 }, req);
-    }
-
-    const admin = JSON.parse(adminData);
-    const { password_hash, ...safeAdmin } = admin;
-
-    return json({ ok: true, admin: safeAdmin }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Get error:', e);
-    return json({ ok: false, error: 'Failed to get admin' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Update admin
- */
-async function updateAdmin(req, env, adminId) {
-  try {
-    const adminData = await env.SHV.get(`admin:${adminId}`);
-    if (!adminData) {
-      return json({ ok: false, error: 'Admin not found' }, { status: 404 }, req);
-    }
-
-    const admin = JSON.parse(adminData);
-    const body = await req.json();
-
-    if (body.full_name) admin.full_name = body.full_name;
-    if (body.phone) admin.phone = body.phone;
-    if (body.avatar) admin.avatar = body.avatar;
-    if (body.status) admin.status = body.status;
-    if (body.role_id) admin.role_id = body.role_id;
-
-    if (body.password) {
-      admin.password_hash = '$2a$10$' + btoa(body.password).slice(0, 53);
-    }
-
-    admin.updated_at = new Date().toISOString();
-
-    await env.SHV.put(`admin:${adminId}`, JSON.stringify(admin));
-    await env.SHV.put(`admin:email:${admin.email}`, JSON.stringify(admin));
-
-    const { password_hash, ...safeAdmin } = admin;
-
-    return json({ ok: true, admin: safeAdmin }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Update error:', e);
-    return json({ ok: false, error: 'Failed to update admin' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Delete admin
- */
-async function deleteAdmin(req, env, adminId) {
-  try {
-    const adminData = await env.SHV.get(`admin:${adminId}`);
-    if (!adminData) {
-      return json({ ok: false, error: 'Admin not found' }, { status: 404 }, req);
-    }
-
-    const admin = JSON.parse(adminData);
-
-    await env.SHV.delete(`admin:${adminId}`);
-    await env.SHV.delete(`admin:email:${admin.email}`);
-
-    const listData = await env.SHV.get('admin:list');
-    const list = listData ? JSON.parse(listData) : [];
-    const newList = list.filter(id => id !== adminId);
-    await env.SHV.put('admin:list', JSON.stringify(newList));
-
-    return json({ ok: true, message: 'Admin deleted' }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Delete error:', e);
-    return json({ ok: false, error: 'Failed to delete admin' }, { status: 500 }, req);
-  }
-}
-
-/**
- * List roles
- */
-async function listRoles(req, env) {
-  try {
-    const listData = await env.SHV.get('admin:roles:list');
-    const roleIds = listData ? JSON.parse(listData) : [];
-
-    const roles = [];
-    for (const id of roleIds) {
-      const roleData = await env.SHV.get(`admin:role:${id}`);
-      if (roleData) {
-        roles.push(JSON.parse(roleData));
-      }
-    }
-
-    return json({ ok: true, roles }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] List roles error:', e);
-    return json({ ok: false, error: 'Failed to list roles' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Create role
- */
-async function createRole(req, env) {
-  try {
-    const body = await req.json();
-    const { name, description, permissions, is_system } = body;
-
-    if (!name || !permissions || !Array.isArray(permissions)) {
-      return json({ ok: false, error: 'Invalid data' }, { status: 400 }, req);
-    }
-
-    const roleId = 'role_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
-    const now = new Date().toISOString();
-
-    const role = {
-      id: roleId,
-      name,
-      description: description || '',
-      permissions,
-      is_system: is_system || false,
-      created_at: now,
-      updated_at: now
-    };
-
-    await env.SHV.put(`admin:role:${roleId}`, JSON.stringify(role));
-
-    const listData = await env.SHV.get('admin:roles:list');
-    const list = listData ? JSON.parse(listData) : [];
-    list.push(roleId);
-    await env.SHV.put('admin:roles:list', JSON.stringify(list));
-
-    return json({ ok: true, role }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Create role error:', e);
-    return json({ ok: false, error: 'Failed to create role' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Get role by ID
- */
-async function getRole(req, env, roleId) {
-  try {
-    const roleData = await env.SHV.get(`admin:role:${roleId}`);
-    if (!roleData) {
-      return json({ ok: false, error: 'Role not found' }, { status: 404 }, req);
-    }
-
-    return json({ ok: true, role: JSON.parse(roleData) }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Get role error:', e);
-    return json({ ok: false, error: 'Failed to get role' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Update role
- */
-async function updateRole(req, env, roleId) {
-  try {
-    const roleData = await env.SHV.get(`admin:role:${roleId}`);
-    if (!roleData) {
-      return json({ ok: false, error: 'Role not found' }, { status: 404 }, req);
-    }
-
-    const role = JSON.parse(roleData);
-    const body = await req.json();
-
-    if (body.name) role.name = body.name;
-    if (body.description !== undefined) role.description = body.description;
-    if (body.permissions) role.permissions = body.permissions;
-    if (body.is_system !== undefined) role.is_system = body.is_system;
-
-    role.updated_at = new Date().toISOString();
-
-    await env.SHV.put(`admin:role:${roleId}`, JSON.stringify(role));
-
-    return json({ ok: true, role }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Update role error:', e);
-    return json({ ok: false, error: 'Failed to update role' }, { status: 500 }, req);
-  }
-}
-
-/**
- * Delete role
- */
-async function deleteRole(req, env, roleId) {
-  try {
-    const roleData = await env.SHV.get(`admin:role:${roleId}`);
-    if (!roleData) {
-      return json({ ok: false, error: 'Role not found' }, { status: 404 }, req);
-    }
-
-    const role = JSON.parse(roleData);
-    if (role.is_system) {
-      return json({ ok: false, error: 'Cannot delete system role' }, { status: 400 }, req);
-    }
-
-    await env.SHV.delete(`admin:role:${roleId}`);
-
-    const listData = await env.SHV.get('admin:roles:list');
-    const list = listData ? JSON.parse(listData) : [];
-    const newList = list.filter(id => id !== roleId);
-    await env.SHV.put('admin:roles:list', JSON.stringify(newList));
-
-    return json({ ok: true, message: 'Role deleted' }, {}, req);
-
-  } catch (e) {
-    console.error('[Admin] Delete role error:', e);
-    return json({ ok: false, error: 'Failed to delete role' }, { status: 500 }, req);
-  }
-}, '').slice(0, 53);
+                         btoa(password) === admin.password_hash.replace('$2a$10$', '').slice(0, 53);
     
     if (!validPassword) {
       return json({ ok: false, error: 'Tài khoản hoặc mật khẩu không đúng' }, { status: 401 }, req);
@@ -668,16 +297,27 @@ async function deleteRole(req, env, roleId) {
 }
 
 /**
- * Get current admin info
+ * Get current admin info - TƯƠNG THÍCH VỚI x-token HEADER
  */
 async function handleMe(req, env) {
   try {
-    const auth = req.headers.get('Authorization');
-    if (!auth || !auth.startsWith('Bearer ')) {
+    // Support cả Authorization Bearer và x-token header
+    let token = null;
+    
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // Fallback: check x-token header (admin_real.js dùng)
+    if (!token) {
+      token = req.headers.get('x-token');
+    }
+    
+    if (!token) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
     }
 
-    const token = auth.substring(7);
     const decoded = atob(token);
     const adminId = decoded.split(':')[0];
 
