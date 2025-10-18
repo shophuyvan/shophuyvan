@@ -87,7 +87,12 @@ import api from './lib/api.js';
     const li = document.createElement('li');
     const a = document.createElement('a');
     a.textContent = `${'— '.repeat(Math.min(depth,3))}${n.name||n.title||''}`;
-    a.href = `/?cat=${encodeURIComponent(n.slug||n.id||'')}`;
+    a.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
+a.addEventListener('click', (e) => {
+  e.preventDefault();
+  // Nếu muốn mở ngay trong trang hiện tại:
+  window.location.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
+});
     Object.assign(a.style, {display:'block', padding:'6px 8px', borderRadius:'8px', color:'#111827', textDecoration:'none'});
     a.addEventListener?.('mouseover', ()=> a.style.background='#f3f4f6');
     a.addEventListener?.('mouseout',  ()=> a.style.background='transparent');
