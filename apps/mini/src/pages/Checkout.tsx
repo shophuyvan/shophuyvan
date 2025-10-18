@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
+import { cloudify } from '@shared/utils/cloudinary';
 
-// ĐỒNG BỘ VỚI FE WEB
 const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
 
 const FALLBACK_PRICING = {
@@ -58,7 +58,7 @@ export default function Checkout() {
 
   const disabled = st.lines.length === 0 || submitting;
 
-  // Load provinces - ĐỒNG BỘ VỚI FE
+  // Load provinces
   useEffect(() => {
     let isMounted = true;
     setLoadingProvinces(true);
@@ -81,7 +81,7 @@ export default function Checkout() {
     return () => { isMounted = false; };
   }, []);
 
-  // Load districts - ĐỒNG BỘ VỚI FE
+  // Load districts
   useEffect(() => {
     setDistricts([]);
     setWards([]);
@@ -110,7 +110,7 @@ export default function Checkout() {
     return () => { isMounted = false; };
   }, [form.province]);
 
-  // Load wards - ĐỒNG BỘ VỚI FE
+  // Load wards
   useEffect(() => {
     setWards([]);
     if (!form.district) return;
@@ -138,7 +138,7 @@ export default function Checkout() {
     return () => { isMounted = false; };
   }, [form.district]);
 
-  // Calculate shipping - ĐỒNG BỘ VỚI FE
+  // Calculate shipping
   useEffect(() => {
     const timer = setTimeout(() => {
       (async () => {
@@ -159,7 +159,6 @@ export default function Checkout() {
         try {
           const weight = totalWeightGram || 500;
           
-          // ĐỒNG BỘ VỚI FE: dùng receiver_province, receiver_district
           const res = await fetch(`${API_BASE}/shipping/price`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -213,7 +212,7 @@ export default function Checkout() {
 
   const grandTotal = st.total + (shippingFee || 0);
 
-  // Place order - ĐỒNG BỘ VỚI FE
+  // Place order
   const submit = useCallback(async () => {
     setError(null);
     setSubmitting(true);
@@ -242,7 +241,6 @@ export default function Checkout() {
       return;
     }
 
-    // ĐỒNG BỘ VỚI FE: format payload giống y hệt
     const payload = {
       customer: {
         name: form.name,
@@ -256,13 +254,13 @@ export default function Checkout() {
       items: st.lines.map(item => ({
         id: item.id,
         sku: item.sku || item.id,
-        name: item.name || item.title,
+        name: item.name,
         price: Number(item.price || 0),
         cost: Number(item.cost || 0),
         qty: Number(item.qty || 1),
         weight_gram: Number(item.weight_gram || item.weight || 0),
-        variant: item.variant || '',
-        image: item.image || ''
+        variant: item.variantName || '',
+        image: item.variantImage || item.image || ''
       })),
       totals: {
         subtotal: st.subtotal,
@@ -287,7 +285,6 @@ export default function Checkout() {
     console.log('Order payload:', payload);
 
     try {
-      // ĐỒNG BỘ VỚI FE: dùng /api/orders
       const res = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 
@@ -319,6 +316,12 @@ export default function Checkout() {
       setSubmitting(false);
     }
   }, [form, selectedShipping, shippingFee, st, grandTotal]);
+
+  // Optimize image for checkout
+  const getItemImage = useCallback((item: any) => {
+    const rawImg = item.variantImage || item.image || '/icon.png';
+    return cloudify(rawImg, 'w_200,h_200,c_fill,q_auto,f_auto');
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -353,25 +356,62 @@ export default function Checkout() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Order summary */}
+            {/* ===== ENHANCED ORDER SUMMARY ===== */}
             <div className="bg-white rounded-2xl p-4 shadow">
               <div className="font-semibold mb-3">Đơn hàng ({st.lines.length} sản phẩm)</div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {st.lines.map((l) => (
-                  <div key={String(l.id)} className="flex justify-between items-start py-2 border-b last:border-0">
-                    <div className="flex-1 pr-3">
-                      <div className="font-medium line-clamp-1">{l.name}</div>
-                      <div className="text-sm text-gray-500">Số lượng: {l.qty}</div>
-                    </div>
-                    <div className="font-semibold text-right whitespace-nowrap">
-                      {fmtVND(l.price * l.qty)}
+                  <div key={String(l.id)} className="flex gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                    {/* Product Image */}
+                    <img
+                      src={getItemImage(l)}
+                      className="w-24 h-24 rounded-xl object-cover flex-shrink-0 border"
+                      alt={l.name}
+                      loading="lazy"
+                    />
+
+                    {/* Product Details */}
+                    <div className="flex-1 min-w-0">
+                      {/* Name */}
+                      <div className="font-semibold text-sm line-clamp-2 mb-1">
+                        {l.name}
+                      </div>
+
+                      {/* Variant Badge */}
+                      {l.variantName && (
+                        <div className="mb-2">
+                          <span className="inline-block px-2 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                            {l.variantName}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Price & Quantity */}
+                      <div className="flex items-center justify-between">
+                        <div className="text-rose-600 font-semibold">
+                          {fmtVND(l.price)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Số lượng: <span className="font-semibold">{l.qty}</span>
+                        </div>
+                      </div>
+
+                      {/* Total for this item */}
+                      <div className="mt-2 text-right">
+                        <span className="text-sm text-gray-500">Thành tiền: </span>
+                        <span className="font-bold text-emerald-600">
+                          {fmtVND(l.price * l.qty)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* Subtotal */}
               <div className="flex justify-between py-3 border-t mt-3 font-semibold text-lg">
                 <span>Tạm tính</span>
-                <span>{fmtVND(st.total)}</span>
+                <span className="text-rose-600">{fmtVND(st.total)}</span>
               </div>
             </div>
 
