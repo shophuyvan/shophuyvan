@@ -1,5 +1,5 @@
 // ===================================================================
-// src/index.js - Main Router (FULLY MODULARIZED + Cart Sync)
+// src/index.js - Main Router (với Admin Module)
 // ===================================================================
 
 import { json, corsHeaders } from './lib/response.js';
@@ -11,6 +11,7 @@ import * as settings from './modules/settings.js';
 import * as banners from './modules/banners.js';
 import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
+import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
 
 /**
@@ -49,7 +50,17 @@ export default {
 
     try {
       // ============================================
-      // MODULARIZED ROUTES
+      // ADMIN ROUTES (NEW)
+      // ============================================
+      if (path.startsWith('/admin/setup') ||
+          path.startsWith('/admin/auth') ||
+          path.startsWith('/admin/users') ||
+          path.startsWith('/admin/roles')) {
+        return admin.handle(req, env, ctx);
+      }
+
+      // ============================================
+      // EXISTING ROUTES
       // ============================================
 
       // Auth module
@@ -92,7 +103,7 @@ export default {
         return shipping.handle(req, env, ctx);
       }
 
-      // Cart Sync module (NEW)
+      // Cart Sync module
       if (path.startsWith('/api/cart/sync')) {
         return handleCartSync(req, env);
       }
@@ -123,9 +134,10 @@ export default {
       if (path === '/' || path === '') {
         return json({
           ok: true,
-          msg: 'SHV API v4.1 (Cart Sync Integrated)',
-          hint: 'All routes modularized + Cart Sync enabled',
+          msg: 'SHV API v4.2 (Admin System Integrated)',
+          hint: 'All routes modularized + Cart Sync + Admin Management',
           modules: {
+            admin: '✅ Added',
             auth: '✅ Complete',
             categories: '✅ Complete',
             products: '✅ Complete',
@@ -134,7 +146,7 @@ export default {
             settings: '✅ Complete',
             banners: '✅ Complete',
             vouchers: '✅ Complete',
-            cart_sync: '✅ Added'
+            cart_sync: '✅ Complete'
           }
         }, {}, req);
       }
@@ -143,7 +155,7 @@ export default {
         return json({
           ok: true,
           msg: 'Worker alive',
-          version: 'v4.1'
+          version: 'v4.2'
         }, {}, req);
       }
 
