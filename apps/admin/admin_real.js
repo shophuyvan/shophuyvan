@@ -11,7 +11,7 @@ function cloudify(u, t='w_800,q_auto,f_auto'){
   }catch(_){ return u; }
 }
 
-/* SHV admin patch v47 - FIXED LOGIN LOOP */
+/* SHV admin patch v47 - FIXED LOGIN LOOP V2 */
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
@@ -79,9 +79,12 @@ window.Admin = (function(){
       method:'POST', body:{ user:u, pass:p }
     });
     if (r && r.ok && (r.token || r['x-token'])){
-      token(r.token || r['x-token']);
+      const tkn = r.token || r['x-token'];
+      token(tkn);
+      console.log('[Admin.login] Token saved:', tkn ? 'YES ✓' : 'NO ✗');
       return true;
     }
+    console.log('[Admin.login] Login failed');
     return false;
   }
 
@@ -102,17 +105,27 @@ window.Admin = (function(){
   }
 
   function ensureAuth(){
-    // FIXED: Check if we're on login page first
+    // CRITICAL FIX: Check if user just logged in (skip auth check once)
+    const justLoggedIn = sessionStorage.getItem('just_logged_in');
+    if (justLoggedIn) {
+      console.log('[Admin.ensureAuth] Just logged in, skipping auth check');
+      sessionStorage.removeItem('just_logged_in');
+      return;
+    }
+
+    // Check if we're on login page first
     const isLoginPage = /login|admin_login/.test(location.pathname);
     if (isLoginPage) {
-      console.log('[Admin] On login page, skipping auth check');
+      console.log('[Admin.ensureAuth] On login page, skipping auth check');
       return;
     }
 
     const t = token();
     if (!t) {
-      console.log('[Admin] No token, redirecting to login');
+      console.log('[Admin.ensureAuth] No token, redirecting to login');
       location.href = '/login_admin.html';
+    } else {
+      console.log('[Admin.ensureAuth] Token exists ✓');
     }
   }
 

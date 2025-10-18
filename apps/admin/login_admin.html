@@ -311,7 +311,7 @@
       }
     }
 
-    // Handle login
+    // Handle login - FIXED VERSION
     async function handleLogin(e) {
       e?.preventDefault();
       
@@ -335,10 +335,26 @@
         if (success) {
           showStatus('Đăng nhập thành công!', 'success');
           
-          // Redirect to dashboard after short delay
-          setTimeout(() => {
-            location.href = '/index.html';
-          }, 500);
+          // CRITICAL FIX: Wait to ensure token is saved to localStorage
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Verify token is saved before redirect
+          const savedToken = localStorage.getItem('x-token');
+          console.log('[Login] Token saved:', savedToken ? 'YES ✓' : 'NO ✗');
+          
+          if (savedToken) {
+            // Set flag to skip auth check on next page
+            sessionStorage.setItem('just_logged_in', 'true');
+            
+            // Redirect to products page
+            setTimeout(() => {
+              location.href = '/products.html';
+            }, 200);
+          } else {
+            showStatus('Lỗi lưu token. Vui lòng thử lại.', 'error');
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Đăng nhập';
+          }
         } else {
           showStatus('Tài khoản hoặc mật khẩu không đúng', 'error');
           loginBtn.disabled = false;
@@ -373,8 +389,12 @@
         apiInput.value = Admin.getBase();
       }
 
-      // REMOVED auto-redirect check to prevent loop
-      // User must login manually
+      // Check if already logged in (but don't auto-redirect from login page)
+      const token = localStorage.getItem('x-token');
+      if (token) {
+        console.log('[Login Page] User already has token');
+        // Optional: Show a message or button to continue to dashboard
+      }
     });
   </script>
 </body>
