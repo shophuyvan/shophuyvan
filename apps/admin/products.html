@@ -3,49 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Quản lý Sản phẩm</title>
+<title>Quản lý Sản phẩm - Shop Huy Vân</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js"></script>
+<script src="./sidebar-layout.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-  background: #f5f5f5;
-  color: #333;
-}
-
-.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
-
-.header {
-  background: white;
-  padding: 16px 24px;
-  margin: -16px -16px 16px -16px;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.title { font-size: 24px; font-weight: 600; }
-
-.nav { 
-  display: flex; 
-  gap: 8px; 
-  flex-wrap: wrap;
-}
-
-.badge {
-  padding: 6px 12px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  text-decoration: none;
-  color: #333;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.badge:hover { background: #e0e0e0; }
-
+/* Product-specific styles */
 .toolbar {
   background: white;
   padding: 16px;
@@ -108,15 +71,6 @@ body {
 }
 
 .btn.danger:hover { background: #c62828; }
-
-.btn.icon {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 
 .stats {
   display: flex;
@@ -240,79 +194,6 @@ body {
   font-size: 13px;
 }
 
-.variants-section {
-  padding: 12px;
-  background: #f9f9f9;
-  border-top: 1px solid #f0f0f0;
-}
-
-.variants-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.variant-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  font-size: 12px;
-  border-bottom: 1px solid #eee;
-}
-
-.variant-item:last-child { border-bottom: none; }
-
-.variant-name { color: #333; flex: 1; }
-
-.variant-price { 
-  color: #d32f2f; 
-  font-weight: 500;
-  margin: 0 8px;
-}
-
-.variant-stock { 
-  color: #666;
-  min-width: 50px;
-  text-align: right;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 24px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-}
-
-.page-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.page-btn:hover { background: #f5f5f5; }
-
-.page-btn.active {
-  background: #1976d2;
-  color: white;
-  border-color: #1976d2;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .bulk-actions {
   background: white;
   padding: 12px 16px;
@@ -332,6 +213,12 @@ body {
   color: #666;
 }
 
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -339,13 +226,6 @@ body {
   }
   
   .card-image { height: 180px; }
-  
-  .card-title {
-    font-size: 13px;
-    min-height: 36px;
-  }
-  
-  .card-price { font-size: 14px; }
   
   .toolbar {
     flex-direction: column;
@@ -355,87 +235,36 @@ body {
   .toolbar-left {
     flex-direction: column;
   }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 480px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  
-  .container { padding: 8px; }
-  
-  .card-image { height: 140px; }
-  
-  .card-content { padding: 8px; }
-  
-  .card-title {
-    font-size: 12px;
-    min-height: 32px;
-  }
-  
-  .card-actions {
-    flex-direction: column;
-    padding: 6px 8px;
-  }
-  
-  .card-actions .btn {
-    font-size: 12px;
-    padding: 6px;
-  }
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #666;
 }
 </style>
-<script src="./admin_real.js?v=25"></script>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <div class="title">Sản phẩm</div>
-    <div class="nav">
-      <a href="./products.html" class="badge">Sản phẩm</a>
-      <a href="./banners.html" class="badge">Banner</a>
-      <a href="./shipping.html" class="badge">Vận chuyển</a>
-      <a href="./ads.html" class="badge">Quảng cáo</a>
-      <span class="badge">API: <span data-api-base></span></span>
-    </div>
+<!-- Content will be wrapped by sidebar-layout.js -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
+    <button class="btn" id="reload">🔄 Tải lại</button>
   </div>
-
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
-      <button class="btn" id="reload">🔄 Tải lại</button>
-    </div>
-    <div class="stats">
-      <span>Tổng: <strong id="total-count">0</strong></span>
-      <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
-    </div>
+  <div class="stats">
+    <span>Tổng: <strong id="total-count">0</strong></span>
+    <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
   </div>
+</div>
 
-  <div id="bulk-actions" class="bulk-actions">
-    <input type="checkbox" id="select-all"/>
-    <span class="bulk-actions-text"><span id="selected-count">0</span> sản phẩm được chọn</span>
-    <button class="btn danger" id="bulk-delete">Xóa đã chọn</button>
-  </div>
+<div id="bulk-actions" class="bulk-actions">
+  <input type="checkbox" id="select-all"/>
+  <span class="bulk-actions-text"><span id="selected-count">0</span> sản phẩm được chọn</span>
+  <button class="btn danger" id="bulk-delete">Xóa đã chọn</button>
+</div>
 
-  <div id="grid" class="grid">
-    <div class="loading">Đang tải...</div>
-  </div>
-
-  <div id="pagination" class="pagination"></div>
+<div id="grid" class="grid">
+  <div class="loading">Đang tải...</div>
 </div>
 
 <script>
+// Initialize sidebar layout
+AdminLayout.init('Sản phẩm');
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -461,183 +290,4 @@ function createProductCard(p) {
                    Array.isArray(p.skus) ? p.skus : [];
   
   const hasStock = variants.length > 0 
-    ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0)
-    : true;
-  
-  let variantsHtml = '';
-  if (variants.length > 0) {
-    const variantItems = variants.slice(0, 3).map(v => {
-      const name = v.name || v.title || v.variant || '';
-      const vPrice = v.price_sale || v.price || 0;
-      const stock = v.stock ?? v.inventory ?? 0;
-      return `
-        <div class="variant-item">
-          <span class="variant-name">${name}</span>
-          <span class="variant-price">${formatPrice(vPrice)}</span>
-          <span class="variant-stock">SL: ${stock}</span>
-        </div>
-      `;
-    }).join('');
-    
-    variantsHtml = `
-      <div class="variants-section">
-        <div class="variants-title">Phân loại (${variants.length})</div>
-        ${variantItems}
-        ${variants.length > 3 ? `<div style="text-align:center;margin-top:8px;font-size:11px;color:#999">+${variants.length - 3} phân loại khác</div>` : ''}
-      </div>
-    `;
-  }
-  
-  return `
-    <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
-      <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
-      <div class="card-image">
-        <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
-        <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
-          ${hasStock ? 'Còn hàng' : 'Hết hàng'}
-        </div>
-      </div>
-      <div class="card-content">
-        <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
-        <div class="card-meta">
-          <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
-          <div class="card-price">${formatPrice(price)}</div>
-        </div>
-      </div>
-      ${variantsHtml}
-      <div class="card-actions">
-        <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
-        <button class="btn danger" onclick="deleteProduct('${id}')">🗑️ Xóa</button>
-      </div>
-    </div>
-  `;
-}
-
-async function load() {
-  try {
-    const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
-    allProducts = r.items || r.data || r.products || [];
-    
-    const q = ($('#q').value || '').toLowerCase();
-    const filtered = allProducts.filter(p => {
-      const t = (p.title || p.name || '').toLowerCase();
-      const slug = String(p.slug || '').toLowerCase();
-      const sku = String(p.sku || '').toLowerCase();
-      return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
-    });
-    
-    $('#total-count').textContent = filtered.length;
-    
-    const grid = $('#grid');
-    if (filtered.length === 0) {
-      grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
-      return;
-    }
-    
-    grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
-    
-    $$('.card-checkbox').forEach(cb => {
-      cb.addEventListener('change', handleCheckboxChange);
-    });
-    
-    updateBulkActions();
-  } catch (error) {
-    $('#grid').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
-    console.error(error);
-  }
-}
-
-function handleCheckboxChange(e) {
-  const id = e.target.getAttribute('data-id');
-  const card = $(`.product-card[data-id="${id}"]`);
-  
-  if (e.target.checked) {
-    selectedIds.add(id);
-    card.classList.add('selected');
-  } else {
-    selectedIds.delete(id);
-    card.classList.remove('selected');
-  }
-  
-  updateBulkActions();
-}
-
-function updateBulkActions() {
-  const bulkActions = $('#bulk-actions');
-  const selectAll = $('#select-all');
-  const selectedCount = $('#selected-count');
-  
-  selectedCount.textContent = selectedIds.size;
-  
-  if (selectedIds.size > 0) {
-    bulkActions.classList.add('show');
-  } else {
-    bulkActions.classList.remove('show');
-  }
-  
-  selectAll.checked = selectedIds.size === allProducts.length && allProducts.length > 0;
-}
-
-$('#select-all').addEventListener('change', (e) => {
-  if (e.target.checked) {
-    allProducts.forEach(p => {
-      const id = p.id || p._id || p.key;
-      selectedIds.add(id);
-    });
-  } else {
-    selectedIds.clear();
-  }
-  load();
-});
-
-async function deleteProduct(id) {
-  if (!id) return;
-  if (!confirm('Xác nhận xóa sản phẩm này?')) return;
-  
-  try {
-    let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
-    if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
-    if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
-    
-    if (r && r.ok) {
-      alert('Đã xóa sản phẩm');
-      selectedIds.delete(id);
-      load();
-    } else {
-      alert('Xóa thất bại');
-    }
-  } catch (error) {
-    alert('Xóa thất bại: ' + error.message);
-  }
-}
-
-$('#bulk-delete').addEventListener('click', async () => {
-  if (selectedIds.size === 0) return;
-  if (!confirm(`Xác nhận xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
-  
-  let success = 0;
-  for (const id of selectedIds) {
-    try {
-      let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
-      if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
-      if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
-      if (r && r.ok) success++;
-    } catch (error) {
-      console.error('Error deleting:', id, error);
-    }
-  }
-  
-  alert(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
-  selectedIds.clear();
-  load();
-});
-
-$('#reload').onclick = load;
-$('#q').addEventListener('input', load);
-
-window.deleteProduct = deleteProduct;
-
-load();
-</script>
-</body>
-</html>
+    ? variants.
