@@ -1,4 +1,3 @@
-
 // === SHV Cloudinary helper (Admin Plan A) ===
 function cloudify(u, t='w_800,q_auto,f_auto'){
   try{
@@ -12,7 +11,7 @@ function cloudify(u, t='w_800,q_auto,f_auto'){
   }catch(_){ return u; }
 }
 
-/* SHV admin patch v46 */
+/* SHV admin patch v47 - FIXED LOGIN LOOP */
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
@@ -49,10 +48,10 @@ window.Admin = (function(){
     }
     // Robust fetch + JSON convenience
     if((init.method||'GET').toUpperCase()!=='GET' && !headers.has('Idempotency-Key')){
-  headers.set('Idempotency-Key', 'idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
-}
-console.info('[Admin.req]', (init.method||'GET'), url);
-const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
+      headers.set('Idempotency-Key', 'idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
+    }
+    console.info('[Admin.req]', (init.method||'GET'), url);
+    const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
     let data = null;
     const ctype = res.headers.get('content-type')||'';
     if (ctype.includes('application/json')) {
@@ -87,7 +86,7 @@ const res = await fetch(url, { method: init.method||'GET', headers, body, creden
   }
 
   async function me(){
-    return await tryPaths(['/admin/me', '/me']);
+    return await tryPaths(['/admin/me', '/me', '/admin/auth/me']);
   }
 
   function toast(msg, t=1800){
@@ -103,9 +102,17 @@ const res = await fetch(url, { method: init.method||'GET', headers, body, creden
   }
 
   function ensureAuth(){
+    // FIXED: Check if we're on login page first
+    const isLoginPage = /login|admin_login/.test(location.pathname);
+    if (isLoginPage) {
+      console.log('[Admin] On login page, skipping auth check');
+      return;
+    }
+
     const t = token();
-    if (!t && !location.pathname.endsWith('/admin_login.html')){
-      location.href = '/admin_login.html';
+    if (!t) {
+      console.log('[Admin] No token, redirecting to login');
+      location.href = '/login_admin.html';
     }
   }
 
@@ -137,8 +144,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   };
   ['fb','ga','zl'].forEach(k=>h(k));
 });
-
-
 
 // --- v25 Admin runtime fixes ---
 (function(){
@@ -210,7 +215,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         }
         // Also drop suggestions in the right-side "Gợi ý" box
         const box = document.getElementById('suggest');
-        if(box && alts.length){ box.textContent = alts.map((s,j)=>`${j+1}. ${s}`).join('\\n'); }
+        if(box && alts.length){ box.textContent = alts.map((s,j)=>`${j+1}. ${s}`).join('\n'); }
         Admin.toast('AI ALT đã gợi ý '+alts.length+' mô tả.');
       });
     }

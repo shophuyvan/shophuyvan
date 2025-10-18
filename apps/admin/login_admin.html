@@ -373,15 +373,8 @@
         apiInput.value = Admin.getBase();
       }
 
-      // Check if already logged in
-      const token = Admin.token();
-      if (token) {
-        Admin.me().then(result => {
-          if (result && result.ok) {
-            location.href = '/index.html';
-          }
-        });
-      }
+      // REMOVED auto-redirect check to prevent loop
+      // User must login manually
     });
   </script>
 </body>
