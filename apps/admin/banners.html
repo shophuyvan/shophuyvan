@@ -267,7 +267,7 @@
       <div class="form-group">
         <label>Hoặc Upload ảnh</label>
         <input id="fe-mobile-file" type="file" accept="image/*"/>
-        <button class="btn" onclick="window.uploadImage('fe-mobile')">Upload</button>
+        <button class="btn" data-upload="fe-mobile">Upload</button>
       </div>
 
       <div class="form-group">
@@ -340,7 +340,7 @@
       <div class="form-group">
         <label>Hoặc Upload ảnh</label>
         <input id="mini-pc-file" type="file" accept="image/*"/>
-        <button class="btn" onclick="window.uploadImage('mini-pc')">Upload</button>
+        <button class="btn" data-upload="mini-pc">Upload</button>
       </div>
 
       <div class="form-group">
@@ -391,7 +391,7 @@
       <div class="form-group">
         <label>Hoặc Upload ảnh</label>
         <input id="mini-mobile-file" type="file" accept="image/*"/>
-        <button class="btn" onclick="window.uploadImage('mini-mobile')">Upload</button>
+        <button class="btn" data-upload="mini-mobile">Upload</button>
       </div>
 
       <div class="form-group">
@@ -497,11 +497,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
   ['fe-pc', 'fe-mobile', 'mini-pc', 'mini-mobile'].forEach(setupPreview);
 
-  // Upload image to Cloudinary via signed upload
-  window.uploadImage = async function(prefix) {
+  // Setup upload button event listeners
+  $('button[data-upload]').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const prefix = this.getAttribute('data-upload');
+      uploadImage(prefix);
+    });
+  });
+
+  // Upload image to Cloudinary via UNSIGNED upload (no signature needed)
+  async function uploadImage(prefix) {
     console.log('[Banners] Uploading image for:', prefix);
     
-    const fileInput = $(`#${prefix}-file`);
+    const fileInput = document.querySelector(`#${prefix}-file`);
     if (!fileInput) {
       console.error('[Banners] File input not found:', prefix);
       return;
@@ -517,55 +526,41 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('[Banners] File selected:', file.name, file.size, 'bytes');
     
     try {
-      // Step 1: Get signature from API
-      console.log('[Banners] Step 1/2: Getting signature...');
-      const apiBase = Admin.getBase();
-      const token = Admin.token();
+      // Cloudinary config
+      const CLOUD_NAME = 'dtemskptf';
+      const UPLOAD_PRESET = 'shophuyvan';
+      const FOLDER = 'shv';
       
-      const sigResponse = await fetch(`${apiBase}/upload/signature`, {
+      // Upload directly to Cloudinary (unsigned)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', FOLDER);
+      
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+      
+      console.log('[Banners] Uploading to Cloudinary...');
+      
+      const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-token': token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ folder: 'shv' })
+        body: formData
       });
       
-      if (!sigResponse.ok) {
-        const errorText = await sigResponse.text();
-        throw new Error('Signature error: ' + errorText);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
       
-      const sig = await sigResponse.json();
-      console.log('[Banners] Signature received:', sig);
+      const result = await response.json();
       
-      // Step 2: Upload to Cloudinary
-      console.log('[Banners] Step 2/2: Uploading to Cloudinary...');
-      const fd = new FormData();
-      fd.append('timestamp', sig.timestamp);
-      fd.append('signature', sig.signature);
-      fd.append('api_key', sig.api_key);
-      fd.append('upload_preset', sig.upload_preset);
-      fd.append('folder', sig.folder);
-      fd.append('file', file);
-      
-      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`;
-      const uploadResponse = await fetch(cloudinaryUrl, {
-        method: 'POST',
-        body: fd
-      });
-      
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error('Cloudinary upload error: ' + errorText);
+      if (result.error) {
+        throw new Error(result.error.message || 'Upload failed');
       }
       
-      const result = await uploadResponse.json();
       console.log('[Banners] Upload success:', result.secure_url);
       
       // Set the uploaded URL to input
-      const imgInput = $(`#${prefix}-img`);
+      const imgInput = document.querySelector(`#${prefix}-img`);
       if (imgInput) {
         imgInput.value = result.secure_url;
         imgInput.dispatchEvent(new Event('input'));
@@ -577,10 +572,10 @@ document.addEventListener('DOMContentLoaded', function() {
       console.error('[Banners] Upload error:', e);
       alert('Lỗi khi upload: ' + e.message);
     }
-  };
+  }
 
   // Save banner
-  window.saveBanner = async function(platform, device) {
+  async function saveBanner(platform, device) {
     console.log('[Banners] Saving banner:', platform, device);
     
     const prefix = platform === 'fe' ? `fe-${device}` : `mini-${device}`;
@@ -645,7 +640,29 @@ document.addEventListener('DOMContentLoaded', function() {
       console.error('[Banners] Save error:', e);
       alert('Lỗi khi lưu: ' + e.message);
     }
-  };
+  }
+
+  // Setup save button event listeners
+  $('button.btn.primary').forEach(btn => {
+    const text = btn.textContent;
+    if (text.includes('Lưu Banner')) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Parse from button text which contains platform and device info
+        const parent = this.closest('.device-content');
+        if (!parent) return;
+        
+        const parentId = parent.id;
+        if (parentId.startsWith('fe-')) {
+          const device = parentId.replace('fe-', '');
+          saveBanner('fe', device);
+        } else if (parentId.startsWith('mini-')) {
+          const device = parentId.replace('mini-', '');
+          saveBanner('mini', device);
+        }
+      });
+    }
+  });
 
   // Load banners
   async function loadBanners(platform) {
@@ -749,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Delete banner
-  window.deleteBanner = async function(id, platform) {
+  async function deleteBanner(id, platform) {
     if (!confirm('Xác nhận xóa banner này?')) return;
     
     console.log('[Banners] Deleting banner:', id);
