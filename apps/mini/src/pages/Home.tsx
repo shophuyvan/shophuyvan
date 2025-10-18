@@ -44,8 +44,12 @@ async function enrichPrices(list: any[]): Promise<any[]> {
   return results;
 }
 
-
-// === END CATEGORY SYNC FROM ADMIN ===
+const CATS = [
+  { key: 'dien-nuoc', label: 'Thiết Bị Điện\n& Nước', href: '/category?c=dien-nuoc', icon: '🔌' },
+  { key: 'nha-cua-doi-song', label: 'Nhà Cửa\nĐời Sống', href: '/category?c=nha-cua-doi-song', icon: '🏠' },
+  { key: 'hoa-chat-gia-dung', label: 'Hoá Chất\nGia Dụng', href: '/category?c=hoa-chat-gia-dung', icon: '🧪' },
+  { key: 'dung-cu-thiet-bi-tien-ich', label: 'Dụng Cụ &\nThiết Bị Tiện Ích', href: '/category?c=dung-cu-thiet-bi-tien-ich', icon: '🧰' },
+];
 
 const ProductSkeleton = () => (
   <div className="bg-white rounded-2xl p-3 shadow animate-pulse">
@@ -55,25 +59,7 @@ const ProductSkeleton = () => (
   </div>
 );
 
-export default function Home() {/* === START LOAD CATEGORIES FROM ADMIN === */
-const [cats, setCats] = useState<any[]>([]);
-const [loadingCats, setLoadingCats] = useState(true);
-
-useEffect(() => {
-  (async () => {
-    try {
-      const r = await api.categories.list();
-      const arr = r?.items || r?.data || r?.categories || [];
-      setCats(arr);
-    } catch (e) {
-      console.error('Lỗi tải danh mục:', e);
-    } finally {
-      setLoadingCats(false);
-    }
-  })();
-}, []);
-/* === END LOAD CATEGORIES FROM ADMIN === */
-
+export default function Home() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,35 +128,19 @@ useEffect(() => {
         </div>
       </section>
 
-{/* === START RENDER DYNAMIC CATEGORIES === */}
-<section className="safe-x mt-4 grid grid-cols-4 gap-3 text-center">
-  {loadingCats && (
-    <div className="col-span-4 text-center text-gray-400 text-sm py-2">
-      Đang tải danh mục...
-    </div>
-  )}
-
-  {!loadingCats && cats.length === 0 && (
-    <div className="col-span-4 text-center text-gray-400 text-sm py-2">
-      Chưa có danh mục nào.
-    </div>
-  )}
-
-  {!loadingCats && cats.map((c: any) => (
-    <a
-      key={c.slug || c.id}
-      href={`/category?c=${encodeURIComponent(c.slug || c.id)}`}
-      className="cat-item hover:opacity-80 transition-opacity"
-    >
-      <div className="cat-icon text-3xl">{c.icon || '📦'}</div>
-      <div className="cat-label whitespace-pre-line text-xs mt-1">
-        {c.name || c.title}
-      </div>
-    </a>
-  ))}
-</section>
-{/* === END RENDER DYNAMIC CATEGORIES === */}
-
+      {/* Danh mục */}
+      <section className="safe-x mt-4 grid grid-cols-4 gap-3 text-center">
+        {CATS.map(c => (
+          <a 
+            key={c.key} 
+            href={c.href} 
+            className="cat-item hover:opacity-80 transition-opacity"
+          >
+            <div className="cat-icon text-3xl">{c.icon}</div>
+            <div className="cat-label whitespace-pre-line text-xs mt-1">{c.label}</div>
+          </a>
+        ))}
+      </section>
 
       {/* Sản phẩm bán chạy */}
       <section className="safe-x mt-5">
