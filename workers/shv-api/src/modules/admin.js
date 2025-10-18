@@ -17,13 +17,17 @@ export async function handle(req, env, ctx) {
       return await setupSuperAdmin(req, env);
     }
 
-    // Login route
-    if (path === '/admin/auth/login' && method === 'POST') {
+    // Login routes - HỖ TRỢ NHIỀU ENDPOINT
+    if ((path === '/admin/auth/login' || 
+         path === '/admin/login' || 
+         path === '/login' || 
+         path === '/admin_auth/login') && 
+        method === 'POST') {
       return await handleLogin(req, env);
     }
 
     // Get current admin
-    if (path === '/admin/auth/me' && method === 'GET') {
+    if ((path === '/admin/auth/me' || path === '/admin/me') && method === 'GET') {
       return await handleMe(req, env);
     }
 

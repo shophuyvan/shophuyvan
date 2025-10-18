@@ -50,8 +50,17 @@ export default {
 
     try {
       // ============================================
-      // ADMIN ROUTES (NEW)
+      // ADMIN ROUTES (NEW) - ƯU TIÊN TRƯỚC
       // ============================================
+      
+      // Admin login routes - PHẢI ĐẶT TRƯỚC auth module
+      if (path === '/admin/login' ||
+          path === '/login' ||
+          path === '/admin_auth/login') {
+        return admin.handle(req, env, ctx);
+      }
+      
+      // Admin management routes
       if (path.startsWith('/admin/setup') ||
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
@@ -63,11 +72,8 @@ export default {
       // EXISTING ROUTES
       // ============================================
 
-      // Auth module
-      if (path === '/admin/login' ||
-          path === '/login' ||
-          path === '/admin_auth/login' ||
-          path === '/admin/me') {
+      // Auth module (OLD - để tương thích backward)
+      if (path === '/admin/me') {
         return auth.handle(req, env, ctx);
       }
 
