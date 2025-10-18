@@ -51,7 +51,7 @@ import api from './lib/api.js';
     try{
       if(Array.isArray(window.CATEGORIES) && window.CATEGORIES.length) return window.CATEGORIES;
       // ưu tiên endpoint public
-      const paths = ['/public/categories','/categories','/public/categories?all=1'];
+      const paths = ['/api/categories', '/public/categories', '/categories', '/public/categories?all=1'];
       for(const p of paths){
         try{
           const r = await api.get(p);
@@ -88,11 +88,15 @@ import api from './lib/api.js';
     const a = document.createElement('a');
     a.textContent = `${'— '.repeat(Math.min(depth,3))}${n.name||n.title||''}`;
     a.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
+/* === START AUTO NAVIGATE CATEGORY === */
 a.addEventListener('click', (e) => {
   e.preventDefault();
-  // Nếu muốn mở ngay trong trang hiện tại:
   window.location.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
+  // đóng panel danh mục sau khi click
+  document.getElementById('__shv_cat_panel')?.remove();
 });
+/* === END AUTO NAVIGATE CATEGORY === */
+
     Object.assign(a.style, {display:'block', padding:'6px 8px', borderRadius:'8px', color:'#111827', textDecoration:'none'});
     a.addEventListener?.('mouseover', ()=> a.style.background='#f3f4f6');
     a.addEventListener?.('mouseout',  ()=> a.style.background='transparent');
