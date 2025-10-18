@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation
+// modules/shipping/waybill.js - Waybill Creation (FIXED)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
@@ -10,7 +10,6 @@ import { idemGet, idemSet } from '../../lib/idempotency.js';
 import { superFetch, chargeableWeightGrams } from './helpers.js';
 
 export async function createWaybill(req, env) {
-  // Idempotency check
   const idem = await idemGet(req, env);
   if (idem.hit) {
     return new Response(idem.body, { 
@@ -19,7 +18,6 @@ export async function createWaybill(req, env) {
     });
   }
 
-  // Auth check
   if (!(await adminOK(req, env))) {
     return errorResponse('Unauthorized', 401, req);
   }
@@ -33,7 +31,6 @@ export async function createWaybill(req, env) {
     const order = body.order || {};
     const ship = body.ship || {};
 
-    // Build payload
     const payload = {
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
@@ -65,7 +62,7 @@ export async function createWaybill(req, env) {
       provider: ship.provider || body.provider || order.shipping_provider || '',
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
-      // Items
+      // Items (FIXED)
       items: buildWaybillItems(body, order),
       
       // Additional
@@ -76,7 +73,7 @@ export async function createWaybill(req, env) {
     payload.sender_phone = sanitizePhone(payload.sender_phone);
     payload.receiver_phone = sanitizePhone(payload.receiver_phone);
 
-    // Root-level aliases for some providers
+    // Root-level aliases
     payload.province_code = payload.receiver_province_code;
     payload.district_code = payload.receiver_district_code;
     payload.commune_code = payload.receiver_commune_code;
@@ -115,11 +112,12 @@ export async function createWaybill(req, env) {
       body: payload
     });
 
+    console.log('SuperAI response:', JSON.stringify(data, null, 2));
+
     const code = data?.data?.code || data?.code || null;
     const tracking = data?.data?.tracking || data?.tracking || code || null;
 
     if (code || tracking) {
-      // Save shipment record
       await putJSON(env, 'shipment:' + (order.id || body.order_id || code), {
         provider: payload.provider,
         service_code: payload.service_code,
@@ -129,35 +127,67 @@ export async function createWaybill(req, env) {
         createdAt: Date.now()
       });
 
-      const response = json({ ok: true, code, tracking }, {}, req);
+      const response = json({ ok: true, code, tracking, provider: payload.provider }, {}, req);
       await idemSet(idem.key, env, response);
       return response;
     }
 
+    // Better error handling
     return json({
       ok: false,
       error: 'CREATE_FAILED',
+      message: data?.message || data?.error?.message || 'Không tạo được vận đơn',
       raw: data
     }, { status: 400 }, req);
 
   } catch (e) {
     console.error('Waybill creation error:', e);
-    return errorResponse(e, 500, req);
+    return json({
+      ok: false,
+      error: 'EXCEPTION',
+      message: e.message
+    }, { status: 500 }, req);
   }
 }
 
+// ===== FIXED: buildWaybillItems with default weight and name truncation =====
 function buildWaybillItems(body, order) {
   const items = Array.isArray(order.items) ? order.items : 
                (Array.isArray(body.items) ? body.items : []);
 
-  if (!items.length) return [];
+  if (!items.length) {
+    // Return default item if empty
+    return [{
+      name: 'Sản phẩm',
+      price: 0,
+      quantity: 1,
+      weight: 500 // Default 500g
+    }];
+  }
 
-  return items.map(item => ({
-    name: item.name || 'SP',
-    price: Number(item.price || 0),
-    quantity: Number(item.qty || item.quantity || 1),
-    weight: Number(item.weight_gram || item.weight_grams || item.weight || 0)
-  }));
+  return items.map((item, index) => {
+    // Get weight with fallback
+    let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
+    if (weight <= 0) {
+      weight = 500; // Default 500g per item if not specified
+    }
+
+    // Get name with fallback and truncate if too long
+    let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
+    if (name.length > 100) {
+      name = name.substring(0, 97) + '...';
+    }
+    if (!name) {
+      name = `Sản phẩm ${index + 1}`;
+    }
+
+    return {
+      name: name,
+      price: Number(item.price || 0),
+      quantity: Number(item.qty || item.quantity || 1),
+      weight: weight
+    };
+  });
 }
 
 function validateWaybillPayload(payload) {
@@ -167,17 +197,33 @@ function validateWaybillPayload(payload) {
   if (!payload.sender_province_code) errors.push('Missing sender province code');
   if (!payload.sender_district_code) errors.push('Missing sender district code');
   if (!payload.sender_phone) errors.push('Missing sender phone');
+  if (!payload.sender_name || !payload.sender_name.trim()) errors.push('Missing sender name');
+  if (!payload.sender_address || !payload.sender_address.trim()) errors.push('Missing sender address');
 
   // Receiver validation
-  if (!payload.receiver_name) errors.push('Missing receiver name');
+  if (!payload.receiver_name || !payload.receiver_name.trim()) errors.push('Missing receiver name');
   if (!payload.receiver_phone) errors.push('Missing receiver phone');
-  if (!payload.receiver_address) errors.push('Missing receiver address');
+  if (!payload.receiver_address || !payload.receiver_address.trim()) errors.push('Missing receiver address');
   if (!payload.receiver_province_code) errors.push('Missing receiver province code');
   if (!payload.receiver_district_code) errors.push('Missing receiver district code');
 
   // Package validation
   if (!payload.weight_gram || payload.weight_gram <= 0) {
     errors.push('Invalid weight (must be > 0)');
+  }
+
+  // Items validation
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    errors.push('Items array is empty');
+  } else {
+    payload.items.forEach((item, idx) => {
+      if (!item.name || !item.name.trim()) {
+        errors.push(`Item ${idx + 1}: name is required`);
+      }
+      if (!item.weight || item.weight <= 0) {
+        errors.push(`Item ${idx + 1}: weight must be > 0`);
+      }
+    });
   }
 
   return {
