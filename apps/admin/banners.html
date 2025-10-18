@@ -727,22 +727,22 @@ document.addEventListener('DOMContentLoaded', function() {
     return card;
   }
 
-  // Delete banner
+   // Delete banner
   window.deleteBanner = async function(id, platform) {
     if (!confirm('Xác nhận xóa banner này?')) return;
-    
+
     console.log('[Banners] Deleting banner:', id);
-    
+
     try {
       let r = await Admin.req('/admin/banners/delete', { method: 'POST', body: { id } });
       console.log('[Banners] /admin/banners/delete response:', r);
-      
+
       if (!(r && r.ok)) {
         console.log('[Banners] Trying /admin/banner/delete endpoint...');
         r = await Admin.req('/admin/banner/delete', { method: 'POST', body: { id } });
         console.log('[Banners] /admin/banner/delete response:', r);
       }
-      
+
       if (r && r.ok) {
         Admin.toast('Đã xóa');
         loadBanners(platform);
@@ -751,4 +751,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('[Banners] Delete failed:', r);
         alert('Xóa thất bại: ' + (r.error || 'Unknown error'));
       }
-    
+    } catch (e) {
+      console.error('[Banners] Delete error:', e);
+      alert('Lỗi khi xóa: ' + e.message);
+    }
+  };
+
+  // Lần đầu vào trang: tải banner FE
+  loadBanners('fe');
+});  // <-- đóng DOMContentLoaded
+</script>
