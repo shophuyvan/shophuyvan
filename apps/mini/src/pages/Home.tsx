@@ -62,7 +62,7 @@ const [loadingCats, setLoadingCats] = useState(true);
 useEffect(() => {
   (async () => {
     try {
-      const r = await api.get('/api/categories');
+      const r = await api.categories.list();
       const arr = r?.items || r?.data || r?.categories || [];
       setCats(arr);
     } catch (e) {
