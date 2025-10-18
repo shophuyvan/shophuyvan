@@ -262,184 +262,224 @@
 </div>
 
 <script>
-// Initialize sidebar layout
-AdminLayout.init('Sản phẩm');
+// CRITICAL FIX: Wrap everything in DOMContentLoaded to ensure sidebar-layout runs first
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Products] DOM loaded, initializing...');
 
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    AdminLayout.init('Sản phẩm');
+  }
 
-let allProducts = [];
-let selectedIds = new Set();
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-function cdnUrl(url) {
-  if (!url) return './no-image.svg';
-  return url;
-}
+  let allProducts = [];
+  let selectedIds = new Set();
 
-function formatPrice(price) {
-  return Number(price || 0).toLocaleString('vi-VN') + 'đ';
-}
+  function cdnUrl(url) {
+    if (!url) return './no-image.svg';
+    return url;
+  }
 
-function createProductCard(p) {
-  const price = p.price_sale || p.price || 0;
-  const imgUrl = cdnUrl((p.images && p.images[0]) || '');
-  const id = p.id || p._id || p.key || '';
-  
-  const variants = Array.isArray(p.variants) ? p.variants :
-                   Array.isArray(p.options) ? p.options :
-                   Array.isArray(p.skus) ? p.skus : [];
-  
-  const hasStock = variants.length > 0 
-    ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0)
-    : true;
-  
-  return `
-    <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
-      <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
-      <div class="card-image">
-        <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
-        <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
-          ${hasStock ? 'Còn hàng' : 'Hết hàng'}
+  function formatPrice(price) {
+    return Number(price || 0).toLocaleString('vi-VN') + 'đ';
+  }
+
+  function createProductCard(p) {
+    const price = p.price_sale || p.price || 0;
+    const imgUrl = cdnUrl((p.images && p.images[0]) || '');
+    const id = p.id || p._id || p.key || '';
+    
+    const variants = Array.isArray(p.variants) ? p.variants :
+                     Array.isArray(p.options) ? p.options :
+                     Array.isArray(p.skus) ? p.skus : [];
+    
+    const hasStock = variants.length > 0 
+      ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0)
+      : true;
+    
+    return `
+      <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
+        <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
+        <div class="card-image">
+          <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
+          <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
+            ${hasStock ? 'Còn hàng' : 'Hết hàng'}
+          </div>
+        </div>
+        <div class="card-content">
+          <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
+          <div class="card-meta">
+            <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
+            <div class="card-price">${formatPrice(price)}</div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
+          <button class="btn danger" onclick="window.deleteProduct('${id}')">🗑️ Xóa</button>
         </div>
       </div>
-      <div class="card-content">
-        <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
-        <div class="card-meta">
-          <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
-          <div class="card-price">${formatPrice(price)}</div>
-        </div>
-      </div>
-      <div class="card-actions">
-        <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
-        <button class="btn danger" onclick="deleteProduct('${id}')">🗑️ Xóa</button>
-      </div>
-    </div>
-  `;
-}
+    `;
+  }
 
-async function load() {
-  try {
-    const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
-    allProducts = r.items || r.data || r.products || [];
-    
-    const q = ($('#q').value || '').toLowerCase();
-    const filtered = allProducts.filter(p => {
-      const t = (p.title || p.name || '').toLowerCase();
-      const slug = String(p.slug || '').toLowerCase();
-      const sku = String(p.sku || '').toLowerCase();
-      return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
-    });
-    
-    $('#total-count').textContent = filtered.length;
-    
-    const grid = $('#grid');
-    if (filtered.length === 0) {
-      grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
-      return;
+  async function load() {
+    console.log('[Products] Loading products...');
+    try {
+      const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
+      console.log('[Products] API Response:', r);
+      
+      allProducts = r.items || r.data || r.products || [];
+      console.log('[Products] Total products:', allProducts.length);
+      
+      const q = ($('#q')?.value || '').toLowerCase();
+      const filtered = allProducts.filter(p => {
+        const t = (p.title || p.name || '').toLowerCase();
+        const slug = String(p.slug || '').toLowerCase();
+        const sku = String(p.sku || '').toLowerCase();
+        return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
+      });
+      
+      const totalEl = $('#total-count');
+      if (totalEl) totalEl.textContent = filtered.length;
+      
+      const grid = $('#grid');
+      if (!grid) {
+        console.error('[Products] Grid element not found!');
+        return;
+      }
+      
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
+        return;
+      }
+      
+      grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
+      console.log('[Products] Rendered', filtered.length, 'products');
+      
+      // Re-attach event listeners
+      $$('.card-checkbox').forEach(cb => {
+        cb.addEventListener('change', handleCheckboxChange);
+      });
+      
+      updateBulkActions();
+    } catch (error) {
+      console.error('[Products] Load error:', error);
+      const grid = $('#grid');
+      if (grid) grid.innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
     }
+  }
+
+  function handleCheckboxChange(e) {
+    const id = e.target.getAttribute('data-id');
+    const card = $(`.product-card[data-id="${id}"]`);
     
-    grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
-    
-    $('.card-checkbox').forEach(cb => {
-      cb.addEventListener('change', handleCheckboxChange);
-    });
+    if (e.target.checked) {
+      selectedIds.add(id);
+      if (card) card.classList.add('selected');
+    } else {
+      selectedIds.delete(id);
+      if (card) card.classList.remove('selected');
+    }
     
     updateBulkActions();
-  } catch (error) {
-    $('#grid').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
-    console.error(error);
   }
-}
 
-function handleCheckboxChange(e) {
-  const id = e.target.getAttribute('data-id');
-  const card = $(`.product-card[data-id="${id}"]`);
-  
-  if (e.target.checked) {
-    selectedIds.add(id);
-    card.classList.add('selected');
-  } else {
-    selectedIds.delete(id);
-    card.classList.remove('selected');
-  }
-  
-  updateBulkActions();
-}
-
-function updateBulkActions() {
-  const bulkActions = $('#bulk-actions');
-  const selectAll = $('#select-all');
-  const selectedCount = $('#selected-count');
-  
-  selectedCount.textContent = selectedIds.size;
-  
-  if (selectedIds.size > 0) {
-    bulkActions.classList.add('show');
-  } else {
-    bulkActions.classList.remove('show');
-  }
-  
-  selectAll.checked = selectedIds.size === allProducts.length && allProducts.length > 0;
-}
-
-$('#select-all').addEventListener('change', (e) => {
-  if (e.target.checked) {
-    allProducts.forEach(p => {
-      const id = p.id || p._id || p.key;
-      selectedIds.add(id);
-    });
-  } else {
-    selectedIds.clear();
-  }
-  load();
-});
-
-async function deleteProduct(id) {
-  if (!id) return;
-  if (!confirm('Xác nhận xóa sản phẩm này?')) return;
-  
-  try {
-    let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
-    if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
-    if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+  function updateBulkActions() {
+    const bulkActions = $('#bulk-actions');
+    const selectAll = $('#select-all');
+    const selectedCount = $('#selected-count');
     
-    if (r && r.ok) {
-      Admin.toast('Đã xóa sản phẩm');
-      selectedIds.delete(id);
-      load();
-    } else {
-      alert('Xóa thất bại');
+    if (selectedCount) selectedCount.textContent = selectedIds.size;
+    
+    if (bulkActions) {
+      if (selectedIds.size > 0) {
+        bulkActions.classList.add('show');
+      } else {
+        bulkActions.classList.remove('show');
+      }
     }
-  } catch (error) {
-    alert('Xóa thất bại: ' + error.message);
+    
+    if (selectAll) {
+      selectAll.checked = selectedIds.size === allProducts.length && allProducts.length > 0;
+    }
   }
-}
 
-$('#bulk-delete').addEventListener('click', async () => {
-  if (selectedIds.size === 0) return;
-  if (!confirm(`Xác nhận xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
-  
-  let success = 0;
-  for (const id of selectedIds) {
+  // Event listeners
+  const selectAllEl = $('#select-all');
+  if (selectAllEl) {
+    selectAllEl.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        allProducts.forEach(p => {
+          const id = p.id || p._id || p.key;
+          selectedIds.add(id);
+        });
+      } else {
+        selectedIds.clear();
+      }
+      load();
+    });
+  }
+
+  async function deleteProduct(id) {
+    if (!id) return;
+    if (!confirm('Xác nhận xóa sản phẩm này?')) return;
+    
     try {
       let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
       if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
       if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
-      if (r && r.ok) success++;
+      
+      if (r && r.ok) {
+        Admin.toast('Đã xóa sản phẩm');
+        selectedIds.delete(id);
+        load();
+      } else {
+        alert('Xóa thất bại');
+      }
     } catch (error) {
-      console.error('Error deleting:', id, error);
+      alert('Xóa thất bại: ' + error.message);
     }
   }
-  
-  Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
-  selectedIds.clear();
+
+  // Bulk delete
+  const bulkDeleteBtn = $('#bulk-delete');
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', async () => {
+      if (selectedIds.size === 0) return;
+      if (!confirm(`Xác nhận xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
+      
+      let success = 0;
+      for (const id of selectedIds) {
+        try {
+          let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
+          if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+          if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+          if (r && r.ok) success++;
+        } catch (error) {
+          console.error('Error deleting:', id, error);
+        }
+      }
+      
+      Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
+      selectedIds.clear();
+      load();
+    });
+  }
+
+  const reloadBtn = $('#reload');
+  if (reloadBtn) reloadBtn.onclick = load;
+
+  const searchInput = $('#q');
+  if (searchInput) searchInput.addEventListener('input', load);
+
+  // Expose deleteProduct globally
+  window.deleteProduct = deleteProduct;
+
+  // Initial load
+  console.log('[Products] Starting initial load...');
   load();
 });
-
-$('#reload').onclick = load;
-$('#q').addEventListener('input', load);
-
-window.deleteProduct = deleteProduct;
-
-// Load products on page ready
-load();
+</script>
+</body>
+</html>
