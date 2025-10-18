@@ -1,588 +1,297 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Đơn hàng</title>
-  <link rel="stylesheet" href="./styles.css"/>
-  <script src="./admin_real.js?v=25"></script>
-  
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Đơn hàng - Admin</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; }
+    /* Modal styles */
+    #modal-detail {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
     
-    /* Header */
-    .header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 1rem 2rem; }
-    .header h1 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-bottom: 0.75rem; }
-    .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .tab { padding: 0.5rem 1rem; border-radius: 6px; background: #f3f4f6; color: #6b7280; text-decoration: none; font-size: 0.875rem; transition: all 0.2s; }
-    .tab:hover { background: #e5e7eb; color: #374151; }
-    .tab.active { background: #3b82f6; color: #fff; }
-    .tab .count { margin-left: 0.25rem; font-weight: 600; }
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
     
-    /* Container */
-    .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; }
+    #ship-actions {
+      display: none;
+      gap: 8px;
+      margin-top: 16px;
+    }
     
-    /* Toolbar */
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
-    .btn-group { display: flex; gap: 0.5rem; }
-    .btn { padding: 0.625rem 1.25rem; border-radius: 8px; border: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
-    .btn-primary { background: #3b82f6; color: #fff; }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
-    .btn-secondary:hover { background: #f9fafb; }
+    .btn-primary {
+      background: #10b981;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
     
-    /* Table */
-    .table-wrapper { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    thead { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
-    th { padding: 0.875rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; }
-    td { padding: 1rem; border-bottom: 1px solid #f3f4f6; font-size: 0.875rem; color: #374151; }
-    tbody tr:hover { background: #f9fafb; }
+    .btn-primary:hover {
+      background: #059669;
+    }
     
-    /* Product cell */
-    .product-cell { display: flex; align-items: center; gap: 0.75rem; }
-    .product-img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e7eb; }
-    .product-name { font-weight: 500; color: #1f2937; }
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
     
-    /* Source badges */
-    .source { padding: 0.25rem 0.625rem; border-radius: 6px; font-size: 0.75rem; background: #f3f4f6; color: #4b5563; }
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
     
-    /* Modal */
-    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50; }
-    .modal.active { display: flex; }
-    .modal-content { background: #fff; border-radius: 12px; width: min(800px, 90vw); max-height: 90vh; overflow: auto; }
-    .modal-header { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-    .modal-body { padding: 1.5rem; }
-    .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 0.75rem; }
-  </style>
-</head>
-
-<body>
-  <div class="header">
-    <h1>Đơn hàng</h1>
-    <div class="tabs">
-      <a href="#" class="tab active">Tất Cả</a>
-      <a href="#" class="tab">Chờ Lấy Hàng</a>
-      <a href="#" class="tab">Đang Giao</a>
-    </div>
-  </div>
-
-  <div class="container">
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Mặt Hàng</th>
-            <th>Mã Đơn</th>
-            <th>Mã Vận Đơn</th>
-            <th style="text-align:right">Doanh Thu</th>
-            <th>Thời Gian</th>
-            <th>Nguồn</th>
-            <th style="text-align:right">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody id="list"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="modal-detail" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Chi tiết đơn hàng</h2>
-        <button class="btn btn-secondary" id="md-close">Đóng</button>
-      </div>
-      <div class="modal-body" id="md-body"></div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="btn-print-waybill">In vận đơn</button>
-        <button class="btn btn-primary" id="btn-create-waybill">Tạo vận đơn</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ==================== ALL-IN-ONE ORDERS & WAYBILL MANAGER ====================
+    .item-cell {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
     
-    class OrdersManager {
-      constructor() {
-        this.orders = [];
-        this.currentOrder = null;
-        this.baseURL = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
+    .item-cell img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .nowrap {
+      white-space: nowrap;
+    }
+    
+    /* Auto waybill notification */
+    #auto-waybill-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #3b82f6;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 2000;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
       }
-
-      cloudify(url, transform = 'w_96,q_auto,f_auto,c_fill') {
-        if (!url || !url.includes('cloudinary.com')) return url;
-        return url.replace('/upload/', `/upload/${transform}/`);
-      }
-
-      formatPrice(n) {
-        try {
-          return Number(n || 0).toLocaleString('vi-VN') + 'đ';
-        } catch (e) {
-          return (n || 0) + 'đ';
-        }
-      }
-
-      formatDate(dateInput) {
-        try {
-          const date = typeof dateInput === 'number' || /^[0-9]+$/.test(dateInput)
-            ? new Date(Number(dateInput))
-            : new Date(dateInput);
-          return date.toLocaleString('vi-VN');
-        } catch (e) {
-          return '';
-        }
-      }
-
-      getPlaceholderImage() {
-        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48">' +
-          '<rect width="48" height="48" fill="#f3f4f6"/>' +
-          '<text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="#9ca3af">no img</text>' +
-          '</svg>';
-        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-      }
-
-      async loadOrders() {
-        try {
-          const response = await Admin.req('/api/orders', { method: 'GET' });
-          this.orders = response?.items || [];
-          this.renderOrdersList();
-        } catch (error) {
-          console.error('[OrdersManager] Load orders error:', error);
-          Admin.toast('❌ Lỗi tải danh sách đơn hàng');
-        }
-      }
-
-      calculateOrderTotals(order) {
-        const items = Array.isArray(order.items) ? order.items : [];
-        const subtotal = items.reduce((sum, item) => 
-          sum + Number(item.price || 0) * Number(item.qty || 1), 0);
-        const shipping = Number(order.shipping_fee || 0);
-        const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
-        const total = Math.max(0, subtotal + shipping - discount);
-        return { subtotal, shipping, discount, total };
-      }
-
-      renderOrdersList() {
-        const tbody = document.getElementById('list');
-        if (!tbody) return;
-
-        if (this.orders.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:2rem">Chưa có đơn hàng</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = this.orders.map(order => this.renderOrderRow(order)).join('');
-        this.wireOrderRowEvents();
-      }
-
-      renderOrderRow(order) {
-        const items = Array.isArray(order.items) ? order.items : [];
-        const firstItem = items[0] || {};
-        let img = firstItem.image || firstItem.img || firstItem.thumbnail || '';
-        img = img ? this.cloudify(img) : this.getPlaceholderImage();
-        const itemTitle = String(firstItem.name || firstItem.title || firstItem.sku || 'Sản phẩm');
-        const itemQty = Number(firstItem.qty || firstItem.quantity || 1);
-        const { total } = this.calculateOrderTotals(order);
-        const provider = String(order.shipping_provider || order.provider || '');
-        const tracking = String(order.tracking_code || order.shipping_tracking || '');
-        const created = this.formatDate(order.created_at || order.createdAt);
-        const source = String(order.source || order.channel || 'Web');
-        const orderId = String(order.id || '');
-
-        return `<tr>
-          <td><div class="item-cell"><img src="${img}"/><div class="item-meta"><div class="name">${itemTitle}</div><div>x${itemQty}</div></div></div></td>
-          <td class="nowrap">${orderId}</td>
-          <td class="nowrap">${provider || '-'}</td>
-          <td class="nowrap">${tracking || '-'}</td>
-          <td class="nowrap">${this.formatPrice(total)}</td>
-          <td class="nowrap">${created}</td>
-          <td>${source}</td>
-          <td class="text-right"><div class="btn-group">
-            <button class="btn btn-sm" data-view="${orderId}">Xem</button>
-            <button class="btn btn-sm btn-danger" data-delete="${orderId}">Xoá</button>
-          </div></td>
-        </tr>`;
-      }
-
-      wireOrderRowEvents() {
-        document.querySelectorAll('[data-view]').forEach(btn => {
-          btn.onclick = () => {
-            const id = btn.getAttribute('data-view');
-            const order = this.orders.find(o => String(o.id || '') === id);
-            if (order) this.showOrderDetail(order);
-          };
-        });
-
-        document.querySelectorAll('[data-delete]').forEach(btn => {
-          btn.onclick = async () => {
-            const id = btn.getAttribute('data-delete');
-            await this.deleteOrder(id);
-          };
-        });
-      }
-
-      async deleteOrder(orderId) {
-        if (!confirm(`Xác nhận xoá đơn hàng ${orderId}?`)) return;
-        try {
-          const result = await Admin.req('/admin/orders/delete', {
-            method: 'POST',
-            body: { id: orderId }
-          });
-          if (result?.ok) {
-            Admin.toast('✅ Đã xoá đơn hàng');
-            this.loadOrders();
-          } else {
-            alert('Xoá thất bại: ' + (result?.message || 'Lỗi'));
-          }
-        } catch (error) {
-          alert('Lỗi xoá đơn: ' + error.message);
-        }
-      }
-
-      showOrderDetail(order) {
-        this.currentOrder = order;
-        window.__currentOrder = order;
-        const modal = document.getElementById('modal-detail');
-        const body = document.getElementById('md-body');
-        const actions = document.getElementById('ship-actions');
-        if (!modal || !body) return;
-        modal.dataset.orderId = String(order.id || '');
-        body.innerHTML = this.renderOrderDetail(order);
-        if (actions) actions.style.display = 'flex';
-        modal.style.display = 'flex';
-      }
-
-      renderOrderDetail(order) {
-        const items = Array.isArray(order.items) ? order.items : [];
-        const { subtotal, shipping, discount, total } = this.calculateOrderTotals(order);
-        const customer = order.customer || {};
-        const custName = customer.name || order.customer_name || order.name || 'Khách';
-        const custPhone = customer.phone || order.phone || '';
-        const address = order.address || customer.address || '';
-        const shipName = order.shipping_name || order.shipping_provider || '';
-        const tracking = order.tracking_code || order.shipping_tracking || '';
-        const created = this.formatDate(order.createdAt || order.created_at);
-
-        const itemRows = items.map(item => {
-          // Tạo tên đầy đủ từ product_name + variant_name
-          let displayName = item.product_name || item.name || item.title || '';
-          const variantName = item.variant_name || item.variant || '';
-          
-          if (variantName) {
-            displayName = displayName ? `${displayName} - ${variantName}` : variantName;
-          }
-          
-          if (!displayName) displayName = 'Sản phẩm';
-          
-          return `<tr>
-          <td>${item.sku || ''}</td>
-          <td>${displayName}</td>
-          <td style="text-align:right">${item.qty || 1}</td>
-          <td style="text-align:right">${this.formatPrice(item.price || 0)}</td>
-          <td style="text-align:right">${this.formatPrice(item.cost || 0)}</td>
-          <td style="text-align:right">${this.formatPrice((item.price || 0) * (item.qty || 1))}</td>
-        </tr>`;
-        }).join('');
-
-        return `<div style="margin-bottom:8px">
-          <div><b>Khách:</b> ${custName}${custPhone ? ' • ' + custPhone : ''}</div>
-          ${address ? `<div><b>Địa chỉ:</b> ${address}</div>` : ''}
-          ${shipName ? `<div><b>Vận chuyển:</b> ${shipName}${tracking ? ' • Mã: ' + tracking : ''}</div>` : ''}
-          ${created ? `<div><b>Ngày tạo:</b> ${created}</div>` : ''}
-          <div><b>Trạng thái:</b> ${order.status || 'pending'}</div>
-        </div>
-        <div class="card"><table class="table md-table"><thead><tr>
-          <th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th>
-        </tr></thead><tbody>${itemRows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody></table>
-        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
-          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${this.formatPrice(subtotal)}</b></div>
-          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${this.formatPrice(shipping)}</b></div>
-          ${discount ? `<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-${this.formatPrice(discount)}</b></div>` : ''}
-          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${this.formatPrice(total)}</b></div>
-        </div></div>`;
-      }
-
-      openPrintWaybill(order, tracking) {
-        const customer = order.customer || {};
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vận đơn</title>
-          <style>body{font-family:system-ui;padding:16px}.box{border:1px dashed #444;padding:12px;margin-bottom:12px}
-          .row{display:flex;justify-content:space-between}</style></head><body>
-          <h2>Vận đơn - ${order.shipping_name || ''}</h2>
-          <div class="box"><div><b>Tracking:</b> ${tracking}</div><div><b>Đơn hàng:</b> ${order.id}</div>
-          <div><b>Khách:</b> ${customer.name || order.customer_name || ''}</div>
-          <div><b>ĐT:</b> ${customer.phone || order.phone || ''}</div>
-          <div><b>Địa chỉ:</b> ${customer.address || order.address || ''}</div></div>
-          <div class="box"><div class="row"><span>Phí VC:</span><b>${this.formatPrice(order.shipping_fee || 0)}</b></div>
-          <div class="row"><span>Tổng:</span><b>${this.formatPrice(order.revenue || 0)}</b></div></div>
-          <script>window.onload=()=>window.print()<\/script></body></html>`;
-        const w = window.open('', '_blank');
-        w.document.write(html);
-        w.document.close();
-      }
-
-      async createWaybill(order) {
-        try {
-          console.log('[Waybill] Creating for order:', order.id);
-          console.log('[Waybill] Order items:', JSON.stringify(order.items, null, 2));
-          Admin.toast('📄 Đang tạo vận đơn...');
-
-          // Get settings for sender info
-          const response = await fetch(this.baseURL + '/public/settings');
-          const data = await response.json();
-          const settings = data.settings || data;
-          const get = (path) => path.split('.').reduce((obj, key) => (obj || {})[key], settings) || '';
-
-          const sender = {
-            name: get('shipping.sender_name'),
-            phone: get('shipping.sender_phone').replace(/\D+/g, ''),
-            address: get('shipping.sender_address'),
-            province_code: get('shipping.sender_province_code'),
-            district_code: get('shipping.sender_district_code'),
-            commune_code: get('shipping.sender_commune_code')
-          };
-
-          const senderErrors = [];
-          if (!sender.name) senderErrors.push('Tên người gửi');
-          if (!sender.phone) senderErrors.push('SĐT người gửi');
-          if (!sender.province_code) senderErrors.push('Mã tỉnh người gửi');
-          if (!sender.district_code) senderErrors.push('Mã quận người gửi');
-
-          if (senderErrors.length > 0) {
-            alert(`⚠️ THÔNG TIN NGƯỜI GỬI CHƯA ĐẦY ĐỦ!\n\nThiếu: ${senderErrors.join(', ')}\n\nVui lòng:\n1. Vào trang "Vận chuyển"\n2. Bấm "Đồng bộ từ Warehouses"\n3. Bấm "Lưu người gửi"`);
-            return;
-          }
-
-          const customer = order.customer || {};
-          const receiverName = customer.name || order.customer_name || order.name || '';
-          const receiverPhone = (customer.phone || order.phone || '').replace(/\D+/g, '');
-          const receiverAddress = customer.address || order.address || '';
-          const receiverProvinceCode = customer.province_code || order.receiver_province_code || order.province_code || '';
-          const receiverDistrictCode = customer.district_code || order.receiver_district_code || order.district_code || '';
-          const receiverCommuneCode = customer.commune_code || customer.ward_code || order.receiver_commune_code || order.commune_code || '';
-
-          const receiverErrors = [];
-          if (!receiverName) receiverErrors.push('Tên người nhận');
-          if (!receiverPhone) receiverErrors.push('SĐT người nhận');
-          if (!receiverAddress) receiverErrors.push('Địa chỉ người nhận');
-          if (!receiverProvinceCode) receiverErrors.push('Mã tỉnh người nhận');
-          if (!receiverDistrictCode) receiverErrors.push('Mã quận người nhận');
-
-          if (receiverErrors.length > 0) {
-            alert(`⚠️ ĐƠN HÀNG THIẾU THÔNG TIN NGƯỜI NHẬN!\n\nThiếu: ${receiverErrors.join(', ')}\n\nHiện tại:\n` +
-                  `• Tên: ${receiverName || 'CHƯA CÓ'}\n` +
-                  `• SĐT: ${receiverPhone || 'CHƯA CÓ'}\n` +
-                  `• Địa chỉ: ${receiverAddress || 'CHƯA CÓ'}\n` +
-                  `• Tỉnh code: ${receiverProvinceCode || 'CHƯA CÓ'}\n` +
-                  `• Quận code: ${receiverDistrictCode || 'CHƯA CÓ'}\n\n` +
-                  `Vui lòng cập nhật địa chỉ đầy đủ cho khách hàng.`);
-            return;
-          }
-
-          const items = (order.items || []).map(item => {
-            // CRITICAL: Mapping đúng fields từ order items
-            let itemName = item.product_name || item.name || item.title || '';
-            const variantName = item.variant_name || item.variant || '';
-            
-            // Ghép product_name + variant_name
-            if (variantName) {
-              itemName = itemName ? `${itemName} - ${variantName}` : variantName;
-            }
-            
-            // Fallback nếu vẫn trống
-            if (!itemName || itemName.trim() === '' || itemName === '-') {
-              itemName = 'Sản phẩm';
-            }
-            
-            console.log('[Item mapping]', { 
-              original: item, 
-              mapped_name: itemName,
-              product_name: item.product_name,
-              variant_name: item.variant_name
-            });
-            
-            return {
-              name: itemName.trim(),
-              quantity: Number(item.qty || item.quantity || 1),
-              price: Number(item.price || 0),
-              weight: Number(item.weight_gram || item.weight_grams || item.weight || 100)
-            };
-          });
-
-          const totalWeight = Math.max(100, items.reduce((sum, item) => 
-            sum + (item.weight || 100) * (item.quantity || 1), 0));
-
-          // CRITICAL: SuperAI platform might use 'note' as order name
-          const payload = {
-            // Order reference
-            order_id: String(order.id),
-            note: `Đơn hàng #${order.id}` + (order.note ? ` - ${order.note}` : ''),
-            
-            // Sender fields (ROOT LEVEL)
-            sender_name: sender.name,
-            sender_phone: sender.phone,
-            sender_address: sender.address,
-            sender_province_code: String(sender.province_code),
-            sender_district_code: String(sender.district_code),
-            sender_commune_code: String(sender.commune_code || ''),
-            
-            // Receiver fields (ROOT LEVEL)
-            receiver_name: receiverName,
-            receiver_phone: receiverPhone,
-            receiver_address: receiverAddress,
-            receiver_province_code: String(receiverProvinceCode),
-            receiver_district_code: String(receiverDistrictCode),
-            receiver_commune_code: String(receiverCommuneCode || ''),
-            
-            // Aliases (waybill.js adds these)
-            to_name: receiverName,
-            to_phone: receiverPhone,
-            to_address: receiverAddress,
-            to_province_code: String(receiverProvinceCode),
-            to_district_code: String(receiverDistrictCode),
-            to_commune_code: String(receiverCommuneCode || ''),
-            
-            from_name: sender.name,
-            from_phone: sender.phone,
-            from_address: sender.address,
-            from_province_code: String(sender.province_code),
-            from_district_code: String(sender.district_code),
-            
-            province_code: String(receiverProvinceCode),
-            district_code: String(receiverDistrictCode),
-            commune_code: String(receiverCommuneCode || ''),
-            
-            // Package details
-            weight_gram: totalWeight,
-            weight: totalWeight,
-            cod: Number(order.cod || 0),
-            
-            // Items array
-            items: items,
-            
-            // Provider
-            provider: (order.shipping_provider || order.provider || 'vtp').toLowerCase(),
-            
-            // Optional
-            note: order.note || '',
-            service_code: order.service_code || '',
-            option_id: '1'
-          };
-
-          console.log('[Waybill] Payload:', JSON.stringify(payload, null, 2));
-
-          // Get token
-          const token = get('shipping.super_token') || localStorage.getItem('x-token') || localStorage.getItem('super_token') || '';
-          
-          if (!token) {
-            alert('⚠️ CHƯA CÓ TOKEN!\n\nVui lòng vào trang "Vận chuyển" để lưu Super Token.');
-            return;
-          }
-
-          // Call API
-          const result = await Admin.req('/admin/shipping/create', {
-            method: 'POST',
-            body: payload
-          });
-
-          console.log('[Waybill] Result:', result);
-
-          if (result && result.ok !== false && !result.error) {
-            const tracking = result.tracking_code || result.tracking || result.code || result.order_code || '';
-            const provider = result.provider || result.carrier || payload.provider;
-            
-            if (tracking) {
-              // Update order with tracking
-              try {
-                await Admin.req('/admin/orders/upsert', {
-                  method: 'POST',
-                  body: { 
-                    id: order.id, 
-                    tracking_code: tracking,
-                    shipping_provider: provider,
-                    status: 'shipping' 
-                  }
-                });
-              } catch (e) {
-                console.warn('[Waybill] Update order failed:', e);
-              }
-              
-              alert(`✅ TẠO VẬN ĐƠN THÀNH CÔNG!\n\n` +
-                    `Mã vận đơn: ${tracking}\n` +
-                    `Nhà vận chuyển: ${provider}\n` +
-                    `Đơn hàng: ${order.id}`);
-              
-              this.openPrintWaybill(order, tracking);
-              setTimeout(() => this.loadOrders(), 1000);
-              document.getElementById('modal-detail').style.display = 'none';
-            } else {
-              alert(`✅ Tạo vận đơn thành công!\n\n${JSON.stringify(result, null, 2).substring(0, 300)}`);
-            }
-          } else {
-            const errorMsg = result?.message || result?.error || 'Không rõ lỗi';
-            const details = result?.details || result?.raw || result;
-            
-            console.error('[Waybill] Error:', result);
-            
-            let errorText = `❌ TẠO VẬN ĐƠN THẤT BẠI\n\nLỗi: ${errorMsg}\n\n`;
-            
-            if (Array.isArray(details)) {
-              errorText += `Chi tiết:\n${details.map((d, i) => `${i+1}. ${d}`).join('\n')}\n\n`;
-            } else {
-              errorText += `Chi tiết:\n${JSON.stringify(details, null, 2).substring(0, 300)}\n\n`;
-            }
-            
-            errorText += `Kiểm tra:\n` +
-                        `1. Token còn hiệu lực?\n` +
-                        `2. Thông tin địa chỉ đúng?\n` +
-                        `3. Nhà vận chuyển có hoạt động?`;
-            
-            alert(errorText);
-          }
-        } catch (error) {
-          console.error('[Waybill] Exception:', error);
-          alert(`❌ LỖI TẠO VẬN ĐƠN\n\n${error.message}\n\nXem Console (F12) để biết chi tiết.`);
-        }
-      }
-
-      init() {
-        this.loadOrders();
-        const reloadBtn = document.getElementById('reload-orders');
-        if (reloadBtn) reloadBtn.onclick = () => this.loadOrders();
-        const closeBtn = document.getElementById('md-close');
-        if (closeBtn) closeBtn.onclick = () => document.getElementById('modal-detail').style.display = 'none';
-        const modal = document.getElementById('modal-detail');
-        if (modal) modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-        const printBtn = document.getElementById('btn-print-waybill');
-        if (printBtn) printBtn.onclick = () => {
-          if (this.currentOrder) {
-            const tracking = this.currentOrder.tracking_code || this.currentOrder.shipping_tracking || '';
-            this.openPrintWaybill(this.currentOrder, tracking);
-          }
-        };
-        console.log('[OrdersManager] Initialized ✅');
+      to {
+        transform: translateX(0);
+        opacity: 1;
       }
     }
+  </style>
+</head>
+<body>
 
-    window.ordersManager = new OrdersManager();
+<div class="container">
+  <div class="header">
+    <h1>📦 Quản lý Đơn hàng</h1>
+    <button id="reload-orders" class="btn-primary">🔄 Tải lại</button>
+  </div>
 
-    document.addEventListener('DOMContentLoaded', () => {
-      if (window.Admin?.renderApiBase) window.Admin.renderApiBase();
-      window.ordersManager.init();
-      const btnCreate = document.getElementById('btn-create-waybill');
-      if (btnCreate) {
-        btnCreate.onclick = async () => {
-          const order = window.ordersManager?.currentOrder;
-          if (!order) {
-            alert('❌ Không tìm thấy đơn hàng');
-            return;
+  <div class="card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Sản phẩm</th>
+          <th>Mã ĐH</th>
+          <th>Vận chuyển</th>
+          <th>Tracking</th>
+          <th>Tổng tiền</th>
+          <th>Ngày tạo</th>
+          <th>Nguồn</th>
+          <th class="text-right">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody id="list">
+        <tr>
+          <td colspan="8" style="text-align:center;padding:2rem">Đang tải...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Detail -->
+<div id="modal-detail">
+  <div class="modal-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>Chi tiết đơn hàng</h2>
+      <button id="md-close" class="btn-secondary">✕</button>
+    </div>
+    
+    <div id="md-body">
+      <!-- Order details will be rendered here -->
+    </div>
+    
+    <div id="ship-actions">
+      <button id="btn-create-waybill" class="btn-primary">
+        📦 Tạo vận đơn
+      </button>
+      <button id="btn-print-waybill" class="btn-secondary">
+        🖨️ In vận đơn
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto Waybill Notification -->
+<div id="auto-waybill-notification" style="display: none;">
+  <div style="font-weight: 600; margin-bottom: 4px;">🚀 Đang tạo vận đơn tự động...</div>
+  <div style="font-size: 14px; opacity: 0.9;">Vui lòng đợi trong giây lát</div>
+</div>
+
+<!-- Scripts -->
+<script src="admin_real.js"></script>
+<script src="orders-manager.js"></script>
+<script src="waybill-creator.js"></script>
+
+<script>
+// Auto waybill logic
+(function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const orderId = urlParams.get('order_id');
+  const autoWaybill = urlParams.get('auto_waybill');
+  
+  if (orderId && autoWaybill === '1') {
+    console.log('[AutoWaybill] Detected order:', orderId);
+    
+    // Show notification
+    const notification = document.getElementById('auto-waybill-notification');
+    if (notification) {
+      notification.style.display = 'block';
+    }
+    
+    // Wait for ordersManager to initialize
+    const checkManager = setInterval(() => {
+      if (window.ordersManager && window.ordersManager.orders) {
+        clearInterval(checkManager);
+        
+        // Find the order
+        const order = window.ordersManager.orders.find(o => 
+          String(o.id || '') === String(orderId)
+        );
+        
+        if (order) {
+          console.log('[AutoWaybill] Found order:', order);
+          
+          // Show order detail
+          setTimeout(() => {
+            window.ordersManager.showOrderDetail(order);
+            
+            // Auto create waybill after modal opens
+            setTimeout(() => {
+              if (notification) {
+                notification.style.display = 'none';
+              }
+              
+              // Check if waybill already exists
+              if (!order.tracking_code && !order.shipping_tracking) {
+                console.log('[AutoWaybill] Creating waybill...');
+                
+                if (window.waybillCreator) {
+                  window.waybillCreator.createWaybill(order);
+                } else if (window.WaybillCreator) {
+                  const creator = new window.WaybillCreator();
+                  creator.createWaybill(order);
+                }
+              } else {
+                console.log('[AutoWaybill] Waybill already exists:', order.tracking_code);
+                alert('✅ Đơn hàng đã có mã vận đơn: ' + (order.tracking_code || order.shipping_tracking));
+              }
+            }, 800);
+          }, 500);
+        } else {
+          console.warn('[AutoWaybill] Order not found:', orderId);
+          if (notification) {
+            notification.style.display = 'none';
           }
-          await window.ordersManager.createWaybill(order);
-        };
+          alert('⚠️ Không tìm thấy đơn hàng: ' + orderId);
+        }
       }
-      console.log('✅ Orders page ready');
+    }, 100);
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      clearInterval(checkManager);
+      if (notification) {
+        notification.style.display = 'none';
+      }
+    }, 10000);
+    
+    // Clean URL
+    setTimeout(() => {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }, 2000);
+  }
+})();
+
+// Wire create waybill button
+document.addEventListener('DOMContentLoaded', () => {
+  const createBtn = document.getElementById('btn-create-waybill');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      const modal = document.getElementById('modal-detail');
+      const orderId = modal?.dataset?.orderId;
+      
+      if (!orderId) {
+        alert('Không tìm thấy ID đơn hàng');
+        return;
+      }
+      
+      const order = window.ordersManager?.orders?.find(o => 
+        String(o.id || '') === String(orderId)
+      );
+      
+      if (!order) {
+        alert('Không tìm thấy đơn hàng');
+        return;
+      }
+      
+      // Check if waybill creator exists
+      if (window.waybillCreator) {
+        window.waybillCreator.createWaybill(order);
+      } else if (window.WaybillCreator) {
+        const creator = new window.WaybillCreator();
+        creator.createWaybill(order);
+      } else {
+        alert('⚠️ Không tìm thấy WaybillCreator. Vui lòng kiểm tra file waybill-creator.js');
+      }
     });
-  </script>
+  }
+});
+</script>
+
 </body>
 </html>

@@ -5,62 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Thanh toán - Shop Huy Vân</title>
   
-  <!-- SEO Meta Tags -->
   <meta name="description" content="Thanh toán đơn hàng tại Shop Huy Vân - Nhanh chóng, an toàn, bảo mật">
   <meta name="robots" content="noindex, nofollow">
   
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    /* Custom styles for enhanced checkout */
-    .product-card {
-      transition: all 0.2s ease;
-    }
-    .product-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    }
-    .variant-badge {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    .shipping-option {
-      transition: all 0.2s ease;
-    }
-    .shipping-option:hover {
-      transform: scale(1.02);
-    }
-    .shipping-option.selected {
-      border-color: #10b981;
-      background: #ecfdf5;
-    }
-    
-    /* Loading skeleton */
-    .skeleton {
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-      background-size: 200% 100%;
-      animation: loading 1.5s ease-in-out infinite;
-    }
-    @keyframes loading {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    
-    /* Image optimization */
-    img {
-      image-rendering: -webkit-optimize-contrast;
-      image-rendering: crisp-edges;
-    }
+    .product-card { transition: all 0.2s ease; }
+    .product-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+    .variant-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .shipping-option { transition: all 0.2s ease; cursor: pointer; }
+    .shipping-option:hover { transform: scale(1.02); }
+    .shipping-option.selected { border-color: #10b981; background: #ecfdf5; }
+    .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s ease-in-out infinite; }
+    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    img { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   </style>
 </head>
 
 <body class="bg-gray-50">
 
-<!-- Header -->
 <header class="bg-white border-b sticky top-0 z-40 shadow-sm">
   <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
     <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <img src="/public/logo.png" class="w-8 h-8 rounded" alt="Logo" />
+      <img src="/logo.png" class="w-8 h-8 rounded" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23e5e7eb%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'" />
       <span class="font-bold text-lg">SHOP HUY VÂN</span>
     </a>
     <div class="ml-auto text-sm text-gray-600">
@@ -70,11 +38,9 @@
   </div>
 </header>
 
-<!-- Main Content -->
 <main class="max-w-4xl mx-auto px-4 py-6 space-y-4 pb-32">
   <h1 class="text-2xl font-bold">Thanh toán</h1>
   
-  <!-- ===== ORDER SUMMARY (ENHANCED) ===== -->
   <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <div class="p-4 border-b bg-gradient-to-r from-rose-50 to-pink-50">
       <h2 class="font-semibold text-lg flex items-center gap-2">
@@ -82,15 +48,11 @@
         <span>Đơn hàng (<span id="cart-count">0</span> sản phẩm)</span>
       </h2>
     </div>
-    
     <div id="cart-items" class="divide-y max-h-96 overflow-y-auto">
-      <!-- Items will be rendered here -->
       <div class="p-8 text-center text-gray-500">
         <div class="skeleton w-full h-32 rounded-xl mb-3"></div>
-        <div class="skeleton w-3/4 h-4 rounded mx-auto"></div>
       </div>
     </div>
-    
     <div class="p-4 border-t bg-gray-50">
       <div class="flex justify-between items-center text-lg font-semibold">
         <span>Tạm tính</span>
@@ -99,84 +61,39 @@
     </div>
   </section>
 
-  <!-- ===== CUSTOMER INFO ===== -->
   <section class="bg-white rounded-2xl p-4 shadow-sm">
     <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
       <span>📍</span>
       <span>Địa chỉ nhận hàng</span>
     </h2>
-    
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <input 
-        id="name" 
-        placeholder="Họ tên *" 
-        class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-        required 
-      />
-      
-      <input 
-        id="phone" 
-        placeholder="Số điện thoại *" 
-        type="tel"
-        class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-        required 
-      />
-      
-      <select 
-        id="province" 
-        class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-      >
+      <input id="name" placeholder="Họ tên *" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
+      <input id="phone" placeholder="Số điện thoại *" type="tel" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
+      <select id="province" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none">
         <option value="">-- Chọn Tỉnh/Thành phố *</option>
       </select>
-      
-      <select 
-        id="district" 
-        class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-        disabled
-      >
+      <select id="district" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" disabled>
         <option value="">-- Chọn Quận/Huyện *</option>
       </select>
-      
-      <select 
-        id="ward" 
-        class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-        disabled
-      >
+      <select id="ward" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" disabled>
         <option value="">-- Chọn Phường/Xã *</option>
       </select>
-      
-      <input 
-        id="address" 
-        placeholder="Địa chỉ chi tiết (số nhà, tên đường) *" 
-        class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-        required 
-      />
-      
-      <textarea
-        id="note" 
-        placeholder="Ghi chú (không bắt buộc)" 
-        rows="2"
-        class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all resize-none"
-      ></textarea>
+      <input id="address" placeholder="Địa chỉ chi tiết (số nhà, tên đường) *" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
+      <textarea id="note" placeholder="Ghi chú (không bắt buộc)" rows="2" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none resize-none"></textarea>
     </div>
-    
-    <!-- Hidden fields for codes -->
     <input type="hidden" id="province_code" />
     <input type="hidden" id="district_code" />
     <input type="hidden" id="ward_code" />
   </section>
 
-  <!-- ===== SHIPPING OPTIONS ===== -->
   <section class="bg-white rounded-2xl p-4 shadow-sm">
     <h2 class="font-semibold text-lg mb-3 flex items-center gap-2">
       <span>🚚</span>
       <span>Vận chuyển</span>
     </h2>
-    
     <div class="text-sm text-gray-600 mb-3">
       Khối lượng: <span id="total-weight" class="font-semibold">-</span>
     </div>
-    
     <div id="shipping-list" class="space-y-2">
       <div class="text-sm text-gray-500 text-center py-4">
         Vui lòng chọn địa chỉ để xem phí vận chuyển
@@ -184,10 +101,8 @@
     </div>
   </section>
 
-  <!-- ===== PAYMENT SUMMARY ===== -->
   <section class="bg-white rounded-2xl p-4 shadow-sm">
     <h2 class="font-semibold text-lg mb-3">Chi tiết thanh toán</h2>
-    
     <div class="space-y-2 text-sm">
       <div class="flex justify-between">
         <span>Tổng sản phẩm:</span>
@@ -197,65 +112,80 @@
         <span>Phí vận chuyển:</span>
         <span id="summary-shipping" class="text-emerald-600 font-semibold">0₫</span>
       </div>
-      <div id="discount-row" class="flex justify-between text-green-600" style="display:none">
-        <span>Giảm giá:</span>
-        <span id="summary-discount">-0₫</span>
-      </div>
     </div>
-    
     <div class="flex justify-between py-3 border-t mt-3 text-xl font-bold">
       <span>Tổng thanh toán:</span>
       <span id="grand-total" class="text-emerald-600">0₫</span>
     </div>
-    
-    <div id="error-message" class="hidden text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200 mt-3">
-      <!-- Error messages here -->
-    </div>
-    
-    <button 
-      id="place-order" 
-      class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed mt-4"
-    >
+    <div id="error-message" class="hidden text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200 mt-3"></div>
+    <button id="place-order" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed mt-4">
       Đặt hàng
     </button>
-    
     <div id="order-result" class="text-sm mt-3 text-center"></div>
   </section>
 </main>
 
-<!-- Scripts -->
 <script type="module">
-// ===== ENHANCED CHECKOUT SCRIPT =====
 const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const SHIP_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjVkZTZhN2UwMjQyYjZiZDlhNDFkM2M2OWVlZmFmNjA5YWUzMDRkMmZhMTFiOWE5ZmVlMjJlYjEzZTY4ZTk1OTRmNWQ4YjFmODRlMDZjMWNkIn0.eyJhdWQiOiIxIiwianRpIjoiNWRlNmE3ZTAyNDJiNmJkOWE0MWQzYzY5ZWVmYWY2MDlhZTMwNGQyZmExMWI5YTlmZWUyMmViMTNlNjhlOTU5NGY1ZDhiMWY4NGUwNmMxY2QiLCJpYXQiOjE3NTgyNTA1ODgsIm5iZiI6MTc1ODI1MDU4OCwiZXhwIjoxNzg5Nzg2NTg4LCJzdWIiOiIxOTMwNjUiLCJzY29wZXMiOltdfQ.CYAL821UmGat9sqOptml5eluNA9C0DEW4BMVETx7Kj5rBwcFgIkG2nH4LmFfzcWE34O5AtgV3o3-DUnxvC0K6V5vA4JJBlJuG5AwGRZrtEl6hgGqCYVOsyIZSuLA6pLAI17WPOZzBSq_SLNkD1BkBDlNAwCzFLVis2b88cx2iS6Hl-HPvNhLWpiUQu1UNcWJYoi5DhqEYxLMWk51mRMlRSYFXZzUQ1FBKFKOc3rI1BHn3zrQPrfIxAJpVhVG0xhsbbekcq_kGZwzKB_-bBlU2_BDsYIj9fMaN0Be8J_BWEb3qTUog21anb9ka2biPd1Exb4rLyyRPfVh7JQarQWhugGnH8YLjSbbDX1oPnDpcYD7Q6wzwmTHLxHfdQUEB4F2vx4sQHJ8o9E1DZaOcm-AVtqXCOzqTr8S6NYVOupkcbl3AP99McRKjQ_xha3rNiyaZ_NwUiVBscnqx-41zn-nwFsWFI6oybsMSpFVixOwD_Ub7NGkkNObuUoEccFAwlrS1JOa4jHID1-ZzN3GX_koERcAC0oht4BgGlmayr59gEoxYc5p_E-59pDyZ7zRfdyxcjpjZhWC4MelA8zkDfIXIkUpuvzz2IWSPtfuVXoKF_Mr0wMVKwxuo-sU0QDrUnTpiu1g3fXeHpw1OiJQvNEdLV2-ODi9fFYhltJPPttUs_w';
+const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
 const $ = id => document.getElementById(id);
+const fmtVND = v => (Number(v)||0).toLocaleString('vi-VN') + '₫';
 
-// Cloudinary image optimizer
 function cloudify(url, transforms = 'w_200,h_200,c_fill,q_auto,f_auto') {
   if (!url || !url.includes('res.cloudinary.com')) return url;
   return url.replace('/upload/', `/upload/${transforms}/`);
 }
 
-// Format currency
-const fmtVND = (amount) => {
-  return Number(amount || 0).toLocaleString('vi-VN') + '₫';
-};
+async function api(path, opts = {}) {
+  const url = `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  const headers = { ...opts.headers };
+  let body = opts.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(body);
+  }
+  const res = await fetch(url, { method: opts.method || 'GET', headers, body });
+  const ctype = res.headers.get('content-type') || '';
+  if (ctype.includes('application/json')) return await res.json();
+  return await res.text();
+}
 
-// State
+function getFixedQuotes(weightGrams) {
+  const kg = Math.max(1, Math.ceil(Number(weightGrams||0)/1000));
+  const cap = Math.min(kg, 6);
+  const table = {
+    vtp: { name: 'Viettel Post', rates: {1:18000,2:23000,3:28000,4:33000,5:38000,6:43000} },
+    spx: { name: 'SPX Express',  rates: {1:15000,2:25000,3:35000,4:45000,5:55000,6:65000} },
+    jt:  { name: 'J&T Express',  rates: {1:20000,2:25000,3:25000,4:30000,5:35000,6:40000} },
+    ghn: { name: 'GHN',          rates: {1:19000,2:19000,3:24000,4:29000,5:34000,6:39000} },
+  };
+  function extend(code) {
+    const r = table[code].rates;
+    if(kg<=6) return r[cap];
+    const last = r[6], prev = r[5];
+    const step = (last - prev) || 5000;
+    return last + step*(kg-6);
+  }
+  return Object.entries(table).map(([code,info])=> ({
+    provider: code,
+    service_code: 'fixed',
+    name: info.name,
+    fee: kg<=6 ? info.rates[cap] : extend(code),
+    eta: 'Giao hàng tiêu chuẩn'
+  }));
+}
+
 let selectedShipping = null;
-let provinces = [];
-let districts = [];
-let wards = [];
+let placing = false;
 
-// Get cart from localStorage
 function getCart() {
   try {
     const lower = JSON.parse(localStorage.getItem('cart') || '[]');
     if (Array.isArray(lower) && lower.length) return lower;
     const upper = JSON.parse(localStorage.getItem('CART') || '[]');
     return Array.isArray(upper) ? upper : [];
-  } catch (e) {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function clearCart() {
@@ -263,21 +193,15 @@ function clearCart() {
   localStorage.removeItem('CART');
 }
 
-// Calculate totals
 function calculateTotals() {
   const cart = getCart();
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + Number(item.price || 0) * Number(item.qty || 1);
-  }, 0);
-  
+  const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
   const shippingFee = selectedShipping ? Number(selectedShipping.fee || 0) : 0;
-  const discount = 0; // TODO: Add voucher support
+  const discount = 0;
   const total = Math.max(0, subtotal + shippingFee - discount);
-  
   return { subtotal, shippingFee, discount, total };
 }
 
-// Render cart items (ENHANCED)
 function renderCartItems() {
   const cart = getCart();
   const container = $('cart-items');
@@ -290,7 +214,7 @@ function renderCartItems() {
       <div class="p-8 text-center text-gray-500">
         <div class="text-6xl mb-3">🛒</div>
         <p>Giỏ hàng trống</p>
-        <a href="/" class="inline-block mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+        <a href="/" class="inline-block mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
           Tiếp tục mua sắm
         </a>
       </div>
@@ -298,28 +222,14 @@ function renderCartItems() {
     return;
   }
   
-  container.innerHTML = cart.map((item, idx) => {
-    const image = cloudify(item.variantImage || item.image || '/icon.png', 'w_200,h_200,c_fill,q_auto,f_auto');
+  container.innerHTML = cart.map(item => {
+    const image = cloudify(item.variantImage || item.image || '/icon.png');
     const itemTotal = Number(item.price || 0) * Number(item.qty || 1);
-    
     return `
-      <div class="product-card p-4 flex gap-4 items-start hover:bg-gray-50 transition-colors">
-        <!-- Product Image -->
-        <img 
-          src="${image}" 
-          alt="${item.name}"
-          class="w-24 h-24 rounded-xl object-cover flex-shrink-0 border-2 border-gray-100"
-          loading="lazy"
-        />
-        
-        <!-- Product Details -->
+      <div class="product-card p-4 flex gap-4 items-start hover:bg-gray-50">
+        <img src="${image}" alt="${item.name}" class="w-24 h-24 rounded-xl object-cover flex-shrink-0 border-2 border-gray-100" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E'" />
         <div class="flex-1 min-w-0">
-          <!-- Name -->
-          <h3 class="font-semibold text-sm line-clamp-2 mb-1">
-            ${item.name || 'Sản phẩm'}
-          </h3>
-          
-          <!-- Variant Badge -->
+          <h3 class="font-semibold text-sm line-clamp-2 mb-1">${item.name || 'Sản phẩm'}</h3>
           ${item.variantName || item.variant ? `
             <div class="mb-2">
               <span class="inline-block px-3 py-1 text-xs rounded-full variant-badge text-white font-medium">
@@ -327,23 +237,13 @@ function renderCartItems() {
               </span>
             </div>
           ` : ''}
-          
-          <!-- Price & Quantity -->
           <div class="flex items-center justify-between">
-            <div class="text-rose-600 font-bold">
-              ${fmtVND(item.price)}
-            </div>
-            <div class="text-sm text-gray-600">
-              Số lượng: <span class="font-semibold">${item.qty}</span>
-            </div>
+            <div class="text-rose-600 font-bold">${fmtVND(item.price)}</div>
+            <div class="text-sm text-gray-600">Số lượng: <span class="font-semibold">${item.qty}</span></div>
           </div>
-          
-          <!-- Item Total -->
           <div class="mt-2 text-right">
             <span class="text-xs text-gray-500">Thành tiền: </span>
-            <span class="font-bold text-emerald-600 text-lg">
-              ${fmtVND(itemTotal)}
-            </span>
+            <span class="font-bold text-emerald-600 text-lg">${fmtVND(itemTotal)}</span>
           </div>
         </div>
       </div>
@@ -353,41 +253,25 @@ function renderCartItems() {
   updateSummary();
 }
 
-// Update summary
 function updateSummary() {
   const { subtotal, shippingFee, discount, total } = calculateTotals();
-  
   $('subtotal').textContent = fmtVND(subtotal);
   $('summary-subtotal').textContent = fmtVND(subtotal);
   $('summary-shipping').textContent = fmtVND(shippingFee);
   $('grand-total').textContent = fmtVND(total);
   
-  if (discount > 0) {
-    $('discount-row').style.display = 'flex';
-    $('summary-discount').textContent = '-' + fmtVND(discount);
-  } else {
-    $('discount-row').style.display = 'none';
-  }
-  
-  // Update weight
   const cart = getCart();
-  const totalWeight = cart.reduce((sum, item) => {
-    return sum + (Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1));
-  }, 0);
+  const totalWeight = cart.reduce((sum, item) => sum + (Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1)), 0);
   const weightKg = Math.max(1, Math.ceil(totalWeight / 1000));
   $('total-weight').textContent = `${weightKg} kg`;
 }
 
-// Load provinces
 async function loadProvinces() {
   try {
-    const res = await fetch(`${API_BASE}/shipping/provinces`);
-    const data = await res.json();
-    provinces = data.items || data.data || [];
-    
+    const res = await api('/shipping/provinces');
+    const provinces = res.items || res.data || [];
     const select = $('province');
     select.innerHTML = '<option value="">-- Chọn Tỉnh/Thành phố *</option>';
-    
     provinces.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.code;
@@ -399,25 +283,19 @@ async function loadProvinces() {
   }
 }
 
-// Load districts
 async function loadDistricts(provinceCode) {
   try {
-    const res = await fetch(`${API_BASE}/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
-    const data = await res.json();
-    districts = data.items || data.data || [];
-    
+    const res = await api(`/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
+    const districts = res.items || res.data || [];
     const select = $('district');
     select.innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
     select.disabled = false;
-    
     districts.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.code;
       opt.textContent = item.name;
       select.appendChild(opt);
     });
-    
-    // Reset dependent fields
     $('ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
     $('ward').disabled = true;
     $('district_code').value = '';
@@ -427,31 +305,25 @@ async function loadDistricts(provinceCode) {
   }
 }
 
-// Load wards
 async function loadWards(districtCode) {
   try {
-    const res = await fetch(`${API_BASE}/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
-    const data = await res.json();
-    wards = data.items || data.data || [];
-    
+    const res = await api(`/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
+    const wards = res.items || res.data || [];
     const select = $('ward');
     select.innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
     select.disabled = false;
-    
     wards.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.code;
       opt.textContent = item.name;
       select.appendChild(opt);
     });
-    
     $('ward_code').value = '';
   } catch (e) {
     console.error('Load wards error:', e);
   }
 }
 
-// Get shipping quote
 async function getShippingQuote() {
   const provinceCode = $('province_code').value;
   const districtCode = $('district_code').value;
@@ -465,65 +337,95 @@ async function getShippingQuote() {
     $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Đang tải phí vận chuyển...</div>';
     
     const cart = getCart();
-    const weight = cart.reduce((sum, item) => {
-      return sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1);
-    }, 0) || 500;
+    const weight = cart.reduce((sum, item) => sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1), 0) || 500;
+    const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
     
-    const res = await fetch(`${API_BASE}/shipping/price`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    let items = [];
+    
+    try {
+      const payload = {
         receiver_province: provinceCode,
         receiver_district: districtCode,
         weight_gram: weight,
-        cod: 0
-      })
-    });
+        cod: subtotal
+      };
+      const res = await fetch('https://services.giaohangtietkiem.vn/services/shipment/fee', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Token': SHIP_TOKEN
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success && data.fee) {
+        items.push({
+          provider: 'ghtk',
+          service_code: 'standard',
+          name: 'Giao Hàng Tiết Kiệm',
+          fee: data.fee.fee || 0,
+          eta: data.fee.delivery_date || 'Giao hàng tiêu chuẩn'
+        });
+      }
+    } catch (e) {
+      console.log('GHTK endpoint failed, using fallback');
+    }
     
-    const data = await res.json();
-    const items = data.items || data.data || [];
+    if (!items.length) {
+      items = getFixedQuotes(weight);
+    }
     
+    try {
+      const res = await api('/shipping/price', {
+        method: 'POST',
+        body: { receiver_province: provinceCode, receiver_district: districtCode, weight_gram: weight, cod: 0 }
+      });
+      const apiItems = res.items || res.data || [];
+      items.push(...apiItems.map(o => ({
+        provider: o.provider || o.carrier || '',
+        service_code: o.service_code || o.service || '',
+        name: o.name || o.service_name || o.provider,
+        fee: Number(o.fee || o.total_fee || 0),
+        eta: o.eta || o.leadtime || ''
+      })));
+    } catch (e) {
+      console.log('Internal API failed');
+    }
+    
+    items = items.filter(o => o.fee > 0);
     if (!items.length) {
       $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Không có dịch vụ vận chuyển khả dụng</div>';
       return;
     }
     
+    const seen = new Set();
+    items = items.filter(item => {
+      const key = `${item.provider}-${item.service_code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => a.fee - b.fee);
+    
     $('shipping-list').innerHTML = items.map((item, idx) => `
-      <label class="shipping-option flex items-center justify-between border-2 rounded-xl p-4 cursor-pointer ${idx === 0 ? 'selected' : ''}">
+      <label class="shipping-option flex items-center justify-between border-2 rounded-xl p-4 ${idx === 0 ? 'selected' : ''}">
         <div class="flex items-center gap-3 flex-1">
-          <input 
-            type="radio" 
-            name="ship_opt" 
-            value="${idx}" 
-            ${idx === 0 ? 'checked' : ''} 
-            data-provider="${item.provider}" 
-            data-service="${item.service_code}" 
-            data-fee="${item.fee}" 
-            data-eta="${item.eta || ''}"
-            data-name="${item.name || item.provider}"
-            class="w-5 h-5 text-emerald-600"
-          />
+          <input type="radio" name="ship_opt" value="${idx}" ${idx === 0 ? 'checked' : ''} 
+            data-provider="${item.provider}" data-service="${item.service_code}" 
+            data-fee="${item.fee}" data-eta="${item.eta || ''}" data-name="${item.name}"
+            class="w-5 h-5 text-emerald-600" />
           <div class="flex-1">
-            <div class="font-semibold">${item.name || item.provider}</div>
+            <div class="font-semibold">${item.name}</div>
             <div class="text-sm text-gray-600">${item.eta || 'Giao hàng tiêu chuẩn'}</div>
           </div>
         </div>
-        <div class="font-bold text-emerald-600 text-lg">
-          ${fmtVND(item.fee)}
-        </div>
+        <div class="font-bold text-emerald-600 text-lg">${fmtVND(item.fee)}</div>
       </label>
     `).join('');
     
-    // Wire change events
     document.querySelectorAll('input[name="ship_opt"]').forEach(radio => {
       radio.addEventListener('change', function() {
-        // Update UI
-        document.querySelectorAll('.shipping-option').forEach(opt => {
-          opt.classList.remove('selected');
-        });
+        document.querySelectorAll('.shipping-option').forEach(opt => opt.classList.remove('selected'));
         this.closest('.shipping-option').classList.add('selected');
-        
-        // Update state
         selectedShipping = {
           provider: this.dataset.provider,
           service_code: this.dataset.service,
@@ -535,7 +437,6 @@ async function getShippingQuote() {
       });
     });
     
-    // Auto select first
     const firstRadio = document.querySelector('input[name="ship_opt"]');
     if (firstRadio) {
       selectedShipping = {
@@ -553,7 +454,6 @@ async function getShippingQuote() {
   }
 }
 
-// Show error
 function showError(message) {
   const errorEl = $('error-message');
   errorEl.textContent = '⚠️ ' + message;
@@ -563,10 +463,12 @@ function showError(message) {
   }, 5000);
 }
 
-// Place order
 async function placeOrder() {
   const btn = $('place-order');
   const resultEl = $('order-result');
+  
+  if (placing) return;
+  placing = true;
   
   const name = $('name').value.trim();
   const phone = $('phone').value.trim();
@@ -576,25 +478,29 @@ async function placeOrder() {
   const wardCode = $('ward_code').value;
   const note = $('note').value.trim();
   
-  // Validate
   if (!name || !phone || !address || !provinceCode || !districtCode || !wardCode) {
     showError('Vui lòng điền đầy đủ thông tin địa chỉ nhận hàng!');
+    placing = false;
     return;
   }
   
-  if (!/^\d{8,11}$/.test(phone.replace(/\D/g, ''))) {
-    showError('Số điện thoại không hợp lệ!');
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (!VN_PHONE_RE.test(cleanPhone)) {
+    showError('Số điện thoại không hợp lệ (VD: 0912345678)!');
+    placing = false;
     return;
   }
   
   if (!selectedShipping) {
     showError('Vui lòng chọn phương thức vận chuyển!');
+    placing = false;
     return;
   }
   
   const cart = getCart();
   if (!cart.length) {
     showError('Giỏ hàng trống!');
+    placing = false;
     return;
   }
   
@@ -608,7 +514,7 @@ async function placeOrder() {
     const payload = {
       customer: {
         name: name,
-        phone: phone.replace(/\D/g, ''),
+        phone: cleanPhone,
         address: address,
         province_code: provinceCode,
         district_code: districtCode,
@@ -648,41 +554,47 @@ async function placeOrder() {
     
     console.log('Order payload:', payload);
     
-    const res = await fetch(`${API_BASE}/api/orders`, {
+    const res = await api('/api/orders', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2)
       },
-      body: JSON.stringify(payload)
+      body: payload
     });
     
-    const data = await res.json();
-    
-    if (data.ok || data.id) {
+    if (res.ok || res.id) {
+      const orderId = res.id || res.order_id || '';
       resultEl.innerHTML = '<div class="text-green-600 font-semibold">✓ Đặt hàng thành công!</div>';
-      
-      // Clear cart
       clearCart();
       
-      // Redirect to success page
-      setTimeout(() => {
-        window.location.href = '/thank-you.html?order=' + (data.id || data.order_id || '');
-      }, 1500);
+      // Check if admin is logged in
+      const isAdmin = localStorage.getItem('x-token') || false;
+      
+      if (isAdmin) {
+        // Redirect to admin orders page with auto-waybill flag
+        setTimeout(() => {
+          window.location.href = `https://adminshophuyvan.pages.dev/orders.html?order_id=${orderId}&auto_waybill=1`;
+        }, 1000);
+      } else {
+        // Redirect to thank you page for customers
+        setTimeout(() => {
+          window.location.href = '/thank-you.html?order=' + orderId;
+        }, 1500);
+      }
     } else {
-      throw new Error(data.error || data.message || 'Đặt hàng thất bại');
+      throw new Error(res.error || res.message || 'Đặt hàng thất bại');
     }
   } catch (e) {
     console.error('Place order error:', e);
     showError(e.message || 'Có lỗi xảy ra khi đặt hàng');
     btn.disabled = false;
     btn.textContent = 'Đặt hàng';
+    placing = false;
   }
 }
 
-// Event listeners
 document.addEventListener('DOMContentLoaded', async () => {
-  // Check if cart is empty
   const cart = getCart();
   if (!cart.length) {
     showError('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.');
@@ -692,11 +604,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   
-  // Initialize
   renderCartItems();
   await loadProvinces();
   
-  // Province change
   $('province').addEventListener('change', function() {
     $('province_code').value = this.value;
     if (this.value) {
@@ -705,7 +615,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     getShippingQuote();
   });
   
-  // District change
   $('district').addEventListener('change', function() {
     $('district_code').value = this.value;
     if (this.value) {
@@ -714,15 +623,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     getShippingQuote();
   });
   
-  // Ward change
   $('ward').addEventListener('change', function() {
     $('ward_code').value = this.value;
   });
   
-  // Place order button
   $('place-order').addEventListener('click', placeOrder);
+  
+  ['name', 'phone', 'address'].forEach(id => {
+    const el = $(id);
+    if (el) {
+      el.addEventListener('input', updateSummary);
+    }
+  });
 });
 </script>
 
 </body>
 </html>
+  
