@@ -678,3 +678,26 @@ async function fetchProduct(id) {
     console.warn('[PDP] Image optimization failed:', e);
   }
 })();
+// === START BOTTOM BAR ACTIONS ===
+// Handle bottom bar actions
+document.addEventListener('DOMContentLoaded', () => {
+  const btnAdd = document.getElementById('btn-add-cart');
+  const btnBuy = document.getElementById('btn-buy-now');
+  
+  if (btnAdd) {
+    btnAdd.onclick = () => {
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('cart');
+      }
+    };
+  }
+  
+  if (btnBuy) {
+    btnBuy.onclick = () => {
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('buy');
+      }
+    };
+  }
+});
+// === END BOTTOM BAR ACTIONS ===
