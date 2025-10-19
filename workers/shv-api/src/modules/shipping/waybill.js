@@ -102,6 +102,7 @@ export async function createWaybill(req, env) {
 
       // Package
       weight_gram: chargeableWeightGrams(body, order) || 500,
+      weight: chargeableWeightGrams(body, order) || 500,
       cod: Number(order.cod || body.cod || 0),
       option_id: shipping.option_id || '1',
       
