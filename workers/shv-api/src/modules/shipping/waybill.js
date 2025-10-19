@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation (FIXED)
+// modules/shipping/waybill.js - Waybill Creation (FIXED - Added name field)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
@@ -31,7 +31,16 @@ export async function createWaybill(req, env) {
     const order = body.order || {};
     const ship = body.ship || {};
 
+    // Build products first to generate order name
+    const products = buildWaybillItems(body, order);
+    const orderName = products.length > 0 
+      ? products[0].name 
+      : 'Đơn hàng';
+
     const payload = {
+      // Order info
+      name: orderName,  // ← THÊM FIELD NÀY (tên đơn hàng)
+      
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
       sender_phone: body.sender_phone || shipping.sender_phone || store.phone || store.owner_phone || '0900000000',
@@ -62,8 +71,8 @@ export async function createWaybill(req, env) {
       provider: ship.provider || body.provider || order.shipping_provider || '',
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
-      // Products (FIXED: đổi từ items → products)
-      products: buildWaybillItems(body, order),
+      // Products
+      products: products,
       
       // Additional
       note: body.note || order.note || ''
@@ -152,7 +161,6 @@ export async function createWaybill(req, env) {
   }
 }
 
-// ===== FIXED: buildWaybillItems with product_price and product_code =====
 function buildWaybillItems(body, order) {
   const items = Array.isArray(order.items) ? order.items : 
                (Array.isArray(body.items) ? body.items : []);
@@ -168,13 +176,11 @@ function buildWaybillItems(body, order) {
   }
 
   return items.map((item, index) => {
-    // Get weight with fallback
     let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
     if (weight <= 0) {
       weight = 500;
     }
 
-    // Get name with fallback and truncate if too long
     let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
     if (name.length > 100) {
       name = name.substring(0, 97) + '...';
@@ -196,6 +202,9 @@ function buildWaybillItems(body, order) {
 function validateWaybillPayload(payload) {
   const errors = [];
 
+  // Order validation
+  if (!payload.name || !payload.name.trim()) errors.push('Missing order name');
+
   // Sender validation
   if (!payload.sender_province_code) errors.push('Missing sender province code');
   if (!payload.sender_district_code) errors.push('Missing sender district code');
@@ -215,7 +224,7 @@ function validateWaybillPayload(payload) {
     errors.push('Invalid weight (must be > 0)');
   }
 
-  // Products validation (đổi từ items)
+  // Products validation
   if (!Array.isArray(payload.products) || payload.products.length === 0) {
     errors.push('Products array is empty');
   } else {
