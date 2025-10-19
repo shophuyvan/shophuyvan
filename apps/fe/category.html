@@ -100,55 +100,67 @@
   </main>
 
   <script>
-  (() => {
-    const $ = (s,r=document)=>r.querySelector(s);
-    const fmt = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
-    const IMG_FALLBACK = '/public/logo.png';
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const fmt = n => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+  const IMG_FALLBACK = '/public/logo.png';
 
-    // Lấy slug danh mục từ URL (?c=...)
-    const params = new URLSearchParams(window.location.search);
-    const slug = params.get("c") || params.get("category") || "";
+  // 👉 Lấy slug danh mục từ URL (?c=...)
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("c") || params.get("category") || "";
 
-    // Cập nhật tiêu đề trang
-    const catName = decodeURIComponent(slug||'Danh mục').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
-    $('#shv-h1').textContent = catName;
-    $('#shv-bc-leaf').textContent = catName;
+  // 👉 Cập nhật tiêu đề trang
+  const catName = decodeURIComponent(slug || 'Danh mục')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, m => m.toUpperCase());
+  $('#shv-h1').textContent = catName;
+  $('#shv-bc-leaf').textContent = catName;
 
-    async function loadProducts() {
-      try {
-        const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category=${slug}`);
-        const data = await r.json();
-        const all = data.items || data.data || [];
+  // 👉 Hàm load sản phẩm
+  async function loadProducts() {
+    try {
+      const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category=${slug}`);
+      const data = await r.json();
+      const all = data.items || data.data || [];
 
-// Lọc chính xác theo slug danh mục
-const filtered = all.filter(p => 
-  (p.category_slug || p.category || '').toLowerCase() === slug.toLowerCase()
-);
+      // 👉 Lọc chính xác theo slug danh mục
+      const filtered = all.filter(p =>
+        (p.category_slug || p.category || '').toLowerCase() === slug.toLowerCase()
+      );
 
-$('#rs-total').textContent = filtered.length;
+      $('#rs-total').textContent = filtered.length;
 
-// Hiển thị danh sách đã lọc
-$('#rs-grid').innerHTML = filtered.map(p => ` `
-          <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="/product.html?id=${p.id}">
-            <div class="relative aspect-[4/3] bg-gray-100">
-              <img class="absolute inset-0 w-full h-full object-cover" src="${p.images?.[0] || '/public/logo.png'}" alt="${p.title}">
+      // 👉 Hiển thị danh sách sản phẩm
+      $('#rs-grid').innerHTML = filtered.map(p => `
+        <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" 
+           href="/product.html?id=${p.id}">
+          <div class="relative aspect-[4/3] bg-gray-100">
+            <img class="absolute inset-0 w-full h-full object-cover" 
+                 src="${p.images?.[0] || IMG_FALLBACK}" 
+                 alt="${p.title}">
+          </div>
+          <div class="p-3">
+            <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
+            <div class="flex items-baseline gap-2">
+              <div class="text-red-600 font-semibold">${fmt(p.price || 0)}</div>
             </div>
-            <div class="p-3">
-              <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
-              <div class="flex items-baseline gap-2">
-                <div class="text-red-600 font-semibold">${(p.price||0).toLocaleString()}đ</div>
-              </div>
-            </div>
-          </a>`).join('');
-      } catch (e) {
-        console.error("Load products failed", e);
-        $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+          </div>
+        </a>
+      `).join('');
+
+      if (filtered.length === 0) {
+        $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không có sản phẩm nào trong danh mục này.</div>`;
       }
-    }
 
-    loadProducts();
-  })();
-  </script>
+    } catch (e) {
+      console.error("Load products failed", e);
+      $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+    }
+  }
+
+  loadProducts();
+})();
+</script>
 
   <!-- ===== /SHV HOME/CATEGORY v1 ===== -->
 </body>
