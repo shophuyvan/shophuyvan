@@ -117,47 +117,55 @@
   $('#shv-bc-leaf').textContent = catName;
 
   // 👉 Hàm load sản phẩm
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("c") || ""; // ví dụ ?c=nha-cua-doi-song
+  const PAGE_SIZE = 40;
+
   async function loadProducts() {
     try {
-      const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category=${slug}`);
+      // ✅ Gọi API theo danh mục
+      const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category_slug=${slug}`);
       const data = await r.json();
-      const all = data.items || data.data || [];
+      const all = data.items || [];
 
-      // 👉 Lọc chính xác theo slug danh mục
-      const filtered = all.filter(p => {
-  const catSlug = (p.category_slug || '').toLowerCase().trim();
-  const catName = (p.category || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, '-');
-  const slugNorm = slug.toLowerCase().trim();
-  return catSlug === slugNorm || catName === slugNorm;
-});
+      // ✅ Render tổng số và sản phẩm
+      document.querySelector("#rs-total").textContent = all.length;
 
-      $('#rs-total').textContent = filtered.length;
+      // Nếu không có sản phẩm
+      if (!all.length) {
+        document.querySelector("#rs-grid").innerHTML =
+          `<div class="p-4 text-gray-500">Không tìm thấy sản phẩm trong danh mục này.</div>`;
+        return;
+      }
 
-      // 👉 Hiển thị danh sách sản phẩm
-      $('#rs-grid').innerHTML = filtered.map(p => `
-        <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" 
-           href="/product.html?id=${p.id}">
+      // ✅ Template sản phẩm
+      const tpl = (p) => `
+        <a href="/product.html?id=${p.id}" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">
           <div class="relative aspect-[4/3] bg-gray-100">
-            <img class="absolute inset-0 w-full h-full object-cover" 
-                 src="${p.images?.[0] || IMG_FALLBACK}" 
-                 alt="${p.title}">
+            <img src="${p.images?.[0] || ''}" class="absolute inset-0 w-full h-full object-cover" alt="${p.title}" />
           </div>
           <div class="p-3">
             <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
             <div class="flex items-baseline gap-2">
-              <div class="text-red-600 font-semibold">${fmt(p.price || 0)}</div>
+              <div class="text-red-600 font-semibold">${p.price_sale || p.price || 0}đ</div>
+              ${p.price_sale ? `<div class="text-gray-400 line-through text-xs">${p.price}đ</div>` : ""}
             </div>
+            <div class="mt-1 text-xs text-gray-500">Đã bán ${p.sold || 0}</div>
           </div>
         </a>
-      `).join('');
+      `;
 
-      if (filtered.length === 0) {
-        $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không có sản phẩm nào trong danh mục này.</div>`;
-      }
+      // ✅ Render sản phẩm ra grid
+      document.querySelector("#rs-grid").innerHTML = all
+        .slice(0, PAGE_SIZE)
+        .map(tpl)
+        .join("");
 
     } catch (e) {
       console.error("Load products failed", e);
-      $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+      document.querySelector("#rs-grid").innerHTML =
+        `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
     }
   }
 
