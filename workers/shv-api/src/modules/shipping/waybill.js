@@ -104,6 +104,7 @@ export async function createWaybill(req, env) {
       weight_gram: chargeableWeightGrams(body, order) || 500,
       weight: chargeableWeightGrams(body, order) || 500,
       cod: Number(order.cod || body.cod || 0),
+      payer: body.payer || order.payer || '1',
       option_id: shipping.option_id || '1',
       
       // Service
