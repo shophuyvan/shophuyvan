@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation (FIXED - Added name field)
+// modules/shipping/waybill.js - Waybill Creation (COMPLETE FIX)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
@@ -31,19 +31,26 @@ export async function createWaybill(req, env) {
     const order = body.order || {};
     const ship = body.ship || {};
 
-    // Build products first to generate order name
+    // Build products first
     const products = buildWaybillItems(body, order);
-    const orderName = products.length > 0 
-      ? products[0].name 
-      : 'Đơn hàng';
+    const orderName = products.length > 0 ? products[0].name : 'Đơn hàng';
+
+    // Get receiver phone (will be used for root phone field)
+    const receiverPhone = sanitizePhone(
+      body.receiver_phone || 
+      order.customer?.phone || 
+      body.to_phone || 
+      '0900000000'
+    );
 
     const payload = {
-      // Order info
-      name: orderName,  // ← THÊM FIELD NÀY (tên đơn hàng)
+      // Root level required fields
+      name: orderName,
+      phone: receiverPhone,
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
-      sender_phone: body.sender_phone || shipping.sender_phone || store.phone || store.owner_phone || '0900000000',
+      sender_phone: sanitizePhone(body.sender_phone || shipping.sender_phone || store.phone || store.owner_phone || '0900000000'),
       sender_address: body.sender_address || shipping.sender_address || store.address || '',
       sender_province: body.sender_province || shipping.sender_province || store.province || store.city || '',
       sender_district: body.sender_district || shipping.sender_district || store.district || '',
@@ -53,7 +60,7 @@ export async function createWaybill(req, env) {
 
       // Receiver
       receiver_name: body.receiver_name || order.customer?.name || body.to_name || '',
-      receiver_phone: body.receiver_phone || order.customer?.phone || body.to_phone || '',
+      receiver_phone: receiverPhone,
       receiver_address: body.receiver_address || order.customer?.address || body.to_address || '',
       receiver_province: body.receiver_province || order.customer?.province || body.to_province || '',
       receiver_district: body.receiver_district || order.customer?.district || body.to_district || '',
@@ -63,12 +70,12 @@ export async function createWaybill(req, env) {
       receiver_commune_code: body.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || body.commune_code || body.to_commune_code || body.ward_code || '',
 
       // Package
-      weight_gram: chargeableWeightGrams(body, order),
-      cod: Number(order.cod || body.cod || 0) || 0,
+      weight_gram: chargeableWeightGrams(body, order) || 500,
+      cod: Number(order.cod || body.cod || 0),
       option_id: shipping.option_id || '1',
       
       // Service
-      provider: ship.provider || body.provider || order.shipping_provider || '',
+      provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
       // Products
@@ -78,11 +85,7 @@ export async function createWaybill(req, env) {
       note: body.note || order.note || ''
     };
 
-    // Normalize phone numbers
-    payload.sender_phone = sanitizePhone(payload.sender_phone);
-    payload.receiver_phone = sanitizePhone(payload.receiver_phone);
-
-    // Root-level aliases
+    // Root-level aliases for backward compatibility
     payload.province_code = payload.receiver_province_code;
     payload.district_code = payload.receiver_district_code;
     payload.commune_code = payload.receiver_commune_code;
@@ -110,11 +113,16 @@ export async function createWaybill(req, env) {
       return json({
         ok: false,
         error: 'VALIDATION_FAILED',
-        details: validation.errors
+        details: validation.errors,
+        payload: {
+          name: payload.name,
+          phone: payload.phone,
+          products: payload.products
+        }
       }, { status: 400 }, req);
     }
 
-    console.log('[Waybill] Creating with payload:', JSON.stringify(payload, null, 2));
+    console.log('[Waybill] Creating waybill with payload:', JSON.stringify(payload, null, 2));
 
     // Call SuperAI API
     const data = await superFetch(env, '/v1/platform/orders/create', {
@@ -122,12 +130,14 @@ export async function createWaybill(req, env) {
       body: payload
     });
 
-    console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
+    console.log('[Waybill] SuperAI API response:', JSON.stringify(data, null, 2));
 
+    // Check for success
     const code = data?.data?.code || data?.code || null;
     const tracking = data?.data?.tracking || data?.tracking || code || null;
 
     if (code || tracking) {
+      // Success - save shipment record
       await putJSON(env, 'shipment:' + (order.id || body.order_id || code), {
         provider: payload.provider,
         service_code: payload.service_code,
@@ -137,13 +147,22 @@ export async function createWaybill(req, env) {
         createdAt: Date.now()
       });
 
-      const response = json({ ok: true, code, tracking, provider: payload.provider }, {}, req);
+      const response = json({ 
+        ok: true, 
+        code, 
+        tracking, 
+        provider: payload.provider 
+      }, {}, req);
+      
       await idemSet(idem.key, env, response);
       return response;
     }
 
-    // Better error handling
-    const errorMessage = data?.message || data?.error || 'Không tạo được vận đơn';
+    // Failed - return error with details
+    const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
+    
+    console.error('[Waybill] Failed to create:', errorMessage);
+    
     return json({
       ok: false,
       error: 'CREATE_FAILED',
@@ -156,11 +175,13 @@ export async function createWaybill(req, env) {
     return json({
       ok: false,
       error: 'EXCEPTION',
-      message: e.message
+      message: e.message,
+      stack: e.stack
     }, { status: 500 }, req);
   }
 }
 
+// ===== Build waybill items/products =====
 function buildWaybillItems(body, order) {
   const items = Array.isArray(order.items) ? order.items : 
                (Array.isArray(body.items) ? body.items : []);
@@ -176,11 +197,13 @@ function buildWaybillItems(body, order) {
   }
 
   return items.map((item, index) => {
+    // Weight with fallback
     let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
     if (weight <= 0) {
-      weight = 500;
+      weight = 500; // Default 500g
     }
 
+    // Name with truncation
     let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
     if (name.length > 100) {
       name = name.substring(0, 97) + '...';
@@ -199,25 +222,51 @@ function buildWaybillItems(body, order) {
   });
 }
 
+// ===== Validate payload before sending to API =====
 function validateWaybillPayload(payload) {
   const errors = [];
 
-  // Order validation
-  if (!payload.name || !payload.name.trim()) errors.push('Missing order name');
+  // Root level
+  if (!payload.name || !payload.name.trim()) {
+    errors.push('Missing order name');
+  }
+  if (!payload.phone) {
+    errors.push('Missing phone');
+  }
 
   // Sender validation
-  if (!payload.sender_province_code) errors.push('Missing sender province code');
-  if (!payload.sender_district_code) errors.push('Missing sender district code');
-  if (!payload.sender_phone) errors.push('Missing sender phone');
-  if (!payload.sender_name || !payload.sender_name.trim()) errors.push('Missing sender name');
-  if (!payload.sender_address || !payload.sender_address.trim()) errors.push('Missing sender address');
+  if (!payload.sender_name || !payload.sender_name.trim()) {
+    errors.push('Missing sender name');
+  }
+  if (!payload.sender_phone) {
+    errors.push('Missing sender phone');
+  }
+  if (!payload.sender_address || !payload.sender_address.trim()) {
+    errors.push('Missing sender address');
+  }
+  if (!payload.sender_province_code) {
+    errors.push('Missing sender province code');
+  }
+  if (!payload.sender_district_code) {
+    errors.push('Missing sender district code');
+  }
 
   // Receiver validation
-  if (!payload.receiver_name || !payload.receiver_name.trim()) errors.push('Missing receiver name');
-  if (!payload.receiver_phone) errors.push('Missing receiver phone');
-  if (!payload.receiver_address || !payload.receiver_address.trim()) errors.push('Missing receiver address');
-  if (!payload.receiver_province_code) errors.push('Missing receiver province code');
-  if (!payload.receiver_district_code) errors.push('Missing receiver district code');
+  if (!payload.receiver_name || !payload.receiver_name.trim()) {
+    errors.push('Missing receiver name');
+  }
+  if (!payload.receiver_phone) {
+    errors.push('Missing receiver phone');
+  }
+  if (!payload.receiver_address || !payload.receiver_address.trim()) {
+    errors.push('Missing receiver address');
+  }
+  if (!payload.receiver_province_code) {
+    errors.push('Missing receiver province code');
+  }
+  if (!payload.receiver_district_code) {
+    errors.push('Missing receiver district code');
+  }
 
   // Package validation
   if (!payload.weight_gram || payload.weight_gram <= 0) {
@@ -233,7 +282,10 @@ function validateWaybillPayload(payload) {
         errors.push(`Product ${idx + 1}: name is required`);
       }
       if (!item.weight || item.weight <= 0) {
-        errors.push(`Product ${idx + 1}: weight must be > 0`);
+        errors.push(`Product ${idx + 1}: weight must be > 0 (got ${item.weight})`);
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        errors.push(`Product ${idx + 1}: quantity must be > 0`);
       }
     });
   }
@@ -244,6 +296,7 @@ function validateWaybillPayload(payload) {
   };
 }
 
+// ===== Sanitize phone number =====
 function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
 }
