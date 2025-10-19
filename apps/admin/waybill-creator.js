@@ -8,13 +8,38 @@ class WaybillCreator {
     this.baseURL = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
     
     // Hardcode mapping cho TP.HCM (mã 01/79)
-    // Dựa trên https://docs.superai.vn/guide/areas.html
+    // Mapping từ mã nội bộ sang mã SuperAI/VTP chuẩn
     this.districtMapping = {
-      // Quận/Huyện TP.HCM - Mã chuẩn là 3 chữ số
-      '279': '760',  // Quận Bình Tân
-      '760': '760',  // Quận Bình Tân (already correct)
+      // TP.HCM - Các quận nội thành
+      '760': '760',  // Quận Bình Tân (mã chuẩn)
+      '279': '760',  // Quận Bình Tân (mã cũ)
       '777': '777',  // Quận 11
-      // Thêm các mapping khác nếu cần
+      '770': '770',  // Quận 1
+      '771': '771',  // Quận 2 (Thủ Đức)
+      '772': '772',  // Quận 3
+      '773': '773',  // Quận 4
+      '774': '774',  // Quận 5
+      '775': '775',  // Quận 6
+      '776': '776',  // Quận 7
+      '778': '778',  // Quận 8
+      '780': '780',  // Quận 9 (Thủ Đức)
+      '781': '781',  // Quận 10
+      '782': '782',  // Quận 12
+      '783': '783',  // Quận Bình Thạnh
+      '784': '784',  // Quận Gò Vấp
+      '785': '785',  // Quận Phú Nhuận
+      '786': '786',  // Quận Tân Bình
+      '787': '787',  // Quận Tân Phú
+      '788': '788',  // Quận Thủ Đức (cũ)
+      
+      // Các huyện ngoại thành
+      '761': '761',  // Huyện Bình Chánh
+      '762': '762',  // Huyện Cần Giờ
+      '763': '763',  // Huyện Củ Chi
+      '764': '764',  // Huyện Hóc Môn
+      '765': '765',  // Huyện Nhà Bè
+      
+      // Thêm các mã khác nếu biết
     };
   }
 
