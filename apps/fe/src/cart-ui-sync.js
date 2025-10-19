@@ -213,49 +213,11 @@ function updateAllUI() {
 /**
  * Add floating cart button
  */
-function addFloatingCartButton() {
-  // Check if already exists
-  if (document.getElementById('floating-cart-btn')) return;
-  
-  const floatingContainer = document.querySelector('.fixed.right-3.bottom-3');
-  if (!floatingContainer) return;
-  
-  const cartBtn = document.createElement('a');
-  cartBtn.id = 'floating-cart-btn';
-  cartBtn.href = '/cart.html';
-  cartBtn.className = 'bg-rose-600 text-white px-3 py-2 rounded shadow relative';
-  cartBtn.style.display = 'flex';
-  cartBtn.style.alignItems = 'center';
-  cartBtn.style.gap = '6px';
-  cartBtn.innerHTML = `
-    🛒
-    <span id="floating-cart-badge" style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:600">0</span>
-  `;
-  
-  // Insert before Zalo button
-  floatingContainer.insertBefore(cartBtn, floatingContainer.firstChild);
-  
-  // Update badge
-  updateFloatingBadge();
-  
-  console.log('[CartUI] Floating cart button added');
-}
 
 /**
  * Update floating cart badge
  */
-function updateFloatingBadge() {
-  const badge = document.getElementById('floating-cart-badge');
-  if (!badge) return;
-  
-  const cart = getCart();
-  const totalQty = cart.reduce((sum, item) => sum + (item.qty || item.quantity || 1), 0);
-  
-  badge.textContent = totalQty;
-  badge.style.display = totalQty > 0 ? 'flex' : 'none';
-  
-  console.log('[CartUI] Floating badge updated:', totalQty);
-}
+
 
 /**
  * Initialize cart UI sync
@@ -265,24 +227,9 @@ function initCartUISync() {
   
   // Initial update
   updateAllUI();
-  addFloatingCartButton();
   
   // Listen to storage changes (from other tabs or cart-sync)
-  window.addEventListener('storage', (e) => {
-    if (e.key === CART_KEY || LEGACY_KEYS.includes(e.key)) {
-      console.log('[CartUI] Storage changed, updating UI');
-      updateAllUI();
-      updateFloatingBadge();
-    }
-  });
-  
-  // Listen to custom cart changed event
-  window.addEventListener('shv:cart-changed', () => {
-    console.log('[CartUI] Cart changed event, updating UI');
-    updateAllUI();
-    updateFloatingBadge();
-  });
-  
+ 
   // Expose global function for backward compatibility
   window.updateCartBadge = updateAllUI;
   
