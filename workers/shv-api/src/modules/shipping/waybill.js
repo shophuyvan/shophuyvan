@@ -272,6 +272,21 @@ function validateWaybillPayload(payload) {
   if (!payload.receiver_address || !payload.receiver_address.trim()) errors.push('Missing receiver_address');
   if (!payload.receiver_province_code) errors.push('Missing receiver_province_code');
   if (!payload.receiver_district_code) errors.push('Missing receiver_district_code');
+  
+  // THÊM VALIDATE MÃ ĐỊA CHỈ
+  const provinceCode = String(payload.receiver_province_code || '');
+  const districtCode = String(payload.receiver_district_code || '');
+  
+  // Log để debug
+  console.log('[Waybill] Address codes:', { provinceCode, districtCode });
+  
+  // Warn if codes look suspicious
+  if (provinceCode.length > 3) {
+    console.warn('[Waybill] ⚠️ Province code quá dài:', provinceCode);
+  }
+  if (districtCode.length > 4) {
+    console.warn('[Waybill] ⚠️ District code quá dài:', districtCode);
+  }
 
   // Weight
   if (!payload.weight_gram || payload.weight_gram <= 0) errors.push('Invalid weight_gram');
