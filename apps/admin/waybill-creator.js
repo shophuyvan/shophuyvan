@@ -48,6 +48,59 @@ class WaybillCreator {
       throw new Error('Không thể tải thông tin người gửi: ' + error.message);
     }
   }
+  async getAreaCodes(provinceCode, districtCode) {
+    try {
+      const response = await fetch(this.baseURL + '/public/shipping/areas', {
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        console.warn('[WaybillCreator] Cannot fetch areas, using original codes');
+        return { provinceCode, districtCode, communeCode: '' };
+      }
+
+      const data = await response.json();
+      const areas = data.areas || data.data || [];
+
+      // Tìm province
+      const province = areas.find(p => 
+        p.code === provinceCode || 
+        p.province_code === provinceCode ||
+        p.name === provinceCode
+      );
+
+      if (!province) {
+        console.warn('[WaybillCreator] Province not found:', provinceCode);
+        return { provinceCode, districtCode, communeCode: '' };
+      }
+
+      // Tìm district
+      const district = (province.districts || []).find(d => 
+        d.code === districtCode || 
+        d.district_code === districtCode ||
+        d.name === districtCode
+      );
+
+      if (!district) {
+        console.warn('[WaybillCreator] District not found:', districtCode);
+        return { 
+          provinceCode: province.code || provinceCode, 
+          districtCode, 
+          communeCode: '' 
+        };
+      }
+
+      return {
+        provinceCode: province.code || provinceCode,
+        districtCode: district.code || districtCode,
+        communeCode: district.communes?.[0]?.code || ''
+      };
+
+    } catch (error) {
+      console.error('[WaybillCreator] Error fetching areas:', error);
+      return { provinceCode, districtCode, communeCode: '' };
+    }
+  }
 
   // ==================== VALIDATE SENDER ====================
   
@@ -231,6 +284,24 @@ class WaybillCreator {
         this.showValidationError('NGƯỜI NHẬN', receiverErrors, receiver);
         return;
       }
+
+      // ✅ CHÈN CODE MỚI TỪ ĐÂY ============================================
+      // LẤY MÃ KHU VỰC CHUẨN TỪ API
+      const receiverAreaCodes = await this.getAreaCodes(
+        receiver.province_code, 
+        receiver.district_code
+      );
+      
+      // Cập nhật mã chuẩn cho receiver
+      receiver.province_code = receiverAreaCodes.provinceCode;
+      receiver.district_code = receiverAreaCodes.districtCode;
+      if (receiverAreaCodes.communeCode && !receiver.commune_code) {
+        receiver.commune_code = receiverAreaCodes.communeCode;
+        receiver.ward_code = receiverAreaCodes.communeCode;
+      }
+
+      console.log('[WaybillCreator] ✅ Receiver with validated codes:', receiver);
+      // ✅ KẾT THÚC CODE MỚI ================================================
 
       const payload = this.buildPayload(order, sender, receiver);
       console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
