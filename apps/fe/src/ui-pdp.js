@@ -511,6 +511,8 @@ function injectStickyCTA() {
 function openVariantModal(mode) {
   const mask = document.createElement('div');
   mask.id = 'shv-variant-mask';
+  const bottomBar = document.querySelector('.shv-bottom-bar');
+  if (bottomBar) bottomBar.style.display = 'none';
   mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:flex;align-items:flex-end;justify-content:center;';
   document.body.appendChild(mask);
 
@@ -697,9 +699,15 @@ function openVariantModal(mode) {
     window.location.href = '/checkout.html';
   };
 
-  mask.querySelector('#vm-close').onclick = () => mask.remove();
+  function closeModal() {
+    mask.remove();
+    const bottomBar = document.querySelector('.shv-bottom-bar');
+    if (bottomBar) bottomBar.style.display = '';
+  }
+
+  mask.querySelector('#vm-close').onclick = closeModal;
   mask.onclick = (e) => {
-    if (e.target === mask) mask.remove();
+    if (e.target === mask) closeModal();
   };
 }
 
