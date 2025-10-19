@@ -48,6 +48,7 @@ export async function createWaybill(req, env) {
       name: orderName,
       phone: receiverPhone,
       address: body.receiver_address || order.customer?.address || body.to_address || '',
+	  province: body.receiver_province_code || body.receiver_province || order.customer?.province || '',
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
