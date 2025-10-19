@@ -1,5 +1,6 @@
 // ===================================================================
-// modules/products.js - Products Module (Complete)
+// modules/products.js - Products Module (FIXED CATEGORY)
+// Đường dẫn: workers/shv-api/src/modules/products.js
 // ===================================================================
 
 import { json, errorResponse } from '../lib/response.js';
@@ -83,7 +84,7 @@ export async function handle(req, env, ctx) {
 // ===================================================================
 
 /**
- * Convert product to summary (lightweight version)
+ * ✅ Convert product to summary (lightweight version)
  */
 function toSummary(product) {
   return {
@@ -96,6 +97,9 @@ function toSummary(product) {
     price_sale: product.price_sale || 0,
     stock: product.stock || 0,
     images: product.images || [],
+    // ✅ FIX: Thêm category fields vào summary
+    category: product.category || '',
+    category_slug: product.category_slug || product.category || '',
     status: (product.status === 0 ? 0 : 1)
   };
 }
@@ -135,7 +139,7 @@ async function listProducts(env) {
 }
 
 /**
- * Category matching helper
+ * ✅ Category matching helper (FIXED)
  */
 function toSlug(input) {
   const text = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -148,10 +152,16 @@ function collectCategoryValues(product) {
     if (v !== undefined && v !== null && v !== '') values.push(v); 
   };
 
+  // ✅ FIX: Lấy từ product trực tiếp trước
+  push(product.category);
+  push(product.category_slug);
+  push(product.cate);
+  push(product.categoryId);
+  
   const raw = (product && product.raw) || {};
   const meta = product?.meta || raw?.meta || {};
 
-  [product, raw, meta].forEach(obj => {
+  [raw, meta].forEach(obj => {
     if (!obj) return;
     push(obj.category);
     push(obj.category_slug);
@@ -194,6 +204,13 @@ function matchCategoryStrict(product, category) {
 
   const wants = [want, ...(alias[want] || []).map(toSlug)];
   const candidates = collectCategoryValues(product);
+
+  console.log('🔍 Matching:', { 
+    productId: product.id, 
+    want, 
+    candidates: candidates.slice(0, 5),
+    match: candidates.some(v => wants.includes(v))
+  });
 
   return candidates.some(v => wants.includes(v));
 }
@@ -260,18 +277,24 @@ async function listPublicProductsFiltered(req, env) {
     let items = Array.isArray(data?.items) ? data.items.slice() : 
                (Array.isArray(data) ? data.slice() : []);
 
-    // Filter by category
+    console.log('📦 Total products:', items.length);
+
+    // ✅ Filter by category
     if (category) {
+      const before = items.length;
       items = items.filter(product => matchCategoryStrict(product, category));
+      console.log(`✅ Category filter "${category}": ${before} → ${items.length}`);
     }
 
     // Filter active only
     items = items.filter(p => p.status !== 0);
 
     return json({ 
+      ok: true,
       items: items.slice(0, limit) 
     }, {}, req);
   } catch (e) {
+    console.error('❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
@@ -359,6 +382,18 @@ async function upsertProduct(req, env) {
       product.slug = slugify(product.title || product.name);
     }
 
+    // ✅ FIX: Đảm bảo category_slug được lưu
+    if (!product.category_slug && product.category) {
+      product.category_slug = toSlug(product.category);
+    }
+
+    console.log('💾 Saving product:', {
+      id: product.id,
+      name: product.title || product.name,
+      category: product.category,
+      category_slug: product.category_slug
+    });
+
     // Get current products list
     const list = await listProducts(env);
     
@@ -380,8 +415,11 @@ async function upsertProduct(req, env) {
     // Legacy compatibility
     await putJSON(env, 'products:' + product.id, summary);
 
+    console.log('✅ Product saved');
+
     return json({ ok: true, data: product }, {}, req);
   } catch (e) {
+    console.error('❌ Save error:', e);
     return errorResponse(e, 500, req);
   }
 }
@@ -421,3 +459,5 @@ async function deleteProduct(req, env) {
     return errorResponse(e, 500, req);
   }
 }
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED');
