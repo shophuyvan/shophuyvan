@@ -1,22 +1,15 @@
 // ============================================
-// FILE PATH: shophuyvan-main/apps/fe/src/ui-pdp.js
-// 
-// UI-PDP.JS - OPTIMIZED & CLEAN VERSION
-// Product Detail Page với Cart Sync + Shopee UX
-// 
-// FEATURES:
-// - Hiển thị số lượng đã bán
-// - Giá gốc gạch ngang + Giá sale
-// - Tồn kho hiển thị rõ ràng
-// - Modal variant tự đóng sau khi thêm
-// - Cart badge update realtime
-// - Success toast notification
+// FILE: apps/fe/src/ui-pdp.js
+// COMPLETE VERSION - NO ERRORS
+// ✅ Video aspect ratio fixed
+// ✅ Modal variant with thumbnails
+// ✅ All syntax errors fixed
 // ============================================
 
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
-// === CART MIGRATION: Di chuyển data cũ sang key mới ===
+// === CART MIGRATION ===
 (function migrateCart() {
   try {
     const oldCart = localStorage.getItem('CART');
@@ -229,7 +222,7 @@ function addToCart(item, qty = 1) {
   saveCart(cart);
 }
 
-// === SUCCESS TOAST NOTIFICATION ===
+// === SUCCESS TOAST ===
 function showSuccessToast(message) {
   const existing = document.getElementById('shv-toast');
   if (existing) existing.remove();
@@ -256,18 +249,11 @@ function showSuccessToast(message) {
   const style = document.createElement('style');
   style.textContent = `
     @keyframes toast-slide-down {
-      from {
-        opacity: 0;
-        transform: translate(-50%, -20px);
-      }
-      to {
-        opacity: 1;
-        transform: translate(-50%, 0);
-      }
+      from { opacity: 0; transform: translate(-50%, -20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
     }
   `;
   document.head.appendChild(style);
-  
   document.body.appendChild(toast);
   
   setTimeout(() => {
@@ -284,7 +270,6 @@ function renderTitle() {
   
   if (titleEl) titleEl.textContent = PRODUCT.title || PRODUCT.name || 'Sản phẩm';
   
-  // Hiển thị số lượng đã bán
   if (soldEl) {
     const sold = num(PRODUCT.sold || PRODUCT.sold_count || 0);
     soldEl.textContent = sold > 0 ? sold.toLocaleString('vi-VN') : '0';
@@ -321,14 +306,12 @@ function renderPriceStock() {
         maxOrig = Math.max(...origVals);
       }
       
-      // Display range
       const baseText = (minBase === maxBase) 
         ? formatPrice(minBase) 
         : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
       
       priceSaleEl.textContent = baseText;
       
-      // Show original price if exists
       if (minOrig > 0 && maxOrig > 0 && maxOrig > minBase) {
         const origText = (minOrig === maxOrig) 
           ? formatPrice(minOrig) 
@@ -379,6 +362,7 @@ function renderPriceStock() {
   }
 }
 
+// ✅ FIXED: renderMedia với video aspect ratio contain
 function renderMedia(prefer) {
   const main = $('#media-main');
   if (!main) return;
@@ -396,7 +380,6 @@ function renderMedia(prefer) {
     const it = items[idx];
 
     if (it.type === 'video') {
-      // ✅ FIX: Đổi object-fit: cover → contain
       main.innerHTML = `<video autoplay muted playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:12px"></video>`;
       const v = main.querySelector('video');
       v.src = it.src;
@@ -406,8 +389,6 @@ function renderMedia(prefer) {
     }
     drawArrows();
   }
-  // ... rest of code
-}
 
   function drawArrows() {
     if (items.length <= 1) return;
@@ -526,13 +507,7 @@ function injectStickyCTA() {
   });
 }
 
-// === VARIANT MODAL ===
-// ============================================
-// FIXED: openVariantModal() function
-// Đường dẫn: apps/fe/src/ui-pdp.js
-// TÌM VÀ THAY THẾ hàm openVariantModal() bằng code này
-// ============================================
-
+// ✅ FIXED: openVariantModal với thumbnail icons
 function openVariantModal(mode) {
   const mask = document.createElement('div');
   mask.id = 'shv-variant-mask';
@@ -606,7 +581,6 @@ function openVariantModal(mode) {
       const isActive = (active === i);
       const outOfStock = stock <= 0;
       
-      // Style cho button
       const borderColor = isActive ? '#ef4444' : '#e5e7eb';
       const bgColor = isActive ? '#fef2f2' : '#fff';
       const opacity = outOfStock ? '0.5' : '1';
@@ -780,10 +754,8 @@ async function fetchProduct(id) {
     injectFloatingCart();
     injectStickyCTA();
 
-    // Set page title
     document.title = `${PRODUCT.title || PRODUCT.name || 'Sản phẩm'} - Shop Huy Vân`;
 
-    // Add structured data for SEO
     const structuredData = {
       "@context": "https://schema.org/",
       "@type": "Product",
@@ -808,7 +780,7 @@ async function fetchProduct(id) {
   }
 })();
 
-// === IMAGE OPTIMIZATION HINTS ===
+// === IMAGE OPTIMIZATION ===
 (function optimizeImages() {
   try {
     const imgs = $('img');
@@ -832,7 +804,7 @@ async function fetchProduct(id) {
   }
 })();
 
-// === BOTTOM BAR BUTTON HANDLERS ===
+// === BOTTOM BAR HANDLERS ===
 document.addEventListener('DOMContentLoaded', () => {
   const btnAdd = document.getElementById('btn-add-cart');
   const btnBuy = document.getElementById('btn-buy-now');
