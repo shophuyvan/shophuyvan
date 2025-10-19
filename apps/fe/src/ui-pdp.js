@@ -671,3 +671,165 @@ function openVariantModal(mode) {
     // Optional: Uncomment to redirect after 1s
     // setTimeout(() => { window.location.href = '/cart.html'; }, 1000);
   };
+
+  mask.querySelector('#vm-buy').onclick = () => {
+    addSelectedToCart();
+    mask.remove();
+    
+    // Trigger badge update
+    window.dispatchEvent(new Event('shv:cart-changed'));
+    
+    // Redirect to checkout
+    window.location.href = '/checkout.html';
+  };
+
+  mask.querySelector('#vm-close').onclick = () => mask.remove();
+  mask.onclick = (e) => {
+    if (e.target === mask) mask.remove();
+  };
+}
+
+// === FETCH PRODUCT ===
+async function fetchProduct(id) {
+  const paths = [
+    `/public/products/${encodeURIComponent(id)}`,
+    `/products/${encodeURIComponent(id)}`
+  ];
+
+  for (const p of paths) {
+    try {
+      const r = await api.get(p);
+      if (r && (r.item || r.product || (r.id || r.title))) {
+        return r.item || r.product || r;
+      }
+    } catch {}
+  }
+
+  try {
+    const list = await api.get('/public/products');
+    const items = list?.items || list?.products || [];
+    const f = (items || []).find(x => String(x.id || x._id || '') === String(id));
+    if (f) return f;
+  } catch {}
+
+  return null;
+}
+
+// === INIT ===
+(async function init() {
+  try {
+    const id = q('id', '').trim();
+    if (!id) {
+      console.warn('No product id');
+      return;
+    }
+
+    const item = await fetchProduct(id);
+    if (!item) {
+      console.warn('Product not found');
+      return;
+    }
+
+    PRODUCT = item;
+    CURRENT = null;
+
+    renderTitle();
+    renderPriceStock();
+    renderMedia();
+    renderDesc();
+    injectFloatingCart();
+    injectStickyCTA();
+
+    // Set page title
+    document.title = `${PRODUCT.title || PRODUCT.name || 'Sản phẩm'} - Shop Huy Vân`;
+
+    // Add structured data for SEO
+    const structuredData = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": PRODUCT.title || PRODUCT.name,
+      "image": imagesOf(PRODUCT),
+      "description": PRODUCT.description || PRODUCT.desc || '',
+      "offers": {
+        "@type": "Offer",
+        "price": pricePair(PRODUCT).base,
+        "priceCurrency": "VND",
+        "availability": "https://schema.org/InStock"
+      }
+    };
+
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(structuredData);
+    document.head.appendChild(script);
+
+  } catch(e) {
+    console.error('[PDP] Init error:', e);
+  }
+})();
+
+// === IMAGE OPTIMIZATION HINTS ===
+(function optimizeImages() {
+  try {
+    const imgs = $('img');
+    let firstSet = false;
+
+    imgs.forEach((img) => {
+      const isHeader = !!img.closest('header');
+      
+      if (!firstSet && !isHeader) {
+        img.setAttribute('fetchpriority', 'high');
+        img.setAttribute('loading', 'eager');
+        firstSet = true;
+      } else {
+        if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+      }
+      
+      if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+    });
+  } catch(e) {
+    console.warn('[PDP] Image optimization failed:', e);
+  }
+})();
+
+// === BOTTOM BAR BUTTON HANDLERS ===
+document.addEventListener('DOMContentLoaded', () => {
+  const btnAdd = document.getElementById('btn-add-cart');
+  const btnBuy = document.getElementById('btn-buy-now');
+  
+  if (btnAdd) {
+    btnAdd.onclick = (e) => {
+      e.preventDefault();
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('cart');
+      } else {
+        console.error('openVariantModal not found');
+      }
+    };
+  }
+  
+  if (btnBuy) {
+    btnBuy.onclick = (e) => {
+      e.preventDefault();
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('buy');
+      } else {
+        console.error('openVariantModal not found');
+      }
+    };
+  }
+  
+  console.log('[PDP] Bottom bar handlers initialized');
+});
+
+// === EXPOSE GLOBAL API ===
+window.openVariantModal = openVariantModal;
+window.PRODUCT_UTILS = {
+  getProduct: () => PRODUCT,
+  getCurrent: () => CURRENT,
+  getCart: getCart,
+  addToCart: addToCart,
+  showToast: showSuccessToast
+};
+
+console.log('[PDP] UI initialized successfully');
