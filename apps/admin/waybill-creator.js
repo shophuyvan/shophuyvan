@@ -88,29 +88,69 @@ class WaybillCreator {
   // ==================== VALIDATE & MAP DISTRICT CODE ====================
   
   validateAndMapDistrictCode(districtCode, provinceName = '') {
-    const code = String(districtCode || '').trim();
-    
-    // Check if mapping exists
-    if (this.districtMapping[code]) {
-      const mappedCode = this.districtMapping[code];
-      console.log(`[WaybillCreator] 🔄 Mapped district: ${code} → ${mappedCode}`);
-      return mappedCode;
-    }
-    
-    // If code is already 3 digits, return as-is
-    if (/^\d{3}$/.test(code)) {
-      console.log(`[WaybillCreator] ✅ District code OK: ${code}`);
-      return code;
-    }
-    
-    // Warn about suspicious code
-    if (code.length > 3) {
-      console.warn(`[WaybillCreator] ⚠️ District code too long: ${code}`);
-    }
-    
-    return code;
+  const code = String(districtCode || '').trim();
+  
+  // Check if mapping exists
+  if (this.districtMapping[code]) {
+    const mappedCode = this.districtMapping[code];
+    console.log(`[WaybillCreator] 🔄 Mapped district: ${code} → ${mappedCode}`);
+    return {
+      code: mappedCode,
+      name: this.getDistrictName(mappedCode)
+    };
   }
+  
+  // If code is already 3 digits, return as-is
+  if (/^\d{3}$/.test(code)) {
+    console.log(`[WaybillCreator] ✅ District code OK: ${code}`);
+    return {
+      code: code,
+      name: this.getDistrictName(code)
+    };
+  }
+  
+  // Warn about suspicious code
+  if (code.length > 3) {
+    console.warn(`[WaybillCreator] ⚠️ District code too long: ${code}`);
+  }
+  
+  return {
+    code: code,
+    name: ''
+  };
+}
+// ==================== GET DISTRICT NAME FROM CODE ====================
 
+getDistrictName(code) {
+  const districtNames = {
+    '760': 'Quận Bình Tân',
+    '761': 'Huyện Bình Chánh',
+    '762': 'Huyện Cần Giờ',
+    '763': 'Huyện Củ Chi',
+    '764': 'Huyện Hóc Môn',
+    '765': 'Huyện Nhà Bè',
+    '770': 'Quận 1',
+    '771': 'Quận 2',
+    '772': 'Quận 3',
+    '773': 'Quận 4',
+    '774': 'Quận 5',
+    '775': 'Quận 6',
+    '776': 'Quận 7',
+    '777': 'Quận 11',
+    '778': 'Quận 8',
+    '780': 'Quận 9',
+    '781': 'Quận 10',
+    '782': 'Quận 12',
+    '783': 'Quận Bình Thạnh',
+    '784': 'Quận Gò Vấp',
+    '785': 'Quận Phú Nhuận',
+    '786': 'Quận Tân Bình',
+    '787': 'Quận Tân Phú',
+    '788': 'Quận Thủ Đức'
+  };
+  
+  return districtNames[code] || '';
+}
   // ==================== VALIDATE SENDER ====================
   
   validateSender(sender) {
@@ -165,22 +205,29 @@ class WaybillCreator {
       ward_code: customer.ward_code || order.ward_code || order.receiver_ward_code || ''
     };
 
-    console.log('[WaybillCreator] Receiver info (raw):', receiver);
-    
-    // ✅ VALIDATE & MAP DISTRICT CODE
-    const originalCode = receiver.district_code;
-    receiver.district_code = this.validateAndMapDistrictCode(
-      receiver.district_code, 
-      receiver.province
-    );
-    
-    if (originalCode !== receiver.district_code) {
-      console.log(`[WaybillCreator] ✅ District code mapped: ${originalCode} → ${receiver.district_code}`);
-    }
-    
-    return receiver;
-  }
+ console.log('[WaybillCreator] Receiver info (raw):', receiver);
 
+// ✅ VALIDATE & MAP DISTRICT CODE
+const originalCode = receiver.district_code;
+const validated = this.validateAndMapDistrictCode(
+  receiver.district_code, 
+  receiver.province
+);
+
+receiver.district_code = validated.code;
+
+// ✅ NẾU TÊN QUẬN BỊ RỖNG, TỰ ĐỘNG ĐIỀN
+if (!receiver.district || receiver.district.trim() === '') {
+  receiver.district = validated.name;
+  console.log(`[WaybillCreator] ✅ Auto-filled district name: "${validated.name}"`);
+}
+
+if (originalCode !== receiver.district_code) {
+  console.log(`[WaybillCreator] ✅ District code mapped: ${originalCode} → ${receiver.district_code}`);
+}
+
+return receiver;
+} 
   // ==================== VALIDATE RECEIVER ====================
   
   validateReceiver(receiver) {
