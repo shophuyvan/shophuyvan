@@ -120,35 +120,77 @@
     </a>
   </script>
   <script>
-  (()=>{
-    const state={page:+(new URLSearchParams(location.search).get('page')||1),sort:new URLSearchParams(location.search).get('sort')||'popular',min:+(new URLSearchParams(location.search).get('min')||'')||'',max:+(new URLSearchParams(location.search).get('max')||'')||'',brand:new URLSearchParams(location.search).getAll('brand'),rate:new URLSearchParams(location.search).get('rate')||'',total:0,items:[]};
-    const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-    const fmt=n=>(Number(n)||0).toLocaleString('vi-VN')+'đ';
-    const IMG_FALLBACK='/public/logo.png'; const PAGE_SIZE=24;
-    const path=location.pathname.split('/').filter(Boolean); const slug=(path[0]==='c'&&path[1])?path[1]:new URLSearchParams(location.search).get('c')||'';
-    const catName=decodeURIComponent(slug||'Danh mục').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
-    $('#shv-h1').textContent=catName; $('#shv-bc-leaf').textContent=catName;
-    function tpl(p){const t=$('#tpl-card').textContent; const v={url:p.url||('__BASE_URL__/product/'+(p.slug||p.id||'')),image:p.image||p.images?.[0]||IMG_FALLBACK,name:p.name||p.title||'Sản phẩm',badge:p.sale_off?('-'+p.sale_off+'%'):'',price:fmt(p.sale_price??p.price??0),crossed:p.sale_price?fmt(p.price):'',sold:p.sold??0,rating:(p.rating??4.8).toFixed(1)}; return t.replace('{{url}}',v.url).replace('{{image}}',v.image).replaceAll('{{name}}',v.name).replace('{{badge}}',v.badge||'').replace('{{price}}',v.price).replace('{{crossed}}',v.crossed).replace('{{sold}}',v.sold).replace('{{rating}}',v.rating).replace('{{#if badge}}','').replace('{{/if}}','').replace('{{#if crossed}}','').replace('{{/if}}','');}
-    function renderGrid(items){$('#rs-total').textContent=state.total.toLocaleString('vi-VN'); $('#rs-grid').innerHTML=items.map(tpl).join(''); try{const ld=JSON.parse($('#shv-collection-jsonld').textContent); ld.name=catName; ld.hasPart=items.map(i=>({"@type":"Product","name":i.name,"url":i.url||('__BASE_URL__/product/'+(i.slug||i.id||''))})); $('#shv-collection-jsonld').textContent=JSON.stringify(ld);}catch(e){}}
-    function renderPagination(){const pages=Math.max(1,Math.ceil(state.total/PAGE_SIZE)); const cur=Math.min(state.page,pages); const mk=(p,l,a=false)=>`<a href="${makeUrl({page:p})}" class="px-3 py-2 rounded-lg border ${a?'bg-red-600 text-white border-red-600':'hover:bg-gray-50'}">${l}</a>`; const arr=[]; if(cur>1)arr.push(mk(cur-1,'‹')); for(let i=Math.max(1,cur-2);i<=Math.min(pages,cur+2);i++)arr.push(mk(i,i,i===cur)); if(cur<pages)arr.push(mk(cur+1,'›')); $('#rs-pagination').innerHTML=arr.join('');}
-    function makeUrl(overrides={}){const u=new URL(location.href); const q=u.searchParams; Object.entries({...state,...overrides}).forEach(([k,v])=>{if(['items','total'].includes(k))return; if(Array.isArray(v)){q.delete(k); v.forEach(x=>x&&q.append(k,x));} else if(v===''||v==null) q.delete(k); else q.set(k,v);}); if(slug) q.set('c',slug); return u.pathname+'?'+q.toString();}
-    async function load(){ if(Array.isArray(window.__SHV_PRODUCTS__)){ return slice(window.__SHV_PRODUCTS__);} const url = '/api/products?category=' + encodeURIComponent(slug || ''); try{const r=await fetch(url); const data=await r.json(); return slice(data.items||data.data||[]);let all = data.items || data.data || [];
-if (slug) {
-  const key = slug.toLowerCase();
-  all = all.filter(p => (p.category || '').toLowerCase() === key);
-}
-return slice(all);}catch(e){const mock=Array.from({length:48}).map((_,i)=>({id:i+1,name:`Sản phẩm #${i+1}`,image:IMG_FALLBACK,price:59000+i*1000,sale_price:i%3===0?45000+i*500:0,sale_off:i%3===0?20:0,sold:(i*13)%500,rating:4+(i%10)/10})); return slice(mock);}}
-    function slice(all){let a=all.slice(); if(state.min) a=a.filter(p=>(p.sale_price||p.price)>=state.min); if(state.max) a=a.filter(p=>(p.sale_price||p.price)<=state.max); if(state.rate) a=a.filter(p=>(p.rating||0)>=Number(state.rate)); if(state.brand?.length) a=a.filter(p=>state.brand.includes((p.brand||'').toLowerCase())); if(state.sort==='price-asc') a.sort((x,y)=>(x.sale_price||x.price)-(y.sale_price||y.price)); else if(state.sort==='price-desc') a.sort((x,y)=>(y.sale_price||y.price)-(x.sale_price||x.price)); else if(state.sort==='new') a.reverse(); state.total=a.length; const start=(state.page-1)*PAGE_SIZE; const items=a.slice(start,start+PAGE_SIZE); return {items,total:state.total};}
-    function renderBrandsFrom(items){const brands=[...new Set(items.map(p=>(p.brand||'').toLowerCase()).filter(Boolean))].slice(0,15); const box=$('#f-brands'); box.innerHTML=brands.map(b=>{const id='b-'+b.replace(/\s+/g,'-'); const checked=state.brand.includes(b)?'checked':''; return `<label class="flex items-center gap-2"><input type="checkbox" value="${b}" ${checked} class="f-brand"> <span class="capitalize">${b}</span></label>`; }).join(''); $$('.f-brand',box).forEach(c=>c.addEventListener('change',()=>{const set=new Set(state.brand); c.checked?set.add(c.value):set.delete(c.value); state.brand=Array.from(set);}));}
-    // events
-    $('#f-apply').addEventListener('click',()=>{ state.min=+$('#f-min').value||''; state.max=+$('#f-max').value||''; state.rate=($('input[name="f-rate"]:checked')||{}).value||''; state.page=1; location.href=makeUrl(); });
-    $('#rs-sort').addEventListener('change',e=>{ state.sort=e.target.value; state.page=1; location.href=makeUrl(); });
-    $('#rs-open-filter').addEventListener('click',()=>$('#shv-open-filter').click());
-    $('#shv-open-filter').addEventListener('click',()=>{ const p=$('#shv-filter'); p.classList.toggle('hidden'); });
-    // run
-    load().then(({items})=>{renderGrid(items); renderPagination(); renderBrandsFrom(window.__SHV_PRODUCTS__||items);});
-  })();
-  </script>
+(()=>{
+  const $ = (s,r=document)=>r.querySelector(s);
+  const fmt = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
+  const IMG_FALLBACK = '/public/logo.png';
+  const PAGE_SIZE = 24;
+
+  // Lấy slug danh mục từ URL (?c=hoac / /c/slug)
+  const path = location.pathname.split('/').filter(Boolean);
+  const slug = (path[0]==='c' && path[1]) ? path[1] : new URLSearchParams(location.search).get('c') || '';
+  const catName = decodeURIComponent(slug||'Danh mục').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+
+  $('#shv-h1').textContent = catName;
+  $('#shv-bc-leaf').textContent = catName;
+
+  // Hàm lọc sản phẩm theo slug danh mục
+  function matchCategoryStrict(p, categorySlug){
+    if(!categorySlug) return true;
+    const want = categorySlug.toLowerCase();
+    const fields = [p.category, p.category_slug, p.group, p.collection, ...(p.categories||[]), ...(p.tags||[])];
+    return fields.filter(Boolean).map(v=>String(v).toLowerCase().replace(/[^a-z0-9]+/g,'-'))
+      .some(v => v === want);
+  }
+
+  function tpl(p){
+    const url = p.url || '/product/' + (p.slug || p.id);
+    const image = p.image || p.images?.[0] || IMG_FALLBACK;
+    const badge = p.sale_off ? ('-'+p.sale_off+'%') : '';
+    const price = fmt(p.sale_price ?? p.price ?? 0);
+    const crossed = p.sale_price ? fmt(p.price) : '';
+    const sold = p.sold ?? 0;
+    const rating = (p.rating ?? 4.8).toFixed(1);
+
+    return `
+      <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="${url}">
+        <div class="relative aspect-[4/3] bg-gray-100">
+          <img class="absolute inset-0 w-full h-full object-cover" src="${image}" alt="${p.name}">
+          ${badge ? `<span class="absolute left-2 top-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">${badge}</span>` : ''}
+        </div>
+        <div class="p-3">
+          <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.name}</h3>
+          <div class="flex items-baseline gap-2">
+            <div class="text-red-600 font-semibold">${price}</div>
+            ${crossed ? `<div class="text-gray-400 line-through text-xs">${crossed}</div>` : ''}
+          </div>
+          <div class="mt-1 text-xs text-gray-500">Đã bán ${sold} • ⭐ ${rating}</div>
+        </div>
+      </a>`;
+  }
+
+  async function loadProducts(){
+    try{
+      // Gọi API tất cả sản phẩm
+      const r = await fetch('/api/products');
+      const data = await r.json();
+      const all = data.items || data.data || [];
+
+      // Lọc theo slug danh mục
+      const filtered = all.filter(p => matchCategoryStrict(p, slug)).slice(0, PAGE_SIZE);
+      $('#rs-total').textContent = filtered.length;
+      $('#rs-grid').innerHTML = filtered.map(tpl).join('');
+
+    }catch(e){
+      console.error('Load products failed', e);
+      $('#rs-grid').innerHTML = '<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>';
+    }
+  }
+
+  loadProducts();
+})();
+</script>
+
   <!-- ===== /SHV HOME/CATEGORY v1 ===== -->
 
 </body>
