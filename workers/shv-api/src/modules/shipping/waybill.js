@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation (COMPLETE FIX)
+// modules/shipping/waybill.js - Waybill Creation (FINAL COMPLETE)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
@@ -35,7 +35,7 @@ export async function createWaybill(req, env) {
     const products = buildWaybillItems(body, order);
     const orderName = products.length > 0 ? products[0].name : 'Đơn hàng';
 
-    // Get receiver phone (will be used for root phone field)
+    // Get receiver info for root fields
     const receiverPhone = sanitizePhone(
       body.receiver_phone || 
       order.customer?.phone || 
@@ -43,12 +43,40 @@ export async function createWaybill(req, env) {
       '0900000000'
     );
 
+    const receiverAddress = body.receiver_address || 
+                           order.customer?.address || 
+                           body.to_address || 
+                           '';
+
+    const receiverProvince = body.receiver_province || 
+                            order.customer?.province || 
+                            body.to_province || 
+                            '';
+
+    const receiverDistrict = body.receiver_district || 
+                            order.customer?.district || 
+                            body.to_district || 
+                            '';
+
+    const receiverProvinceCode = body.receiver_province_code || 
+                                order.customer?.province_code || 
+                                body.province_code || 
+                                body.to_province_code || 
+                                '';
+
+    const receiverDistrictCode = body.receiver_district_code || 
+                                order.customer?.district_code || 
+                                body.district_code || 
+                                body.to_district_code || 
+                                '';
+
     const payload = {
-      // Root level required fields
+      // Root level required fields (SuperShip API requirements)
       name: orderName,
       phone: receiverPhone,
-      address: body.receiver_address || order.customer?.address || body.to_address || '',
-	  province: body.receiver_province_code || body.receiver_province || order.customer?.province || '',
+      address: receiverAddress,
+      province: receiverProvince || receiverProvinceCode,
+      district: receiverDistrict || receiverDistrictCode,
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
@@ -63,12 +91,12 @@ export async function createWaybill(req, env) {
       // Receiver
       receiver_name: body.receiver_name || order.customer?.name || body.to_name || '',
       receiver_phone: receiverPhone,
-      receiver_address: body.receiver_address || order.customer?.address || body.to_address || '',
-      receiver_province: body.receiver_province || order.customer?.province || body.to_province || '',
-      receiver_district: body.receiver_district || order.customer?.district || body.to_district || '',
+      receiver_address: receiverAddress,
+      receiver_province: receiverProvince,
+      receiver_district: receiverDistrict,
       receiver_commune: body.receiver_commune || order.customer?.ward || body.to_commune || '',
-      receiver_province_code: body.receiver_province_code || order.customer?.province_code || body.province_code || body.to_province_code || '',
-      receiver_district_code: body.receiver_district_code || order.customer?.district_code || body.district_code || body.to_district_code || '',
+      receiver_province_code: receiverProvinceCode,
+      receiver_district_code: receiverDistrictCode,
       receiver_commune_code: body.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || body.commune_code || body.to_commune_code || body.ward_code || '',
 
       // Package
@@ -88,11 +116,11 @@ export async function createWaybill(req, env) {
     };
 
     // Root-level aliases for backward compatibility
-    payload.province_code = payload.receiver_province_code;
-    payload.district_code = payload.receiver_district_code;
+    payload.province_code = receiverProvinceCode;
+    payload.district_code = receiverDistrictCode;
     payload.commune_code = payload.receiver_commune_code;
-    payload.to_province_code = payload.receiver_province_code;
-    payload.to_district_code = payload.receiver_district_code;
+    payload.to_province_code = receiverProvinceCode;
+    payload.to_district_code = receiverDistrictCode;
     payload.to_commune_code = payload.receiver_commune_code;
     
     payload.to_name = payload.receiver_name;
@@ -115,16 +143,11 @@ export async function createWaybill(req, env) {
       return json({
         ok: false,
         error: 'VALIDATION_FAILED',
-        details: validation.errors,
-        payload: {
-          name: payload.name,
-          phone: payload.phone,
-          products: payload.products
-        }
+        details: validation.errors
       }, { status: 400 }, req);
     }
 
-    console.log('[Waybill] Creating waybill with payload:', JSON.stringify(payload, null, 2));
+    console.log('[Waybill] Creating with payload:', JSON.stringify(payload, null, 2));
 
     // Call SuperAI API
     const data = await superFetch(env, '/v1/platform/orders/create', {
@@ -132,14 +155,13 @@ export async function createWaybill(req, env) {
       body: payload
     });
 
-    console.log('[Waybill] SuperAI API response:', JSON.stringify(data, null, 2));
+    console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
 
     // Check for success
     const code = data?.data?.code || data?.code || null;
     const tracking = data?.data?.tracking || data?.tracking || code || null;
 
     if (code || tracking) {
-      // Success - save shipment record
       await putJSON(env, 'shipment:' + (order.id || body.order_id || code), {
         provider: payload.provider,
         service_code: payload.service_code,
@@ -160,10 +182,8 @@ export async function createWaybill(req, env) {
       return response;
     }
 
-    // Failed - return error with details
     const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
-    
-    console.error('[Waybill] Failed to create:', errorMessage);
+    console.error('[Waybill] Failed:', errorMessage);
     
     return json({
       ok: false,
@@ -177,13 +197,11 @@ export async function createWaybill(req, env) {
     return json({
       ok: false,
       error: 'EXCEPTION',
-      message: e.message,
-      stack: e.stack
+      message: e.message
     }, { status: 500 }, req);
   }
 }
 
-// ===== Build waybill items/products =====
 function buildWaybillItems(body, order) {
   const items = Array.isArray(order.items) ? order.items : 
                (Array.isArray(body.items) ? body.items : []);
@@ -199,20 +217,12 @@ function buildWaybillItems(body, order) {
   }
 
   return items.map((item, index) => {
-    // Weight with fallback
     let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
-    if (weight <= 0) {
-      weight = 500; // Default 500g
-    }
+    if (weight <= 0) weight = 500;
 
-    // Name with truncation
     let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
-    if (name.length > 100) {
-      name = name.substring(0, 97) + '...';
-    }
-    if (!name) {
-      name = `Sản phẩm ${index + 1}`;
-    }
+    if (name.length > 100) name = name.substring(0, 97) + '...';
+    if (!name) name = `Sản phẩm ${index + 1}`;
 
     return {
       name: name,
@@ -224,81 +234,39 @@ function buildWaybillItems(body, order) {
   });
 }
 
-// ===== Validate payload before sending to API =====
 function validateWaybillPayload(payload) {
   const errors = [];
 
-  // Root level
-  if (!payload.name || !payload.name.trim()) {
-    errors.push('Missing order name');
-  }
-  if (!payload.phone) {
-    errors.push('Missing phone');
-  }
+  if (!payload.name || !payload.name.trim()) errors.push('Missing name');
+  if (!payload.phone) errors.push('Missing phone');
+  if (!payload.address || !payload.address.trim()) errors.push('Missing address');
+  
+  if (!payload.sender_name || !payload.sender_name.trim()) errors.push('Missing sender_name');
+  if (!payload.sender_phone) errors.push('Missing sender_phone');
+  if (!payload.sender_address || !payload.sender_address.trim()) errors.push('Missing sender_address');
+  if (!payload.sender_province_code) errors.push('Missing sender_province_code');
+  if (!payload.sender_district_code) errors.push('Missing sender_district_code');
 
-  // Sender validation
-  if (!payload.sender_name || !payload.sender_name.trim()) {
-    errors.push('Missing sender name');
-  }
-  if (!payload.sender_phone) {
-    errors.push('Missing sender phone');
-  }
-  if (!payload.sender_address || !payload.sender_address.trim()) {
-    errors.push('Missing sender address');
-  }
-  if (!payload.sender_province_code) {
-    errors.push('Missing sender province code');
-  }
-  if (!payload.sender_district_code) {
-    errors.push('Missing sender district code');
-  }
+  if (!payload.receiver_name || !payload.receiver_name.trim()) errors.push('Missing receiver_name');
+  if (!payload.receiver_phone) errors.push('Missing receiver_phone');
+  if (!payload.receiver_address || !payload.receiver_address.trim()) errors.push('Missing receiver_address');
+  if (!payload.receiver_province_code) errors.push('Missing receiver_province_code');
+  if (!payload.receiver_district_code) errors.push('Missing receiver_district_code');
 
-  // Receiver validation
-  if (!payload.receiver_name || !payload.receiver_name.trim()) {
-    errors.push('Missing receiver name');
-  }
-  if (!payload.receiver_phone) {
-    errors.push('Missing receiver phone');
-  }
-  if (!payload.receiver_address || !payload.receiver_address.trim()) {
-    errors.push('Missing receiver address');
-  }
-  if (!payload.receiver_province_code) {
-    errors.push('Missing receiver province code');
-  }
-  if (!payload.receiver_district_code) {
-    errors.push('Missing receiver district code');
-  }
+  if (!payload.weight_gram || payload.weight_gram <= 0) errors.push('Invalid weight');
 
-  // Package validation
-  if (!payload.weight_gram || payload.weight_gram <= 0) {
-    errors.push('Invalid weight (must be > 0)');
-  }
-
-  // Products validation
   if (!Array.isArray(payload.products) || payload.products.length === 0) {
-    errors.push('Products array is empty');
+    errors.push('Products empty');
   } else {
     payload.products.forEach((item, idx) => {
-      if (!item.name || !item.name.trim()) {
-        errors.push(`Product ${idx + 1}: name is required`);
-      }
-      if (!item.weight || item.weight <= 0) {
-        errors.push(`Product ${idx + 1}: weight must be > 0 (got ${item.weight})`);
-      }
-      if (!item.quantity || item.quantity <= 0) {
-        errors.push(`Product ${idx + 1}: quantity must be > 0`);
-      }
+      if (!item.name || !item.name.trim()) errors.push(`Product ${idx + 1}: no name`);
+      if (!item.weight || item.weight <= 0) errors.push(`Product ${idx + 1}: invalid weight`);
     });
   }
 
-  return {
-    ok: errors.length === 0,
-    errors
-  };
+  return { ok: errors.length === 0, errors };
 }
 
-// ===== Sanitize phone number =====
 function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
 }
