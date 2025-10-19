@@ -119,8 +119,16 @@
         const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category=${slug}`);
         const data = await r.json();
         const all = data.items || data.data || [];
-        $('#rs-total').textContent = all.length;
-        $('#rs-grid').innerHTML = all.map(p => `
+
+// Lọc chính xác theo slug danh mục
+const filtered = all.filter(p => 
+  (p.category_slug || p.category || '').toLowerCase() === slug.toLowerCase()
+);
+
+$('#rs-total').textContent = filtered.length;
+
+// Hiển thị danh sách đã lọc
+$('#rs-grid').innerHTML = filtered.map(p => ` `
           <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="/product.html?id=${p.id}">
             <div class="relative aspect-[4/3] bg-gray-100">
               <img class="absolute inset-0 w-full h-full object-cover" src="${p.images?.[0] || '/public/logo.png'}" alt="${p.title}">
