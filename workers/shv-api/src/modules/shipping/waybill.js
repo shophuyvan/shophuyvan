@@ -77,7 +77,8 @@ export async function createWaybill(req, env) {
       address: receiverAddress,
       province: receiverProvince || receiverProvinceCode,
       district: receiverDistrict || receiverDistrictCode,
-      
+      amount: calculateOrderAmount(order, body),
+	  
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
       sender_phone: sanitizePhone(body.sender_phone || shipping.sender_phone || store.phone || store.owner_phone || '0900000000'),
@@ -269,4 +270,42 @@ function validateWaybillPayload(payload) {
 
 function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
+}
+function calculateOrderAmount(order, body) {
+  // Priority: explicit amount > order total > calculated from items
+  
+  // 1. Check explicit amount
+  if (body.amount && Number(body.amount) > 0) {
+    return Number(body.amount);
+  }
+  
+  if (order.amount && Number(order.amount) > 0) {
+    return Number(order.amount);
+  }
+  
+  // 2. Check order total
+  if (order.total && Number(order.total) > 0) {
+    return Number(order.total);
+  }
+  
+  // 3. Calculate from items
+  const items = Array.isArray(order.items) ? order.items : 
+               (Array.isArray(body.items) ? body.items : []);
+  
+  if (items.length > 0) {
+    const itemsTotal = items.reduce((sum, item) => {
+      const price = Number(item.price || 0);
+      const qty = Number(item.qty || item.quantity || 1);
+      return sum + (price * qty);
+    }, 0);
+    
+    if (itemsTotal > 0) return itemsTotal;
+  }
+  
+  // 4. Fallback to COD
+  const cod = Number(order.cod || body.cod || 0);
+  if (cod > 0) return cod;
+  
+  // 5. Default minimum
+  return 10000; // 10k VND minimum
 }
