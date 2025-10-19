@@ -303,11 +303,11 @@ async function listPublicProductsFiltered(req, env) {
 // ADMIN: List All Products
 // ===================================================================
 
-// ⚠️ Tạm bỏ xác thực khi nạp dữ liệu
-// if (!(await adminOK(req, env))) {
-//   return errorResponse('Unauthorized', 401, req);
-// }
-
+async function listAdminProducts(req, env) {
+  // ⚠️ Tạm bỏ xác thực khi nạp dữ liệu
+  // if (!(await adminOK(req, env))) {
+  //   return errorResponse('Unauthorized', 401, req);
+  // }
 
   try {
     const list = await listProducts(env);
@@ -316,6 +316,7 @@ async function listPublicProductsFiltered(req, env) {
     return errorResponse(e, 500, req);
   }
 }
+
 
 // ===================================================================
 // ADMIN: Get Single Product
