@@ -7,7 +7,7 @@ import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { superFetch, chargeableWeightGrams } from './helpers.js';
+import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode } from './helpers.js';
 
 export async function createWaybill(req, env) {
   const idem = await idemGet(req, env);
@@ -64,11 +64,26 @@ export async function createWaybill(req, env) {
                                 body.to_province_code || 
                                 '';
 
-    const receiverDistrictCode = body.receiver_district_code || 
-                                order.customer?.district_code || 
-                                body.district_code || 
-                                body.to_district_code || 
-                                '';
+       // Lấy raw district code
+    const rawReceiverDistrictCode = body.receiver_district_code || 
+                                    order.customer?.district_code || 
+                                    body.district_code || 
+                                    body.to_district_code || 
+                                    '';
+
+    // ✅ VALIDATE VÀ TỰ ĐỘNG SỬA MÃ DISTRICT NẾU SAI
+    const receiverDistrictCode = await validateDistrictCode(
+      env,
+      receiverProvinceCode || '79',  // Default TP.HCM
+      rawReceiverDistrictCode,
+      receiverDistrict || body.receiver_district || order.customer?.district || ''
+    );
+
+    console.log('[Waybill] 🔍 District code validation:', {
+      raw: rawReceiverDistrictCode,
+      validated: receiverDistrictCode,
+      districtName: receiverDistrict
+    });
 
     const payload = {
       // Root level required fields (SuperShip API requirements)
@@ -275,10 +290,28 @@ function validateWaybillPayload(payload) {
   
   // THÊM VALIDATE MÃ ĐỊA CHỈ
   const provinceCode = String(payload.receiver_province_code || '');
-  const districtCode = String(payload.receiver_district_code || '');
-  
-  // Log để debug
-  console.log('[Waybill] Address codes:', { provinceCode, districtCode });
+const districtCode = String(payload.receiver_district_code || '');
+
+// Log để debug CHI TIẾT HƠN
+console.log('[Waybill] 🔍 Address codes:', { 
+  provinceCode, 
+  districtCode,
+  original: {
+    receiver_district_code: payload.receiver_district_code,
+    district_code: payload.district_code,
+    to_district_code: payload.to_district_code
+  }
+});
+
+// Kiểm tra district code có trong danh sách hợp lệ
+const validHCMCDistricts = ['760', '761', '762', '763', '764', '765', '767', '770', '771', '772', '773', '774', '775', '776', '777', '778', '780', '781', '782', '783', '784', '785', '786', '787', '788'];
+
+if (provinceCode === '79' && districtCode && !validHCMCDistricts.includes(districtCode)) {
+  console.error('[Waybill] ❌ Mã quận/huyện không hợp lệ cho TP.HCM:', districtCode);
+  console.error('[Waybill] ℹ️ Các mã hợp lệ:', validHCMCDistricts.join(', '));
+  errors.push(`Mã quận/huyện "${districtCode}" không hợp lệ cho TP.HCM`);
+}
+
   
   // Warn if codes look suspicious
   if (provinceCode.length > 3) {

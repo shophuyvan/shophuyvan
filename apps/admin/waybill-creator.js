@@ -12,6 +12,7 @@ class WaybillCreator {
     this.districtMapping = {
       // TP.HCM - Các quận nội thành
       '760': '760',  // Quận Bình Tân (mã chuẩn)
+	  '767': '776',  // Quận 7 TP.HCM (map sang 776 nếu đúng)
       '279': '760',  // Quận Bình Tân (mã cũ)
       '777': '777',  // Quận 11
       '770': '770',  // Quận 1
