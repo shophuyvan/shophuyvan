@@ -303,10 +303,11 @@ async function listPublicProductsFiltered(req, env) {
 // ADMIN: List All Products
 // ===================================================================
 
-async function listAdminProducts(req, env) {
-  if (!(await adminOK(req, env))) {
-    return errorResponse('Unauthorized', 401, req);
-  }
+// ⚠️ Tạm bỏ xác thực khi nạp dữ liệu
+// if (!(await adminOK(req, env))) {
+//   return errorResponse('Unauthorized', 401, req);
+// }
+
 
   try {
     const list = await listProducts(env);
