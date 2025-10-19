@@ -43,10 +43,11 @@ export async function createWaybill(req, env) {
       '0900000000'
     );
 
-    const payload = {
+    cconst payload = {
       // Root level required fields
       name: orderName,
       phone: receiverPhone,
+      address: body.receiver_address || order.customer?.address || body.to_address || '',
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
