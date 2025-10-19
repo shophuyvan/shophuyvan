@@ -511,28 +511,32 @@ function injectStickyCTA() {
 function openVariantModal(mode) {
   const mask = document.createElement('div');
   mask.id = 'shv-variant-mask';
+
+  // Ẩn thanh đáy khi mở modal (lưu lại trạng thái cũ)
   const bottomBar = document.querySelector('.shv-bottom-bar');
-  if (bottomBar) bottomBar.style.display = 'none';
-  mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:flex;align-items:flex-end;justify-content:center;';
+  if (bottomBar) {
+    bottomBar.dataset.prevDisplay = bottomBar.style.display || '';
+    bottomBar.style.opacity = '0';
+    bottomBar.style.pointerEvents = 'none';
+    bottomBar.style.transition = 'opacity 0.2s ease';
+  }
+
+  mask.style.cssText = `
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.45);
+    z-index:70;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+  `;
   document.body.appendChild(mask);
 
   const vs = variantsOf(PRODUCT).slice(0, 15);
   const imgs = imagesOf(PRODUCT);
 
-  // Auto-select first available variant
-  if (!CURRENT && vs.length) {
-    let best = vs[0];
-    let bestVal = Infinity;
-    for (const v of vs) {
-      const pr = pricePair(v);
-      const base = Number(pr?.base || 0);
-      if (base > 0 && base < bestVal) {
-        best = v;
-        bestVal = base;
-      }
-    }
-    CURRENT = best;
-  }
+  // Auto select variant đầu tiên
+  if (!CURRENT && vs.length) CURRENT = vs[0];
 
   const html = `
   <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
@@ -544,12 +548,12 @@ function openVariantModal(mode) {
         <div id="vm-stock-info" style="font-size:12px;color:#64748b;margin-top:2px"></div>
       </div>
     </div>
-    
+
     <div style="margin-bottom:12px">
       <div style="font-weight:600;margin-bottom:8px;font-size:14px">PHÂN LOẠI</div>
       <div id="vm-variants" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
     </div>
-    
+
     <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-weight:600;font-size:14px">Số lượng</span>
@@ -560,176 +564,94 @@ function openVariantModal(mode) {
         </div>
       </div>
     </div>
-    
-    <div style="
-  position:sticky;
-  left:0;right:0;bottom:0;
-  background:#fff;
-  padding-top:16px;
-  border-top:1px solid #f0f0f0;
-  display:flex;
-  justify-content:center;
-">
-  <button id="vm-add" style="
-    width:100%;
-    background:#ef4444;
-    color:#fff;
-    border:none;
-    border-radius:8px;
-    padding:16px;
-    font-weight:800;
-    font-size:15px;
-    box-shadow:0 6px 18px rgba(239,68,68,0.25);
-  ">
-    Thêm Vào Giỏ Hàng
-  </button>
-</div>
 
-    
+    <!-- Nút full width -->
+    <div style="
+      position:sticky;
+      left:0;right:0;bottom:0;
+      background:#fff;
+      padding-top:16px;
+      border-top:1px solid #f0f0f0;
+      display:flex;
+      justify-content:center;
+    ">
+      <button id="vm-add" style="
+        width:100%;
+        background:#ef4444;
+        color:#fff;
+        border:none;
+        border-radius:8px;
+        padding:16px;
+        font-weight:800;
+        font-size:15px;
+        box-shadow:0 6px 18px rgba(239,68,68,0.25);
+      ">
+        Thêm Vào Giỏ Hàng
+      </button>
+    </div>
+
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:#f3f4f6;width:28px;height:28px;border-radius:14px;font-size:16px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
   </div>`;
-
   mask.innerHTML = html;
 
-  function renderVBtns(active) {
-    const box = mask.querySelector('#vm-variants');
-    const arr = variantsOf(PRODUCT);
-    
-    box.innerHTML = arr.map((v, i) => {
-      const { base } = pricePair(v);
-      const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
-      const name = (v.name || v.sku || ('Loại ' + (i + 1)));
-      const stock = v.stock || v.qty || v.quantity || 0;
-      const isActive = (active === i);
-      const outOfStock = stock <= 0;
-      
-      const borderColor = isActive ? '#ef4444' : '#e5e7eb';
-      const bgColor = isActive ? '#fef2f2' : '#fff';
-      const opacity = outOfStock ? '0.5' : '1';
-      
-      return `
-        <button 
-          data-k="${i}" 
-          ${outOfStock ? 'disabled' : ''} 
-          style="
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            gap:6px;
-            border:2px solid ${borderColor};
-            border-radius:8px;
-            padding:10px 8px;
-            background:${bgColor};
-            cursor:${outOfStock ? 'not-allowed' : 'pointer'};
-            opacity:${opacity};
-            transition:all 0.2s;
-          "
-        >
-          ${img ? `
-            <img 
-              src="${cloudify(img, 'w_100,q_85,f_auto')}" 
-              style="width:40px;height:40px;object-fit:contain;border-radius:6px" 
-              alt="${name}" 
-            />
-          ` : `
-            <div style="width:40px;height:40px;border-radius:6px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:20px">
-              📦
-            </div>
-          `}
-          <div style="text-align:center;width:100%">
-            <div style="font-size:12px;font-weight:600;line-height:1.3;color:${isActive ? '#ef4444' : '#374151'};margin-bottom:2px">${name}</div>
-            ${base > 0 ? `<div style="font-size:11px;color:#ef4444;font-weight:700">${formatPrice(base)}</div>` : ''}
-            ${stock > 0 ? `<div style="font-size:10px;color:#6b7280;margin-top:2px">Còn ${stock}</div>` : `<div style="font-size:10px;color:#dc2626;margin-top:2px">Hết hàng</div>`}
-          </div>
-        </button>
-      `;
-    }).join('');
-
-    box.querySelectorAll('button[data-k]').forEach(btn => {
-      if (!btn.disabled) {
-        btn.onclick = () => {
-          const k = +btn.dataset.k;
-          CURRENT = arr[k];
-          renderVBtns(k);
-          updPrice();
-        };
-      }
-    });
-  }
-
+  // === Các xử lý sự kiện ===
   function updPrice() {
-    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
+    const src = CURRENT || PRODUCT;
     const pr = pricePair(src);
     const stock = src.stock || src.qty || src.quantity || 0;
-    
     mask.querySelector('#vm-price').textContent = formatPrice(pr.base || 0);
     mask.querySelector('#vm-stock-info').textContent = stock > 0 ? `Còn ${stock} sản phẩm` : 'Hết hàng';
-    
-    const im = mask.querySelector('#vm-img');
-    const newImg = imagesOf(src)[0] || im.src;
-    if (newImg) im.src = newImg;
   }
-
-  const currentIdx = vs.indexOf(CURRENT);
-  renderVBtns(currentIdx >= 0 ? currentIdx : 0);
-  updPrice();
-
-  const dec = () => {
-    const inp = mask.querySelector('#vm-qty');
-    let v = Math.max(1, parseInt(inp.value || '1', 10) - 1);
-    inp.value = String(v);
-  };
-  
-  const inc = () => {
-    const inp = mask.querySelector('#vm-qty');
-    let v = Math.max(1, parseInt(inp.value || '1', 10) + 1);
-    inp.value = String(v);
-  };
-
-  mask.querySelector('#vm-dec').onclick = dec;
-  mask.querySelector('#vm-inc').onclick = inc;
 
   function addSelectedToCart() {
     const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
-    const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
-
+    const src = CURRENT || PRODUCT;
     const item = {
       id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
       name: PRODUCT.title || PRODUCT.name || '',
-      image: imagesOf(src || PRODUCT)[0] || '',
-      variantName: (CURRENT && (CURRENT.name || CURRENT.sku || '')) || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
       price: Number(pricePair(src).base || 0),
-      qty: qty
+      qty
     };
-
     addToCart(item, qty);
   }
 
   mask.querySelector('#vm-add').onclick = () => {
     addSelectedToCart();
-    mask.remove();
+    closeModal();
     window.dispatchEvent(new Event('shv:cart-changed'));
     showSuccessToast('✓ Đã thêm vào giỏ hàng');
   };
 
-  mask.querySelector('#vm-buy').onclick = () => {
-    addSelectedToCart();
-    mask.remove();
-    window.dispatchEvent(new Event('shv:cart-changed'));
-    window.location.href = '/checkout.html';
+  mask.querySelector('#vm-dec').onclick = () => {
+    const inp = mask.querySelector('#vm-qty');
+    inp.value = Math.max(1, parseInt(inp.value) - 1);
+  };
+  mask.querySelector('#vm-inc').onclick = () => {
+    const inp = mask.querySelector('#vm-qty');
+    inp.value = Math.max(1, parseInt(inp.value) + 1);
   };
 
+  // === Đóng modal và khôi phục thanh đáy ===
   function closeModal() {
     mask.remove();
     const bottomBar = document.querySelector('.shv-bottom-bar');
-    if (bottomBar) bottomBar.style.display = '';
+    if (bottomBar) {
+      bottomBar.style.opacity = '1';
+      bottomBar.style.pointerEvents = 'auto';
+      setTimeout(() => {
+        bottomBar.style.display = bottomBar.dataset.prevDisplay || '';
+      }, 200);
+    }
   }
 
   mask.querySelector('#vm-close').onclick = closeModal;
-  mask.onclick = (e) => {
-    if (e.target === mask) closeModal();
-  };
+  mask.onclick = (e) => { if (e.target === mask) closeModal(); };
+
+  updPrice();
 }
+
 
 // === FETCH PRODUCT ===
 async function fetchProduct(id) {
