@@ -110,7 +110,7 @@ export async function createWaybill(req, env) {
       // Service
       provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
-      config: body.config || order.config || {},
+      config: String(body.config || order.config || '1'),
       
       // Products
       products: products,
