@@ -1,6 +1,10 @@
 // File: apps/fe/src/cart-ui-sync.js
 // Đồng bộ tất cả cart UI elements: header badge, modal, floating button
-
+if (localStorage.getItem('cart_cleared')) {
+  ['cart', 'CART', 'shv_cart_v1', 'shv_cart', 'shv_cart_items'].forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem('cart_cleared');
+  console.log('[CartUI] Giỏ hàng được reset sau khi checkout.');
+}
 const CART_KEY = 'shv_cart_v1'; // Main cart key - đồng bộ với cart-sync
 const LEGACY_KEYS = ['cart', 'CART']; // Legacy keys for backward compatibility
 

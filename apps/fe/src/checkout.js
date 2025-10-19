@@ -379,8 +379,14 @@ orderBtn?.addEventListener('click', async () => {
 if (res && (res.id || res.success || res.status === 'ok')) {
   orderResult.textContent = `Đặt hàng thành công: ${res.id || ''}`;
   // Xoá giỏ hàng
-  localStorage.removeItem('cart');
-  localStorage.removeItem('CART');
+  // Xóa toàn bộ giỏ hàng sau khi đặt đơn
+['cart', 'CART', 'shv_cart_v1', 'shv_cart', 'shv_cart_items'].forEach(k => localStorage.removeItem(k));
+
+// Ngăn sync ghi lại dữ liệu cũ
+localStorage.setItem('cart_cleared', Date.now().toString());
+
+// Cập nhật lại giao diện
+window.dispatchEvent(new Event('shv:cart-changed'));
   // Làm sạch token idempotent cũ
   localStorage.removeItem('idem_order');
   // Cập nhật lại giao diện
