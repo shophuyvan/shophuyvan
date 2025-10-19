@@ -124,9 +124,12 @@
       const all = data.items || data.data || [];
 
       // 👉 Lọc chính xác theo slug danh mục
-      const filtered = all.filter(p =>
-        (p.category_slug || p.category || '').toLowerCase() === slug.toLowerCase()
-      );
+      const filtered = all.filter(p => {
+  const catSlug = (p.category_slug || '').toLowerCase().trim();
+  const catName = (p.category || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, '-');
+  const slugNorm = slug.toLowerCase().trim();
+  return catSlug === slugNorm || catName === slugNorm;
+});
 
       $('#rs-total').textContent = filtered.length;
 
