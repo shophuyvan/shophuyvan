@@ -733,7 +733,7 @@ async function fetchProduct(id) {
 // === IMAGE OPTIMIZATION ===
 (function optimizeImages() {
   try {
-    const imgs = $('img');
+    const imgs = $$('img'); // Dùng hàm $$ ở trên (querySelectorAll)
     let firstSet = false;
 
     imgs.forEach((img) => {
