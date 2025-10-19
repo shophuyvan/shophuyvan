@@ -396,15 +396,18 @@ function renderMedia(prefer) {
     const it = items[idx];
 
     if (it.type === 'video') {
-      main.innerHTML = `<video autoplay muted playsinline controls style="width:100%;height:100%;object-fit:cover;background:#000;border-radius:12px"></video>`;
+      // ✅ FIX: Đổi object-fit: cover → contain
+      main.innerHTML = `<video autoplay muted playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:12px"></video>`;
       const v = main.querySelector('video');
       v.src = it.src;
       v.load();
     } else {
-      main.innerHTML = `<img src="${it.src}" alt="${PRODUCT.title || PRODUCT.name || ''}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" loading="eager" fetchpriority="high" />`;
+      main.innerHTML = `<img src="${it.src}" alt="${PRODUCT.title || PRODUCT.name || ''}" style="width:100%;height:100%;object-fit:contain;border-radius:12px" loading="eager" fetchpriority="high" />`;
     }
     drawArrows();
   }
+  // ... rest of code
+}
 
   function drawArrows() {
     if (items.length <= 1) return;
@@ -524,6 +527,12 @@ function injectStickyCTA() {
 }
 
 // === VARIANT MODAL ===
+// ============================================
+// FIXED: openVariantModal() function
+// Đường dẫn: apps/fe/src/ui-pdp.js
+// TÌM VÀ THAY THẾ hàm openVariantModal() bằng code này
+// ============================================
+
 function openVariantModal(mode) {
   const mask = document.createElement('div');
   mask.id = 'shv-variant-mask';
@@ -550,28 +559,37 @@ function openVariantModal(mode) {
 
   const html = `
   <div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#fff;border-radius:12px 12px 0 0;padding:16px 16px 80px 16px;position:relative">
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px;margin-bottom:12px">
       <img id="vm-img" src="${imagesOf(CURRENT)[0] || imgs[0] || ''}" style="width:72px;height:72px;object-fit:contain;border-radius:10px;border:1px solid #eee;background:#f8fafc" alt="" />
       <div style="flex:1">
         <div style="font-weight:700;font-size:16px;margin-bottom:4px">${PRODUCT.title || PRODUCT.name || ''}</div>
-        <div id="vm-price" style="color:#dc2626;font-weight:800"></div>
+        <div id="vm-price" style="color:#dc2626;font-weight:800;font-size:18px"></div>
+        <div id="vm-stock-info" style="font-size:12px;color:#64748b;margin-top:2px"></div>
       </div>
     </div>
-    <div style="margin-top:10px">
-      <div style="font-weight:600;margin-bottom:6px">Chọn phân loại</div>
-      <div id="vm-variants" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:8px;font-size:14px">PHÂN LOẠI</div>
+      <div id="vm-variants" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
     </div>
-    <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
-      <span style="min-width:76px;display:inline-block">Số lượng</span>
-      <button id="vm-dec" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">−</button>
-      <input id="vm-qty" type="number" min="1" value="1" style="width:56px;height:32px;border:1px solid #e5e7eb;border-radius:6px;text-align:center" />
-      <button id="vm-inc" style="width:32px;height:32px;border:1px solid #e5e7eb;background:#fff;border-radius:6px">+</button>
+    
+    <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:600;font-size:14px">Số lượng</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="vm-dec" style="width:32px;height:32px;border:1px solid #d1d5db;background:#fff;border-radius:6px;font-weight:700;font-size:16px">−</button>
+          <input id="vm-qty" type="number" min="1" value="1" style="width:60px;height:32px;border:1px solid #d1d5db;border-radius:6px;text-align:center;font-weight:600" />
+          <button id="vm-inc" style="width:32px;height:32px;border:1px solid #d1d5db;background:#fff;border-radius:6px;font-weight:700;font-size:16px">+</button>
+        </div>
+      </div>
     </div>
-    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:12px;margin-top:16px;display:flex;gap:10px">
-      <button id="vm-add" style="flex:1;border:1px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:12px 16px;font-weight:700">Thêm Vào Giỏ Hàng</button>
-      <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:700">Mua Ngay</button>
+    
+    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:16px;display:flex;gap:10px;border-top:1px solid #f0f0f0">
+      <button id="vm-add" style="flex:1;border:2px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:14px 16px;font-weight:700;font-size:14px">Thêm Vào Giỏ Hàng</button>
+      <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:14px 16px;font-weight:700;font-size:14px">Mua Ngay</button>
     </div>
-    <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:transparent;font-size:22px">✕</button>
+    
+    <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:#f3f4f6;width:28px;height:28px;border-radius:14px;font-size:16px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
   </div>`;
 
   mask.innerHTML = html;
@@ -582,23 +600,53 @@ function openVariantModal(mode) {
     
     box.innerHTML = arr.map((v, i) => {
       const { base } = pricePair(v);
-      const img = imagesOf(v)[0] || '';
+      const img = imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '';
       const name = (v.name || v.sku || ('Loại ' + (i + 1)));
       const stock = v.stock || v.qty || v.quantity || 0;
-      const act = (active === i) ? 'border-color:#ef4444;color:#ef4444;background:#fff1f2;' : '';
-      
-      // Show out of stock
+      const isActive = (active === i);
       const outOfStock = stock <= 0;
-      const opacity = outOfStock ? 'opacity:0.5;' : '';
       
-      return `<button data-k="${i}" ${outOfStock ? 'disabled' : ''} style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;cursor:pointer;${act}${opacity}">
-        ${img ? `<img src="${cloudify(img, 'w_80,q_85,f_auto')}" style="width:28px;height:28px;object-fit:contain;border-radius:6px" alt="" />` : ''}
-        <div style="flex:1;text-align:left;">
-          <div style="font-size:13px;font-weight:600;">${name}</div>
-          ${base ? `<div style="font-size:12px;color:#ef4444;font-weight:700;">${formatPrice(base)}</div>` : ''}
-          ${stock > 0 ? `<div style="font-size:11px;color:#64748b;">Còn ${stock}</div>` : `<div style="font-size:11px;color:#dc2626;">Hết hàng</div>`}
-        </div>
-      </button>`;
+      // Style cho button
+      const borderColor = isActive ? '#ef4444' : '#e5e7eb';
+      const bgColor = isActive ? '#fef2f2' : '#fff';
+      const opacity = outOfStock ? '0.5' : '1';
+      
+      return `
+        <button 
+          data-k="${i}" 
+          ${outOfStock ? 'disabled' : ''} 
+          style="
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:6px;
+            border:2px solid ${borderColor};
+            border-radius:8px;
+            padding:10px 8px;
+            background:${bgColor};
+            cursor:${outOfStock ? 'not-allowed' : 'pointer'};
+            opacity:${opacity};
+            transition:all 0.2s;
+          "
+        >
+          ${img ? `
+            <img 
+              src="${cloudify(img, 'w_100,q_85,f_auto')}" 
+              style="width:40px;height:40px;object-fit:contain;border-radius:6px" 
+              alt="${name}" 
+            />
+          ` : `
+            <div style="width:40px;height:40px;border-radius:6px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:20px">
+              📦
+            </div>
+          `}
+          <div style="text-align:center;width:100%">
+            <div style="font-size:12px;font-weight:600;line-height:1.3;color:${isActive ? '#ef4444' : '#374151'};margin-bottom:2px">${name}</div>
+            ${base > 0 ? `<div style="font-size:11px;color:#ef4444;font-weight:700">${formatPrice(base)}</div>` : ''}
+            ${stock > 0 ? `<div style="font-size:10px;color:#6b7280;margin-top:2px">Còn ${stock}</div>` : `<div style="font-size:10px;color:#dc2626;margin-top:2px">Hết hàng</div>`}
+          </div>
+        </button>
+      `;
     }).join('');
 
     box.querySelectorAll('button[data-k]').forEach(btn => {
@@ -616,11 +664,14 @@ function openVariantModal(mode) {
   function updPrice() {
     const src = CURRENT || (variantsOf(PRODUCT)[0] || PRODUCT);
     const pr = pricePair(src);
+    const stock = src.stock || src.qty || src.quantity || 0;
     
     mask.querySelector('#vm-price').textContent = formatPrice(pr.base || 0);
+    mask.querySelector('#vm-stock-info').textContent = stock > 0 ? `Còn ${stock} sản phẩm` : 'Hết hàng';
     
     const im = mask.querySelector('#vm-img');
-    im.src = imagesOf(src)[0] || im.src;
+    const newImg = imagesOf(src)[0] || im.src;
+    if (newImg) im.src = newImg;
   }
 
   const currentIdx = vs.indexOf(CURRENT);
@@ -661,25 +712,14 @@ function openVariantModal(mode) {
   mask.querySelector('#vm-add').onclick = () => {
     addSelectedToCart();
     mask.remove();
-    
-    // Trigger badge update
     window.dispatchEvent(new Event('shv:cart-changed'));
-    
-    // Show success message
     showSuccessToast('✓ Đã thêm vào giỏ hàng');
-    
-    // Optional: Uncomment to redirect after 1s
-    // setTimeout(() => { window.location.href = '/cart.html'; }, 1000);
   };
 
   mask.querySelector('#vm-buy').onclick = () => {
     addSelectedToCart();
     mask.remove();
-    
-    // Trigger badge update
     window.dispatchEvent(new Event('shv:cart-changed'));
-    
-    // Redirect to checkout
     window.location.href = '/checkout.html';
   };
 
