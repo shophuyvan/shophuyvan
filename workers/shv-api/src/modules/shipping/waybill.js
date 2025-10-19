@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation (FINAL COMPLETE)
+// modules/shipping/waybill.js - Waybill Creation (FIXED COMPLETE)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
@@ -77,8 +77,10 @@ export async function createWaybill(req, env) {
       address: receiverAddress,
       province: receiverProvince || receiverProvinceCode,
       district: receiverDistrict || receiverDistrictCode,
+      
+      // Amount (REQUIRED)
       amount: calculateOrderAmount(order, body),
-	  
+      
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
       sender_phone: sanitizePhone(body.sender_phone || shipping.sender_phone || store.phone || store.owner_phone || '0900000000'),
@@ -100,19 +102,25 @@ export async function createWaybill(req, env) {
       receiver_district_code: receiverDistrictCode,
       receiver_commune_code: body.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || body.commune_code || body.to_commune_code || body.ward_code || '',
 
-      // Package
+      // Package (REQUIRED)
       weight_gram: chargeableWeightGrams(body, order) || 500,
       weight: chargeableWeightGrams(body, order) || 500,
       cod: Number(order.cod || body.cod || 0),
-      payer: body.payer || order.payer || '1',
-      option_id: shipping.option_id || '1',
       
-      // Service
+      // Payer (REQUIRED) - '1' = Shop trả phí, '2' = Người nhận trả
+      payer: String(body.payer || order.payer || '1'),
+      
+      // Service (REQUIRED)
       provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
+      
+      // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
       config: String(body.config || order.config || '1'),
       
-      // Products
+      // Option ID
+      option_id: shipping.option_id || '1',
+      
+      // Products (REQUIRED)
       products: products,
       
       // Additional
@@ -241,24 +249,35 @@ function buildWaybillItems(body, order) {
 function validateWaybillPayload(payload) {
   const errors = [];
 
+  // Root fields
   if (!payload.name || !payload.name.trim()) errors.push('Missing name');
   if (!payload.phone) errors.push('Missing phone');
   if (!payload.address || !payload.address.trim()) errors.push('Missing address');
   
+  // Required fields
+  if (!payload.amount || payload.amount <= 0) errors.push('Missing or invalid amount');
+  if (!payload.payer) errors.push('Missing payer');
+  if (!payload.config) errors.push('Missing config');
+  
+  // Sender
   if (!payload.sender_name || !payload.sender_name.trim()) errors.push('Missing sender_name');
   if (!payload.sender_phone) errors.push('Missing sender_phone');
   if (!payload.sender_address || !payload.sender_address.trim()) errors.push('Missing sender_address');
   if (!payload.sender_province_code) errors.push('Missing sender_province_code');
   if (!payload.sender_district_code) errors.push('Missing sender_district_code');
 
+  // Receiver
   if (!payload.receiver_name || !payload.receiver_name.trim()) errors.push('Missing receiver_name');
   if (!payload.receiver_phone) errors.push('Missing receiver_phone');
   if (!payload.receiver_address || !payload.receiver_address.trim()) errors.push('Missing receiver_address');
   if (!payload.receiver_province_code) errors.push('Missing receiver_province_code');
   if (!payload.receiver_district_code) errors.push('Missing receiver_district_code');
 
-  if (!payload.weight_gram || payload.weight_gram <= 0) errors.push('Invalid weight');
+  // Weight
+  if (!payload.weight_gram || payload.weight_gram <= 0) errors.push('Invalid weight_gram');
+  if (!payload.weight || payload.weight <= 0) errors.push('Invalid weight');
 
+  // Products
   if (!Array.isArray(payload.products) || payload.products.length === 0) {
     errors.push('Products empty');
   } else {
@@ -274,6 +293,7 @@ function validateWaybillPayload(payload) {
 function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
 }
+
 function calculateOrderAmount(order, body) {
   // Priority: explicit amount > order total > calculated from items
   
