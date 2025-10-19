@@ -167,11 +167,63 @@
   </footer>
 
   <!-- Floating buttons -->
-  <div class="fixed right-3 bottom-3 flex flex-col gap-2">
-    <a href="https://zalo.me/0933190000" target="_blank" class="bg-blue-500 text-white px-3 py-2 rounded shadow">Zalo</a>
-    <a href="https://www.facebook.com/people/Shop-Huy-V%C3%A2n/100063603093253/" target="_blank" class="bg-blue-600 text-white px-3 py-2 rounded shadow">Facebook</a>
-    <a href="tel:+84933190000" class="bg-emerald-600 text-white px-3 py-2 rounded shadow">Gọi</a>
+  <!-- Floating Buttons (Thu gọn thành 1 nút) -->
+<div id="float-wrap" class="fixed right-3 bottom-3 flex flex-col items-end gap-2 z-[100]">
+  <button id="float-toggle"
+    class="bg-rose-600 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">
+    +
+  </button>
+
+  <div id="float-menu" class="flex flex-col items-end gap-2 hidden">
+    <!-- Nút Chat Facebook -->
+    <a href="https://m.me/1662904590667576" target="_blank"
+       class="bg-blue-600 text-white px-3 py-2 rounded shadow w-40 text-center">
+       💬 Chat Facebook
+    </a>
+
+    <!-- Nút Chat Zalo -->
+    <a href="https://zalo.me/0933190000" target="_blank"
+       class="bg-blue-500 text-white px-3 py-2 rounded shadow w-40 text-center">
+       💬 Chat Zalo
+    </a>
+
+    <!-- Nút Gọi điện -->
+    <a href="tel:+84933190000"
+       class="bg-emerald-600 text-white px-3 py-2 rounded shadow w-40 text-center">
+       📞 Gọi ngay
+    </a>
   </div>
+</div>
+
+<!-- Script điều khiển xổ ra / thu gọn -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('float-toggle');
+  const menu = document.getElementById('float-menu');
+  if(!btn || !menu) return;
+
+  btn.addEventListener('click', ()=>{
+    const open = !menu.classList.contains('hidden');
+    if(open){
+      menu.classList.add('hidden');
+      btn.textContent = '+';
+    } else {
+      menu.classList.remove('hidden');
+      btn.textContent = '×';
+    }
+  });
+
+  // Ẩn menu khi click ra ngoài
+  document.addEventListener('click', (e)=>{
+    if(!document.getElementById('float-wrap').contains(e.target)){
+      menu.classList.add('hidden');
+      btn.textContent = '+';
+    }
+  });
+});
+</script>
+
+
 <script type="module" src="/src/tracking.js?v=36"></script>
 <script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
 <script type="module" src="/src/frontend.js?v=41"></script>
