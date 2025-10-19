@@ -1,11 +1,21 @@
 /**
  * Waybill Creator - Tạo vận đơn (Complete Version)
- * Version: 2.1 - FIXED
+ * Version: 2.2 - FIXED with Hardcode Mapping
  */
 
 class WaybillCreator {
   constructor() {
     this.baseURL = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
+    
+    // Hardcode mapping cho TP.HCM (mã 01/79)
+    // Dựa trên https://docs.superai.vn/guide/areas.html
+    this.districtMapping = {
+      // Quận/Huyện TP.HCM - Mã chuẩn là 3 chữ số
+      '279': '760',  // Quận Bình Tân
+      '760': '760',  // Quận Bình Tân (already correct)
+      '777': '777',  // Quận 11
+      // Thêm các mapping khác nếu cần
+    };
   }
 
   // ==================== GET SENDER INFO ====================
@@ -48,58 +58,31 @@ class WaybillCreator {
       throw new Error('Không thể tải thông tin người gửi: ' + error.message);
     }
   }
-  async getAreaCodes(provinceCode, districtCode) {
-    try {
-      const response = await fetch(this.baseURL + '/public/shipping/areas', {
-        credentials: 'include'
-      });
 
-      if (!response.ok) {
-        console.warn('[WaybillCreator] Cannot fetch areas, using original codes');
-        return { provinceCode, districtCode, communeCode: '' };
-      }
-
-      const data = await response.json();
-      const areas = data.areas || data.data || [];
-
-      // Tìm province
-      const province = areas.find(p => 
-        p.code === provinceCode || 
-        p.province_code === provinceCode ||
-        p.name === provinceCode
-      );
-
-      if (!province) {
-        console.warn('[WaybillCreator] Province not found:', provinceCode);
-        return { provinceCode, districtCode, communeCode: '' };
-      }
-
-      // Tìm district
-      const district = (province.districts || []).find(d => 
-        d.code === districtCode || 
-        d.district_code === districtCode ||
-        d.name === districtCode
-      );
-
-      if (!district) {
-        console.warn('[WaybillCreator] District not found:', districtCode);
-        return { 
-          provinceCode: province.code || provinceCode, 
-          districtCode, 
-          communeCode: '' 
-        };
-      }
-
-      return {
-        provinceCode: province.code || provinceCode,
-        districtCode: district.code || districtCode,
-        communeCode: district.communes?.[0]?.code || ''
-      };
-
-    } catch (error) {
-      console.error('[WaybillCreator] Error fetching areas:', error);
-      return { provinceCode, districtCode, communeCode: '' };
+  // ==================== VALIDATE & MAP DISTRICT CODE ====================
+  
+  validateAndMapDistrictCode(districtCode, provinceName = '') {
+    const code = String(districtCode || '').trim();
+    
+    // Check if mapping exists
+    if (this.districtMapping[code]) {
+      const mappedCode = this.districtMapping[code];
+      console.log(`[WaybillCreator] 🔄 Mapped district: ${code} → ${mappedCode}`);
+      return mappedCode;
     }
+    
+    // If code is already 3 digits, return as-is
+    if (/^\d{3}$/.test(code)) {
+      console.log(`[WaybillCreator] ✅ District code OK: ${code}`);
+      return code;
+    }
+    
+    // Warn about suspicious code
+    if (code.length > 3) {
+      console.warn(`[WaybillCreator] ⚠️ District code too long: ${code}`);
+    }
+    
+    return code;
   }
 
   // ==================== VALIDATE SENDER ====================
@@ -156,7 +139,19 @@ class WaybillCreator {
       ward_code: customer.ward_code || order.ward_code || order.receiver_ward_code || ''
     };
 
-    console.log('[WaybillCreator] Receiver info:', receiver);
+    console.log('[WaybillCreator] Receiver info (raw):', receiver);
+    
+    // ✅ VALIDATE & MAP DISTRICT CODE
+    const originalCode = receiver.district_code;
+    receiver.district_code = this.validateAndMapDistrictCode(
+      receiver.district_code, 
+      receiver.province
+    );
+    
+    if (originalCode !== receiver.district_code) {
+      console.log(`[WaybillCreator] ✅ District code mapped: ${originalCode} → ${receiver.district_code}`);
+    }
+    
     return receiver;
   }
 
@@ -192,13 +187,11 @@ class WaybillCreator {
   
   buildPayload(order, sender, receiver) {
     const items = (order.items || []).map((item, idx) => {
-      // Fix weight - default 500g per item if missing
       let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
       if (weight <= 0) {
-        weight = 500; // Default 500g
+        weight = 500;
       }
       
-      // Fix name - truncate if too long
       let name = String(item.name || item.title || `Sản phẩm ${idx + 1}`).trim();
       if (name.length > 100) {
         name = name.substring(0, 97) + '...';
@@ -285,23 +278,7 @@ class WaybillCreator {
         return;
       }
 
-      // ✅ CHÈN CODE MỚI TỪ ĐÂY ============================================
-      // LẤY MÃ KHU VỰC CHUẨN TỪ API
-      const receiverAreaCodes = await this.getAreaCodes(
-        receiver.province_code, 
-        receiver.district_code
-      );
-      
-      // Cập nhật mã chuẩn cho receiver
-      receiver.province_code = receiverAreaCodes.provinceCode;
-      receiver.district_code = receiverAreaCodes.districtCode;
-      if (receiverAreaCodes.communeCode && !receiver.commune_code) {
-        receiver.commune_code = receiverAreaCodes.communeCode;
-        receiver.ward_code = receiverAreaCodes.communeCode;
-      }
-
       console.log('[WaybillCreator] ✅ Receiver with validated codes:', receiver);
-      // ✅ KẾT THÚC CODE MỚI ================================================
 
       const payload = this.buildPayload(order, sender, receiver);
       console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
@@ -460,4 +437,4 @@ class WaybillCreator {
 window.waybillCreator = new WaybillCreator();
 window.WaybillCreator = WaybillCreator;
 
-console.log('[WaybillCreator] Initialized ✅');
+console.log('[WaybillCreator] Initialized ✅ (with hardcode district mapping)');
