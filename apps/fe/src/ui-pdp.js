@@ -561,10 +561,30 @@ function openVariantModal(mode) {
       </div>
     </div>
     
-    <div style="position:sticky;left:0;right:0;bottom:0;background:#fff;padding-top:16px;display:flex;gap:10px;border-top:1px solid #f0f0f0">
-      <button id="vm-add" style="flex:1;border:2px solid #ef4444;color:#ef4444;background:#fff;border-radius:8px;padding:14px 16px;font-weight:700;font-size:14px">Thêm Vào Giỏ Hàng</button>
-      <button id="vm-buy" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:14px 16px;font-weight:700;font-size:14px">Mua Ngay</button>
-    </div>
+    <div style="
+  position:sticky;
+  left:0;right:0;bottom:0;
+  background:#fff;
+  padding-top:16px;
+  border-top:1px solid #f0f0f0;
+  display:flex;
+  justify-content:center;
+">
+  <button id="vm-add" style="
+    width:100%;
+    background:#ef4444;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:16px;
+    font-weight:800;
+    font-size:15px;
+    box-shadow:0 6px 18px rgba(239,68,68,0.25);
+  ">
+    Thêm Vào Giỏ Hàng
+  </button>
+</div>
+
     
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:#f3f4f6;width:28px;height:28px;border-radius:14px;font-size:16px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
   </div>`;
