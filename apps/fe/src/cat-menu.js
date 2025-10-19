@@ -1,4 +1,5 @@
-// cat-menu.js v34 — chắc chắn xổ danh mục con + không còn hộp trắng
+// cat-menu.js v40 – Đồng bộ với Admin categories
+// Đường dẫn: apps/fe/src/cat-menu.js
 import api from './lib/api.js';
 
 (function(){
@@ -47,67 +48,170 @@ import api from './lib/api.js';
     panel.style.top  = (r.bottom + 8) + 'px';
   }
 
+  /**
+   * ✅ Load categories từ API (ưu tiên /public/categories)
+   */
   async function loadCategories(){
     try{
+      // Kiểm tra cache
       if(Array.isArray(window.CATEGORIES) && window.CATEGORIES.length) return window.CATEGORIES;
-      // ưu tiên endpoint public
-      const paths = ['/api/categories', '/public/categories', '/categories', '/public/categories?all=1'];
-      for(const p of paths){
+      
+      // ✅ GỌI ĐÚNG ENDPOINT BACKEND
+      const endpoints = [
+        '/public/categories',      // ✅ Backend endpoint chính thức
+        '/api/public/categories',  // Fallback
+        '/categories'              // Fallback cũ
+      ];
+      
+      for(const path of endpoints){
         try{
-          const r = await api.get(p);
-          const arr = r?.items || r?.data || r?.categories || [];
-          if(Array.isArray(arr) && arr.length){ window.CATEGORIES = arr; return arr; }
-        }catch{}
+          const response = await api.get(path);
+          
+          // ✅ Xử lý response giống backend trả về
+          const items = response?.items || response?.data || response?.categories || response;
+          
+          if(Array.isArray(items) && items.length > 0){
+            // ✅ Sắp xếp theo order như admin
+            const sorted = items.sort((a, b) => 
+              (Number(a.order) || 0) - (Number(b.order) || 0)
+            );
+            
+            window.CATEGORIES = sorted;
+            console.log('✅ Loaded categories:', sorted.length, 'from', path);
+            return sorted;
+          }
+        }catch(err){
+          console.warn('Failed to load from', path, err);
+        }
       }
-    }catch{}
-    return [];
+      
+      console.warn('⚠️ No categories found from API');
+      return [];
+      
+    }catch(err){
+      console.error('❌ Error loading categories:', err);
+      return [];
+    }
   }
 
+  /**
+   * ✅ Build tree giống admin (parent/children)
+   */
   function buildTree(items){
-    if (!Array.isArray(items)) return [];
+    if (!Array.isArray(items) || items.length === 0) return [];
+    
+    // Nếu đã có children thì return luôn
     if (items.some(it => Array.isArray(it.children) && it.children.length)) return items;
-    const by = new Map(); items.forEach(it => by.set(it.id || it.slug || it.name, { ...it, children: [] }));
-    const roots = [];
-    items.forEach(it => {
-      const id  = it.id || it.slug || it.name;
-      const pid = it.parent || it.parent_id || it.parentId || it.pid || null;
-      if (pid && by.has(pid)) by.get(pid).children.push(by.get(id));
-      else roots.push(by.get(id));
+    
+    // Build tree map
+    const byId = new Map();
+    items.forEach(item => {
+      byId.set(item.id || item.slug, { 
+        ...item, 
+        children: [] 
+      });
     });
+    
+    const roots = [];
+    
+    items.forEach(item => {
+      const id = item.id || item.slug;
+      const parentId = item.parent || item.parent_id || item.parentId;
+      
+      const node = byId.get(id);
+      
+      if (parentId && byId.has(parentId)) {
+        // Có parent -> thêm vào children của parent
+        byId.get(parentId).children.push(node);
+      } else {
+        // Không có parent -> là root
+        roots.push(node);
+      }
+    });
+    
+    // ✅ Sắp xếp children theo order
+    function sortChildren(nodes) {
+      nodes.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+      nodes.forEach(node => {
+        if (node.children && node.children.length > 0) {
+          sortChildren(node.children);
+        }
+      });
+    }
+    
+    sortChildren(roots);
+    
     return roots;
   }
 
+  /**
+   * ✅ Render tree HTML
+   */
   function renderTree(nodes){
-    const ul = document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding='4px'; ul.style.margin='0';
-    nodes.forEach(n => ul.appendChild(renderNode(n)));
+    const ul = document.createElement('ul');
+    ul.style.listStyle='none';
+    ul.style.padding='4px';
+    ul.style.margin='0';
+    
+    nodes.forEach(node => ul.appendChild(renderNode(node)));
+    
     return ul.outerHTML;
   }
 
-  function renderNode(n, depth=0){
+  /**
+   * ✅ Render single node với children
+   */
+  function renderNode(node, depth=0){
     const li = document.createElement('li');
     const a = document.createElement('a');
-    a.textContent = `${'— '.repeat(Math.min(depth,3))}${n.name||n.title||''}`;
-    a.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
-/* === START AUTO NAVIGATE CATEGORY === */
-a.addEventListener('click', (e) => {
-  e.preventDefault();
-  window.location.href = `/c/${encodeURIComponent(n.slug || n.id || '')}`;
-  // đóng panel danh mục sau khi click
-  document.getElementById('__shv_cat_panel')?.remove();
-});
-/* === END AUTO NAVIGATE CATEGORY === */
-
-    Object.assign(a.style, {display:'block', padding:'6px 8px', borderRadius:'8px', color:'#111827', textDecoration:'none'});
-    a.addEventListener?.('mouseover', ()=> a.style.background='#f3f4f6');
-    a.addEventListener?.('mouseout',  ()=> a.style.background='transparent');
+    
+    // Icon dựa vào có children hay không
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const icon = hasChildren ? '📁' : '📄';
+    const indent = '  '.repeat(depth);
+    
+    a.textContent = `${indent}${icon} ${node.name || node.title || ''}`;
+    a.href = `/c/${encodeURIComponent(node.slug || node.id || '')}`;
+    
+    // Style
+    Object.assign(a.style, {
+      display:'block',
+      padding:'6px 8px',
+      borderRadius:'8px',
+      color:'#111827',
+      textDecoration:'none',
+      transition: 'background 0.2s'
+    });
+    
+    // Hover effects
+    a.addEventListener('mouseover', ()=> a.style.background='#f3f4f6');
+    a.addEventListener('mouseout',  ()=> a.style.background='transparent');
+    
+    // ✅ Click navigation
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = `/c/${encodeURIComponent(node.slug || node.id || '')}`;
+      // Đóng panel
+      const panel = document.getElementById('__shv_cat_panel');
+      if (panel) panel.style.display = 'none';
+    });
+    
     li.appendChild(a);
-
-    const kids = Array.isArray(n.children)?n.children:[];
-    if(kids.length){
-      const ul = document.createElement('ul'); ul.style.marginLeft='10px'; ul.style.borderLeft='1px solid #e5e7eb'; ul.style.paddingLeft='10px';
-      kids.forEach(k => ul.appendChild(renderNode(k, depth+1)));
+    
+    // ✅ Render children recursively
+    if(hasChildren){
+      const ul = document.createElement('ul');
+      ul.style.marginLeft='12px';
+      ul.style.borderLeft='2px solid #e5e7eb';
+      ul.style.paddingLeft='8px';
+      ul.style.listStyle='none';
+      
+      node.children.forEach(child => ul.appendChild(renderNode(child, depth + 1)));
       li.appendChild(ul);
     }
+    
     return li;
   }
 })();
+
+console.log('✅ cat-menu.js v40 loaded - Synced with Admin categories');

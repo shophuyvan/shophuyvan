@@ -1,6 +1,10 @@
+// Home.tsx - Mini App với danh mục động từ API
+// Đường dẫn: apps/mini/src/pages/Home.tsx
+
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import CategoryMenu from '../components/CategoryMenu';
 import { api } from '@shared/api';
 import { numLike } from '@shared/utils/price';
 import { cldFetch, preloadImage } from '@shared/utils/cloudinary';
@@ -44,12 +48,41 @@ async function enrichPrices(list: any[]): Promise<any[]> {
   return results;
 }
 
-const CATS = [
-  { key: 'dien-nuoc', label: 'Thiết Bị Điện\n& Nước', href: '/category?c=dien-nuoc', icon: '🔌' },
-  { key: 'nha-cua-doi-song', label: 'Nhà Cửa\nĐời Sống', href: '/category?c=nha-cua-doi-song', icon: '🏠' },
-  { key: 'hoa-chat-gia-dung', label: 'Hoá Chất\nGia Dụng', href: '/category?c=hoa-chat-gia-dung', icon: '🧪' },
-  { key: 'dung-cu-thiet-bi-tien-ich', label: 'Dụng Cụ &\nThiết Bị Tiện Ích', href: '/category?c=dung-cu-thiet-bi-tien-ich', icon: '🧰' },
+// ✅ FALLBACK: Danh mục tĩnh (nếu API lỗi)
+const FALLBACK_CATS = [
+  { slug: 'dien-nuoc', name: 'Thiết Bị Điện\n& Nước', icon: '🔌' },
+  { slug: 'nha-cua-doi-song', name: 'Nhà Cửa\nĐời Sống', icon: '🏠' },
+  { slug: 'hoa-chat-gia-dung', name: 'Hoá Chất\nGia Dụng', icon: '🧪' },
+  { slug: 'dung-cu-thiet-bi-tien-ich', name: 'Dụng Cụ &\nThiết Bị Tiện Ích', icon: '🧰' },
 ];
+
+// ✅ Icon map cho danh mục
+const ICON_MAP: Record<string, string> = {
+  'dien-nuoc': '🔌',
+  'nha-cua-doi-song': '🏠',
+  'hoa-chat-gia-dung': '🧪',
+  'dung-cu-thiet-bi-tien-ich': '🧰',
+  'dien': '⚡',
+  'nuoc': '💧',
+  'nha': '🏡',
+  'cua': '🚪',
+  'hoa-chat': '🧴',
+  'dung-cu': '🔧',
+  'thiet-bi': '⚙️',
+};
+
+function getIcon(slug: string): string {
+  // Tìm icon theo slug
+  if (ICON_MAP[slug]) return ICON_MAP[slug];
+  
+  // Tìm theo keyword trong slug
+  for (const [key, icon] of Object.entries(ICON_MAP)) {
+    if (slug.includes(key)) return icon;
+  }
+  
+  // Default icon
+  return '📦';
+}
 
 const ProductSkeleton = () => (
   <div className="bg-white rounded-2xl p-3 shadow animate-pulse">
@@ -63,7 +96,43 @@ export default function Home() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // ✅ State cho danh mục động
+  const [categories, setCategories] = useState<any[]>([]);
+  const [catsLoading, setCatsLoading] = useState(true);
 
+  // ✅ Load danh mục từ API
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setCatsLoading(true);
+        const response = await api.categories.list();
+        
+        if (Array.isArray(response) && response.length > 0) {
+          // Chỉ lấy danh mục gốc (không có parent)
+          const roots = response
+            .filter((cat: any) => !cat.parent)
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+            .slice(0, 4); // Chỉ hiển thị 4 danh mục
+          
+          setCategories(roots);
+          console.log('✅ Loaded categories for Home:', roots.length);
+        } else {
+          // Fallback
+          setCategories(FALLBACK_CATS);
+        }
+      } catch (err) {
+        console.error('❌ Error loading categories:', err);
+        setCategories(FALLBACK_CATS);
+      } finally {
+        setCatsLoading(false);
+      }
+    };
+    
+    loadCategories();
+  }, []);
+
+  // Load sản phẩm
   useEffect(() => {
     const prefetchData = async () => {
       try {
@@ -128,18 +197,40 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Danh mục */}
-      <section className="safe-x mt-4 grid grid-cols-4 gap-3 text-center">
-        {CATS.map(c => (
-          <a 
-            key={c.key} 
-            href={c.href} 
-            className="cat-item hover:opacity-80 transition-opacity"
-          >
-            <div className="cat-icon text-3xl">{c.icon}</div>
-            <div className="cat-label whitespace-pre-line text-xs mt-1">{c.label}</div>
-          </a>
-        ))}
+      {/* ✅ Menu Drawer + Grid danh mục */}
+      <section className="safe-x mt-4">
+        <div className="flex items-center gap-3 mb-3">
+          <CategoryMenu />
+          <span className="text-sm text-gray-500">hoặc chọn nhanh:</span>
+        </div>
+        
+        {catsLoading ? (
+          <div className="grid grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-square bg-gray-200 rounded-xl mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-3 text-center">
+            {categories.map(c => (
+              <a 
+                key={c.slug || c.id} 
+                href={`/category?c=${encodeURIComponent(c.slug)}`}
+                className="cat-item hover:opacity-80 transition-opacity"
+              >
+                <div className="cat-icon text-3xl">
+                  {getIcon(c.slug)}
+                </div>
+                <div className="cat-label whitespace-pre-line text-xs mt-1 line-clamp-2">
+                  {c.name}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Sản phẩm bán chạy */}
@@ -187,3 +278,5 @@ export default function Home() {
     </div>
   );
 }
+
+console.log('✅ Home.tsx loaded with dynamic categories');
