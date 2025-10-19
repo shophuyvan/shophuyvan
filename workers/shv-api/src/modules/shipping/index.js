@@ -8,11 +8,12 @@ export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // Areas (provinces/districts/wards)
+  // Areas (provinces/districts/wards) - ✅ THÊM /public/shipping/areas
   if (path.startsWith('/shipping/provinces') || 
       path.startsWith('/shipping/districts') ||
       path.startsWith('/shipping/wards') ||
       path.startsWith('/shipping/areas') ||
+      path.startsWith('/public/shipping/areas') ||  // ← ✅ THÊM DÒNG NÀY
       path.startsWith('/api/addresses') ||
       path.startsWith('/v1/platform/areas')) {
     return areas.handle(req, env, ctx);
