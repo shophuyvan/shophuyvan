@@ -360,15 +360,38 @@ orderBtn?.addEventListener('click', async () => {
       shipping: { provider: (chosen?.provider || localStorage.getItem('ship_provider') || ''), service_code: (chosen?.service_code || localStorage.getItem('ship_service') || '') },
       totals: { shipping_fee: Number(ship_fee||0), discount: Number(localStorage.getItem('voucher_discount')||0), shipping_discount: Number(localStorage.getItem('voucher_ship_discount')||0) }
     };
-    const res = await api('/api/orders', { method:'POST', headers:{ 'Idempotency-Key': (localStorage.getItem('idem_order') || (function(){ const v='idem-'+Date.now(); localStorage.setItem('idem_order', v); return v;})()) }, body });
-    if(res && res.ok){
-      orderResult.textContent = `Đặt hàng thành công: ${res.id}`;
-      localStorage.removeItem('cart');
-      localStorage.removeItem('CART');
-    }else{
-      orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
-    }
+    const res = await api('/api/orders', {
+  method: 'POST',
+  headers: {
+    'Idempotency-Key': (
+      localStorage.getItem('idem_order') ||
+      (() => {
+        const v = 'idem-' + Date.now();
+        localStorage.setItem('idem_order', v);
+        return v;
+      })()
+    )
+  },
+  body
+});
+
+// ✅ Kiểm tra phản hồi đúng cách
+if (res && (res.id || res.success || res.status === 'ok')) {
+  orderResult.textContent = `Đặt hàng thành công: ${res.id || ''}`;
+  // Xoá giỏ hàng
+  localStorage.removeItem('cart');
+  localStorage.removeItem('CART');
+  // Làm sạch token idempotent cũ
+  localStorage.removeItem('idem_order');
+  // Cập nhật lại giao diện
+  renderSummary();
+  if (document.getElementById('cart-list')) {
+    document.getElementById('cart-list').innerHTML = '<div class="p-4 text-sm">Giỏ hàng trống.</div>';
   }
+} else {
+  orderResult.textContent = 'Không tạo được đơn hàng. Vui lòng thử lại.';
+}
+}
   catch(e){
     console.error(e);
     orderResult.textContent = 'Có lỗi xảy ra khi đặt hàng.';
