@@ -7,7 +7,6 @@
   <meta name="description" content="Danh mục sản phẩm tại Shop Huy Vân" />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- SEO-INJECTED: canonical & JSON-LD (updated by script) -->
   <link id="canonical" rel="canonical" href="__BASE_URL__/c" />
   <script id="category-jsonld" type="application/ld+json">
   {
@@ -30,7 +29,6 @@
   </style>
 </head>
 <body class="bg-slate-50 text-gray-900">
-  <!-- ===== SHV HOME/CATEGORY v1 (chosidamsen-like) ===== -->
   <main class="max-w-7xl mx-auto px-3 lg:px-6 py-4 lg:py-6">
     <nav class="text-sm text-gray-500 mb-3" aria-label="Breadcrumb">
       <ol class="flex flex-wrap gap-1">
@@ -39,15 +37,13 @@
         <li class="text-gray-700 font-medium" id="shv-bc-leaf">Đang tải…</li>
       </ol>
     </nav>
+
     <section class="rounded-2xl overflow-hidden relative mb-4 lg:mb-6">
-      <img id="shv-hero" class="w-full h-40 lg:h-60 object-cover"
-           src="/public/cover.jpg" alt="Danh mục">
+      <img id="shv-hero" class="w-full h-40 lg:h-60 object-cover" src="/public/cover.jpg" alt="Danh mục">
       <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
       <div class="absolute bottom-3 left-3 right-3 lg:left-6 lg:right-6 text-white">
         <h1 id="shv-h1" class="text-xl lg:text-3xl font-bold">Danh mục</h1>
-        <p id="shv-sub" class="opacity-90 text-sm lg:text-base mt-1">
-          Gợi ý sản phẩm phù hợp nhu cầu của bạn.
-        </p>
+        <p id="shv-sub" class="opacity-90 text-sm lg:text-base mt-1">Gợi ý sản phẩm phù hợp nhu cầu của bạn.</p>
       </div>
     </section>
 
@@ -91,8 +87,10 @@
             <button id="rs-open-filter" class="lg:hidden rounded-lg border px-3 py-2 text-sm">Lọc</button>
           </div>
         </div>
+
         <div id="rs-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4"></div>
         <div id="rs-pagination" class="flex justify-center gap-2 mt-5"></div>
+
         <article id="shv-seo" class="mt-8 lg:mt-12 bg-white border rounded-2xl p-4 lg:p-6 prose prose-sm lg:prose">
           <h2 class="text-xl lg:text-2xl font-bold mb-2" id="seo-title">Giới thiệu</h2>
           <p id="seo-desc">Mô tả danh mục sẽ hiển thị ở đây.</p>
@@ -100,98 +98,50 @@
       </section>
     </div>
   </main>
-  <script type="application/ld+json" id="shv-collection-jsonld">
-  {"@context":"https://schema.org","@type":"CollectionPage","name":"Danh mục","hasPart":[]}
-  </script>
-  <script type="text/template" id="tpl-card">
-    <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="{{url}}">
-      <div class="relative aspect-[4/3] bg-gray-100">
-        <img class="absolute inset-0 w-full h-full object-cover" src="{{image}}" alt="{{name}}">
-        {{#if badge}}<span class="absolute left-2 top-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">{{badge}}</span>{{/if}}
-      </div>
-      <div class="p-3">
-        <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">{{name}}</h3>
-        <div class="flex items-baseline gap-2">
-          <div class="text-red-600 font-semibold">{{price}}</div>
-          {{#if crossed}}<div class="text-gray-400 line-through text-xs">{{crossed}}</div>{{/if}}
-        </div>
-        <div class="mt-1 text-xs text-gray-500">Đã bán {{sold}} • ⭐ {{rating}}</div>
-      </div>
-    </a>
-  </script>
+
   <script>
-(()=>{
-  const $ = (s,r=document)=>r.querySelector(s);
-  const fmt = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
-  const IMG_FALLBACK = '/public/logo.png';
-  const PAGE_SIZE = 24;
+  (() => {
+    const $ = (s,r=document)=>r.querySelector(s);
+    const fmt = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
+    const IMG_FALLBACK = '/public/logo.png';
 
-  // Lấy slug danh mục từ URL (?c=hoac / /c/slug)
-  const path = location.pathname.split('/').filter(Boolean);
-  const slug = (path[0]==='c' && path[1]) ? path[1] : new URLSearchParams(location.search).get('c') || '';
-  const catName = decodeURIComponent(slug||'Danh mục').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+    // Lấy slug danh mục từ URL (?c=...)
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("c") || params.get("category") || "";
 
-  $('#shv-h1').textContent = catName;
-  $('#shv-bc-leaf').textContent = catName;
+    // Cập nhật tiêu đề trang
+    const catName = decodeURIComponent(slug||'Danh mục').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+    $('#shv-h1').textContent = catName;
+    $('#shv-bc-leaf').textContent = catName;
 
-  // Hàm lọc sản phẩm theo slug danh mục
-  function matchCategoryStrict(p, categorySlug){
-    if(!categorySlug) return true;
-    const want = categorySlug.toLowerCase();
-    const fields = [p.category, p.category_slug, p.group, p.collection, ...(p.categories||[]), ...(p.tags||[])];
-    return fields.filter(Boolean).map(v=>String(v).toLowerCase().replace(/[^a-z0-9]+/g,'-'))
-      .some(v => v === want);
-  }
-
-  function tpl(p){
-    const url = p.url || '/product/' + (p.slug || p.id);
-    const image = p.image || p.images?.[0] || IMG_FALLBACK;
-    const badge = p.sale_off ? ('-'+p.sale_off+'%') : '';
-    const price = fmt(p.sale_price ?? p.price ?? 0);
-    const crossed = p.sale_price ? fmt(p.price) : '';
-    const sold = p.sold ?? 0;
-    const rating = (p.rating ?? 4.8).toFixed(1);
-
-    return `
-      <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="${url}">
-        <div class="relative aspect-[4/3] bg-gray-100">
-          <img class="absolute inset-0 w-full h-full object-cover" src="${image}" alt="${p.name}">
-          ${badge ? `<span class="absolute left-2 top-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">${badge}</span>` : ''}
-        </div>
-        <div class="p-3">
-          <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.name}</h3>
-          <div class="flex items-baseline gap-2">
-            <div class="text-red-600 font-semibold">${price}</div>
-            ${crossed ? `<div class="text-gray-400 line-through text-xs">${crossed}</div>` : ''}
-          </div>
-          <div class="mt-1 text-xs text-gray-500">Đã bán ${sold} • ⭐ ${rating}</div>
-        </div>
-      </a>`;
-  }
-
-  async function loadProducts(){
-    try{
-      // Gọi API tất cả sản phẩm
-      const r = await fetch('/api/products');
-      const data = await r.json();
-      const all = data.items || data.data || [];
-
-      // Lọc theo slug danh mục
-      const filtered = all.filter(p => matchCategoryStrict(p, slug)).slice(0, PAGE_SIZE);
-      $('#rs-total').textContent = filtered.length;
-      $('#rs-grid').innerHTML = filtered.map(tpl).join('');
-
-    }catch(e){
-      console.error('Load products failed', e);
-      $('#rs-grid').innerHTML = '<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>';
+    async function loadProducts() {
+      try {
+        const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category=${slug}`);
+        const data = await r.json();
+        const all = data.items || data.data || [];
+        $('#rs-total').textContent = all.length;
+        $('#rs-grid').innerHTML = all.map(p => `
+          <a class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white" href="/product.html?id=${p.id}">
+            <div class="relative aspect-[4/3] bg-gray-100">
+              <img class="absolute inset-0 w-full h-full object-cover" src="${p.images?.[0] || '/public/logo.png'}" alt="${p.title}">
+            </div>
+            <div class="p-3">
+              <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
+              <div class="flex items-baseline gap-2">
+                <div class="text-red-600 font-semibold">${(p.price||0).toLocaleString()}đ</div>
+              </div>
+            </div>
+          </a>`).join('');
+      } catch (e) {
+        console.error("Load products failed", e);
+        $('#rs-grid').innerHTML = `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+      }
     }
-  }
 
-  loadProducts();
-})();
-</script>
+    loadProducts();
+  })();
+  </script>
 
   <!-- ===== /SHV HOME/CATEGORY v1 ===== -->
-
 </body>
 </html>
