@@ -295,10 +295,12 @@ const toNum = (x) => typeof x === 'string'
 
 async function getProductDetail(id) {
   return await Admin.tryPaths([
-    '/admin/product?id=' + encodeURIComponent(id),
-    '/admin/product/detail?id=' + encodeURIComponent(id),
-    '/admin/products/detail?id=' + encodeURIComponent(id)
-  ]).then(r => r?.item || r?.data || r || null);
+  '/admin/products/get?id=' + encodeURIComponent(id),
+  '/admin/product/get?id=' + encodeURIComponent(id),
+  '/admin/products/detail?id=' + encodeURIComponent(id),
+  '/admin/product/detail?id=' + encodeURIComponent(id),
+  '/admin/product?id=' + encodeURIComponent(id)
+]).then(r => r?.item || r?.data || r || null);
 }
 
 async function enrichProducts(items) {
