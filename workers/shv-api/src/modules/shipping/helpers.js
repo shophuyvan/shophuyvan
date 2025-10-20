@@ -11,6 +11,7 @@ export async function superToken(env) {
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
+    console.log('[superToken] 🔑 Checking super_key:', shipping.super_key ? '✅ Found' : '❌ Not found');  // ← THÊM DÒNG NÀY
     if (shipping.super_key) return shipping.super_key;
   } catch (e) {
     console.error('superToken error:', e);
@@ -88,6 +89,7 @@ export async function superFetch(env, path, options = {}) {
   } else {
     headers['token'] = token;
   }
+  console.log('[superFetch] 📤 Request headers:', JSON.stringify(headers));
 
   const config = {
     method: options.method || 'GET',
