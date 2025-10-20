@@ -19,7 +19,7 @@ async function getWarehouses(req, env) {
     
     const data = await superFetch(env, '/v1/platform/warehouses', { 
       method: 'GET',
-      useBearer: false
+      useBearer: true       // ✅ Đã sửa: sử dụng Bearer token cho endpoint này
     });
 
     console.log('[Warehouses] 📥 Response received:', {
@@ -70,8 +70,6 @@ function normalizeWarehouses(data) {
   pushArray(data?.data?.items);
   pushArray(data?.warehouses);
   pushArray(data?.data?.warehouses);
-
-  console.log('[Warehouses] 🔄 Normalizing, source count:', source.length);
 
   return source.map(warehouse => ({
     id: warehouse.id || warehouse.code || '',
