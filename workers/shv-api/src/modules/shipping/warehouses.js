@@ -15,7 +15,7 @@ export async function handle(req, env, ctx) {
 
 async function getWarehouses(req, env) {
   try {
-    const data = await superFetch(env, '/v1/platform/warehouses', { 
+    const data = await superFetch(env, 'https://dev.superai.vn/v1/platform/warehouses', { 
       method: 'GET' 
     });
 

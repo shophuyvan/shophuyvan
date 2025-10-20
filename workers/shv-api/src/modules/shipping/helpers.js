@@ -86,7 +86,7 @@ export async function superFetch(env, path, options = {}) {
   if (options.useBearer) {
     headers['Authorization'] = 'Bearer ' + token;
   } else {
-    headers['Token'] = token;
+    headers['token'] = token;
   }
 
   const config = {
