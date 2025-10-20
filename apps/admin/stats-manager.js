@@ -244,35 +244,51 @@ async loadInventoryValue() {
   try {
     // Dùng đa endpoint giống trang Sản phẩm
     const res = await Admin.tryPaths([
-      '/admin/products',
-      '/admin/product/list',
-      '/admin/products/list'
-    ]);
+  '/admin/products',
+  '/admin/product/list',
+  '/admin/products/list'
+]);
 
-    const products = res?.items || res?.data || res?.products || [];
+// Bắt thêm các key thường gặp
+const products = res?.items || res?.data || res?.products || res?.rows || res?.list || [];
 
-    let totalValue = 0;
-    products.forEach(p => {
-      const variants = Array.isArray(p.variants) ? p.variants
-                     : Array.isArray(p.options)  ? p.options
-                     : Array.isArray(p.skus)     ? p.skus
-                     : [];
+// Hàm ép số an toàn (xử lý chuỗi "1,000" hoặc "120.000đ")
+const toNum = (x) => {
+  if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
+  return Number(x || 0);
+};
 
-      if (variants.length > 0) {
-        variants.forEach(v => {
-          const stock = Number(v.stock ?? v.inventory ?? v.quantity ?? 0) || 0;
-          const costPrice = Number(v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? 0) || 0;
-          totalValue += stock * costPrice;
-        });
-      } else {
-        const stock = Number(p.stock ?? p.inventory ?? p.quantity ?? 0) || 0;
-        const costPrice = Number(p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? 0) || 0;
-        totalValue += stock * costPrice;
-      }
+let totalValue = 0;
+products.forEach(p => {
+  const variants = Array.isArray(p.variants) ? p.variants
+                : Array.isArray(p.options)  ? p.options
+                : Array.isArray(p.skus)     ? p.skus
+                : [];
+
+  if (variants.length > 0) {
+    variants.forEach(v => {
+      const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
+      const costPrice = toNum(v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? v.purchase_price);
+      totalValue += stock * costPrice;
     });
+  } else {
+    const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
+    const costPrice = toNum(p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? p.purchase_price);
+    totalValue += stock * costPrice;
+  }
+});
 
-    this.$('inventoryValue').textContent = this.formatMoney(totalValue);
-    console.log('[Stats] Inventory value:', totalValue);
+// Log nhanh độ dài & 1 mẫu để bạn kiểm tra
+console.log('[Stats] products.length =', products.length);
+if (products[0]) {
+  const sample = products[0];
+  console.log('[Stats] sample product keys =', Object.keys(sample));
+  const sv = (sample.variants || sample.options || sample.skus || [])[0];
+  if (sv) console.log('[Stats] sample variant keys =', Object.keys(sv));
+}
+
+this.$('inventoryValue').textContent = this.formatMoney(totalValue);
+console.log('[Stats] Inventory value:', totalValue);
   } catch (error) {
     console.error('[Stats] Error loading inventory:', error);
     this.$('inventoryValue').textContent = '0đ';
