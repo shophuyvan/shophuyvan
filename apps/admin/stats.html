@@ -3,50 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Thống kê</title>
+<title>Thống kê - Admin</title>
+<link rel="stylesheet" href="./styles.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="./admin_real.js"></script>
+<script src="./sidebar-layout.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-  background: #f5f5f5;
-  color: #333;
-}
-
-.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
-
-.header {
-  background: white;
-  padding: 16px 24px;
-  margin: -16px -16px 16px -16px;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.title { font-size: 24px; font-weight: 600; }
-
-.nav { 
-  display: flex; 
-  gap: 8px; 
-  flex-wrap: wrap;
-}
-
-.badge {
-  padding: 6px 12px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  text-decoration: none;
-  color: #333;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.badge:hover { background: #e0e0e0; }
-
+/* Stats specific styles */
 .date-filter {
   background: white;
   padding: 16px;
@@ -465,161 +428,150 @@ body {
   }
 }
 </style>
-<script src="./admin_real.js?v=25"></script>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <div class="title">Thống kê</div>
-    <div class="nav">
-      <a href="./products.html" class="badge">Sản phẩm</a>
-      <a href="./banners.html" class="badge">Banner</a>
-      <a href="./orders.html" class="badge">Đơn hàng</a>
-      <a href="./stats.html" class="badge">Thống kê</a>
-      <a href="./shipping.html" class="badge">Vận chuyển</a>
-      <span class="badge">API: <span data-api-base></span></span>
+
+<!-- Date Filter -->
+<div class="date-filter">
+  <input type="date" id="fromDate" class="input"/>
+  <span>→</span>
+  <input type="date" id="toDate" class="input"/>
+  <button id="applyFilter" class="btn">Áp dụng</button>
+  <button class="btn secondary" id="btnToday">Hôm nay</button>
+  <button class="btn secondary" id="btnThisWeek">Tuần này</button>
+  <button class="btn secondary" id="btnThisMonth">Tháng này</button>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon pink">📦</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn phát sinh</div>
+      <div class="stat-value" id="totalOrders">0</div>
     </div>
   </div>
-
-  <div class="date-filter">
-    <input type="date" id="fromDate" class="input"/>
-    <span>→</span>
-    <input type="date" id="toDate" class="input"/>
-    <button id="applyFilter" class="btn">Áp dụng</button>
-    <button class="btn secondary" id="btnToday">Hôm nay</button>
-    <button class="btn secondary" id="btnThisWeek">Tuần này</button>
-    <button class="btn secondary" id="btnThisMonth">Tháng này</button>
-  </div>
-
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-icon pink">📦</div>
-      <div class="stat-content">
-        <div class="stat-label">Đơn phát sinh</div>
-        <div class="stat-value" id="totalOrders">0</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon red">🔴</div>
-      <div class="stat-content">
-        <div class="stat-label">Trả hàng</div>
-        <div class="stat-value" id="returnOrders">0</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon red">❌</div>
-      <div class="stat-content">
-        <div class="stat-label">Đơn hủy</div>
-        <div class="stat-value" id="cancelOrders">0</div>
-        <div class="stat-change" id="cancelRate">0%</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon blue">✓</div>
-      <div class="stat-content">
-        <div class="stat-label">Đơn đã bán</div>
-        <div class="stat-value" id="soldOrders">0</div>
-        <div class="stat-change" id="soldRate">0%</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon orange">💰</div>
-      <div class="stat-content">
-        <div class="stat-label">Doanh thu</div>
-        <div class="stat-value" id="revenue">0đ</div>
-      </div>
-    </div>
-    
-    <div class="stat-card clickable" id="costCard">
-      <div class="stat-icon red">💸</div>
-      <div class="stat-content">
-        <div class="stat-label">Chi phí thêm <span style="font-size:16px">+</span></div>
-        <div class="stat-value" id="extraCost">0đ</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon green">📥</div>
-      <div class="stat-content">
-        <div class="stat-label">Giá nhập</div>
-        <div class="stat-value" id="costPrice">0đ</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon purple">💎</div>
-      <div class="stat-content">
-        <div class="stat-label">Lợi nhuận</div>
-        <div class="stat-value" id="profit">0đ</div>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-icon blue">🏪</div>
-      <div class="stat-content">
-        <div class="stat-label">Tổng tiền hàng trong kho</div>
-        <div class="stat-value" id="inventoryValue">0đ</div>
-      </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon red">🔴</div>
+    <div class="stat-content">
+      <div class="stat-label">Trả hàng</div>
+      <div class="stat-value" id="returnOrders">0</div>
     </div>
   </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon red">❌</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn hủy</div>
+      <div class="stat-value" id="cancelOrders">0</div>
+      <div class="stat-change" id="cancelRate">0%</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon blue">✔</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn đã bán</div>
+      <div class="stat-value" id="soldOrders">0</div>
+      <div class="stat-change" id="soldRate">0%</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon orange">💰</div>
+    <div class="stat-content">
+      <div class="stat-label">Doanh thu</div>
+      <div class="stat-value" id="revenue">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card clickable" id="costCard">
+    <div class="stat-icon red">💸</div>
+    <div class="stat-content">
+      <div class="stat-label">Chi phí thêm <span style="font-size:16px">+</span></div>
+      <div class="stat-value" id="extraCost">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon green">🔥</div>
+    <div class="stat-content">
+      <div class="stat-label">Giá nhập</div>
+      <div class="stat-value" id="costPrice">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon purple">💎</div>
+    <div class="stat-content">
+      <div class="stat-label">Lợi nhuận</div>
+      <div class="stat-value" id="profit">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon blue">🪙</div>
+    <div class="stat-content">
+      <div class="stat-label">Tổng tiền hàng trong kho</div>
+      <div class="stat-value" id="inventoryValue">0đ</div>
+    </div>
+  </div>
+</div>
 
-  <div class="content-grid">
-    <div class="card">
-      <div class="card-title">Phân bổ đơn theo kênh</div>
-      <div class="chart-container">
-        <canvas id="orderChart"></canvas>
-      </div>
-      <div class="chart-legend" id="orderLegend"></div>
+<!-- Charts -->
+<div class="content-grid">
+  <div class="card">
+    <div class="card-title">Phân bổ đơn theo kênh</div>
+    <div class="chart-container">
+      <canvas id="orderChart"></canvas>
     </div>
-    
-    <div class="card">
-      <div class="card-title">Doanh thu theo kênh</div>
-      <div class="chart-container">
-        <canvas id="revenueChart"></canvas>
-      </div>
-      <div class="chart-legend" id="revenueLegend"></div>
+    <div class="chart-legend" id="orderLegend"></div>
+  </div>
+  
+  <div class="card">
+    <div class="card-title">Doanh thu theo kênh</div>
+    <div class="chart-container">
+      <canvas id="revenueChart"></canvas>
     </div>
-    
-    <div class="card table-section">
-      <div class="table-header">
-        <div class="card-title" style="margin:0">Chi tiết theo kênh</div>
-      </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Kênh</th>
-            <th style="text-align:right">Đơn</th>
-            <th style="text-align:right">$ Bán</th>
-            <th style="text-align:right">$ Lãi</th>
-            <th style="text-align:right">Giao thành công</th>
-            <th style="text-align:right">Đã huỷ</th>
-            <th style="text-align:right">Trả hàng</th>
-          </tr>
-        </thead>
-        <tbody id="platformTable"></tbody>
-      </table>
+    <div class="chart-legend" id="revenueLegend"></div>
+  </div>
+  
+  <div class="card table-section">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Chi tiết theo kênh</div>
     </div>
-    
-    <div class="card table-section">
-      <div class="table-header">
-        <div class="card-title" style="margin:0">Top sản phẩm bán chạy</div>
-      </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Sản phẩm</th>
-            <th style="text-align:right">Số Đơn</th>
-            <th style="text-align:right">Doanh Thu</th>
-          </tr>
-        </thead>
-        <tbody id="topProducts"></tbody>
-      </table>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Kênh</th>
+          <th style="text-align:right">Đơn</th>
+          <th style="text-align:right">$ Bán</th>
+          <th style="text-align:right">$ Lãi</th>
+          <th style="text-align:right">Giao thành công</th>
+          <th style="text-align:right">Đã huỷ</th>
+          <th style="text-align:right">Trả hàng</th>
+        </tr>
+      </thead>
+      <tbody id="platformTable"></tbody>
+    </table>
+  </div>
+  
+  <div class="card table-section">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Top sản phẩm bán chạy</div>
     </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Sản phẩm</th>
+          <th style="text-align:right">Số Đơn</th>
+          <th style="text-align:right">Doanh Thu</th>
+        </tr>
+      </thead>
+      <tbody id="topProducts"></tbody>
+    </table>
   </div>
 </div>
 
@@ -627,480 +579,4 @@ body {
 <div id="costModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <div class="modal-title">Quản lý Chi phí</div>
-      <button class="modal-close" id="closeModal">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label required">Tên chi phí:</label>
-        <input type="text" id="costName" class="form-input" placeholder="Ví dụ: Phí thuê mặt bằng"/>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label required">Số tiền:</label>
-        <input type="number" id="costAmount" class="form-input" placeholder="Ví dụ: 5000000"/>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label required">Phân bổ:</label>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="costType" value="monthly" checked/>
-            Theo tháng
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="costType" value="order"/>
-            Theo mỗi đơn
-          </label>
-        </div>
-      </div>
-      
-      <div class="cost-list">
-        <div class="cost-list-title">Danh sách chi phí</div>
-        <div id="costListContainer"></div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" id="btnAddCost">+ Thêm chi phí</button>
-    </div>
-  </div>
-</div>
-
-<script>
-const $ = (s) => document.querySelector(s);
-
-let costs = [];
-let statsData = {};
-let orderChart, revenueChart;
-
-function formatMoney(n) {
-  return Number(n || 0).toLocaleString('vi-VN') + 'đ';
-}
-
-function formatPercent(n) {
-  return Number(n || 0).toFixed(1) + '%';
-}
-
-// Declare functions globally first
-function setToday() {
-  const today = new Date().toISOString().split('T')[0];
-  $('#fromDate').value = today;
-  $('#toDate').value = today;
-  loadStats();
-}
-
-function setThisWeek() {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-  
-  $('#fromDate').value = monday.toISOString().split('T')[0];
-  $('#toDate').value = new Date().toISOString().split('T')[0];
-  loadStats();
-}
-
-function setThisMonth() {
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  
-  $('#fromDate').value = firstDay.toISOString().split('T')[0];
-  $('#toDate').value = new Date().toISOString().split('T')[0];
-  loadStats();
-}
-
-function saveCosts() {
-  renderCostList();
-  updateStats();
-}
-
-function showCostModal() {
-  $('#costModal').classList.add('show');
-  renderCostList();
-}
-
-function closeCostModal() {
-  $('#costModal').classList.remove('show');
-}
-
-function addCost() {
-  const name = $('#costName').value.trim();
-  const amount = parseFloat($('#costAmount').value) || 0;
-  const type = document.querySelector('input[name="costType"]:checked').value;
-  
-  if (!name || amount <= 0) {
-    alert('Vui lòng nhập đầy đủ thông tin chi phí');
-    return;
-  }
-  
-  costs.push({ name, amount, type, id: Date.now() });
-  
-  $('#costName').value = '';
-  $('#costAmount').value = '';
-  
-  saveCosts();
-}
-
-function deleteCost(id) {
-  if (!confirm('Xác nhận xóa chi phí này?')) return;
-  costs = costs.filter(c => c.id !== id);
-  saveCosts();
-}
-
-function renderCostList() {
-  const container = $('#costListContainer');
-  
-  if (costs.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:#999;padding:20px">Chưa có chi phí nào</div>';
-    return;
-  }
-  
-  container.innerHTML = costs.map(c => `
-    <div class="cost-item">
-      <div class="cost-info">
-        <div class="cost-name">${c.name}</div>
-        <div class="cost-detail">${c.type === 'monthly' ? 'Theo tháng' : 'Theo mỗi đơn'}</div>
-      </div>
-      <div class="cost-amount">${formatMoney(c.amount)}</div>
-      <button class="btn-delete" onclick="deleteCost(${c.id})">×</button>
-    </div>
-  `).join('');
-}
-
-function calculateTotalCosts(orderCount) {
-  let total = 0;
-  costs.forEach(c => {
-    if (c.type === 'monthly') {
-      total += c.amount;
-    } else {
-      total += c.amount * orderCount;
-    }
-  });
-  return total;
-}
-
-async function loadStats() {
-  try {
-    console.log('Loading stats...');
-    const fromDate = $('#fromDate').value;
-    const toDate = $('#toDate').value;
-    
-    // Get orders from API
-    const ordersRes = await Admin.req('/admin/orders', { method: 'GET' });
-    let orders = ordersRes.items || ordersRes.data || ordersRes.orders || [];
-    console.log('Total orders:', orders.length);
-    
-    // Filter by date range
-    if (fromDate || toDate) {
-      const fromTime = fromDate ? new Date(fromDate + 'T00:00:00+07:00').getTime() : 0;
-      const toTime = toDate ? new Date(toDate + 'T23:59:59+07:00').getTime() : Date.now();
-      
-      orders = orders.filter(o => {
-        const orderTime = o.createdAt || o.created_at || o.timestamp || o.date;
-        const time = typeof orderTime === 'number' ? orderTime : new Date(orderTime).getTime();
-        return time >= fromTime && time <= toTime;
-      });
-      console.log('Filtered orders:', orders.length);
-    }
-    
-    // Calculate statistics
-    let totalOrders = orders.length;
-    let cancelOrders = 0;
-    let returnOrders = 0;
-    let confirmedOrders = 0;
-    let totalRevenue = 0;
-    let totalCostPrice = 0;
-    
-    const platformStats = {
-      'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
-      'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 }
-    };
-    
-    const productStats = {};
-    
-    orders.forEach(order => {
-      const status = (order.status || '').toLowerCase();
-      const source = (order.source || '').toLowerCase();
-      
-      // Detect platform - check if from Zalo Mini App or Website
-      const platform = source.includes('zalo') || source.includes('mini') || source.includes('zmp') 
-        ? 'Zalo MiniApp' 
-        : 'Website';
-      
-      platformStats[platform].orders++;
-      
-      // Count by status
-      if (status.includes('cancel') || status.includes('hủy') || status.includes('huy') || status === 'cancelled') {
-        cancelOrders++;
-        platformStats[platform].cancel++;
-      } else if (status.includes('return') || status.includes('trả') || status.includes('tra') || status === 'returned') {
-        returnOrders++;
-        platformStats[platform].return++;
-      } else if (status.includes('confirm') || status === 'confirmed' || status.includes('deliver') || status.includes('completed')) {
-        confirmedOrders++;
-        platformStats[platform].success++;
-      }
-      
-      // Calculate revenue and cost - only for non-cancelled orders
-      if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy') && status !== 'cancelled') {
-        const orderRevenue = order.revenue || order.subtotal || order.total || 0;
-        const orderProfit = order.profit || 0;
-        
-        // Calculate cost price from revenue - profit
-        const orderCost = orderRevenue - orderProfit;
-        
-        totalRevenue += orderRevenue;
-        totalCostPrice += orderCost;
-        
-        platformStats[platform].revenue += orderRevenue;
-        platformStats[platform].cost_price += orderCost;
-        platformStats[platform].profit += orderProfit;
-        
-        // Count products
-        const items = order.items || [];
-        items.forEach(item => {
-          const productName = item.title || item.name || item.product_name || 'Unknown';
-          const qty = item.qty || item.quantity || 1;
-          const price = item.price || item.unit_price || 0;
-          
-          if (!productStats[productName]) {
-            productStats[productName] = { name: productName, qty: 0, revenue: 0 };
-          }
-          productStats[productName].qty += qty;
-          productStats[productName].revenue += price * qty;
-        });
-      }
-    });
-    
-    // Convert product stats to array and sort
-    const topProducts = Object.values(productStats)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-    
-    statsData = {
-      orders: totalOrders,
-      cancels: cancelOrders,
-      returns: returnOrders,
-      confirmed: confirmedOrders,
-      revenue: totalRevenue,
-      cost_price: totalCostPrice,
-      platforms: [
-        { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
-        { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
-      ],
-      top_products: topProducts
-    };
-    
-    console.log('Calculated stats:', statsData);
-    
-    updateStats();
-    updateCharts();
-    updateTables();
-  } catch (error) {
-    console.error('Error loading stats:', error);
-    alert('Lỗi tải dữ liệu thống kê: ' + error.message);
-  }
-}
-
-async function loadInventoryValue() {
-  try {
-    const res = await Admin.req('/admin/products', { method: 'GET' });
-    const products = res.items || res.data || res.products || [];
-    
-    let totalValue = 0;
-    products.forEach(p => {
-      const variants = Array.isArray(p.variants) ? p.variants :
-                       Array.isArray(p.options) ? p.options :
-                       Array.isArray(p.skus) ? p.skus : [];
-      
-      if (variants.length > 0) {
-        variants.forEach(v => {
-          const stock = v.stock ?? v.inventory ?? v.quantity ?? 0;
-          const costPrice = v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? 0;
-          totalValue += stock * costPrice;
-        });
-      } else {
-        const stock = p.stock ?? p.inventory ?? p.quantity ?? 0;
-        const costPrice = p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? 0;
-        totalValue += stock * costPrice;
-      }
-    });
-    
-    $('#inventoryValue').textContent = formatMoney(totalValue);
-    console.log('Inventory value:', totalValue, 'from', products.length, 'products');
-  } catch (error) {
-    console.error('Error loading inventory:', error);
-    $('#inventoryValue').textContent = '0đ';
-  }
-}
-
-function updateStats() {
-  const totalOrders = statsData.orders || 0;
-  const returnOrders = statsData.returns || 0;
-  const cancelOrders = statsData.cancels || 0;
-  const soldOrders = totalOrders - cancelOrders;
-  
-  const revenue = statsData.revenue || 0;
-  const costPrice = statsData.cost_price || 0;
-  const extraCosts = calculateTotalCosts(soldOrders);
-  const profit = revenue - costPrice - extraCosts;
-  
-  $('#totalOrders').textContent = totalOrders;
-  $('#returnOrders').textContent = returnOrders;
-  $('#cancelOrders').textContent = cancelOrders;
-  $('#cancelRate').textContent = formatPercent(totalOrders > 0 ? (cancelOrders / totalOrders * 100) : 0);
-  $('#soldOrders').textContent = soldOrders;
-  $('#soldRate').textContent = formatPercent(totalOrders > 0 ? (soldOrders / totalOrders * 100) : 0);
-  $('#revenue').textContent = formatMoney(revenue);
-  $('#extraCost').textContent = formatMoney(extraCosts);
-  $('#costPrice').textContent = formatMoney(costPrice);
-  $('#profit').textContent = formatMoney(profit);
-}
-
-function updateCharts() {
-  const platforms = statsData.platforms || [
-    { name: 'Website', orders: 55, revenue: 4500000, color: '#1976d2' },
-    { name: 'Zalo MiniApp', orders: 40, revenue: 2960554, color: '#7b1fa2' }
-  ];
-  
-  if (orderChart) orderChart.destroy();
-  if (revenueChart) revenueChart.destroy();
-  
-  const orderCtx = document.getElementById('orderChart').getContext('2d');
-  orderChart = new Chart(orderCtx, {
-    type: 'doughnut',
-    data: {
-      labels: platforms.map(p => p.name),
-      datasets: [{
-        data: platforms.map(p => p.orders),
-        backgroundColor: platforms.map(p => p.color),
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '70%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${ctx.parsed} đơn`
-          }
-        }
-      }
-    }
-  });
-  
-  const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-  revenueChart = new Chart(revenueCtx, {
-    type: 'doughnut',
-    data: {
-      labels: platforms.map(p => p.name),
-      datasets: [{
-        data: platforms.map(p => p.revenue),
-        backgroundColor: platforms.map(p => p.color),
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '70%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${formatMoney(ctx.parsed)}`
-          }
-        }
-      }
-    }
-  });
-  
-  updateLegends(platforms);
-}
-
-function updateLegends(platforms) {
-  const orderLegend = platforms.map(p => `
-    <div class="legend-item">
-      <div class="legend-color" style="background:${p.color}"></div>
-      <span>${p.name}</span>
-    </div>
-  `).join('');
-  
-  $('#orderLegend').innerHTML = orderLegend;
-  $('#revenueLegend').innerHTML = orderLegend;
-}
-
-function updateTables() {
-  const platforms = statsData.platforms || [
-    { name: 'Website', orders: 55, revenue: 4500000, cost_price: 1800000, success: 50, cancel: 3, return: 2 },
-    { name: 'Zalo MiniApp', orders: 40, revenue: 2960554, cost_price: 1127200, success: 34, cancel: 8, return: 0 }
-  ];
-  
-  const platformTable = $('#platformTable');
-  platformTable.innerHTML = platforms.map(p => {
-    const profit = (p.revenue || 0) - (p.cost_price || 0);
-    const badgeClass = p.name === 'Website' ? 'website' : 'miniapp';
-    
-    return `
-      <tr>
-        <td><span class="platform-badge ${badgeClass}">${p.name}</span></td>
-        <td style="text-align:right">${p.orders || 0}</td>
-        <td style="text-align:right">${formatMoney(p.revenue)}</td>
-        <td style="text-align:right">${formatMoney(profit)}</td>
-        <td style="text-align:right">${p.success || 0}</td>
-        <td style="text-align:right">${p.cancel || 0}</td>
-        <td style="text-align:right">${p.return || 0}</td>
-      </tr>
-    `;
-  }).join('');
-  
-  const topProducts = statsData.top_products || [];
-  const topProductsTable = $('#topProducts');
-  
-  if (topProducts.length === 0) {
-    topProductsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Chưa có dữ liệu</td></tr>';
-    return;
-  }
-  
-  topProductsTable.innerHTML = topProducts.map((p, idx) => `
-    <tr>
-      <td>${idx + 1}</td>
-      <td>
-        <div class="product-item">
-          <img class="product-img" src="./no-image.svg" alt="" onerror="this.src='./no-image.svg'"/>
-          <span>${p.name || ''}</span>
-        </div>
-      </td>
-      <td style="text-align:right">${p.qty || 0}</td>
-      <td style="text-align:right">${formatMoney(p.revenue)}</td>
-    </tr>
-  `).join('');
-}
-
-// Initialize
-if (window.Admin) {
-  Admin.ensureAuth();
-  Admin.renderApiBase();
-}
-
-// Event listeners
-$('#applyFilter').addEventListener('click', loadStats);
-$('#btnToday').addEventListener('click', setToday);
-$('#btnThisWeek').addEventListener('click', setThisWeek);
-$('#btnThisMonth').addEventListener('click', setThisMonth);
-$('#costCard').addEventListener('click', showCostModal);
-$('#closeModal').addEventListener('click', closeCostModal);
-$('#btnAddCost').addEventListener('click', addCost);
-$('#costModal').addEventListener('click', (e) => {
-  if (e.target.id === 'costModal') closeCostModal();
-});
-
-// Set default to today on page load
-setTimeout(() => {
-  setToday();
-  loadInventoryValue();
-}, 500);
-  
+      <div class="modal-title">
