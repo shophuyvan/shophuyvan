@@ -154,7 +154,7 @@ class StatsManager {
       let confirmedOrders = 0;
       let totalRevenue = 0;
       let totalCostPrice = 0;
-	  // [BẮT ĐẦU CHÈN - toNum helper cho tính cost*qty]
+	  // [BẮT ĐẦU CHÈN - toNum helper]
 const toNum = (x) => typeof x === 'string'
   ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
   : (Number(x || 0));
@@ -189,15 +189,22 @@ const toNum = (x) => typeof x === 'string'
         }
         
         // [BẮT ĐẦU THAY KHỐI GIÁ NHẬP - tính cost × qty]
-if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy') && status !== 'cancelled') {
-  // Doanh thu của đơn
+if (
+  !status.includes('cancel') &&
+  !status.includes('hủy') &&
+  !status.includes('huy') &&
+  status !== 'cancelled'
+) {
+  // Doanh thu đơn
   const orderRevenue = order.revenue || order.subtotal || order.total || 0;
 
-  // TÍNH GIÁ NHẬP THEO SỐ LƯỢNG TỪ DÒNG HÀNG
+  // Lấy dòng hàng (hỗ trợ nhiều tên field)
   const lines = Array.isArray(order.items) ? order.items
               : Array.isArray(order.order_items) ? order.order_items
               : Array.isArray(order.lines) ? order.lines
               : [];
+
+  // GIÁ NHẬP = Σ (đơn giá nhập × số lượng)
   let orderImportCost = 0;
   lines.forEach(it => {
     const qty = toNum(it.qty ?? it.quantity ?? it.count);
@@ -207,25 +214,23 @@ if (!status.includes('cancel') && !status.includes('hủy') && !status.includes(
     orderImportCost += qty * unitCost;
   });
 
-  // CỘNG TỔNG
+  // Cộng vào tổng
   totalRevenue   += orderRevenue;
   totalCostPrice += orderImportCost;
 
   platformStats[platform].revenue    += orderRevenue;
   platformStats[platform].cost_price += orderImportCost;
-  // platformStats[platform].profit giữ nguyên cách hiển thị ở bảng: revenue - cost_price
 
-  // Thống kê top sản phẩm (giữ nguyên)
-  const items = lines;
-  items.forEach(item => {
+  // Thống kê top sản phẩm (giữ nguyên, chỉ dùng lines)
+  lines.forEach(item => {
     const productName = item.title || item.name || item.product_name || 'Unknown';
-    const qty = toNum(item.qty ?? item.quantity ?? 1);
+    const qty   = toNum(item.qty ?? item.quantity ?? 1);
     const price = toNum(item.price ?? item.unit_price ?? 0);
 
     if (!productStats[productName]) {
       productStats[productName] = { name: productName, qty: 0, revenue: 0 };
     }
-    productStats[productName].qty += qty;
+    productStats[productName].qty     += qty;
     productStats[productName].revenue += price * qty;
   });
 }
