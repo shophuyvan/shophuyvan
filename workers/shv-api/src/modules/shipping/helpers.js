@@ -9,10 +9,10 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  */
 export async function superToken(env) {
   // 1. Kiểm tra super_key trước
-  if (env.SUPER_KEY) {                                      // ← THÊM
-    console.log('[superToken] ✅ Using SUPER_KEY from env');// ← THÊM
-    return env.SUPER_KEY;                                   // ← THÊM
-  }
+ if (env.SUPER_KEY && typeof env.SUPER_KEY === 'string' && env.SUPER_KEY.length > 50) {
+  console.log('[superToken] ✅ Using SUPER_KEY from env');
+  return env.SUPER_KEY;
+}
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
