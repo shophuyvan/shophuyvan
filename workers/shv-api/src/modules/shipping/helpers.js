@@ -8,22 +8,38 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  * Get SuperAI token from settings
  */
 export async function superToken(env) {
+  // 1. Kiểm tra super_key trước
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
-    console.log('[superToken] 🔑 Checking super_key:', shipping.super_key ? '✅ Found' : '❌ Not found');  // ← THÊM DÒNG NÀY
-    if (shipping.super_key) return shipping.super_key;
+    
+    console.log('[superToken] 🔍 Checking settings:', {
+      hasShipping: !!shipping,
+      hasKey: !!shipping.super_key,
+      keyLength: shipping.super_key ? shipping.super_key.length : 0
+    });
+    
+    if (shipping.super_key) {
+      console.log('[superToken] ✅ Found super_key:', shipping.super_key.substring(0, 20) + '...');
+      return shipping.super_key;
+    }
   } catch (e) {
-    console.error('superToken error:', e);
+    console.error('[superToken] Error reading super_key:', e);
   }
 
-  // Password token flow
+  // 2. Password token flow
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
     const user = shipping.super_user || '';
     const pass = shipping.super_pass || '';
     const partner = shipping.super_partner || '';
+
+    console.log('[superToken] 🔐 Trying password flow:', {
+      hasUser: !!user,
+      hasPass: !!pass,
+      hasPartner: !!partner
+    });
 
     if (user && pass && partner) {
       const urls = [
@@ -45,30 +61,33 @@ export async function superToken(env) {
           const token = (data && (data.data?.token || data.token)) || '';
 
           if (token) {
+            console.log('[superToken] ✅ Got token from password flow');
             await putJSON(env, 'super:token', token);
             await env.SHV.put('super:token:ts', String(Date.now()));
             return token;
           }
         } catch (e) {
-          console.error('Token fetch error:', e);
+          console.error('[superToken] Token fetch error:', e);
         }
       }
     }
   } catch (e) {
-    console.error('Password flow error:', e);
+    console.error('[superToken] Password flow error:', e);
   }
 
-  // KV cache
+  // 3. KV cache
   try {
     const token = await getJSON(env, 'super:token', null);
     const timestamp = Number(await env.SHV.get('super:token:ts', 'text')) || 0;
     if (token && (Date.now() - timestamp) < 23 * 60 * 60 * 1000) {
+      console.log('[superToken] ✅ Found cached token');
       return token;
     }
   } catch (e) {
-    console.error('Cache read error:', e);
+    console.error('[superToken] Cache read error:', e);
   }
 
+  console.error('[superToken] ❌ NO TOKEN FOUND!');
   return '';
 }
 

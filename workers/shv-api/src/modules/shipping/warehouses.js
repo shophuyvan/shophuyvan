@@ -15,13 +15,41 @@ export async function handle(req, env, ctx) {
 
 async function getWarehouses(req, env) {
   try {
+    console.log('[Warehouses] 📦 Fetching warehouses from SuperAI...');
+    
     const data = await superFetch(env, '/v1/platform/warehouses', { 
-      method: 'GET' 
+      method: 'GET',
+      useBearer: false
     });
 
+    console.log('[Warehouses] 📥 Response received:', {
+      hasData: !!data,
+      isError: data?.error,
+      message: data?.message,
+      dataKeys: data ? Object.keys(data) : []
+    });
+
+    // Kiểm tra lỗi từ API
+    if (data?.error || data?.message?.includes('Token') || data?.message?.includes('chưa đúng')) {
+      console.error('[Warehouses] ❌ Token error:', data.message);
+      return json({ 
+        ok: false, 
+        items: [], 
+        error: data.message || 'Token không hợp lệ',
+        raw: data
+      }, { status: 400 }, req);
+    }
+
     const items = normalizeWarehouses(data);
+    console.log('[Warehouses] ✅ Normalized items count:', items.length);
+    
+    if (items.length === 0) {
+      console.warn('[Warehouses] ⚠️ No warehouses found. Raw data:', JSON.stringify(data, null, 2));
+    }
+    
     return json({ ok: true, items, raw: data }, {}, req);
   } catch (e) {
+    console.error('[Warehouses] ❌ Exception:', e);
     return json({ 
       ok: false, 
       items: [], 
@@ -42,6 +70,8 @@ function normalizeWarehouses(data) {
   pushArray(data?.data?.items);
   pushArray(data?.warehouses);
   pushArray(data?.data?.warehouses);
+
+  console.log('[Warehouses] 🔄 Normalizing, source count:', source.length);
 
   return source.map(warehouse => ({
     id: warehouse.id || warehouse.code || '',
