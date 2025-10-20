@@ -79,6 +79,9 @@ export async function superFetch(env, path, options = {}) {
   const base = 'https://dev.superai.vn';
   const token = await superToken(env);
 
+  // ✅ THÊM LOG ĐỂ DEBUG TOKEN
+  console.log('[superFetch] 🔑 Token retrieved:', token ? `${token.substring(0, 20)}...` : '❌ EMPTY');
+
   const headers = {
     'Accept': 'application/json',
     ...options.headers
@@ -89,7 +92,10 @@ export async function superFetch(env, path, options = {}) {
   } else {
     headers['token'] = token;
   }
-  console.log('[superFetch] 📤 Request headers:', JSON.stringify(headers));
+
+  // ✅ LOG HEADERS TRƯỚC KHI GỬI
+  console.log('[superFetch] 📤 Headers:', JSON.stringify(headers, null, 2));
+  console.log('[superFetch] 🌐 URL:', base + path);
 
   const config = {
     method: options.method || 'GET',
@@ -105,11 +111,22 @@ export async function superFetch(env, path, options = {}) {
     }
   }
 
+  // ✅ LOG PAYLOAD
+  if (config.body) {
+    console.log('[superFetch] 📦 Payload:', config.body.substring(0, 500));
+  }
+
   try {
     const response = await fetch(base + path, config);
-    return await response.json();
+    const responseText = await response.text();
+    
+    // ✅ LOG RESPONSE
+    console.log('[superFetch] 📥 Response status:', response.status);
+    console.log('[superFetch] 📥 Response body:', responseText.substring(0, 500));
+    
+    return JSON.parse(responseText);
   } catch (e) {
-    console.error('superFetch error:', path, e);
+    console.error('[superFetch] ❌ Error:', path, e);
     return null;
   }
 }
