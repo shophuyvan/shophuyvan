@@ -359,6 +359,10 @@ orderBtn?.addEventListener('click', async () => {
       note: '',
       shipping: { provider: (chosen?.provider || localStorage.getItem('ship_provider') || ''), service_code: (chosen?.service_code || localStorage.getItem('ship_service') || '') },
       totals: { shipping_fee: Number(ship_fee||0), discount: Number(localStorage.getItem('voucher_discount')||0), shipping_discount: Number(localStorage.getItem('voucher_ship_discount')||0) }
+	  // [BẮT ĐẦU CHÈN - checkout.js]
+  source: 'website',
+  status: 'placed'
+  // [KẾT THÚC CHÈN - checkout.js]
     };
     const res = await api('/api/orders', {
   method: 'POST',
