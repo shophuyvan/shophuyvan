@@ -81,6 +81,7 @@ export async function superToken(env) {
     }
   }
 }
+
   // 3. KV cache
   try {
     const token = await getJSON(env, 'super:token', null);
