@@ -46,45 +46,42 @@ export async function superToken(env) {
       hasPartner: !!partner
     });
 
-    if (user && pass && partner) {
-      const urls = [
-        'https://dev.superai.vn/v1/platform/auth/token'
-      ];
+ if (user && pass) {
+  const urls = [
+    'https://dev.superai.vn/v1/platform/auth/token'
+  ];
 
-      for (const url of urls) {
-        try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              username: user,
-              password: pass,
-              partner: partner
-            })
-          });
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(
+          partner
+            ? { username: user, password: pass, partner }
+            : { username: user, password: pass }   // ✅ Bỏ partner nếu không có
+        )
+      });
 
-          const data = await response.json();
-          const token = data?.data?.token || data?.token || '';
+      const data = await response.json();
+      const token = data?.data?.token || data?.token || '';
 
-          if (token) {
-            console.log('[superToken] ✅ Got Access Token from SuperAI');
-            await putJSON(env, 'super:token', token);
-            await env.SHV.put('super:token:ts', String(Date.now()));
-            return token;
-          } else {
-            console.error('[superToken] ❌ No token field in response:', data);
-          }
-        } catch (e) {
-          console.error('[superToken] Token fetch error:', e);
-        }
+      if (token) {
+        console.log('[superToken] ✅ Got Access Token from SuperAI');
+        await putJSON(env, 'super:token', token);
+        await env.SHV.put('super:token:ts', String(Date.now()));
+        return token;
+      } else {
+        console.error('[superToken] ❌ No token field in response:', data);
       }
+    } catch (e) {
+      console.error('[superToken] Token fetch error:', e);
     }
-  } catch (e) {   // ✅ thêm phần catch bị thiếu
-    console.error('[superToken] Password flow error:', e);
   }
+}
 
   // 3. KV cache
   try {
