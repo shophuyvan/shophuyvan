@@ -9,6 +9,52 @@ import { readBody } from '../lib/utils.js';
 import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 
+const shouldAdjustStock = (status) => {
+  const s = String(status || '').toLowerCase();
+  return !['cancel', 'cancelled', 'huy', 'huỷ', 'hủy', 'returned', 'return', 'pending'].includes(s);
+};
+
+// cộng số (xử lý chuỗi số)
+const toNum = (x) => Number(x || 0);
+
+/**
+ * Giảm/tăng tồn kho theo danh sách items của đơn
+ * direction = -1 → trừ kho, +1 → hoàn kho
+ */
+async function adjustInventory(items, env, direction = -1) {
+  for (const it of (items || [])) {
+    const pid = it.product_id || it.id || it.sku; // id/sku từ FE
+    if (!pid) continue;
+
+    // Lấy sản phẩm trong KV
+    let product = await getJSON(env, 'product:' + pid, null);
+    if (!product && it.product_id) {
+      product = await getJSON(env, 'product:' + it.product_id, null);
+    }
+    if (!product) continue;
+
+    const qty = toNum(it.qty || it.quantity || 1) * direction;
+
+    // Nếu có biến thể → trừ ở biến thể (match theo sku/id), ngược lại trừ ở product
+    let updated = false;
+    if (Array.isArray(product.variants) && (it.sku || it.id)) {
+      const v = product.variants.find(
+        v => String(v.sku || v.id || '') === String(it.sku || it.id)
+      );
+      if (v) {
+        v.stock = Math.max(0, toNum(v.stock) + qty);
+        updated = true;
+      }
+    }
+    if (!updated) {
+      product.stock = Math.max(0, toNum(product.stock) + qty);
+    }
+
+    await putJSON(env, 'product:' + (product.id || pid), product);
+  }
+}
+// [KẾT THÚC CHÈN - helper trừ tồn kho]
+
 /**
  * Main handler for all order routes
  */
@@ -134,6 +180,12 @@ async function createOrder(req, env) {
   const list = await getJSON(env, 'orders:list', []);
   list.unshift(order);
   await putJSON(env, 'orders:list', list);
+  // [BẮT ĐẦU CHÈN - trừ tồn kho sau khi tạo đơn]
+if (shouldAdjustStock(order.status)) {
+  await adjustInventory(items, env, -1);
+}
+// [KẾT THÚC CHÈN - trừ tồn kho sau khi tạo đơn]
+
 
   // Response with idempotency
   const response = json({ ok: true, id, order }, {}, req);
@@ -199,16 +251,18 @@ async function createOrderPublic(req, env) {
     source: body.source || 'fe'
   };
 
-  await putJSON(env, 'order:' + id, order);
-  
-  const list = await getJSON(env, 'orders:list', []);
-  list.unshift(order);
   await putJSON(env, 'orders:list', list);
 
-  const response = json({ ok: true, id }, {}, req);
-  await idemSet(idem.key, env, response);
-  
-  return response;
+// [BẮT ĐẦU CHÈN - trừ tồn kho]
+if (shouldAdjustStock(order.status)) {
+  await adjustInventory(items, env, -1);
+}
+// [KẾT THÚC CHÈN - trừ tồn kho]
+
+const response = json({ ok: true, id }, {}, req);
+await idemSet(idem.key, env, response);
+
+return response;
 }
 
 // ===================================================================
@@ -251,11 +305,17 @@ async function createOrderLegacy(req, env) {
   };
 
   const list = await getJSON(env, 'orders:list', []);
-  list.unshift(order);
-  await putJSON(env, 'orders:list', list);
-  await putJSON(env, 'order:' + id, order);
+list.unshift(order);
+await putJSON(env, 'orders:list', list);
+await putJSON(env, 'order:' + id, order);
 
-  return json({ ok: true, id, data: order }, {}, req);
+// [BẮT ĐẦU CHÈN - trừ tồn kho]
+if (shouldAdjustStock(order.status)) {
+  await adjustInventory(items, env, -1);
+}
+// [KẾT THÚC CHÈN - trừ tồn kho]
+
+return json({ ok: true, id, data: order }, {}, req);
 }
 
 // ===================================================================
