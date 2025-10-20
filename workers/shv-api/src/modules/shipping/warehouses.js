@@ -19,7 +19,7 @@ async function getWarehouses(req, env) {
     
     const data = await superFetch(env, '/v1/platform/warehouses', { 
       method: 'GET',
-      useBearer: true       // ✅ Đã sửa: sử dụng Bearer token cho endpoint này
+      useBearer: false       // ✅ Đã sửa: sử dụng Bearer token cho endpoint này
     });
 
     console.log('[Warehouses] 📥 Response received:', {
