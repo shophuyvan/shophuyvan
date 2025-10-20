@@ -26,7 +26,6 @@ export async function superToken(env) {
 
     if (user && pass && partner) {
       const urls = [
-        'https://api.mysupership.vn/v1/platform/auth/token',
         'https://dev.superai.vn/v1/platform/auth/token'
       ];
 
