@@ -304,48 +304,77 @@ async function getProductDetail(id) {
 }
 
 async function enrichProducts(items) {
+  const toNum = (x) => typeof x === 'string'
+    ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+    : (Number(x || 0));
+
   for (const p of items) {
-    const basePrice = toNum(p.price_sale || p.price);
-    if (basePrice > 0) continue; // list đã có giá thì bỏ qua
+    // mặc định lấy giá từ list (nếu có)
+    p.salePrice = toNum(p.price_sale || p.price);
+    p.costImport = toNum(p.cost || p.cost_price || p.import_price || p.price_import || p.purchase_price);
+    p.stockTotal = toNum(p.stock || p.inventory || p.quantity);
+    p.importTotal = p.stockTotal * p.costImport;
+
+    // nếu list đã có salePrice > 0 và có stock/cost thì bỏ qua
+    const needDetail = !(p.salePrice > 0 && (p.stockTotal > 0 || p.costImport > 0));
+
+    if (!needDetail) continue;
 
     const id = p.id || p._id || p.key;
     if (!id) continue;
 
     try {
+      // lấy chi tiết để có cost/stock chính xác
       const d = await getProductDetail(id);
       if (!d) continue;
 
-      const variants = Array.isArray(d.variants) ? d.variants
-                    : Array.isArray(d.options)  ? d.options
-                    : Array.isArray(d.skus)     ? d.skus
-                    : [];
+      const vars = Array.isArray(d.variants) ? d.variants
+                 : Array.isArray(d.options)  ? d.options
+                 : Array.isArray(d.skus)     ? d.skus : [];
 
-      if (variants.length > 0) {
-        const pick = variants.find(v => toNum(v.stock ?? v.inventory ?? v.quantity) > 0) || variants[0];
-        const vStock = toNum(pick.stock ?? pick.inventory ?? pick.quantity);
-        const vCost  = toNum(pick.cost ?? pick.cost_price ?? pick.import_price ?? pick.price_import ?? pick.purchase_price);
-        const vPrice = toNum(pick.price_sale ?? pick.price);
-        p.displayPrice = vPrice > 0 ? vPrice : (vCost > 0 ? vCost : 0);
-        p._hasStock = vStock > 0;
+      if (vars.length > 0) {
+        // cộng gộp TỒN kho & tính cost theo từng biến thể
+        let totalStock = 0;
+        let totalImport = 0;
+        let firstPrice = 0;
+
+        vars.forEach(v => {
+          const vStock = toNum(v.stock ?? v.inventory ?? v.quantity);
+          const vCost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+          const vPrice = toNum(v.price_sale ?? v.price);
+          totalStock += vStock;
+          totalImport += vStock * vCost;
+          if (!firstPrice && vPrice > 0) firstPrice = vPrice;
+        });
+
+        // gán ra product để render
+        p.stockTotal = totalStock;
+        p.costImport = totalStock > 0 ? Math.floor(totalImport / Math.max(totalStock,1)) : (p.costImport || 0);
+        p.importTotal = totalImport;
+        p.salePrice = p.salePrice > 0 ? p.salePrice : firstPrice;
+        p._hasStock = totalStock > 0;
       } else {
+        // không có biến thể: lấy trực tiếp từ product detail
         const stock = toNum(d.stock ?? d.inventory ?? d.quantity);
         const cost  = toNum(d.cost ?? d.cost_price ?? d.import_price ?? d.price_import ?? d.purchase_price);
         const price = toNum(d.price_sale ?? d.price);
-        p.displayPrice = price > 0 ? price : (cost > 0 ? cost : 0);
+
+        p.stockTotal = stock;
+        p.costImport = cost;
+        p.importTotal = stock * cost;
+        if (!(p.salePrice > 0)) p.salePrice = price;
         p._hasStock = stock > 0;
       }
     } catch (e) {
-      console.warn('[Products] enrich fail for', id, e);
+      console.warn('[Products] enrich fail', id, e);
     }
   }
   return items;
 }
 // [KẾT THÚC CHÈN]
 
- // [BẮT ĐẦU THAY HÀM] createProductCard
+// [BẮT ĐẦU THAY HÀM] createProductCard
 function createProductCard(p) {
-  // Ưu tiên giá đã enrich; fallback về price_sale/price như cũ
-  const price = (p.displayPrice != null) ? p.displayPrice : (p.price_sale || p.price || 0);
   const imgUrl = cdnUrl((p.images && p.images[0]) || '');
   const id = p.id || p._id || p.key || '';
 
@@ -356,7 +385,13 @@ function createProductCard(p) {
 
   const hasStock = (typeof p._hasStock === 'boolean')
     ? p._hasStock
-    : (variants.length > 0 ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0) : true);
+    : (variants.length > 0 ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0) : (p.stockTotal > 0));
+
+  // số liệu đã được enrich: salePrice, costImport, stockTotal, importTotal
+  const priceSale  = Number(p.salePrice || 0);
+  const costImport = Number(p.costImport || 0);
+  const stockTotal = Number(p.stockTotal || 0);
+  const importTotal = Number(p.importTotal || 0);
 
   return `
     <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
@@ -371,7 +406,12 @@ function createProductCard(p) {
         <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
         <div class="card-meta">
           <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
-          <div class="card-price">${formatPrice(price)}</div>
+
+          <!-- HIỂN THỊ ĐẦY ĐỦ GIÁ/TRỊ SỐ -->
+          <div class="card-line">Giá sale: <b>${formatPrice(priceSale)}</b></div>
+          <div class="card-line">Giá nhập: <b>${formatPrice(costImport)}</b></div>
+          <div class="card-line">Tồn kho: <b>${stockTotal.toLocaleString('vi-VN')}</b></div>
+          <div class="card-line">Tổng tiền nhập: <b>${formatPrice(importTotal)}</b></div>
         </div>
       </div>
       <div class="card-actions">
@@ -381,7 +421,7 @@ function createProductCard(p) {
     </div>
   `;
 }
-// [KẾT THÚC THAY HÀM]
+// [KẾT THÚC THAY HÀM] createProductCard
 
   async function load() {
     console.log('[Products] Loading products...');
