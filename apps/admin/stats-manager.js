@@ -239,58 +239,72 @@ class StatsManager {
     }
   }
 
-  // BẮT ĐẦU THAY HÀM
+// BẮT ĐẦU THAY HÀM
 async loadInventoryValue() {
   try {
-    // Dùng đa endpoint giống trang Sản phẩm
-    const res = await Admin.tryPaths([
-  '/admin/products',
-  '/admin/product/list',
-  '/admin/products/list'
-]);
+    // 1) Lấy danh sách sản phẩm (list không có cost → chỉ lấy id)
+    const listRes = await Admin.tryPaths([
+      '/admin/products',
+      '/admin/product/list',
+      '/admin/products/list'
+    ]);
+    const items = listRes?.items || listRes?.data || listRes?.products || listRes?.rows || listRes?.list || [];
+    console.log('[Stats] products length:', items.length);
 
-// Bắt thêm các key thường gặp
-const products = res?.items || res?.data || res?.products || res?.rows || res?.list || [];
+    // Helper ép số: xử lý "1,200" / "120.000đ"
+    const toNum = (x) => {
+      if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
+      return Number(x || 0);
+    };
 
-// Hàm ép số an toàn (xử lý chuỗi "1,000" hoặc "120.000đ")
-const toNum = (x) => {
-  if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
-  return Number(x || 0);
-};
+    // 2) Hàm lấy chi tiết 1 sản phẩm (chi tiết mới có cost / import_price)
+    const fetchDetail = async (id) => {
+      try {
+        const detail = await Admin.tryPaths([
+          `/admin/product?id=${encodeURIComponent(id)}`,
+          `/admin/product/detail?id=${encodeURIComponent(id)}`,
+          `/admin/products/detail?id=${encodeURIComponent(id)}`
+        ]);
+        return detail?.item || detail?.data || detail || null;
+      } catch (e) {
+        console.warn('[Stats] detail not found for', id, e);
+        return null;
+      }
+    };
 
-let totalValue = 0;
-products.forEach(p => {
-  const variants = Array.isArray(p.variants) ? p.variants
-                : Array.isArray(p.options)  ? p.options
-                : Array.isArray(p.skus)     ? p.skus
-                : [];
+    // 3) Duyệt từng sản phẩm → cộng Σ (stock × cost)
+    let totalValue = 0;
 
-  if (variants.length > 0) {
-    variants.forEach(v => {
-      const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
-      const costPrice = toNum(v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? v.purchase_price);
-      totalValue += stock * costPrice;
-    });
-  } else {
-    const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
-    const costPrice = toNum(p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? p.purchase_price);
-    totalValue += stock * costPrice;
-  }
-});
+    for (const it of items) {
+      const id = it?.id || it?._id;
+      if (!id) continue;
 
-// Log nhanh độ dài & 1 mẫu để bạn kiểm tra
-console.log('[Stats] products.length =', products.length);
-if (products[0]) {
-  const sample = products[0];
-  console.log('[Stats] sample product keys =', Object.keys(sample));
-  const sv = (sample.variants || sample.options || sample.skus || [])[0];
-  if (sv) console.log('[Stats] sample variant keys =', Object.keys(sv));
-}
+      const p = await fetchDetail(id);
+      if (!p) continue;
 
-this.$('inventoryValue').textContent = this.formatMoney(totalValue);
-console.log('[Stats] Inventory value:', totalValue);
+      const variants = Array.isArray(p.variants) ? p.variants
+                    : Array.isArray(p.options)  ? p.options
+                    : Array.isArray(p.skus)     ? p.skus
+                    : [];
+
+      if (variants.length > 0) {
+        for (const v of variants) {
+          const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
+          const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+          totalValue += stock * cost;
+        }
+      } else {
+        const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
+        const cost  = toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price);
+        totalValue += stock * cost;
+      }
+    }
+
+    // 4) Cập nhật lên UI
+    this.$('inventoryValue').textContent = this.formatMoney(totalValue);
+    console.log('[Stats] Inventory value:', totalValue);
   } catch (error) {
-    console.error('[Stats] Error loading inventory:', error);
+    console.error('[Stats] Error loading inventory value:', error);
     this.$('inventoryValue').textContent = '0đ';
   }
 }

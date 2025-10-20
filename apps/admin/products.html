@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="./styles.css"/>
 <script src="./admin_real.js"></script>
 <script src="./sidebar-layout.js"></script>
+<script src="./_shared/utils-admin.js"></script>
+<script src="./_shared/api-admin.js"></script>
+<script src="./_shared/charts-admin.js"></script>
 <style>
 /* Product-specific styles */
 .toolbar {
@@ -285,43 +288,98 @@ document.addEventListener('DOMContentLoaded', function() {
   function formatPrice(price) {
     return Number(price || 0).toLocaleString('vi-VN') + 'đ';
   }
+  // [BẮT ĐẦU CHÈN] helpers enrich (đặt ngay sau function formatPrice)
+const toNum = (x) => typeof x === 'string'
+  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+  : (Number(x || 0));
 
-  function createProductCard(p) {
-    const price = p.price_sale || p.price || 0;
-    const imgUrl = cdnUrl((p.images && p.images[0]) || '');
-    const id = p.id || p._id || p.key || '';
-    
-    const variants = Array.isArray(p.variants) ? p.variants :
-                     Array.isArray(p.options) ? p.options :
-                     Array.isArray(p.skus) ? p.skus : [];
-    
-    const hasStock = variants.length > 0 
-      ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0)
-      : true;
-    
-    return `
-      <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
-        <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
-        <div class="card-image">
-          <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
-          <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
-            ${hasStock ? 'Còn hàng' : 'Hết hàng'}
-          </div>
-        </div>
-        <div class="card-content">
-          <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
-          <div class="card-meta">
-            <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
-            <div class="card-price">${formatPrice(price)}</div>
-          </div>
-        </div>
-        <div class="card-actions">
-          <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
-          <button class="btn danger" onclick="window.deleteProduct('${id}')">🗑️ Xóa</button>
+async function getProductDetail(id) {
+  return await Admin.tryPaths([
+    '/admin/product?id=' + encodeURIComponent(id),
+    '/admin/product/detail?id=' + encodeURIComponent(id),
+    '/admin/products/detail?id=' + encodeURIComponent(id)
+  ]).then(r => r?.item || r?.data || r || null);
+}
+
+async function enrichProducts(items) {
+  for (const p of items) {
+    const basePrice = toNum(p.price_sale || p.price);
+    if (basePrice > 0) continue; // list đã có giá thì bỏ qua
+
+    const id = p.id || p._id || p.key;
+    if (!id) continue;
+
+    try {
+      const d = await getProductDetail(id);
+      if (!d) continue;
+
+      const variants = Array.isArray(d.variants) ? d.variants
+                    : Array.isArray(d.options)  ? d.options
+                    : Array.isArray(d.skus)     ? d.skus
+                    : [];
+
+      if (variants.length > 0) {
+        const pick = variants.find(v => toNum(v.stock ?? v.inventory ?? v.quantity) > 0) || variants[0];
+        const vStock = toNum(pick.stock ?? pick.inventory ?? pick.quantity);
+        const vCost  = toNum(pick.cost ?? pick.cost_price ?? pick.import_price ?? pick.price_import ?? pick.purchase_price);
+        const vPrice = toNum(pick.price_sale ?? pick.price);
+        p.displayPrice = vPrice > 0 ? vPrice : (vCost > 0 ? vCost : 0);
+        p._hasStock = vStock > 0;
+      } else {
+        const stock = toNum(d.stock ?? d.inventory ?? d.quantity);
+        const cost  = toNum(d.cost ?? d.cost_price ?? d.import_price ?? d.price_import ?? d.purchase_price);
+        const price = toNum(d.price_sale ?? d.price);
+        p.displayPrice = price > 0 ? price : (cost > 0 ? cost : 0);
+        p._hasStock = stock > 0;
+      }
+    } catch (e) {
+      console.warn('[Products] enrich fail for', id, e);
+    }
+  }
+  return items;
+}
+// [KẾT THÚC CHÈN]
+
+ // [BẮT ĐẦU THAY HÀM] createProductCard
+function createProductCard(p) {
+  // Ưu tiên giá đã enrich; fallback về price_sale/price như cũ
+  const price = (p.displayPrice != null) ? p.displayPrice : (p.price_sale || p.price || 0);
+  const imgUrl = cdnUrl((p.images && p.images[0]) || '');
+  const id = p.id || p._id || p.key || '';
+
+  const variants = Array.isArray(p.variants) ? p.variants
+                : Array.isArray(p.options)  ? p.options
+                : Array.isArray(p.skus)     ? p.skus
+                : [];
+
+  const hasStock = (typeof p._hasStock === 'boolean')
+    ? p._hasStock
+    : (variants.length > 0 ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0) : true);
+
+  return `
+    <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
+      <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
+      <div class="card-image">
+        <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
+        <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
+          ${hasStock ? 'Còn hàng' : 'Hết hàng'}
         </div>
       </div>
-    `;
-  }
+      <div class="card-content">
+        <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
+        <div class="card-meta">
+          <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
+          <div class="card-price">${formatPrice(price)}</div>
+        </div>
+      </div>
+      <div class="card-actions">
+        <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
+        <button class="btn danger" onclick="window.deleteProduct('${id}')">🗑️ Xóa</button>
+      </div>
+    </div>
+  `;
+}
+// [KẾT THÚC THAY HÀM]
 
   async function load() {
     console.log('[Products] Loading products...');
@@ -353,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
         grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
         return;
       }
-      
+      await enrichProducts(filtered);
       grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
       console.log('[Products] Rendered', filtered.length, 'products');
       
