@@ -9,6 +9,10 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  */
 export async function superToken(env) {
   // 1. Kiểm tra super_key trước
+  if (env.SUPER_KEY) {                                      // ← THÊM
+    console.log('[superToken] ✅ Using SUPER_KEY from env');// ← THÊM
+    return env.SUPER_KEY;                                   // ← THÊM
+  }
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
@@ -109,7 +113,7 @@ export async function superFetch(env, path, options = {}) {
   if (options.useBearer) {
     headers['Authorization'] = 'Bearer ' + token;
   } else {
-    headers['token'] = token;
+    headers['Token'] = token;
   }
 
   // ✅ LOG HEADERS TRƯỚC KHI GỬI
