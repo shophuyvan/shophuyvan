@@ -239,37 +239,46 @@ class StatsManager {
     }
   }
 
-  async loadInventoryValue() {
-    try {
-      const res = await Admin.req('/admin/products', { method: 'GET' });
-      const products = res.items || res.data || res.products || [];
-      
-      let totalValue = 0;
-      products.forEach(p => {
-        const variants = Array.isArray(p.variants) ? p.variants :
-                         Array.isArray(p.options) ? p.options :
-                         Array.isArray(p.skus) ? p.skus : [];
-        
-        if (variants.length > 0) {
-          variants.forEach(v => {
-            const stock = v.stock ?? v.inventory ?? v.quantity ?? 0;
-            const costPrice = v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? 0;
-            totalValue += stock * costPrice;
-          });
-        } else {
-          const stock = p.stock ?? p.inventory ?? p.quantity ?? 0;
-          const costPrice = p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? 0;
+  // BẮT ĐẦU THAY HÀM
+async loadInventoryValue() {
+  try {
+    // Dùng đa endpoint giống trang Sản phẩm
+    const res = await Admin.tryPaths([
+      '/admin/products',
+      '/admin/product/list',
+      '/admin/products/list'
+    ]);
+
+    const products = res?.items || res?.data || res?.products || [];
+
+    let totalValue = 0;
+    products.forEach(p => {
+      const variants = Array.isArray(p.variants) ? p.variants
+                     : Array.isArray(p.options)  ? p.options
+                     : Array.isArray(p.skus)     ? p.skus
+                     : [];
+
+      if (variants.length > 0) {
+        variants.forEach(v => {
+          const stock = Number(v.stock ?? v.inventory ?? v.quantity ?? 0) || 0;
+          const costPrice = Number(v.cost_price ?? v.import_price ?? v.price_import ?? v.cost ?? 0) || 0;
           totalValue += stock * costPrice;
-        }
-      });
-      
-      this.$('inventoryValue').textContent = this.formatMoney(totalValue);
-      console.log('[Stats] Inventory value:', totalValue);
-    } catch (error) {
-      console.error('[Stats] Error loading inventory:', error);
-      this.$('inventoryValue').textContent = '0đ';
-    }
+        });
+      } else {
+        const stock = Number(p.stock ?? p.inventory ?? p.quantity ?? 0) || 0;
+        const costPrice = Number(p.cost_price ?? p.import_price ?? p.price_import ?? p.cost ?? 0) || 0;
+        totalValue += stock * costPrice;
+      }
+    });
+
+    this.$('inventoryValue').textContent = this.formatMoney(totalValue);
+    console.log('[Stats] Inventory value:', totalValue);
+  } catch (error) {
+    console.error('[Stats] Error loading inventory:', error);
+    this.$('inventoryValue').textContent = '0đ';
   }
+}
+// KẾT THÚC THAY HÀM
 
   // ==================== UPDATE UI ====================
   updateStats() {
