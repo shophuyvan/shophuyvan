@@ -9,20 +9,21 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  */
 export async function superToken(env) {
   // 1. Kiểm tra super_key trước
- if (env.SUPER_KEY && typeof env.SUPER_KEY === 'string' && env.SUPER_KEY.length > 50) {
-  console.log('[superToken] ✅ Using SUPER_KEY from env');
-  return env.SUPER_KEY;
-}
+  if (env.SUPER_KEY && typeof env.SUPER_KEY === 'string' && env.SUPER_KEY.length > 50) {
+    console.log('[superToken] ✅ Using SUPER_KEY from env');
+    return env.SUPER_KEY;
+  }
+
   try {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
-    
+
     console.log('[superToken] 🔍 Checking settings:', {
       hasShipping: !!shipping,
       hasKey: !!shipping.super_key,
       keyLength: shipping.super_key ? shipping.super_key.length : 0
     });
-    
+
     if (shipping.super_key) {
       console.log('[superToken] ✅ Found super_key:', shipping.super_key.substring(0, 20) + '...');
       return shipping.super_key;
@@ -46,41 +47,44 @@ export async function superToken(env) {
     });
 
     if (user && pass && partner) {
-  const urls = [
-    'https://dev.superai.vn/v1/platform/auth/token'
-  ];
+      const urls = [
+        'https://dev.superai.vn/v1/platform/auth/token'
+      ];
 
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          username: user,
-          password: pass,
-          partner: partner
-        })
-      });
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              username: user,
+              password: pass,
+              partner: partner
+            })
+          });
 
-      const data = await response.json();
-      const token = data?.data?.token || data?.token || '';
+          const data = await response.json();
+          const token = data?.data?.token || data?.token || '';
 
-      if (token) {
-        console.log('[superToken] ✅ Got Access Token from SuperAI');
-        await putJSON(env, 'super:token', token);
-        await env.SHV.put('super:token:ts', String(Date.now()));
-        return token;
-      } else {
-        console.error('[superToken] ❌ No token field in response:', data);
+          if (token) {
+            console.log('[superToken] ✅ Got Access Token from SuperAI');
+            await putJSON(env, 'super:token', token);
+            await env.SHV.put('super:token:ts', String(Date.now()));
+            return token;
+          } else {
+            console.error('[superToken] ❌ No token field in response:', data);
+          }
+        } catch (e) {
+          console.error('[superToken] Token fetch error:', e);
+        }
       }
-    } catch (e) {
-      console.error('[superToken] Token fetch error:', e);
     }
+  } catch (e) {   // ✅ thêm phần catch bị thiếu
+    console.error('[superToken] Password flow error:', e);
   }
-}
 
   // 3. KV cache
   try {
