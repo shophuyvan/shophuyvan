@@ -82,7 +82,46 @@ export async function handle(req, env, ctx) {
         return await deleteRole(req, env, roleId);
       }
     }
+	// List customers
+if (path === '/admin/customers/list' && method === 'GET') {
+  return await listCustomers(req, env);
+}
 
+// Create customer (admin tạo)
+if (path === '/admin/customers/create' && method === 'POST') {
+  return await createCustomer(req, env);
+}
+
+// Get/Update/Delete customer by ID
+const customerMatch = path.match(/^\/admin\/customers\/([^\/]+)$/);
+if (customerMatch) {
+  const customerId = customerMatch[1];
+  
+  if (method === 'GET') {
+    return await getCustomer(req, env, customerId);
+  }
+  if (method === 'PUT') {
+    return await updateCustomer(req, env, customerId);
+  }
+  if (method === 'DELETE') {
+    return await deleteCustomer(req, env, customerId);
+  }
+}
+
+// PUBLIC API - Customer register (từ FE)
+if (path === '/api/customers/register' && method === 'POST') {
+  return await customerRegister(req, env);
+}
+
+// PUBLIC API - Customer login
+if (path === '/api/customers/login' && method === 'POST') {
+  return await customerLogin(req, env);
+}
+
+// PUBLIC API - Get customer info (cần token)
+if (path === '/api/customers/me' && method === 'GET') {
+  return await customerMe(req, env);
+}
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
 
   } catch (e) {
@@ -664,5 +703,333 @@ async function deleteRole(req, env, roleId) {
   } catch (e) {
     console.error('[Admin] Delete role error:', e);
     return json({ ok: false, error: 'Failed to delete role' }, { status: 500 }, req);
+  }
+}
+// ===================================================================
+// CUSTOMERS MANAGEMENT FUNCTIONS
+// Chèn vào CUỐI FILE admin.js (sau hàm deleteRole)
+// ===================================================================
+
+/**
+ * List all customers
+ */
+async function listCustomers(req, env) {
+  try {
+    const listData = await env.SHV.get('customer:list');
+    const list = listData ? JSON.parse(listData) : [];
+
+    const customers = [];
+    for (const customerId of list) {
+      const customerData = await env.SHV.get(`customer:${customerId}`);
+      if (customerData) {
+        const customer = JSON.parse(customerData);
+        const { password_hash, ...safeCustomer } = customer;
+        customers.push(safeCustomer);
+      }
+    }
+
+    return json({ ok: true, customers, total: customers.length }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] List error:', e);
+    return json({ ok: false, error: 'Failed to list customers' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Create customer (Admin tạo)
+ */
+async function createCustomer(req, env) {
+  try {
+    const body = await req.json();
+    const { email, password, full_name, phone, customer_type, points } = body;
+
+    if (!email || !password || !full_name) {
+      return json({ ok: false, error: 'Email, password và họ tên là bắt buộc' }, { status: 400 }, req);
+    }
+
+    // Check email exists
+    const emailKey = `customer:email:${email.toLowerCase()}`;
+    const existing = await env.SHV.get(emailKey);
+    if (existing) {
+      return json({ ok: false, error: 'Email đã tồn tại' }, { status: 409 }, req);
+    }
+
+    const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    const now = new Date().toISOString();
+
+    const password_hash = '$2a$10$' + btoa(password).slice(0, 53);
+
+    const newCustomer = {
+      id: customerId,
+      email: email.toLowerCase(),
+      password_hash,
+      full_name,
+      phone: phone || '',
+      customer_type: customer_type || 'retail', // 'retail' | 'wholesale'
+      points: points || 0,
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+      last_login: null,
+      created_by: 'admin'
+    };
+
+    await env.SHV.put(`customer:${customerId}`, JSON.stringify(newCustomer));
+    await env.SHV.put(emailKey, JSON.stringify(newCustomer));
+
+    const listData = await env.SHV.get('customer:list');
+    const list = listData ? JSON.parse(listData) : [];
+    list.push(customerId);
+    await env.SHV.put('customer:list', JSON.stringify(list));
+
+    const { password_hash: _, ...safeCustomer } = newCustomer;
+
+    return json({ ok: true, customer: safeCustomer }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Create error:', e);
+    return json({ ok: false, error: 'Failed to create customer' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Get customer by ID
+ */
+async function getCustomer(req, env, customerId) {
+  try {
+    const customerData = await env.SHV.get(`customer:${customerId}`);
+    if (!customerData) {
+      return json({ ok: false, error: 'Customer not found' }, { status: 404 }, req);
+    }
+
+    const customer = JSON.parse(customerData);
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json({ ok: true, customer: safeCustomer }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Get error:', e);
+    return json({ ok: false, error: 'Failed to get customer' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Update customer
+ */
+async function updateCustomer(req, env, customerId) {
+  try {
+    const customerData = await env.SHV.get(`customer:${customerId}`);
+    if (!customerData) {
+      return json({ ok: false, error: 'Customer not found' }, { status: 404 }, req);
+    }
+
+    const customer = JSON.parse(customerData);
+    const body = await req.json();
+
+    if (body.full_name) customer.full_name = body.full_name;
+    if (body.phone) customer.phone = body.phone;
+    if (body.customer_type) customer.customer_type = body.customer_type;
+    if (body.points !== undefined) customer.points = body.points;
+    if (body.status) customer.status = body.status;
+
+    if (body.password) {
+      customer.password_hash = '$2a$10$' + btoa(body.password).slice(0, 53);
+    }
+
+    customer.updated_at = new Date().toISOString();
+
+    await env.SHV.put(`customer:${customerId}`, JSON.stringify(customer));
+    await env.SHV.put(`customer:email:${customer.email}`, JSON.stringify(customer));
+
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json({ ok: true, customer: safeCustomer }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Update error:', e);
+    return json({ ok: false, error: 'Failed to update customer' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Delete customer
+ */
+async function deleteCustomer(req, env, customerId) {
+  try {
+    const customerData = await env.SHV.get(`customer:${customerId}`);
+    if (!customerData) {
+      return json({ ok: false, error: 'Customer not found' }, { status: 404 }, req);
+    }
+
+    const customer = JSON.parse(customerData);
+
+    await env.SHV.delete(`customer:${customerId}`);
+    await env.SHV.delete(`customer:email:${customer.email}`);
+
+    const listData = await env.SHV.get('customer:list');
+    const list = listData ? JSON.parse(listData) : [];
+    const newList = list.filter(id => id !== customerId);
+    await env.SHV.put('customer:list', JSON.stringify(newList));
+
+    return json({ ok: true, message: 'Customer deleted' }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Delete error:', e);
+    return json({ ok: false, error: 'Failed to delete customer' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Customer Register (PUBLIC API)
+ */
+async function customerRegister(req, env) {
+  try {
+    const body = await req.json();
+    const { email, password, full_name, phone } = body;
+
+    if (!email || !password || !full_name) {
+      return json({ ok: false, error: 'Vui lòng điền đầy đủ thông tin' }, { status: 400 }, req);
+    }
+
+    // Check email exists
+    const emailKey = `customer:email:${email.toLowerCase()}`;
+    const existing = await env.SHV.get(emailKey);
+    if (existing) {
+      return json({ ok: false, error: 'Email đã được đăng ký' }, { status: 409 }, req);
+    }
+
+    const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    const now = new Date().toISOString();
+
+    const password_hash = '$2a$10$' + btoa(password).slice(0, 53);
+
+    const newCustomer = {
+      id: customerId,
+      email: email.toLowerCase(),
+      password_hash,
+      full_name,
+      phone: phone || '',
+      customer_type: 'retail', // Mặc định là khách lẻ
+      points: 0,
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+      last_login: null,
+      created_by: 'self'
+    };
+
+    await env.SHV.put(`customer:${customerId}`, JSON.stringify(newCustomer));
+    await env.SHV.put(emailKey, JSON.stringify(newCustomer));
+
+    const listData = await env.SHV.get('customer:list');
+    const list = listData ? JSON.parse(listData) : [];
+    list.push(customerId);
+    await env.SHV.put('customer:list', JSON.stringify(list));
+
+    // Auto login
+    const token = btoa(`${customerId}:${Date.now()}`);
+
+    const { password_hash: _, ...safeCustomer } = newCustomer;
+
+    return json({
+      ok: true,
+      message: 'Đăng ký thành công!',
+      token,
+      customer: safeCustomer
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Register error:', e);
+    return json({ ok: false, error: 'Lỗi đăng ký: ' + e.message }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Customer Login (PUBLIC API)
+ */
+async function customerLogin(req, env) {
+  try {
+    const body = await req.json();
+    const { email, password } = body;
+
+    if (!email || !password) {
+      return json({ ok: false, error: 'Vui lòng nhập email và mật khẩu' }, { status: 400 }, req);
+    }
+
+    const emailKey = `customer:email:${email.toLowerCase()}`;
+    const customerData = await env.SHV.get(emailKey);
+
+    if (!customerData) {
+      return json({ ok: false, error: 'Email hoặc mật khẩu không đúng' }, { status: 401 }, req);
+    }
+
+    const customer = JSON.parse(customerData);
+
+    if (customer.status !== 'active') {
+      return json({ ok: false, error: 'Tài khoản đã bị khóa' }, { status: 403 }, req);
+    }
+
+    // Simple password check
+    const validPassword = password === customer.password_hash ||
+                         btoa(password) === customer.password_hash.replace('$2a$10$', '').slice(0, 53);
+
+    if (!validPassword) {
+      return json({ ok: false, error: 'Email hoặc mật khẩu không đúng' }, { status: 401 }, req);
+    }
+
+    // Update last login
+    customer.last_login = new Date().toISOString();
+    await env.SHV.put(`customer:${customer.id}`, JSON.stringify(customer));
+    await env.SHV.put(emailKey, JSON.stringify(customer));
+
+    const token = btoa(`${customer.id}:${Date.now()}`);
+
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json({
+      ok: true,
+      message: 'Đăng nhập thành công!',
+      token,
+      customer: safeCustomer
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Login error:', e);
+    return json({ ok: false, error: 'Lỗi đăng nhập: ' + e.message }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Get current customer info (PUBLIC API)
+ */
+async function customerMe(req, env) {
+  try {
+    let token = req.headers.get('Authorization')?.replace('Bearer ', '') ||
+                req.headers.get('x-customer-token') || '';
+
+    if (!token) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const decoded = atob(token);
+    const customerId = decoded.split(':')[0];
+
+    const customerData = await env.SHV.get(`customer:${customerId}`);
+    if (!customerData) {
+      return json({ ok: false, error: 'Customer not found' }, { status: 404 }, req);
+    }
+
+    const customer = JSON.parse(customerData);
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json({
+      ok: true,
+      customer: safeCustomer
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Customers] Me error:', e);
+    return json({ ok: false, error: 'Invalid token' }, { status: 401 }, req);
   }
 }

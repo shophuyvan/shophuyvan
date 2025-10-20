@@ -154,6 +154,11 @@ class StatsManager {
       let confirmedOrders = 0;
       let totalRevenue = 0;
       let totalCostPrice = 0;
+	  // [BẮT ĐẦU CHÈN - toNum helper cho tính cost*qty]
+const toNum = (x) => typeof x === 'string'
+  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+  : (Number(x || 0));
+// [KẾT THÚC CHÈN - toNum helper]
       
       const platformStats = {
         'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
@@ -183,32 +188,48 @@ class StatsManager {
           platformStats[platform].success++;
         }
         
-        if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy') && status !== 'cancelled') {
-          const orderRevenue = order.revenue || order.subtotal || order.total || 0;
-          const orderProfit = order.profit || 0;
-          const orderCost = orderRevenue - orderProfit;
-          
-          totalRevenue += orderRevenue;
-          totalCostPrice += orderCost;
-          
-          platformStats[platform].revenue += orderRevenue;
-          platformStats[platform].cost_price += orderCost;
-          platformStats[platform].profit += orderProfit;
-          
-          const items = order.items || [];
-          items.forEach(item => {
-            const productName = item.title || item.name || item.product_name || 'Unknown';
-            const qty = item.qty || item.quantity || 1;
-            const price = item.price || item.unit_price || 0;
-            
-            if (!productStats[productName]) {
-              productStats[productName] = { name: productName, qty: 0, revenue: 0 };
-            }
-            productStats[productName].qty += qty;
-            productStats[productName].revenue += price * qty;
-          });
-        }
-      });
+        // [BẮT ĐẦU THAY KHỐI GIÁ NHẬP - tính cost × qty]
+if (!status.includes('cancel') && !status.includes('hủy') && !status.includes('huy') && status !== 'cancelled') {
+  // Doanh thu của đơn
+  const orderRevenue = order.revenue || order.subtotal || order.total || 0;
+
+  // TÍNH GIÁ NHẬP THEO SỐ LƯỢNG TỪ DÒNG HÀNG
+  const lines = Array.isArray(order.items) ? order.items
+              : Array.isArray(order.order_items) ? order.order_items
+              : Array.isArray(order.lines) ? order.lines
+              : [];
+  let orderImportCost = 0;
+  lines.forEach(it => {
+    const qty = toNum(it.qty ?? it.quantity ?? it.count);
+    const unitCost = toNum(
+      it.cost ?? it.cost_price ?? it.import_price ?? it.price_import ?? it.purchase_price
+    );
+    orderImportCost += qty * unitCost;
+  });
+
+  // CỘNG TỔNG
+  totalRevenue   += orderRevenue;
+  totalCostPrice += orderImportCost;
+
+  platformStats[platform].revenue    += orderRevenue;
+  platformStats[platform].cost_price += orderImportCost;
+  // platformStats[platform].profit giữ nguyên cách hiển thị ở bảng: revenue - cost_price
+
+  // Thống kê top sản phẩm (giữ nguyên)
+  const items = lines;
+  items.forEach(item => {
+    const productName = item.title || item.name || item.product_name || 'Unknown';
+    const qty = toNum(item.qty ?? item.quantity ?? 1);
+    const price = toNum(item.price ?? item.unit_price ?? 0);
+
+    if (!productStats[productName]) {
+      productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+    }
+    productStats[productName].qty += qty;
+    productStats[productName].revenue += price * qty;
+  });
+}
+// [KẾT THÚC THAY KHỐI GIÁ NHẬP]
       
       const topProducts = Object.values(productStats)
         .sort((a, b) => b.revenue - a.revenue)
