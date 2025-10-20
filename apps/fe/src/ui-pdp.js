@@ -44,18 +44,33 @@ function num(x) {
   }
 }
 
-function pricePair(o) {
+async function pricePair(o, customerType = null) {
+  // ✅ Nếu chưa truyền customerType, tự động lấy
+  if (!customerType) {
+    const customer = await getCustomerInfo();
+    customerType = customer?.customer_type || 'retail';
+  }
+  
+  // ✅ Ưu tiên giá sỉ nếu là khách sỉ
+  if (customerType === 'wholesale') {
+    const wholesale = num(o?.price_wholesale ?? 0);
+    if (wholesale > 0) {
+      return { base: wholesale, original: null, isWholesale: true };
+    }
+  }
+  
+  // ✅ Giá bán lẻ (mặc định)
   const sale = num(o?.sale_price ?? o?.price_sale ?? o?.sale ?? 0);
   const reg = num(o?.price ?? o?.regular_price ?? o?.base_price ?? 0);
   
   if (sale > 0) {
-    return { base: sale, original: reg > 0 ? reg : null };
+    return { base: sale, original: reg > 0 ? reg : null, isWholesale: false };
   }
   if (reg > 0) {
-    return { base: reg, original: null };
+    return { base: reg, original: null, isWholesale: false };
   }
   const any = num(o?.base ?? o?.min_price ?? 0);
-  return { base: any, original: null };
+  return { base: any, original: null, isWholesale: false };
 }
 
 function cloudify(u, t = 'w_1200,dpr_auto,q_auto,f_auto') {
@@ -76,6 +91,36 @@ function htmlEscape(s) {
   return String(s ?? '').replace(/[&<>"']/g, m => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[m]));
+}
+
+// ===== CUSTOMER AUTH CHECK =====
+function getCustomerToken() {
+  return localStorage.getItem('customer_token') || 
+         localStorage.getItem('x-customer-token') || '';
+}
+
+async function getCustomerInfo() {
+  try {
+    const token = getCustomerToken();
+    if (!token) return null;
+    
+    const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const res = await fetch(`${API_BASE}/api/customers/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      localStorage.removeItem('customer_token');
+      localStorage.removeItem('x-customer-token');
+      return null;
+    }
+    
+    const data = await res.json();
+    return data.customer || null;
+  } catch(e) {
+    console.error('[Customer] Get info error:', e);
+    return null;
+  }
 }
 
 function mdToHTML(raw) {
@@ -281,18 +326,22 @@ function renderTitle() {
   }
 }
 
-function renderPriceStock() {
+async function renderPriceStock() {
   const priceOriginalEl = document.getElementById('p-price-original');
   const priceSaleEl = document.getElementById('p-price-sale');
   const stockEl = document.getElementById('p-stock');
   
   if (!priceSaleEl) return;
 
+  // ✅ Lấy thông tin customer
+  const customer = await getCustomerInfo();
+  const customerType = customer?.customer_type || 'retail';
+
   const vs = variantsOf(PRODUCT).slice(0, 400);
   let rendered = false;
 
   if (vs.length) {
-    const pairs = vs.map(v => pricePair(v));
+    const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
     const baseVals = pairs.map(p => +p.base || 0).filter(v => v > 0);
     
     if (baseVals.length) {
@@ -310,7 +359,12 @@ function renderPriceStock() {
         ? formatPrice(minBase) 
         : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
       
-      priceSaleEl.textContent = baseText;
+      // ✅ Thêm badge nếu là giá sỉ
+      const badge = (customerType === 'wholesale' && pairs.some(p => p.isWholesale))
+        ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
+        : '';
+      
+      priceSaleEl.innerHTML = baseText + badge;
       
       if (minOrig > 0 && maxOrig > 0 && maxOrig > minBase) {
         const origText = (minOrig === maxOrig) 
@@ -331,9 +385,15 @@ function renderPriceStock() {
 
   if (!rendered) {
     const src = CURRENT || PRODUCT || null;
-    const { base, original } = pricePair(src || {});
+    const priceData = await pricePair(src || {}, customerType);
+    const { base, original, isWholesale } = priceData;
     
-    priceSaleEl.textContent = formatPrice(+base || 0);
+    // ✅ Thêm badge nếu là giá sỉ
+    const badge = (isWholesale)
+      ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
+      : '';
+    
+    priceSaleEl.innerHTML = formatPrice(+base || 0) + badge;
     
     if (original && original > base && priceOriginalEl) {
       priceOriginalEl.textContent = formatPrice(original);
@@ -595,30 +655,31 @@ function openVariantModal(mode) {
   mask.innerHTML = html;
 
   // === Các xử lý sự kiện ===
-  function updPrice() {
+  async function updPrice() {
     const src = CURRENT || PRODUCT;
-    const pr = pricePair(src);
+    const pr = await pricePair(src); // ✅ THÊM await
     const stock = src.stock || src.qty || src.quantity || 0;
     mask.querySelector('#vm-price').textContent = formatPrice(pr.base || 0);
     mask.querySelector('#vm-stock-info').textContent = stock > 0 ? `Còn ${stock} sản phẩm` : 'Hết hàng';
   }
 
-  function addSelectedToCart() {
+  async function addSelectedToCart() {
     const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
     const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src); // ✅ THÊM biến pr
     const item = {
       id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
       name: PRODUCT.title || PRODUCT.name || '',
       image: imagesOf(src)[0] || '',
       variantName: src.name || '',
-      price: Number(pricePair(src).base || 0),
+      price: Number(pr.base || 0), // ✅ DÙNG pr.base
       qty
     };
     addToCart(item, qty);
   }
 
-  mask.querySelector('#vm-add').onclick = () => {
-    addSelectedToCart();
+  mask.querySelector('#vm-add').onclick = async () => { // ✅ THÊM async
+    await addSelectedToCart(); // ✅ THÊM await
     closeModal();
     window.dispatchEvent(new Event('shv:cart-changed'));
     showSuccessToast('✓ Đã thêm vào giỏ hàng');
@@ -649,7 +710,7 @@ function openVariantModal(mode) {
   mask.querySelector('#vm-close').onclick = closeModal;
   mask.onclick = (e) => { if (e.target === mask) closeModal(); };
 
-  updPrice();
+  updPrice(); // ✅ GIỮ NGUYÊN (sẽ tự resolve promise)
 }
 
 

@@ -95,9 +95,9 @@ function toSummary(product) {
     sku: product.sku || '',
     price: product.price || 0,
     price_sale: product.price_sale || 0,
+    price_wholesale: product.price_wholesale || 0, // ✅ THÊM DÒNG NÀY
     stock: product.stock || 0,
     images: product.images || [],
-    // ✅ FIX: Thêm category fields vào summary
     category: product.category || '',
     category_slug: product.category_slug || product.category || '',
     status: (product.status === 0 ? 0 : 1)
