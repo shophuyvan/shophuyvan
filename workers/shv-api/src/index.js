@@ -14,6 +14,20 @@ import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
 
+// ---- CORS wrapper: đảm bảo mọi Response đều có CORS ----
+function withCors(res, req) {
+  const h = new Headers(res.headers);
+  const origin = req.headers.get('Origin') || '*';
+  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'Content-Type, Authorization';
+  h.set('Access-Control-Allow-Origin', origin);
+  h.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  h.set('Access-Control-Allow-Headers', reqHdr);
+  h.set('Access-Control-Max-Age', '86400');
+  h.set('Vary', 'Origin');
+  if (!h.has('content-type')) h.set('content-type', 'application/json; charset=utf-8');
+  return new Response(res.body, { status: res.status, headers: h });
+}
+
 /**
  * Logger middleware
  */
@@ -57,7 +71,7 @@ export default {
       if (path === '/admin/login' ||
           path === '/login' ||
           path === '/admin_auth/login') {
-        return admin.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
       
       // Admin management routes
@@ -65,7 +79,7 @@ export default {
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
           path.startsWith('/admin/roles')) {
-        return admin.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
       // ============================================
@@ -75,7 +89,7 @@ export default {
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
           path === '/api/customers/me') {
-        return admin.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
       // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
