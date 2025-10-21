@@ -258,19 +258,49 @@ function minVarPrice(p){
     return { sale:minSale, regular:minRegular };
   }catch{ return null; }
 }
-function priceStr(p) {
-  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
+
+function priceStr(p){
+  const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
+
+  // 1) Nếu có formatter theo nhóm khách → dùng trước, NHƯNG nếu có "0đ" ở bất kỳ dạng nào thì bỏ
   if (typeof formatPriceByCustomer === 'function') {
-    return formatPriceByCustomer(p, null);
+    const html = formatPriceByCustomer(p, null);
+    if (html && !/0\s*đ/i.test(html)) return html; // bỏ các case <b>0đ</b>, 0 đ, ...
   }
-  
-  // Fallback: old logic
-  const mv = minVarPrice(p)||{}; 
-  const s = Number(mv.sale ?? p.price_sale ?? 0); 
-  const r = Number(mv.regular ?? p.price ?? 0);
-  if (s && s<r) return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
-  return `<div data-price><b>${(r||s||0).toLocaleString()}đ</b></div>`;
+
+  // 2) Fallback: chỉ dùng sale/regular (KHÔNG dùng cost)
+  const vars = Array.isArray(p?.variants) ? p.variants
+            : Array.isArray(p?.options)  ? p.options
+            : Array.isArray(p?.skus)     ? p.skus : [];
+  let sale = 0, regular = 0;
+  const upd = (vs, vr) => {
+    const s = toNum(vs), r = toNum(vr);
+    if (s>0) sale    = sale    ? Math.min(sale, s)   : s;
+    if (r>0) regular = regular ? Math.min(regular,r) : r;
+  };
+
+  if (vars.length){
+    for (const v of vars){
+      upd(v.price_sale ?? v.sale_price ?? v.sale,
+          v.price ?? v.unit_price ?? v.regular_price ?? v.base_price);
+    }
+  } else {
+    upd(p.price_sale ?? p.sale_price ?? p.sale,
+        p.price ?? p.unit_price ?? p.regular_price ?? p.base_price);
+  }
+
+  if (sale>0 && regular>0 && sale<regular){
+    return `<div>
+      <b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b>
+      <span class="line-through opacity-70 text-sm">${regular.toLocaleString('vi-VN')}đ</span>
+    </div>`;
+  }
+  if (regular>0) return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
+  if (sale>0)    return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
+
+  return `<div data-price><b>0đ</b></div>`;
 }
+
 // --- Price hydration: fetch full product if summary lacks prices/variants ---
 const __priceCache = new Map();
 async function fetchFullProduct(id){
@@ -379,7 +409,9 @@ async function hydratePrices(items){
     for(const p of list){
       const id = String(p.id||p.key||'');
       const probe = minVarPrice(p);
-      const hasPrice = (probe && (probe.sale>0 || probe.regular>0)) || Number(p?.price_sale||p?.sale_price||p?.price||0)>0;
+      const hasPrice =
+       (probe && (probe.sale>0 || probe.regular>0)) ||
+       Number(p?.price_sale || p?.sale_price || p?.sale || p?.price || p?.unit_price || p?.regular_price || p?.base_price || 0) > 0;
       if(hasPrice) continue;
       const full = await fetchFullProduct(id);
       if(!full) continue;
