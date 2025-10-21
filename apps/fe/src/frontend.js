@@ -315,38 +315,59 @@ async function fetchFullProduct(id){
 
 function priceHtmlFrom(p){
   const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
-  const getMin = (prod)=>{
+
+  // Lấy giá theo sale/regular (KHÔNG dùng cost để hiển thị)
+  const getSaleRegular = (prod)=>{
     const vars = Array.isArray(prod?.variants) ? prod.variants
                : Array.isArray(prod?.options)  ? prod.options
                : Array.isArray(prod?.skus)     ? prod.skus : [];
-    const cand = [];
-    const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
+
+    let minSale = 0, minRegular = 0;
+    const upd = (vSale, vReg) => {
+      const s = toNum(vSale), r = toNum(vReg);
+      if (s > 0) minSale    = minSale    ? Math.min(minSale, s)      : s;
+      if (r > 0) minRegular = minRegular ? Math.min(minRegular, r)   : r;
+    };
+
     if (vars.length){
       for (const v of vars){
-        push(v.price_sale ?? v.sale_price ?? v.sale);
-        push(v.price ?? v.unit_price);
-        // nếu vẫn không có price thì cho phép dùng cost làm mốc hiển thị
-        push(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+        upd(v.price_sale ?? v.sale_price ?? v.sale,
+            v.price ?? v.unit_price);
       }
     } else {
-      push(prod.price_sale ?? prod.sale_price ?? prod.sale);
-      push(prod.price ?? prod.unit_price);
-      push(prod.cost ?? prod.cost_price ?? prod.import_price ?? prod.price_import ?? prod.purchase_price);
+      upd(prod.price_sale ?? prod.sale_price ?? prod.sale,
+          prod.price ?? prod.unit_price);
     }
-    return cand.length ? Math.min(...cand) : 0;
+    return { sale: minSale, regular: minRegular };
   };
 
   try{
-    // 1) Giá theo nhóm khách nếu có
+    // 1) Nếu có formatter theo nhóm khách hàng → dùng trước
     if (typeof formatPriceByCustomer === 'function') {
       const html = formatPriceByCustomer(p, null);
-      // nếu formatter trả 0đ/để trống → Fallback
-      if (html && !/0\s*đ/i.test(html)) return html;
+      // Nếu formatter trả khác 0đ thì dùng luôn
+      if (html && !/^\s*0\s*đ\s*$/i.test(html)) return html;
     }
 
-    // 2) Fallback cứng: min(sale, price, cost) trên biến thể/sản phẩm
-    const n = getMin(p);
-    return `<div><b class="text-rose-600">${n.toLocaleString('vi-VN')}đ</b></div>`;
+    // 2) Fallback: chỉ dùng sale/regular (không dùng cost để hiển thị)
+    const { sale, regular } = getSaleRegular(p);
+    if (sale > 0 && regular > 0 && sale < regular){
+      return `<div>
+        <b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b>
+        <span class="line-through opacity-70 text-sm">${regular.toLocaleString('vi-VN')}đ</span>
+      </div>`;
+    }
+    // Nếu chỉ có regular (không có sale)
+    if (regular > 0){
+      return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
+    }
+    // Nếu chỉ có sale (regular rỗng)
+    if (sale > 0){
+      return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
+    }
+
+    // 3) Không có dữ liệu → 0đ (không hiển thị cost)
+    return `<div><b class="text-rose-600">0đ</b></div>`;
   }catch{
     return `<div><b class="text-rose-600">0đ</b></div>`;
   }
