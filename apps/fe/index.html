@@ -62,6 +62,17 @@
       </div>
     </a>
 
+    <!-- ✅ THÊM NÚT TÀI KHOẢN -->
+    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 8px;">
+      <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản" style="position: relative;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span id="user-name-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;white-space:nowrap;font-weight:700;"></span>
+      </a>
+    </div>
+
     <a href="/cart.html" class="cart" id="header-cart-btn" aria-label="Giỏ hàng">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="9" cy="20" r="1"></circle>
@@ -94,7 +105,19 @@
   <div class="mask"></div>
   <aside class="panel">
     <div class="title">Menu</div>
-    <a href="/apps/admin/login_admin.html" class="item">🔐 Đăng nhập / Đăng ký</a>
+    
+    <!-- ✅ THAY ĐỔI DÒNG NÀY -->
+    <div id="sidebar-auth">
+      <!-- Khi chưa đăng nhập -->
+      <a href="/login.html" class="item" id="sidebar-login">🔐 Đăng nhập</a>
+      <a href="/register.html" class="item" id="sidebar-register">✍️ Đăng ký</a>
+      
+      <!-- Khi đã đăng nhập (ẩn mặc định) -->
+      <div id="sidebar-user-info" style="display:none;">
+        <a href="#" class="item" id="sidebar-user-name">👤 Tài khoản</a>
+        <a href="#" class="item" id="sidebar-logout">🚪 Đăng xuất</a>
+      </div>
+    </div>
     <a href="/" class="item">🏠 Trang chủ</a>
     <a href="/guide.html" class="item">📘 Hướng dẫn sử dụng</a>
     <a href="/policy.html" class="item">📜 Chính sách</a>
@@ -109,8 +132,8 @@
   </div>
 
   <!-- Banner slider -->
-  <section class="max-w-6xl mx-auto px-4 py-4" id="banner" class="hero">
-    <div id="banner-wrap" class="grid grid-cols-1 gap-3"></div>
+  <section id="banner" class="max-w-6xl mx-auto px-4 py-4">
+    <div id="banner-wrap" style="border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
   </section>
 
   <!-- USP -->
@@ -342,5 +365,150 @@ document.addEventListener('DOMContentLoaded', function closeSidebarOnLink(){
 </script>
 <script type="module" src="/src/cart-ui-sync.js"></script>
 <script type="module" src="/src/cart-sync-init.js"></script>
+
+<!-- ✅ THÊM SCRIPT NÀY - BẮT ĐẦU -->
+<script>
+// ===========================================
+// CUSTOMER AUTH CHECK & UI UPDATE
+// ===========================================
+(function checkCustomerAuth() {
+  const token = localStorage.getItem('customer_token');
+  const customerInfo = JSON.parse(localStorage.getItem('customer_info') || '{}');
+  
+  // Elements
+  const headerUserBtn = document.getElementById('header-user-btn');
+  const userNameBadge = document.getElementById('user-name-badge');
+  
+  const sidebarLogin = document.getElementById('sidebar-login');
+  const sidebarRegister = document.getElementById('sidebar-register');
+  const sidebarUserInfo = document.getElementById('sidebar-user-info');
+  const sidebarUserName = document.getElementById('sidebar-user-name');
+  const sidebarLogout = document.getElementById('sidebar-logout');
+  
+  if (token && customerInfo.full_name) {
+    // ✅ ĐÃ ĐĂNG NHẬP
+    
+    // Header: Hiển thị tên user
+    if (userNameBadge) {
+      userNameBadge.textContent = customerInfo.full_name.split(' ')[0]; // Lấy tên đầu
+      userNameBadge.style.display = 'block';
+    }
+    
+    if (headerUserBtn) {
+      headerUserBtn.href = '#'; // Không redirect
+      headerUserBtn.onclick = (e) => {
+        e.preventDefault();
+        showUserMenu();
+      };
+    }
+    
+    // Sidebar: Ẩn nút đăng nhập/đăng ký, hiện thông tin user
+    if (sidebarLogin) sidebarLogin.style.display = 'none';
+    if (sidebarRegister) sidebarRegister.style.display = 'none';
+    if (sidebarUserInfo) sidebarUserInfo.style.display = 'block';
+    
+    if (sidebarUserName) {
+      sidebarUserName.textContent = '👤 ' + customerInfo.full_name;
+      sidebarUserName.onclick = (e) => {
+        e.preventDefault();
+        showUserMenu();
+      };
+    }
+    
+    // Xử lý đăng xuất
+    if (sidebarLogout) {
+      sidebarLogout.onclick = (e) => {
+        e.preventDefault();
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+          logout();
+        }
+      };
+    }
+    
+  } else {
+    // ❌ CHƯA ĐĂNG NHẬP
+    
+    // Header: Link đến trang login
+    if (headerUserBtn) {
+      headerUserBtn.href = '/login.html';
+    }
+    
+    // Sidebar: Hiện nút đăng nhập/đăng ký
+    if (sidebarLogin) sidebarLogin.style.display = 'block';
+    if (sidebarRegister) sidebarRegister.style.display = 'block';
+    if (sidebarUserInfo) sidebarUserInfo.style.display = 'none';
+  }
+  
+  // ===========================================
+  // HELPER FUNCTIONS
+  // ===========================================
+  
+  function showUserMenu() {
+    const menuHtml = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;" id="user-menu-modal">
+        <div style="background:white;border-radius:16px;padding:24px;width:90%;max-width:320px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;">Tài khoản của bạn</h3>
+          
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;">
+              ${customerInfo.full_name.charAt(0).toUpperCase()}
+            </div>
+            <div style="font-weight:600;font-size:16px;">${customerInfo.full_name}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:4px;">${customerInfo.email}</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:8px;padding:4px 12px;background:#f3f4f6;border-radius:12px;display:inline-block;">
+              ${customerInfo.customer_type === 'wholesale' ? '🏪 Khách sỉ' : '🛍️ Khách lẻ'}
+            </div>
+          </div>
+          
+          <div style="display:grid;gap:8px;">
+            <button onclick="window.location.href='/orders.html'" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:white;cursor:pointer;font-weight:600;">
+              📦 Đơn hàng của tôi
+            </button>
+            <button onclick="document.getElementById('user-menu-modal').remove();if(confirm('Bạn có chắc muốn đăng xuất?')){logout();}" style="width:100%;padding:12px;border:1px solid #ef4444;color:#ef4444;border-radius:10px;background:white;cursor:pointer;font-weight:600;">
+              🚪 Đăng xuất
+            </button>
+            <button onclick="document.getElementById('user-menu-modal').remove()" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;cursor:pointer;">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const div = document.createElement('div');
+    div.innerHTML = menuHtml;
+    document.body.appendChild(div);
+    
+    // Click outside to close
+    document.getElementById('user-menu-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'user-menu-modal') {
+        e.target.remove();
+      }
+    });
+  }
+  
+  function logout() {
+    localStorage.removeItem('customer_token');
+    localStorage.removeItem('x-customer-token');
+    localStorage.removeItem('customer_info');
+    
+    // Show toast
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 24px;border-radius:12px;font-weight:600;z-index:9999;';
+    toast.textContent = '✅ Đã đăng xuất';
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  }
+  
+  // Expose logout globally
+  window.logout = logout;
+  
+})();
+</script>
+<!-- ✅ THÊM SCRIPT NÀY - KẾT THÚC -->
+
 </body>
 </html>

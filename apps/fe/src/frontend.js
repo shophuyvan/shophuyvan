@@ -24,15 +24,146 @@ const filterInput = document.getElementById('quick-filter');
 let cursor = null;
 let allCache = [];
 
-// Banners (public)
-async function loadBanners() { if(!bannerWrap) return;
+// Banners (public) - ✅ FIXED RESPONSIVE
+async function loadBanners() { 
+  if(!bannerWrap) return;
+  
   let data = await api('/banners');
   if (!data || data.ok===false) data = await api('/public/banners');
   const items = (data && (data.items || data.banners || data.data)) || [];
-  bannerWrap.style.overflow='hidden'; bannerWrap.innerHTML = `<div id=\"banner-track\" class="flex transition-transform duration-700 ease-in-out"></div>`;
+  
+  // ✅ Tạo container với aspect ratio cố định
+  bannerWrap.style.overflow='hidden';
+  bannerWrap.style.position='relative';
+  bannerWrap.style.width='100%';
+  
+  // ✅ Aspect ratio 16:9 cho desktop, 4:3 cho mobile
+  const isMobile = window.innerWidth < 768;
+  const aspectRatio = isMobile ? '75%' : '42.5%'; // 4:3 mobile, 16:9 desktop
+  bannerWrap.style.paddingBottom = aspectRatio;
+  
+  bannerWrap.innerHTML = `<div id="banner-track" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;transition:transform 0.7s ease-in-out;"></div>`;
+  
   const track = document.getElementById('banner-track');
-  items.forEach(b=>{ const d=document.createElement('div'); d.className='min-w-full overflow-hidden rounded-xl border'; d.innerHTML = (b.link?`<a href="${b.link}" target="_blank" rel="noopener">`:'') + `<img src="${b.image||b.url}" class="w-full h-52 object-cover" alt="${b.alt||'banner'}"/>` + (b.link?`</a>`:''); track.appendChild(d); });
-  let idx=0; setInterval(()=>{ idx=(idx+1)%Math.max(items.length,1); track.style.transform='translateX(' + (-idx*100) + '%)'; }, 3500);
+  
+  items.forEach(b => {
+    const d = document.createElement('div');
+    d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
+    
+    const imgHtml = `<img 
+      src="${b.image||b.url}" 
+      alt="${b.alt||'banner'}" 
+      style="width:100%;height:100%;object-fit:cover;object-position:center;"
+      loading="${items.indexOf(b)===0?'eager':'lazy'}"
+    />`;
+    
+    d.innerHTML = b.link 
+      ? `<a href="${b.link}" target="_blank" rel="noopener" style="display:block;width:100%;height:100%;">${imgHtml}</a>`
+      : imgHtml;
+    
+    track.appendChild(d);
+  });
+  
+  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU =====
+  // ✅ Thêm dots indicator
+  let dotsContainer = null;
+  if (items.length > 1) {
+    dotsContainer = document.createElement('div');
+    dotsContainer.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;';
+    
+    items.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'banner-dot';
+      dot.dataset.index = i;
+      dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${i===0?'#fff':'rgba(255,255,255,0.5)'};transition:all 0.3s;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.2);`;
+      dotsContainer.appendChild(dot);
+    });
+    
+    bannerWrap.appendChild(dotsContainer);
+  }
+  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC =====
+  
+  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU (NÚT PREV/NEXT) =====
+  // ✅ Thêm nút prev/next
+  if (items.length > 1) {
+    const btnStyle = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:10;font-size:28px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;backdrop-filter:blur(4px);';
+    
+    const prevBtn = document.createElement('button');
+    prevBtn.innerHTML = '‹';
+    prevBtn.setAttribute('aria-label', 'Previous');
+    prevBtn.style.cssText = btnStyle + 'left:12px;';
+    prevBtn.onmouseenter = () => prevBtn.style.background = 'rgba(0,0,0,0.8)';
+    prevBtn.onmouseleave = () => prevBtn.style.background = 'rgba(0,0,0,0.6)';
+    
+    const nextBtn = document.createElement('button');
+    nextBtn.innerHTML = '›';
+    nextBtn.setAttribute('aria-label', 'Next');
+    nextBtn.style.cssText = btnStyle + 'right:12px;';
+    nextBtn.onmouseenter = () => nextBtn.style.background = 'rgba(0,0,0,0.8)';
+    nextBtn.onmouseleave = () => nextBtn.style.background = 'rgba(0,0,0,0.6)';
+    
+    bannerWrap.appendChild(prevBtn);
+    bannerWrap.appendChild(nextBtn);
+    
+    // Lưu reference cho dùng sau
+    window._bannerNavBtns = { prevBtn, nextBtn };
+  }
+  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC (NÚT PREV/NEXT) =====
+  
+  // ✅ Auto slide (với đồng bộ dots và nút)
+  if (items.length > 1) {
+    let idx = 0;
+    
+    // Hàm cập nhật dots
+    function updateDots() {
+      if (!dotsContainer) return;
+      Array.from(dotsContainer.children).forEach((dot, i) => {
+        dot.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.5)';
+        dot.style.width = i === idx ? '12px' : '10px';
+        dot.style.height = i === idx ? '12px' : '10px';
+      });
+    }
+    
+    // Hàm chuyển slide
+    function goToSlide(newIdx) {
+      idx = newIdx;
+      track.style.transform = `translateX(-${idx * 100}%)`;
+      updateDots();
+    }
+    
+    // Click vào dots
+    if (dotsContainer) {
+      Array.from(dotsContainer.children).forEach((dot, i) => {
+        dot.onclick = () => goToSlide(i);
+      });
+    }
+    
+    // Click vào nút prev/next
+    if (window._bannerNavBtns) {
+      window._bannerNavBtns.prevBtn.onclick = () => {
+        goToSlide((idx - 1 + items.length) % items.length);
+      };
+      window._bannerNavBtns.nextBtn.onclick = () => {
+        goToSlide((idx + 1) % items.length);
+      };
+    }
+    
+    // Auto slide mỗi 3.5s
+    setInterval(() => {
+      goToSlide((idx + 1) % items.length);
+    }, 3500);
+  }
+  
+  // ✅ Resize handler
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const newIsMobile = window.innerWidth < 768;
+      const newAspectRatio = newIsMobile ? '75%' : '42.5%';
+      bannerWrap.style.paddingBottom = newAspectRatio;
+    }, 200);
+  });
 }
 
 
