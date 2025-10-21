@@ -45,8 +45,9 @@ export function pickLowestPrice(product){
   // Backward compatibility aliases
   return { ...best, sale: best.base, regular: best.original };
 }
-  // ===================================================================
-// WHOLESALE PRICE LOGIC - THÊM ĐOẠN NÀY
+
+// ===================================================================
+// WHOLESALE PRICE LOGIC
 // ===================================================================
 
 /**
@@ -123,7 +124,7 @@ export function formatPriceByCustomer(product, variant) {
   
   // Add badge for wholesale customers
   if (customerType === 'wholesale') {
-    html += `<div style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">🏪 Giá sỉ</div>`;
+    html += `<div style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">🪙 Giá sỉ</div>`;
   }
   
   return html;
