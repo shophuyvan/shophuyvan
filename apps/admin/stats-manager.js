@@ -286,7 +286,6 @@ async loadInventoryValue() {
     // 2) Hàm lấy chi tiết 1 sản phẩm (chi tiết mới có cost / import_price)
     const fetchDetail = async (id) => {
       try {
-    // [BẮT ĐẦU THAY ĐƯỜNG DẪN - stats-manager.js]
         const detail = await Admin.tryPaths([
           `/admin/products/get?id=${encodeURIComponent(id)}`,
           `/admin/product/get?id=${encodeURIComponent(id)}`,
@@ -294,9 +293,6 @@ async loadInventoryValue() {
           `/admin/product/detail?id=${encodeURIComponent(id)}`,
           `/admin/product?id=${encodeURIComponent(id)}`
         ]);
-        // [KẾT THÚC THAY ĐƯỜNG DẪN - stats-manager.js]
-
-
         return detail?.item || detail?.data || detail || null;
       } catch (e) {
         console.warn('[Stats] detail not found for', id, e);
