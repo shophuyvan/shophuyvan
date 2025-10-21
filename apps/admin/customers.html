@@ -40,7 +40,24 @@
       background: rgba(0,0,0,0.5);
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 9999; /* ✅ TĂNG z-index */
+    }
+    
+    /* ✅ THÊM RULE ĐẢM BẢO TABLE KHÔNG BỊ ẨN */
+    body:has(.modal[style*="display: flex"]) .card,
+    body:has(.modal[style*="display: flex"]) .table,
+    body:has(.modal[style*="display: flex"]) #customers-list {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    
+    body:has(.modal[style*="display: flex"]) .table {
+      display: table !important;
+    }
+    
+    body:has(.modal[style*="display: flex"]) #customers-list {
+      display: table-row-group !important;
     }
 
     .modal-content {
@@ -479,6 +496,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Edit customer
   window.editCustomer = async function(id) {
     try {
+      // ✅ LƯU TRẠNG THÁI TABLE TRƯỚC KHI MỞ MODAL
+      const table = document.querySelector('table');
+      const tbody = $('customers-list');
+      const card = document.querySelector('.card');
+      
+      console.log('[Edit] Preserving table state...');
+      
       const r = await Admin.req(`/admin/customers/${id}`);
       
       if (!r || !r.ok) throw new Error('Failed to load customer');
@@ -496,7 +520,23 @@ document.addEventListener('DOMContentLoaded', function() {
       $('customer-password').placeholder = '•••••••• (để trống nếu không đổi)';
       
       $('modal-customer-title').textContent = 'Sửa thông tin khách hàng';
+      
+      // ✅ FORCE HIỂN THỊ TABLE TRƯỚC KHI MỞ MODAL
+      if (table) table.style.display = 'table';
+      if (tbody) tbody.style.display = 'table-row-group';
+      if (card) card.style.display = 'block';
+      
       openModal();
+      
+      // ✅ KIỂM TRA LẠI SAU KHI MỞ MODAL
+      setTimeout(() => {
+        if (table && window.getComputedStyle(table).display === 'none') {
+          console.error('[Edit] Table was hidden! Forcing visible...');
+          table.style.display = 'table !important';
+          table.style.visibility = 'visible !important';
+        }
+      }, 50);
+      
     } catch (e) {
       console.error('[Customers] Edit error:', e);
       alert('Lỗi tải thông tin khách hàng');
