@@ -458,7 +458,7 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price" data-price data-id="${id}">${priceStr(p)}</div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
 	<span class="js-rating" data-id="${id}">⭐ 5.0 (0)</span>
@@ -568,31 +568,35 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   setTimeout(async ()=>{
-    document.querySelectorAll('[data-card-id]').forEach(async card=>{
-      const priceBox = card.querySelector('[data-price]');
-      if(!priceBox) return;
-      if(/\b0đ\b/.test(priceBox.textContent||'')){
-        const id = card.getAttribute('data-card-id');
-        try{
-          const paths = [
-          `/public/products/${id}`,
-          `/products/${id}`,
-          `/public/products?id=${id}`,
-          `/products?id=${id}`
-];
-          let data=null;
-          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
-          const pr = (data?.item||data?.data||data||{});
-          const vs = Array.isArray(pr.variants)?pr.variants:[];
-          let s=null, r=null;
-          vs.forEach(v=>{ const sv=v.sale_price??v.price_sale??null; const rv=v.price??null; if(sv!=null) s=(s==null?sv:Math.min(s,sv)); if(rv!=null) r=(r==null?rv:Math.min(r,rv)); });
-          const val = (s && r && s<r) ? (`${(s).toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`)
-                  : ((r||s||0).toLocaleString()+'đ');
-          priceBox.innerHTML = `<b>${val}</b>`;
-        }catch{}
+  document.querySelectorAll('[data-card-id]').forEach(async card=>{
+    const priceBox = card.querySelector('[data-price]'); // đã thêm ở PATCH D1
+    if(!priceBox) return;
+
+    const id = card.getAttribute('data-card-id');
+    try{
+      const paths = [
+        `/public/products/${id}`,
+        `/products/${id}`,
+        `/public/products?id=${id}`,
+        `/products?id=${id}`
+      ];
+      let data=null;
+      for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
+      const pr = (data?.item||data?.data||data||{});
+      const {minS,maxS,minR} = range(pr);
+      let html='';
+      if(minS!=null){
+        html = (maxS && maxS>minS) ? `<b>${fmt(minS)} - ${fmt(maxS)}</b>` : `<b>${fmt(minS)}</b>`;
+        if(minR!=null && minR>minS) html += ` <span class="line-through opacity-70 ml-1">${fmt(minR)}</span>`;
+      }else if(minR!=null){
+        html = `<b>${fmt(minR)}</b>`;
+      }else{
+        html = `<b>Liên hệ</b>`;
       }
-    });
-  }, 400);
+      priceBox.innerHTML = html;
+    }catch{}
+  });
+}, 400);
 });
 
 // ===== v27: Homepage runtime polish =====
