@@ -50,13 +50,9 @@ function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
 
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
-  
-  // Sử dụng hàm pickLowestPrice từ price.js
+
   const priceInfo = pickLowestPrice(p);
-  
-  // Format giá hiển thị
   let priceHtml = '';
-  
   if (priceInfo.base > 0) {
     if (priceInfo.original && priceInfo.original > priceInfo.base) {
       priceHtml = `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(priceInfo.base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(priceInfo.original)}</span></div>`;
@@ -68,13 +64,15 @@ function card(p){
   }
 
   return `
-  <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
+  <a class="block rounded-lg border hover:shadow transition bg-white"
+     href="/product?id=${encodeURIComponent(p.id)}"
+     data-card-id="${encodeURIComponent(p.id)}">
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="">
     </div>
     <div class="p-3">
       <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
-      ${priceHtml}
+      <div class="price mt-1 text-rose-600 font-semibold" data-price data-id="${p.id}">${priceHtml}</div>
     </div>
   </a>`;
 }
