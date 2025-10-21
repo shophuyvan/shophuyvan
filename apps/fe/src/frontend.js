@@ -25,6 +25,8 @@ const filterInput = document.getElementById('quick-filter');
 
 let cursor = null;
 let allCache = [];
+// FE: cố định endpoint để không gộp dữ liệu từ nhiều nguồn
+if (!window.__FE_PRODUCTS_ENDPOINT__) window.__FE_PRODUCTS_ENDPOINT__ = null;
 let __loadingAll = false;        // ⬅️ chặn gọi loadAll trùng/lặp
 const __seenAll = new Set();     // ⬅️ dedupe theo id
 
@@ -213,26 +215,66 @@ await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
 // All products with pagination
 async function loadAll(){
   if (!allWrap || !loadMoreBtn) return;
-  if (__loadingAll) return;                    // ⬅️ đang tải rồi thì bỏ
+  if (__loadingAll) return;
   __loadingAll = true;
   try {
     const cat = new URL(location.href).searchParams.get('cat');
-    const cur = cursor ? '&cursor=' + encodeURIComponent(cursor) : '';
-    let data = await api('/products?limit=24' + cur + (cat ? '&category=' + encodeURIComponent(cat) : ''));
-    if (!data || data.ok === false) {
-      data = await api('/public/products?limit=24' + cur + (cat ? '&category=' + encodeURIComponent(cat) : ''));
+    const qCat = cat ? '&category=' + encodeURIComponent(cat) : '';
+    const qCur = cursor ? '&cursor=' + encodeURIComponent(cursor) : '';
+    const qLim = 'limit=24';
+
+    // Chọn endpoint 1 lần (ưu tiên /public/products) rồi dùng cố định
+    if (!window.__FE_PRODUCTS_ENDPOINT__) {
+      const candidates = [
+        `/public/products?${qLim}${qCat}${qCur}`,
+        `/products?${qLim}${qCat}${qCur}`
+      ];
+      let chosen = null, data = null;
+      for (const p of candidates) {
+        try {
+          const r = await api(p);
+          if (r && r.ok !== false) { chosen = p.split('?')[0]; data = r; break; }
+        } catch {}
+      }
+      if (!chosen) return;
+
+      window.__FE_PRODUCTS_ENDPOINT__ = chosen;
+
+      const items = (data.items || data.products || data.data || []);
+      cursor = data.cursor || data.next || null;
+
+      // lần đầu → reset cache & bộ lọc trùng
+      allCache = [];
+      __seenAll.clear();
+
+      // dedupe theo id/slug/sku (xem PATCH 2)
+      const fresh = items.filter(p => {
+      const id = String(p.id || p.key || p._id || p.uuid || p.slug || p.sku || '').trim();
+      if (!id) return false;              // loại item vô danh
+      if (__seenAll.has(id)) return false;
+      __seenAll.add(id);
+      return true;
+    });
+
+      allCache.push(...fresh);
+      await renderAll();
+      loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
+      return;
     }
 
-    const items = data.items || data.products || data.data || [];
+    // Các lần sau: chỉ dùng endpoint đã chọn
+    const base = window.__FE_PRODUCTS_ENDPOINT__;
+    const url = `${base}?${qLim}${qCat}${qCur}`;
+    const data = await api(url);
+    const items = (data.items || data.products || data.data || []);
     cursor = data.cursor || data.next || null;
 
-    // ⬅️ Khi về trang 1: reset cache & bộ lọc trùng
-    if (!cur) { allCache = []; __seenAll.clear(); }
+    // Nếu là trang đầu → reset cache
+    if (!qCur) { allCache = []; __seenAll.clear(); }
 
-    // ⬅️ Loại trùng theo id/key/_id/uuid
     const fresh = items.filter(p => {
-      const id = String(p.id || p.key || p._id || p.uuid || '');
-      if (!id) return true;
+      const id = String(p.id || p.key || p._id || p.uuid || p.slug || p.sku || '').trim();
+      if (!id) return false;
       if (__seenAll.has(id)) return false;
       __seenAll.add(id);
       return true;
@@ -495,17 +537,25 @@ function card(p){
 }
 
 // Events
-loadMoreBtn?.addEventListener('click', loadAll);
-searchInput?.addEventListener('input', renderAll);
-filterInput?.addEventListener('input', renderAll);
+// Events (attach once)
+if (!window.__FE_HOME_EVENTS_ATTACHED__) {
+  window.__FE_HOME_EVENTS_ATTACHED__ = true;
+  loadMoreBtn?.addEventListener('click', loadAll);
+  searchInput?.addEventListener('input', renderAll);
+  filterInput?.addEventListener('input', renderAll);
+}
 
-(async () => {
-  try {
-    await loadBanners(); await loadCategories();
-    await loadNew();
-    await loadAll();
-  } catch (e) { console.error(e); }
-})();
+// Init (run once)
+if (!window.__FE_HOME_INITED__) {
+  window.__FE_HOME_INITED__ = true;
+  (async () => {
+    try {
+      await loadBanners(); await loadCategories();
+      await loadNew();
+      await loadAll();
+    } catch (e) { console.error(e); }
+  })();
+}
 
 // Policy section content (static for now)
 const policyBox = document.getElementById('policy-box');
