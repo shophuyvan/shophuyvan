@@ -58,7 +58,7 @@ function normalizeProduct(input = {}) {
       weight_grams: Number(v.weight_grams||0),
       price: Number(v.price||0),
       sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==='') ? null : Number(v.sale_price),
-      cost: Number(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price || 0)
+      cost: Number((v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price) ?? 0)
     })).filter(v => v.name);
   }
   const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
