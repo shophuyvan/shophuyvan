@@ -105,7 +105,51 @@ function card(p){
   try{ data = await api('/public/products?limit=20'); }catch{}
   if(!data){ try{ data = await api('/products?limit=20'); }catch{} }
   const items = Array.isArray(data?.items)?data.items:[];
-  grid.innerHTML = items.map(card).join('');
+grid.innerHTML = items.map(card).join('');
+
+/* Hydrate giá: lấy chi tiết theo id và cập nhật min–max sale/regular */
+(async()=>{
+  const fmt = (n)=> Number(n||0).toLocaleString('vi-VN')+'đ';
+  const range = (p)=>{
+    const vs = Array.isArray(p?.variants)?p.variants:[];
+    let minS, maxS, minR;
+    for(const v of vs){
+      const s = v.sale_price ?? v.price_sale ?? null;
+      const r = v.price ?? null;
+      if(s!=null){ minS = (minS==null? s: Math.min(minS,s)); maxS = (maxS==null? s: Math.max(maxS,s)); }
+      if(r!=null){ minR = (minR==null? r: Math.min(minR,r)); }
+    }
+    return {minS,maxS,minR};
+  };
+
+  for (const p of items){
+    const id = p.id || p.key;
+    const priceBox = grid.querySelector(`.price[data-id="${CSS && CSS.escape ? CSS.escape(id) : id}"]`);
+    if(!priceBox) continue;
+
+    // Luôn hydrate (không phụ thuộc “0đ”)
+    let full=null;
+    for(const path of [`/public/products/${id}`, `/products/${id}`, `/public/products?id=${id}`, `/products?id=${id}`]){
+      try{
+        const r = await api(path);
+        full = r?.item || r?.data || r?.product || (Array.isArray(r?.items)? r.items[0] : null) || (Array.isArray(r?.products)? r.products[0] : null);
+        if(full) break;
+      }catch{}
+    }
+    if(!full) continue;
+
+    const {minS,maxS,minR} = range(full);
+    let html='';
+    if(minS!=null){
+      html = (maxS && maxS>minS) ? `<b>${fmt(minS)} - ${fmt(maxS)}</b>` : `<b>${fmt(minS)}</b>`;
+      if(minR!=null && minR>minS) html += ` <span class="line-through opacity-70 text-sm">${fmt(minR)}</span>`;
+    }else if(minR!=null){
+      html = `<b>${fmt(minR)}</b>`;
+    }else{
+      html = `<b>Liên hệ</b>`;
+    }
+    priceBox.innerHTML = html;
+  }
 })();
 
 
