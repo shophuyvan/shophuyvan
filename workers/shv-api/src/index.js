@@ -107,16 +107,16 @@ export default {
       // Categories module
       if (path.startsWith('/admin/categories') ||
           path.startsWith('/public/categories')) {
-        return withCors(await admin.handle(req, env, ctx), req);
-      }
+        return withCors(await categories.handle(req, env, ctx), req);
+}
 
       // Products module
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
           path.startsWith('/admin/products') ||
           path === '/product') {
-        return withCors(await admin.handle(req, env, ctx), req);
-      }
+        return withCors(await products.handle(req, env, ctx), req);
+}
 
       // Orders module
       if (path.startsWith('/api/orders') ||
@@ -137,9 +137,9 @@ export default {
       }
 
       // Cart Sync module
-      if (path.startsWith('/api/cart/sync')) {
-        return withCors(await admin.handle(req, env, ctx), req);
-      }
+       if (path.startsWith('/api/cart/sync')) {
+         return withCors(await handleCartSync(req, env), req);
+       }
 
       // Settings module
       if (path.startsWith('/public/settings') ||
@@ -149,9 +149,10 @@ export default {
 
       // Banners module
       if (path === '/banners' ||
+          path === '/public/banners' || // thêm public
           path.startsWith('/admin/banners') ||
           path.startsWith('/admin/banner')) {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return withCors(await banners.handle(req, env, ctx), req);
       }
 
       // Vouchers module
