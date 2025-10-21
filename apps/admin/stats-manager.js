@@ -226,9 +226,9 @@ class StatsManager {
             productStats[productName].revenue += price * qty;
           });
         }
-// [KẾT THÚC THAY KHỐI GIÁ NHẬP]
+      });
       
-      const topProducts = Object.values(productStats)
+      const topProducts = Object.values(productStats))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10);
       
