@@ -213,10 +213,10 @@ async function loadNew(){ if(!newWrap) return;
   newWrap.parentElement?.classList?.add('hidden');
 } else {
   newWrap.parentElement?.classList?.remove('hidden');
-    newWrap.innerHTML = items.map(card).join('');
-  await hydratePrices(items);
-  await hydrateSoldAndRating(items);
-}
+  newWrap.innerHTML = items.map(card).join('');
+await hydratePrices(items);
+// truyền mảng ID để chắc chắn
+await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
 } // ← đóng function loadNew()
 
 // All products with pagination
@@ -239,8 +239,8 @@ async function renderAll(){ if(!allWrap) return;
     return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
   });
   allWrap.innerHTML = filtered.map(card).join('');
-  await hydratePrices(filtered);          // ✅ sửa lỗi gõ + thêm await
-  await hydrateSoldAndRating(filtered);   // ✅ gọi bổ sung
+  await hydratePrices(filtered);
+  await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
 }
 
 function minVarPrice(p){
@@ -331,34 +331,35 @@ async function hydratePrices(items){
   }catch(e){ /* silent */ }
 }
 // [BẮT ĐẦU CHÈN] Bơm số đã bán & rating sau render
+// Nhận: array ID (string) hoặc lấy từ DOM nếu không truyền vào
 async function hydrateSoldAndRating(items){
-  const list = Array.isArray(items) ? items : document.querySelectorAll('[data-id]');
-  for (const el of list){
-    const id = typeof el === 'string' ? el : (el.getAttribute?.('data-id') || el.dataset.id);
-    if (!id) continue;
+  // nếu items là mảng object => convert sang mảng id
+  let ids = [];
+  if (Array.isArray(items) && items.length) {
+    if (typeof items[0] === 'string') {
+      ids = items.filter(Boolean);
+    } else {
+      ids = items.map(p => (p?.id || p?.key || '')).filter(Boolean);
+    }
+  } else {
+    ids = Array.from(document.querySelectorAll('[data-id]'))
+               .map(el => el.getAttribute('data-id'))
+               .filter(Boolean);
+  }
 
-    // node hiển thị
+  for (const id of ids){
     const ratingEl = document.querySelector(`.js-rating[data-id="${id}"]`);
     const soldEl   = document.querySelector(`.js-sold[data-id="${id}"]`);
     if (!ratingEl && !soldEl) continue;
 
-    // lấy chi tiết (dùng cache của fetchFullProduct)
     const full = await fetchFullProduct(id);
     if (!full) continue;
 
-    // ---- map field linh hoạt ----
     const toNum = (x)=> (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
-
-    // Đã bán: thử nhiều tên field
-    const sold = toNum(
-      full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0
-    );
-
-    // Rating trung bình & số review
+    const sold = toNum(full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0);
     const ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating ?? 0);
     const ratingCount = toNum(full.rating_count ?? full.reviews ?? full.review_count ?? 0);
 
-    // render
     if (soldEl)   soldEl.textContent   = `Đã bán ${sold.toLocaleString('vi-VN')}`;
     if (ratingEl) ratingEl.textContent = `⭐ ${ratingAvg.toFixed(1)} (${ratingCount})`;
   }
