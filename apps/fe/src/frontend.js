@@ -323,15 +323,11 @@ async function fetchFullProduct(id){
   if (__priceCache.has(id)) return __priceCache.get(id);
 
   const paths = [
-    `/public/product?id=${encodeURIComponent(id)}`,
-    `/product?id=${encodeURIComponent(id)}`,
-    `/public/products/detail?id=${encodeURIComponent(id)}`,
-    `/products/detail?id=${encodeURIComponent(id)}`,
-    `/public/products/${encodeURIComponent(id)}`,
-    `/products/${encodeURIComponent(id)}`,
-    `/public/products?id=${encodeURIComponent(id)}&limit=1`,
-    `/products?id=${encodeURIComponent(id)}&limit=1`,
-  ];
+  `/public/products/${encodeURIComponent(id)}`,
+  `/products/${encodeURIComponent(id)}`,
+  `/public/products?id=${encodeURIComponent(id)}`,
+  `/products?id=${encodeURIComponent(id)}`
+];
 
   let item = null;
   let debugPath = '';
@@ -686,7 +682,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const priceBox = card.querySelector('[data-price]'); if(!priceBox) continue;
         if(/\b0đ\b/.test(priceBox.textContent||'')){
           const id = card.getAttribute('data-card-id');
-          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
+          const paths = [
+           `/public/products/${id}`,
+           `/products/${id}`,
+           `/public/products?id=${id}`,
+           `/products?id=${id}`
+];
           let data=null;
           for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
           const pr = (data?.item||data?.data||data||{});
