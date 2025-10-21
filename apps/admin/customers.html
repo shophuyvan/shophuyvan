@@ -40,24 +40,36 @@
       background: rgba(0,0,0,0.5);
       align-items: center;
       justify-content: center;
-      z-index: 9999; /* ✅ TĂNG z-index */
+      z-index: 99999; /* ✅ Tăng lên rất cao */
     }
-    
-    /* ✅ THÊM RULE ĐẢM BẢO TABLE KHÔNG BỊ ẨN */
-    body:has(.modal[style*="display: flex"]) .card,
-    body:has(.modal[style*="display: flex"]) .table,
-    body:has(.modal[style*="display: flex"]) #customers-list {
+
+    /* ✅ QUAN TRỌNG: Đảm bảo modal-content nằm trên cùng */
+    .modal-content {
+      position: relative;
+      z-index: 100000;
+    }
+
+    /* ✅ BẮT BUỘC: Khi modal mở, KHÔNG ẨN bất cứ thứ gì */
+    body.admin-layout .admin-content-area,
+    body.admin-layout .card,
+    body.admin-layout .table,
+    body.admin-layout #customers-list,
+    body.admin-layout .stats-grid {
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
     }
-    
-    body:has(.modal[style*="display: flex"]) .table {
+
+    body.admin-layout .table {
       display: table !important;
     }
-    
-    body:has(.modal[style*="display: flex"]) #customers-list {
+
+    body.admin-layout #customers-list {
       display: table-row-group !important;
+    }
+
+    body.admin-layout .stats-grid {
+      display: grid !important;
     }
 
     .modal-content {
