@@ -1,6 +1,6 @@
 
 // FE shared API helper (v24) - default export + get/post, x-token, timeout/retry
-function withTimeout(promise, ms=10000){
+function withTimeout(promise, ms=25000){
   return new Promise((resolve, reject)=>{
     const id = setTimeout(()=>reject(new Error('timeout')), ms);
     promise.then(v=>{ clearTimeout(id); resolve(v); }, e=>{ clearTimeout(id); reject(e); });
@@ -28,8 +28,18 @@ async function core(path, init = {}) {
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     body = JSON.stringify(body);
   }
-  const req = fetch(url, { method: init.method || 'GET', headers, body });
-  const res = await withTimeout(req, init.timeout || 10000);
+  if (!headers.has('Accept')) headers.set('Accept','application/json, text/plain, */*');
+  let res;
+  try{
+    const req = fetch(url, { method: init.method || 'GET', headers, body });
+    res = await withTimeout(req, init.timeout || 25000);
+  }catch(e){
+    if (init._retried!==true){
+      await new Promise(r=>setTimeout(r,300));
+      return await core(path, { ...init, _retried:true, timeout: (init.timeout||25000)+10000 });
+    }
+    throw e;
+  }
   if (res.status >= 500 && (init._retried!==true)) {
     return await core(path, { ...init, _retried:true });
   }

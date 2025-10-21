@@ -48,7 +48,7 @@ export class CartSyncManager {
   start() {
     if (this.syncTimer) return;
     this.pullFromServer();
-    this.syncTimer = setInterval(() => this.pullFromServer(), 5000);
+    this.syncTimer = setInterval(() => this.pullFromServer(), 12000);
     window.addEventListener('storage', this.handleStorageChange);
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
     console.log('[CartSync] started');
