@@ -110,13 +110,17 @@ export default {
         return withCors(await categories.handle(req, env, ctx), req);
 }
 
-      // Products module
+      // Products module - PUBLIC ONLY
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
-          path.startsWith('/admin/products') ||
           path === '/product') {
         return withCors(await products.handle(req, env, ctx), req);
-}
+      }
+      
+      // Products module - ADMIN
+      if (path.startsWith('/admin/products')) {
+        return withCors(await products.handle(req, env, ctx), req);
+      }
 
       // Orders module
       if (path.startsWith('/api/orders') ||
