@@ -217,6 +217,7 @@ async function loadNew(){ if(!newWrap) return;
 await hydratePrices(items);
 // truyền mảng ID để chắc chắn
 await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
+}
 } // ← đóng function loadNew()
 
 // All products with pagination
