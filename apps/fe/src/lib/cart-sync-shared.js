@@ -36,6 +36,8 @@ export class CartSyncManager {
     this.syncTimer = null;
     this.lastSync = Number(localStorage.getItem(LAST_SYNC_KEY) || '0');
     this.isSyncing = false;
+    this._started = false;            // ⬅️ đã start hay chưa
+    this._eventsAttached = false;     // ⬅️ đã gắn listeners hay chưa
     this.beforeUnloadHandler = () => this.pushToServer(true);
     this.handleStorageChange = (e) => {
       if (e.key === this.cartKey && e.newValue !== e.oldValue) {
@@ -46,21 +48,31 @@ export class CartSyncManager {
   }
 
   start() {
-    if (this.syncTimer) return;
-    this.pullFromServer();
-    this.syncTimer = setInterval(() => this.pullFromServer(), 12000);
+  if (this._started) return;                 // ⬅️ guard: chỉ start 1 lần
+  this._started = true;
+
+  if (this.syncTimer) clearInterval(this.syncTimer);
+  this.pullFromServer();
+  this.syncTimer = setInterval(() => this.pullFromServer(), 15000); // giãn nhịp
+
+  if (!this._eventsAttached) {               // ⬅️ listeners gắn 1 lần
     window.addEventListener('storage', this.handleStorageChange);
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
-    console.log('[CartSync] started');
+    this._eventsAttached = true;
   }
+  console.log('[CartSync] started');
+}
 
   stop() {
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
       this.syncTimer = null;
     }
+    if (this._eventsAttached) {
     window.removeEventListener('storage', this.handleStorageChange);
     window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+    this._eventsAttached = false;
+}
     console.log('[CartSync] stopped');
   }
 
@@ -190,13 +202,15 @@ export class CartSyncManager {
 
 let __instance = null;
 export function initCartSync(cartKey = DEFAULT_CART_KEY) {
+  if (window.__CART_SYNC__) return window.__CART_SYNC__;
   if (!__instance) {
     __instance = new CartSyncManager(cartKey);
     __instance.start();
   }
+  window.__CART_SYNC__ = __instance;     // ⬅️ lưu global
   return __instance;
 }
 export function getCartSync() {
-  return __instance;
+  return window.__CART_SYNC__ || __instance;
 }
 // ==== END file ====
