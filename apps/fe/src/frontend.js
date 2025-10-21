@@ -251,29 +251,27 @@ function minVarPrice(p){
 function priceStr(p){
   const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
 
-  // 1) Ưu tiên formatter theo nhóm khách hàng
+  // 1) Ưu tiên formatter theo nhóm khách hàng (nếu có & không phải 0đ)
   if (typeof formatPriceByCustomer === 'function') {
     const html = formatPriceByCustomer(p, null);
-    if (html && !/^\s*<[^>]*>\s*<[^>]*>\s*0\s*đ\s*<\/[^>]*>\s*<\/[^>]*>\s*$/i.test(html)) {
+    if (html && !/^\s*0\s*đ\s*$/i.test(html) && !/>\s*0\s*đ\s*</i.test(html)) {
       return html;
     }
   }
 
-  // 2) Lấy tất cả giá có thể (sale, regular, cost) từ variants HOẶC product
+  // 2) Lấy giá từ variants HOẶC từ product
   const vars = Array.isArray(p?.variants) ? p.variants
             : Array.isArray(p?.options)  ? p.options
             : Array.isArray(p?.skus)     ? p.skus : [];
-  
+
   let sale = 0, regular = 0, cost = 0;
-  
   const update = (vSale, vRegular, vCost) => {
     const s = toNum(vSale);
     const r = toNum(vRegular);
     const c = toNum(vCost);
-    
-    if (s > 0) sale = sale ? Math.min(sale, s) : s;
+    if (s > 0) sale    = sale    ? Math.min(sale, s)    : s;
     if (r > 0) regular = regular ? Math.min(regular, r) : r;
-    if (c > 0) cost = cost ? Math.min(cost, c) : c;
+    if (c > 0) cost    = cost    ? Math.min(cost, c)    : c;
   };
 
   if (vars.length) {
@@ -292,27 +290,16 @@ function priceStr(p){
     );
   }
 
-  // 3) Ưu tiên hiển thị: sale + regular > regular > sale > cost
-  if (sale > 0 && regular > 0 && sale < regular) {
+  // 3) Thứ tự hiển thị
+  if (sale > 0 && regular > 0 && sale < regular){
     return `<div>
       <b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b>
       <span class="line-through opacity-70 text-sm">${regular.toLocaleString('vi-VN')}đ</span>
     </div>`;
   }
-  
-  if (regular > 0) {
-    return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
-  }
-  
-  if (sale > 0) {
-    return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
-  }
-  
-  if (cost > 0) {
-    return `<div><b class="text-rose-600">${cost.toLocaleString('vi-VN')}đ</b></div>`;
-  }
-
-  // 4) Không có giá nào cả
+  if (regular > 0) return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
+  if (sale    > 0) return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
+  if (cost    > 0) return `<div><b class="text-rose-600">${cost.toLocaleString('vi-VN')}đ</b></div>`;
   return `<div><b class="text-gray-400">Liên hệ</b></div>`;
 }
 

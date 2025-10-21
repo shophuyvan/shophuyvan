@@ -333,75 +333,65 @@ async function renderPriceStock() {
   
   if (!priceSaleEl) return;
 
-  // ✅ Lấy thông tin customer
-  const customer = await getCustomerInfo();
-  const customerType = customer?.customer_type || 'retail';
+  // Lấy thông tin customer
+const customer = await getCustomerInfo();
+const customerType = customer?.customer_type || 'retail';
 
-  const vs = variantsOf(PRODUCT).slice(0, 400);
-  let rendered = false;
+const vs = variantsOf(PRODUCT).slice(0, 400);
+let rendered = false;
 
-  if (vs.length) {
-    const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
-    const baseVals = pairs.map(p => +p.base || 0).filter(v => v > 0);
-    
-    if (baseVals.length) {
-      const minBase = Math.min(...baseVals);
-      const maxBase = Math.max(...baseVals);
-      const origVals = pairs.map(p => +p.original || 0).filter(v => v > 0);
-      
-      let minOrig = 0, maxOrig = 0;
-      if (origVals.length) {
-        minOrig = Math.min(...origVals);
-        maxOrig = Math.max(...origVals);
-      }
-      
-      const baseText = (minBase === maxBase) 
-        ? formatPrice(minBase) 
-        : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
-      
-      // ✅ Thêm badge nếu là giá sỉ
-      const badge = (customerType === 'wholesale' && pairs.some(p => p.isWholesale))
-        ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
-        : '';
-      
-      priceSaleEl.innerHTML = baseText + badge;
-      
-      if (minOrig > 0 && maxOrig > 0 && maxOrig > minBase) {
-        const origText = (minOrig === maxOrig) 
-          ? formatPrice(minOrig) 
-          : (formatPrice(minOrig) + ' - ' + formatPrice(maxOrig));
-        
-        if (priceOriginalEl) {
-          priceOriginalEl.textContent = origText;
-          priceOriginalEl.style.display = 'inline';
-        }
-      } else {
-        if (priceOriginalEl) priceOriginalEl.style.display = 'none';
-      }
-      
-      rendered = true;
-    }
-  }
+if (vs.length) {
+  const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
+  const baseVals = pairs.map(p => +p.base || 0).filter(v => v > 0);
 
-  if (!rendered) {
-    const src = CURRENT || PRODUCT || null;
-    const priceData = await pricePair(src || {}, customerType);
-    const { base, original, isWholesale } = priceData;
-    
-    // ✅ Thêm badge nếu là giá sỉ
-    const badge = (isWholesale)
+  if (baseVals.length) {
+    const minBase = Math.min(...baseVals);
+    const maxBase = Math.max(...baseVals);
+    const origVals = pairs.map(p => +p.original || 0).filter(v => v > 0);
+
+    let minOrig = 0, maxOrig = 0;
+    if (origVals.length) { minOrig = Math.min(...origVals); maxOrig = Math.max(...origVals); }
+
+    const baseText = (minBase === maxBase)
+      ? formatPrice(minBase)
+      : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
+
+    const badge = (customerType === 'wholesale' && pairs.some(p => p.isWholesale))
       ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
       : '';
-    
-    priceSaleEl.innerHTML = formatPrice(+base || 0) + badge;
-    
-    if (original && original > base && priceOriginalEl) {
-      priceOriginalEl.textContent = formatPrice(original);
+
+    priceSaleEl.innerHTML = baseText + badge;
+
+    if (minOrig > 0 && maxOrig > 0 && maxOrig > minBase && priceOriginalEl) {
+      const origText = (minOrig === maxOrig) ? formatPrice(minOrig) : (formatPrice(minOrig) + ' - ' + formatPrice(maxOrig));
+      priceOriginalEl.textContent = origText;
       priceOriginalEl.style.display = 'inline';
     } else {
       if (priceOriginalEl) priceOriginalEl.style.display = 'none';
     }
+
+    rendered = true;
   }
+}
+
+if (!rendered) {
+  const src = CURRENT || PRODUCT || null;
+  const priceData = await pricePair(src || {}, customerType);
+  const { base, original, isWholesale } = priceData;
+
+  const badge = (isWholesale)
+    ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
+    : '';
+
+  priceSaleEl.innerHTML = formatPrice(+base || 0) + badge;
+
+  if (original && original > base && priceOriginalEl) {
+    priceOriginalEl.textContent = formatPrice(original);
+    priceOriginalEl.style.display = 'inline';
+  } else {
+    if (priceOriginalEl) priceOriginalEl.style.display = 'none';
+  }
+}
 
   // Stock display
   if (stockEl) {
