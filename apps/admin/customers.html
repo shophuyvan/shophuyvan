@@ -6,8 +6,8 @@
   <title>Quản lý Khách hàng</title>
   <link rel="stylesheet" href="./styles.css"/>
   <script src="./admin_real.js?v=27"></script>
+  <script src="./sidebar-layout.js"></script>
   <style>
-    /* Customer Type Badges */
     .customer-type-badge {
       display: inline-block;
       padding: 4px 12px;
@@ -18,11 +18,9 @@
     .type-retail { background: #dbeafe; color: #1e40af; }
     .type-wholesale { background: #fef3c7; color: #92400e; }
     
-    /* Status Colors */
     .status-active { color: #059669; font-weight: 600; }
     .status-inactive { color: #dc2626; font-weight: 600; }
     
-    /* Points Badge */
     .points-badge {
       background: #dcfce7;
       color: #166534;
@@ -32,7 +30,6 @@
       font-weight: 600;
     }
 
-    /* Modal Styles */
     .modal {
       display: none;
       position: fixed;
@@ -43,7 +40,7 @@
       background: rgba(0,0,0,0.5);
       align-items: center;
       justify-content: center;
-      z-index: 9999;
+      z-index: 10000;
     }
 
     .modal-content {
@@ -54,7 +51,7 @@
       max-height: 90vh;
       overflow-y: auto;
       position: relative;
-      z-index: 10000;
+      z-index: 10001;
     }
 
     .modal-header {
@@ -95,7 +92,6 @@
       gap: 10px;
     }
 
-    /* Form Styles */
     .form-group {
       margin-bottom: 15px;
     }
@@ -113,13 +109,11 @@
       font-weight: 400;
     }
 
-    /* Button Styles */
     .btn-sm {
       padding: 4px 12px;
       font-size: 13px;
     }
 
-    /* Statistics Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -146,13 +140,11 @@
       margin-top: 4px;
     }
 
-    /* Customer ID Badge */
     .customer-id {
       font-size: 11px;
       color: #6b7280;
     }
 
-    /* Filter Section */
     .filters {
       display: flex;
       gap: 10px;
@@ -165,7 +157,6 @@
       min-width: 200px;
     }
 
-    /* Responsive adjustments */
     @media (max-width: 768px) {
       .filters {
         flex-direction: column;
@@ -182,14 +173,6 @@
   </style>
 </head>
 <body>
-<!-- Navigation Header -->
-<div style="background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 24px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-  <a href="/index.html" style="color:#6b7280;text-decoration:none;">← Quay lại</a>
-  <span style="color:#e5e7eb;">|</span>
-  <h1 style="margin:0;font-size:20px;font-weight:700;">👥 Quản lý Khách hàng</h1>
-</div>
-
-<div style="max-width:1400px;margin:0 auto;padding:0 24px 24px;">
 
 <div class="card">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
@@ -257,8 +240,6 @@
   </div>
 </div>
 
-</div>
-
 <!-- Modal: Create/Edit Customer -->
 <div id="modal-customer" class="modal">
   <div class="modal-content">
@@ -318,6 +299,11 @@
 </div>
 
 <script>
+// ✅ CRITICAL: Initialize Sidebar Layout FIRST
+if (window.AdminLayout) {
+  AdminLayout.init('👥 Quản lý Khách hàng');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[Customers] Initializing...');
 
@@ -343,13 +329,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = $('modal-customer');
     if (modal) {
       modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden'; // Prevent scroll
       console.log('[Modal] Opened');
     }
   };
 
   window.closeModal = function() {
     const modal = $('modal-customer');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = ''; // Restore scroll
+    }
     
     // Reset form
     $('customer-id').value = '';
