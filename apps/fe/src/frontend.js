@@ -25,6 +25,8 @@ const filterInput = document.getElementById('quick-filter');
 
 let cursor = null;
 let allCache = [];
+let __loadingAll = false;        // ⬅️ chặn gọi loadAll trùng/lặp
+const __seenAll = new Set();     // ⬅️ dedupe theo id
 
 // Banners (public) - ✅ FIXED RESPONSIVE
 async function loadBanners() { 
@@ -209,14 +211,39 @@ await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
 }
 
 // All products with pagination
-async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
-  let data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : ''));
-  if (!data || data.ok===false) data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + (new URL(location.href).searchParams.get('cat') ? '&category='+encodeURIComponent(new URL(location.href).searchParams.get('cat')) : ''));
-  const items = data.items || data.products || data.data || [];
-  cursor = data.cursor || data.next || null;
-  allCache.push(...items);
-  renderAll();
-  loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
+async function loadAll(){
+  if (!allWrap || !loadMoreBtn) return;
+  if (__loadingAll) return;                    // ⬅️ đang tải rồi thì bỏ
+  __loadingAll = true;
+  try {
+    const cat = new URL(location.href).searchParams.get('cat');
+    const cur = cursor ? '&cursor=' + encodeURIComponent(cursor) : '';
+    let data = await api('/products?limit=24' + cur + (cat ? '&category=' + encodeURIComponent(cat) : ''));
+    if (!data || data.ok === false) {
+      data = await api('/public/products?limit=24' + cur + (cat ? '&category=' + encodeURIComponent(cat) : ''));
+    }
+
+    const items = data.items || data.products || data.data || [];
+    cursor = data.cursor || data.next || null;
+
+    // ⬅️ Khi về trang 1: reset cache & bộ lọc trùng
+    if (!cur) { allCache = []; __seenAll.clear(); }
+
+    // ⬅️ Loại trùng theo id/key/_id/uuid
+    const fresh = items.filter(p => {
+      const id = String(p.id || p.key || p._id || p.uuid || '');
+      if (!id) return true;
+      if (__seenAll.has(id)) return false;
+      __seenAll.add(id);
+      return true;
+    });
+
+    allCache.push(...fresh);
+    await renderAll();
+    loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
+  } finally {
+    __loadingAll = false;
+  }
 }
 
 async function renderAll(){ if(!allWrap) return; 
