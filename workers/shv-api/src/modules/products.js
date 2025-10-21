@@ -138,12 +138,64 @@ export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const { pathname, searchParams } = url;
 
-  // Mock fire object (adjust to your actual DB implementation)
-  const fire = env.FIRE || env.DB || {
-    list: async (table, opts) => ({ items: [], nextCursor: null }),
-    get: async (table, id) => null,
-    set: async (table, id, data) => {},
-    delete: async (table, id) => {}
+  // KV-based fire object implementation
+  const fire = {
+    list: async (table, opts = {}) => {
+      try {
+        const prefix = `${table}:`;
+        const list = await env.SHV.list({ prefix });
+        const items = [];
+        
+        for (const key of list.keys) {
+          const data = await env.SHV.get(key.name);
+          if (data) {
+            try {
+              items.push(JSON.parse(data));
+            } catch {}
+          }
+        }
+        
+        // Sort by created_at desc if specified
+        if (opts.orderBy?.[0] === 'created_at' && opts.orderBy?.[1] === 'desc') {
+          items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        }
+        
+        // Apply limit
+        const limit = opts.limit || 50;
+        return { items: items.slice(0, limit), nextCursor: null };
+      } catch (e) {
+        console.error('fire.list error:', e);
+        return { items: [], nextCursor: null };
+      }
+    },
+    
+    get: async (table, id) => {
+      try {
+        const data = await env.SHV.get(`${table}:${id}`);
+        return data ? JSON.parse(data) : null;
+      } catch (e) {
+        console.error('fire.get error:', e);
+        return null;
+      }
+    },
+    
+    set: async (table, id, data) => {
+      try {
+        await env.SHV.put(`${table}:${id}`, JSON.stringify(data));
+      } catch (e) {
+        console.error('fire.set error:', e);
+        throw e;
+      }
+    },
+    
+    delete: async (table, id) => {
+      try {
+        await env.SHV.delete(`${table}:${id}`);
+      } catch (e) {
+        console.error('fire.delete error:', e);
+        throw e;
+      }
+    }
   };
 
   // ============================================
