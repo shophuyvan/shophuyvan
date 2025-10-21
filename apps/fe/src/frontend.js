@@ -274,46 +274,82 @@ function priceStr(p) {
 // --- Price hydration: fetch full product if summary lacks prices/variants ---
 const __priceCache = new Map();
 async function fetchFullProduct(id){
-  if(!id) return null;
-  if(__priceCache.has(id)) return __priceCache.get(id);
+  if (!id) return null;
+  if (__priceCache.has(id)) return __priceCache.get(id);
 
-  // Thử nhiều endpoint chi tiết (tuỳ API nào trả về sẽ dùng API đó)
+  // ƯU TIÊN DẠNG query ?id= TRƯỚC (phù hợp link bạn gửi)
   const paths = [
-    `/public/products/${encodeURIComponent(id)}`,       // REST detail
-    `/products/${encodeURIComponent(id)}`,
-    `/public/product?id=${encodeURIComponent(id)}`,     // query detail
+    `/public/product?id=${encodeURIComponent(id)}`,
     `/product?id=${encodeURIComponent(id)}`,
-    `/products/detail?id=${encodeURIComponent(id)}`,    // fallback detail
-    `/public/products/detail?id=${encodeURIComponent(id)}`
+    `/public/products/detail?id=${encodeURIComponent(id)}`,
+    `/products/detail?id=${encodeURIComponent(id)}`,
+    `/public/products/${encodeURIComponent(id)}`,
+    `/products/${encodeURIComponent(id)}`,
+    `/public/products?id=${encodeURIComponent(id)}&limit=1`,
+    `/products?id=${encodeURIComponent(id)}&limit=1`,
   ];
+
   let item = null;
-  for (const p of paths){
-    try{
+  let debugPath = '';
+  for (const p of paths) {
+    try {
       const data = await api(p);
-      const found = data?.item || data?.data || data?.product || null;
-      if (found) { item = found; break; }
-    }catch{}
+      const found = data?.item || data?.data || data?.product
+                 || (Array.isArray(data?.items)  ? data.items[0]  : null)
+                 || (Array.isArray(data?.products)? data.products[0]: null);
+      if (found) { item = found; debugPath = p; break; }
+    } catch {}
   }
+
+  // bật log một lần để bạn biết endpoint nào thành công (có thể tắt sau khi ok)
+  if (!item) {
+    console.warn('[hydrate] Không lấy được chi tiết cho', id, '→ kiểm tra API');
+  } else {
+    console.log('[hydrate] dùng', debugPath, '→', id);
+  }
+
   __priceCache.set(id, item);
   return item;
 }
 
 
 function priceHtmlFrom(p){
-  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
-  if (typeof formatPriceByCustomer === 'function') {
-    return formatPriceByCustomer(p, null);
+  const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
+  const getMin = (prod)=>{
+    const vars = Array.isArray(prod?.variants) ? prod.variants
+               : Array.isArray(prod?.options)  ? prod.options
+               : Array.isArray(prod?.skus)     ? prod.skus : [];
+    const cand = [];
+    const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
+    if (vars.length){
+      for (const v of vars){
+        push(v.price_sale ?? v.sale_price ?? v.sale);
+        push(v.price ?? v.unit_price);
+        // nếu vẫn không có price thì cho phép dùng cost làm mốc hiển thị
+        push(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+      }
+    } else {
+      push(prod.price_sale ?? prod.sale_price ?? prod.sale);
+      push(prod.price ?? prod.unit_price);
+      push(prod.cost ?? prod.cost_price ?? prod.import_price ?? prod.price_import ?? prod.purchase_price);
+    }
+    return cand.length ? Math.min(...cand) : 0;
+  };
+
+  try{
+    // 1) Giá theo nhóm khách nếu có
+    if (typeof formatPriceByCustomer === 'function') {
+      const html = formatPriceByCustomer(p, null);
+      // nếu formatter trả 0đ/để trống → Fallback
+      if (html && !/0\s*đ/i.test(html)) return html;
+    }
+
+    // 2) Fallback cứng: min(sale, price, cost) trên biến thể/sản phẩm
+    const n = getMin(p);
+    return `<div><b class="text-rose-600">${n.toLocaleString('vi-VN')}đ</b></div>`;
+  }catch{
+    return `<div><b class="text-rose-600">0đ</b></div>`;
   }
-  
-  // Fallback: old logic
-  const mv = minVarPrice(p)||{};
-  const s = Number(mv.sale ?? p?.price_sale ?? p?.sale_price ?? 0);
-  const r = Number(mv.regular ?? p?.price ?? 0);
-  if (s && r && s<r){
-    return `<div><b class="text-rose-600">${s.toLocaleString('vi-VN')}đ</b> <span class="line-through opacity-70 text-sm">${r.toLocaleString('vi-VN')}đ</span></div>`;
-  }
-  const base = (s||r||0);
-  return `<div><b class="text-rose-600">${base.toLocaleString('vi-VN')}đ</b></div>`;
 }
 
 async function hydratePrices(items){
@@ -358,8 +394,9 @@ async function hydrateSoldAndRating(items){
 
     const toNum = (x)=> (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
     const sold = toNum(full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0);
-    const ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating ?? 0);
+    let ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating);
     const ratingCount = toNum(full.rating_count ?? full.reviews ?? full.review_count ?? 0);
+    if (!Number.isFinite(ratingAvg) || ratingAvg <= 0) ratingAvg = 5.0; // ✅ mặc định 5.0
 
     if (soldEl)   soldEl.textContent   = `Đã bán ${sold.toLocaleString('vi-VN')}`;
     if (ratingEl) ratingEl.textContent = `⭐ ${ratingAvg.toFixed(1)} (${ratingCount})`;
@@ -379,8 +416,8 @@ function card(p){
       <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
-      <span class="js-rating" data-id="${id}">⭐ 0</span>
-      <span class="js-sold"   data-id="${id}">Đã bán 0</span>
+	<span class="js-rating" data-id="${id}">⭐ 5.0 (0)</span>
+    <span class="js-sold"   data-id="${id}">Đã bán 0</span>
     </div>
   </a>`;
 }
