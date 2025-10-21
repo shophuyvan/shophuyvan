@@ -274,7 +274,20 @@ document.addEventListener('DOMContentLoaded', function() {
   // Modal functions
   window.openModal = function() {
     const modal = $('modal-customer');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+      modal.style.display = 'flex';
+      
+      // ✅ Đảm bảo table KHÔNG bị ẩn
+      const table = document.querySelector('table');
+      const tbody = $('customers-list');
+      const card = document.querySelector('.card');
+      
+      if (table) table.style.display = '';
+      if (tbody) tbody.style.display = '';
+      if (card) card.style.display = '';
+      
+      console.log('[Modal] Opened - Table should be visible');
+    }
   };
 
   window.closeModal = function() {
@@ -290,6 +303,15 @@ document.addEventListener('DOMContentLoaded', function() {
     $('customer-points').value = '0';
     $('customer-status').value = 'active';
     $('modal-customer-title').textContent = 'Thêm khách hàng mới';
+    
+    // ✅ Đảm bảo table vẫn hiển thị sau khi đóng modal
+    setTimeout(() => {
+      const table = document.querySelector('table');
+      const tbody = $('customers-list');
+      if (table) table.style.display = '';
+      if (tbody) tbody.style.display = '';
+      console.log('[Modal] Closed - Table restored');
+    }, 50);
   };
 
   // Load customers
