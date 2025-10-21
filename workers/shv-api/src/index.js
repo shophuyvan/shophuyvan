@@ -18,11 +18,13 @@ import { handleCartSync } from './modules/cart-sync-handler.js';
 function withCors(res, req) {
   const h = new Headers(res.headers);
   const origin = req.headers.get('Origin') || '*';
-  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'Content-Type, Authorization';
+  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'authorization,content-type,x-token,x-requested-with';
   h.set('Access-Control-Allow-Origin', origin);
   h.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   h.set('Access-Control-Allow-Headers', reqHdr);
   h.set('Access-Control-Max-Age', '86400');
+  h.set('Access-Control-Allow-Credentials', 'true');
+  h.set('Access-Control-Expose-Headers', 'x-token');
   h.set('Vary', 'Origin');
   if (!h.has('content-type')) h.set('content-type', 'application/json; charset=utf-8');
   return new Response(res.body, { status: res.status, headers: h });
@@ -99,13 +101,13 @@ export default {
 
       // Auth module (OLD - để tương thích backward)
       if (path === '/admin/me') {
-        return auth.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Categories module
       if (path.startsWith('/admin/categories') ||
           path.startsWith('/public/categories')) {
-        return categories.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Products module
@@ -113,7 +115,7 @@ export default {
           path.startsWith('/public/products') ||
           path.startsWith('/admin/products') ||
           path === '/product') {
-        return products.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Orders module
@@ -122,7 +124,7 @@ export default {
           path.startsWith('/public/orders') ||
           path.startsWith('/public/order-create') ||
           path === '/admin/stats') {
-        return orders.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Shipping module
@@ -131,31 +133,31 @@ export default {
           path.startsWith('/api/addresses') ||
           path.startsWith('/v1/platform/areas') ||
           path.startsWith('/v1/platform/orders/price')) {
-        return shipping.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Cart Sync module
       if (path.startsWith('/api/cart/sync')) {
-        return handleCartSync(req, env);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Settings module
       if (path.startsWith('/public/settings') ||
           path.startsWith('/admin/settings')) {
-        return settings.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Banners module
       if (path === '/banners' ||
           path.startsWith('/admin/banners') ||
           path.startsWith('/admin/banner')) {
-        return banners.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // Vouchers module
       if (path === '/vouchers' ||
           path.startsWith('/admin/vouchers')) {
-        return vouchers.handle(req, env, ctx);
+        return withCors(await admin.handle(req, env, ctx), req);
       }
 
       // ============================================
