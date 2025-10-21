@@ -209,8 +209,15 @@ async function loadNew(){ if(!newWrap) return;
     const d=new Date(p.created_at||p.createdAt||p.updated_at||p.updatedAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
     return d && (now-d) <= 24*60*60*1000;
   }).slice(0,8);
-  if(items.length===0){ newWrap.parentElement?.classList?.add('hidden'); } else { newWrap.parentElement?.classList?.remove('hidden'); newWrap.innerHTML = items.map(card).join(''); hydratePrices(items); }
+  if (items.length === 0) {
+  newWrap.parentElement?.classList?.add('hidden');
+} else {
+  newWrap.parentElement?.classList?.remove('hidden');
+    newWrap.innerHTML = items.map(card).join('');
+  await hydratePrices(items);
+  await hydrateSoldAndRating(items);
 }
+} // ← đóng function loadNew()
 
 // All products with pagination
 async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
@@ -223,7 +230,7 @@ async function loadAll(){ if(!allWrap||!loadMoreBtn) return;
   loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
 }
 
-function renderAll(){ if(!allWrap) return; 
+async function renderAll(){ if(!allWrap) return; 
   const q = (searchInput?.value || '').toLowerCase();
   const f = (filterInput?.value || '').toLowerCase();
   const filtered = allCache.filter(p => {
@@ -232,7 +239,8 @@ function renderAll(){ if(!allWrap) return;
     return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
   });
   allWrap.innerHTML = filtered.map(card).join('');
-  hydratePrices(filtered);
+  await hydratePrices(filtered);          // ✅ sửa lỗi gõ + thêm await
+  await hydrateSoldAndRating(filtered);   // ✅ gọi bổ sung
 }
 
 function minVarPrice(p){
@@ -267,14 +275,28 @@ const __priceCache = new Map();
 async function fetchFullProduct(id){
   if(!id) return null;
   if(__priceCache.has(id)) return __priceCache.get(id);
-  try{
-    let data = await api('/products?id='+encodeURIComponent(id));
-    if(!data || data.ok===false) data = await api('/public/products?id='+encodeURIComponent(id));
-    const item = data?.item || data?.data || data?.product || null;
-    __priceCache.set(id, item);
-    return item;
-  }catch{ return null; }
+
+  // Thử nhiều endpoint chi tiết (tuỳ API nào trả về sẽ dùng API đó)
+  const paths = [
+    `/public/products/${encodeURIComponent(id)}`,       // REST detail
+    `/products/${encodeURIComponent(id)}`,
+    `/public/product?id=${encodeURIComponent(id)}`,     // query detail
+    `/product?id=${encodeURIComponent(id)}`,
+    `/products/detail?id=${encodeURIComponent(id)}`,    // fallback detail
+    `/public/products/detail?id=${encodeURIComponent(id)}`
+  ];
+  let item = null;
+  for (const p of paths){
+    try{
+      const data = await api(p);
+      const found = data?.item || data?.data || data?.product || null;
+      if (found) { item = found; break; }
+    }catch{}
+  }
+  __priceCache.set(id, item);
+  return item;
 }
+
 
 function priceHtmlFrom(p){
   // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
@@ -308,16 +330,55 @@ async function hydratePrices(items){
     }
   }catch(e){ /* silent */ }
 }
+// [BẮT ĐẦU CHÈN] Bơm số đã bán & rating sau render
+async function hydrateSoldAndRating(items){
+  const list = Array.isArray(items) ? items : document.querySelectorAll('[data-id]');
+  for (const el of list){
+    const id = typeof el === 'string' ? el : (el.getAttribute?.('data-id') || el.dataset.id);
+    if (!id) continue;
+
+    // node hiển thị
+    const ratingEl = document.querySelector(`.js-rating[data-id="${id}"]`);
+    const soldEl   = document.querySelector(`.js-sold[data-id="${id}"]`);
+    if (!ratingEl && !soldEl) continue;
+
+    // lấy chi tiết (dùng cache của fetchFullProduct)
+    const full = await fetchFullProduct(id);
+    if (!full) continue;
+
+    // ---- map field linh hoạt ----
+    const toNum = (x)=> (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
+
+    // Đã bán: thử nhiều tên field
+    const sold = toNum(
+      full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0
+    );
+
+    // Rating trung bình & số review
+    const ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating ?? 0);
+    const ratingCount = toNum(full.rating_count ?? full.reviews ?? full.review_count ?? 0);
+
+    // render
+    if (soldEl)   soldEl.textContent   = `Đã bán ${sold.toLocaleString('vi-VN')}`;
+    if (ratingEl) ratingEl.textContent = `⭐ ${ratingAvg.toFixed(1)} (${ratingCount})`;
+  }
+}
+// [KẾT THÚC CHÈN]
 
 
 function card(p){
+  const id  = p.id || p.key || '';
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
-  const u = `/product.html?id=${encodeURIComponent(p.id||p.key||'')}`;
-  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(p.id||p.key||'')}">
+  const u   = `/product.html?id=${encodeURIComponent(id)}`;
+  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(id)}">
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 price" data-id="${(p.id||p.key||'')}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
+    </div>
+    <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
+      <span class="js-rating" data-id="${id}">⭐ 0</span>
+      <span class="js-sold"   data-id="${id}">Đã bán 0</span>
     </div>
   </a>`;
 }
