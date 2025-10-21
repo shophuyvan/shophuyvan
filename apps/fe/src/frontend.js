@@ -11,7 +11,10 @@ function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
     return url.toString();
   } catch(e) { return u; }
 }
-
+// ===================================================================
+// IMPORT PRICE FUNCTIONS - THÊM ĐOẠN NÀY
+// ===================================================================
+import { formatPriceByCustomer, pickPriceByCustomer } from './lib/price.js';
 import api from './lib/api.js';
 
 const bannerWrap  = document.getElementById('banner-wrap');
@@ -247,7 +250,15 @@ function minVarPrice(p){
   }catch{ return null; }
 }
 function priceStr(p) {
-  const mv = minVarPrice(p)||{}; const s = Number(mv.sale ?? p.price_sale ?? 0); const r = Number(mv.regular ?? p.price ?? 0);
+  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
+  if (typeof formatPriceByCustomer === 'function') {
+    return formatPriceByCustomer(p, null);
+  }
+  
+  // Fallback: old logic
+  const mv = minVarPrice(p)||{}; 
+  const s = Number(mv.sale ?? p.price_sale ?? 0); 
+  const r = Number(mv.regular ?? p.price ?? 0);
   if (s && s<r) return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
   return `<div data-price><b>${(r||s||0).toLocaleString()}đ</b></div>`;
 }
@@ -266,6 +277,12 @@ async function fetchFullProduct(id){
 }
 
 function priceHtmlFrom(p){
+  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
+  if (typeof formatPriceByCustomer === 'function') {
+    return formatPriceByCustomer(p, null);
+  }
+  
+  // Fallback: old logic
   const mv = minVarPrice(p)||{};
   const s = Number(mv.sale ?? p?.price_sale ?? p?.sale_price ?? 0);
   const r = Number(mv.regular ?? p?.price ?? 0);

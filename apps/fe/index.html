@@ -250,6 +250,14 @@ document.addEventListener('DOMContentLoaded', function(){
 <script type="module" src="/src/tracking.js?v=36"></script>
 <script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
 <script type="module" src="/src/frontend.js?v=41"></script>
+<script type="module">
+// Import price functions
+import { pickPriceByCustomer, formatPriceByCustomer } from '/src/lib/price.js';
+
+// Expose globally for use in frontend.js
+window.pickPriceByCustomer = pickPriceByCustomer;
+window.formatPriceByCustomer = formatPriceByCustomer;
+</script>
 <script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script>
   <!-- SHV-CWV: generic lazyload safeguard -->
   <script>

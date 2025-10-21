@@ -73,6 +73,9 @@
     <div class="row">
       <div class="col"><label>Giá bán</label><input id="price" class="input" type="number" min="0"/></div>
       <div class="col"><label>Giá sale</label><input id="price_sale" class="input" type="number" min="0"/></div>
+      <div class="col"><label>🏪 Giá sỉ</label><input id="wholesale_price" class="input" type="number" min="0" placeholder="Giá cho khách sỉ"/></div>
+    </div>
+    <div class="row">
       <div class="col"><label>Giá nhập</label><input id="cost" class="input" type="number" min="0"/></div>
       <div class="col"><label>Cân nặng (g)</label><input id="weight" class="input" type="number" min="0"/></div>
       <div class="col"><label>Tồn kho</label><input id="stock" class="input" type="number" min="0"/></div>
@@ -466,6 +469,9 @@ function addVar(v = {}) {
     <div class="row">
       <div class="col"><label>Giá bán</label><input class="input" type="number" data-f="price" value="${v.price || 0}"/></div>
       <div class="col"><label>Giá sale</label><input class="input" type="number" data-f="price_sale" value="${v.price_sale || 0}"/></div>
+      <div class="col"><label>🏪 Giá sỉ</label><input class="input" type="number" data-f="wholesale_price" value="${v.wholesale_price || 0}"/></div>
+    </div>
+    <div class="row">
       <div class="col"><label>Giá nhập</label><input class="input" type="number" data-f="cost" value="${v.cost || 0}"/></div>
       <div class="col"><label>Cân nặng (g)</label><input class="input" type="number" data-f="weight" value="${v.weight || 0}"/></div>
       <div class="col"><label>Tồn kho</label><input class="input" type="number" data-f="stock" value="${v.stock || 0}"/></div>
@@ -674,6 +680,7 @@ window.addEventListener('DOMContentLoaded', function() {
           sku: g('[data-f="sku"]').value.trim(),
           price: Number(g('[data-f="price"]').value || 0),
           price_sale: Number(g('[data-f="price_sale"]').value || 0),
+          wholesale_price: Number(g('[data-f="wholesale_price"]')?.value || 0),
           cost: Number(g('[data-f="cost"]').value || 0),
           weight: gramsOf(g('[data-f="weight"]').value),
           stock: Number(g('[data-f="stock"]').value || 0),
@@ -694,6 +701,7 @@ window.addEventListener('DOMContentLoaded', function() {
         reviews: parseReviews($('#reviews').value),
         price: Number($('#price').value || 0),
         price_sale: Number($('#price_sale').value || 0),
+        wholesale_price: Number($('#wholesale_price').value || 0),
         cost: Number($('#cost').value || 0),
         weight: gramsOf($('#weight').value),
         stock: Number($('#stock').value || 0),
@@ -825,9 +833,8 @@ function renderCatPicker(items) {
     $('#slug').value = d.slug || '';
     $('#price').value = d.price || 0;
     $('#price_sale').value = d.price_sale || 0;
+    $('#wholesale_price').value = d.wholesale_price || 0;
     $('#cost').value = d.cost || 0;
-    $('#weight').value = d.weight || 0;
-    $('#stock').value = d.stock || 0;
     $('#seoTitle').value = (d.seo?.title) || d.seoTitle || '';
     $('#seoDesc').value = (d.seo?.desc) || d.seoDesc || '';
     $('#keywords').value = ((d.seo?.keywords) || d.keywords || []).join(', ');
