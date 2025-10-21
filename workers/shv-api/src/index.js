@@ -142,9 +142,10 @@ export default {
        }
 
       // Settings module
-      if (path.startsWith('/public/settings') ||
-          path.startsWith('/admin/settings')) {
-        return withCors(await admin.handle(req, env, ctx), req);
+      if (path.startsWith('/admin/settings') ||
+          path.startsWith('/public/settings') ||
+          path === '/settings') {
+        return withCors(await settings.handle(req, env, ctx), req);
       }
 
       // Banners module
