@@ -6,8 +6,8 @@
   <title>Quản lý Khách hàng</title>
   <link rel="stylesheet" href="./styles.css"/>
   <script src="./admin_real.js?v=27"></script>
-  <script src="./sidebar-layout.js"></script>
   <style>
+    /* Customer Type Badges */
     .customer-type-badge {
       display: inline-block;
       padding: 4px 12px;
@@ -18,9 +18,11 @@
     .type-retail { background: #dbeafe; color: #1e40af; }
     .type-wholesale { background: #fef3c7; color: #92400e; }
     
-    .status-active { color: #059669; }
-    .status-inactive { color: #dc2626; }
+    /* Status Colors */
+    .status-active { color: #059669; font-weight: 600; }
+    .status-inactive { color: #dc2626; font-weight: 600; }
     
+    /* Points Badge */
     .points-badge {
       background: #dcfce7;
       color: #166534;
@@ -30,6 +32,7 @@
       font-weight: 600;
     }
 
+    /* Modal Styles */
     .modal {
       display: none;
       position: fixed;
@@ -40,65 +43,7 @@
       background: rgba(0,0,0,0.5);
       align-items: center;
       justify-content: center;
-      z-index: 99999; /* ✅ Tăng lên rất cao */
-    }
-	/* ✅ FIX: Force table luôn hiển thị */
-    body.admin-layout table.table {
-      display: table !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-    }
-
-    body.admin-layout tbody#customers-list {
-      display: table-row-group !important;
-      visibility: visible !important;
-    }
-
-    body.admin-layout .card {
-      display: block !important;
-      visibility: visible !important;
-    }
-
-    body.admin-layout .stats-grid {
-      display: grid !important;
-      visibility: visible !important;
-    }
-
-    /* ✅ Override mọi style ẩn table */
-    table.table,
-    tbody#customers-list,
-    .card,
-    .stats-grid {
-      display: revert !important;
-    }
-
-    /* ✅ QUAN TRỌNG: Đảm bảo modal-content nằm trên cùng */
-    .modal-content {
-      position: relative;
-      z-index: 100000;
-    }
-
-    /* ✅ BẮT BUỘC: Khi modal mở, KHÔNG ẨN bất cứ thứ gì */
-    body.admin-layout .admin-content-area,
-    body.admin-layout .card,
-    body.admin-layout .table,
-    body.admin-layout #customers-list,
-    body.admin-layout .stats-grid {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-    }
-
-    body.admin-layout .table {
-      display: table !important;
-    }
-
-    body.admin-layout #customers-list {
-      display: table-row-group !important;
-    }
-
-    body.admin-layout .stats-grid {
-      display: grid !important;
+      z-index: 9999;
     }
 
     .modal-content {
@@ -108,6 +53,8 @@
       max-width: 600px;
       max-height: 90vh;
       overflow-y: auto;
+      position: relative;
+      z-index: 10000;
     }
 
     .modal-header {
@@ -129,6 +76,7 @@
       font-size: 28px;
       cursor: pointer;
       color: #6b7280;
+      line-height: 1;
     }
 
     .modal-close:hover {
@@ -147,6 +95,7 @@
       gap: 10px;
     }
 
+    /* Form Styles */
     .form-group {
       margin-bottom: 15px;
     }
@@ -158,11 +107,19 @@
       font-size: 14px;
     }
 
+    .form-hint {
+      font-size: 11px;
+      color: #6b7280;
+      font-weight: 400;
+    }
+
+    /* Button Styles */
     .btn-sm {
       padding: 4px 12px;
       font-size: 13px;
     }
 
+    /* Statistics Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -188,82 +145,60 @@
       color: #6b7280;
       margin-top: 4px;
     }
-	
-	/* ============================================
-   🔥 CRITICAL FIX: Force table always visible
-   ============================================ */
 
-/* Override mọi display:none từ sidebar-layout */
-body.admin-layout .admin-content-area > .card,
-body.admin-layout .admin-content-area .table,
-body.admin-layout .admin-content-area tbody,
-body.admin-layout .admin-content-area .stats-grid {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
+    /* Customer ID Badge */
+    .customer-id {
+      font-size: 11px;
+      color: #6b7280;
+    }
 
-/* Table phải là table, không phải block */
-body.admin-layout .admin-content-area table.table {
-  display: table !important;
-  width: 100% !important;
-  border-collapse: collapse !important;
-}
+    /* Filter Section */
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
 
-/* Tbody phải là table-row-group */
-body.admin-layout .admin-content-area tbody {
-  display: table-row-group !important;
-}
+    .filters .input {
+      flex: 1;
+      min-width: 200px;
+    }
 
-/* Thead cũng vậy */
-body.admin-layout .admin-content-area thead {
-  display: table-header-group !important;
-}
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .filters {
+        flex-direction: column;
+      }
+      
+      .filters .input {
+        width: 100%;
+      }
 
-/* Tr phải là table-row */
-body.admin-layout .admin-content-area tr {
-  display: table-row !important;
-}
-
-/* Td phải là table-cell */
-body.admin-layout .admin-content-area td,
-body.admin-layout .admin-content-area th {
-  display: table-cell !important;
-}
-
-/* Stats grid phải là grid */
-body.admin-layout .admin-content-area .stats-grid {
-  display: grid !important;
-}
-
-/* FORCE: Không cho JavaScript ẩn */
-#customers-list {
-  display: table-row-group !important;
-}
-
-.table {
-  display: table !important;
-}
-
-.card {
-  display: block !important;
-}
-
-.stats-grid {
-  display: grid !important;
-}
+      .modal-content {
+        width: 95%;
+      }
+    }
   </style>
 </head>
 <body>
+<!-- Navigation Header -->
+<div style="background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 24px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+  <a href="/index.html" style="color:#6b7280;text-decoration:none;">← Quay lại</a>
+  <span style="color:#e5e7eb;">|</span>
+  <h1 style="margin:0;font-size:20px;font-weight:700;">👥 Quản lý Khách hàng</h1>
+</div>
+
+<div style="max-width:1400px;margin:0 auto;padding:0 24px 24px;">
 
 <div class="card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
     <h2 style="margin: 0;">👥 Quản lý Khách hàng</h2>
     <button id="btn-create-customer" class="btn primary">➕ Thêm khách hàng</button>
   </div>
 
   <!-- Statistics -->
-  <div class="stats-grid" id="stats-grid">
+  <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-value" id="stat-total">0</div>
       <div class="stat-label">Tổng khách hàng</div>
@@ -283,12 +218,11 @@ body.admin-layout .admin-content-area .stats-grid {
   </div>
 
   <!-- Filters -->
-  <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+  <div class="filters">
     <input 
       id="search-input" 
       class="input" 
       placeholder="🔍 Tìm theo tên, email, SĐT..." 
-      style="flex: 1;"
     />
     <select id="filter-type" class="input" style="width: 200px;">
       <option value="">Tất cả loại</option>
@@ -302,23 +236,27 @@ body.admin-layout .admin-content-area .stats-grid {
     </select>
   </div>
   
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Họ tên</th>
-        <th>Email</th>
-        <th>Số điện thoại</th>
-        <th>Loại</th>
-        <th>Điểm</th>
-        <th>Trạng thái</th>
-        <th>Đăng nhập lần cuối</th>
-        <th>Hành động</th>
-      </tr>
-    </thead>
-    <tbody id="customers-list">
-      <tr><td colspan="8" style="text-align:center;">Đang tải...</td></tr>
-    </tbody>
-  </table>
+  <div style="overflow-x: auto;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Họ tên</th>
+          <th>Email</th>
+          <th>Số điện thoại</th>
+          <th>Loại</th>
+          <th>Điểm</th>
+          <th>Trạng thái</th>
+          <th>Đăng nhập lần cuối</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody id="customers-list">
+        <tr><td colspan="8" style="text-align:center;">Đang tải...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 </div>
 
 <!-- Modal: Create/Edit Customer -->
@@ -332,17 +270,17 @@ body.admin-layout .admin-content-area .stats-grid {
       <input type="hidden" id="customer-id" />
       
       <div class="form-group">
-        <label>Họ tên *</label>
+        <label>Họ tên <span style="color: #dc2626;">*</span></label>
         <input id="customer-name" class="input" placeholder="Nguyễn Văn A" required />
       </div>
       
       <div class="form-group">
-        <label>Email *</label>
+        <label>Email <span style="color: #dc2626;">*</span></label>
         <input id="customer-email" class="input" type="email" placeholder="customer@example.com" required />
       </div>
       
       <div class="form-group">
-        <label>Mật khẩu * <span style="font-size: 11px; color: #6b7280;">(Để trống nếu không đổi)</span></label>
+        <label>Mật khẩu <span style="color: #dc2626;">*</span> <span class="form-hint">(Để trống nếu không đổi)</span></label>
         <input id="customer-password" class="input" type="password" placeholder="••••••••" />
       </div>
       
@@ -352,7 +290,7 @@ body.admin-layout .admin-content-area .stats-grid {
       </div>
       
       <div class="form-group">
-        <label>Loại khách hàng *</label>
+        <label>Loại khách hàng <span style="color: #dc2626;">*</span></label>
         <select id="customer-type" class="input" required>
           <option value="retail">Khách lẻ (Giá thường)</option>
           <option value="wholesale">Khách sỉ (Giá sỉ)</option>
@@ -381,34 +319,31 @@ body.admin-layout .admin-content-area .stats-grid {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('[Customers] DOM loaded, initializing...');
-
-  // Initialize sidebar layout
-  if (window.AdminLayout) {
-    AdminLayout.init('Quản lý Khách hàng');
-  }
+  console.log('[Customers] Initializing...');
 
   const $ = (id) => document.getElementById(id);
 
   let allCustomers = [];
   let filteredCustomers = [];
 
+  // Escape HTML to prevent XSS
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Validate email
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   // Modal functions
   window.openModal = function() {
     const modal = $('modal-customer');
     if (modal) {
       modal.style.display = 'flex';
-      
-      // ✅ Đảm bảo table KHÔNG bị ẩn
-      const table = document.querySelector('table');
-      const tbody = $('customers-list');
-      const card = document.querySelector('.card');
-      
-      if (table) table.style.display = '';
-      if (tbody) tbody.style.display = '';
-      if (card) card.style.display = '';
-      
-      console.log('[Modal] Opened - Table should be visible');
+      console.log('[Modal] Opened');
     }
   };
 
@@ -416,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = $('modal-customer');
     if (modal) modal.style.display = 'none';
     
+    // Reset form
     $('customer-id').value = '';
     $('customer-name').value = '';
     $('customer-email').value = '';
@@ -426,23 +362,14 @@ document.addEventListener('DOMContentLoaded', function() {
     $('customer-status').value = 'active';
     $('modal-customer-title').textContent = 'Thêm khách hàng mới';
     
-    // ✅ Đảm bảo table vẫn hiển thị sau khi đóng modal
-    setTimeout(() => {
-      const table = document.querySelector('table');
-      const tbody = $('customers-list');
-      if (table) table.style.display = '';
-      if (tbody) tbody.style.display = '';
-      console.log('[Modal] Closed - Table restored');
-    }, 50);
+    console.log('[Modal] Closed');
   };
 
   // Load customers
   async function loadCustomers() {
-    console.log('[Customers] Loading customers...');
+    console.log('[Customers] Loading...');
     try {
       const r = await Admin.req('/admin/customers/list');
-      
-      console.log('[Customers] Response:', r);
       
       const tbody = $('customers-list');
       if (!tbody) return;
@@ -459,15 +386,15 @@ document.addEventListener('DOMContentLoaded', function() {
       renderCustomers();
       updateStats();
       
-      console.log('[Customers] Loaded', allCustomers.length, 'customers');
+      console.log('[Customers] Loaded:', allCustomers.length);
     } catch (e) {
       console.error('[Customers] Load error:', e);
       const tbody = $('customers-list');
-      if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: #dc2626;">Lỗi tải danh sách khách hàng</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: #dc2626;">❌ Lỗi tải danh sách khách hàng</td></tr>';
     }
   }
 
-  // Render customers
+  // Render customers (XSS-safe)
   function renderCustomers() {
     const tbody = $('customers-list');
     if (!tbody) return;
@@ -488,22 +415,42 @@ document.addEventListener('DOMContentLoaded', function() {
         : 'Chưa đăng nhập';
       
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>
-          <div style="font-weight: 600;">${customer.full_name}</div>
-          <div style="font-size: 11px; color: #6b7280;">ID: ${customer.id}</div>
-        </td>
-        <td>${customer.email}</td>
-        <td>${customer.phone || '-'}</td>
-        <td><span class="customer-type-badge ${typeClass}">${typeName}</span></td>
-        <td><span class="points-badge">${customer.points || 0} điểm</span></td>
-        <td class="${statusClass}">${customer.status || 'active'}</td>
-        <td style="font-size: 12px;">${lastLogin}</td>
-        <td>
-          <button class="btn btn-sm" onclick="window.editCustomer('${customer.id}')">✏️ Sửa</button>
-          <button class="btn btn-sm danger" onclick="window.deleteCustomer('${customer.id}', '${customer.full_name.replace(/'/g, "\\'")}')">🗑️ Xóa</button>
-        </td>
-      `;
+      
+      // Create cells safely
+      const cells = [
+        `<div style="font-weight: 600;">${escapeHtml(customer.full_name)}</div><div class="customer-id">ID: ${escapeHtml(customer.id)}</div>`,
+        escapeHtml(customer.email),
+        escapeHtml(customer.phone || '-'),
+        `<span class="customer-type-badge ${typeClass}">${typeName}</span>`,
+        `<span class="points-badge">${customer.points || 0} điểm</span>`,
+        `<span class="${statusClass}">${escapeHtml(customer.status || 'active')}</span>`,
+        `<span style="font-size: 12px;">${escapeHtml(lastLogin)}</span>`,
+        '' // Actions column
+      ];
+      
+      cells.forEach((content, i) => {
+        const td = document.createElement('td');
+        if (i === cells.length - 1) {
+          // Actions column - use buttons with event listeners
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn btn-sm';
+          editBtn.textContent = '✏️ Sửa';
+          editBtn.onclick = () => window.editCustomer(customer.id);
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn-sm danger';
+          deleteBtn.textContent = '🗑️ Xóa';
+          deleteBtn.onclick = () => window.deleteCustomer(customer.id, customer.full_name);
+          
+          td.appendChild(editBtn);
+          td.appendChild(document.createTextNode(' '));
+          td.appendChild(deleteBtn);
+        } else {
+          td.innerHTML = content;
+        }
+        tr.appendChild(td);
+      });
+      
       tbody.appendChild(tr);
     });
   }
@@ -542,12 +489,11 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCustomers();
   }
 
-  // Event listeners for filters
+  // Event listeners
   $('search-input').addEventListener('input', filterCustomers);
   $('filter-type').addEventListener('change', filterCustomers);
   $('filter-status').addEventListener('change', filterCustomers);
 
-  // Create customer
   $('btn-create-customer').onclick = () => {
     openModal();
   };
@@ -563,13 +509,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const points = parseInt($('customer-points').value) || 0;
     const status = $('customer-status').value;
     
+    // Validation
     if (!name || !email || !customer_type) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+      alert('⚠️ Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    
+    if (!isValidEmail(email)) {
+      alert('⚠️ Email không hợp lệ');
       return;
     }
     
     if (!id && !password) {
-      alert('Vui lòng nhập mật khẩu');
+      alert('⚠️ Vui lòng nhập mật khẩu');
+      return;
+    }
+    
+    if (password && password.length < 6) {
+      alert('⚠️ Mật khẩu phải có ít nhất 6 ký tự');
       return;
     }
     
@@ -586,7 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       
       if (r && r.ok) {
-        Admin.toast(id ? 'Đã cập nhật khách hàng' : 'Đã tạo khách hàng mới');
+        Admin.toast(id ? '✅ Đã cập nhật khách hàng' : '✅ Đã tạo khách hàng mới');
         closeModal();
         loadCustomers();
       } else {
@@ -594,20 +551,13 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     } catch (e) {
       console.error('[Customers] Save error:', e);
-      alert(e.message || 'Lỗi lưu khách hàng');
+      alert('❌ ' + (e.message || 'Lỗi lưu khách hàng'));
     }
   };
 
   // Edit customer
   window.editCustomer = async function(id) {
     try {
-      // ✅ LƯU TRẠNG THÁI TABLE TRƯỚC KHI MỞ MODAL
-      const table = document.querySelector('table');
-      const tbody = $('customers-list');
-      const card = document.querySelector('.card');
-      
-      console.log('[Edit] Preserving table state...');
-      
       const r = await Admin.req(`/admin/customers/${id}`);
       
       if (!r || !r.ok) throw new Error('Failed to load customer');
@@ -626,50 +576,37 @@ document.addEventListener('DOMContentLoaded', function() {
       
       $('modal-customer-title').textContent = 'Sửa thông tin khách hàng';
       
-      // ✅ FORCE HIỂN THỊ TABLE TRƯỚC KHI MỞ MODAL
-      if (table) table.style.display = 'table';
-      if (tbody) tbody.style.display = 'table-row-group';
-      if (card) card.style.display = 'block';
-      
       openModal();
-      
-      // ✅ KIỂM TRA LẠI SAU KHI MỞ MODAL
-      setTimeout(() => {
-        if (table && window.getComputedStyle(table).display === 'none') {
-          console.error('[Edit] Table was hidden! Forcing visible...');
-          table.style.display = 'table !important';
-          table.style.visibility = 'visible !important';
-        }
-      }, 50);
       
     } catch (e) {
       console.error('[Customers] Edit error:', e);
-      alert('Lỗi tải thông tin khách hàng');
+      alert('❌ Lỗi tải thông tin khách hàng');
     }
   };
 
   // Delete customer
   window.deleteCustomer = async function(id, name) {
-    if (!confirm(`Xóa khách hàng "${name}"?\n\nHành động này không thể hoàn tác!`)) return;
+    if (!confirm(`⚠️ Xóa khách hàng "${name}"?\n\nHành động này không thể hoàn tác!`)) return;
     
     try {
       const r = await Admin.req(`/admin/customers/${id}`, { method: 'DELETE' });
       
       if (r && r.ok) {
-        Admin.toast('Đã xóa khách hàng');
+        Admin.toast('✅ Đã xóa khách hàng');
         loadCustomers();
       } else {
         throw new Error(r.error || 'Lỗi xóa khách hàng');
       }
     } catch (e) {
       console.error('[Customers] Delete error:', e);
-      alert(e.message || 'Lỗi xóa khách hàng');
+      alert('❌ ' + (e.message || 'Lỗi xóa khách hàng'));
     }
   };
 
-  // Init
+  // Initialize
   loadCustomers();
 });
 </script>
+
 </body>
 </html>
