@@ -44,6 +44,7 @@ export function pickLowestPrice(product){
 
   // Backward compatibility aliases
   return { ...best, sale: best.base, regular: best.original };
+}
   // ===================================================================
 // WHOLESALE PRICE LOGIC - THÊM ĐOẠN NÀY
 // ===================================================================
