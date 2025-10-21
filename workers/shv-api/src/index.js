@@ -67,6 +67,17 @@ export default {
           path.startsWith('/admin/roles')) {
         return admin.handle(req, env, ctx);
       }
+	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
+      // ============================================
+      // CUSTOMER API ROUTES (PUBLIC)
+      // ============================================
+      if (path.startsWith('/admin/customers') ||
+          path === '/api/customers/register' ||
+          path === '/api/customers/login' ||
+          path === '/api/customers/me') {
+        return admin.handle(req, env, ctx);
+      }
+      // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
       // ============================================
       // EXISTING ROUTES

@@ -177,21 +177,22 @@ async function createOrder(req, env) {
   await putJSON(env, 'order:' + id, order);
   
   // Update orders list
-  const list = await getJSON(env, 'orders:list', []);
-  list.unshift(order);
-  await putJSON(env, 'orders:list', list);
-  // [BẮT ĐẦU CHÈN - trừ tồn kho sau khi tạo đơn]
+  // Lưu đơn vào KV (danh sách + chi tiết)
+const list = await getJSON(env, 'orders:list', []);
+list.unshift(order);
+await putJSON(env, 'orders:list', list);
+await putJSON(env, 'order:' + id, order);
+
+// [BẮT ĐẦU CHÈN - trừ tồn kho]
 if (shouldAdjustStock(order.status)) {
   await adjustInventory(items, env, -1);
 }
-// [KẾT THÚC CHÈN - trừ tồn kho sau khi tạo đơn]
+// [KẾT THÚC CHÈN - trừ tồn kho]
 
+const response = json({ ok: true, id }, {}, req);
+await idemSet(idem.key, env, response);
 
-  // Response with idempotency
-  const response = json({ ok: true, id, order }, {}, req);
-  await idemSet(idem.key, env, response);
-  
-  return response;
+return response;
 }
 
 // ===================================================================
