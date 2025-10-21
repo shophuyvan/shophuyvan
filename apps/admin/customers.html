@@ -188,6 +188,70 @@
       color: #6b7280;
       margin-top: 4px;
     }
+	
+	/* ============================================
+   🔥 CRITICAL FIX: Force table always visible
+   ============================================ */
+
+/* Override mọi display:none từ sidebar-layout */
+body.admin-layout .admin-content-area > .card,
+body.admin-layout .admin-content-area .table,
+body.admin-layout .admin-content-area tbody,
+body.admin-layout .admin-content-area .stats-grid {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Table phải là table, không phải block */
+body.admin-layout .admin-content-area table.table {
+  display: table !important;
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+/* Tbody phải là table-row-group */
+body.admin-layout .admin-content-area tbody {
+  display: table-row-group !important;
+}
+
+/* Thead cũng vậy */
+body.admin-layout .admin-content-area thead {
+  display: table-header-group !important;
+}
+
+/* Tr phải là table-row */
+body.admin-layout .admin-content-area tr {
+  display: table-row !important;
+}
+
+/* Td phải là table-cell */
+body.admin-layout .admin-content-area td,
+body.admin-layout .admin-content-area th {
+  display: table-cell !important;
+}
+
+/* Stats grid phải là grid */
+body.admin-layout .admin-content-area .stats-grid {
+  display: grid !important;
+}
+
+/* FORCE: Không cho JavaScript ẩn */
+#customers-list {
+  display: table-row-group !important;
+}
+
+.table {
+  display: table !important;
+}
+
+.card {
+  display: block !important;
+}
+
+.stats-grid {
+  display: grid !important;
+}
   </style>
 </head>
 <body>
