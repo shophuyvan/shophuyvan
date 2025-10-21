@@ -228,7 +228,7 @@ class StatsManager {
         }
       });
       
-      const topProducts = Object.values(productStats))
+      const topProducts = Object.values(productStats)
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10);
       
@@ -322,7 +322,6 @@ async loadInventoryValue() {
       this.$('inventoryValue').textContent = '0đ';
     }
   }
-// KẾT THÚC THAY HÀM
 
   // ==================== UPDATE UI ====================
   updateStats() {
