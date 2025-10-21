@@ -6,6 +6,13 @@ const SESSION_KEY = 'shv_session_id';
 const LAST_SYNC_KEY = 'shv_last_sync';
 const DEFAULT_CART_KEY = 'cart'; // FE đang dùng format array trong localStorage
 
+// ==== DEBUG HOOKS (bật bằng localStorage.DEBUG_FE="1") ====
+const __DBG__ = () => { try { return localStorage.getItem('DEBUG_FE') === '1'; } catch { return false; } };
+function dbgCS(...a){ if(__DBG__()) console.log('[CartSync]', ...a); }
+function dbgStack(label){ if(__DBG__()){ console.group(label); console.log(new Error('STACK').stack); console.groupEnd(); } }
+// ==========================================================
+
+
 export function getSessionId() {
   let sid = localStorage.getItem(SESSION_KEY);
   if (!sid) {
@@ -45,15 +52,20 @@ export class CartSyncManager {
       }
     };
     console.log('[CartSync] session:', this.sessionId, 'key:', this.cartKey);
+	dbgCS('ctor',{ key:this.cartKey, started:this._started, timer:!!this.syncTimer });
+dbgStack('[CartSync ctor] stack');
   }
 
   start() {
+  dbgCS('start() called',{_started:this._started, timer:!!this.syncTimer});
+  dbgStack('[CartSync start()] stack');
   if (this._started) return;                 // ⬅️ guard: chỉ start 1 lần
   this._started = true;
 
   if (this.syncTimer) clearInterval(this.syncTimer);
   this.pullFromServer();
-  this.syncTimer = setInterval(() => this.pullFromServer(), 15000); // giãn nhịp
+  this.syncTimer = setInterval(() => this.pullFromServer(), 15000);
+dbgCS('started',{ interval:15000, timer:this.syncTimer });
 
   if (!this._eventsAttached) {               // ⬅️ listeners gắn 1 lần
     window.addEventListener('storage', this.handleStorageChange);
@@ -61,6 +73,7 @@ export class CartSyncManager {
     this._eventsAttached = true;
   }
   console.log('[CartSync] started');
+  dbgCS('start() done');
 }
 
   stop() {
@@ -119,11 +132,13 @@ export class CartSyncManager {
   }
 
   async pullFromServer() {
-    if (this.isSyncing) return false;
-    if (!navigator.onLine) return false;
+    if (this.isSyncing) { dbgCS('pull skip: isSyncing'); return false; }
+    if (!navigator.onLine) { dbgCS('pull skip: offline'); return false; }
+    dbgCS('pull start',{ at: Date.now() });
     this.isSyncing = true;
     try {
       const url = `${API_BASE}/api/cart/sync?session_id=${encodeURIComponent(this.sessionId)}`;
+	  dbgCS('pull fetch', url);
       const res = await fetch(url);
       if (!res.ok) return false;
       const data = await res.json();
@@ -144,11 +159,12 @@ export class CartSyncManager {
     } catch {
       return false;
     } finally {
-      this.isSyncing = false;
-    }
-  }
+  this.isSyncing = false;
+  dbgCS('pull end',{ at: Date.now() });
+}
 
   async pushToServer(sync = false) {
+	  dbgCS('push start',{ keepalive:sync });
     try {
       const cart = this.getLocalCart();
       const res = await fetch(`${API_BASE}/api/cart/sync`, {
@@ -168,6 +184,7 @@ export class CartSyncManager {
         this.lastSync = t;
         localStorage.setItem(LAST_SYNC_KEY, String(t));
         console.log('[CartSync] pushed:', cart.length);
+		dbgCS('push ok',{ items: cart.length, updated_at: data.updated_at });
         return true;
       }
       return false;
