@@ -42,6 +42,35 @@
       justify-content: center;
       z-index: 99999; /* ✅ Tăng lên rất cao */
     }
+	/* ✅ FIX: Force table luôn hiển thị */
+    body.admin-layout table.table {
+      display: table !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    body.admin-layout tbody#customers-list {
+      display: table-row-group !important;
+      visibility: visible !important;
+    }
+
+    body.admin-layout .card {
+      display: block !important;
+      visibility: visible !important;
+    }
+
+    body.admin-layout .stats-grid {
+      display: grid !important;
+      visibility: visible !important;
+    }
+
+    /* ✅ Override mọi style ẩn table */
+    table.table,
+    tbody#customers-list,
+    .card,
+    .stats-grid {
+      display: revert !important;
+    }
 
     /* ✅ QUAN TRỌNG: Đảm bảo modal-content nằm trên cùng */
     .modal-content {
