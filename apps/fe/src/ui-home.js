@@ -47,42 +47,22 @@ function startBanner(){ stopBanner(); if(banners.length>1) bTimer=setInterval(()
 function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
 
 // ✅ FIXED CARD FUNCTION WITH FULL PRICE LOGIC
+
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
   
-  // Lấy giá thấp nhất từ tất cả nguồn
-  const toNum = (x) => (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,'')) || 0) : Number(x || 0));
-  const vars = Array.isArray(p?.variants) ? p.variants : [];
+  // Sử dụng hàm pickLowestPrice từ price.js
+  const priceInfo = pickLowestPrice(p);
   
-  let minSale = 0, minRegular = 0, minCost = 0;
-  
-  if (vars.length) {
-    for (const v of vars) {
-      const s = toNum(v.price_sale ?? v.sale_price ?? v.sale);
-      const r = toNum(v.price ?? v.unit_price);
-      const c = toNum(v.cost ?? v.cost_price ?? v.import_price);
-      
-      if (s > 0) minSale = minSale ? Math.min(minSale, s) : s;
-      if (r > 0) minRegular = minRegular ? Math.min(minRegular, r) : r;
-      if (c > 0) minCost = minCost ? Math.min(minCost, c) : c;
-    }
-  } else {
-    minSale = toNum(p.price_sale ?? p.sale_price ?? p.sale);
-    minRegular = toNum(p.price ?? p.unit_price);
-    minCost = toNum(p.cost ?? p.cost_price ?? p.import_price);
-  }
-  
-  // Quyết định giá hiển thị
+  // Format giá hiển thị
   let priceHtml = '';
   
-  if (minSale > 0 && minRegular > 0 && minSale < minRegular) {
-    priceHtml = `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(minSale)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(minRegular)}</span></div>`;
-  } else if (minRegular > 0) {
-    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minRegular)}</div>`;
-  } else if (minSale > 0) {
-    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minSale)}</div>`;
-  } else if (minCost > 0) {
-    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minCost)}</div>`;
+  if (priceInfo.base > 0) {
+    if (priceInfo.original && priceInfo.original > priceInfo.base) {
+      priceHtml = `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(priceInfo.base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(priceInfo.original)}</span></div>`;
+    } else {
+      priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(priceInfo.base)}</div>`;
+    }
   } else {
     priceHtml = `<div class="text-gray-400 font-semibold">Liên hệ</div>`;
   }
@@ -98,7 +78,6 @@ function card(p){
     </div>
   </a>`;
 }
-
 
 (async function init(){
   try{
