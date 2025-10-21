@@ -9,6 +9,13 @@ function withTimeout(promise, ms=10000){
 async function core(path, init = {}) {
   const fallback = 'https://shv-api.shophuyvan.workers.dev';
   const base = (window.API_BASE || fallback).replace(/\/+$/,'');
+
+  // Chuẩn hoá path: đổi đuôi "product" (số ít) sang "products" (số nhiều)
+  // để tránh gọi nhầm /public/product?id=... → 404
+  path = String(path)
+    .replace(/^\/public\/product(?=$|[/?#])/, '/public/products')
+    .replace(/^\/product(?=$|[/?#])/, '/products');
+
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const headers = new Headers(init.headers || {});

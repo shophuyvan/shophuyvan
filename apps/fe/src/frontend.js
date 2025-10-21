@@ -591,7 +591,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(/\b0đ\b/.test(priceBox.textContent||'')){
         const id = card.getAttribute('data-card-id');
         try{
-          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
+          const paths = [
+          `/public/products/${id}`,
+          `/products/${id}`,
+          `/public/products?id=${id}`,
+          `/products?id=${id}`
+];
           let data=null;
           for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
           const pr = (data?.item||data?.data||data||{});
