@@ -360,19 +360,22 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('[Customers] Loading...');
     try {
       const r = await Admin.req('/admin/customers/list');
+      console.debug('[Customers] API raw:', r);
       
       const tbody = $('customers-list');
       if (!tbody) return;
       
       allCustomers = r.customers || [];
+      console.debug('[Customers] allCustomers length =', allCustomers.length, allCustomers);
       
       if (allCustomers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chưa có khách hàng nào</td></tr>';
         updateStats();
         return;
-      }
+     }
       
       filteredCustomers = [...allCustomers];
+      console.debug('[Customers] filteredCustomers before render =', filteredCustomers.length);
       renderCustomers();
       updateStats();
       
@@ -386,10 +389,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Render customers (XSS-safe)
   function renderCustomers() {
-    const tbody = $('customers-list');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
+  const tbody = $('customers-list');
+  if (!tbody) {
+    console.error('[Customers] tbody #customers-list NOT FOUND');
+    return;
+  }
+  console.debug('[Customers] rendering rows =', filteredCustomers.length);
+
+  tbody.innerHTML = '';
     
     if (filteredCustomers.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Không tìm thấy khách hàng</td></tr>';
@@ -460,27 +467,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Filter customers
   function filterCustomers() {
-    const searchTerm = $('search-input').value.toLowerCase();
-    const typeFilter = $('filter-type').value;
-    const statusFilter = $('filter-status').value;
-    
-    filteredCustomers = allCustomers.filter(customer => {
-      const nameSafe  = (customer.full_name || '').toLowerCase();
-      const emailSafe = (customer.email || '').toLowerCase();
-      const phoneSafe = (customer.phone || '');
-      const matchSearch = !searchTerm ||
-        nameSafe.includes(searchTerm) ||
-        emailSafe.includes(searchTerm) ||
-        phoneSafe.includes(searchTerm);
-      
-      const matchType = !typeFilter || customer.customer_type === typeFilter;
-      const matchStatus = !statusFilter || customer.status === statusFilter;
-      
-      return matchSearch && matchType && matchStatus;
-    });
-    
-    renderCustomers();
-  }
+  const searchTerm  = (($('search-input').value) || '').toLowerCase();
+  const typeFilter  = $('filter-type').value;
+  const statusFilter = $('filter-status').value;
+
+  console.debug('[Customers] Filters =', { searchTerm, typeFilter, statusFilter });
+
+  filteredCustomers = allCustomers.filter(customer => {
+    const nameSafe   = (customer.full_name || '').toLowerCase();
+    const emailSafe  = (customer.email || '').toLowerCase();
+    const phoneSafe  = (customer.phone || '');
+    const typeSafe   = (customer.customer_type || '');
+    const statusSafe = (customer.status || '');
+
+    const matchSearch = !searchTerm ||
+      nameSafe.includes(searchTerm) ||
+      emailSafe.includes(searchTerm) ||
+      phoneSafe.includes(searchTerm);
+
+    const matchType   = !typeFilter  || (typeSafe   === typeFilter);
+    const matchStatus = !statusFilter || (statusSafe === statusFilter);
+
+    return matchSearch && matchType && matchStatus;
+  });
+
+  console.debug('[Customers] filtered after filters =', filteredCustomers.length, filteredCustomers);
+  renderCustomers();
+ }
 
   // Event listeners
   $('search-input').addEventListener('input', filterCustomers);
