@@ -465,10 +465,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusFilter = $('filter-status').value;
     
     filteredCustomers = allCustomers.filter(customer => {
-      const matchSearch = !searchTerm || 
-        customer.full_name.toLowerCase().includes(searchTerm) ||
-        customer.email.toLowerCase().includes(searchTerm) ||
-        (customer.phone && customer.phone.includes(searchTerm));
+      const nameSafe  = (customer.full_name || '').toLowerCase();
+      const emailSafe = (customer.email || '').toLowerCase();
+      const phoneSafe = (customer.phone || '');
+      const matchSearch = !searchTerm ||
+        nameSafe.includes(searchTerm) ||
+        emailSafe.includes(searchTerm) ||
+        phoneSafe.includes(searchTerm);
       
       const matchType = !typeFilter || customer.customer_type === typeFilter;
       const matchStatus = !statusFilter || customer.status === statusFilter;

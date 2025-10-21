@@ -46,12 +46,46 @@ function renderBanner(i){
 function startBanner(){ stopBanner(); if(banners.length>1) bTimer=setInterval(()=>renderBanner(bIdx+1),4000); }
 function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
 
+// ✅ FIXED CARD FUNCTION WITH FULL PRICE LOGIC
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
-  const { base, original } = pickLowestPrice(p);
-  const priceHtml = original>base && original>0
-    ? `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(original)}</span></div>`
-    : `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`;
+  
+  // Lấy giá thấp nhất từ tất cả nguồn
+  const toNum = (x) => (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,'')) || 0) : Number(x || 0));
+  const vars = Array.isArray(p?.variants) ? p.variants : [];
+  
+  let minSale = 0, minRegular = 0, minCost = 0;
+  
+  if (vars.length) {
+    for (const v of vars) {
+      const s = toNum(v.price_sale ?? v.sale_price ?? v.sale);
+      const r = toNum(v.price ?? v.unit_price);
+      const c = toNum(v.cost ?? v.cost_price ?? v.import_price);
+      
+      if (s > 0) minSale = minSale ? Math.min(minSale, s) : s;
+      if (r > 0) minRegular = minRegular ? Math.min(minRegular, r) : r;
+      if (c > 0) minCost = minCost ? Math.min(minCost, c) : c;
+    }
+  } else {
+    minSale = toNum(p.price_sale ?? p.sale_price ?? p.sale);
+    minRegular = toNum(p.price ?? p.unit_price);
+    minCost = toNum(p.cost ?? p.cost_price ?? p.import_price);
+  }
+  
+  // Quyết định giá hiển thị
+  let priceHtml = '';
+  
+  if (minSale > 0 && minRegular > 0 && minSale < minRegular) {
+    priceHtml = `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(minSale)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(minRegular)}</span></div>`;
+  } else if (minRegular > 0) {
+    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minRegular)}</div>`;
+  } else if (minSale > 0) {
+    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minSale)}</div>`;
+  } else if (minCost > 0) {
+    priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(minCost)}</div>`;
+  } else {
+    priceHtml = `<div class="text-gray-400 font-semibold">Liên hệ</div>`;
+  }
 
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
@@ -105,18 +139,15 @@ function card(p){
     imgs.forEach((img, i)=>{
       if(!img.hasAttribute('loading')) img.setAttribute('loading', i===0 ? 'eager' : 'lazy');
       if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
-      // default 4:3 placeholder sizes to reduce CLS
       if(!img.hasAttribute('width')) img.setAttribute('width','800');
       if(!img.hasAttribute('height')) img.setAttribute('height','600');
-      // mark first visible image as high priority (likely LCP)
       if(i===0 && !img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority','high');
     });
   }catch(e){}
 })();
 
-    // R2 storage logic added for Cloudinary images
-    const r2Url = (cloudinaryUrl) => {
-        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-    };
-    
+// R2 storage logic added for Cloudinary images
+const r2Url = (cloudinaryUrl) => {
+    const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
+    return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
+};
