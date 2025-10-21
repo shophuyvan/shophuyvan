@@ -154,11 +154,9 @@ class StatsManager {
       let confirmedOrders = 0;
       let totalRevenue = 0;
       let totalCostPrice = 0;
-	  // [BẮT ĐẦU CHÈN - toNum helper]
-const toNum = (x) => typeof x === 'string'
-  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
-  : (Number(x || 0));
-// [KẾT THÚC CHÈN - toNum helper]
+	  const toNum = (x) => typeof x === 'string'
+        ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+        : (Number(x || 0));
       
       const platformStats = {
         'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
@@ -188,52 +186,46 @@ const toNum = (x) => typeof x === 'string'
           platformStats[platform].success++;
         }
         
-        // [BẮT ĐẦU THAY KHỐI GIÁ NHẬP - tính cost × qty]
-if (
-  !status.includes('cancel') &&
-  !status.includes('hủy') &&
-  !status.includes('huy') &&
-  status !== 'cancelled'
-) {
-  // Doanh thu đơn
-  const orderRevenue = order.revenue || order.subtotal || order.total || 0;
+        if (
+          !status.includes('cancel') &&
+          !status.includes('hủy') &&
+          !status.includes('huy') &&
+          status !== 'cancelled'
+        ) {
+          const orderRevenue = order.revenue || order.subtotal || order.total || 0;
 
-  // Lấy dòng hàng (hỗ trợ nhiều tên field)
-  const lines = Array.isArray(order.items) ? order.items
-              : Array.isArray(order.order_items) ? order.order_items
-              : Array.isArray(order.lines) ? order.lines
-              : [];
+          const lines = Array.isArray(order.items) ? order.items
+                      : Array.isArray(order.order_items) ? order.order_items
+                      : Array.isArray(order.lines) ? order.lines
+                      : [];
 
-  // GIÁ NHẬP = Σ (đơn giá nhập × số lượng)
-  let orderImportCost = 0;
-  lines.forEach(it => {
-    const qty = toNum(it.qty ?? it.quantity ?? it.count);
-    const unitCost = toNum(
-      it.cost ?? it.cost_price ?? it.import_price ?? it.price_import ?? it.purchase_price
-    );
-    orderImportCost += qty * unitCost;
-  });
+          let orderImportCost = 0;
+          lines.forEach(it => {
+            const qty = toNum(it.qty ?? it.quantity ?? it.count);
+            const unitCost = toNum(
+              it.cost ?? it.cost_price ?? it.import_price ?? it.price_import ?? it.purchase_price
+            );
+            orderImportCost += qty * unitCost;
+          });
 
-  // Cộng vào tổng
-  totalRevenue   += orderRevenue;
-  totalCostPrice += orderImportCost;
+          totalRevenue   += orderRevenue;
+          totalCostPrice += orderImportCost;
 
-  platformStats[platform].revenue    += orderRevenue;
-  platformStats[platform].cost_price += orderImportCost;
+          platformStats[platform].revenue    += orderRevenue;
+          platformStats[platform].cost_price += orderImportCost;
 
-  // Thống kê top sản phẩm (giữ nguyên, chỉ dùng lines)
-  lines.forEach(item => {
-    const productName = item.title || item.name || item.product_name || 'Unknown';
-    const qty   = toNum(item.qty ?? item.quantity ?? 1);
-    const price = toNum(item.price ?? item.unit_price ?? 0);
+          lines.forEach(item => {
+            const productName = item.title || item.name || item.product_name || 'Unknown';
+            const qty   = toNum(item.qty ?? item.quantity ?? 1);
+            const price = toNum(item.price ?? item.unit_price ?? 0);
 
-    if (!productStats[productName]) {
-      productStats[productName] = { name: productName, qty: 0, revenue: 0 };
-    }
-    productStats[productName].qty     += qty;
-    productStats[productName].revenue += price * qty;
-  });
-}
+            if (!productStats[productName]) {
+              productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+            }
+            productStats[productName].qty     += qty;
+            productStats[productName].revenue += price * qty;
+          });
+        }
 // [KẾT THÚC THAY KHỐI GIÁ NHẬP]
       
       const topProducts = Object.values(productStats)
@@ -265,77 +257,71 @@ if (
     }
   }
 
-// BẮT ĐẦU THAY HÀM
 async loadInventoryValue() {
-  try {
-    // 1) Lấy danh sách sản phẩm (list không có cost → chỉ lấy id)
-    const listRes = await Admin.tryPaths([
-      '/admin/products',
-      '/admin/product/list',
-      '/admin/products/list'
-    ]);
-    const items = listRes?.items || listRes?.data || listRes?.products || listRes?.rows || listRes?.list || [];
-    console.log('[Stats] products length:', items.length);
+    try {
+      const listRes = await Admin.tryPaths([
+        '/admin/products',
+        '/admin/product/list',
+        '/admin/products/list'
+      ]);
+      const items = listRes?.items || listRes?.data || listRes?.products || listRes?.rows || listRes?.list || [];
+      console.log('[Stats] products length:', items.length);
 
-    // Helper ép số: xử lý "1,200" / "120.000đ"
-    const toNum = (x) => {
-      if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
-      return Number(x || 0);
-    };
+      const toNum = (x) => {
+        if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
+        return Number(x || 0);
+      };
 
-    // 2) Hàm lấy chi tiết 1 sản phẩm (chi tiết mới có cost / import_price)
-    const fetchDetail = async (id) => {
-      try {
-        const detail = await Admin.tryPaths([
-          `/admin/products/get?id=${encodeURIComponent(id)}`,
-          `/admin/product/get?id=${encodeURIComponent(id)}`,
-          `/admin/products/detail?id=${encodeURIComponent(id)}`,
-          `/admin/product/detail?id=${encodeURIComponent(id)}`,
-          `/admin/product?id=${encodeURIComponent(id)}`
-        ]);
-        return detail?.item || detail?.data || detail || null;
-      } catch (e) {
-        console.warn('[Stats] detail not found for', id, e);
-        return null;
-      }
-    };
+      const fetchDetail = async (id) => {
+        try {
+          const detail = await Admin.tryPaths([
+            `/admin/products/get?id=${encodeURIComponent(id)}`,
+            `/admin/product/get?id=${encodeURIComponent(id)}`,
+            `/admin/products/detail?id=${encodeURIComponent(id)}`,
+            `/admin/product/detail?id=${encodeURIComponent(id)}`,
+            `/admin/product?id=${encodeURIComponent(id)}`
+          ]);
+          return detail?.item || detail?.data || detail || null;
+        } catch (e) {
+          console.warn('[Stats] detail not found for', id, e);
+          return null;
+        }
+      };
 
-    // 3) Duyệt từng sản phẩm → cộng Σ (stock × cost)
-    let totalValue = 0;
+      let totalValue = 0;
 
-    for (const it of items) {
-      const id = it?.id || it?._id;
-      if (!id) continue;
+      for (const it of items) {
+        const id = it?.id || it?._id;
+        if (!id) continue;
 
-      const p = await fetchDetail(id);
-      if (!p) continue;
+        const p = await fetchDetail(id);
+        if (!p) continue;
 
-      const variants = Array.isArray(p.variants) ? p.variants
-                    : Array.isArray(p.options)  ? p.options
-                    : Array.isArray(p.skus)     ? p.skus
-                    : [];
+        const variants = Array.isArray(p.variants) ? p.variants
+                      : Array.isArray(p.options)  ? p.options
+                      : Array.isArray(p.skus)     ? p.skus
+                      : [];
 
-      if (variants.length > 0) {
-        for (const v of variants) {
-          const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
-          const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+        if (variants.length > 0) {
+          for (const v of variants) {
+            const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
+            const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+            totalValue += stock * cost;
+          }
+        } else {
+          const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
+          const cost  = toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price);
           totalValue += stock * cost;
         }
-      } else {
-        const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
-        const cost  = toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price);
-        totalValue += stock * cost;
       }
-    }
 
-    // 4) Cập nhật lên UI
-    this.$('inventoryValue').textContent = this.formatMoney(totalValue);
-    console.log('[Stats] Inventory value:', totalValue);
-  } catch (error) {
-    console.error('[Stats] Error loading inventory value:', error);
-    this.$('inventoryValue').textContent = '0đ';
+      this.$('inventoryValue').textContent = this.formatMoney(totalValue);
+      console.log('[Stats] Inventory value:', totalValue);
+    } catch (error) {
+      console.error('[Stats] Error loading inventory value:', error);
+      this.$('inventoryValue').textContent = '0đ';
+    }
   }
-}
 // KẾT THÚC THAY HÀM
 
   // ==================== UPDATE UI ====================
