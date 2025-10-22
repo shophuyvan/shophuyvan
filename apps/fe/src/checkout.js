@@ -364,6 +364,7 @@ orderBtn?.addEventListener('click', async () => {
   status: 'placed'
   // [KẾT THÚC CHÈN - checkout.js]
     };
+	console.log('[INV-TRACE] FE.checkout: createOrder payload', body);
     const res = await api('/api/orders', {
   method: 'POST',
   headers: {
@@ -378,7 +379,7 @@ orderBtn?.addEventListener('click', async () => {
   },
   body
 });
-
+console.log('[INV-TRACE] FE.checkout: createOrder response', res);
 // ✅ Kiểm tra phản hồi đúng cách
 if (res && (res.id || res.success || res.status === 'ok')) {
   orderResult.textContent = `Đặt hàng thành công: ${res.id || ''}`;

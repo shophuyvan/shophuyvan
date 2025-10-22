@@ -102,6 +102,13 @@ export default {
         return products.handle(req, env, ctx);
       }
 
+      // [INV-TRACE] router marker for Orders
+      if (path.startsWith('/api/orders') ||
+          path.startsWith('/admin/orders') ||
+          path.startsWith('/public/orders') ||
+          path.startsWith('/public/order-create')) {
+        console.log('[INV-TRACE] router → orders', { path, method: req.method });
+      }
       // Orders module
       if (path.startsWith('/api/orders') ||
           path.startsWith('/admin/orders') ||

@@ -282,7 +282,7 @@ export default function Checkout() {
       status: 'pending'
     };
 
-    console.log('Order payload:', payload);
+    console.log('[INV-TRACE] MINI.checkout: createOrder payload', payload);
 
     try {
       const res = await fetch(`${API_BASE}/api/orders`, {
@@ -295,6 +295,7 @@ export default function Checkout() {
       });
       
       const data = await res.json();
+	  console.log('[INV-TRACE] MINI.checkout: createOrder response', { ok: data?.ok, id: data?.id, raw: data });
       
       if (data.ok || data.id) {
         setDone({ 

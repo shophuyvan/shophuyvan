@@ -127,6 +127,12 @@ async function createOrder(req, env) {
   }
 
   const body = await readBody(req) || {};
+  console.log('[INV-TRACE] orders.create: payload', {
+  items: Array.isArray(body?.items) ? body.items.map(i => ({
+    id: i.product_id || i.id || i.sku, sku: i.sku, qty: i.qty
+  })) : body?.items,
+  customerId: body?.customer?.phone || body?.customer?.name || null
+});
   
   // Validate
   const validation = validate(SCH.orderCreate, body);
@@ -252,13 +258,22 @@ async function createOrderPublic(req, env) {
     source: body.source || 'fe'
   };
 
+  // Save order list + detail (fixed)
+  const list = await getJSON(env, 'orders:list', []);
+  list.unshift(order);
   await putJSON(env, 'orders:list', list);
-
+  await putJSON(env, 'order:' + id, order);
+  
+  // trace
+  console.log('[INV-TRACE] orders.createPublic: saved base', { id, status: order.status });
+  console.log('[INV-TRACE] orders.createPublic: before stock decrement', { items: items.length, status: order.status });
+  
 // [BẮT ĐẦU CHÈN - trừ tồn kho]
 if (shouldAdjustStock(order.status)) {
   await adjustInventory(items, env, -1);
 }
 // [KẾT THÚC CHÈN - trừ tồn kho]
+console.log('[INV-TRACE] orders.createPublic: after stock decrement', { id });
 
 const response = json({ ok: true, id }, {}, req);
 await idemSet(idem.key, env, response);
