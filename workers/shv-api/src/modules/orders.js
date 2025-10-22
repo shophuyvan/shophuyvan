@@ -22,69 +22,98 @@ const toNum = (x) => Number(x || 0);
  * direction = -1 → trừ kho, +1 → hoàn kho
  */
 async function adjustInventory(items, env, direction = -1) {
-  console.log('[INV-DEBUG] adjustInventory called', { 
-    itemCount: items?.length, 
-    direction,
-    items: items?.map(it => ({ 
-      id: it.id, 
-      sku: it.sku, 
-      product_id: it.product_id,
-      qty: it.qty 
-    }))
-  });
+  console.log('[INV-DEBUG] adjustInventory START', { itemCount: items?.length, direction });
   
   for (const it of (items || [])) {
-    const pid = it.product_id || it.id || it.sku; // id/sku từ FE
-    if (!pid) continue;
-
-     // Lấy sản phẩm trong KV
-    let product = await getJSON(env, 'product:' + pid, null);
-    if (!product && it.product_id) {
-      product = await getJSON(env, 'product:' + it.product_id, null);
-    }
+    const variantId = it.id || it.sku;
+    const productId = it.product_id;
     
-    console.log('[INV-DEBUG] Product lookup', { 
-      pid, 
-      found: !!product,
-      hasVariants: !!product?.variants?.length,
-      variantCount: product?.variants?.length || 0
+    console.log('[INV-DEBUG] Processing item', { 
+      variantId, 
+      productId, 
+      qty: it.qty,
+      name: it.name 
     });
     
-    if (!product) continue;
+    if (!variantId && !productId) {
+      console.warn('[INV-DEBUG] Skip: no ID');
+      continue;
+    }
 
-    const qty = toNum(it.qty || it.quantity || 1) * direction;
-
-    // Nếu có biến thể → trừ ở biến thể (match theo sku/id), ngược lại trừ ở product
-    let updated = false;
-    if (Array.isArray(product.variants) && (it.sku || it.id)) {
-      console.log('[INV-DEBUG] Searching variant', {
-        searchSku: it.sku,
-        searchId: it.id,
-        variants: product.variants.map(v => ({ sku: v.sku, id: v.id, stock: v.stock }))
-      });
+    // Bước 1: Tìm product
+    let product = null;
+    
+    // Nếu có product_id → tìm trực tiếp
+    if (productId) {
+      product = await getJSON(env, 'product:' + productId, null);
+      console.log('[INV-DEBUG] Found by product_id?', !!product);
+    }
+    
+    // Nếu không tìm được → scan toàn bộ products để tìm variant
+    if (!product && variantId) {
+      console.log('[INV-DEBUG] Scanning all products for variant:', variantId);
       
-      const v = product.variants.find(
-        v => String(v.sku || v.id || '') === String(it.sku || it.id)
-      );
-      
-      console.log('[INV-DEBUG] Variant match', { 
-        found: !!v, 
-        beforeStock: v?.stock,
-        qtyChange: qty,
-        afterStock: v ? Math.max(0, toNum(v.stock) + qty) : null
-      });
-      
-      if (v) {
-        v.stock = Math.max(0, toNum(v.stock) + qty);
-        updated = true;
+      const allProducts = await getJSON(env, 'products:list', []);
+      for (const summary of allProducts) {
+        const fullProduct = await getJSON(env, 'product:' + summary.id, null);
+        if (!fullProduct || !Array.isArray(fullProduct.variants)) continue;
+        
+        const hasVariant = fullProduct.variants.some(v => 
+          String(v.id || v.sku || '') === String(variantId)
+        );
+        
+        if (hasVariant) {
+          product = fullProduct;
+          console.log('[INV-DEBUG] Found product by variant scan:', product.id);
+          break;
+        }
       }
     }
-    if (!updated) {
-      product.stock = Math.max(0, toNum(product.stock) + qty);
+    
+    if (!product) {
+      console.warn('[INV-DEBUG] Product not found, skip');
+      continue;
     }
 
-    await putJSON(env, 'product:' + (product.id || pid), product);
+    const qty = toNum(it.qty || it.quantity || 1) * direction;
+    console.log('[INV-DEBUG] Will adjust stock by:', qty);
+
+    // Bước 2: Trừ tồn kho
+    let updated = false;
+    
+    if (Array.isArray(product.variants) && variantId) {
+      const v = product.variants.find(
+        v => String(v.sku || v.id || '') === String(variantId)
+      );
+      
+      if (v) {
+        const oldStock = toNum(v.stock);
+        v.stock = Math.max(0, oldStock + qty);
+        updated = true;
+        console.log('[INV-DEBUG] Variant stock updated', { 
+          variantId: v.id || v.sku,
+          oldStock, 
+          newStock: v.stock 
+        });
+      } else {
+        console.warn('[INV-DEBUG] Variant not found in product.variants');
+      }
+    }
+    
+    if (!updated) {
+      const oldStock = toNum(product.stock);
+      product.stock = Math.max(0, oldStock + qty);
+      console.log('[INV-DEBUG] Product stock updated', { 
+        oldStock, 
+        newStock: product.stock 
+      });
+    }
+
+    await putJSON(env, 'product:' + product.id, product);
+    console.log('[INV-DEBUG] Saved product:', product.id);
   }
+  
+  console.log('[INV-DEBUG] adjustInventory DONE');
 }
 // [KẾT THÚC CHÈN - helper trừ tồn kho]
 

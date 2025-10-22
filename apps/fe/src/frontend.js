@@ -294,40 +294,36 @@ function priceStr(p) {
     ? `<div data-price><b>${price.toLocaleString()}đ</b></div>`
     : `<div data-price><b>Liên hệ</b></div>`;
 }
-// --- Price hydration: fetch full product if summary lacks prices/variants ---
+// --- Price hydration (sold/rating only): silent + fewer endpoints ---
 const __priceCache = new Map();
 async function fetchFullProduct(id){
-  if (!id) return null;
-  if (__priceCache.has(id)) return __priceCache.get(id);
+  try {
+    if (!id) return null;
+    if (__priceCache.has(id)) return __priceCache.get(id);
 
-  const paths = [
-    `/public/products/${encodeURIComponent(id)}`,
-    `/products/${encodeURIComponent(id)}`,
-    `/public/products?id=${encodeURIComponent(id)}`,
-    `/products?id=${encodeURIComponent(id)}`,
-  ];
+    // Chỉ thử 2 endpoint, đủ dùng cho sold/rating
+    const paths = [
+      `/public/products/${encodeURIComponent(id)}`,
+      `/products/${encodeURIComponent(id)}`
+    ];
 
-  let item = null;
-  let debugPath = '';
-  for (const p of paths) {
-    try {
-      const data = await api(p);
-      const found = data?.item || data?.data || data?.product
-                 || (Array.isArray(data?.items)  ? data.items[0]  : null)
-                 || (Array.isArray(data?.products)? data.products[0]: null);
-      if (found) { item = found; debugPath = p; break; }
-    } catch {}
+    let item = null;
+    for (const p of paths) {
+      try {
+        const data = await api(p);
+        const found = data?.item || data?.data || data?.product
+                   || (Array.isArray(data?.items)  ? data.items[0]  : null)
+                   || (Array.isArray(data?.products)? data.products[0]: null);
+        if (found) { item = found; break; }
+      } catch {}
+    }
+
+    // Không log [hydrate] nữa để tránh spam console
+    __priceCache.set(id, item);
+    return item;
+  } catch {
+    return null;
   }
-
-  // bật log một lần để bạn biết endpoint nào thành công (có thể tắt sau khi ok)
-  if (!item) {
-    console.warn('[hydrate] Không lấy được chi tiết cho', id, '→ kiểm tra API');
-  } else {
-    console.log('[hydrate] dùng', debugPath, '→', id);
-  }
-
-  __priceCache.set(id, item);
-  return item;
 }
 
 
@@ -367,21 +363,17 @@ function priceHtmlFrom(p){
   }
 }
 
-async function hydratePrices(items){
-  try{
-    const list = Array.isArray(items)?items:[];
-    for(const p of list){
-      const id = String(p.id||p.key||'');
-      const probe = minVarPrice(p);
-      const hasPrice = (probe && (probe.sale>0 || probe.regular>0)) || Number(p?.price_sale||p?.sale_price||p?.price||0)>0;
-      if(hasPrice) continue;
-      const full = await fetchFullProduct(id);
-      if(!full) continue;
-      const html = priceHtmlFrom(full);
-      document.querySelectorAll(`.price[data-id="${(window.CSS && CSS.escape ? CSS.escape(id) : id)}"]`).forEach(node => node.innerHTML = html);
-    }
-  }catch(e){ /* silent */ }
+async function hydratePrices(/* items */) {
+  try {
+    // no-op to avoid per-card network calls
+    // (left in place to keep callers safe)
+    return;
+  } catch { return; }
 }
+
+// Also silence any leftover [hydrate] debug logs just in case:
+const __HYDRATE_LOG__ = false;
+const __logHydrate = (...args) => { if (__HYDRATE_LOG__) console.log('[hydrate]', ...args); };
 // [BẮT ĐẦU CHÈN] Bơm số đã bán & rating sau render
 // Nhận: array ID (string) hoặc lấy từ DOM nếu không truyền vào
 async function hydrateSoldAndRating(items){
