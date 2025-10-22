@@ -718,26 +718,6 @@ async function getStats(req, env) {
     return 0;
   }
 
-    const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-    for (const key of keys) {
-      if (product[key] != null) return Number(product[key] || 0);
-    }
-
-    if (Array.isArray(product.variants)) {
-      const variant = product.variants.find(v => 
-        String(v.id || v.sku || '') === String(productId) || 
-        String(v.sku || '') === String(item.sku || '')
-      );
-      if (variant) {
-        for (const key of keys) {
-          if (variant[key] != null) return Number(variant[key] || 0);
-        }
-      }
-    }
-
-    return 0;
-  }
-
   // Calculate stats
   let orderCount = 0;
   let revenue = 0;
