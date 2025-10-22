@@ -827,10 +827,6 @@ function renderCatPicker(items) {
     $('#shortDesc').value = d.shortDesc || '';
     $('#desc').value = d.desc || d.description || '';
     $('#slug').value = d.slug || '';
-    $('#price').value = d.price || 0;
-    $('#price_sale').value = d.price_sale || 0;
-    $('#wholesale_price').value = d.wholesale_price || 0;
-    $('#cost').value = d.cost || 0;
     $('#seoTitle').value = (d.seo?.title) || d.seoTitle || '';
     $('#seoDesc').value = (d.seo?.desc) || d.seoDesc || '';
     $('#keywords').value = ((d.seo?.keywords) || d.keywords || []).join(', ');
