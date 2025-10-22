@@ -541,6 +541,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('scroll', ()=>{ nav.style.display='none'; });
     window.addEventListener('blur',  ()=>{ nav.style.display='none'; });
   }
+    })(); // đóng IIFE của "C) Card price"
+});    // đóng document.addEventListener của v26
 
 
 // ===== v27: Homepage runtime polish =====

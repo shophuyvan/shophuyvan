@@ -22,15 +22,34 @@ const toNum = (x) => Number(x || 0);
  * direction = -1 → trừ kho, +1 → hoàn kho
  */
 async function adjustInventory(items, env, direction = -1) {
+  console.log('[INV-DEBUG] adjustInventory called', { 
+    itemCount: items?.length, 
+    direction,
+    items: items?.map(it => ({ 
+      id: it.id, 
+      sku: it.sku, 
+      product_id: it.product_id,
+      qty: it.qty 
+    }))
+  });
+  
   for (const it of (items || [])) {
     const pid = it.product_id || it.id || it.sku; // id/sku từ FE
     if (!pid) continue;
 
-    // Lấy sản phẩm trong KV
+     // Lấy sản phẩm trong KV
     let product = await getJSON(env, 'product:' + pid, null);
     if (!product && it.product_id) {
       product = await getJSON(env, 'product:' + it.product_id, null);
     }
+    
+    console.log('[INV-DEBUG] Product lookup', { 
+      pid, 
+      found: !!product,
+      hasVariants: !!product?.variants?.length,
+      variantCount: product?.variants?.length || 0
+    });
+    
     if (!product) continue;
 
     const qty = toNum(it.qty || it.quantity || 1) * direction;
@@ -38,9 +57,23 @@ async function adjustInventory(items, env, direction = -1) {
     // Nếu có biến thể → trừ ở biến thể (match theo sku/id), ngược lại trừ ở product
     let updated = false;
     if (Array.isArray(product.variants) && (it.sku || it.id)) {
+      console.log('[INV-DEBUG] Searching variant', {
+        searchSku: it.sku,
+        searchId: it.id,
+        variants: product.variants.map(v => ({ sku: v.sku, id: v.id, stock: v.stock }))
+      });
+      
       const v = product.variants.find(
         v => String(v.sku || v.id || '') === String(it.sku || it.id)
       );
+      
+      console.log('[INV-DEBUG] Variant match', { 
+        found: !!v, 
+        beforeStock: v?.stock,
+        qtyChange: qty,
+        afterStock: v ? Math.max(0, toNum(v.stock) + qty) : null
+      });
+      
       if (v) {
         v.stock = Math.max(0, toNum(v.stock) + qty);
         updated = true;
