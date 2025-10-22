@@ -249,6 +249,39 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <script type="module" src="/src/tracking.js?v=36"></script>
 <script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
+<script>
+(function(){
+  function toNum(x){
+    if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g,'')) || 0;
+    return Number(x || 0);
+  }
+  function pickLowestPrice(p){
+    const vars = Array.isArray(p.variants) ? p.variants
+               : Array.isArray(p.options)  ? p.options
+               : Array.isArray(p.skus)     ? p.skus
+               : [];
+    let min = Infinity;
+    const consider = (v) => { if (v > 0 && v < min) min = v; };
+
+    if (vars.length){
+      for (const v of vars){
+        consider(toNum(v.price_sale ?? v.sale_price ?? v.sale));
+        consider(toNum(v.price ?? v.unit_price));
+        consider(toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price));
+      }
+    } else {
+      consider(toNum(p.price_sale ?? p.sale_price ?? p.sale));
+      consider(toNum(p.price ?? p.unit_price));
+      consider(toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price));
+    }
+
+    const base = (min === Infinity) ? 0 : min;
+    return { base }; // frontend.js sẽ đọc priceInfo.base
+  }
+  // Dùng toàn cục cho frontend.js
+  window.pickLowestPrice = pickLowestPrice;
+})();
+</script>
 <script type="module" src="/src/frontend.js?v=41"></script>
 <script type="module">
 // Import price functions

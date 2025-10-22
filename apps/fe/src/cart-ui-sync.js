@@ -13,7 +13,6 @@ const LEGACY_KEYS = ['cart', 'CART']; // Legacy keys for backward compatibility
  */
 function getCart() {
   try {
-	  console.count('[CartUI] getCart');
     // Try new key first
     let raw = localStorage.getItem(CART_KEY);
     if (!raw) {
@@ -48,7 +47,6 @@ function getCart() {
  */
 function setCart(items) {
   try {
-	  console.count('[CartUI] setCart');
     const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
     const savings = items.reduce((s, i) => {
       const orig = i.original && i.original > i.price ? i.original : i.price;
@@ -225,9 +223,7 @@ function updateAllUI() {
  * Initialize cart UI sync
  */
 function initCartUISync() {
-  console.count('[CartUI] initCartUISync called');
   console.log('[CartUI] Initializing...');
-  console.group('[CartUI init stack]'); console.log(new Error('STACK').stack); console.groupEnd();
   
   // Initial update
   updateAllUI();

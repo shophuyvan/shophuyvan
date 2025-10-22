@@ -1,6 +1,6 @@
 // ===================================================================
-// sidebar-layout.js - Shared Sidebar Component (FIXED VERSION)
-// ✅ FIX: Không xóa innerHTML, chỉ wrap elements
+// sidebar-layout.js - Shared Sidebar Component
+// Inject this into all admin pages for consistent layout
 // ===================================================================
 
 (function() {
@@ -182,7 +182,7 @@
         font-size: 14px;
       }
 
-      /* Content Area - ✅ CRITICAL: Không override display */
+      /* Content Area */
       .admin-content-area {
         padding: 24px;
         flex: 1;
@@ -307,8 +307,7 @@
             </svg>
             Danh Sách Admin
           </a>
-          
-          <a href="/customers.html" class="admin-menu-item" data-page="customers">
+		  <a href="/customers.html" class="admin-menu-item" data-page="customers">
             <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
             </svg>
@@ -373,15 +372,9 @@
       // Add admin-layout class to body
       document.body.classList.add('admin-layout');
 
-      // ✅ FIX: KHÔNG XÓA innerHTML - Chỉ di chuyển elements
-      
-      // Tạo container mới để wrap nội dung hiện tại
-      const tempWrapper = document.createElement('div');
-      
-      // Di chuyển tất cả children của body vào temp wrapper
-      while (document.body.firstChild) {
-        tempWrapper.appendChild(document.body.firstChild);
-      }
+      // Wrap existing content
+      const existingContent = document.body.innerHTML;
+      document.body.innerHTML = '';
 
       // Create sidebar
       document.body.insertAdjacentHTML('afterbegin', sidebarHTML);
@@ -394,17 +387,13 @@
       // Add topbar
       mainContent.insertAdjacentHTML('afterbegin', topbarHTML(pageTitle));
       
-      // Add content area và restore nội dung cũ
+      // Add content area
       const contentArea = document.createElement('div');
       contentArea.className = 'admin-content-area';
       contentArea.id = 'adminContentArea';
-      
-      // ✅ CRITICAL: Di chuyển nodes thay vì dùng innerHTML
-      while (tempWrapper.firstChild) {
-        contentArea.appendChild(tempWrapper.firstChild);
-      }
-      
+      contentArea.innerHTML = existingContent;
       mainContent.appendChild(contentArea);
+      
       document.body.appendChild(mainContent);
 
       // Set active menu item
@@ -415,8 +404,6 @@
 
       // Load user info
       this.loadUserInfo();
-      
-      console.log('[AdminLayout] Initialized - Content preserved');
     },
 
     setActiveMenuItem: function() {

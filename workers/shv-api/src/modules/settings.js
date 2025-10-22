@@ -16,7 +16,7 @@ export async function handle(req, env, ctx) {
   const method = req.method;
 
   // Public: Get settings
-  if ((path === '/settings' || path === '/public/settings') && method === 'GET') {
+  if (path === '/public/settings' && method === 'GET') {
     return getPublicSettings(req, env);
   }
 

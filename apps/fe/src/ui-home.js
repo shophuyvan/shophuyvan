@@ -46,36 +46,25 @@ function renderBanner(i){
 function startBanner(){ stopBanner(); if(banners.length>1) bTimer=setInterval(()=>renderBanner(bIdx+1),4000); }
 function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
 
-// ✅ FIXED CARD FUNCTION WITH FULL PRICE LOGIC
-
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
-
-  const priceInfo = pickLowestPrice(p);
-  let priceHtml = '';
-  if (priceInfo.base > 0) {
-    if (priceInfo.original && priceInfo.original > priceInfo.base) {
-      priceHtml = `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(priceInfo.base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(priceInfo.original)}</span></div>`;
-    } else {
-      priceHtml = `<div class="text-rose-600 font-semibold">${formatPrice(priceInfo.base)}</div>`;
-    }
-  } else {
-    priceHtml = `<div class="text-gray-400 font-semibold">Liên hệ</div>`;
-  }
+  const { base, original } = pickLowestPrice(p);
+  const priceHtml = original>base && original>0
+    ? `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(original)}</span></div>`
+    : `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`;
 
   return `
-  <a class="block rounded-lg border hover:shadow transition bg-white"
-     href="/product?id=${encodeURIComponent(p.id)}"
-     data-card-id="${encodeURIComponent(p.id)}">
+  <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="">
     </div>
     <div class="p-3">
       <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
-      <div class="price mt-1 text-rose-600 font-semibold" data-price data-id="${p.id}">${priceHtml}</div>
+      ${priceHtml}
     </div>
   </a>`;
 }
+
 
 (async function init(){
   try{
@@ -105,51 +94,7 @@ function card(p){
   try{ data = await api('/public/products?limit=20'); }catch{}
   if(!data){ try{ data = await api('/products?limit=20'); }catch{} }
   const items = Array.isArray(data?.items)?data.items:[];
-grid.innerHTML = items.map(card).join('');
-
-/* Hydrate giá: lấy chi tiết theo id và cập nhật min–max sale/regular */
-(async()=>{
-  const fmt = (n)=> Number(n||0).toLocaleString('vi-VN')+'đ';
-  const range = (p)=>{
-    const vs = Array.isArray(p?.variants)?p.variants:[];
-    let minS, maxS, minR;
-    for(const v of vs){
-      const s = v.sale_price ?? v.price_sale ?? null;
-      const r = v.price ?? null;
-      if(s!=null){ minS = (minS==null? s: Math.min(minS,s)); maxS = (maxS==null? s: Math.max(maxS,s)); }
-      if(r!=null){ minR = (minR==null? r: Math.min(minR,r)); }
-    }
-    return {minS,maxS,minR};
-  };
-
-  for (const p of items){
-    const id = p.id || p.key;
-    const priceBox = grid.querySelector(`.price[data-id="${CSS && CSS.escape ? CSS.escape(id) : id}"]`);
-    if(!priceBox) continue;
-
-    // Luôn hydrate (không phụ thuộc “0đ”)
-    let full=null;
-    for(const path of [`/public/products/${id}`, `/products/${id}`, `/public/products?id=${id}`, `/products?id=${id}`]){
-      try{
-        const r = await api(path);
-        full = r?.item || r?.data || r?.product || (Array.isArray(r?.items)? r.items[0] : null) || (Array.isArray(r?.products)? r.products[0] : null);
-        if(full) break;
-      }catch{}
-    }
-    if(!full) continue;
-
-    const {minS,maxS,minR} = range(full);
-    let html='';
-    if(minS!=null){
-      html = (maxS && maxS>minS) ? `<b>${fmt(minS)} - ${fmt(maxS)}</b>` : `<b>${fmt(minS)}</b>`;
-      if(minR!=null && minR>minS) html += ` <span class="line-through opacity-70 text-sm">${fmt(minR)}</span>`;
-    }else if(minR!=null){
-      html = `<b>${fmt(minR)}</b>`;
-    }else{
-      html = `<b>Liên hệ</b>`;
-    }
-    priceBox.innerHTML = html;
-  }
+  grid.innerHTML = items.map(card).join('');
 })();
 
 
@@ -160,15 +105,18 @@ grid.innerHTML = items.map(card).join('');
     imgs.forEach((img, i)=>{
       if(!img.hasAttribute('loading')) img.setAttribute('loading', i===0 ? 'eager' : 'lazy');
       if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
+      // default 4:3 placeholder sizes to reduce CLS
       if(!img.hasAttribute('width')) img.setAttribute('width','800');
       if(!img.hasAttribute('height')) img.setAttribute('height','600');
+      // mark first visible image as high priority (likely LCP)
       if(i===0 && !img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority','high');
     });
   }catch(e){}
 })();
 
-// R2 storage logic added for Cloudinary images
-const r2Url = (cloudinaryUrl) => {
-    const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-    return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-};
+    // R2 storage logic added for Cloudinary images
+    const r2Url = (cloudinaryUrl) => {
+        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
+        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
+    };
+    

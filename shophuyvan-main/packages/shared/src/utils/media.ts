@@ -1,1 +1,0 @@
-export const img = (url?:string,fallback='/public/icon.png')=>url||fallback;

@@ -1,383 +1,465 @@
-// shv-api/src/modules/products.js
+// ===================================================================
+// modules/products.js - Products Module (FIXED CATEGORY)
+// Đường dẫn: workers/shv-api/src/modules/products.js
+// ===================================================================
 
-function j(status, data, headers) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-  });
-}
+import { json, errorResponse } from '../lib/response.js';
+import { adminOK } from '../lib/auth.js';
+import { getJSON, putJSON } from '../lib/kv.js';
+import { readBody, slugify } from '../lib/utils.js';
 
-// ✅ HÀM TÍNH GIÁ THẤP NHẤT TỪ VARIANTS
-function calculateMinPrices(product) {
-  const variants = Array.isArray(product.variants) ? product.variants : [];
-  
-  if (variants.length === 0) {
-    return product;
-  }
-  
-  let minSale = null;
-  let minRegular = null;
-  let minCost = null;
-  
-  for (const v of variants) {
-    const sale = Number(v.sale_price ?? v.price_sale) || null;
-    const regular = Number(v.price) || null;
-    const cost = Number(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price) || null;
-    
-    if (sale !== null && sale > 0) {
-      minSale = (minSale === null) ? sale : Math.min(minSale, sale);
-    }
-    
-    if (regular !== null && regular > 0) {
-      minRegular = (minRegular === null) ? regular : Math.min(minRegular, regular);
-    }
-    
-    if (cost !== null && cost > 0) {
-      minCost = (minCost === null) ? cost : Math.min(minCost, cost);
-    }
-  }
-  
-  return {
-    ...product,
-    price: minRegular || product.price || 0,
-    sale_price: minSale || product.sale_price || null,
-    cost: minCost || product.cost || 0,
-    variants: variants
-  };
-}
-
-// Chuẩn hóa dữ liệu product
-function normalizeProduct(input = {}) {
-  function normalizeVariants(arr){
-    if (!Array.isArray(arr)) return [];
-    return arr.map(v => ({
-      image: String(v.image||'').trim(),
-      name: String(v.name||'').trim(),
-      sku: String(v.sku||'').trim(),
-      stock: Number(v.stock||0),
-      weight_grams: Number(v.weight_grams||0),
-      price: Number(v.price||0),
-      sale_price: (v.sale_price===undefined || v.sale_price===null || String(v.sale_price).trim?.()==='') ? null : Number(v.sale_price),
-      cost: Number((v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price) ?? 0)
-    })).filter(v => v.name);
-  }
-  const toNum = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-  const toNumOrNull = (x) => {
-    if (x === undefined || x === null || String(x).trim?.() === '') return null;
-    const n = Number(x);
-    return Number.isFinite(n) ? n : null;
-  };
-  const toArr = (v) => (Array.isArray(v) ? v : []);
-
-  const now = new Date().toISOString();
-  const id = input.id || (crypto?.randomUUID?.() || String(Date.now()));
-
-  return {
-    id,
-    name: String(input.name || '').trim(),
-    description: String(input.description || ''),
-    price: toNum(input.price),
-    sale_price: toNumOrNull(input.sale_price),
-    cost: toNum(input.cost ?? input.cost_price ?? input.import_price ?? input.price_import ?? input.purchase_price),
-    stock: toNum(input.stock),
-    category: String(input.category || 'default'),
-    weight_grams: toNum(input.weight_grams),
-    images: toArr(input.images),
-    image_alts: toArr(input.image_alts),
-    is_active: (input.is_active === undefined || String(input.is_active).trim?.() === '') ? true : !!input.is_active,
-
-    brand: String(input.brand || ''),
-    origin: String(input.origin || ''),
-    variants: normalizeVariants(input.variants),
-    videos: toArr(input.videos),
-    faq: toArr(input.faq),
-    reviews: toArr(input.reviews),
-
-    seo: typeof input.seo === 'object'
-      ? {
-          title: String(input.seo.title || input.seo_title || ''),
-          description: String(input.seo.description || input.seo_description || ''),
-          keywords: String(input.seo.keywords || input.seo_keywords || ''),
-        }
-      : {
-          title: String(input.seo_title || ''),
-          description: String(input.seo_description || ''),
-          keywords: String(input.seo_keywords || ''),
-        },
-
-    created_at: input.created_at || now,
-    updated_at: now,
-  };
-}
-
-async function upsertProduct(fire, product) {
-  if (typeof fire.set === 'function') {
-    await fire.set('products', product.id, product);
-  } else if (typeof fire.upsert === 'function') {
-    await fire.upsert('products', product.id, product);
-  } else {
-    throw new Error('Fire: missing set/upsert(products)');
-  }
-}
-
-async function removeProduct(fire, id) {
-  if (!id) throw new Error('Missing id');
-  if (typeof fire.remove === 'function') {
-    await fire.remove('products', id);
-  } else if (typeof fire.delete === 'function') {
-    await fire.delete('products', id);
-  } else {
-    throw new Error('Fire: missing remove/delete(products)');
-  }
-}
-
-// ============================================
-// MAIN ROUTER
-// ============================================
+/**
+ * Main handler for all product routes
+ */
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
-  const { pathname, searchParams } = url;
+  const path = url.pathname;
+  const method = req.method;
 
-  // KV-based fire object implementation
-  const fire = {
-    list: async (table, opts = {}) => {
-      try {
-        const prefix = `${table}:`;
-        const list = await env.SHV.list({ prefix });
-        const items = [];
-        
-        for (const key of list.keys) {
-          const data = await env.SHV.get(key.name);
-          if (data) {
-            try {
-              items.push(JSON.parse(data));
-            } catch {}
-          }
-        }
-        
-        // Sort by created_at desc if specified
-        if (opts.orderBy?.[0] === 'created_at' && opts.orderBy?.[1] === 'desc') {
-          items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-        }
-        
-        // Apply limit
-        const limit = opts.limit || 50;
-        return { items: items.slice(0, limit), nextCursor: null };
-      } catch (e) {
-        console.error('fire.list error:', e);
-        return { items: [], nextCursor: null };
-      }
-    },
+  // ===== PUBLIC ROUTES =====
+
+  // Public: Get single product by ID (query param)
+  if (path === '/products' && method === 'GET') {
+    const productId = url.searchParams.get('id');
+    if (productId) {
+      return getProductById(req, env, productId);
+    }
+    return listPublicProducts(req, env);
+  }
+
+  // Public: Get product by ID (path param)
+  if (path.startsWith('/products/') && method === 'GET') {
+    const id = decodeURIComponent(path.split('/')[2] || '').trim();
+    if (!id) {
+      return errorResponse('No product ID provided', 400, req);
+    }
+    return getProductById(req, env, id);
+  }
+
+  // Public: Get product by ID (alternative path)
+  if (path.startsWith('/public/products/') && method === 'GET') {
+    const id = decodeURIComponent(path.split('/')[3] || '').trim();
+    if (!id) {
+      return errorResponse('No product ID provided', 400, req);
+    }
+    return getProductById(req, env, id);
+  }
+
+  // Public: List products with filters
+  if (path === '/public/products' && method === 'GET') {
+    const productId = url.searchParams.get('id');
+    if (productId) {
+      return getProductById(req, env, productId);
+    }
+    return listPublicProductsFiltered(req, env);
+  }
+
+  // ===== ADMIN ROUTES =====
+
+  // Admin: List all products
+  if (path === '/admin/products' && method === 'GET') {
+    return listAdminProducts(req, env);
+  }
+
+  // Admin: Get single product
+  if ((path === '/admin/products/get' || path === '/product') && method === 'GET') {
+    return getAdminProduct(req, env);
+  }
+
+  // Admin: Upsert product
+  if ((path === '/admin/products/upsert' || path === '/admin/product') && method === 'POST') {
+    return upsertProduct(req, env);
+  }
+
+  // Admin: Delete product
+  if (path === '/admin/products/delete' && method === 'POST') {
+    return deleteProduct(req, env);
+  }
+
+  return errorResponse('Route not found', 404, req);
+}
+
+// ===================================================================
+// HELPER FUNCTIONS
+// ===================================================================
+
+/**
+ * ✅ Convert product to summary (lightweight version)
+ */
+function toSummary(product) {
+  return {
+    id: product.id,
+    title: product.title || product.name || '',
+    name: product.title || product.name || '',
+    slug: product.slug || slugify(product.title || product.name || ''),
+    sku: product.sku || '',
+    price: product.price || 0,
+    price_sale: product.price_sale || 0,
+    price_wholesale: product.price_wholesale || 0, // ✅ THÊM DÒNG NÀY
+    stock: product.stock || 0,
+    images: product.images || [],
+    category: product.category || '',
+    category_slug: product.category_slug || product.category || '',
+    status: (product.status === 0 ? 0 : 1)
+  };
+}
+
+/**
+ * Build products list from KV
+ */
+async function listProducts(env) {
+  // Try to get cached list first
+  let list = await getJSON(env, 'products:list', null);
+  if (list && list.length) return list;
+
+  // Fallback: build from individual product keys
+  const items = [];
+  let cursor;
+
+  do {
+    const result = await env.SHV.list({ prefix: 'product:', cursor });
     
-    get: async (table, id) => {
-      try {
-        const data = await env.SHV.get(`${table}:${id}`);
-        return data ? JSON.parse(data) : null;
-      } catch (e) {
-        console.error('fire.get error:', e);
-        return null;
-      }
-    },
-    
-    set: async (table, id, data) => {
-      try {
-        await env.SHV.put(`${table}:${id}`, JSON.stringify(data));
-      } catch (e) {
-        console.error('fire.set error:', e);
-        throw e;
-      }
-    },
-    
-    delete: async (table, id) => {
-      try {
-        await env.SHV.delete(`${table}:${id}`);
-      } catch (e) {
-        console.error('fire.delete error:', e);
-        throw e;
+    for (const key of result.keys) {
+      const product = await getJSON(env, key.name, null);
+      if (product) {
+        product.id = product.id || key.name.slice('product:'.length);
+        items.push(toSummary(product));
       }
     }
+    
+    cursor = result.list_complete ? null : result.cursor;
+  } while (cursor);
+
+  // Cache the list
+  if (items.length) {
+    await putJSON(env, 'products:list', items);
+  }
+
+  return items;
+}
+
+/**
+ * ✅ Category matching helper (FIXED)
+ */
+function toSlug(input) {
+  const text = String(input || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+}
+
+function collectCategoryValues(product) {
+  const values = [];
+  const push = (v) => { 
+    if (v !== undefined && v !== null && v !== '') values.push(v); 
   };
 
-  // ============================================
-  // PUBLIC ROUTES
-  // ============================================
+  // ✅ FIX: Lấy từ product trực tiếp trước
+  push(product.category);
+  push(product.category_slug);
+  push(product.cate);
+  push(product.categoryId);
+  
+  const raw = (product && product.raw) || {};
+  const meta = product?.meta || raw?.meta || {};
 
-  // GET /public/products?limit=&cursor=&category=&q=
-  if (req.method === 'GET' && pathname === '/public/products') {
-    const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
-    const cursor = searchParams.get('cursor') || undefined;
-    const category = searchParams.get('category') || '';
-    const q = (searchParams.get('q') || '').trim().toLowerCase();
+  [raw, meta].forEach(obj => {
+    if (!obj) return;
+    push(obj.category);
+    push(obj.category_slug);
+    push(obj.cate);
+    push(obj.categoryId);
+    push(obj.group);
+    push(obj.group_slug);
+    push(obj.type);
+    push(obj.collection);
+  });
 
-    const rs = await fire.list('products', {
-      orderBy: ['created_at', 'desc'],
-      limit,
-      cursor,
-    });
+  if (Array.isArray(product?.categories)) values.push(...product.categories);
+  if (Array.isArray(raw?.categories)) values.push(...raw.categories);
+  if (Array.isArray(product?.tags)) values.push(...product.tags);
+  if (Array.isArray(raw?.tags)) values.push(...raw.tags);
 
-    let items = (rs.items || []).filter(p => p.is_active !== false);
-
-    if (category) {
-      items = items.filter(p => String(p.category || '').toLowerCase() === category.toLowerCase());
+  return values.flatMap(v => {
+    if (Array.isArray(v)) {
+      return v.map(x => toSlug(x?.slug || x?.code || x?.name || x?.title || x?.label || x?.text || x));
     }
-
-    if (q) {
-      items = items.filter(p =>
-        String(p.name || '').toLowerCase().includes(q) ||
-        String(p.category || '').toLowerCase().includes(q)
-      );
+    if (typeof v === 'object') {
+      return [toSlug(v?.slug || v?.code || v?.name || v?.title || v?.label || v?.text)];
     }
+    return [toSlug(v)];
+  }).filter(Boolean);
+}
 
-    // ✅ TỰ ĐỘNG TÍNH GIÁ THẤP NHẤT
-    items = items.map(calculateMinPrices);
+function matchCategoryStrict(product, category) {
+  if (!category) return true;
 
-    return j(200, { items, nextCursor: rs.nextCursor || null });
-  }
+  const want = toSlug(category);
+  
+  // Category aliases for Vietnamese
+  const alias = {
+    'dien-nuoc': ['điện & nước', 'điện nước', 'dien nuoc', 'thiet bi dien nuoc'],
+    'nha-cua-doi-song': ['nhà cửa đời sống', 'nha cua doi song', 'do gia dung'],
+    'hoa-chat-gia-dung': ['hoá chất gia dụng', 'hoa chat gia dung', 'hoa chat'],
+    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích', 'dung cu thiet bi tien ich', 'dung cu tien ich']
+  };
 
-  // GET /public/products/:id HOẶC /public/product?id=xxx
-  if (req.method === 'GET' && (pathname.startsWith('/public/products/') || pathname === '/public/product')) {
-    let id = '';
-    
-    if (pathname.startsWith('/public/products/')) {
-      id = pathname.replace('/public/products/', '');
-    } else if (pathname === '/public/product') {
-      id = searchParams.get('id') || '';
-    }
+  const wants = [want, ...(alias[want] || []).map(toSlug)];
+  const candidates = collectCategoryValues(product);
 
-    if (!id) return j(400, { error: 'Missing product id' });
+  console.log('🔍 Matching:', { 
+    productId: product.id, 
+    want, 
+    candidates: candidates.slice(0, 5),
+    match: candidates.some(v => wants.includes(v))
+  });
 
-    let item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Product not found' });
-    if (item.is_active === false) return j(404, { error: 'Product not found' });
+  return candidates.some(v => wants.includes(v));
+}
 
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    item = calculateMinPrices(item);
+// ===================================================================
+// PUBLIC: Get Product by ID
+// ===================================================================
 
-    return j(200, { item });
-  }
+async function getProductById(req, env, productId) {
+  try {
+    // Try to get from KV directly
+    let product = await getJSON(env, 'product:' + productId, null);
 
-  // GET /products (legacy support)
-  if (req.method === 'GET' && pathname === '/products') {
-    const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
-    const cursor = searchParams.get('cursor') || undefined;
+    if (!product) {
+      // Fallback: search in list
+      const list = await listProducts(env);
+      product = list.find(p => String(p.id || p.key || '') === String(productId));
 
-    const rs = await fire.list('products', {
-      orderBy: ['created_at', 'desc'],
-      limit,
-      cursor,
-    });
-
-    let items = (rs.items || []).filter(p => p.is_active !== false);
-    
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    items = items.map(calculateMinPrices);
-
-    return j(200, { items, nextCursor: rs.nextCursor || null });
-  }
-
-  // GET /products/:id HOẶC /product?id=xxx (legacy)
-  if (req.method === 'GET' && (pathname.startsWith('/products/') || pathname === '/product')) {
-    let id = '';
-    
-    if (pathname.startsWith('/products/')) {
-      id = pathname.replace('/products/', '');
-    } else if (pathname === '/product') {
-      id = searchParams.get('id') || '';
-    }
-
-    if (!id) return j(400, { error: 'Missing product id' });
-
-    let item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Product not found' });
-
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    item = calculateMinPrices(item);
-
-    return j(200, { item });
-  }
-
-  // ============================================
-  // ADMIN ROUTES
-  // ============================================
-
-  // GET /admin/products?limit=&cursor=&q=
-  if (req.method === 'GET' && pathname === '/admin/products') {
-    const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
-    const cursor = searchParams.get('cursor') || undefined;
-    const q = (searchParams.get('q') || '').trim().toLowerCase();
-
-    const rs = await fire.list('products', {
-      orderBy: ['created_at', 'desc'],
-      limit,
-      cursor,
-    });
-
-    let items = rs.items || [];
-    if (q) {
-      items = items.filter(p =>
-        String(p.name || '').toLowerCase().includes(q) ||
-        String(p.category || '').toLowerCase().includes(q)
-      );
-    }
-
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    items = items.map(calculateMinPrices);
-
-    return j(200, { items, nextCursor: rs.nextCursor || null });
-  }
-
-  // GET /admin/products/:id
-  if (req.method === 'GET' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    let item = await fire.get('products', id);
-    if (!item) return j(404, { error: 'Not Found' });
-
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    item = calculateMinPrices(item);
-
-    return j(200, { item });
-  }
-
-  // POST /admin/products – body: Product
-  if (req.method === 'POST' && pathname === '/admin/products') {
-    let body;
-    try { body = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-    let product = normalizeProduct(body);
-
-    // ✅ TỰ ĐỘNG TÍNH GIÁ
-    product = calculateMinPrices(product);
-
-    await upsertProduct(fire, product);
-    return j(200, { ok: true, item: product });
-  }
-
-  // POST /admin/products/bulk – body: { items: Product[] }
-  if (req.method === 'POST' && pathname === '/admin/products/bulk') {
-    let payload;
-    try { payload = await req.json(); } catch { return j(400, { error: 'Invalid JSON' }); }
-
-    const items = Array.isArray(payload?.items) ? payload.items : [];
-    let ok = 0, fail = 0, details = [];
-    for (let i = 0; i < items.length; i++) {
-      try {
-        let p = normalizeProduct(items[i]);
-        // ✅ TỰ ĐỘNG TÍNH GIÁ
-        p = calculateMinPrices(p);
-        await upsertProduct(fire, p);
-        ok++;
-      } catch (e) {
-        fail++; details.push({ i, error: String(e?.message || e) });
+      if (product) {
+        // Try to get full version from KV
+        const cached = await getJSON(env, 'product:' + product.id, null);
+        if (cached) product = cached;
       }
     }
-    return j(200, { ok, fail, details });
-  }
 
-  // DELETE /admin/products/:id
-  if (req.method === 'DELETE' && pathname.startsWith('/admin/products/')) {
-    const id = pathname.split('/').pop();
-    await removeProduct(fire, id);
-    return j(200, { ok: true });
-  }
+    if (!product) {
+      return json({ 
+        ok: false, 
+        error: 'Product not found' 
+      }, { status: 404 }, req);
+    }
 
-  return j(405, { error: 'Method Not Allowed' });
+    return json({ ok: true, item: product }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
 }
+
+// ===================================================================
+// PUBLIC: List Products
+// ===================================================================
+
+async function listPublicProducts(req, env) {
+  try {
+    const list = await listProducts(env);
+    const activeProducts = list.filter(p => p.status !== 0);
+    
+    return json({ ok: true, items: activeProducts }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+async function listPublicProductsFiltered(req, env) {
+  try {
+    const url = new URL(req.url);
+    const category = url.searchParams.get('category') || 
+                    url.searchParams.get('cat') || 
+                    url.searchParams.get('category_slug') || 
+                    url.searchParams.get('c') || '';
+    const limit = Number(url.searchParams.get('limit') || '24');
+
+    let data = await listProducts(env);
+    let items = Array.isArray(data?.items) ? data.items.slice() : 
+               (Array.isArray(data) ? data.slice() : []);
+
+    console.log('📦 Total products:', items.length);
+
+    // ✅ Filter by category
+    if (category) {
+      const before = items.length;
+      items = items.filter(product => matchCategoryStrict(product, category));
+      console.log(`✅ Category filter "${category}": ${before} → ${items.length}`);
+    }
+
+    // Filter active only
+    items = items.filter(p => p.status !== 0);
+
+    return json({ 
+      ok: true,
+      items: items.slice(0, limit) 
+    }, {}, req);
+  } catch (e) {
+    console.error('❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// ADMIN: List All Products
+// ===================================================================
+
+async function listAdminProducts(req, env) {
+  // ⚠️ Tạm bỏ xác thực khi nạp dữ liệu
+  // if (!(await adminOK(req, env))) {
+  //   return errorResponse('Unauthorized', 401, req);
+  // }
+
+  try {
+    const list = await listProducts(env);
+    return json({ ok: true, items: list }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+
+// ===================================================================
+// ADMIN: Get Single Product
+// ===================================================================
+
+async function getAdminProduct(req, env) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  const slug = url.searchParams.get('slug');
+
+  if (!id && !slug) {
+    return errorResponse('Missing id or slug parameter', 400, req);
+  }
+
+  try {
+    let product = null;
+
+    // Try to get by ID first
+    if (id) {
+      product = await getJSON(env, 'product:' + id, null);
+    }
+
+    // Fallback: search by slug
+    if (!product && slug) {
+      const list = await listProducts(env);
+      const item = list.find(p => p.slug === slug);
+      if (item) {
+        product = await getJSON(env, 'product:' + item.id, null);
+      }
+    }
+
+    if (!product) {
+      return json({ 
+        ok: false, 
+        error: 'Product not found' 
+      }, { status: 404 }, req);
+    }
+
+    return json({ ok: true, data: product }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// ADMIN: Upsert Product
+// ===================================================================
+
+async function upsertProduct(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const product = await readBody(req) || {};
+    
+    // Generate ID if not exists
+    product.id = product.id || crypto.randomUUID().replace(/-/g, '');
+    
+    // Update timestamp
+    product.updatedAt = Date.now();
+    
+    // Auto-generate slug if not provided
+    if (!product.slug && (product.title || product.name)) {
+      product.slug = slugify(product.title || product.name);
+    }
+
+    // ✅ FIX: Đảm bảo category_slug được lưu
+    if (!product.category_slug && product.category) {
+      product.category_slug = toSlug(product.category);
+    }
+
+    console.log('💾 Saving product:', {
+      id: product.id,
+      name: product.title || product.name,
+      category: product.category,
+      category_slug: product.category_slug
+    });
+
+    // Get current products list
+    const list = await listProducts(env);
+    
+    // Create summary version
+    const summary = toSummary(product);
+    
+    // Update or add to list
+    const index = list.findIndex(p => p.id === product.id);
+    if (index >= 0) {
+      list[index] = summary;
+    } else {
+      list.unshift(summary);
+    }
+
+    // Save to KV
+    await putJSON(env, 'products:list', list);
+    await putJSON(env, 'product:' + product.id, product);
+    
+    // Legacy compatibility
+    await putJSON(env, 'products:' + product.id, summary);
+
+    console.log('✅ Product saved');
+
+    return json({ ok: true, data: product }, {}, req);
+  } catch (e) {
+    console.error('❌ Save error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// ADMIN: Delete Product
+// ===================================================================
+
+async function deleteProduct(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await readBody(req) || {};
+    const id = body.id;
+
+    if (!id) {
+      return errorResponse('Product ID is required', 400, req);
+    }
+
+    // Get current list
+    const list = await listProducts(env);
+    
+    // Filter out deleted product
+    const newList = list.filter(p => p.id !== id);
+
+    // Save updated list
+    await putJSON(env, 'products:list', newList);
+    
+    // Delete from KV
+    await env.SHV.delete('product:' + id);
+    await env.SHV.delete('products:' + id);
+
+    return json({ ok: true, deleted: id }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED');

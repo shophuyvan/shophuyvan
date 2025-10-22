@@ -6,8 +6,6 @@ import { initCartSync, getSessionId } from './lib/cart-sync-shared.js';
 
 console.log('[FE] Initializing cart sync...');
 console.log('[FE] Session ID:', getSessionId());
-console.count('[FE] cart-sync-init: init count');
-console.group('[FE] cart-sync-init stack'); console.log(new Error('STACK').stack); console.groupEnd();
 
 // Khởi tạo với key 'cart' (format array)
 const cartSync = initCartSync('cart');
@@ -18,7 +16,6 @@ window.cartSessionId = getSessionId();
 
 // Log khi cart update -> push lên server
 window.addEventListener('shv:cart-changed', () => {
-  console.count('[FE] cart-changed event');
   console.log('[FE] Cart changed, syncing...');
   cartSync.pushToServer();
 });

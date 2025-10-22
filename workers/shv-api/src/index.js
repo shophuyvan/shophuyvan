@@ -14,22 +14,6 @@ import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
 
-// ---- CORS wrapper: đảm bảo mọi Response đều có CORS ----
-function withCors(res, req) {
-  const h = new Headers(res.headers);
-  const origin = req.headers.get('Origin') || '*';
-  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 'authorization,content-type,x-token,x-requested-with';
-  h.set('Access-Control-Allow-Origin', origin);
-  h.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  h.set('Access-Control-Allow-Headers', reqHdr);
-  h.set('Access-Control-Max-Age', '86400');
-  h.set('Access-Control-Allow-Credentials', 'true');
-  h.set('Access-Control-Expose-Headers', 'x-token');
-  h.set('Vary', 'Origin');
-  if (!h.has('content-type')) h.set('content-type', 'application/json; charset=utf-8');
-  return new Response(res.body, { status: res.status, headers: h });
-}
-
 /**
  * Logger middleware
  */
@@ -73,7 +57,7 @@ export default {
       if (path === '/admin/login' ||
           path === '/login' ||
           path === '/admin_auth/login') {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return admin.handle(req, env, ctx);
       }
       
       // Admin management routes
@@ -81,7 +65,7 @@ export default {
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
           path.startsWith('/admin/roles')) {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return admin.handle(req, env, ctx);
       }
 	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
       // ============================================
@@ -91,7 +75,7 @@ export default {
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
           path === '/api/customers/me') {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return admin.handle(req, env, ctx);
       }
       // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
@@ -101,25 +85,21 @@ export default {
 
       // Auth module (OLD - để tương thích backward)
       if (path === '/admin/me') {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return auth.handle(req, env, ctx);
       }
 
       // Categories module
       if (path.startsWith('/admin/categories') ||
           path.startsWith('/public/categories')) {
-        return withCors(await categories.handle(req, env, ctx), req);
-}
+        return categories.handle(req, env, ctx);
+      }
 
-      // Products module - PUBLIC ONLY
+      // Products module
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
+          path.startsWith('/admin/products') ||
           path === '/product') {
-        return withCors(await products.handle(req, env, ctx), req);
-      }
-      
-      // Products module - ADMIN
-      if (path.startsWith('/admin/products')) {
-        return withCors(await products.handle(req, env, ctx), req);
+        return products.handle(req, env, ctx);
       }
 
       // Orders module
@@ -128,7 +108,7 @@ export default {
           path.startsWith('/public/orders') ||
           path.startsWith('/public/order-create') ||
           path === '/admin/stats') {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return orders.handle(req, env, ctx);
       }
 
       // Shipping module
@@ -137,33 +117,31 @@ export default {
           path.startsWith('/api/addresses') ||
           path.startsWith('/v1/platform/areas') ||
           path.startsWith('/v1/platform/orders/price')) {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return shipping.handle(req, env, ctx);
       }
 
       // Cart Sync module
-       if (path.startsWith('/api/cart/sync')) {
-         return withCors(await handleCartSync(req, env), req);
-       }
+      if (path.startsWith('/api/cart/sync')) {
+        return handleCartSync(req, env);
+      }
 
       // Settings module
-      if (path.startsWith('/admin/settings') ||
-          path.startsWith('/public/settings') ||
-          path === '/settings') {
-        return withCors(await settings.handle(req, env, ctx), req);
+      if (path.startsWith('/public/settings') ||
+          path.startsWith('/admin/settings')) {
+        return settings.handle(req, env, ctx);
       }
 
       // Banners module
       if (path === '/banners' ||
-          path === '/public/banners' || // thêm public
           path.startsWith('/admin/banners') ||
           path.startsWith('/admin/banner')) {
-        return withCors(await banners.handle(req, env, ctx), req);
+        return banners.handle(req, env, ctx);
       }
 
       // Vouchers module
       if (path === '/vouchers' ||
           path.startsWith('/admin/vouchers')) {
-        return withCors(await admin.handle(req, env, ctx), req);
+        return vouchers.handle(req, env, ctx);
       }
 
       // ============================================
