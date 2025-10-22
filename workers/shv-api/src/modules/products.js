@@ -309,12 +309,23 @@ async function getProductById(req, env, productId) {
 
 async function listPublicProducts(req, env) {
   try {
+    // Lấy danh sách summary (id, title, ...)
     const list = await listProducts(env);
-    const activeProducts = list.filter(p => p.status !== 0);
-    
-    const tier = getCustomerTier(req);
-    const items = activeProducts.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
-    console.log('[PRICE] listPublicProducts', { tier, count: items.length });
+    const actives = list.filter(p => p.status !== 0);
+
+    // 🔥 Nạp FULL từ KV theo từng id để có variants
+    const full = [];
+    for (const s of actives) {
+      const id = String(s.id || s.key || '');
+      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
+      full.push(p || s); // nếu thiếu full thì dùng summary
+    }
+
+    // Tính giá từ variants
+    const tier  = getCustomerTier(req);
+    const items = full.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+
+    console.log('[PRICE] listPublicProducts', { tier, count: items.length, sample: { id: items[0]?.id, price: items[0]?.price_display } });
     return json({ ok: true, items }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
@@ -324,31 +335,41 @@ async function listPublicProducts(req, env) {
 async function listPublicProductsFiltered(req, env) {
   try {
     const url = new URL(req.url);
-    const category = url.searchParams.get('category') || 
-                    url.searchParams.get('cat') || 
-                    url.searchParams.get('category_slug') || 
-                    url.searchParams.get('c') || '';
+    const category = url.searchParams.get('category') ||
+                     url.searchParams.get('cat') ||
+                     url.searchParams.get('category_slug') ||
+                     url.searchParams.get('c') || '';
     const limit = Number(url.searchParams.get('limit') || '24');
 
-    let data = await listProducts(env);
-    let items = Array.isArray(data?.items) ? data.items.slice() : 
-               (Array.isArray(data) ? data.slice() : []);
+    // Lấy danh sách summary
+    let data  = await listProducts(env);
+    let items = Array.isArray(data?.items) ? data.items.slice()
+               : Array.isArray(data) ? data.slice() : [];
 
-    console.log('📦 Total products:', items.length);
-
-    // ✅ Filter by category
+    // Lọc theo category (nếu có)
     if (category) {
       const before = items.length;
       items = items.filter(product => matchCategoryStrict(product, category));
-      console.log(`✅ Category filter "${category}": ${before} → ${items.length}`);
+      console.log(`✅ Category "${category}": ${before} → ${items.length}`);
     }
 
-    // Filter active only
+    // Chỉ lấy sản phẩm active
     items = items.filter(p => p.status !== 0);
 
+    // 🔥 Nạp FULL từ KV cho các item hiển thị (sau filter)
+    const limited = items.slice(0, limit);
+    const full = [];
+    for (const s of limited) {
+      const id = String(s.id || s.key || '');
+      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
+      full.push(p || s);
+    }
+
+    // Tính giá từ variants
     const tier = getCustomerTier(req);
-    const out = items.slice(0, limit).map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
-    console.log('[PRICE] listPublicProductsFiltered', { tier, in: items.length, out: out.length, cat: category });
+    const out  = full.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+
+    console.log('[PRICE] listPublicProductsFiltered', { tier, in: items.length, out: out.length, cat: category, sample: { id: out[0]?.id, price: out[0]?.price_display } });
     return json({ ok: true, items: out }, {}, req);
   } catch (e) {
     console.error('❌ Error:', e);
