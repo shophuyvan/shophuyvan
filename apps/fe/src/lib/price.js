@@ -19,32 +19,35 @@ export function pickPrice(product, variant){
 
 function num(x){ try{ if(x==null||x==='') return 0; return Number(String(x).replace(/\./g,'').replace(/,/g,'.'))||0; }catch{ return 0; } }
 
+// [BEGIN PATCH] pickLowestPrice – FE chỉ lấy sale → price, tuyệt đối không dùng cost
 export function pickLowestPrice(product){
   const vs = Array.isArray(product?.variants) ? product.variants : [];
   let best = null;
 
-  for(const v of vs){
+  for (const v of vs) {
     const sale = num(v?.sale_price ?? v?.price_sale);
     const price = num(v?.price);
-    let base = sale>0 ? sale : (price>0 ? price : 0);
-    if(base<=0) continue;
-    let original = (sale>0 && price>sale) ? price : null;
-    if(!best || base < best.base){
+    const base = sale > 0 ? sale : (price > 0 ? price : 0);
+    if (base <= 0) continue;
+
+    const original = (sale > 0 && price > sale) ? price : null;
+    if (!best || base < best.base) {
       best = { base, original };
     }
   }
 
-  if(!best){
+  if (!best) {
     const pSale = num(product?.sale_price ?? product?.price_sale);
     const pPrice = num(product?.price);
-    const base = pSale>0 ? pSale : (pPrice>0 ? pPrice : 0);
-    const original = (pSale>0 && pPrice>pSale) ? pPrice : null;
+    const base = pSale > 0 ? pSale : (pPrice > 0 ? pPrice : 0);
+    const original = (pSale > 0 && pPrice > pSale) ? pPrice : null;
     best = { base, original };
   }
 
   // Backward compatibility aliases
   return { ...best, sale: best.base, regular: best.original };
 }
+// [END PATCH]
 
 // ===================================================================
 // WHOLESALE PRICE LOGIC
