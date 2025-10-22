@@ -260,18 +260,28 @@ function minVarPrice(p){
     return { sale:minSale, regular:minRegular };
   }catch{ return null; }
 }
+
 function priceStr(p) {
   // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
   if (typeof formatPriceByCustomer === 'function') {
     return formatPriceByCustomer(p, null);
   }
   
-  // Fallback: old logic
-  const mv = minVarPrice(p)||{}; 
-  const s = Number(mv.sale ?? p.price_sale ?? 0); 
-  const r = Number(mv.regular ?? p.price ?? 0);
-  if (s && s<r) return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
-  return `<div data-price><b>${(r||s||0).toLocaleString()}đ</b></div>`;
+  // CHỈ lấy giá từ variants
+  const mv = minVarPrice(p);
+  if (!mv) return `<div data-price><b>Liên hệ</b></div>`;
+  
+  const s = Number(mv.sale || 0); 
+  const r = Number(mv.regular || 0);
+  
+  if (s > 0 && s < r) {
+    return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
+  }
+  
+  const price = s || r;
+  return price > 0 
+    ? `<div data-price><b>${price.toLocaleString()}đ</b></div>`
+    : `<div data-price><b>Liên hệ</b></div>`;
 }
 // --- Price hydration: fetch full product if summary lacks prices/variants ---
 const __priceCache = new Map();
@@ -318,18 +328,15 @@ function priceHtmlFrom(p){
                : Array.isArray(prod?.skus)     ? prod.skus : [];
     const cand = [];
     const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
+    
+    // CHỈ lấy giá từ variants
     if (vars.length){
       for (const v of vars){
         push(v.price_sale ?? v.sale_price ?? v.sale);
         push(v.price ?? v.unit_price);
-        // nếu vẫn không có price thì cho phép dùng cost làm mốc hiển thị
-        push(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
       }
-    } else {
-      push(prod.price_sale ?? prod.sale_price ?? prod.sale);
-      push(prod.price ?? prod.unit_price);
-      push(prod.cost ?? prod.cost_price ?? prod.import_price ?? prod.price_import ?? prod.purchase_price);
     }
+    
     return cand.length ? Math.min(...cand) : 0;
   };
 
@@ -525,22 +532,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   setTimeout(async ()=>{
-    document.querySelectorAll('[data-card-id]').forEach(async card=>{
-      const priceBox = card.querySelector('[data-price]');
-      if(!priceBox) return;
-      if(/\b0đ\b/.test(priceBox.textContent||'')){
-        const id = card.getAttribute('data-card-id');
-        try{
-          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
-          let data=null;
-          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
-          const pr = (data?.item||data?.data||data||{});
-          const vs = Array.isArray(pr.variants)?pr.variants:[];
-          let s=null, r=null;
-          vs.forEach(v=>{ const sv=v.sale_price??v.price_sale??null; const rv=v.price??null; if(sv!=null) s=(s==null?sv:Math.min(s,sv)); if(rv!=null) r=(r==null?rv:Math.min(r,rv)); });
-          const val = (s && r && s<r) ? (`${(s).toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`)
-                  : ((r||s||0).toLocaleString()+'đ');
-          priceBox.innerHTML = `<b>${val}</b>`;
+  document.querySelectorAll('[data-card-id]').forEach(async card=>{
+    const priceBox = card.querySelector('[data-price]');
+    if(!priceBox) return;
+    if(/\b0đ\b|Liên hệ/.test(priceBox.textContent||'')){
+      const id = card.getAttribute('data-card-id');
+      try{
+        const paths = [`/public/products/${id}`, `/products/${id}`];
+        let data=null;
+        for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
+        const pr = (data?.item||data?.data||data||{});
+        const vs = Array.isArray(pr.variants)?pr.variants:[];
+        
+        // CHỈ lấy từ variants
+        if(!vs.length){ 
+          priceBox.innerHTML = `<b>Liên hệ</b>`; 
+          return; 
+        }
+        
+        let s=null, r=null;
+        vs.forEach(v=>{ 
+          const sv=v.sale_price??v.price_sale??null; 
+          const rv=v.price??null; 
+          if(sv!=null) s=(s==null?sv:Math.min(s,sv)); 
+          if(rv!=null) r=(r==null?rv:Math.min(r,rv)); 
+        });
+        
+        const val = (s && r && s<r) 
+          ? `${s.toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`
+          : `${(s||r||0).toLocaleString()}đ`;
+        priceBox.innerHTML = `<b>${val}</b>`;
         }catch{}
       }
     });
