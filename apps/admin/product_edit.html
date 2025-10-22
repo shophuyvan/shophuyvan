@@ -660,70 +660,103 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('Add variant button attached');
   }
   
-  const btnSave = document.getElementById('saveBtn');
-  if (btnSave) {
-    btnSave.addEventListener('click', async function() {
-      console.log('Save button clicked');
+   // FIX: Use event delegation for sidebar-layout compatibility
+  document.addEventListener('click', async function(e) {
+    if (e.target.id !== 'saveBtn' && !e.target.closest('#saveBtn')) return;
+    
+    console.log('Save button clicked (event delegation)');
+    
+    // Helper: safe querySelector
+    const $safe = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) console.warn('Element not found:', sel);
+      return el;
+    };
+    
+    const variants = $safe('#variants');
+    if (!variants) {
+      alert('❌ Không tìm thấy element variants');
+      return;
+    }
+    
+    const vs = Array.from(variants.children || []).map(div => {
+      const g = (sel) => div.querySelector(sel);
+      const thumb = g('[data-f="thumb"]');
       
-      const vs = Array.from(document.getElementById('variants').children || []).map(div => {
-        const g = (sel) => div.querySelector(sel);
-        const thumb = g('[data-f="thumb"]');
-        return {
-          name: g('[data-f="name"]').value.trim(),
-          sku: g('[data-f="sku"]').value.trim(),
-          price: Number(g('[data-f="price"]').value || 0),
-          price_sale: Number(g('[data-f="price_sale"]').value || 0),
-          wholesale_price: Number(g('[data-f="wholesale_price"]')?.value || 0),
-          cost: Number(g('[data-f="cost"]').value || 0),
-          weight: gramsOf(g('[data-f="weight"]').value),
-          stock: Number(g('[data-f="stock"]').value || 0),
-          image: thumb.dataset.original || thumb.src
-        };
-      });
-
-      const payload = {
-       id: state.id || undefined,
-       title: $('#title').value.trim(),
-       slug: $('#slug').value.trim(),
-       shortDesc: $('#shortDesc').value.trim(),
-       desc: $('#desc').value.trim(),
-       seoTitle: $('#seoTitle').value.trim(),
-       seoDesc: $('#seoDesc').value.trim(),
-       keywords: ($('#keywords').value || '').split(',').map(s => s.trim()).filter(Boolean),
-       faq: parseFaq($('#faq').value),
-       reviews: parseReviews($('#reviews').value),
-       
-       // ✅ XÓA CÁC TRƯỜNG GIÁ PRODUCT LEVEL
-       // price: 0,
-       // price_sale: 0,
-       // wholesale_price: 0,
-       // cost: 0,
-       // stock: 0,
-       
-       weight: gramsOf($('#weight').value || 0), // ✅ Chỉ giữ cân nặng
-       images: state.images || [],
-       category: ($('#category')?.value || '').trim(),
-       category_slug: ($('#category')?.value || '').trim(),
-       video: $('#video').value.trim(),
-       variants: vs
-     };
-
-      console.log('Payload:', payload);
-
-      let r = await Admin.req('/admin/products/upsert', { method: 'POST', body: payload });
-      if (!(r && r.ok)) r = await Admin.req('/admin/product', { method: 'POST', body: payload });
+      const nameEl = g('[data-f="name"]');
+      const skuEl = g('[data-f="sku"]');
+      const priceEl = g('[data-f="price"]');
+      const priceSaleEl = g('[data-f="price_sale"]');
+      const wholesaleEl = g('[data-f="wholesale_price"]');
+      const costEl = g('[data-f="cost"]');
+      const weightEl = g('[data-f="weight"]');
+      const stockEl = g('[data-f="stock"]');
       
-      if (r && r.ok) {
-        toast('✅ Đã lưu');
-        if (!state.id && r.id) state.id = r.id;
-        setTimeout(() => { location.href = './products.html?v=' + Date.now(); }, 600);
-      } else {
-        alert('Lưu thất bại');
-        console.log(r);
-      }
+      return {
+        name: nameEl?.value?.trim() || '',
+        sku: skuEl?.value?.trim() || '',
+        price: Number(priceEl?.value || 0),
+        price_sale: Number(priceSaleEl?.value || 0),
+        wholesale_price: Number(wholesaleEl?.value || 0),
+        cost: Number(costEl?.value || 0),
+        weight: gramsOf(weightEl?.value),
+        stock: Number(stockEl?.value || 0),
+        image: thumb?.dataset?.original || thumb?.src || ''
+      };
     });
-    console.log('Save button attached');
-  }
+
+    const titleEl = $safe('#title');
+    const slugEl = $safe('#slug');
+    const shortDescEl = $safe('#shortDesc');
+    const descEl = $safe('#desc');
+    const seoTitleEl = $safe('#seoTitle');
+    const seoDescEl = $safe('#seoDesc');
+    const keywordsEl = $safe('#keywords');
+    const faqEl = $safe('#faq');
+    const reviewsEl = $safe('#reviews');
+    const categoryEl = $safe('#category');
+    const videoEl = $safe('#video');
+    
+    if (!titleEl || !slugEl) {
+      alert('❌ Thiếu thông tin bắt buộc (title/slug)');
+      return;
+    }
+
+    const payload = {
+      id: state.id || undefined,
+      title: titleEl.value.trim(),
+      slug: slugEl.value.trim(),
+      shortDesc: shortDescEl?.value?.trim() || '',
+      desc: descEl?.value?.trim() || '',
+      seoTitle: seoTitleEl?.value?.trim() || '',
+      seoDesc: seoDescEl?.value?.trim() || '',
+      keywords: (keywordsEl?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+      faq: parseFaq(faqEl?.value || ''),
+      reviews: parseReviews(reviewsEl?.value || ''),
+      weight: gramsOf(0),
+      images: state.images || [],
+      category: (categoryEl?.value || '').trim(),
+      category_slug: (categoryEl?.value || '').trim(),
+      video: videoEl?.value?.trim() || '',
+      variants: vs
+    };
+
+    console.log('Payload:', payload);
+
+    let r = await Admin.req('/admin/products/upsert', { method: 'POST', body: payload });
+    if (!(r && r.ok)) r = await Admin.req('/admin/product', { method: 'POST', body: payload });
+    
+    if (r && r.ok) {
+      toast('✅ Đã lưu');
+      if (!state.id && r.id) state.id = r.id;
+      setTimeout(() => { location.href = './products.html?v=' + Date.now(); }, 600);
+    } else {
+      alert('Lưu thất bại');
+      console.log(r);
+    }
+  }, true);
+  
+  console.log('✅ Save button event delegation attached');
   
   const btnPickCat = document.getElementById('pickCat');
   if (btnPickCat) {
