@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup Super Admin</title>
+  <style>
+    body {
+      font-family: system-ui;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f3f4f6;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #111827;
+      margin-bottom: 10px;
+    }
+    .warning {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    button {
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #047857;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+    .result.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #059669;
+      display: block;
+    }
+    .result.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #dc2626;
+      display: block;
+    }
+    pre {
+      background: #f9fafb;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    .step {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    .step h3 {
+      margin-top: 0;
+      color: #374151;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔧 Setup Super Admin Account</h1>
+    <p style="color: #6b7280;">Trang này giúp bạn tạo tài khoản Super Admin đầu tiên cho hệ thống.</p>
+    
+    <div class="warning">
+      <strong>⚠️ CẢNH BÁO:</strong> Chỉ chạy setup này MỘT LẦN khi lần đầu khởi tạo hệ thống. Nếu đã có Super Admin, không cần chạy lại.
+    </div>
+    
+    <div class="step">
+      <h3>Bước 1: Cấu hình API Base URL</h3>
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">API Base URL:</label>
+      <input 
+        type="text" 
+        id="api-base" 
+        value="https://shv-api.shophuyvan.workers.dev"
+        style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+      />
+    </div>
+    
+    <div class="step">
+      <h3>Bước 2: Nhập Setup Token</h3>
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">Setup Token:</label>
+      <input 
+        type="text" 
+        id="setup-token" 
+        value="SETUP_SECRET_123"
+        style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+      />
+      <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">
+        Token này phải khớp với giá trị trong worker code
+      </p>
+    </div>
+    
+    <div class="step">
+      <h3>Bước 3: Chạy Setup</h3>
+      <button id="btn-setup" onclick="runSetup()">
+        🚀 Tạo Super Admin
+      </button>
+      <button onclick="testConnection()" style="background: #3b82f6;">
+        🔌 Test Connection
+      </button>
+    </div>
+    
+    <div id="result" class="result"></div>
+    
+    <div class="step" style="margin-top: 30px;">
+      <h3>📋 Thông tin đăng nhập (sau khi setup)</h3>
+      <pre>Email: admin@shophuyvan.com
+Password: Admin@123
+
+Login URL: https://adminshophuyvan.pages.dev/login.html</pre>
+      <p style="color: #dc2626; font-weight: 600; margin-top: 10px;">
+        ⚠️ Hãy đổi mật khẩu ngay sau khi đăng nhập lần đầu!
+      </p>
+    </div>
+  </div>
+  
+  <script>
+    const resultDiv = document.getElementById('result');
+    
+    function showResult(message, isSuccess) {
+      resultDiv.className = 'result ' + (isSuccess ? 'success' : 'error');
+      resultDiv.innerHTML = message;
+    }
+    
+    async function testConnection() {
+      const apiBase = document.getElementById('api-base').value.trim();
+      
+      if (!apiBase) {
+        showResult('❌ Vui lòng nhập API Base URL', false);
+        return;
+      }
+      
+      showResult('🔄 Đang test kết nối...', true);
+      
+      try {
+        const response = await fetch(apiBase);
+        const data = await response.json();
+        
+        if (response.ok) {
+          showResult(
+            `✅ Kết nối thành công!<br><br>` +
+            `<strong>API Info:</strong><br>` +
+            `<pre>${JSON.stringify(data, null, 2)}</pre>`,
+            true
+          );
+        } else {
+          showResult(`❌ API trả về lỗi: ${response.status}`, false);
+        }
+      } catch (e) {
+        showResult(`❌ Không thể kết nối tới API: ${e.message}`, false);
+      }
+    }
+    
+    async function runSetup() {
+      const apiBase = document.getElementById('api-base').value.trim();
+      const setupToken = document.getElementById('setup-token').value.trim();
+      const btn = document.getElementById('btn-setup');
+      
+      if (!apiBase || !setupToken) {
+        showResult('❌ Vui lòng điền đầy đủ thông tin', false);
+        return;
+      }
+      
+      if (!confirm('Bạn chắc chắn muốn tạo Super Admin?\n\nChỉ làm điều này KHI LẦN ĐẦU thiết lập hệ thống!')) {
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang xử lý...';
+      showResult('🔄 Đang tạo Super Admin và các roles mặc định...', true);
+      
+      try {
+        const response = await fetch(`${apiBase}/admin/setup/init`, {
+          method: 'POST',
+          headers: {
+            'X-Setup-Token': setupToken
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.ok) {
+          showResult(
+            `✅ <strong>Setup thành công!</strong><br><br>` +
+            `Đã tạo:<br>` +
+            `• 4 Roles mặc định (Super Admin, Manager, Staff, Warehouse)<br>` +
+            `• 1 Super Admin account<br><br>` +
+            `<strong>Thông tin đăng nhập:</strong><br>` +
+            `<pre>Email: admin@shophuyvan.com\nPassword: Admin@123</pre>` +
+            `<a href="https://adminshophuyvan.pages.dev/login.html" target="_blank" ` +
+            `style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #059669; ` +
+            `color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">` +
+            `🔐 Đăng nhập ngay</a>`,
+            true
+          );
+        } else {
+          showResult(
+            `❌ <strong>Setup thất bại!</strong><br><br>` +
+            `Lỗi: ${data.error || 'Unknown error'}<br><br>` +
+            `Có thể:<br>` +
+            `• Setup Token không đúng<br>` +
+            `• Worker chưa được deploy<br>` +
+            `• Super Admin đã tồn tại`,
+            false
+          );
+        }
+      } catch (e) {
+        showResult(
+          `❌ <strong>Lỗi kết nối!</strong><br><br>` +
+          `Chi tiết: ${e.message}<br><br>` +
+          `Vui lòng kiểm tra:<br>` +
+          `• Worker đã được deploy chưa?<br>` +
+          `• API Base URL có đúng không?<br>` +
+          `• Internet connection`,
+          false
+        );
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Tạo Super Admin';
+      }
+    }
+  </script>
+</body>
+</html>

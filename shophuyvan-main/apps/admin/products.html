@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Quản lý Sản phẩm - Shop Huy Vân</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js"></script>
+<script src="./sidebar-layout.js"></script>
+<script src="./_shared/utils-admin.js"></script>
+<script src="./_shared/api-admin.js"></script>
+<script src="./_shared/charts-admin.js"></script>
+<style>
+/* Product-specific styles */
+.toolbar {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.toolbar-left {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 250px;
+}
+
+.input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.input:focus { outline: none; border-color: #1976d2; }
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: #333;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn:hover { background: #f5f5f5; }
+
+.btn.primary {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.btn.primary:hover { background: #1565c0; }
+
+.btn.danger { 
+  background: #d32f2f; 
+  color: white; 
+  border-color: #d32f2f; 
+}
+
+.btn.danger:hover { background: #c62828; }
+
+.stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.product-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.product-card.selected {
+  border: 2px solid #1976d2;
+}
+
+.card-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.card-image {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  background: #f9f9f9;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.badge-stock {
+  background: #4caf50;
+  color: white;
+}
+
+.badge-out {
+  background: #f44336;
+  color: white;
+}
+
+.card-content {
+  padding: 12px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 40px;
+}
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.card-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #d32f2f;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.card-actions .btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.bulk-actions {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bulk-actions.show { display: flex; }
+
+.bulk-actions-text {
+  flex: 1;
+  font-size: 14px;
+  color: #666;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  
+  .card-image { height: 180px; }
+  
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-left {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+<!-- Content will be wrapped by sidebar-layout.js -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
+    <button class="btn" id="reload">🔄 Tải lại</button>
+  </div>
+  <div class="stats">
+    <span>Tổng: <strong id="total-count">0</strong></span>
+    <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
+  </div>
+</div>
+
+<div id="bulk-actions" class="bulk-actions">
+  <input type="checkbox" id="select-all"/>
+  <span class="bulk-actions-text"><span id="selected-count">0</span> sản phẩm được chọn</span>
+  <button class="btn danger" id="bulk-delete">Xóa đã chọn</button>
+</div>
+
+<div id="grid" class="grid">
+  <div class="loading">Đang tải...</div>
+</div>
+
+<script>
+// CRITICAL FIX: Wrap everything in DOMContentLoaded to ensure sidebar-layout runs first
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Products] DOM loaded, initializing...');
+
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    AdminLayout.init('Sản phẩm');
+  }
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+  let allProducts = [];
+  let selectedIds = new Set();
+
+  function cdnUrl(url) {
+    if (!url) return './no-image.svg';
+    return url;
+  }
+
+  function formatPrice(price) {
+    return Number(price || 0).toLocaleString('vi-VN') + 'đ';
+  }
+  // [BẮT ĐẦU CHÈN] helpers enrich (đặt ngay sau function formatPrice)
+const toNum = (x) => typeof x === 'string'
+  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+  : (Number(x || 0));
+
+async function getProductDetail(id) {
+  return await Admin.tryPaths([
+  '/admin/products/get?id=' + encodeURIComponent(id),
+  '/admin/product/get?id=' + encodeURIComponent(id),
+  '/admin/products/detail?id=' + encodeURIComponent(id),
+  '/admin/product/detail?id=' + encodeURIComponent(id),
+  '/admin/product?id=' + encodeURIComponent(id)
+]).then(r => r?.item || r?.data || r || null);
+}
+
+async function enrichProducts(items) {
+  const toNum = (x) => typeof x === 'string'
+    ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+    : (Number(x || 0));
+
+  for (const p of items) {
+    // mặc định lấy giá từ list (nếu có)
+    p.salePrice = toNum(p.price_sale || p.price);
+    p.costImport = toNum(p.cost || p.cost_price || p.import_price || p.price_import || p.purchase_price);
+    p.stockTotal = toNum(p.stock || p.inventory || p.quantity);
+    p.importTotal = p.stockTotal * p.costImport;
+
+    // nếu list đã có salePrice > 0 và có stock/cost thì bỏ qua
+    const needDetail = !(p.salePrice > 0 && (p.stockTotal > 0 || p.costImport > 0));
+
+    if (!needDetail) continue;
+
+    const id = p.id || p._id || p.key;
+    if (!id) continue;
+
+    try {
+      // lấy chi tiết để có cost/stock chính xác
+      const d = await getProductDetail(id);
+      if (!d) continue;
+
+      const vars = Array.isArray(d.variants) ? d.variants
+                 : Array.isArray(d.options)  ? d.options
+                 : Array.isArray(d.skus)     ? d.skus : [];
+
+      if (vars.length > 0) {
+        // cộng gộp TỒN kho & tính cost theo từng biến thể
+        let totalStock = 0;
+        let totalImport = 0;
+        let firstPrice = 0;
+
+        vars.forEach(v => {
+          const vStock = toNum(v.stock ?? v.inventory ?? v.quantity);
+          const vCost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+          const vPrice = toNum(v.price_sale ?? v.price);
+          totalStock += vStock;
+          totalImport += vStock * vCost;
+          if (!firstPrice && vPrice > 0) firstPrice = vPrice;
+        });
+
+        // gán ra product để render
+        p.stockTotal = totalStock;
+        p.costImport = totalStock > 0 ? Math.floor(totalImport / Math.max(totalStock,1)) : (p.costImport || 0);
+        p.importTotal = totalImport;
+        p.salePrice = p.salePrice > 0 ? p.salePrice : firstPrice;
+        p._hasStock = totalStock > 0;
+      } else {
+        // không có biến thể: lấy trực tiếp từ product detail
+        const stock = toNum(d.stock ?? d.inventory ?? d.quantity);
+        const cost  = toNum(d.cost ?? d.cost_price ?? d.import_price ?? d.price_import ?? d.purchase_price);
+        const price = toNum(d.price_sale ?? d.price);
+
+        p.stockTotal = stock;
+        p.costImport = cost;
+        p.importTotal = stock * cost;
+        if (!(p.salePrice > 0)) p.salePrice = price;
+        p._hasStock = stock > 0;
+      }
+    } catch (e) {
+      console.warn('[Products] enrich fail', id, e);
+    }
+  }
+  return items;
+}
+// [KẾT THÚC CHÈN]
+
+// [BẮT ĐẦU THAY HÀM] createProductCard
+function createProductCard(p) {
+  const imgUrl = cdnUrl((p.images && p.images[0]) || '');
+  const id = p.id || p._id || p.key || '';
+
+  const variants = Array.isArray(p.variants) ? p.variants
+                : Array.isArray(p.options)  ? p.options
+                : Array.isArray(p.skus)     ? p.skus
+                : [];
+
+  const hasStock = (typeof p._hasStock === 'boolean')
+    ? p._hasStock
+    : (variants.length > 0 ? variants.some(v => (v.stock ?? v.inventory ?? 0) > 0) : (p.stockTotal > 0));
+
+  // số liệu đã được enrich: salePrice, costImport, stockTotal, importTotal
+  const priceSale  = Number(p.salePrice || 0);
+  const costImport = Number(p.costImport || 0);
+  const stockTotal = Number(p.stockTotal || 0);
+  const importTotal = Number(p.importTotal || 0);
+
+  return `
+    <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
+      <input type="checkbox" class="card-checkbox" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}/>
+      <div class="card-image">
+        <img src="${imgUrl}" loading="lazy" crossorigin="anonymous" onerror="this.src='./no-image.svg'"/>
+        <div class="card-badge ${hasStock ? 'badge-stock' : 'badge-out'}">
+          ${hasStock ? 'Còn hàng' : 'Hết hàng'}
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
+        <div class="card-meta">
+          <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
+
+          <!-- HIỂN THỊ ĐẦY ĐỦ GIÁ/TRỊ SỐ -->
+          <div class="card-line">Giá sale: <b>${formatPrice(priceSale)}</b></div>
+          <div class="card-line">Giá nhập: <b>${formatPrice(costImport)}</b></div>
+          <div class="card-line">Tồn kho: <b>${stockTotal.toLocaleString('vi-VN')}</b></div>
+          <div class="card-line">Tổng tiền nhập: <b>${formatPrice(importTotal)}</b></div>
+        </div>
+      </div>
+      <div class="card-actions">
+        <a class="btn" href="./product_edit.html?id=${encodeURIComponent(id)}">✏️ Sửa</a>
+        <button class="btn danger" onclick="window.deleteProduct('${id}')">🗑️ Xóa</button>
+      </div>
+    </div>
+  `;
+}
+// [KẾT THÚC THAY HÀM] createProductCard
+
+  async function load() {
+    console.log('[Products] Loading products...');
+    try {
+      const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
+      console.log('[Products] API Response:', r);
+      
+      allProducts = r.items || r.data || r.products || [];
+      console.log('[Products] Total products:', allProducts.length);
+      
+      const q = ($('#q')?.value || '').toLowerCase();
+      const filtered = allProducts.filter(p => {
+        const t = (p.title || p.name || '').toLowerCase();
+        const slug = String(p.slug || '').toLowerCase();
+        const sku = String(p.sku || '').toLowerCase();
+        return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
+      });
+      
+      const totalEl = $('#total-count');
+      if (totalEl) totalEl.textContent = filtered.length;
+      
+      const grid = $('#grid');
+      if (!grid) {
+        console.error('[Products] Grid element not found!');
+        return;
+      }
+      
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="loading">Không tìm thấy sản phẩm nào</div>';
+        return;
+      }
+      await enrichProducts(filtered);
+      grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
+      console.log('[Products] Rendered', filtered.length, 'products');
+      
+      // Re-attach event listeners
+      $$('.card-checkbox').forEach(cb => {
+        cb.addEventListener('change', handleCheckboxChange);
+      });
+      
+      updateBulkActions();
+    } catch (error) {
+      console.error('[Products] Load error:', error);
+      const grid = $('#grid');
+      if (grid) grid.innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+    }
+  }
+
+  function handleCheckboxChange(e) {
+    const id = e.target.getAttribute('data-id');
+    const card = $(`.product-card[data-id="${id}"]`);
+    
+    if (e.target.checked) {
+      selectedIds.add(id);
+      if (card) card.classList.add('selected');
+    } else {
+      selectedIds.delete(id);
+      if (card) card.classList.remove('selected');
+    }
+    
+    updateBulkActions();
+  }
+
+  function updateBulkActions() {
+    const bulkActions = $('#bulk-actions');
+    const selectAll = $('#select-all');
+    const selectedCount = $('#selected-count');
+    
+    if (selectedCount) selectedCount.textContent = selectedIds.size;
+    
+    if (bulkActions) {
+      if (selectedIds.size > 0) {
+        bulkActions.classList.add('show');
+      } else {
+        bulkActions.classList.remove('show');
+      }
+    }
+    
+    if (selectAll) {
+      selectAll.checked = selectedIds.size === allProducts.length && allProducts.length > 0;
+    }
+  }
+
+  // Event listeners
+  const selectAllEl = $('#select-all');
+  if (selectAllEl) {
+    selectAllEl.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        allProducts.forEach(p => {
+          const id = p.id || p._id || p.key;
+          selectedIds.add(id);
+        });
+      } else {
+        selectedIds.clear();
+      }
+      load();
+    });
+  }
+
+  async function deleteProduct(id) {
+    if (!id) return;
+    if (!confirm('Xác nhận xóa sản phẩm này?')) return;
+    
+    try {
+      let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
+      if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+      if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      
+      if (r && r.ok) {
+        Admin.toast('Đã xóa sản phẩm');
+        selectedIds.delete(id);
+        load();
+      } else {
+        alert('Xóa thất bại');
+      }
+    } catch (error) {
+      alert('Xóa thất bại: ' + error.message);
+    }
+  }
+
+  // Bulk delete
+  const bulkDeleteBtn = $('#bulk-delete');
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', async () => {
+      if (selectedIds.size === 0) return;
+      if (!confirm(`Xác nhận xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
+      
+      let success = 0;
+      for (const id of selectedIds) {
+        try {
+          let r = await Admin.req('/admin/products/delete', { method: 'POST', body: { id } });
+          if (!(r && r.ok)) r = await Admin.req('/admin/product/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+          if (!(r && r.ok)) r = await Admin.req('/admin/product?id=' + encodeURIComponent(id), { method: 'DELETE' });
+          if (r && r.ok) success++;
+        } catch (error) {
+          console.error('Error deleting:', id, error);
+        }
+      }
+      
+      Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
+      selectedIds.clear();
+      load();
+    });
+  }
+
+  const reloadBtn = $('#reload');
+  if (reloadBtn) reloadBtn.onclick = load;
+
+  const searchInput = $('#q');
+  if (searchInput) searchInput.addEventListener('input', load);
+
+  // Expose deleteProduct globally
+  window.deleteProduct = deleteProduct;
+
+  // Initial load
+  console.log('[Products] Starting initial load...');
+  load();
+});
+</script>
+</body>
+</html>

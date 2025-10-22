@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Thống kê - Admin</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="./admin_real.js"></script>
+<script src="./sidebar-layout.js"></script>
+<script src="./stats-manager.js"></script>
+<style>
+/* Stats specific styles */
+.date-filter {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.date-filter label { font-size: 14px; color: #666; }
+
+.input, .select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.input:focus, .select:focus { 
+  outline: none; 
+  border-color: #1976d2; 
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #1976d2;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn:hover { background: #1565c0; }
+
+.btn.secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.btn.secondary:hover { background: #e0e0e0; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-card.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-icon.pink { background: #fce4ec; color: #c2185b; }
+.stat-icon.red { background: #ffebee; color: #d32f2f; }
+.stat-icon.blue { background: #e3f2fd; color: #1976d2; }
+.stat-icon.orange { background: #fff3e0; color: #f57c00; }
+.stat-icon.green { background: #e8f5e9; color: #388e3c; }
+.stat-icon.purple { background: #f3e5f5; color: #7b1fa2; }
+
+.stat-content { flex: 1; }
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.stat-change {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.chart-container {
+  position: relative;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-legend {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.table-section {
+  grid-column: 1 / -1;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead {
+  background: #f9f9f9;
+}
+
+.table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.platform-badge.website { background: #e3f2fd; color: #1976d2; }
+.platform-badge.miniapp { background: #f3e5f5; color: #7b1fa2; }
+
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #f0f0f0;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.show { display: flex; }
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 20px;
+  color: #666;
+}
+
+.modal-close:hover { background: #e0e0e0; }
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.form-label.required::after {
+  content: '*';
+  color: #d32f2f;
+  margin-left: 4px;
+}
+
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: center;
+}
+
+.cost-list {
+  margin-top: 20px;
+}
+
+.cost-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #666;
+}
+
+.cost-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.cost-info {
+  flex: 1;
+}
+
+.cost-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.cost-detail {
+  font-size: 12px;
+  color: #666;
+}
+
+.cost-amount {
+  font-size: 16px;
+  font-weight: 600;
+  color: #d32f2f;
+  margin-right: 12px;
+}
+
+.btn-delete {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #ffebee;
+  color: #d32f2f;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.btn-delete:hover { background: #ffcdd2; }
+
+@media (max-width: 768px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .date-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .chart-legend {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Date Filter -->
+<div class="date-filter">
+  <input type="date" id="fromDate" class="input"/>
+  <span>→</span>
+  <input type="date" id="toDate" class="input"/>
+  <button id="applyFilter" class="btn">Áp dụng</button>
+  <button class="btn secondary" id="btnToday">Hôm nay</button>
+  <button class="btn secondary" id="btnThisWeek">Tuần này</button>
+  <button class="btn secondary" id="btnThisMonth">Tháng này</button>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon pink">📦</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn phát sinh</div>
+      <div class="stat-value" id="totalOrders">0</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon red">🔴</div>
+    <div class="stat-content">
+      <div class="stat-label">Trả hàng</div>
+      <div class="stat-value" id="returnOrders">0</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon red">❌</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn hủy</div>
+      <div class="stat-value" id="cancelOrders">0</div>
+      <div class="stat-change" id="cancelRate">0%</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon blue">✔</div>
+    <div class="stat-content">
+      <div class="stat-label">Đơn đã bán</div>
+      <div class="stat-value" id="soldOrders">0</div>
+      <div class="stat-change" id="soldRate">0%</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon orange">💰</div>
+    <div class="stat-content">
+      <div class="stat-label">Doanh thu</div>
+      <div class="stat-value" id="revenue">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card clickable" id="costCard">
+    <div class="stat-icon red">💸</div>
+    <div class="stat-content">
+      <div class="stat-label">Chi phí thêm <span style="font-size:16px">+</span></div>
+      <div class="stat-value" id="extraCost">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon green">🔥</div>
+    <div class="stat-content">
+      <div class="stat-label">Giá nhập</div>
+      <div class="stat-value" id="costPrice">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon purple">💎</div>
+    <div class="stat-content">
+      <div class="stat-label">Lợi nhuận</div>
+      <div class="stat-value" id="profit">0đ</div>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-icon blue">🪙</div>
+    <div class="stat-content">
+      <div class="stat-label">Tổng tiền hàng trong kho</div>
+      <div class="stat-value" id="inventoryValue">0đ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="content-grid">
+  <div class="card">
+    <div class="card-title">Phân bổ đơn theo kênh</div>
+    <div class="chart-container">
+      <canvas id="orderChart"></canvas>
+    </div>
+    <div class="chart-legend" id="orderLegend"></div>
+  </div>
+  
+  <div class="card">
+    <div class="card-title">Doanh thu theo kênh</div>
+    <div class="chart-container">
+      <canvas id="revenueChart"></canvas>
+    </div>
+    <div class="chart-legend" id="revenueLegend"></div>
+  </div>
+  
+  <div class="card table-section">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Chi tiết theo kênh</div>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Kênh</th>
+          <th style="text-align:right">Đơn</th>
+          <th style="text-align:right">$ Bán</th>
+          <th style="text-align:right">$ Lãi</th>
+          <th style="text-align:right">Giao thành công</th>
+          <th style="text-align:right">Đã huỷ</th>
+          <th style="text-align:right">Trả hàng</th>
+        </tr>
+      </thead>
+      <tbody id="platformTable"></tbody>
+    </table>
+  </div>
+  
+  <div class="card table-section">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Top sản phẩm bán chạy</div>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Sản phẩm</th>
+          <th style="text-align:right">Số Đơn</th>
+          <th style="text-align:right">Doanh Thu</th>
+        </tr>
+      </thead>
+      <tbody id="topProducts"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Chi phí -->
+<div id="costModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Quản lý Chi phí</div>
+      <button class="modal-close" id="closeModal">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label required">Tên chi phí:</label>
+        <input type="text" id="costName" class="form-input" placeholder="Ví dụ: Phí thuê mặt bằng"/>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label required">Số tiền:</label>
+        <input type="number" id="costAmount" class="form-input" placeholder="Ví dụ: 5000000"/>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label required">Phân bổ:</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="costType" value="monthly" checked/>
+            Theo tháng
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="costType" value="order"/>
+            Theo mỗi đơn
+          </label>
+        </div>
+      </div>
+      
+      <div class="cost-list">
+        <div class="cost-list-title">Danh sách chi phí</div>
+        <div id="costListContainer"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="btnAddCost">+ Thêm chi phí</button>
+    </div>
+  </div>
+</div>
+
+<script src="./_shared/utils-admin.js"></script>
+<script src="./_shared/api-admin.js"></script>
+<script src="./_shared/charts-admin.js"></script>
+
+</body>
+</html>

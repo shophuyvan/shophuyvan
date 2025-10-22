@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop Huy Vân</title>
+  <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+<!-- build:16 -->
+  <script type="module" src="/src/pixels.js?v=36"></script>
+  <script type="module" src="/src/cat-menu.js?v=36"></script>
+
+  <!-- SEO-INJECTED -->
+  <link rel="canonical" href="__BASE_URL__/" />
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Shop Huy Vân"/>
+  <meta property="og:title" content="Shop Huy Vân - Điện gia dụng & phụ kiện thông minh"/>
+  <meta property="og:description" content="Cửa hàng thiết bị điện, đồ lắp đặt, phụ kiện thông minh giá tốt."/>
+  <meta property="og:url" content="__BASE_URL__/"/>
+  <meta property="og:image" content="/public/logo.png"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Shop Huy Vân",
+    "url": "__BASE_URL__/",
+    "logo": "__BASE_URL__/public/logo.png",
+    "sameAs": []
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "url": "__BASE_URL__/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "__BASE_URL__/index.html?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  <link rel="stylesheet" href="/assets/header-shop.css">
+</head>
+<body class="bg-slate-50 text-gray-900">
+  
+<header class="header-shop">
+  <div class="top">
+    <button id="menuBtn" class="icon-btn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+    <a href="/" class="logo">
+      <img src="/public/logo.png" alt="Logo">
+      <div>
+        <div class="brand">SHOP HUY VÂN</div>
+        <div class="sub">Mua Bán Giá Sỉ</div>
+      </div>
+    </a>
+
+    <!-- ✅ THÊM NÚT TÀI KHOẢN -->
+    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 8px;">
+      <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản" style="position: relative;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span id="user-name-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;white-space:nowrap;font-weight:700;"></span>
+      </a>
+    </div>
+
+    <a href="/cart.html" class="cart" id="header-cart-btn" aria-label="Giỏ hàng">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="20" r="1"></circle>
+        <circle cx="16" cy="20" r="1"></circle>
+        <path d="M3 3h2l.4 2M7 13h10l3-8H6.4"></path>
+      </svg>
+      <span id="cart-badge" class="badge">0</span>
+    </a>
+  </div>
+
+  <div class="searchbar">
+    <div class="wrap">
+      <button class="all" id="catBtn" data-cat-menu="1">ALL
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </button>
+      <input id="shv-search" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
+      <button class="go" id="searchGo" aria-label="Tìm kiếm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-3.5-3.5"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div id="shv-sidebar" aria-hidden="true">
+  <div class="mask"></div>
+  <aside class="panel">
+    <div class="title">Menu</div>
+    
+    <!-- ✅ THAY ĐỔI DÒNG NÀY -->
+    <div id="sidebar-auth">
+      <!-- Khi chưa đăng nhập -->
+      <a href="/login.html" class="item" id="sidebar-login">🔐 Đăng nhập</a>
+      <a href="/register.html" class="item" id="sidebar-register">✍️ Đăng ký</a>
+      
+      <!-- Khi đã đăng nhập (ẩn mặc định) -->
+      <div id="sidebar-user-info" style="display:none;">
+        <a href="#" class="item" id="sidebar-user-name">👤 Tài khoản</a>
+        <a href="#" class="item" id="sidebar-logout">🚪 Đăng xuất</a>
+      </div>
+    </div>
+    <a href="/" class="item">🏠 Trang chủ</a>
+    <a href="/guide.html" class="item">📘 Hướng dẫn sử dụng</a>
+    <a href="/policy.html" class="item">📜 Chính sách</a>
+    <a href="/about.html" class="item">🏪 Thông tin shop</a>
+  </aside>
+</div>
+
+  <div class="bg-amber-50 border-y">
+    <div class="max-w-6xl mx-auto px-4 py-2 whitespace-nowrap overflow-hidden">
+      <marquee>⚡ Freeship đơn từ 150.000đ | Cam Kết Gía Rẻ Hơn Mua ở Sàn Từ 10-30% | Tư vấn nhanh Qua Zalo 0933190000 | Giao Hàng Siêu Tốc Từ 1-3 Ngày Tuỳ Tỉnh Thành</marquee>
+    </div>
+  </div>
+
+  <!-- Banner slider -->
+  <section id="banner" class="max-w-6xl mx-auto px-4 py-4">
+    <div id="banner-wrap" style="border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+  </section>
+
+  <!-- USP -->
+  <section class="max-w-6xl mx-auto px-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white border rounded p-3">🚚 Vận Chuyển Nhanh Chóng </div>
+      <div class="bg-white border rounded p-3">✅ Cam Kết Gía Rẻ </div>
+      <div class="bg-white border rounded p-3">💬 Đổi Trả 14 Ngày</div>
+      <div class="bg-white border rounded p-3">🎁 Từ 150K Miễn Phí Ship</div>
+    </div>
+  </section>
+
+  <!-- New products -->
+  <section class="max-w-6xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Sản phẩm mới</h2>
+      <a href="#all" class="text-sm text-blue-600 hover:underline">Xem tất cả</a>
+    </div>
+    <div id="new-products" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3"></div>
+  </section>
+
+  <!-- All products -->
+  <section class="max-w-6xl mx-auto px-4 pb-10" id="all">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Tất cả sản phẩm</h2>
+      <div class="flex items-center gap-2">
+        <input id="quick-filter" placeholder="Lọc nhanh..." class="border rounded px-3 py-1 text-sm" />
+        <button id="load-more" class="text-sm border rounded px-3 py-1 hover:bg-gray-100">Tải thêm</button>
+      </div>
+    </div>
+    <div id="all-products" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3"></div>
+  </section>
+
+  <footer class="border-t bg-white">
+    <div class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-4 text-sm">
+      <div id="about">
+        <div class="font-semibold">Shop Huy Vân</div>
+        <div>Địa chỉ: 91/6 Liên Khu 5-11-12, P. Bình Trị Đông, TP.HCM</div>
+        <div>Điện thoại: 0933 190 000 (lẻ) · 0909 128 999 (sỉ)</div>
+      </div>
+      <div id="policy">
+        <div class="font-semibold">Chính sách</div>
+        <ul class="list-disc ml-5">
+          <li>Đổi trả trong vòng 14 ngày nếu sản phẩm lỗi do nhà sản xuất</li>
+          <li>Cam kết Chất Lượng Sản Phẩm Như Hình Và Video Shop Đăng</li>
+          <li>Miễn Phí Ship Cho Các Đơn Hàng Từ 150K</li>
+        </ul>
+      </div>
+      <div>
+        <div class="font-semibold">Bản đồ</div>
+        <iframe class="w-full h-40 border rounded" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=91/6%20Li%C3%AAn%20Khu%205-11-12%2C%20B%C3%ACnh%20Tr%E1%BB%8B%20%C4%90%C3%B4ng%2C%20H%E1%BB%93%20Ch%C3%AD%20Minh&output=embed"></iframe>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating buttons -->
+  <!-- Floating Buttons (Thu gọn thành 1 nút) -->
+<div id="float-wrap" class="fixed right-3 bottom-3 flex flex-col items-end gap-2 z-[100]">
+  <button id="float-toggle"
+    class="bg-rose-600 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">
+    +
+  </button>
+
+  <div id="float-menu" class="flex flex-col items-end gap-2 hidden">
+    <!-- Nút Chat Facebook -->
+    <a href="https://m.me/1662904590667576" target="_blank"
+       class="bg-blue-600 text-white px-3 py-2 rounded shadow w-40 text-center">
+       💬 Chat Facebook
+    </a>
+
+    <!-- Nút Chat Zalo -->
+    <a href="https://zalo.me/0933190000" target="_blank"
+       class="bg-blue-500 text-white px-3 py-2 rounded shadow w-40 text-center">
+       💬 Chat Zalo
+    </a>
+
+    <!-- Nút Gọi điện -->
+    <a href="tel:+84933190000"
+       class="bg-emerald-600 text-white px-3 py-2 rounded shadow w-40 text-center">
+       📞 Gọi ngay
+    </a>
+  </div>
+</div>
+
+<!-- Script điều khiển xổ ra / thu gọn -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('float-toggle');
+  const menu = document.getElementById('float-menu');
+  if(!btn || !menu) return;
+
+  btn.addEventListener('click', ()=>{
+    const open = !menu.classList.contains('hidden');
+    if(open){
+      menu.classList.add('hidden');
+      btn.textContent = '+';
+    } else {
+      menu.classList.remove('hidden');
+      btn.textContent = '×';
+    }
+  });
+
+  // Ẩn menu khi click ra ngoài
+  document.addEventListener('click', (e)=>{
+    if(!document.getElementById('float-wrap').contains(e.target)){
+      menu.classList.add('hidden');
+      btn.textContent = '+';
+    }
+  });
+});
+</script>
+
+
+<script type="module" src="/src/tracking.js?v=36"></script>
+<script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
+<script>
+(function(){
+  function toNum(x){
+    if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g,'')) || 0;
+    return Number(x || 0);
+  }
+  function pickLowestPrice(p){
+    const vars = Array.isArray(p.variants) ? p.variants
+               : Array.isArray(p.options)  ? p.options
+               : Array.isArray(p.skus)     ? p.skus
+               : [];
+    let min = Infinity;
+    const consider = (v) => { if (v > 0 && v < min) min = v; };
+
+    if (vars.length){
+      for (const v of vars){
+        consider(toNum(v.price_sale ?? v.sale_price ?? v.sale));
+        consider(toNum(v.price ?? v.unit_price));
+        consider(toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price));
+      }
+    } else {
+      consider(toNum(p.price_sale ?? p.sale_price ?? p.sale));
+      consider(toNum(p.price ?? p.unit_price));
+      consider(toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price));
+    }
+
+    const base = (min === Infinity) ? 0 : min;
+    return { base }; // frontend.js sẽ đọc priceInfo.base
+  }
+  // Dùng toàn cục cho frontend.js
+  window.pickLowestPrice = pickLowestPrice;
+})();
+</script>
+<script type="module" src="/src/frontend.js?v=41"></script>
+<script type="module">
+// Import price functions
+import { pickPriceByCustomer, formatPriceByCustomer } from './src/lib/price.js';
+
+// Expose globally for use in frontend.js
+window.pickPriceByCustomer = pickPriceByCustomer;
+window.formatPriceByCustomer = formatPriceByCustomer;
+</script>
+<script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script>
+  <!-- SHV-CWV: generic lazyload safeguard -->
+  <script>
+  (function(){
+    try{
+      // delay to allow hero/LCP settle
+      setTimeout(function(){
+        document.querySelectorAll('img:not([loading])').forEach(function(img){
+          if(!img.closest('header')) img.setAttribute('loading','lazy');
+          if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
+          if(!img.hasAttribute('width')) img.setAttribute('width','800');
+          if(!img.hasAttribute('height')) img.setAttribute('height','600');
+        });
+      }, 800);
+    }catch(e){}
+  })();
+  </script>
+
+<script>
+// ==== REPLACE: bỏ modal cart, điều hướng về /cart.html ====
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('header-cart-btn')?.addEventListener('click', function (e) {
+    e.preventDefault();
+    window.location.href = '/cart.html';
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function closeSidebarOnLink(){
+  const sb = document.getElementById('shv-sidebar');
+  if(!sb) return;
+  sb.querySelectorAll('a').forEach(a=>{
+    a.addEventListener('click', ()=>{ 
+      sb.classList.remove('open'); 
+      sb.style.display='none';
+    });
+  });
+});
+</script>
+
+<!-- SHV AUTH MODAL (no new file; inline) -->
+<div id="shv-auth-modal" aria-hidden="true" style="position:fixed;inset:0;display:none;z-index:140">
+  <div class="mask" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
+  <div class="panel" role="dialog" aria-modal="true" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,92vw);background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.15);">
+    <header style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb">
+      <strong>Đăng nhập / Đăng ký</strong>
+      <button id="auth-close" aria-label="Đóng" style="border:none;background:transparent;font-size:20px;line-height:1;padding:6px 8px">✕</button>
+    </header>
+    <div class="content" style="padding:16px">
+      <div class="tabs" style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="tab-login" class="tab active" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc">Đăng nhập</button>
+        <button id="tab-register" class="tab" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff">Đăng ký</button>
+      </div>
+      <form id="form-login" class="form" autocomplete="on" style="display:block">
+        <label>Tài khoản<input id="auth-user" type="text" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Mật khẩu<input id="auth-pass" type="password" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <button type="button" id="auth-login-btn" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#0ea5e9;color:#fff;border:0">Đăng nhập</button>
+      </form>
+      <form id="form-register" class="form" autocomplete="on" style="display:none">
+        <label>Họ tên<input id="reg-name" type="text" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Số điện thoại<input id="reg-phone" type="tel" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <label style="display:block;margin-top:10px">Mật khẩu<input id="reg-pass" type="password" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px"></label>
+        <button type="button" id="auth-register-btn" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#16a34a;color:#fff;border:0">Đăng ký</button>
+      </form>
+      <div id="auth-msg" style="margin-top:8px;font-size:12px;color:#64748b"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const modal = document.getElementById('shv-auth-modal');
+  function openAuthModal(){ if(!modal) return; modal.style.display='block'; }
+  function closeAuthModal(){ if(!modal) return; modal.style.display='none'; }
+  document.getElementById('auth-close')?.addEventListener('click', closeAuthModal);
+  modal?.querySelector('.mask')?.addEventListener('click', (e)=>{ if(e.target===e.currentTarget) closeAuthModal(); });
+  // Tabs
+  const tabLogin = document.getElementById('tab-login');
+  const tabReg   = document.getElementById('tab-register');
+  const formLogin = document.getElementById('form-login');
+  const formReg   = document.getElementById('form-register');
+  function actTab(which){
+    if(!tabLogin||!tabReg) return;
+    if(which==='login'){ tabLogin.classList.add('active'); tabReg.classList.remove('active'); formLogin.style.display='block'; formReg.style.display='none'; }
+    else { tabReg.classList.add('active'); tabLogin.classList.remove('active'); formReg.style.display='block'; formLogin.style.display='none'; }
+  }
+  tabLogin?.addEventListener('click', ()=>actTab('login'));
+  tabReg?.addEventListener('click', ()=>actTab('register'));
+  // Intercept sidebar login link
+  Array.from(document.querySelectorAll('#shv-sidebar a[href$="login_admin.html"], #shv-sidebar a[href*="admin_login.html"]')).forEach(a=>{
+    a.addEventListener('click', (e)=>{ e.preventDefault(); openAuthModal(); });
+  });
+  // Fake handlers (stub) - you can wire to real API later
+  document.getElementById('auth-login-btn')?.addEventListener('click', ()=>{
+    document.getElementById('auth-msg').textContent = 'Đăng nhập demo (chưa nối API).';
+  });
+  document.getElementById('auth-register-btn')?.addEventListener('click', ()=>{
+    document.getElementById('auth-msg').textContent = 'Đăng ký demo (chưa nối API).';
+  });
+})();
+</script>
+
+<script>
+(function(){
+  const shv = document.getElementById('shv-sidebar');
+  function closeIt(){ try{ if(typeof closeSidebar==='function') closeSidebar(); }catch(e){} }
+  shv?.addEventListener('click', (e)=>{
+    const a = e.target.closest && e.target.closest('.item, a');
+    if(a) closeIt();
+  });
+})();
+</script>
+<script type="module" src="/src/cart-ui-sync.js"></script>
+<script type="module" src="/src/cart-sync-init.js"></script>
+
+<!-- ✅ THÊM SCRIPT NÀY - BẮT ĐẦU -->
+<script>
+// ===========================================
+// CUSTOMER AUTH CHECK & UI UPDATE
+// ===========================================
+(function checkCustomerAuth() {
+  const token = localStorage.getItem('customer_token');
+  const customerInfo = JSON.parse(localStorage.getItem('customer_info') || '{}');
+  
+  // Elements
+  const headerUserBtn = document.getElementById('header-user-btn');
+  const userNameBadge = document.getElementById('user-name-badge');
+  
+  const sidebarLogin = document.getElementById('sidebar-login');
+  const sidebarRegister = document.getElementById('sidebar-register');
+  const sidebarUserInfo = document.getElementById('sidebar-user-info');
+  const sidebarUserName = document.getElementById('sidebar-user-name');
+  const sidebarLogout = document.getElementById('sidebar-logout');
+  
+  if (token && customerInfo.full_name) {
+    // ✅ ĐÃ ĐĂNG NHẬP
+    
+    // Header: Hiển thị tên user
+    if (userNameBadge) {
+      userNameBadge.textContent = customerInfo.full_name.split(' ')[0]; // Lấy tên đầu
+      userNameBadge.style.display = 'block';
+    }
+    
+    if (headerUserBtn) {
+      headerUserBtn.href = '#'; // Không redirect
+      headerUserBtn.onclick = (e) => {
+        e.preventDefault();
+        showUserMenu();
+      };
+    }
+    
+    // Sidebar: Ẩn nút đăng nhập/đăng ký, hiện thông tin user
+    if (sidebarLogin) sidebarLogin.style.display = 'none';
+    if (sidebarRegister) sidebarRegister.style.display = 'none';
+    if (sidebarUserInfo) sidebarUserInfo.style.display = 'block';
+    
+    if (sidebarUserName) {
+      sidebarUserName.textContent = '👤 ' + customerInfo.full_name;
+      sidebarUserName.onclick = (e) => {
+        e.preventDefault();
+        showUserMenu();
+      };
+    }
+    
+    // Xử lý đăng xuất
+    if (sidebarLogout) {
+      sidebarLogout.onclick = (e) => {
+        e.preventDefault();
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+          logout();
+        }
+      };
+    }
+    
+  } else {
+    // ❌ CHƯA ĐĂNG NHẬP
+    
+    // Header: Link đến trang login
+    if (headerUserBtn) {
+      headerUserBtn.href = '/login.html';
+    }
+    
+    // Sidebar: Hiện nút đăng nhập/đăng ký
+    if (sidebarLogin) sidebarLogin.style.display = 'block';
+    if (sidebarRegister) sidebarRegister.style.display = 'block';
+    if (sidebarUserInfo) sidebarUserInfo.style.display = 'none';
+  }
+  
+  // ===========================================
+  // HELPER FUNCTIONS
+  // ===========================================
+  
+  function showUserMenu() {
+    const menuHtml = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;" id="user-menu-modal">
+        <div style="background:white;border-radius:16px;padding:24px;width:90%;max-width:320px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;">Tài khoản của bạn</h3>
+          
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;">
+              ${customerInfo.full_name.charAt(0).toUpperCase()}
+            </div>
+            <div style="font-weight:600;font-size:16px;">${customerInfo.full_name}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:4px;">${customerInfo.email}</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:8px;padding:4px 12px;background:#f3f4f6;border-radius:12px;display:inline-block;">
+              ${customerInfo.customer_type === 'wholesale' ? '🏪 Khách sỉ' : '🛍️ Khách lẻ'}
+            </div>
+          </div>
+          
+          <div style="display:grid;gap:8px;">
+            <button onclick="window.location.href='/orders.html'" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:white;cursor:pointer;font-weight:600;">
+              📦 Đơn hàng của tôi
+            </button>
+            <button onclick="document.getElementById('user-menu-modal').remove();if(confirm('Bạn có chắc muốn đăng xuất?')){logout();}" style="width:100%;padding:12px;border:1px solid #ef4444;color:#ef4444;border-radius:10px;background:white;cursor:pointer;font-weight:600;">
+              🚪 Đăng xuất
+            </button>
+            <button onclick="document.getElementById('user-menu-modal').remove()" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;cursor:pointer;">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const div = document.createElement('div');
+    div.innerHTML = menuHtml;
+    document.body.appendChild(div);
+    
+    // Click outside to close
+    document.getElementById('user-menu-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'user-menu-modal') {
+        e.target.remove();
+      }
+    });
+  }
+  
+  function logout() {
+    localStorage.removeItem('customer_token');
+    localStorage.removeItem('x-customer-token');
+    localStorage.removeItem('customer_info');
+    
+    // Show toast
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 24px;border-radius:12px;font-weight:600;z-index:9999;';
+    toast.textContent = '✅ Đã đăng xuất';
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  }
+  
+  // Expose logout globally
+  window.logout = logout;
+  
+})();
+</script>
+<!-- ✅ THÊM SCRIPT NÀY - KẾT THÚC -->
+
+</body>
+</html>

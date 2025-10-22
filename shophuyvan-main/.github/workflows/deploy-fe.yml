@@ -1,0 +1,43 @@
+name: Deploy FE to Cloudflare Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "apps/fe/**"
+      - ".github/workflows/deploy-fe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-fe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Nếu FE có bước build, thêm ở đây
+      # - name: Build FE
+      #   working-directory: apps/fe
+      #   run: |
+      #     npm ci
+      #     npm run build
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName:   shophuyvan
+          directory:     apps/fe
+          gitHubToken:   ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
+
+      # Không cần Upload Images/Videos nếu ảnh đã được upload qua Admin
+      # Bước này đã được loại bỏ

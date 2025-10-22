@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Đơn hàng - Admin</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./admin_real.js"></script>
+  <script src="./sidebar-layout.js"></script>
+  <style>
+    /* Orders specific styles */
+    .toolbar {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: #333;
+      display: inline-block;
+    }
+
+    .btn:hover { background: #f5f5f5; }
+
+    .btn.primary {
+      background: #10b981;
+      color: white;
+      border-color: #10b981;
+    }
+
+    .btn.primary:hover { background: #059669; }
+
+    .btn.secondary {
+      background: #6b7280;
+      color: white;
+      border-color: #6b7280;
+    }
+
+    .btn.secondary:hover { background: #4b5563; }
+
+    .btn.danger {
+      background: #d32f2f;
+      color: white;
+      border-color: #d32f2f;
+    }
+
+    .btn.danger:hover { background: #c62828; }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table thead {
+      background: #f9f9f9;
+    }
+
+    .table th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      color: #666;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .table td {
+      padding: 12px;
+      font-size: 14px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table tbody tr:hover {
+      background: #f9f9f9;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .item-cell {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .item-cell img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+
+    /* Modal styles */
+    #modal-detail {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #modal-detail.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    #ship-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* Auto waybill notification */
+    #auto-waybill-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #3b82f6;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 2000;
+      animation: slideIn 0.3s ease-out;
+      display: none;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <h2 style="margin: 0; font-size: 18px;">📦 Quản lý Đơn hàng</h2>
+  <button id="reload-orders" class="btn primary">🔄 Tải lại</button>
+</div>
+
+<!-- Orders Table -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Sản phẩm</th>
+        <th>Mã ĐH</th>
+        <th>Vận chuyển</th>
+        <th>Tracking</th>
+        <th>Tổng tiền</th>
+        <th>Ngày tạo</th>
+        <th>Nguồn</th>
+        <th class="text-right">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody id="list">
+      <tr>
+        <td colspan="8" style="text-align:center;padding:2rem">Đang tải...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal Detail -->
+<div id="modal-detail">
+  <div class="modal-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>Chi tiết đơn hàng</h2>
+      <button id="md-close" class="btn secondary">✕</button>
+    </div>
+    
+    <div id="md-body">
+      <!-- Order details will be rendered here -->
+    </div>
+    
+    <div id="ship-actions">
+      <button id="btn-create-waybill" class="btn primary">
+        📦 Tạo vận đơn
+      </button>
+      <button id="btn-print-waybill" class="btn secondary">
+        🖨️ In vận đơn
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto Waybill Notification -->
+<div id="auto-waybill-notification">
+  <div style="font-weight: 600; margin-bottom: 4px;">🚀 Đang tạo vận đơn tự động...</div>
+  <div style="font-size: 14px; opacity: 0.9;">Vui lòng đợi trong giây lát</div>
+</div>
+
+<!-- Scripts -->
+<script src="./orders-manager.js"></script>
+<script src="./waybill-creator.js"></script>
+
+<script>
+// Initialize layout
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Orders] DOM loaded, initializing...');
+
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    AdminLayout.init('Đơn Hàng');
+  }
+
+  // Auto waybill logic
+  (function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('order_id');
+    const autoWaybill = urlParams.get('auto_waybill');
+    
+    if (orderId && autoWaybill === '1') {
+      console.log('[AutoWaybill] Detected order:', orderId);
+      
+      const notification = document.getElementById('auto-waybill-notification');
+      if (notification) {
+        notification.style.display = 'block';
+      }
+      
+      const checkManager = setInterval(() => {
+        if (window.ordersManager && window.ordersManager.orders) {
+          clearInterval(checkManager);
+          
+          const order = window.ordersManager.orders.find(o => 
+            String(o.id || '') === String(orderId)
+          );
+          
+          if (order) {
+            console.log('[AutoWaybill] Found order:', order);
+            
+            setTimeout(() => {
+              window.ordersManager.showOrderDetail(order);
+              
+              setTimeout(() => {
+                if (notification) {
+                  notification.style.display = 'none';
+                }
+                
+                if (!order.tracking_code && !order.shipping_tracking) {
+                  console.log('[AutoWaybill] Creating waybill...');
+                  
+                  if (window.waybillCreator) {
+                    window.waybillCreator.createWaybill(order);
+                  } else if (window.WaybillCreator) {
+                    const creator = new window.WaybillCreator();
+                    creator.createWaybill(order);
+                  }
+                } else {
+                  console.log('[AutoWaybill] Waybill already exists:', order.tracking_code);
+                  alert('✅ Đơn hàng đã có mã vận đơn: ' + (order.tracking_code || order.shipping_tracking));
+                }
+              }, 800);
+            }, 500);
+          } else {
+            console.warn('[AutoWaybill] Order not found:', orderId);
+            if (notification) {
+              notification.style.display = 'none';
+            }
+            alert('⚠️ Không tìm thấy đơn hàng: ' + orderId);
+          }
+        }
+      }, 100);
+      
+      setTimeout(() => {
+        clearInterval(checkManager);
+        if (notification) {
+          notification.style.display = 'none';
+        }
+      }, 10000);
+      
+      setTimeout(() => {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      }, 2000);
+    }
+  })();
+
+  // Wire create waybill button
+  const createBtn = document.getElementById('btn-create-waybill');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      const modal = document.getElementById('modal-detail');
+      const orderId = modal?.dataset?.orderId;
+      
+      if (!orderId) {
+        alert('Không tìm thấy ID đơn hàng');
+        return;
+      }
+      
+      const order = window.ordersManager?.orders?.find(o => 
+        String(o.id || '') === String(orderId)
+      );
+      
+      if (!order) {
+        alert('Không tìm thấy đơn hàng');
+        return;
+      }
+      
+      if (window.waybillCreator) {
+        window.waybillCreator.createWaybill(order);
+      } else if (window.WaybillCreator) {
+        const creator = new window.WaybillCreator();
+        creator.createWaybill(order);
+      } else {
+        alert('⚠️ Không tìm thấy WaybillCreator. Vui lòng kiểm tra file waybill-creator.js');
+      }
+    });
+  }
+});
+</script>
+
+</body>
+</html>

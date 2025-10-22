@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Quản lý Admin & Phân quyền</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js?v=27"></script>
+  <script src="./sidebar-layout.js"></script>
+  <style>
+    .role-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .role-super { background: #fee2e2; color: #991b1b; }
+    .role-manager { background: #dbeafe; color: #1e40af; }
+    .role-staff { background: #d1fae5; color: #065f46; }
+    .role-warehouse { background: #fef3c7; color: #92400e; }
+    
+    .status-active { color: #059669; }
+    .status-inactive { color: #dc2626; }
+    
+    .permission-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #f9fafb;
+    }
+    
+    .permission-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      background: white;
+      border-radius: 4px;
+    }
+    
+    .permission-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+    
+    .permission-category {
+      font-weight: 600;
+      color: #374151;
+      margin: 10px 0 5px 0;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: #6b7280;
+    }
+
+    .modal-close:hover {
+      color: #111827;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .tab-btn {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-weight: 600;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #111827;
+    }
+
+    .tab-btn.active {
+      color: #059669;
+      border-bottom-color: #059669;
+    }
+
+    .btn-sm {
+      padding: 4px 12px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<!-- Tab Navigation -->
+<div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+  <button class="tab-btn active" data-tab="users">
+    👤 Quản lý Admin Users
+  </button>
+  <button class="tab-btn" data-tab="roles">
+    🔒 Quản lý Roles & Permissions
+  </button>
+</div>
+
+<!-- Users Tab -->
+<div id="tab-users" class="tab-content active">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0;">Danh sách Admin</h2>
+      <button id="btn-create-user" class="btn primary">➕ Thêm Admin</button>
+    </div>
+    
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Họ tên</th>
+          <th>Email</th>
+          <th>Số điện thoại</th>
+          <th>Role</th>
+          <th>Trạng thái</th>
+          <th>Đăng nhập lần cuối</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody id="users-list">
+        <tr><td colspan="7" style="text-align:center;">Đang tải...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Roles Tab -->
+<div id="tab-roles" class="tab-content" style="display: none;">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0;">Danh sách Roles</h2>
+      <button id="btn-create-role" class="btn primary">➕ Tạo Role mới</button>
+    </div>
+    
+    <div id="roles-list" style="display: grid; gap: 16px;"></div>
+  </div>
+</div>
+
+<!-- Modal: Create/Edit User -->
+<div id="modal-user" class="modal">
+  <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 id="modal-user-title">Thêm Admin mới</h3>
+      <button class="modal-close" onclick="closeModal('user')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="user-id" />
+      
+      <div class="form-group">
+        <label>Họ tên *</label>
+        <input id="user-name" class="input" placeholder="Nguyễn Văn A" required />
+      </div>
+      
+      <div class="form-group">
+        <label>Email *</label>
+        <input id="user-email" class="input" type="email" placeholder="admin@example.com" required />
+      </div>
+      
+      <div class="form-group">
+        <label>Mật khẩu * <span style="font-size: 11px; color: #6b7280;">(Để trống nếu không đổi)</span></label>
+        <input id="user-password" class="input" type="password" placeholder="••••••••" />
+      </div>
+      
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input id="user-phone" class="input" type="tel" placeholder="0901234567" />
+      </div>
+      
+      <div class="form-group">
+        <label>Role *</label>
+        <select id="user-role" class="input" required>
+          <option value="">-- Chọn role --</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Trạng thái</label>
+        <select id="user-status" class="input">
+          <option value="active">Active - Hoạt động</option>
+          <option value="inactive">Inactive - Tạm khóa</option>
+          <option value="suspended">Suspended - Đình chỉ</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('user')">Hủy</button>
+      <button id="btn-save-user" class="btn primary">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Create/Edit Role -->
+<div id="modal-role" class="modal">
+  <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-header">
+      <h3 id="modal-role-title">Tạo Role mới</h3>
+      <button class="modal-close" onclick="closeModal('role')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="role-id" />
+      
+      <div class="form-group">
+        <label>Tên Role *</label>
+        <input id="role-name" class="input" placeholder="Quản lý kho" required />
+      </div>
+      
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea id="role-desc" class="input" rows="2" placeholder="Quản lý sản phẩm và vận chuyển"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="role-system" />
+          <span>Role hệ thống (không thể xóa)</span>
+        </label>
+      </div>
+      
+      <div class="form-group">
+        <label>Quyền hạn (Permissions)</label>
+        <div style="margin-bottom: 10px;">
+          <label style="display: inline-flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="perm-select-all" />
+            <strong>Chọn tất cả</strong>
+          </label>
+        </div>
+        <div id="permissions-grid" class="permission-grid"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('role')">Hủy</button>
+      <button id="btn-save-role" class="btn primary">💾 Lưu Role</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// CRITICAL FIX: Wrap everything in DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[AdminUsers] DOM loaded, initializing...');
+
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    AdminLayout.init('Quản lý Admin & Phân quyền');
+  }
+
+  const $ = (id) => document.getElementById(id);
+
+  let currentAdmin = null;
+
+  // Permission definitions
+  const PERMISSIONS = {
+    'Dashboard': ['dashboard.view'],
+    'Sản phẩm': [
+      'products.view', 'products.create', 'products.edit', 
+      'products.delete', 'products.export', 'products.import'
+    ],
+    'Đơn hàng': [
+      'orders.view', 'orders.create', 'orders.edit', 
+      'orders.cancel', 'orders.export', 'orders.print'
+    ],
+    'Banner': ['banners.view', 'banners.create', 'banners.edit', 'banners.delete'],
+    'Voucher': ['vouchers.view', 'vouchers.create', 'vouchers.edit', 'vouchers.delete'],
+    'Vận chuyển': ['shipping.view', 'shipping.edit'],
+    'Thống kê': ['stats.view', 'stats.export'],
+    'Quảng cáo': ['ads.view', 'ads.create', 'ads.edit', 'ads.delete'],
+    'Admin Users': ['admins.view', 'admins.create', 'admins.edit', 'admins.delete', 'admins.manage_roles'],
+    'Cài đặt': ['settings.view', 'settings.edit']
+  };
+
+  // Check auth
+  async function checkAuth() {
+    try {
+      const me = await Admin.me();
+      if (me && me.ok && me.admin) {
+        currentAdmin = me.admin;
+        console.log('[AdminUsers] Current admin:', currentAdmin);
+        checkPagePermissions();
+      } else {
+        console.error('[AdminUsers] No admin info');
+        Admin.toast('Không có quyền truy cập');
+      }
+    } catch (e) {
+      console.error('[AdminUsers] Auth error:', e);
+      Admin.toast('Lỗi xác thực');
+    }
+  }
+
+  function checkPagePermissions() {
+    if (!currentAdmin || !currentAdmin.permissions) return;
+    
+    const perms = currentAdmin.permissions;
+    
+    // Hide tabs if no permission
+    if (!hasPermission(perms, 'admins.view')) {
+      const btn = document.querySelector('[data-tab="users"]');
+      if (btn) btn.style.display = 'none';
+    }
+    
+    if (!hasPermission(perms, 'admins.manage_roles')) {
+      const btn = document.querySelector('[data-tab="roles"]');
+      if (btn) btn.style.display = 'none';
+    }
+    
+    // Hide create buttons
+    if (!hasPermission(perms, 'admins.create')) {
+      const btn = $('btn-create-user');
+      if (btn) btn.style.display = 'none';
+    }
+    
+    if (!hasPermission(perms, 'admins.manage_roles')) {
+      const btn = $('btn-create-role');
+      if (btn) btn.style.display = 'none';
+    }
+  }
+
+  function hasPermission(perms, required) {
+    if (!perms || !Array.isArray(perms)) return false;
+    if (perms.includes('*')) return true;
+    if (perms.includes(required)) return true;
+    
+    const parts = required.split('.');
+    if (parts.length === 2 && perms.includes(`${parts[0]}.*`)) return true;
+    
+    return false;
+  }
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      
+      this.classList.add('active');
+      const tab = $('tab-' + this.dataset.tab);
+      if (tab) tab.style.display = 'block';
+    });
+  });
+
+  // Modal functions
+  window.openModal = function(type) {
+    const modal = $(`modal-${type}`);
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.closeModal = function(type) {
+    const modal = $(`modal-${type}`);
+    if (modal) modal.style.display = 'none';
+    
+    if (type === 'user') {
+      $('user-id').value = '';
+      $('user-name').value = '';
+      $('user-email').value = '';
+      $('user-password').value = '';
+      $('user-phone').value = '';
+      $('user-role').value = '';
+      $('user-status').value = 'active';
+      $('modal-user-title').textContent = 'Thêm Admin mới';
+    } else if (type === 'role') {
+      $('role-id').value = '';
+      $('role-name').value = '';
+      $('role-desc').value = '';
+      $('role-system').checked = false;
+      document.querySelectorAll('#permissions-grid input[type="checkbox"]').forEach(cb => cb.checked = false);
+      $('modal-role-title').textContent = 'Tạo Role mới';
+    }
+  };
+
+  // ===== USERS MANAGEMENT =====
+
+  async function loadUsers() {
+    console.log('[AdminUsers] Loading users...');
+    try {
+      const r = await Admin.tryPaths([
+        '/admin/users/list', 
+        '/admin/users', 
+        '/admin/admins/list',
+        '/admin/admins'
+      ]);
+      
+      console.log('[AdminUsers] Users response:', r);
+      
+      const tbody = $('users-list');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '';
+      
+      const admins = r.admins || r.users || r.items || r.data || [];
+      
+      if (admins.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Chưa có admin nào</td></tr>';
+        return;
+      }
+      
+      admins.forEach(admin => {
+        const roleClass = (admin.role_name || 'staff').toLowerCase().replace(/\s/g, '-');
+        const statusClass = admin.status === 'active' ? 'status-active' : 'status-inactive';
+        const lastLogin = admin.last_login 
+          ? new Date(admin.last_login).toLocaleString('vi-VN')
+          : 'Chưa đăng nhập';
+        
+        const canEdit = currentAdmin && hasPermission(currentAdmin.permissions, 'admins.edit');
+        const canDelete = currentAdmin && hasPermission(currentAdmin.permissions, 'admins.delete') && admin.id !== currentAdmin.id;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div style="font-weight: 600;">${admin.full_name || admin.name || admin.email}</div>
+            <div style="font-size: 11px; color: #6b7280;">ID: ${admin.id}</div>
+          </td>
+          <td>${admin.email}</td>
+          <td>${admin.phone || '-'}</td>
+          <td><span class="role-badge role-${roleClass}">${admin.role_name || 'User'}</span></td>
+          <td class="${statusClass}">${admin.status || 'active'}</td>
+          <td style="font-size: 12px;">${lastLogin}</td>
+          <td>
+            ${canEdit ? `<button class="btn btn-sm" onclick="window.editUser('${admin.id}')">✏️ Sửa</button>` : ''}
+            ${canDelete ? `<button class="btn btn-sm danger" onclick="window.deleteUser('${admin.id}', '${(admin.full_name || admin.email).replace(/'/g, "\\'")}')">🗑️ Xóa</button>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      
+      console.log('[AdminUsers] Loaded', admins.length, 'users');
+    } catch (e) {
+      console.error('[AdminUsers] Load users error:', e);
+      const tbody = $('users-list');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: #dc2626;">Lỗi tải danh sách admin</td></tr>';
+    }
+  }
+
+  $('btn-create-user').onclick = async () => {
+    await loadRolesForSelect();
+    openModal('user');
+  };
+
+  async function loadRolesForSelect() {
+    try {
+      const r = await Admin.tryPaths(['/admin/roles/list', '/admin/roles']);
+      
+      const select = $('user-role');
+      select.innerHTML = '<option value="">-- Chọn role --</option>';
+      
+      const roles = r.roles || r.items || r.data || [];
+      roles.forEach(role => {
+        const opt = document.createElement('option');
+        opt.value = role.id;
+        opt.textContent = role.name;
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      console.error('[AdminUsers] Load roles error:', e);
+    }
+  }
+
+  $('btn-save-user').onclick = async () => {
+    const id = $('user-id').value;
+    const name = $('user-name').value.trim();
+    const email = $('user-email').value.trim();
+    const password = $('user-password').value;
+    const phone = $('user-phone').value.trim();
+    const role_id = $('user-role').value;
+    const status = $('user-status').value;
+    
+    if (!name || !email || !role_id) {
+      alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    
+    if (!id && !password) {
+      alert('Vui lòng nhập mật khẩu');
+      return;
+    }
+    
+    try {
+      const body = { full_name: name, email, phone, role_id, status };
+      if (password) body.password = password;
+      
+      const method = id ? 'PUT' : 'POST';
+      const endpoint = id ? `/admin/users/${id}` : '/admin/users/create';
+      
+      const r = await Admin.req(endpoint, {
+        method,
+        body
+      });
+      
+      if (r && r.ok) {
+        Admin.toast(id ? 'Đã cập nhật admin' : 'Đã tạo admin mới');
+        closeModal('user');
+        loadUsers();
+      } else {
+        throw new Error(r.error || 'Lỗi lưu admin');
+      }
+    } catch (e) {
+      console.error('[AdminUsers] Save user error:', e);
+      alert(e.message || 'Lỗi lưu admin');
+    }
+  };
+
+  window.editUser = async function(id) {
+    try {
+      const r = await Admin.req(`/admin/users/${id}`);
+      
+      if (!r || !r.ok) throw new Error('Failed to load user');
+      
+      const admin = r.admin || r.user || r.data;
+      
+      await loadRolesForSelect();
+      
+      $('user-id').value = admin.id;
+      $('user-name').value = admin.full_name || admin.name || '';
+      $('user-email').value = admin.email;
+      $('user-phone').value = admin.phone || '';
+      $('user-role').value = admin.role_id;
+      $('user-status').value = admin.status || 'active';
+      $('user-password').value = '';
+      $('user-password').placeholder = '•••••••• (để trống nếu không đổi)';
+      
+      $('modal-user-title').textContent = 'Sửa thông tin Admin';
+      openModal('user');
+    } catch (e) {
+      console.error('[AdminUsers] Edit user error:', e);
+      alert('Lỗi tải thông tin admin');
+    }
+  };
+
+  window.deleteUser = async function(id, name) {
+    if (!confirm(`Xóa admin "${name}"?\n\nHành động này không thể hoàn tác!`)) return;
+    
+    try {
+      const r = await Admin.req(`/admin/users/${id}`, { method: 'DELETE' });
+      
+      if (r && r.ok) {
+        Admin.toast('Đã xóa admin');
+        loadUsers();
+      } else {
+        throw new Error(r.error || 'Lỗi xóa admin');
+      }
+    } catch (e) {
+      console.error('[AdminUsers] Delete user error:', e);
+      alert(e.message || 'Lỗi xóa admin');
+    }
+  };
+
+  // ===== ROLES MANAGEMENT =====
+
+  async function loadRoles() {
+    console.log('[AdminUsers] Loading roles...');
+    try {
+      const r = await Admin.tryPaths(['/admin/roles/list', '/admin/roles']);
+      
+      console.log('[AdminUsers] Roles response:', r);
+      
+      const container = $('roles-list');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      const roles = r.roles || r.items || r.data || [];
+      
+      if (roles.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;">Chưa có role nào</div>';
+        return;
+      }
+      
+      roles.forEach(role => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.padding = '20px';
+        
+        const permCount = Array.isArray(role.permissions) ? role.permissions.length : 0;
+        const isSystem = role.is_system ? '<span class="role-badge role-super">System</span>' : '';
+        
+        const canEdit = currentAdmin && hasPermission(currentAdmin.permissions, 'admins.manage_roles');
+        const canDelete = canEdit && !role.is_system;
+        
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h3 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 10px;">
+                ${role.name}
+                ${isSystem}
+              </h3>
+              <p style="color: #6b7280; margin: 0 0 10px 0;">${role.description || 'Không có mô tả'}</p>
+              <div style="font-size: 13px; color: #059669;">
+                ✓ ${permCount} quyền
+              </div>
+            </div>
+            <div style="display: flex; gap: 5px;">
+              ${canEdit ? `<button class="btn btn-sm" onclick="window.editRole('${role.id}')">✏️ Sửa</button>` : ''}
+              ${canDelete ? `<button class="btn btn-sm danger" onclick="window.deleteRole('${role.id}', '${role.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
+            </div>
+          </div>
+          <details style="margin-top: 15px;">
+            <summary style="cursor: pointer; font-size: 13px; color: #6b7280;">Xem chi tiết quyền</summary>
+            <div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 12px;">
+              ${role.permissions && role.permissions.includes('*') 
+                ? '<strong style="color: #dc2626;">🔥 Toàn quyền hệ thống</strong>'
+                : (role.permissions || []).join(', ')
+              }
+            </div>
+          </details>
+        `;
+        
+        container.appendChild(card);
+      });
+      
+      console.log('[AdminUsers] Loaded', roles.length, 'roles');
+    } catch (e) {
+      console.error('[AdminUsers] Load roles error:', e);
+      const container = $('roles-list');
+      if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Lỗi tải danh sách roles</div>';
+    }
+  }
+
+  $('btn-create-role').onclick = () => {
+    renderPermissionsGrid();
+    openModal('role');
+  };
+
+  function renderPermissionsGrid() {
+    const grid = $('permissions-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    Object.entries(PERMISSIONS).forEach(([category, perms]) => {
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'permission-category';
+      categoryDiv.textContent = category;
+      categoryDiv.style.gridColumn = '1 / -1';
+      grid.appendChild(categoryDiv);
+      
+      perms.forEach(perm => {
+        const item = document.createElement('div');
+        item.className = 'permission-item';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = perm;
+        checkbox.id = `perm-${perm.replace(/\./g, '-')}`;
+        
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.textContent = perm;
+        label.style.cursor = 'pointer';
+        label.style.fontSize = '13px';
+        
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        grid.appendChild(item);
+      });
+    });
+  }
+
+  // Select all permissions
+  const selectAllPerm = $('perm-select-all');
+  if (selectAllPerm) {
+    selectAllPerm.addEventListener('change', function() {
+      document.querySelectorAll('#permissions-grid input[type="checkbox"]').forEach(cb => {
+        cb.checked = this.checked;
+      });
+    });
+  }
+
+  $('btn-save-role').onclick = async () => {
+    const id = $('role-id').value;
+    const name = $('role-name').value.trim();
+    const description = $('role-desc').value.trim();
+    const isSystem = $('role-system').checked;
+    
+    if (!name) {
+      alert('Vui lòng nhập tên role');
+      return;
+    }
+    
+    const permissions = [];
+    document.querySelectorAll('#permissions-grid input[type="checkbox"]:checked').forEach(cb => {
+      permissions.push(cb.value);
+    });
+    
+    if (permissions.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 quyền');
+      return;
+    }
+    
+    try {
+      const body = { name, description, permissions, is_system: isSystem };
+      
+      const method = id ? 'PUT' : 'POST';
+      const endpoint = id ? `/admin/roles/${id}` : '/admin/roles/create';
+      
+      const r = await Admin.req(endpoint, {
+        method,
+        body
+      });
+      
+      if (r && r.ok) {
+        Admin.toast(id ? 'Đã cập nhật role' : 'Đã tạo role mới');
+        closeModal('role');
+        loadRoles();
+      } else {
+        throw new Error(r.error || 'Lỗi lưu role');
+      }
+    } catch (e) {
+      console.error('[AdminUsers] Save role error:', e);
+      alert(e.message || 'Lỗi lưu role');
+    }
+  };
+
+  window.editRole = async function(id) {
+    try {
+      const r = await Admin.req(`/admin/roles/${id}`);
+      
+      if (!r || !r.ok) throw new Error('Failed to load role');
+      
+      const role = r.role || r.data;
+      
+      renderPermissionsGrid();
+      
+      $('role-id').value = role.id;
+      $('role-name').value = role.name;
+      $('role-desc').value = role.description || '';
+      $('role-system').checked = role.is_system || false;
+      
+      // Check permissions
+      if (role.permissions && role.permissions.includes('*')) {
+        $('perm-select-all').checked = true;
+        document.querySelectorAll('#permissions-grid input[type="checkbox"]').forEach(cb => cb.checked = true);
+      } else if (role.permissions) {
+        role.permissions.forEach(perm => {
+          const cb = $(`perm-${perm.replace(/\./g, '-')}`);
+          if (cb) cb.checked = true;
+        });
+      }
+      
+      $('modal-role-title').textContent = 'Sửa Role';
+      openModal('role');
+    } catch (e) {
+      console.error('[AdminUsers] Edit role error:', e);
+      alert('Lỗi tải thông tin role');
+    }
+  };
+
+  window.deleteRole = async function(id, name) {
+    if (!confirm(`Xóa role "${name}"?\n\nCác admin đang dùng role này sẽ bị ảnh hưởng!`)) return;
+    
+    try {
+      const r = await Admin.req(`/admin/roles/${id}`, { method: 'DELETE' });
+      
+      if (r && r.ok) {
+        Admin.toast('Đã xóa role');
+        loadRoles();
+      } else {
+        throw new Error(r.error || 'Lỗi xóa role');
+      }
+    } catch (e) {
+      console.error('[AdminUsers] Delete role error:', e);
+      alert(e.message || 'Lỗi xóa role');
+    }
+  };
+
+  // Init
+  console.log('[AdminUsers] Starting initialization...');
+  checkAuth().then(() => {
+    loadUsers();
+    loadRoles();
+  });
+});
+</script>
+</body>
+</html>

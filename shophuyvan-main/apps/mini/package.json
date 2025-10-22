@@ -1,0 +1,32 @@
+{
+  "name": "@shv/mini",
+  "private": true,
+  "type": "module",
+  "version": "0.1.2-ui",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node ./scripts/postbuild.js",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zmp-ui": "^1.11.11",
+    "zmp-sdk": "^2.48.2",
+    "zmp-react": "^2.8.10",
+    "zmp-core": "^2.8.10",
+    "skeleton-elements": "^4.0.1",
+    "ssr-window": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.6",
+    "@types/react-dom": "^18.3.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "@vitejs/plugin-react": "^4.3.2",
+    "postcss": "^8.4.47",
+    "autoprefixer": "^10.4.20",
+    "tailwindcss": "^3.4.13",
+    "@tailwindcss/line-clamp": "^0.4.4"
+  }
+}

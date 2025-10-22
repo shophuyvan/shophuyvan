@@ -1,0 +1,15 @@
+/apps/fe/assets/*    /apps/fe/assets/:splat    200
+/apps/fe/public/*    /apps/fe/public/:splat    200
+/apps/fe/src/*       /apps/fe/src/:splat       200
+/apps/admin/assets/* /apps/admin/assets/:splat 200
+/apps/admin/public/* /apps/admin/public/:splat 200
+/assets/*            /assets/:splat            200
+/public/*            /public/:splat            200
+/src/*               /src/:splat               200
+/favicon.ico         /favicon.ico              200
+/robots.txt          /robots.txt               200
+/sitemap.xml         /sitemap.xml              200
+/c/*                 /apps/fe/category.html    200
+/product/*           /apps/fe/product.html     200
+/api/*               https://shv-api.shophuyvan.workers.dev/:splat 200
+/*                   /apps/fe/index.html       200

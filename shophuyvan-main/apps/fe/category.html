@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Danh mục • Shop Huy Vân</title>
+  <meta name="description" content="Danh mục sản phẩm tại Shop Huy Vân" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link id="canonical" rel="canonical" href="__BASE_URL__/c" />
+  <script id="category-jsonld" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Danh mục",
+    "url": "__BASE_URL__/c",
+    "mainEntity": {
+      "@type": "ItemList",
+      "itemListElement": []
+    }
+  }
+  </script>
+  <style>
+    .shv-breadcrumb{font-size:14px;color:#4b5563;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px auto;max-width:1200px;padding:0 12px}
+    .shv-breadcrumb a{color:#2563eb;text-decoration:none}
+    .shv-breadcrumb a:hover{text-decoration:underline}
+    .shv-breadcrumb .sep{opacity:.5}
+    .shv-breadcrumb .last{color:#111827;font-weight:600}
+  </style>
+</head>
+<body class="bg-slate-50 text-gray-900">
+  <main class="max-w-7xl mx-auto px-3 lg:px-6 py-4 lg:py-6">
+    <nav class="text-sm text-gray-500 mb-3" aria-label="Breadcrumb">
+      <ol class="flex flex-wrap gap-1">
+        <li><a href="__BASE_URL__/" class="hover:text-red-600">Trang chủ</a></li>
+        <li class="px-1">/</li>
+        <li class="text-gray-700 font-medium" id="shv-bc-leaf">Đang tải…</li>
+      </ol>
+    </nav>
+
+    <section class="rounded-2xl overflow-hidden relative mb-4 lg:mb-6">
+      <img id="shv-hero" class="w-full h-40 lg:h-60 object-cover" src="/public/cover.jpg" alt="Danh mục">
+      <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+      <div class="absolute bottom-3 left-3 right-3 lg:left-6 lg:right-6 text-white">
+        <h1 id="shv-h1" class="text-xl lg:text-3xl font-bold">Danh mục</h1>
+        <p id="shv-sub" class="opacity-90 text-sm lg:text-base mt-1">Gợi ý sản phẩm phù hợp nhu cầu của bạn.</p>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-12 gap-4">
+      <aside class="col-span-12 lg:col-span-3">
+        <button id="shv-open-filter" class="lg:hidden w-full rounded-xl border py-2.5 font-medium">Bộ lọc</button>
+        <div id="shv-filter" class="hidden lg:block lg:sticky lg:top-4 bg-white border rounded-2xl p-3 lg:p-4">
+          <div class="mb-4">
+            <h3 class="font-semibold mb-2">Khoảng giá</h3>
+            <div class="flex gap-2">
+              <input id="f-min" type="number" inputmode="numeric" placeholder="từ" class="w-1/2 rounded-lg border px-3 py-2 text-sm">
+              <input id="f-max" type="number" inputmode="numeric" placeholder="đến" class="w-1/2 rounded-lg border px-3 py-2 text-sm">
+            </div>
+          </div>
+          <div class="mb-4">
+            <h3 class="font-semibold mb-2">Thương hiệu</h3>
+            <div id="f-brands" class="space-y-2 text-sm max-h-52 overflow-auto pr-1"></div>
+          </div>
+          <div class="mb-4">
+            <h3 class="font-semibold mb-2">Đánh giá</h3>
+            <div class="space-y-2 text-sm">
+              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value="4"><span>⭐️⭐️⭐️⭐️ trở lên</span></label>
+              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value="3"><span>⭐️⭐️⭐️ trở lên</span></label>
+              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value=""><span>Tất cả</span></label>
+            </div>
+          </div>
+          <button id="f-apply" class="w-full rounded-xl bg-red-600 text-white py-2.5 font-semibold">Áp dụng</button>
+        </div>
+      </aside>
+
+      <section class="col-span-12 lg:col-span-9">
+        <div class="flex flex-wrap items-center justify-between gap-2 lg:gap-4 mb-3">
+          <div class="text-sm text-gray-600">Tìm thấy <span id="rs-total" class="font-semibold text-gray-800">0</span> sản phẩm</div>
+          <div class="flex items-center gap-2">
+            <select id="rs-sort" class="border rounded-lg text-sm px-3 py-2">
+              <option value="popular">Phổ biến</option>
+              <option value="new">Mới nhất</option>
+              <option value="price-asc">Giá tăng dần</option>
+              <option value="price-desc">Giá giảm dần</option>
+            </select>
+            <button id="rs-open-filter" class="lg:hidden rounded-lg border px-3 py-2 text-sm">Lọc</button>
+          </div>
+        </div>
+
+        <div id="rs-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4"></div>
+        <div id="rs-pagination" class="flex justify-center gap-2 mt-5"></div>
+
+        <article id="shv-seo" class="mt-8 lg:mt-12 bg-white border rounded-2xl p-4 lg:p-6 prose prose-sm lg:prose">
+          <h2 class="text-xl lg:text-2xl font-bold mb-2" id="seo-title">Giới thiệu</h2>
+          <p id="seo-desc">Mô tả danh mục sẽ hiển thị ở đây.</p>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const fmt = n => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+  const IMG_FALLBACK = '/public/logo.png';
+
+  // 👉 Lấy slug danh mục từ URL (?c=...)
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("c") || params.get("category") || "";
+
+  // 👉 Cập nhật tiêu đề trang
+  const catName = decodeURIComponent(slug || 'Danh mục')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, m => m.toUpperCase());
+  $('#shv-h1').textContent = catName;
+  $('#shv-bc-leaf').textContent = catName;
+
+  // 👉 Hàm load sản phẩm
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("c") || ""; // ví dụ ?c=nha-cua-doi-song
+  const PAGE_SIZE = 40;
+
+  async function loadProducts() {
+    try {
+      // ✅ Gọi API theo danh mục
+      const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category_slug=${slug}`);
+      const data = await r.json();
+      const all = data.items || [];
+
+      // ✅ Render tổng số và sản phẩm
+      document.querySelector("#rs-total").textContent = all.length;
+
+      // Nếu không có sản phẩm
+      if (!all.length) {
+        document.querySelector("#rs-grid").innerHTML =
+          `<div class="p-4 text-gray-500">Không tìm thấy sản phẩm trong danh mục này.</div>`;
+        return;
+      }
+
+      // ✅ Template sản phẩm
+      const tpl = (p) => `
+        <a href="/product.html?id=${p.id}" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">
+          <div class="relative aspect-[4/3] bg-gray-100">
+            <img src="${p.images?.[0] || ''}" class="absolute inset-0 w-full h-full object-cover" alt="${p.title}" />
+          </div>
+          <div class="p-3">
+            <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
+            <div class="flex items-baseline gap-2">
+              <div class="text-red-600 font-semibold">${p.price_sale || p.price || 0}đ</div>
+              ${p.price_sale ? `<div class="text-gray-400 line-through text-xs">${p.price}đ</div>` : ""}
+            </div>
+            <div class="mt-1 text-xs text-gray-500">Đã bán ${p.sold || 0}</div>
+          </div>
+        </a>
+      `;
+
+      // ✅ Render sản phẩm ra grid
+      document.querySelector("#rs-grid").innerHTML = all
+        .slice(0, PAGE_SIZE)
+        .map(tpl)
+        .join("");
+
+    } catch (e) {
+      console.error("Load products failed", e);
+      document.querySelector("#rs-grid").innerHTML =
+        `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+    }
+  }
+
+  loadProducts();
+})();
+</script>
+
+  <!-- ===== /SHV HOME/CATEGORY v1 ===== -->
+</body>
+</html>
