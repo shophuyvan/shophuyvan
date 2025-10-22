@@ -687,13 +687,36 @@ async function getStats(req, env) {
 
   // Get cost helper
   async function getCost(item) {
+    // Nếu item đã có cost thì dùng luôn
     if (item && item.cost != null) return Number(item.cost || 0);
     
-    const productId = item && (item.id || item.sku || item.product_id);
-    if (!productId) return 0;
+    const variantId = item && (item.id || item.sku);
+    if (!variantId) return 0;
 
-    const product = await getJSON(env, 'product:' + productId, null);
-    if (!product) return 0;
+    // Tìm product chứa variant này
+    const allProducts = await getJSON(env, 'products:list', []);
+    
+    for (const summary of allProducts) {
+      const product = await getJSON(env, 'product:' + summary.id, null);
+      if (!product || !Array.isArray(product.variants)) continue;
+      
+      // Tìm variant trong product
+      const variant = product.variants.find(v => 
+        String(v.id || v.sku || '') === String(variantId) ||
+        String(v.sku || '') === String(item.sku || '')
+      );
+      
+      if (variant) {
+        // Tìm cost từ variant
+        const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+        for (const key of keys) {
+          if (variant[key] != null) return Number(variant[key] || 0);
+        }
+      }
+    }
+
+    return 0;
+  }
 
     const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
     for (const key of keys) {
