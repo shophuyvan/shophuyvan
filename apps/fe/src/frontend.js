@@ -279,16 +279,11 @@ async function fetchFullProduct(id){
   if (!id) return null;
   if (__priceCache.has(id)) return __priceCache.get(id);
 
-  // ƯU TIÊN DẠNG query ?id= TRƯỚC (phù hợp link bạn gửi)
   const paths = [
-    `/public/product?id=${encodeURIComponent(id)}`,
-    `/product?id=${encodeURIComponent(id)}`,
-    `/public/products/detail?id=${encodeURIComponent(id)}`,
-    `/products/detail?id=${encodeURIComponent(id)}`,
     `/public/products/${encodeURIComponent(id)}`,
     `/products/${encodeURIComponent(id)}`,
-    `/public/products?id=${encodeURIComponent(id)}&limit=1`,
-    `/products?id=${encodeURIComponent(id)}&limit=1`,
+    `/public/products?id=${encodeURIComponent(id)}`,
+    `/products?id=${encodeURIComponent(id)}`,
   ];
 
   let item = null;

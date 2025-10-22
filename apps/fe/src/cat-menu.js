@@ -51,17 +51,15 @@ import api from './lib/api.js';
   /**
    * ✅ Load categories từ API (ưu tiên /public/categories)
    */
-  async function loadCategories(){
-    try{
-      // Kiểm tra cache
-      if(Array.isArray(window.CATEGORIES) && window.CATEGORIES.length) return window.CATEGORIES;
-      
-      // ✅ GỌI ĐÚNG ENDPOINT BACKEND
-      const endpoints = [
-        '/public/categories',      // ✅ Backend endpoint chính thức
-        '/api/public/categories',  // Fallback
-        '/categories'              // Fallback cũ
-      ];
+async function loadCategories(){
+  try{
+    // Kiểm tra cache
+    if(Array.isArray(window.CATEGORIES) && window.CATEGORIES.length) return window.CATEGORIES;
+    
+    const endpoints = [
+      '/public/categories',
+      '/categories'
+    ];
       
       for(const path of endpoints){
         try{
