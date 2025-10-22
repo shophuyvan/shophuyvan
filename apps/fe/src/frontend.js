@@ -201,8 +201,8 @@ async function loadCategories(){
 
 // New arrivals (last 8)
 async function loadNew(){ if(!newWrap) return; 
-  let data = await api('/products?limit=8');
-  if (!data || data.ok===false) data = await api('/public/products?limit=8');
+  let data = await api('/public/products?limit=8');
+  if (!data || data.ok===false) data = await api('/products?limit=8');
   let items = (data.items || data.products || data.data || []);
   const now = Date.now();
   items = items.filter(p=>{
@@ -222,8 +222,10 @@ await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
 
 // All products with pagination
 async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
-  let data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : ''));
-  if (!data || data.ok===false) data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + (new URL(location.href).searchParams.get('cat') ? '&category='+encodeURIComponent(new URL(location.href).searchParams.get('cat')) : ''));
+  const cat = new URL(location.href).searchParams.get('cat');
+  const catParam = cat ? '&category='+encodeURIComponent(cat) : '';
+  let data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + catParam);
+  if (!data || data.ok===false) data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + catParam);
   const items = data.items || data.products || data.data || [];
   cursor = data.cursor || data.next || null;
   allCache.push(...items);

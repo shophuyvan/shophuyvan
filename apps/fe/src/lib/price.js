@@ -1,5 +1,5 @@
 export function formatPrice(v){ return (Number(v)||0).toLocaleString('vi-VN') + 'đ'; }
-
+// apps/fe/src/lib/price.js
 // Pricing priority: variant (sale|price) > product (sale|price)
 // Return shape expected by UIs: { base, original } and keep aliases { sale, regular } for backwards-compat.
 export function pickPrice(product, variant){
