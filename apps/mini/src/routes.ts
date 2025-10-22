@@ -5,4 +5,5 @@ export const routes = {
   cart: '/cart',
   checkout: '/checkout',
   account: '/account',
+  orders: '/orders',  // ← THÊM DÒNG NÀY
 } as const;

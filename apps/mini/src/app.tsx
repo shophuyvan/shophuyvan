@@ -4,6 +4,7 @@ import Category from './pages/Category';
 import Product from './pages/Product';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
+import OrderHistory from './pages/OrderHistory';  // ← THÊM DÒNG NÀY
 
 // === SHV004: Inline Account page (white/blue) ===
 import Header from './components/Header';
@@ -23,7 +24,7 @@ const Account: React.FC = () => (
     <section className="safe-x">
       <div className="section-head">
         <h2>Đơn hàng của tôi</h2>
-        <a href="#" className="section-more">Xem lịch sử mua hàng →</a>
+        <a href="/orders" className="section-more">Xem lịch sử mua hàng →</a>
       </div>
       <div className="mt-3 grid grid-cols-4 gap-3 text-center">
         <a href="#" className="flex flex-col items-center gap-1"><div className="w-11 h-11 rounded-xl bg-white shadow flex items-center justify-center text-2xl text-brand/80">⌛</div><div className="text-xs text-gray-700">Chờ xác nhận</div></a>
@@ -90,6 +91,7 @@ export default function App() {
   else if (path.startsWith('/product') || path.startsWith('product')) Page = Product;
   else if (path.startsWith('/cart') || path.startsWith('cart')) Page = Cart;
   else if (path.startsWith('/checkout') || path.startsWith('checkout')) Page = Checkout;
+  else if (path.startsWith('/orders') || path.startsWith('orders')) Page = OrderHistory;  // ← THÊM DÒNG NÀY
   else if (path.startsWith('/account') || path.startsWith('account')) Page = Account;
   else Page = Home;
 
