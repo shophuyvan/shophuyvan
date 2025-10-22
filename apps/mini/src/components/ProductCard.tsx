@@ -5,44 +5,6 @@ import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
 import cart from '@shared/cart';
 import { cloudify } from '@shared/utils/cloudinary';
 
-// === SHV Cloudinary fetch helpers (Mini) ===
-// Expect VITE_CLOUDINARY_CLOUD to be set (Cloudflare Pages > Project > Settings > Environment variables)
-function __cldName(): string | undefined {
-  try {
-    // @ts-ignore
-    const v = (import.meta as any)?.env?.VITE_CLOUDINARY_CLOUD || (window as any)?.__CLD_CLOUD__;
-    return (typeof v === 'string' && v.trim()) ? v.trim() : undefined;
-  } catch { return undefined; }
-}
-function cldFetch(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto', kind: 'image'|'video' = 'image'): string | undefined {
-  try {
-    if (!u) return u;
-    const base = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://example.com';
-    const url = new URL(u, base);
-    const isCLD = /res\.cloudinary\.com/i.test(url.hostname);
-    if (isCLD) {
-      // If it's already a Cloudinary URL with /upload/, inject transforms
-      if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();
-      if (/\/upload\//.test(url.pathname)) {
-        url.pathname = url.pathname.replace('/upload/', `/upload/${t}/`);
-        return url.toString();
-      }
-      return url.toString();
-    }
-    const cloud = __cldName();
-    if (!cloud) return u; // no cloud name configured -> fallback original
-    const enc = encodeURIComponent(u);
-    const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
-    return `https://res.cloudinary.com/${cloud}/${basePath}/${t}/${enc}`;
-  } catch { return u; }
-}
-// Backward-compat alias:
-function cloudify(u?: string, t: string = 'w_800,dpr_auto,q_auto,f_auto'): string | undefined {
-  return cldFetch(u, t, 'image');
-}
-
-
-
 export type Product = {
   id: string | number;
   name: string;
@@ -57,11 +19,26 @@ export default function ProductCard({ p }: { p: Product }) {
   const href = `${routes.product}?id=${p.id}`;
 
   let base = 0, original = 0;
-  if (typeof (p as any)?.price === 'number') base = numLike((p as any).price);
-  else {
-    base = numLike((p as any)?.price?.base ?? (p as any)?.price?.min ?? (p as any)?.price?.from);
-    original = numLike((p as any)?.price?.original ?? (p as any)?.price?.max ?? (p as any)?.price?.to);
+
+  // 1) ƯU TIÊN GIÁ DO SERVER TÍNH TỪ VARIANTS
+  const pd  = numLike((p as any)?.price_display);
+  const cad = numLike((p as any)?.compare_at_display);
+  if (pd > 0) {
+    base = pd;
+    if (cad > pd) original = cad;
   }
+
+  // 2) Fallback: đọc từ p.price (cấu trúc cũ) nếu chưa có
+  if (base <= 0) {
+    if (typeof (p as any)?.price === 'number') {
+      base = numLike((p as any).price);
+    } else {
+      base = numLike((p as any)?.price?.base ?? (p as any)?.price?.min ?? (p as any)?.price?.from);
+      original = numLike((p as any)?.price?.original ?? (p as any)?.price?.max ?? (p as any)?.price?.to);
+    }
+  }
+
+  // 3) Fallback sâu: pickPrice/pickLowestPrice từ raw (nếu cần)
   if (base <= 0) {
     const pair = pickPrice((p as any)?.raw || p);
     base = numLike(base || pair.base);

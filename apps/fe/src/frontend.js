@@ -214,9 +214,9 @@ async function loadNew(){ if(!newWrap) return;
 } else {
   newWrap.parentElement?.classList?.remove('hidden');
   newWrap.innerHTML = items.map(card).join('');
-await hydratePrices(items);
-// truyền mảng ID để chắc chắn
-await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
+// bỏ hydratePrices vì server đã trả price_display
+  await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
+  console.log('[PRICE] FE new', { tier: items?.[0]?.price_tier, price: items?.[0]?.price_display });
 }
 } // ← đóng function loadNew()
 
@@ -242,8 +242,9 @@ async function renderAll(){ if(!allWrap) return;
     return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
   });
   allWrap.innerHTML = filtered.map(card).join('');
-  await hydratePrices(filtered);
+  // bỏ hydratePrices vì server đã trả price_display
   await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
+  console.log('[PRICE] FE all', { tier: filtered?.[0]?.price_tier, price: filtered?.[0]?.price_display, n: filtered.length });
 }
 
 function minVarPrice(p){
@@ -262,6 +263,16 @@ function minVarPrice(p){
 }
 
 function priceStr(p) {
+	// ƯU TIÊN GIÁ DO SERVER TÍNH TỪ VARIANTS
+  if (Number.isFinite(p?.price_display)) {
+    const price = Number(p.price_display) || 0;
+    const cmp   = Number(p.compare_at_display) || 0;
+    if (price <= 0) return `<div data-price><b>Liên hệ</b></div>`;
+    if (cmp > price) {
+      return `<div><b>${price.toLocaleString('vi-VN')}đ</b> <span class="text-sm line-through opacity-70">${cmp.toLocaleString('vi-VN')}đ</span></div>`;
+    }
+    return `<div data-price><b>${price.toLocaleString('vi-VN')}đ</b></div>`;
+  }
   // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
   if (typeof formatPriceByCustomer === 'function') {
     return formatPriceByCustomer(p, null);
@@ -531,42 +542,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('blur',  ()=>{ nav.style.display='none'; });
   }
 
-  setTimeout(async ()=>{
-  document.querySelectorAll('[data-card-id]').forEach(async card=>{
-    const priceBox = card.querySelector('[data-price]');
-    if(!priceBox) return;
-    if(/\b0đ\b|Liên hệ/.test(priceBox.textContent||'')){
-      const id = card.getAttribute('data-card-id');
-      try{
-        const paths = [`/public/products/${id}`, `/products/${id}`];
-        let data=null;
-        for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
-        const pr = (data?.item||data?.data||data||{});
-        const vs = Array.isArray(pr.variants)?pr.variants:[];
-        
-        // CHỈ lấy từ variants
-        if(!vs.length){ 
-          priceBox.innerHTML = `<b>Liên hệ</b>`; 
-          return; 
-        }
-        
-        let s=null, r=null;
-        vs.forEach(v=>{ 
-          const sv=v.sale_price??v.price_sale??null; 
-          const rv=v.price??null; 
-          if(sv!=null) s=(s==null?sv:Math.min(s,sv)); 
-          if(rv!=null) r=(r==null?rv:Math.min(r,rv)); 
-        });
-        
-        const val = (s && r && s<r) 
-          ? `${s.toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`
-          : `${(s||r||0).toLocaleString()}đ`;
-        priceBox.innerHTML = `<b>${val}</b>`;
-        }catch{}
-      }
-    });
-  }, 400);
-});
 
 // ===== v27: Homepage runtime polish =====
 document.addEventListener('DOMContentLoaded', ()=>{
@@ -637,31 +612,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const min = card.getAttribute('data-min'), max = card.getAttribute('data-max');
       if(min && max && min!==max) priceBox.innerHTML = `<b>${fmt(min)} - ${fmt(max)}</b>`;
     });
-    // lazy correction
-    setTimeout(async ()=>{
-      const cards = Array.from(document.querySelectorAll('[data-card-id]'));
-      for (const card of cards){
-        const priceBox = card.querySelector('[data-price]'); if(!priceBox) continue;
-        if(/\b0đ\b/.test(priceBox.textContent||'')){
-          const id = card.getAttribute('data-card-id');
-          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
-          let data=null;
-          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
-          const pr = (data?.item||data?.data||data||{});
-          const {minS,maxS,minR} = range(pr);
-          let html='';
-          if(minS!=null){
-            html = (maxS && maxS>minS) ? `<b>${fmt(minS)} - ${fmt(maxS)}</b>` : `<b>${fmt(minS)}</b>`;
-            if(minR!=null && minR>minS) html += ` <span class="line-through opacity-70 ml-1">${fmt(minR)}</span>`;
-          }else{
-            html = `<b>${fmt(minR)}</b>`;
-          }
-          priceBox.innerHTML = html;
-        }
-      }
-    }, 300);
-  })();
-});
 
 
 // v28 banner hard clamp & hamburger-in-header

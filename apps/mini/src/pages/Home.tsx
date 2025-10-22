@@ -141,11 +141,8 @@ export default function Home() {
         
         setItems(arr);
         setLoading(false);
-        
-        if (arr.length > 0) {
-          const withPrice = await enrichPrices(arr);
-          setItems(withPrice);
-        }
+        // Không cần enrichPrices: server đã trả price_display/compare_at_display
+        console.log('[PRICE] MINI list', { tier: arr?.[0]?.price_tier, price: arr?.[0]?.price_display, n: arr.length });
       } catch (e: any) {
         console.error(e);
         setError(e?.message || 'Lỗi tải dữ liệu');

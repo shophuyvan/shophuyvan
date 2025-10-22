@@ -214,6 +214,57 @@ function matchCategoryStrict(product, category) {
 
   return candidates.some(v => wants.includes(v));
 }
+// ---- Price Tier Helpers (variant-only pricing) ----
+function getCustomerTier(req) {
+  try {
+    const url = new URL(req.url);
+    const h = (req.headers.get('x-customer-tier') || req.headers.get('x-price-tier') || '').toLowerCase().trim();
+    if (h) return h;
+    const q = (url.searchParams.get('tier') || '').toLowerCase().trim();
+    if (q) return q;
+    return 'retail';
+  } catch { return 'retail'; }
+}
+
+// Only compute from variants; no product-level fallback
+function computeDisplayPrice(product, tier) {
+  try {
+    const toNum = (x) => (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g, '')) || 0) : Number(x || 0));
+    const vars = Array.isArray(product?.variants) ? product.variants : [];
+
+    if (!vars.length) {
+      return { price_display: 0, compare_at_display: null, price_tier: tier, no_variant: true };
+    }
+
+    let minSale = null;
+    let minReg  = null;
+
+    for (const v of vars) {
+      // Nếu có field dành cho wholesale ở biến thể, tự phát hiện; nếu không có vẫn dùng sale_price/price
+      const svTier = (tier === 'wholesale')
+        ? (v.sale_price_wholesale ?? v.wholesale_sale_price ?? null)
+        : null;
+      const rvTier = (tier === 'wholesale')
+        ? (v.price_wholesale ?? v.wholesale_price ?? null)
+        : null;
+
+      const sv = toNum(svTier ?? v.sale_price ?? v.price_sale);
+      const rv = toNum(rvTier ?? v.price);
+
+      if (sv > 0) minSale = (minSale == null ? sv : Math.min(minSale, sv));
+      if (rv > 0) minReg  = (minReg  == null ? rv : Math.min(minReg,  rv));
+    }
+
+    if (minSale != null && minReg != null && minSale < minReg) {
+      return { price_display: minSale, compare_at_display: minReg, price_tier: tier };
+    }
+
+    const price = (minSale != null ? minSale : (minReg != null ? minReg : 0));
+    return { price_display: price, compare_at_display: null, price_tier: tier };
+  } catch {
+    return { price_display: 0, compare_at_display: null, price_tier: tier };
+  }
+}
 
 // ===================================================================
 // PUBLIC: Get Product by ID
@@ -243,7 +294,10 @@ async function getProductById(req, env, productId) {
       }, { status: 404 }, req);
     }
 
-    return json({ ok: true, item: product }, {}, req);
+    const tier = getCustomerTier(req);
+    const priced = { ...product, ...computeDisplayPrice(product, tier) };
+    console.log('[PRICE] getProductById', { id: productId, tier, price: priced.price_display, compare_at: priced.compare_at_display });
+    return json({ ok: true, item: priced }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
   }
@@ -258,7 +312,10 @@ async function listPublicProducts(req, env) {
     const list = await listProducts(env);
     const activeProducts = list.filter(p => p.status !== 0);
     
-    return json({ ok: true, items: activeProducts }, {}, req);
+    const tier = getCustomerTier(req);
+    const items = activeProducts.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+    console.log('[PRICE] listPublicProducts', { tier, count: items.length });
+    return json({ ok: true, items }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
   }
@@ -289,10 +346,10 @@ async function listPublicProductsFiltered(req, env) {
     // Filter active only
     items = items.filter(p => p.status !== 0);
 
-    return json({ 
-      ok: true,
-      items: items.slice(0, limit) 
-    }, {}, req);
+    const tier = getCustomerTier(req);
+    const out = items.slice(0, limit).map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+    console.log('[PRICE] listPublicProductsFiltered', { tier, in: items.length, out: out.length, cat: category });
+    return json({ ok: true, items: out }, {}, req);
   } catch (e) {
     console.error('❌ Error:', e);
     return errorResponse(e, 500, req);
