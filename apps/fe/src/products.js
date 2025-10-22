@@ -1,4 +1,4 @@
-// shv-api/src/modules/products.js
+// \apps\fe\src/products.js
 
 function j(status, data, headers) {
   return new Response(JSON.stringify(data), {

@@ -25,8 +25,11 @@ export function pickLowestPrice(product){
   let best = null;
 
   for (const v of vs) {
-    const sale = num(v?.sale_price ?? v?.price_sale);
+    // ✅ ƯU TIÊN: price_sale
+    const sale = num(v?.price_sale ?? v?.sale_price);
     const price = num(v?.price);
+    
+    // ✅ Chỉ lấy sale nếu > 0, không fallback về price
     const base = sale > 0 ? sale : (price > 0 ? price : 0);
     if (base <= 0) continue;
 
@@ -37,8 +40,10 @@ export function pickLowestPrice(product){
   }
 
   if (!best) {
-    const pSale = num(product?.sale_price ?? product?.price_sale);
+    // ✅ ƯU TIÊN: price_sale
+    const pSale = num(product?.price_sale ?? product?.sale_price);
     const pPrice = num(product?.price);
+    
     const base = pSale > 0 ? pSale : (pPrice > 0 ? pPrice : 0);
     const original = (pSale > 0 && pPrice > pSale) ? pPrice : null;
     best = { base, original };
