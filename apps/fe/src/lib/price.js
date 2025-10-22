@@ -24,26 +24,29 @@ export function pickLowestPrice(product){
   const vs = Array.isArray(product?.variants) ? product.variants : [];
   let best = null;
 
+  // ✅ Quét qua TẤT CẢ variants để tìm giá thấp nhất
   for (const v of vs) {
-    // ✅ ƯU TIÊN: price_sale
-    const sale = num(v?.price_sale ?? v?.sale_price);
-    const price = num(v?.price);
+    // ✅ ƯU TIÊN: price_sale > sale_price > price
+    const sale = num(v?.price_sale ?? v?.sale_price ?? 0);
+    const price = num(v?.price ?? 0);
     
-    // ✅ Chỉ lấy sale nếu > 0, không fallback về price
+    // ✅ Nếu có sale > 0 thì dùng sale, không thì dùng price
     const base = sale > 0 ? sale : (price > 0 ? price : 0);
     if (base <= 0) continue;
 
     const original = (sale > 0 && price > sale) ? price : null;
+    
+    // ✅ Tìm giá thấp nhất
     if (!best || base < best.base) {
       best = { base, original };
     }
   }
 
+  // ✅ Nếu KHÔNG CÓ variants hoặc variants không có giá hợp lệ
   if (!best) {
-    // ✅ ƯU TIÊN: price_sale
-    const pSale = num(product?.price_sale ?? product?.sale_price);
-    const pPrice = num(product?.price);
-    
+    // ⚠️ Fallback: Kiểm tra product level (trường hợp sản phẩm cũ)
+    const pSale = num(product?.price_sale ?? product?.sale_price ?? 0);
+    const pPrice = num(product?.price ?? 0);
     const base = pSale > 0 ? pSale : (pPrice > 0 ? pPrice : 0);
     const original = (pSale > 0 && pPrice > pSale) ? pPrice : null;
     best = { base, original };

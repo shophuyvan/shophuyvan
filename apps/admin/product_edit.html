@@ -68,17 +68,10 @@
     </div>
 
     <label>Slug</label>
+	
     <input id="slug" class="input" placeholder="duong-dan-san-pham"/>
-
-    <div class="row">
-      <div class="col"><label>Giá bán</label><input id="price" class="input" type="number" min="0"/></div>
-      <div class="col"><label>Giá sale</label><input id="price_sale" class="input" type="number" min="0"/></div>
-      <div class="col"><label>🏪 Giá sỉ</label><input id="wholesale_price" class="input" type="number" min="0" placeholder="Giá cho khách sỉ"/></div>
-    </div>
-    <div class="row">
-      <div class="col"><label>Giá nhập</label><input id="cost" class="input" type="number" min="0"/></div>
-      <div class="col"><label>Cân nặng (g)</label><input id="weight" class="input" type="number" min="0"/></div>
-      <div class="col"><label>Tồn kho</label><input id="stock" class="input" type="number" min="0"/></div>
+	<div class="hint" style="color:#f59e0b;background:#fffbeb;padding:8px;border-radius:6px;margin-bottom:12px">
+  ⚠️ <strong>Lưu ý:</strong> Giá bán, giá sale, giá sỉ, tồn kho phải nhập ở từng <strong>Biến thể</strong> bên dưới
     </div>
 
     <label>Video (URL)</label>
@@ -689,28 +682,31 @@ window.addEventListener('DOMContentLoaded', function() {
       });
 
       const payload = {
-        id: state.id || undefined,
-        title: $('#title').value.trim(),
-        slug: $('#slug').value.trim(),
-        shortDesc: $('#shortDesc').value.trim(),
-        desc: $('#desc').value.trim(),
-        seoTitle: $('#seoTitle').value.trim(),
-        seoDesc: $('#seoDesc').value.trim(),
-        keywords: ($('#keywords').value || '').split(',').map(s => s.trim()).filter(Boolean),
-        faq: parseFaq($('#faq').value),
-        reviews: parseReviews($('#reviews').value),
-        price: Number($('#price').value || 0),
-        price_sale: Number($('#price_sale').value || 0),
-        wholesale_price: Number($('#wholesale_price').value || 0),
-        cost: Number($('#cost').value || 0),
-        weight: gramsOf($('#weight').value),
-        stock: Number($('#stock').value || 0),
-        images: state.images || [],
-        category: ($('#category')?.value || '').trim(),
-        category_slug: ($('#category')?.value || '').trim(),
-        video: $('#video').value.trim(),
-        variants: vs
-      };
+       id: state.id || undefined,
+       title: $('#title').value.trim(),
+       slug: $('#slug').value.trim(),
+       shortDesc: $('#shortDesc').value.trim(),
+       desc: $('#desc').value.trim(),
+       seoTitle: $('#seoTitle').value.trim(),
+       seoDesc: $('#seoDesc').value.trim(),
+       keywords: ($('#keywords').value || '').split(',').map(s => s.trim()).filter(Boolean),
+       faq: parseFaq($('#faq').value),
+       reviews: parseReviews($('#reviews').value),
+       
+       // ✅ XÓA CÁC TRƯỜNG GIÁ PRODUCT LEVEL
+       // price: 0,
+       // price_sale: 0,
+       // wholesale_price: 0,
+       // cost: 0,
+       // stock: 0,
+       
+       weight: gramsOf($('#weight').value || 0), // ✅ Chỉ giữ cân nặng
+       images: state.images || [],
+       category: ($('#category')?.value || '').trim(),
+       category_slug: ($('#category')?.value || '').trim(),
+       video: $('#video').value.trim(),
+       variants: vs
+     };
 
       console.log('Payload:', payload);
 
