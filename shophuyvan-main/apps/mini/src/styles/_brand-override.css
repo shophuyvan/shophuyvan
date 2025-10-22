@@ -1,4 +1,0 @@
-/* brand color (blue) - điều chỉnh theo logo */
-@layer utilities {
-  .text-brand { color: #0B5C86; }
-}

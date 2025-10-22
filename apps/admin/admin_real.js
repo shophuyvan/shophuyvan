@@ -65,20 +65,14 @@ window.Admin = (function(){
 
   // Try list of paths until one returns ok
   async function tryPaths(paths, init={}){
-  let lastErr = null;
-  for (const p of paths){
-    try {
-      const r = await req(p, init);
-      if (r && (r.ok || (r.status===200||r.status===204))) return r;
-      lastErr = r;
-    } catch(e){
-      console.warn('[Admin.tryPaths] Failed:', p, e);
-      lastErr = e;
+    for (const p of paths){
+      try {
+        const r = await req(p, init);
+        if (r && (r.ok || (r.status===200||r.status===204))) return r;
+      } catch(e){}
     }
+    return { ok:false };
   }
-  console.error('[Admin.tryPaths] All paths failed. Last error:', lastErr);
-  return { ok:false, items: [], data: [], products: [] };
-}
 
   async function login(u, p){
     const r = await tryPaths(['/admin/login', '/login', '/admin_auth/login'], {

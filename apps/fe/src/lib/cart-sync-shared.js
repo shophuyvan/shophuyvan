@@ -6,13 +6,6 @@ const SESSION_KEY = 'shv_session_id';
 const LAST_SYNC_KEY = 'shv_last_sync';
 const DEFAULT_CART_KEY = 'cart'; // FE đang dùng format array trong localStorage
 
-// ==== DEBUG HOOKS (bật bằng localStorage.DEBUG_FE="1") ====
-const __DBG__ = () => { try { return localStorage.getItem('DEBUG_FE') === '1'; } catch { return false; } };
-function dbgCS(...a){ if(__DBG__()) console.log('[CartSync]', ...a); }
-function dbgStack(label){ if(__DBG__()){ console.group(label); console.log(new Error('STACK').stack); console.groupEnd(); } }
-// ==========================================================
-
-
 export function getSessionId() {
   let sid = localStorage.getItem(SESSION_KEY);
   if (!sid) {
@@ -43,8 +36,6 @@ export class CartSyncManager {
     this.syncTimer = null;
     this.lastSync = Number(localStorage.getItem(LAST_SYNC_KEY) || '0');
     this.isSyncing = false;
-    this._started = false;            // ⬅️ đã start hay chưa
-    this._eventsAttached = false;     // ⬅️ đã gắn listeners hay chưa
     this.beforeUnloadHandler = () => this.pushToServer(true);
     this.handleStorageChange = (e) => {
       if (e.key === this.cartKey && e.newValue !== e.oldValue) {
@@ -52,40 +43,24 @@ export class CartSyncManager {
       }
     };
     console.log('[CartSync] session:', this.sessionId, 'key:', this.cartKey);
-	dbgCS('ctor',{ key:this.cartKey, started:this._started, timer:!!this.syncTimer });
-dbgStack('[CartSync ctor] stack');
   }
 
   start() {
-  dbgCS('start() called',{_started:this._started, timer:!!this.syncTimer});
-  dbgStack('[CartSync start()] stack');
-  if (this._started) return;                 // ⬅️ guard: chỉ start 1 lần
-  this._started = true;
-
-  if (this.syncTimer) clearInterval(this.syncTimer);
-  this.pullFromServer();
-  this.syncTimer = setInterval(() => this.pullFromServer(), 15000);
-dbgCS('started',{ interval:15000, timer:this.syncTimer });
-
-  if (!this._eventsAttached) {               // ⬅️ listeners gắn 1 lần
+    if (this.syncTimer) return;
+    this.pullFromServer();
+    this.syncTimer = setInterval(() => this.pullFromServer(), 5000);
     window.addEventListener('storage', this.handleStorageChange);
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
-    this._eventsAttached = true;
+    console.log('[CartSync] started');
   }
-  console.log('[CartSync] started');
-  dbgCS('start() done');
-}
 
   stop() {
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
       this.syncTimer = null;
     }
-    if (this._eventsAttached) {
     window.removeEventListener('storage', this.handleStorageChange);
     window.removeEventListener('beforeunload', this.beforeUnloadHandler);
-    this._eventsAttached = false;
-}
     console.log('[CartSync] stopped');
   }
 
@@ -132,13 +107,11 @@ dbgCS('started',{ interval:15000, timer:this.syncTimer });
   }
 
   async pullFromServer() {
-    if (this.isSyncing) { dbgCS('pull skip: isSyncing'); return false; }
-    if (!navigator.onLine) { dbgCS('pull skip: offline'); return false; }
-    dbgCS('pull start',{ at: Date.now() });
+    if (this.isSyncing) return false;
+    if (!navigator.onLine) return false;
     this.isSyncing = true;
     try {
       const url = `${API_BASE}/api/cart/sync?session_id=${encodeURIComponent(this.sessionId)}`;
-	  dbgCS('pull fetch', url);
       const res = await fetch(url);
       if (!res.ok) return false;
       const data = await res.json();
@@ -159,12 +132,11 @@ dbgCS('started',{ interval:15000, timer:this.syncTimer });
     } catch {
       return false;
     } finally {
-  this.isSyncing = false;
-  dbgCS('pull end',{ at: Date.now() });
-}
+      this.isSyncing = false;
+    }
+  }
 
   async pushToServer(sync = false) {
-	  dbgCS('push start',{ keepalive:sync });
     try {
       const cart = this.getLocalCart();
       const res = await fetch(`${API_BASE}/api/cart/sync`, {
@@ -184,7 +156,6 @@ dbgCS('started',{ interval:15000, timer:this.syncTimer });
         this.lastSync = t;
         localStorage.setItem(LAST_SYNC_KEY, String(t));
         console.log('[CartSync] pushed:', cart.length);
-		dbgCS('push ok',{ items: cart.length, updated_at: data.updated_at });
         return true;
       }
       return false;
@@ -219,15 +190,13 @@ dbgCS('started',{ interval:15000, timer:this.syncTimer });
 
 let __instance = null;
 export function initCartSync(cartKey = DEFAULT_CART_KEY) {
-  if (window.__CART_SYNC__) return window.__CART_SYNC__;
   if (!__instance) {
     __instance = new CartSyncManager(cartKey);
     __instance.start();
   }
-  window.__CART_SYNC__ = __instance;     // ⬅️ lưu global
   return __instance;
 }
 export function getCartSync() {
-  return window.__CART_SYNC__ || __instance;
+  return __instance;
 }
 // ==== END file ====

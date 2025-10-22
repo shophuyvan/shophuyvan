@@ -1,3 +1,4 @@
+
 // === SHV perf helper ===
 function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   try {
@@ -11,7 +12,7 @@ function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   } catch(e) { return u; }
 }
 // ===================================================================
-// IMPORT PRICE FUNCTIONS
+// IMPORT PRICE FUNCTIONS - THÊM ĐOẠN NÀY
 // ===================================================================
 import { formatPriceByCustomer, pickPriceByCustomer } from './lib/price.js';
 import api from './lib/api.js';
@@ -25,10 +26,6 @@ const filterInput = document.getElementById('quick-filter');
 
 let cursor = null;
 let allCache = [];
-// FE: cố định endpoint để không gộp dữ liệu từ nhiều nguồn
-if (!window.__FE_PRODUCTS_ENDPOINT__) window.__FE_PRODUCTS_ENDPOINT__ = null;
-let __loadingAll = false;        // ⬅️ chặn gọi loadAll trùng/lặp
-const __seenAll = new Set();     // ⬅️ dedupe theo id
 
 // Banners (public) - ✅ FIXED RESPONSIVE
 async function loadBanners() { 
@@ -70,6 +67,7 @@ async function loadBanners() {
     track.appendChild(d);
   });
   
+  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU =====
   // ✅ Thêm dots indicator
   let dotsContainer = null;
   if (items.length > 1) {
@@ -86,7 +84,9 @@ async function loadBanners() {
     
     bannerWrap.appendChild(dotsContainer);
   }
+  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC =====
   
+  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU (NÚT PREV/NEXT) =====
   // ✅ Thêm nút prev/next
   if (items.length > 1) {
     const btnStyle = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:10;font-size:28px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;backdrop-filter:blur(4px);';
@@ -108,13 +108,16 @@ async function loadBanners() {
     bannerWrap.appendChild(prevBtn);
     bannerWrap.appendChild(nextBtn);
     
+    // Lưu reference cho dùng sau
     window._bannerNavBtns = { prevBtn, nextBtn };
   }
+  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC (NÚT PREV/NEXT) =====
   
   // ✅ Auto slide (với đồng bộ dots và nút)
   if (items.length > 1) {
     let idx = 0;
     
+    // Hàm cập nhật dots
     function updateDots() {
       if (!dotsContainer) return;
       Array.from(dotsContainer.children).forEach((dot, i) => {
@@ -124,18 +127,21 @@ async function loadBanners() {
       });
     }
     
+    // Hàm chuyển slide
     function goToSlide(newIdx) {
       idx = newIdx;
       track.style.transform = `translateX(-${idx * 100}%)`;
       updateDots();
     }
     
+    // Click vào dots
     if (dotsContainer) {
       Array.from(dotsContainer.children).forEach((dot, i) => {
         dot.onclick = () => goToSlide(i);
       });
     }
     
+    // Click vào nút prev/next
     if (window._bannerNavBtns) {
       window._bannerNavBtns.prevBtn.onclick = () => {
         goToSlide((idx - 1 + items.length) % items.length);
@@ -145,6 +151,7 @@ async function loadBanners() {
       };
     }
     
+    // Auto slide mỗi 3.5s
     setInterval(() => {
       goToSlide((idx + 1) % items.length);
     }, 3500);
@@ -208,84 +215,20 @@ async function loadNew(){ if(!newWrap) return;
   newWrap.parentElement?.classList?.remove('hidden');
   newWrap.innerHTML = items.map(card).join('');
 await hydratePrices(items);
+// truyền mảng ID để chắc chắn
 await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
 }
-}
+} // ← đóng function loadNew()
 
 // All products with pagination
-async function loadAll(){
-  if (!allWrap || !loadMoreBtn) return;
-  if (__loadingAll) return;
-  __loadingAll = true;
-  try {
-    const cat = new URL(location.href).searchParams.get('cat');
-    const qCat = cat ? '&category=' + encodeURIComponent(cat) : '';
-    const qCur = cursor ? '&cursor=' + encodeURIComponent(cursor) : '';
-    const qLim = 'limit=24';
-
-    // Chọn endpoint 1 lần (ưu tiên /public/products) rồi dùng cố định
-    if (!window.__FE_PRODUCTS_ENDPOINT__) {
-      const candidates = [
-        `/public/products?${qLim}${qCat}${qCur}`,
-        `/products?${qLim}${qCat}${qCur}`
-      ];
-      let chosen = null, data = null;
-      for (const p of candidates) {
-        try {
-          const r = await api(p);
-          if (r && r.ok !== false) { chosen = p.split('?')[0]; data = r; break; }
-        } catch {}
-      }
-      if (!chosen) return;
-
-      window.__FE_PRODUCTS_ENDPOINT__ = chosen;
-
-      const items = (data.items || data.products || data.data || []);
-      cursor = data.cursor || data.next || null;
-
-      // lần đầu → reset cache & bộ lọc trùng
-      allCache = [];
-      __seenAll.clear();
-
-      // dedupe theo id/slug/sku (xem PATCH 2)
-      const fresh = items.filter(p => {
-      const id = String(p.id || p.key || p._id || p.uuid || p.slug || p.sku || '').trim();
-      if (!id) return false;              // loại item vô danh
-      if (__seenAll.has(id)) return false;
-      __seenAll.add(id);
-      return true;
-    });
-
-      allCache.push(...fresh);
-      await renderAll();
-      loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
-      return;
-    }
-
-    // Các lần sau: chỉ dùng endpoint đã chọn
-    const base = window.__FE_PRODUCTS_ENDPOINT__;
-    const url = `${base}?${qLim}${qCat}${qCur}`;
-    const data = await api(url);
-    const items = (data.items || data.products || data.data || []);
-    cursor = data.cursor || data.next || null;
-
-    // Nếu là trang đầu → reset cache
-    if (!qCur) { allCache = []; __seenAll.clear(); }
-
-    const fresh = items.filter(p => {
-      const id = String(p.id || p.key || p._id || p.uuid || p.slug || p.sku || '').trim();
-      if (!id) return false;
-      if (__seenAll.has(id)) return false;
-      __seenAll.add(id);
-      return true;
-    });
-
-    allCache.push(...fresh);
-    await renderAll();
-    loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
-  } finally {
-    __loadingAll = false;
-  }
+async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
+  let data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : ''));
+  if (!data || data.ok===false) data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + (new URL(location.href).searchParams.get('cat') ? '&category='+encodeURIComponent(new URL(location.href).searchParams.get('cat')) : ''));
+  const items = data.items || data.products || data.data || [];
+  cursor = data.cursor || data.next || null;
+  allCache.push(...items);
+  renderAll();
+  loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
 }
 
 async function renderAll(){ if(!allWrap) return; 
@@ -315,75 +258,36 @@ function minVarPrice(p){
     return { sale:minSale, regular:minRegular };
   }catch{ return null; }
 }
-
-// ✅ FIXED PRICE DISPLAY FUNCTION
-function priceStr(p){
-  const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
-
-  // 1) Ưu tiên formatter theo nhóm khách hàng (nếu có & không phải 0đ)
+function priceStr(p) {
+  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
   if (typeof formatPriceByCustomer === 'function') {
-    const html = formatPriceByCustomer(p, null);
-    if (html && !/^\s*0\s*đ\s*$/i.test(html) && !/>\s*0\s*đ\s*</i.test(html)) {
-      return html;
-    }
+    return formatPriceByCustomer(p, null);
   }
-
-  // 2) Lấy giá từ variants HOẶC từ product
-  const vars = Array.isArray(p?.variants) ? p.variants
-            : Array.isArray(p?.options)  ? p.options
-            : Array.isArray(p?.skus)     ? p.skus : [];
-
-  let sale = 0, regular = 0, cost = 0;
-  const update = (vSale, vRegular, vCost) => {
-    const s = toNum(vSale);
-    const r = toNum(vRegular);
-    const c = toNum(vCost);
-    if (s > 0) sale    = sale    ? Math.min(sale, s)    : s;
-    if (r > 0) regular = regular ? Math.min(regular, r) : r;
-    if (c > 0) cost    = cost    ? Math.min(cost, c)    : c;
-  };
-
-  if (vars.length) {
-    for (const v of vars) {
-      update(
-        v.price_sale ?? v.sale_price ?? v.sale,
-        v.price ?? v.unit_price ?? v.regular_price ?? v.base_price,
-        v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price
-      );
-    }
-  } else {
-    update(
-      p.price_sale ?? p.sale_price ?? p.sale,
-      p.price ?? p.unit_price ?? p.regular_price ?? p.base_price,
-      p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price
-    );
-  }
-
-  // 3) Thứ tự hiển thị
-  if (sale > 0 && regular > 0 && sale < regular){
-    return `<div>
-      <b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b>
-      <span class="line-through opacity-70 text-sm">${regular.toLocaleString('vi-VN')}đ</span>
-    </div>`;
-  }
-  if (regular > 0) return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
-  if (sale    > 0) return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
-  if (cost    > 0) return `<div><b class="text-rose-600">${cost.toLocaleString('vi-VN')}đ</b></div>`;
-  return `<div><b class="text-gray-400">Liên hệ</b></div>`;
+  
+  // Fallback: old logic
+  const mv = minVarPrice(p)||{}; 
+  const s = Number(mv.sale ?? p.price_sale ?? 0); 
+  const r = Number(mv.regular ?? p.price ?? 0);
+  if (s && s<r) return `<div><b>${s.toLocaleString()}đ</b> <span class="text-sm line-through opacity-70">${r.toLocaleString()}đ</span></div>`;
+  return `<div data-price><b>${(r||s||0).toLocaleString()}đ</b></div>`;
 }
-
 // --- Price hydration: fetch full product if summary lacks prices/variants ---
 const __priceCache = new Map();
 async function fetchFullProduct(id){
   if (!id) return null;
   if (__priceCache.has(id)) return __priceCache.get(id);
 
+  // ƯU TIÊN DẠNG query ?id= TRƯỚC (phù hợp link bạn gửi)
   const paths = [
-  `/public/products/${encodeURIComponent(id)}`,
-  `/products/${encodeURIComponent(id)}`,
-  `/public/products?id=${encodeURIComponent(id)}`,
-  `/products?id=${encodeURIComponent(id)}`
-];
+    `/public/product?id=${encodeURIComponent(id)}`,
+    `/product?id=${encodeURIComponent(id)}`,
+    `/public/products/detail?id=${encodeURIComponent(id)}`,
+    `/products/detail?id=${encodeURIComponent(id)}`,
+    `/public/products/${encodeURIComponent(id)}`,
+    `/products/${encodeURIComponent(id)}`,
+    `/public/products?id=${encodeURIComponent(id)}&limit=1`,
+    `/products?id=${encodeURIComponent(id)}&limit=1`,
+  ];
 
   let item = null;
   let debugPath = '';
@@ -397,6 +301,7 @@ async function fetchFullProduct(id){
     } catch {}
   }
 
+  // bật log một lần để bạn biết endpoint nào thành công (có thể tắt sau khi ok)
   if (!item) {
     console.warn('[hydrate] Không lấy được chi tiết cho', id, '→ kiểm tra API');
   } else {
@@ -410,60 +315,40 @@ async function fetchFullProduct(id){
 
 function priceHtmlFrom(p){
   const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
-
-  const getSaleRegular = (prod)=>{
+  const getMin = (prod)=>{
     const vars = Array.isArray(prod?.variants) ? prod.variants
                : Array.isArray(prod?.options)  ? prod.options
                : Array.isArray(prod?.skus)     ? prod.skus : [];
-
-    let minSale = 0, minRegular = 0, minCost = 0;
-    const upd = (vSale, vReg, vCost) => {
-      const s = toNum(vSale), r = toNum(vReg), c = toNum(vCost);
-      if (s > 0) minSale    = minSale    ? Math.min(minSale, s)      : s;
-      if (r > 0) minRegular = minRegular ? Math.min(minRegular, r)   : r;
-      if (c > 0) minCost    = minCost    ? Math.min(minCost, c)      : c;
-    };
-
+    const cand = [];
+    const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
     if (vars.length){
       for (const v of vars){
-        upd(v.price_sale ?? v.sale_price ?? v.sale,
-            v.price ?? v.unit_price,
-            v.cost ?? v.cost_price ?? v.import_price);
+        push(v.price_sale ?? v.sale_price ?? v.sale);
+        push(v.price ?? v.unit_price);
+        // nếu vẫn không có price thì cho phép dùng cost làm mốc hiển thị
+        push(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
       }
     } else {
-      upd(prod.price_sale ?? prod.sale_price ?? prod.sale,
-          prod.price ?? prod.unit_price,
-          prod.cost ?? prod.cost_price ?? prod.import_price);
+      push(prod.price_sale ?? prod.sale_price ?? prod.sale);
+      push(prod.price ?? prod.unit_price);
+      push(prod.cost ?? prod.cost_price ?? prod.import_price ?? prod.price_import ?? prod.purchase_price);
     }
-    return { sale: minSale, regular: minRegular, cost: minCost };
+    return cand.length ? Math.min(...cand) : 0;
   };
 
   try{
+    // 1) Giá theo nhóm khách nếu có
     if (typeof formatPriceByCustomer === 'function') {
       const html = formatPriceByCustomer(p, null);
-      if (html && !/^\s*0\s*đ\s*$/i.test(html)) return html;
+      // nếu formatter trả 0đ/để trống → Fallback
+      if (html && !/0\s*đ/i.test(html)) return html;
     }
 
-    const { sale, regular, cost } = getSaleRegular(p);
-    if (sale > 0 && regular > 0 && sale < regular){
-      return `<div>
-        <b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b>
-        <span class="line-through opacity-70 text-sm">${regular.toLocaleString('vi-VN')}đ</span>
-      </div>`;
-    }
-    if (regular > 0){
-      return `<div><b class="text-rose-600">${regular.toLocaleString('vi-VN')}đ</b></div>`;
-    }
-    if (sale > 0){
-      return `<div><b class="text-rose-600">${sale.toLocaleString('vi-VN')}đ</b></div>`;
-    }
-    if (cost > 0){
-      return `<div><b class="text-rose-600">${cost.toLocaleString('vi-VN')}đ</b></div>`;
-    }
-
-    return `<div><b class="text-gray-400">Liên hệ</b></div>`;
+    // 2) Fallback cứng: min(sale, price, cost) trên biến thể/sản phẩm
+    const n = getMin(p);
+    return `<div><b class="text-rose-600">${n.toLocaleString('vi-VN')}đ</b></div>`;
   }catch{
-    return `<div><b class="text-gray-400">Liên hệ</b></div>`;
+    return `<div><b class="text-rose-600">0đ</b></div>`;
   }
 }
 
@@ -473,9 +358,7 @@ async function hydratePrices(items){
     for(const p of list){
       const id = String(p.id||p.key||'');
       const probe = minVarPrice(p);
-      const hasPrice =
-       (probe && (probe.sale>0 || probe.regular>0)) ||
-       Number(p?.price_sale || p?.sale_price || p?.sale || p?.price || p?.unit_price || p?.regular_price || p?.base_price || 0) > 0;
+      const hasPrice = (probe && (probe.sale>0 || probe.regular>0)) || Number(p?.price_sale||p?.sale_price||p?.price||0)>0;
       if(hasPrice) continue;
       const full = await fetchFullProduct(id);
       if(!full) continue;
@@ -484,8 +367,10 @@ async function hydratePrices(items){
     }
   }catch(e){ /* silent */ }
 }
-
+// [BẮT ĐẦU CHÈN] Bơm số đã bán & rating sau render
+// Nhận: array ID (string) hoặc lấy từ DOM nếu không truyền vào
 async function hydrateSoldAndRating(items){
+  // nếu items là mảng object => convert sang mảng id
   let ids = [];
   if (Array.isArray(items) && items.length) {
     if (typeof items[0] === 'string') {
@@ -511,12 +396,13 @@ async function hydrateSoldAndRating(items){
     const sold = toNum(full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0);
     let ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating);
     const ratingCount = toNum(full.rating_count ?? full.reviews ?? full.review_count ?? 0);
-    if (!Number.isFinite(ratingAvg) || ratingAvg <= 0) ratingAvg = 5.0;
+    if (!Number.isFinite(ratingAvg) || ratingAvg <= 0) ratingAvg = 5.0; // ✅ mặc định 5.0
 
     if (soldEl)   soldEl.textContent   = `Đã bán ${sold.toLocaleString('vi-VN')}`;
     if (ratingEl) ratingEl.textContent = `⭐ ${ratingAvg.toFixed(1)} (${ratingCount})`;
   }
 }
+// [KẾT THÚC CHÈN]
 
 
 function card(p){
@@ -527,7 +413,7 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 price" data-price data-id="${id}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
 	<span class="js-rating" data-id="${id}">⭐ 5.0 (0)</span>
@@ -537,41 +423,34 @@ function card(p){
 }
 
 // Events
-// Events (attach once)
-if (!window.__FE_HOME_EVENTS_ATTACHED__) {
-  window.__FE_HOME_EVENTS_ATTACHED__ = true;
-  loadMoreBtn?.addEventListener('click', loadAll);
-  searchInput?.addEventListener('input', renderAll);
-  filterInput?.addEventListener('input', renderAll);
-}
+loadMoreBtn?.addEventListener('click', loadAll);
+searchInput?.addEventListener('input', renderAll);
+filterInput?.addEventListener('input', renderAll);
 
-// Init (run once)
-if (!window.__FE_HOME_INITED__) {
-  window.__FE_HOME_INITED__ = true;
-  (async () => {
-    try {
-      await loadBanners(); await loadCategories();
-      await loadNew();
-      await loadAll();
-    } catch (e) { console.error(e); }
-  })();
-}
+(async () => {
+  try {
+    await loadBanners(); await loadCategories();
+    await loadNew();
+    await loadAll();
+  } catch (e) { console.error(e); }
+})();
 
 // Policy section content (static for now)
 const policyBox = document.getElementById('policy-box');
 if(policyBox){
   policyBox.innerHTML = `<ol class='list-decimal pl-5'>
-<li><b>Chính sách Bảo mật</b> — Chúng tôi cam kết bảo vệ thông tin cá nhân của bạn...</li>
-<li><b>Chính sách Đổi trả & Hoàn tiền</b> — Đổi/Trả trong 7–14 ngày...</li>
-<li><b>Chính sách Vận chuyển</b> — Giao 1–3 ngày, phí theo địa chỉ...</li>
-<li><b>Chính sách Bảo hành</b> — Bảo hành 14 ngày cho lỗi NSX.</li>
-<li><b>Điều khoản & Điều kiện</b> — Khi sử dụng website, bạn đồng ý với các điều khoản chung.</li>
+<li><b>Chính sách Bảo mật</b> – Chúng tôi cam kết bảo vệ thông tin cá nhân của bạn...</li>
+<li><b>Chính sách Đổi trả & Hoàn tiền</b> – Đổi/Trả trong 7–14 ngày...</li>
+<li><b>Chính sách Vận chuyển</b> – Giao 1–3 ngày, phí theo địa chỉ...</li>
+<li><b>Chính sách Bảo hành</b> – Bảo hành 14 ngày cho lỗi NSX.</li>
+<li><b>Điều khoản & Điều kiện</b> – Khi sử dụng website, bạn đồng ý với các điều khoản chung.</li>
 </ol>`;
 }
 
 
 // --- v25 runtime fixes (no HTML/CSS changes) ---
 document.addEventListener('DOMContentLoaded', ()=>{
+  // Banner overflow guard on .hero
   try {
     const hero = document.querySelector('.hero');
     if (hero) { hero.style.overflow='hidden'; }
@@ -580,6 +459,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   } catch {}
 
+  // Mobile hamburger top-left; toggle open/close; auto-close on scroll/blur
   const btn = document.querySelector('[data-hamburger]') || document.getElementById('hamburger');
   const nav = document.getElementById('mobile-menu') || document.querySelector('[data-mobile-nav]');
   if (btn && nav){
@@ -591,6 +471,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
+// Ensure PLP shows lowest sale price among variants
 function lowestSalePrice(p){
   const vs = Array.isArray(p.variants)? p.variants:[];
   const prices = vs.map(v => Number(v.price_sale||v.sale_price||v.price||0)).filter(n=>n>0);
@@ -607,11 +488,13 @@ try{
   }
 }catch{}
 
+// lazy-load all images by default
 new MutationObserver(()=>{
   document.querySelectorAll('img:not([loading])').forEach(img=> img.setAttribute('loading','lazy'));
 }).observe(document.documentElement, { subtree:true, childList:true });
 
 
+// v26 banner + mobile + price upgrades
 document.addEventListener('DOMContentLoaded', ()=>{
   const sec = document.getElementById('banner');
   if (sec){
@@ -645,35 +528,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   setTimeout(async ()=>{
-  document.querySelectorAll('[data-card-id]').forEach(async card=>{
-    const priceBox = card.querySelector('[data-price]'); // đã thêm ở PATCH D1
-    if(!priceBox) return;
-
-    const id = card.getAttribute('data-card-id');
-    try{
-      const paths = [
-        `/public/products/${id}`,
-        `/products/${id}`,
-        `/public/products?id=${id}`,
-        `/products?id=${id}`
-      ];
-      let data=null;
-      for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
-      const pr = (data?.item||data?.data||data||{});
-      const {minS,maxS,minR} = range(pr);
-      let html='';
-      if(minS!=null){
-        html = (maxS && maxS>minS) ? `<b>${fmt(minS)} - ${fmt(maxS)}</b>` : `<b>${fmt(minS)}</b>`;
-        if(minR!=null && minR>minS) html += ` <span class="line-through opacity-70 ml-1">${fmt(minR)}</span>`;
-      }else if(minR!=null){
-        html = `<b>${fmt(minR)}</b>`;
-      }else{
-        html = `<b>Liên hệ</b>`;
+    document.querySelectorAll('[data-card-id]').forEach(async card=>{
+      const priceBox = card.querySelector('[data-price]');
+      if(!priceBox) return;
+      if(/\b0đ\b/.test(priceBox.textContent||'')){
+        const id = card.getAttribute('data-card-id');
+        try{
+          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
+          let data=null;
+          for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
+          const pr = (data?.item||data?.data||data||{});
+          const vs = Array.isArray(pr.variants)?pr.variants:[];
+          let s=null, r=null;
+          vs.forEach(v=>{ const sv=v.sale_price??v.price_sale??null; const rv=v.price??null; if(sv!=null) s=(s==null?sv:Math.min(s,sv)); if(rv!=null) r=(r==null?rv:Math.min(r,rv)); });
+          const val = (s && r && s<r) ? (`${(s).toLocaleString()}đ <span class="line-through opacity-70 ml-1">${r.toLocaleString()}đ</span>`)
+                  : ((r||s||0).toLocaleString()+'đ');
+          priceBox.innerHTML = `<b>${val}</b>`;
+        }catch{}
       }
-      priceBox.innerHTML = html;
-    }catch{}
-  });
-}, 400);
+    });
+  }, 400);
 });
 
 // ===== v27: Homepage runtime polish =====
@@ -739,23 +613,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
       return {minS,maxS,minR,maxR};
     }
     const fmt = (n)=> Number(n||0).toLocaleString('vi-VN')+'đ';
+    // initial pass
     document.querySelectorAll('[data-card-id]').forEach(card=>{
       const priceBox = card.querySelector('[data-price]'); if(!priceBox) return;
       const min = card.getAttribute('data-min'), max = card.getAttribute('data-max');
       if(min && max && min!==max) priceBox.innerHTML = `<b>${fmt(min)} - ${fmt(max)}</b>`;
     });
+    // lazy correction
     setTimeout(async ()=>{
       const cards = Array.from(document.querySelectorAll('[data-card-id]'));
       for (const card of cards){
         const priceBox = card.querySelector('[data-price]'); if(!priceBox) continue;
         if(/\b0đ\b/.test(priceBox.textContent||'')){
           const id = card.getAttribute('data-card-id');
-          const paths = [
-           `/public/products/${id}`,
-           `/products/${id}`,
-           `/public/products?id=${id}`,
-           `/products?id=${id}`
-];
+          const paths = [`/public/products/${id}`, `/products/${id}`, `/public/product?id=${id}`, `/product?id=${id}`];
           let data=null;
           for(const p of paths){ try{ const r=await api(p); if(r && !r.error){ data=r; break; } }catch{} }
           const pr = (data?.item||data?.data||data||{});
@@ -777,12 +648,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 // v28 banner hard clamp & hamburger-in-header
 document.addEventListener('DOMContentLoaded', ()=>{
-  if(document.querySelector('.header-shop')) return;
+  if(document.querySelector('.header-shop')) return; // header already has its own menu
+  // Hard clamp: only first banner cell visible
   try{
     const wrap = document.getElementById('banner-wrap');
     if(wrap){ Array.from(wrap.children).forEach((c,i)=>{ if(i>0) c.style.display='none'; }); }
   }catch{}
 
+  // If there's a header, re-parent hamburger into it to avoid overlap with logo
   try{
     const header = document.querySelector('header, .header, .topbar, nav');
     const btn = document.getElementById('__shv_hamburger') || document.querySelector('[data-hamburger], #hamburger, #mobile-menu-btn');
@@ -796,6 +669,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 // v29: banner responsive + hamburger doesn't overlap logo
 document.addEventListener('DOMContentLoaded', ()=>{
+  // Banner: keep 16:9 by default, scale with container; no overflow
   (function(){
     const banner = document.getElementById('banner');
     const wrap = document.getElementById('banner-wrap') || banner?.querySelector('.grid');
@@ -819,6 +693,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('resize', ()=>{ reflow(); fitMedia(); });
   })();
 
+  // Hamburger vs logo
   (function(){
     const header = document.querySelector('header, .header, .topbar, nav');
     const logo = header?.querySelector('img[alt], .logo, [data-logo], h1, .brand');
@@ -826,7 +701,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(header && logo && btn){
       header.style.position = header.style.position || 'relative';
       btn.style.position='absolute'; btn.style.left='8px'; btn.style.top='8px'; btn.style.zIndex='50';
-      logo.style.marginLeft = '40px';
+      logo.style.marginLeft = '40px'; // reserve space for hamburger
     }
     const nav = document.getElementById('mobile-menu') || document.querySelector('[data-mobile-nav]');
     if(btn && nav){

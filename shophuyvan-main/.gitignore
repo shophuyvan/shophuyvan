@@ -1,8 +1,0 @@
-# never commit dependencies / build artifacts
-**/node_modules/
-**/.pnpm-store/
-**/.vite/
-**/dist/
-**/.cache/
-**/.turbo/
-**/.parcel-cache/

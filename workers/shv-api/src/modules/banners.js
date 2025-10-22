@@ -16,9 +16,9 @@ export async function handle(req, env, ctx) {
   const method = req.method;
 
   // Public: Get active banners
-   if ((path === '/banners' || path === '/public/banners') && method === 'GET') {
-     return getPublicBanners(req, env);
-   }
+  if (path === '/banners' && method === 'GET') {
+    return getPublicBanners(req, env);
+  }
 
   // Admin: List all banners
   if (path === '/admin/banners' && method === 'GET') {
