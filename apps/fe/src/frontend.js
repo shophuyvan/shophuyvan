@@ -541,58 +541,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('scroll', ()=>{ nav.style.display='none'; });
     window.addEventListener('blur',  ()=>{ nav.style.display='none'; });
   }
-    })(); // đóng IIFE của "C) Card price"
-});    // đóng document.addEventListener của v26
-
-
-// ===== v27: Homepage runtime polish =====
-document.addEventListener('DOMContentLoaded', ()=>{
-  // A) Banner: single column & media cover
-  (function(){
-    const sec = document.getElementById('banner');
-    if (sec){
-      const want = ['max-w-6xl','mx-auto','px-4','py-4','hero'];
-      const set = new Set((sec.className||'').split(/\s+/).filter(Boolean));
-      want.forEach(c=>set.add(c)); sec.className = Array.from(set).join(' ');
-    }
-    const wrap = document.getElementById('banner-wrap') || document.querySelector('#banner .grid') || document.querySelector('#banner div');
-    if (wrap){
-      wrap.style.gridTemplateColumns = '1fr';
-      wrap.style.width = '100%';
-      Array.from(wrap.children).forEach((c,i)=>{
-        const hasMedia = c.querySelector('img,video,iframe,svg');
-        if(!hasMedia && i>0){ c.style.display='none'; }
-      });
-    }
-    function fitHero(){
-      document.querySelectorAll('#banner img, #banner video').forEach(el=>{
-        el.style.objectFit='cover'; el.style.width='100%'; el.style.height='100%'; el.loading='lazy';
-      });
-      const hero = document.querySelector('#banner'); if(hero) hero.style.overflow='hidden';
-    }
-    fitHero(); window.addEventListener('resize', fitHero);
-  })();
-
-  // B) Mobile hamburger: pin top-left; create if missing
-  (function(){
-    const nav = document.getElementById('mobile-menu') || document.querySelector('[data-mobile-nav]');
-    let btn = document.querySelector('[data-hamburger]') || document.getElementById('hamburger') || document.getElementById('mobile-menu-btn');
-    if(!btn){
-      btn = document.createElement('button');
-      btn.id='__shv_hamburger';
-      btn.textContent='☰';
-      btn.setAttribute('aria-label','Menu');
-      btn.style.cssText = 'position:fixed;left:12px;top:12px;z-index:9999;border-radius:12px;padding:6px 10px;background:#111827;color:#fff;opacity:.9';
-      document.body.appendChild(btn);
-    } else {
-      btn.style.position='fixed'; btn.style.left='12px'; btn.style.top='12px'; btn.style.zIndex='9999';
-    }
-    if(nav){
-      const toggle = ()=>{ const d=getComputedStyle(nav).display; nav.style.display=(d==='none'?'block':'none'); };
-      btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); toggle(); });
-      ['click','scroll','blur'].forEach(ev=> window.addEventListener(ev, ()=>{ nav.style.display='none'; }));
-    }
-  })();
 
   // C) Card price: show min–max; lazy fix 0đ
   (function(){
@@ -614,7 +562,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const min = card.getAttribute('data-min'), max = card.getAttribute('data-max');
       if(min && max && min!==max) priceBox.innerHTML = `<b>${fmt(min)} - ${fmt(max)}</b>`;
     });
-
+  })(); // ← đóng IIFE "C) Card price"
+});      // ← đóng DOMContentLoaded của v26
 
 // v28 banner hard clamp & hamburger-in-header
 document.addEventListener('DOMContentLoaded', ()=>{
