@@ -21,98 +21,99 @@ const toNum = (x) => Number(x || 0);
  * Giảm/tăng tồn kho theo danh sách items của đơn
  * direction = -1 → trừ kho, +1 → hoàn kho
  */
+// Hỗ trợ nhiều field tồn kho cho cả variant & product: stock, ton_kho, quantity, qty_available, ...
 async function adjustInventory(items, env, direction = -1) {
   console.log('[INV-DEBUG] adjustInventory START', { itemCount: items?.length, direction });
-  
+
+  const STOCK_KEYS = ['stock', 'ton_kho', 'quantity', 'qty_available', 'so_luong'];
+
+  const readStock = (obj) => {
+    for (const k of STOCK_KEYS) {
+      if (obj && obj[k] != null) return Number(obj[k] || 0);
+    }
+    // nếu không có field nào, mặc định 0
+    return 0;
+  };
+
+  const writeStock = (obj, value) => {
+    // ghi vào field tồn tại trước; nếu không có, ưu tiên 'stock'
+    for (const k of STOCK_KEYS) {
+      if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
+        obj[k] = Math.max(0, Number(value || 0));
+        return k;
+      }
+    }
+    obj['stock'] = Math.max(0, Number(value || 0));
+    return 'stock';
+  };
+
   for (const it of (items || [])) {
-    const variantId = it.id || it.sku;
+    const variantId = it.id || it.variant_id || it.sku;
     const productId = it.product_id;
-    
-    console.log('[INV-DEBUG] Processing item', { 
-      variantId, 
-      productId, 
+
+    console.log('[INV-DEBUG] Processing item', {
+      variantId,
+      productId,
       qty: it.qty,
-      name: it.name 
+      sku: it.sku,
+      name: it.name
     });
-    
+
     if (!variantId && !productId) {
       console.warn('[INV-DEBUG] Skip: no ID');
       continue;
     }
 
-    // Bước 1: Tìm product
+    // -- B1: tìm product
     let product = null;
-    
-    // Nếu có product_id → tìm trực tiếp
     if (productId) {
       product = await getJSON(env, 'product:' + productId, null);
+      if (!product) product = await getJSON(env, 'products:' + productId, null);
       console.log('[INV-DEBUG] Found by product_id?', !!product);
     }
-    
-    // Nếu không tìm được → scan toàn bộ products để tìm variant
+
     if (!product && variantId) {
-      console.log('[INV-DEBUG] Scanning all products for variant:', variantId);
-      
-      const allProducts = await getJSON(env, 'products:list', []);
-      for (const summary of allProducts) {
-        const fullProduct = await getJSON(env, 'product:' + summary.id, null);
-        if (!fullProduct || !Array.isArray(fullProduct.variants)) continue;
-        
-        const hasVariant = fullProduct.variants.some(v => 
-          String(v.id || v.sku || '') === String(variantId)
-        );
-        
-        if (hasVariant) {
-          product = fullProduct;
-          console.log('[INV-DEBUG] Found product by variant scan:', product.id);
-          break;
-        }
+      const list = await getJSON(env, 'products:list', []);
+      for (const s of list) {
+        const p = await getJSON(env, 'product:' + s.id, null);
+        if (!p || !Array.isArray(p.variants)) continue;
+        const ok = p.variants.some(v => String(v.id || v.sku || '') === String(variantId));
+        if (ok) { product = p; break; }
       }
     }
-    
-    if (!product) {
-      console.warn('[INV-DEBUG] Product not found, skip');
-      continue;
-    }
 
-    const qty = toNum(it.qty || it.quantity || 1) * direction;
-    console.log('[INV-DEBUG] Will adjust stock by:', qty);
+    if (!product) { console.warn('[INV-DEBUG] Product not found'); continue; }
 
-    // Bước 2: Trừ tồn kho
-    let updated = false;
-    
+    const delta = toNum(it.qty || it.quantity || 1) * direction;
+    console.log('[INV-DEBUG] delta =', delta);
+
+    // -- B2: trừ tồn kho ở variant nếu có
+    let touched = false;
     if (Array.isArray(product.variants) && variantId) {
-      const v = product.variants.find(
-        v => String(v.sku || v.id || '') === String(variantId)
-      );
-      
+      const v = product.variants.find(v => String(v.sku || v.id || '') === String(variantId));
       if (v) {
-        const oldStock = toNum(v.stock);
-        v.stock = Math.max(0, oldStock + qty);
-        updated = true;
-        console.log('[INV-DEBUG] Variant stock updated', { 
-          variantId: v.id || v.sku,
-          oldStock, 
-          newStock: v.stock 
-        });
+        const before = readStock(v);
+        const after  = before + delta;
+        const keySet = writeStock(v, after);
+        console.log('[INV-DEBUG] Variant updated', { key: keySet, before, after, variant: v.id || v.sku });
+        touched = true;
       } else {
         console.warn('[INV-DEBUG] Variant not found in product.variants');
       }
     }
-    
-    if (!updated) {
-      const oldStock = toNum(product.stock);
-      product.stock = Math.max(0, oldStock + qty);
-      console.log('[INV-DEBUG] Product stock updated', { 
-        oldStock, 
-        newStock: product.stock 
-      });
+
+    // -- B3: nếu chưa chạm variant → trừ trên product-level
+    if (!touched) {
+      const before = readStock(product);
+      const after  = before + delta;
+      const keySet = writeStock(product, after);
+      console.log('[INV-DEBUG] Product stock updated', { key: keySet, before, after, pid: product.id });
     }
 
     await putJSON(env, 'product:' + product.id, product);
     console.log('[INV-DEBUG] Saved product:', product.id);
   }
-  
+
   console.log('[INV-DEBUG] adjustInventory DONE');
 }
 // [KẾT THÚC CHÈN - helper trừ tồn kho]
