@@ -48,44 +48,11 @@
     </section>
 
     <div class="grid grid-cols-12 gap-4">
-      <aside class="col-span-12 lg:col-span-3">
-        <button id="shv-open-filter" class="lg:hidden w-full rounded-xl border py-2.5 font-medium">Bộ lọc</button>
-        <div id="shv-filter" class="hidden lg:block lg:sticky lg:top-4 bg-white border rounded-2xl p-3 lg:p-4">
-          <div class="mb-4">
-            <h3 class="font-semibold mb-2">Khoảng giá</h3>
-            <div class="flex gap-2">
-              <input id="f-min" type="number" inputmode="numeric" placeholder="từ" class="w-1/2 rounded-lg border px-3 py-2 text-sm">
-              <input id="f-max" type="number" inputmode="numeric" placeholder="đến" class="w-1/2 rounded-lg border px-3 py-2 text-sm">
-            </div>
-          </div>
-          <div class="mb-4">
-            <h3 class="font-semibold mb-2">Thương hiệu</h3>
-            <div id="f-brands" class="space-y-2 text-sm max-h-52 overflow-auto pr-1"></div>
-          </div>
-          <div class="mb-4">
-            <h3 class="font-semibold mb-2">Đánh giá</h3>
-            <div class="space-y-2 text-sm">
-              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value="4"><span>⭐️⭐️⭐️⭐️ trở lên</span></label>
-              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value="3"><span>⭐️⭐️⭐️ trở lên</span></label>
-              <label class="flex items-center gap-2"><input type="radio" name="f-rate" value=""><span>Tất cả</span></label>
-            </div>
-          </div>
-          <button id="f-apply" class="w-full rounded-xl bg-red-600 text-white py-2.5 font-semibold">Áp dụng</button>
-        </div>
-      </aside>
+      <!-- sidebar filter removed -->
 
       <section class="col-span-12 lg:col-span-9">
         <div class="flex flex-wrap items-center justify-between gap-2 lg:gap-4 mb-3">
           <div class="text-sm text-gray-600">Tìm thấy <span id="rs-total" class="font-semibold text-gray-800">0</span> sản phẩm</div>
-          <div class="flex items-center gap-2">
-            <select id="rs-sort" class="border rounded-lg text-sm px-3 py-2">
-              <option value="popular">Phổ biến</option>
-              <option value="new">Mới nhất</option>
-              <option value="price-asc">Giá tăng dần</option>
-              <option value="price-desc">Giá giảm dần</option>
-            </select>
-            <button id="rs-open-filter" class="lg:hidden rounded-lg border px-3 py-2 text-sm">Lọc</button>
-          </div>
         </div>
 
         <div id="rs-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4"></div>
@@ -139,22 +106,34 @@
         return;
       }
 
-      // ✅ Template sản phẩm
-      const tpl = (p) => `
-        <a href="/product.html?id=${p.id}" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">
-          <div class="relative aspect-[4/3] bg-gray-100">
-            <img src="${p.images?.[0] || ''}" class="absolute inset-0 w-full h-full object-cover" alt="${p.title}" />
-          </div>
-          <div class="p-3">
-            <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${p.title}</h3>
-            <div class="flex items-baseline gap-2">
-              <div class="text-red-600 font-semibold">${p.price_sale || p.price || 0}đ</div>
-              ${p.price_sale ? `<div class="text-gray-400 line-through text-xs">${p.price}đ</div>` : ""}
+      // ✅ Template sản phẩm (giá lấy từ variants)
+      const tpl = (p) => {
+        const img   = p.images?.[0] || IMG_FALLBACK;
+        const title = p.title || 'Sản phẩm';
+
+        const vs        = Array.isArray(p.variants) ? p.variants : [];
+        const saleVals  = vs.map(v => Number(v.price_sale ?? v.price ?? 0)).filter(n => n > 0);
+        const origVals  = vs.map(v => Number(v.price || 0)).filter(n => n > 0);
+        const minSale   = saleVals.length ? Math.min(...saleVals) : 0;
+        const minOrig   = origVals.length ? Math.min(...origVals) : 0;
+        const sold      = p.sold || 0;
+
+        return `
+          <a href="/product.html?id=${p.id}" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">
+            <div class="relative aspect-[4/3] bg-gray-100">
+              <img src="${img}" class="absolute inset-0 w-full h-full object-cover" alt="${title}" />
             </div>
-            <div class="mt-1 text-xs text-gray-500">Đã bán ${p.sold || 0}</div>
-          </div>
-        </a>
-      `;
+            <div class="p-3">
+              <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${title}</h3>
+              <div class="flex items-baseline gap-2">
+                <div class="text-red-600 font-semibold">${fmt(minSale)}</div>
+                ${minOrig && minOrig > minSale ? `<div class="text-gray-400 line-through text-xs">${fmt(minOrig)}</div>` : ``}
+              </div>
+              <div class="mt-1 text-xs text-gray-500">Đã bán ${sold}</div>
+            </div>
+          </a>
+        `;
+      };
 
       // ✅ Render sản phẩm ra grid
       document.querySelector("#rs-grid").innerHTML = all
