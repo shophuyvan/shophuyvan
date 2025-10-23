@@ -772,11 +772,18 @@ async function getStats(req, env) {
 // PUBLIC: Get My Orders (Customer)
 // ===================================================================
 async function getMyOrders(req, env) {
-  const token = req.headers.get('x-token') || '';
-  
-  if (!token) {
-    return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
-  }
+  // Ưu tiên x-customer-token; fallback x-token; fallback Authorization: Bearer
+let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
+
+if (!token) {
+  const auth = req.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (m) token = m[1];
+}
+
+if (!token) {
+  return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
+}
 
   const customer = await getJSON(env, 'token:' + token, null);
   
