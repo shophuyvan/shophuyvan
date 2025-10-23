@@ -678,36 +678,43 @@ async function getStats(req, env) {
   }
   list = enriched;
 
-  // cost helper - LUÔN TÌM LẠI TỪ VARIANT
+  // cost helper - ƯU TIÊN VARIANT, fallback theo SKU/ID, cuối cùng là so khớp TÊN biến thể
   async function getCost(item) {
-    const variantId = item && (item.id || item.sku);
-    if (!variantId) return 0;
+    const variantIdOrSku = item && (item.id || item.sku);
+    const text = String(item?.variant || item?.name || '').toUpperCase(); // <-- thêm fallback theo tên biến thể
+    const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
 
-    console.log('[STATS] Getting cost for:', variantId);
+    if (!variantIdOrSku && !text) return 0;
+
     const all = await getJSON(env, 'products:list', []);
-    
     for (const s of all) {
       const p = await getJSON(env, 'product:' + s.id, null);
       if (!p || !Array.isArray(p.variants)) continue;
-      
-      const v = p.variants.find(v =>
-        String(v.id || v.sku || '') === String(variantId) ||
-        String(v.sku || '') === String(item.sku || '')
-      );
-      
+
+      const v = p.variants.find(v => {
+        const vid   = String(v.id || '').toUpperCase();
+        const vsku  = String(v.sku || '').toUpperCase();
+        const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
+
+        // 1) khớp id/sku
+        if (variantIdOrSku && (vid === String(variantIdOrSku).toUpperCase() || vsku === String(variantIdOrSku).toUpperCase())) {
+          return true;
+        }
+        if (item?.sku && vsku === String(item.sku).toUpperCase()) return true;
+
+        // 2) fallback: tên biến thể có chứa/khớp text FE gửi
+        if (text && vname && (vname === text || text.includes(vname) || vname.includes(text))) {
+          return true;
+        }
+        return false;
+      });
+
       if (v) {
-        const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
         for (const k of keys) {
-          if (v[k] != null) {
-            const cost = Number(v[k] || 0);
-            console.log('[STATS] ✅ Found cost:', { variantId, cost });
-            return cost;
-          }
+          if (v[k] != null) return Number(v[k] || 0);
         }
       }
     }
-    
-    console.log('[STATS] ❌ Cost not found for:', variantId);
     return 0;
   }
 
