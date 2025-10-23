@@ -239,14 +239,22 @@ class StatsManager {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
     
-    // SỬ DỤNG DỮ LIỆU TỪ BACKEND (đã tính cost từ variants đúng)
+    // Tổng theo platform (đảm bảo luôn dựa trên items.variant cost)
+    const totalRevenue =
+      (platformStats['Website']?.revenue || 0) +
+      (platformStats['Zalo MiniApp']?.revenue || 0);
+    
+    const totalCost =
+      (platformStats['Website']?.cost_price || 0) +
+      (platformStats['Zalo MiniApp']?.cost_price || 0);
+    
     this.statsData = {
       orders: totalOrders,
       cancels: cancelOrders,
       returns: returnOrders,
       confirmed: confirmedOrders,
-      revenue: backendStats.revenue || 0,  // ✅ Từ backend
-      cost_price: backendStats.profit ? (backendStats.revenue - backendStats.profit) : 0, // ✅ Ngược tính từ profit
+      revenue: totalRevenue,
+      cost_price: totalCost,
       platforms: [
         { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
         { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
