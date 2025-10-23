@@ -140,10 +140,8 @@ class StatsManager {
     const toTime = new Date(toDate + 'T23:59:59+07:00').getTime();
     
     console.log('[Stats] Date range:', { fromTime, toTime });
-	// ==== Fallback cost map from Products (product/variant import_price) ====
-const toNum = (x) => typeof x === 'string'
-  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
-  : (Number(x || 0));
+// ==== Fallback cost map from Products (product/variant import_price) ====
+// Dùng helper toNum đã có sẵn trong file, KHÔNG khai báo thêm ở đây.
 
 const buildCostMap = async () => {
   const plist = await Admin.tryPaths([
