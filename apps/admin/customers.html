@@ -131,6 +131,8 @@
       margin-top: 4px;
     }
   </style>
+<!-- layout chung cho toàn bộ trang admin -->
+  <script src="/apps/admin/_shared/sidebar-layout.js"></script>
 </head>
 <body>
 
@@ -258,6 +260,14 @@
 </div>
 
 <script>
+// Bắt buộc: chặn load nếu chưa có token để tránh nháy/trắng trang
+if (window.Admin && typeof Admin.ensureAuth === 'function') {
+  Admin.ensureAuth();
+}
+// Khởi tạo layout chuẩn, đặt tiêu đề trang
+if (window.AdminLayout && typeof AdminLayout.init === 'function') {
+  AdminLayout.init('Quản lý Khách hàng');
+}
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[Customers] DOM loaded, initializing...');
 
