@@ -125,138 +125,145 @@ class StatsManager {
 
   // ==================== LOAD STATS ====================
   async loadStats() {
-    try {
-      console.log('[Stats] Loading stats...');
-      const fromDate = this.$('fromDate').value;
-      const toDate = this.$('toDate').value;
+  try {
+    console.log('[Stats] Loading stats...');
+    const fromDate = this.$('fromDate').value;
+    const toDate = this.$('toDate').value;
+    
+    if (!fromDate || !toDate) {
+      console.warn('[Stats] Missing date range');
+      return;
+    }
+
+    // Chuyển đổi sang timestamp
+    const fromTime = new Date(fromDate + 'T00:00:00+07:00').getTime();
+    const toTime = new Date(toDate + 'T23:59:59+07:00').getTime();
+    
+    console.log('[Stats] Date range:', { fromTime, toTime });
+
+    // GỌI BACKEND API để lấy stats (backend đã tính cost từ variants)
+    const backendStats = await Admin.req(`/admin/stats?from=${fromTime}&to=${toTime}`);
+    console.log('[Stats] Backend stats:', backendStats);
+
+    // Lấy orders để tính thêm platform breakdown và top products
+    const ordersRes = await Admin.req('/admin/orders');
+    let orders = ordersRes.items || ordersRes.data || ordersRes.orders || [];
+    
+    // Filter theo date range
+    orders = orders.filter(o => {
+      const orderTime = o.createdAt || o.created_at || o.timestamp || o.date;
+      const time = typeof orderTime === 'number' ? orderTime : new Date(orderTime).getTime();
+      return time >= fromTime && time <= toTime;
+    });
+    
+    console.log('[Stats] Filtered orders:', orders.length);
+
+    const toNum = (x) => typeof x === 'string'
+      ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+      : (Number(x || 0));
+
+    // Tính platform stats
+    let totalOrders = orders.length;
+    let cancelOrders = 0;
+    let returnOrders = 0;
+    let confirmedOrders = 0;
+    
+    const platformStats = {
+      'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
+      'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 }
+    };
+    
+    const productStats = {};
+    
+    orders.forEach(order => {
+      const status = (order.status || '').toLowerCase();
+      const source = (order.source || '').toLowerCase();
       
-      const ordersRes = await Admin.req('/admin/orders', { method: 'GET' });
-      let orders = ordersRes.items || ordersRes.data || ordersRes.orders || [];
-      console.log('[Stats] Total orders:', orders.length);
+      const platform = source.includes('zalo') || source.includes('mini') || source.includes('zmp') 
+        ? 'Zalo MiniApp' 
+        : 'Website';
       
-      // Filter by date range
-      if (fromDate || toDate) {
-        const fromTime = fromDate ? new Date(fromDate + 'T00:00:00+07:00').getTime() : 0;
-        const toTime = toDate ? new Date(toDate + 'T23:59:59+07:00').getTime() : Date.now();
-        
-        orders = orders.filter(o => {
-          const orderTime = o.createdAt || o.created_at || o.timestamp || o.date;
-          const time = typeof orderTime === 'number' ? orderTime : new Date(orderTime).getTime();
-          return time >= fromTime && time <= toTime;
-        });
-        console.log('[Stats] Filtered orders:', orders.length);
+      platformStats[platform].orders++;
+      
+      if (status.includes('cancel') || status.includes('hủy') || status.includes('huy') || status === 'cancelled') {
+        cancelOrders++;
+        platformStats[platform].cancel++;
+      } else if (status.includes('return') || status.includes('trả') || status.includes('tra') || status === 'returned') {
+        returnOrders++;
+        platformStats[platform].return++;
+      } else if (status.includes('confirm') || status === 'confirmed' || status.includes('deliver') || status.includes('completed')) {
+        confirmedOrders++;
+        platformStats[platform].success++;
       }
       
-      // Calculate statistics
-      let totalOrders = orders.length;
-      let cancelOrders = 0;
-      let returnOrders = 0;
-      let confirmedOrders = 0;
-      let totalRevenue = 0;
-      let totalCostPrice = 0;
-	  const toNum = (x) => typeof x === 'string'
-        ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
-        : (Number(x || 0));
-      
-      const platformStats = {
-        'Website': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 },
-        'Zalo MiniApp': { orders: 0, revenue: 0, cost_price: 0, profit: 0, success: 0, cancel: 0, return: 0 }
-      };
-      
-      const productStats = {};
-      
-      orders.forEach(order => {
-        const status = (order.status || '').toLowerCase();
-        const source = (order.source || '').toLowerCase();
-        
-        const platform = source.includes('zalo') || source.includes('mini') || source.includes('zmp') 
-          ? 'Zalo MiniApp' 
-          : 'Website';
-        
-        platformStats[platform].orders++;
-        
-        if (status.includes('cancel') || status.includes('hủy') || status.includes('huy') || status === 'cancelled') {
-          cancelOrders++;
-          platformStats[platform].cancel++;
-        } else if (status.includes('return') || status.includes('trả') || status.includes('tra') || status === 'returned') {
-          returnOrders++;
-          platformStats[platform].return++;
-        } else if (status.includes('confirm') || status === 'confirmed' || status.includes('deliver') || status.includes('completed')) {
-          confirmedOrders++;
-          platformStats[platform].success++;
-        }
-        
-        if (
-          !status.includes('cancel') &&
-          !status.includes('hủy') &&
-          !status.includes('huy') &&
-          status !== 'cancelled'
-        ) {
-          const orderRevenue = order.revenue || order.subtotal || order.total || 0;
+      // Chỉ tính revenue/cost cho đơn không cancel
+      if (
+        !status.includes('cancel') &&
+        !status.includes('hủy') &&
+        !status.includes('huy') &&
+        status !== 'cancelled'
+      ) {
+        const orderRevenue = toNum(order.revenue || order.subtotal || order.total || 0);
+        platformStats[platform].revenue += orderRevenue;
 
-          const lines = Array.isArray(order.items) ? order.items
-                      : Array.isArray(order.order_items) ? order.order_items
-                      : Array.isArray(order.lines) ? order.lines
-                      : [];
+        const lines = Array.isArray(order.items) ? order.items
+                    : Array.isArray(order.order_items) ? order.order_items
+                    : Array.isArray(order.lines) ? order.lines
+                    : [];
 
-          let orderImportCost = 0;
-          lines.forEach(it => {
-            const qty = toNum(it.qty ?? it.quantity ?? it.count);
-            const unitCost = toNum(
-              it.cost ?? it.cost_price ?? it.import_price ?? it.price_import ?? it.purchase_price
-            );
-            orderImportCost += qty * unitCost;
-          });
+        // Tính cost_price cho platform (từ items.cost nếu có)
+        let orderCost = 0;
+        lines.forEach(it => {
+          const qty = toNum(it.qty ?? it.quantity ?? it.count ?? 1);
+          const unitCost = toNum(it.cost ?? it.cost_price ?? 0);
+          orderCost += qty * unitCost;
+        });
+        platformStats[platform].cost_price += orderCost;
 
-          totalRevenue   += orderRevenue;
-          totalCostPrice += orderImportCost;
+        // Top products
+        lines.forEach(item => {
+          const productName = item.title || item.name || item.product_name || 'Unknown';
+          const qty = toNum(item.qty ?? item.quantity ?? 1);
+          const price = toNum(item.price ?? item.unit_price ?? 0);
 
-          platformStats[platform].revenue    += orderRevenue;
-          platformStats[platform].cost_price += orderImportCost;
-
-          lines.forEach(item => {
-            const productName = item.title || item.name || item.product_name || 'Unknown';
-            const qty   = toNum(item.qty ?? item.quantity ?? 1);
-            const price = toNum(item.price ?? item.unit_price ?? 0);
-
-            if (!productStats[productName]) {
-              productStats[productName] = { name: productName, qty: 0, revenue: 0 };
-            }
-            productStats[productName].qty     += qty;
-            productStats[productName].revenue += price * qty;
-          });
-        }
-      });
-      
-      const topProducts = Object.values(productStats)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 10);
-      
-      this.statsData = {
-        orders: totalOrders,
-        cancels: cancelOrders,
-        returns: returnOrders,
-        confirmed: confirmedOrders,
-        revenue: totalRevenue,
-        cost_price: totalCostPrice,
-        platforms: [
-          { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
-          { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
-        ],
-        top_products: topProducts
-      };
-      
-      console.log('[Stats] Calculated stats:', this.statsData);
-      
-      this.updateStats();
-      this.updateCharts();
-      this.updateTables();
-    } catch (error) {
-      console.error('[Stats] Error loading stats:', error);
-      alert('Lỗi tải dữ liệu thống kê: ' + error.message);
-    }
+          if (!productStats[productName]) {
+            productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+          }
+          productStats[productName].qty += qty;
+          productStats[productName].revenue += price * qty;
+        });
+      }
+    });
+    
+    const topProducts = Object.values(productStats)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+    
+    // SỬ DỤNG DỮ LIỆU TỪ BACKEND (đã tính cost từ variants đúng)
+    this.statsData = {
+      orders: totalOrders,
+      cancels: cancelOrders,
+      returns: returnOrders,
+      confirmed: confirmedOrders,
+      revenue: backendStats.revenue || 0,  // ✅ Từ backend
+      cost_price: backendStats.profit ? (backendStats.revenue - backendStats.profit) : 0, // ✅ Ngược tính từ profit
+      platforms: [
+        { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
+        { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
+      ],
+      top_products: topProducts
+    };
+    
+    console.log('[Stats] Final stats data:', this.statsData);
+    
+    this.updateStats();
+    this.updateCharts();
+    this.updateTables();
+  } catch (error) {
+    console.error('[Stats] Error loading stats:', error);
+    alert('Lỗi tải dữ liệu thống kê: ' + error.message);
   }
-
+}
 async loadInventoryValue() {
     try {
       const listRes = await Admin.tryPaths([
