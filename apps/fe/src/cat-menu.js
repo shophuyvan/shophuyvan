@@ -169,7 +169,7 @@ async function loadCategories(){
     const indent = '  '.repeat(depth);
     
     a.textContent = `${indent}${icon} ${node.name || node.title || ''}`;
-    a.href = `/c/${encodeURIComponent(node.slug || node.id || '')}`;
+    a.href = `/category.html?c=${encodeURIComponent(node.slug || node.id || '')}`;
     
     // Style
     Object.assign(a.style, {
@@ -188,7 +188,7 @@ async function loadCategories(){
     // ✅ Click navigation
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      window.location.href = `/c/${encodeURIComponent(node.slug || node.id || '')}`;
+      window.location.href = `/category.html?c=${encodeURIComponent(node.slug || node.id || '')}`;
       // Đóng panel
       const panel = document.getElementById('__shv_cat_panel');
       if (panel) panel.style.display = 'none';
