@@ -1,7 +1,8 @@
+// workers/shv-api/src/lib/response.js
 export function corsHeaders(req) {
   const origin = req.headers.get('Origin') || '*';
   const reqHdr = req.headers.get('Access-Control-Request-Headers') || 
-                 'authorization,content-type,x-token,x-requested-with';
+                 'authorization,content-type,x-token,x-customer-token,x-requested-with';
   
   return {
     'Access-Control-Allow-Origin': origin,
@@ -9,7 +10,7 @@ export function corsHeaders(req) {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Max-Age': '86400',
     'Access-Control-Allow-Headers': reqHdr,
-    'Access-Control-Expose-Headers': 'x-token',
+    'Access-Control-Expose-Headers': 'x-token,x-customer-token',
     'Access-Control-Allow-Credentials': 'true'
   };
 }

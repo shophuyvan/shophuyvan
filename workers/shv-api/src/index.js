@@ -1,4 +1,4 @@
-// ===================================================================
+// workers/shv-api/src/index.js
 // src/index.js - Main Router (với Admin Module)
 // ===================================================================
 
@@ -110,13 +110,16 @@ export default {
         console.log('[INV-TRACE] router → orders', { path, method: req.method });
       }
       // Orders module
-      if (path.startsWith('/api/orders') ||
-          path.startsWith('/admin/orders') ||
-          path.startsWith('/public/orders') ||
-          path.startsWith('/public/order-create') ||
-          path === '/admin/stats') {
-        return orders.handle(req, env, ctx);
-      }
+     if (path.startsWith('/api/orders') ||
+         path.startsWith('/admin/orders') ||
+         path.startsWith('/public/orders') ||
+         path.startsWith('/public/order-create') ||
+         path === '/admin/stats' ||
+         path === '/orders/my' ||                // ✅ thêm
+         path === '/orders'    ||                // ✅ thêm (để /orders?customer=me cũng qua được)
+         path.startsWith('/orders/')) {          // ✅ thêm (đề phòng biến thể sau này)
+       return orders.handle(req, env, ctx);
+     }
 
       // Shipping module
       if (path.startsWith('/shipping') ||
