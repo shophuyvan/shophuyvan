@@ -432,14 +432,15 @@
 <script src="./stats-manager.js"></script>
 <script src="./stats.js"></script>
 <script>
-  // Chặn khi chưa có token để tránh trắng trang
-  if (window.Admin && typeof Admin.ensureAuth === 'function') {
-    Admin.ensureAuth();
-  }
-  // Khởi tạo layout để hiện sidebar + topbar
-  if (window.AdminLayout && typeof AdminLayout.init === 'function') {
-    AdminLayout.init('Thống Kê');
-  }
+  // Chờ DOM sẵn sàng rồi mới init layout để tránh null
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.Admin && typeof Admin.ensureAuth === 'function') {
+      Admin.ensureAuth();
+    }
+    if (window.AdminLayout && typeof AdminLayout.init === 'function') {
+      AdminLayout.init('Thống Kê');
+    }
+  });
 </script>
 </head>
 <body>

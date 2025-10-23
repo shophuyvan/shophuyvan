@@ -247,6 +247,7 @@ const mini = platformStats['Zalo MiniApp'] || { orders: 0, revenue: 0, cost_pric
 const backendCost = Number(
   backendStats?.cost_price ?? backendStats?.goods_cost ?? 0
 );
+const computedCost = (web.cost_price || 0) + (mini.cost_price || 0);
 
 this.statsData = {
   orders: totalOrders,
@@ -258,7 +259,7 @@ this.statsData = {
   revenue: (web.revenue + mini.revenue),
 
   // Giá nhập = số backend đã tính từ variants
-  cost_price: backendCost,
+  cost_price: (backendCost > 0 ? backendCost : computedCost),
 
   // Bảng nền tảng: giữ cost theo items đã cộng ở trên
   platforms: [

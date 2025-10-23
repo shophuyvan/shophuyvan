@@ -8,6 +8,7 @@
   <script src="./admin_real.js?v=27"></script>
   <script src="./sidebar-layout.js"></script>
   <style>
+    /* Base styles */
     .customer-type-badge {
       display: inline-block;
       padding: 4px 12px;
@@ -130,17 +131,213 @@
       color: #6b7280;
       margin-top: 4px;
     }
-  </style>
+
+    /* ========================================
+       RESPONSIVE DESIGN - MOBILE & TABLET
+       ======================================== */
+    
+    /* Header responsive */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-header h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    /* Filters responsive */
+    .filters-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filters-container input,
+    .filters-container select {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    /* Stats grid responsive */
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .stat-value {
+        font-size: 22px;
+      }
+
+      .stat-label {
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Table responsive wrapper */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Mobile: Hide less important columns */
+    @media (max-width: 1024px) {
+      .table th:nth-child(7),
+      .table td:nth-child(7) {
+        display: none; /* Hide "Đăng nhập lần cuối" */
+      }
+    }
+
+    @media (max-width: 768px) {
+      .page-header h2 {
+        font-size: 20px;
+      }
+
+      .page-header button {
+        width: 100%;
+      }
+
+      .filters-container {
+        flex-direction: column;
+      }
+
+      .filters-container input,
+      .filters-container select {
+        width: 100%;
+        min-width: 100%;
+      }
+
+      /* Hide email column on mobile */
+      .table th:nth-child(2),
+      .table td:nth-child(2) {
+        display: none;
+      }
+
+      /* Hide points column on mobile */
+      .table th:nth-child(5),
+      .table td:nth-child(5) {
+        display: none;
+      }
+
+      /* Make action buttons vertical */
+      .table td:last-child {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .table td:last-child button {
+        width: 100%;
+      }
+
+      .table {
+        font-size: 13px;
+      }
+
+      .table th,
+      .table td {
+        padding: 8px 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      /* Card layout for mobile */
+      .table thead {
+        display: none;
+      }
+
+      .table tbody tr {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px;
+        background: white;
+      }
+
+      .table tbody td {
+        display: block;
+        border: none;
+        padding: 8px 0;
+        text-align: left !important;
+      }
+
+      .table tbody td:before {
+        content: attr(data-label);
+        font-weight: 600;
+        display: inline-block;
+        width: 120px;
+        color: #6b7280;
+      }
+
+      .table tbody td:last-child {
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+      }
+    }
+
+    /* Modal responsive */
+    @media (max-width: 640px) {
+      .modal-content {
+        width: 95%;
+        margin: 10px;
+      }
+
+      .modal-header {
+        padding: 16px;
+      }
+
+      .modal-header h3 {
+        font-size: 16px;
+      }
+
+      .modal-body {
+        padding: 16px;
+      }
+
+      .modal-footer {
+        padding: 16px;
+        flex-direction: column-reverse;
+      }
+
+      .modal-footer button {
+        width: 100%;
+      }
+    }
+
+    /* Touch-friendly buttons */
+    @media (hover: none) and (pointer: coarse) {
+      .btn,
+      .btn-sm {
+        min-height: 44px;
+        padding: 12px 16px;
+      }
+    }
+</style>
   <script src="./admin_real.js?v=27"></script>
   <script src="./sidebar-layout.js"></script>
 </head>
 <body>
 
 <div class="card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-    <h2 style="margin: 0;">👥 Quản lý Khách hàng</h2>
-    <button id="btn-create-customer" class="btn primary">➕ Thêm khách hàng</button>
-  </div>
+  <div class="page-header">
+  <h2>👥 Quản lý Khách hàng</h2>
+  <button id="btn-create-customer" class="btn primary">➕ Thêm khách hàng</button>
+</div>
 
   <!-- Statistics -->
   <div class="stats-grid" id="stats-grid">
@@ -163,25 +360,25 @@
   </div>
 
   <!-- Filters -->
-  <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-    <input 
-      id="search-input" 
-      class="input" 
-      placeholder="🔍 Tìm theo tên, email, SĐT..." 
-      style="flex: 1;"
-    />
-    <select id="filter-type" class="input" style="width: 200px;">
-      <option value="">Tất cả loại</option>
-      <option value="retail">Khách lẻ</option>
-      <option value="wholesale">Khách sỉ</option>
-    </select>
-    <select id="filter-status" class="input" style="width: 150px;">
-      <option value="">Tất cả trạng thái</option>
-      <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
-    </select>
-  </div>
+  <div class="filters-container">
+  <input 
+    id="search-input" 
+    class="input" 
+    placeholder="🔍 Tìm theo tên, email, SĐT..."
+  />
+  <select id="filter-type" class="input">
+    <option value="">Tất cả loại</option>
+    <option value="retail">Khách lẻ</option>
+    <option value="wholesale">Khách sỉ</option>
+  </select>
+  <select id="filter-status" class="input">
+    <option value="">Tất cả trạng thái</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+</div>
   
+  <div class="table-responsive">
   <table class="table">
     <thead>
       <tr>
@@ -198,7 +395,7 @@
     <tbody id="customers-list">
       <tr><td colspan="8" style="text-align:center;">Đang tải...</td></tr>
     </tbody>
-  </table>
+    </table>
 </div>
 
 <!-- Modal: Create/Edit Customer -->
