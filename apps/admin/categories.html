@@ -1,222 +1,484 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Danh mục • Shop Huy Vân</title>
-  <meta name="description" content="Danh mục sản phẩm tại Shop Huy Vân" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/assets/header-shop.css">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Quản lý Danh mục</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js?v=27"></script>
+  <script src="./sidebar-layout.js"></script>
+  <style>
+    .category-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+
+    .category-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .category-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .category-slug {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .category-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: #6b7280;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+
+    .drag-handle {
+      cursor: move;
+      color: #9ca3af;
+      margin-right: 8px;
+    }
+
+    .category-level-1 {
+      margin-left: 0;
+    }
+
+    .category-level-2 {
+      margin-left: 24px;
+      border-left: 2px solid #e5e7eb;
+      padding-left: 12px;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .category-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .category-actions {
+        width: 100%;
+      }
+
+      .category-actions button {
+        flex: 1;
+      }
+
+      .modal-content {
+        width: 95%;
+        margin: 10px;
+      }
+
+      .modal-footer {
+        flex-direction: column-reverse;
+      }
+
+      .modal-footer button {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
-<body class="bg-slate-50">
+<body>
 
-<header class="header-shop">
-  <div class="top">
-    <button id="menuBtn" class="icon-btn" aria-label="Menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
-    </button>
-
-    <a href="/" class="logo">
-      <img src="/public/logo.png" alt="Logo">
-      <div>
-        <div class="brand">SHOP HUY VÂN</div>
-        <div class="sub">Mua Bán Giá Sỉ</div>
-      </div>
-    </a>
-
-    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 8px;">
-      <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-      </a>
-    </div>
-
-    <a href="/cart.html" class="cart" id="header-cart-btn" aria-label="Giỏ hàng">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="9" cy="20" r="1"></circle>
-        <circle cx="16" cy="20" r="1"></circle>
-        <path d="M3 3h2l.4 2M7 13h10l3-8H6.4"></path>
-      </svg>
-      <span id="cart-badge" class="badge">0</span>
-    </a>
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <h2 style="margin: 0;">📁 Quản lý Danh mục</h2>
+    <button id="btn-create-category" class="btn primary">➕ Thêm danh mục</button>
   </div>
 
-  <div class="searchbar">
-    <div class="wrap">
-      <button class="all" id="catBtn" data-cat-menu="1">ALL
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px">
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
-      <input id="shv-search" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
-      <button class="go" id="searchGo" aria-label="Tìm kiếm">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <path d="M21 21l-3.5-3.5"></path>
-        </svg>
-      </button>
+  <div style="margin-bottom: 20px;">
+    <input 
+      id="search-input" 
+      class="input" 
+      placeholder="🔍 Tìm kiếm danh mục..." 
+      style="width: 100%;"
+    />
+  </div>
+
+  <div id="categories-list">
+    <div style="text-align: center; padding: 40px; color: #6b7280;">
+      Đang tải danh mục...
     </div>
   </div>
-</header>
-
-<div id="shv-sidebar" aria-hidden="true">
-  <div class="mask"></div>
-  <aside class="panel">
-    <div class="title">Menu</div>
-    <div id="sidebar-auth">
-      <a href="/login.html" class="item">🔐 Đăng nhập</a>
-      <a href="/register.html" class="item">✏️ Đăng ký</a>
-    </div>
-    <a href="/" class="item">🏠 Trang chủ</a>
-    <a href="/guide.html" class="item">📘 Hướng dẫn</a>
-    <a href="/policy.html" class="item">📜 Chính sách</a>
-    <a href="/about.html" class="item">🏪 Thông tin shop</a>
-  </aside>
 </div>
 
-<div class="max-w-6xl mx-auto px-4 py-3">
-  <nav class="text-sm text-gray-600">
-    <a href="/" class="hover:text-blue-600">Trang chủ</a>
-    <span class="mx-2">/</span>
-    <span class="text-gray-900 font-medium" id="breadcrumb-cat">Đang tải...</span>
-  </nav>
-</div>
-
-<section class="max-w-6xl mx-auto px-4 mb-6">
-  <div class="relative rounded-2xl overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 h-40">
-    <div class="absolute inset-0 flex items-center justify-start px-8">
-      <div class="text-white">
-        <h1 id="cat-title" class="text-3xl font-bold mb-2">Danh mục</h1>
-        <p id="cat-subtitle" class="text-lg opacity-90">Gợi ý sản phẩm phù hợp nhu cầu của bạn.</p>
+<!-- Modal Create/Edit -->
+<div id="modal-category" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Thêm danh mục mới</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="category-id" />
+      
+      <div class="form-group">
+        <label>Tên danh mục *</label>
+        <input id="category-name" class="input" placeholder="VD: Thiết bị điện" required />
+      </div>
+      
+      <div class="form-group">
+        <label>Slug (URL) *</label>
+        <input id="category-slug" class="input" placeholder="VD: thiet-bi-dien" required />
+        <small style="color: #6b7280;">Chỉ chữ thường, số và dấu gạch ngang</small>
+      </div>
+      
+      <div class="form-group">
+        <label>Danh mục cha</label>
+        <select id="category-parent" class="input">
+          <option value="">-- Không có (Danh mục gốc) --</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Thứ tự hiển thị</label>
+        <input id="category-order" class="input" type="number" value="0" min="0" />
+      </div>
+      
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea id="category-description" class="input" rows="3" placeholder="Mô tả ngắn về danh mục"></textarea>
       </div>
     </div>
-  </div>
-</section>
-
-<section class="max-w-6xl mx-auto px-4 pb-10">
-  <div class="flex items-center justify-between mb-4">
-    <div class="text-sm text-gray-600">
-      Tìm thấy <span id="total-products" class="font-semibold text-gray-900">0</span> sản phẩm
-    </div>
-    <select id="sort-select" class="border rounded-lg px-3 py-2 text-sm">
-      <option value="default">Phổ biến</option>
-      <option value="new">Mới nhất</option>
-      <option value="price-asc">Giá tăng dần</option>
-      <option value="price-desc">Giá giảm dần</option>
-    </select>
-  </div>
-  <div id="products-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
-</section>
-
-<footer class="border-t bg-white mt-10">
-  <div class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-4 text-sm">
-    <div>
-      <div class="font-semibold">Shop Huy Vân</div>
-      <div>Địa chỉ: 91/6 Liên Khu 5-11-12, P. Bình Trị Đông, TP.HCM</div>
-      <div>Điện thoại: 0933 190 000 (lẻ) · 0909 128 999 (sỉ)</div>
-    </div>
-    <div>
-      <div class="font-semibold">Chính sách</div>
-      <ul class="list-disc ml-5">
-        <li>Đổi trả trong vòng 14 ngày</li>
-        <li>Cam kết Chất Lượng Sản Phẩm</li>
-        <li>Miễn Phí Ship Từ 150K</li>
-      </ul>
-    </div>
-    <div>
-      <div class="font-semibold">Bản đồ</div>
-      <iframe class="w-full h-40 border rounded" loading="lazy" src="https://www.google.com/maps?q=91/6%20Li%C3%AAn%20Khu%205-11-12%2C%20B%C3%ACnh%20Tr%E1%BB%8B%20%C4%90%C3%B4ng&output=embed"></iframe>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Hủy</button>
+      <button id="btn-save-category" class="btn primary">💾 Lưu</button>
     </div>
   </div>
-</footer>
-
-<script type="module" src="/src/cat-menu.js?v=36"></script>
+</div>
 
 <script>
-(function() {
-  const $ = function(s, r) { return (r || document).querySelector(s); };
-  const fmt = function(n) { return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; };
-  const IMG_FALLBACK = '/public/logo.png';
-  
-  const params = new URLSearchParams(window.location.search);
-  const slug = params.get("c") || params.get("category") || "";
-  
-  const catName = decodeURIComponent(slug || 'Danh mục')
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, function(m) { return m.toUpperCase(); });
-  
-  const h1 = $('#shv-h1');
-  const leaf = $('#shv-bc-leaf');
-  if (h1) h1.textContent = catName;
-  if (leaf) leaf.textContent = catName;
-  
-  const PAGE_SIZE = 40;
+if (window.Admin && typeof Admin.ensureAuth === 'function') {
+  Admin.ensureAuth();
+}
 
-  async function loadProducts() {
+if (window.AdminLayout && typeof AdminLayout.init === 'function') {
+  AdminLayout.init('Quản lý Danh mục');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Categories] Initializing...');
+
+  const $ = (id) => document.getElementById(id);
+  let allCategories = [];
+  let filteredCategories = [];
+
+  // Modal functions
+  window.openModal = function() {
+    $('modal-category').style.display = 'flex';
+  };
+
+  window.closeModal = function() {
+    $('modal-category').style.display = 'none';
+    
+    $('category-id').value = '';
+    $('category-name').value = '';
+    $('category-slug').value = '';
+    $('category-parent').value = '';
+    $('category-order').value = '0';
+    $('category-description').value = '';
+    $('modal-title').textContent = 'Thêm danh mục mới';
+  };
+
+  // Auto-generate slug
+  $('category-name').addEventListener('input', function(e) {
+    if (!$('category-id').value) {
+      const slug = e.target.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+      $('category-slug').value = slug;
+    }
+  });
+
+  // Load categories
+  async function loadCategories() {
+    console.log('[Categories] Loading...');
     try {
-      const url = 'https://shv-api.shophuyvan.workers.dev/public/products?category_slug=' + slug;
-      const r = await fetch(url);
-      const data = await r.json();
-      const all = data.items || [];
+      const r = await Admin.req('/admin/categories');
       
-      const totalEl = document.querySelector("#rs-total");
-      if (totalEl) totalEl.textContent = all.length;
+      console.log('[Categories] Response:', r);
       
-      const grid = document.querySelector("#rs-grid");
-      if (!grid) return;
+      allCategories = Array.isArray(r) ? r : (r.items || r.categories || []);
       
-      if (!all.length) {
-        grid.innerHTML = '<div class="p-4 text-gray-500">Không tìm thấy sản phẩm trong danh mục này.</div>';
+      if (allCategories.length === 0) {
+        $('categories-list').innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">Chưa có danh mục nào</div>';
         return;
       }
       
-      const tpl = function(p) {
-      const img = (p.images && p.images[0]) || IMG_FALLBACK;
-      const title = p.title || 'Sản phẩm';
-      const vs = Array.isArray(p.variants) ? p.variants : [];
-      const saleVals = vs.map(v => Number(v.price_sale ?? v.price ?? 0)).filter(n => n > 0);
-      const origVals = vs.map(v => Number(v.price || 0)).filter(n => n > 0);
-      const minSale = saleVals.length ? Math.min(...saleVals) : 0;
-      const minOrig = origVals.length ? Math.min(...origVals) : 0;
-      const sold = p.sold || 0;
-    
-      const priceHTML =
-        '<div class="flex items-baseline gap-2">' +
-          '<div class="text-red-600 font-semibold">' + fmt(minSale) + '</div>' +
-          (minOrig && minOrig > minSale
-            ? '<div class="text-gray-400 line-through text-xs">' + fmt(minOrig) + '</div>'
-            : '') +
-        '</div>';
-    
-      return '<a href="/product.html?id=' + p.id + '" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">' +
-        '<div class="relative aspect-[4/3] bg-gray-100">' +
-          '<img src="' + img + '" class="absolute inset-0 w-full h-full object-cover" alt="' + title + '" />' +
-        '</div>' +
-        '<div class="p-3">' +
-          '<h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">' + title + '</h3>' +
-          priceHTML +
-          '<div class="mt-1 text-xs text-gray-500">Đã bán ' + sold + '</div>' +
-        '</div>' +
-      '</a>';
-    };
-          
-      grid.innerHTML = all.slice(0, PAGE_SIZE).map(tpl).join("");
+      filteredCategories = [...allCategories];
+      renderCategories();
+      updateParentSelect();
       
+      console.log('[Categories] Loaded', allCategories.length, 'categories');
     } catch (e) {
-      console.error("Load products failed", e);
-      const grid = document.querySelector("#rs-grid");
-      if (grid) {
-        grid.innerHTML = '<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>';
-      }
+      console.error('[Categories] Load error:', e);
+      $('categories-list').innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Lỗi tải danh mục</div>';
     }
   }
-  
-  loadProducts();
-})();
+
+  // Render categories
+  function renderCategories() {
+    const list = $('categories-list');
+    list.innerHTML = '';
+    
+    if (filteredCategories.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">Không tìm thấy danh mục</div>';
+      return;
+    }
+    
+    // Sort by order
+    const sorted = [...filteredCategories].sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    // Render parent categories first
+    sorted.forEach(cat => {
+      if (!cat.parent && !cat.parent_id) {
+        list.appendChild(createCategoryCard(cat, 1));
+        
+        // Render children
+        sorted.forEach(child => {
+          if (child.parent === cat.id || child.parent_id === cat.id) {
+            list.appendChild(createCategoryCard(child, 2));
+          }
+        });
+      }
+    });
+  }
+
+  // Create category card
+  function createCategoryCard(cat, level) {
+    const div = document.createElement('div');
+    div.className = `category-card category-level-${level}`;
+    
+    div.innerHTML = `
+      <div class="category-header">
+        <div>
+          <div class="category-name">
+            <span class="drag-handle">☰</span>
+            ${level === 2 ? '└─ ' : ''}${cat.name || cat.title || 'Chưa có tên'}
+          </div>
+          <div class="category-slug">🔗 /${cat.slug || cat.id}</div>
+        </div>
+        <div class="category-actions">
+          <button class="btn btn-sm" onclick="editCategory('${cat.id || cat.slug}')">✏️ Sửa</button>
+          <button class="btn btn-sm danger" onclick="deleteCategory('${cat.id || cat.slug}', '${(cat.name || '').replace(/'/g, "\\'")}')">🗑️ Xóa</button>
+        </div>
+      </div>
+      ${cat.description ? `<div style="font-size:13px;color:#6b7280;margin-top:8px;">${cat.description}</div>` : ''}
+    `;
+    
+    return div;
+  }
+
+  // Update parent select
+  function updateParentSelect() {
+    const select = $('category-parent');
+    const currentId = $('category-id').value;
+    
+    select.innerHTML = '<option value="">-- Không có (Danh mục gốc) --</option>';
+    
+    allCategories
+      .filter(c => !c.parent && !c.parent_id && c.id !== currentId)
+      .forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id || cat.slug;
+        option.textContent = cat.name || cat.title;
+        select.appendChild(option);
+      });
+  }
+
+  // Search
+  $('search-input').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    
+    if (!term) {
+      filteredCategories = [...allCategories];
+    } else {
+      filteredCategories = allCategories.filter(cat => 
+        (cat.name || '').toLowerCase().includes(term) ||
+        (cat.slug || '').toLowerCase().includes(term) ||
+        (cat.description || '').toLowerCase().includes(term)
+      );
+    }
+    
+    renderCategories();
+  });
+
+  // Create
+  $('btn-create-category').onclick = () => {
+    openModal();
+  };
+
+  // Save
+  $('btn-save-category').onclick = async () => {
+    const id = $('category-id').value;
+    const name = $('category-name').value.trim();
+    const slug = $('category-slug').value.trim();
+    const parent = $('category-parent').value;
+    const order = parseInt($('category-order').value) || 0;
+    const description = $('category-description').value.trim();
+    
+    if (!name || !slug) {
+      alert('Vui lòng điền tên và slug');
+      return;
+    }
+    
+    try {
+      const body = { name, slug, order, description };
+      if (parent) body.parent = parent;
+      
+      const endpoint = id ? `/admin/categories/${id}` : '/admin/categories';
+      const method = id ? 'PUT' : 'POST';
+      
+      const r = await Admin.req(endpoint, { method, body });
+      
+      if (r && (r.ok || r.success)) {
+        Admin.toast(id ? 'Đã cập nhật danh mục' : 'Đã tạo danh mục mới');
+        closeModal();
+        loadCategories();
+      } else {
+        throw new Error(r.error || 'Lỗi lưu danh mục');
+      }
+    } catch (e) {
+      console.error('[Categories] Save error:', e);
+      alert(e.message || 'Lỗi lưu danh mục');
+    }
+  };
+
+  // Edit
+  window.editCategory = async function(id) {
+    try {
+      const cat = allCategories.find(c => c.id === id || c.slug === id);
+      if (!cat) throw new Error('Không tìm thấy danh mục');
+      
+      $('category-id').value = cat.id || cat.slug;
+      $('category-name').value = cat.name || cat.title || '';
+      $('category-slug').value = cat.slug || '';
+      $('category-parent').value = cat.parent || cat.parent_id || '';
+      $('category-order').value = cat.order || 0;
+      $('category-description').value = cat.description || '';
+      
+      $('modal-title').textContent = 'Sửa danh mục';
+      updateParentSelect();
+      openModal();
+    } catch (e) {
+      console.error('[Categories] Edit error:', e);
+      alert('Lỗi tải thông tin danh mục');
+    }
+  };
+
+  // Delete
+  window.deleteCategory = async function(id, name) {
+    if (!confirm(`Xóa danh mục "${name}"?\n\nHành động này không thể hoàn tác!`)) return;
+    
+    try {
+      const r = await Admin.req(`/admin/categories/${id}`, { method: 'DELETE' });
+      
+      if (r && (r.ok || r.success)) {
+        Admin.toast('Đã xóa danh mục');
+        loadCategories();
+      } else {
+        throw new Error(r.error || 'Lỗi xóa danh mục');
+      }
+    } catch (e) {
+      console.error('[Categories] Delete error:', e);
+      alert(e.message || 'Lỗi xóa danh mục');
+    }
+  };
+
+  // Init
+  loadCategories();
+});
 </script>
 </body>
 </html>
