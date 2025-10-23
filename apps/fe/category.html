@@ -60,7 +60,7 @@
 
         <article id="shv-seo" class="mt-8 lg:mt-12 bg-white border rounded-2xl p-4 lg:p-6 prose prose-sm lg:prose">
           <h2 class="text-xl lg:text-2xl font-bold mb-2" id="seo-title">Giới thiệu</h2>
-          <p id="seo-desc">Mô tả danh mục sẽ hiển thị ở đây.</p>
+          <p id="seo-desc">Sản phẩm đảm bảo an toàn, độ bền cao và giá cả cạnh tranh. Tìm mọi thứ bạn cần cho xây dựng và sửa chữa ngay tại đây!</p>
         </article>
       </section>
     </div>
@@ -82,6 +82,19 @@
     .replace(/\b\w/g, m => m.toUpperCase());
   $('#shv-h1').textContent = catName;
   $('#shv-bc-leaf').textContent = catName;
+  
+  // Lấy ảnh hero theo banner quản trị (nếu có)
+(async () => {
+  try {
+    const r = await fetch(`/banners?type=category_hero&slug=${encodeURIComponent(slug)}`);
+    const j = await r.json();
+    const img = j.items?.[0]?.image || j.items?.[0]?.url;
+    if (img) {
+      const hero = document.getElementById('shv-hero');
+      if (hero) hero.src = img;
+    }
+  } catch (e) { /* ignore */ }
+})();
 
   // 👉 Hàm load sản phẩm
 (async () => {

@@ -46,9 +46,20 @@ export async function handle(req, env, ctx) {
  */
 async function getPublicBanners(req, env) {
   try {
+    const url = new URL(req.url);
+    const qType = (url.searchParams.get('type') || '').trim();
+    const qSlug = (url.searchParams.get('slug') || url.searchParams.get('category_slug') || '').trim();
+
     const list = await getJSON(env, 'banners:list', []);
-    const active = list.filter(banner => banner.on !== false);
-    
+    let active = list.filter(b => b && b.on !== false);
+
+    if (qType) {
+      active = active.filter(b => (b.type || '').toLowerCase() === qType.toLowerCase());
+    }
+    if (qType === 'category_hero' && qSlug) {
+      active = active.filter(b => (b.category_slug || '').toLowerCase() === qSlug.toLowerCase());
+    }
+
     return json({ ok: true, items: active }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);

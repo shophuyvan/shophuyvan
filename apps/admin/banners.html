@@ -213,6 +213,19 @@
         <label>Thứ tự hiển thị</label>
         <input id="fe-pc-order" type="number" value="0" class="input"/>
       </div>
+      
+      <div class="form-group">
+        <label>Loại banner</label>
+        <select id="fe-pc-type" class="input">
+          <option value="fe_banner" selected>Banner thường (FE)</option>
+          <option value="category_hero">Category Hero</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Category Slug (dùng khi chọn Category Hero)</label>
+        <input id="fe-pc-cat" class="input" placeholder="ví dụ: thiet-bi-dien-nuoc"/>
+      </div>
 
       <div class="form-group">
         <label>Mô tả ảnh (ALT)</label>
@@ -263,6 +276,19 @@
       <div class="form-group">
         <label>Thứ tự hiển thị</label>
         <input id="fe-mobile-order" type="number" value="0" class="input"/>
+      </div>
+      
+      <div class="form-group">
+        <label>Loại banner</label>
+        <select id="fe-mobile-type" class="input">
+          <option value="fe_banner" selected>Banner thường (FE)</option>
+          <option value="category_hero">Category Hero</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Category Slug (dùng khi chọn Category Hero)</label>
+        <input id="fe-mobile-cat" class="input" placeholder="ví dụ: thiet-bi-dien-nuoc"/>
       </div>
 
       <div class="form-group">
@@ -553,6 +579,9 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
         }
         
+        const type = (document.getElementById(prefix + '-type')?.value || 'fe_banner');
+        const cat  = (document.getElementById(prefix + '-cat')?.value || '').trim();
+        
         const body = {
           image: image,
           pos: platform + '_' + device,
@@ -561,7 +590,9 @@ document.addEventListener('DOMContentLoaded', function() {
           order: order,
           alt: alt,
           link: link,
-          on: on
+          on: on,
+          type: type,
+          category_slug: (type === 'category_hero' ? cat : '')
         };
         
         try {
