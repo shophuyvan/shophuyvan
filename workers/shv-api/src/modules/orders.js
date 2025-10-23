@@ -114,7 +114,7 @@ async function adjustInventory(items, env, direction = -1) {
     if (!product) { console.warn('[INV-DEBUG] Product not found'); continue; }
 
     const delta = Number(it.qty || 1) * direction;
-
+    
     // -- B2: trừ tồn kho ở variant nếu có
     let touched = false;
     if (Array.isArray(product.variants) && variantId) {
@@ -130,18 +130,24 @@ async function adjustInventory(items, env, direction = -1) {
           (text2 && vname && text2.includes(vname))
         );
       });
-
+    
       if (v) {
         const before = readStock(v);
         const after  = before + delta;
         const keySet = writeStock(v, after);
         console.log('[INV-DEBUG] Variant updated', { key: keySet, before, after, variant: v.id || v.sku });
         touched = true;
+    
+        // ✅ Cập nhật sold cho biến thể (nếu muốn theo dõi ở variant)
+        const vSoldBefore = Number(v.sold || v.sold_count || 0);
+        const vSoldAfter  = Math.max(0, vSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
+        v.sold = vSoldAfter;
+        v.sold_count = vSoldAfter;
       } else {
         console.warn('[INV-DEBUG] Variant not found in product.variants');
       }
     }
-
+    
     // -- B3: nếu chưa chạm variant → trừ trên product-level
     if (!touched) {
       const before = readStock(product);
@@ -149,13 +155,19 @@ async function adjustInventory(items, env, direction = -1) {
       const keySet = writeStock(product, after);
       console.log('[INV-DEBUG] Product stock updated', { key: keySet, before, after, pid: product.id });
     }
-
+    
+    // ✅ Cập nhật sold cho product (đảm bảo FE lấy được)
+    const pSoldBefore = Number(product.sold || product.sold_count || 0);
+    const pSoldAfter  = Math.max(0, pSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
+    product.sold = pSoldAfter;
+    product.sold_count = pSoldAfter;
+    
     await putJSON(env, 'product:' + product.id, product);
-  }
+    } // end for (items)
 
   console.log('[INV-DEBUG] adjustInventory DONE');
 }
-
+    
 // ===================================================================
 // Router entry
 // ===================================================================
