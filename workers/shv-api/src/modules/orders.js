@@ -752,50 +752,45 @@ async function getStats(req, env) {
 
   return json({ ok: true, orders: orderCount, revenue, profit, top_products: topProducts, from, to, granularity }, {}, req);
 }
-  // ===================================================================
-  // PUBLIC: Get My Orders (Customer)
-  // ===================================================================
-  async function getMyOrders(req, env) {
-    const token = req.headers.get('x-token') || '';
-    
-    if (!token) {
-      return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
-    }
+
+// PUBLIC: Get My Orders (Customer)
+// ===================================================================
+async function getMyOrders(req, env) {
+  const token = req.headers.get('x-token') || '';
   
-    // Lấy thông tin customer từ token
-    const customer = await getJSON(env, 'token:' + token, null);
-    
-    if (!customer || !customer.phone) {
-      return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
-    }
-  
-    // Lấy tất cả đơn hàng
-    let allOrders = await getJSON(env, 'orders:list', []);
-    
-    // Enrich orders (lấy đầy đủ thông tin nếu thiếu)
-    const enriched = [];
-    for (const order of allOrders) {
-      if (!order.items) {
-        const full = await getJSON(env, 'order:' + order.id, null);
-        enriched.push(full || order);
-      } else {
-        enriched.push(order);
-      }
-    }
-    allOrders = enriched;
-  
-    // Lọc đơn hàng của customer (theo phone)
-    const myOrders = allOrders.filter(order => {
-      const orderPhone = order.customer?.phone || order.phone || '';
-      return orderPhone === customer.phone;
-    });
-  
-    // Sắp xếp theo thời gian (mới nhất lên đầu)
-    myOrders.sort((a, b) => {
-      const timeA = Number(a.createdAt || a.created_at || 0);
-      const timeB = Number(b.createdAt || b.created_at || 0);
-      return timeB - timeA;
-    });
-  
-    return json({ ok: true, orders: myOrders, count: myOrders.length }, {}, req);
+  if (!token) {
+    return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
   }
+
+  const customer = await getJSON(env, 'token:' + token, null);
+  
+  if (!customer || !customer.phone) {
+    return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+  }
+
+  let allOrders = await getJSON(env, 'orders:list', []);
+  
+  const enriched = [];
+  for (const order of allOrders) {
+    if (!order.items) {
+      const full = await getJSON(env, 'order:' + order.id, null);
+      enriched.push(full || order);
+    } else {
+      enriched.push(order);
+    }
+  }
+  allOrders = enriched;
+
+  const myOrders = allOrders.filter(order => {
+    const orderPhone = order.customer?.phone || order.phone || '';
+    return orderPhone === customer.phone;
+  });
+
+  myOrders.sort((a, b) => {
+    const timeA = Number(a.createdAt || a.created_at || 0);
+    const timeB = Number(b.createdAt || b.created_at || 0);
+    return timeB - timeA;
+  });
+
+  return json({ ok: true, orders: myOrders, count: myOrders.length }, {}, req);
+}
