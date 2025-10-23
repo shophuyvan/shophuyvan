@@ -805,72 +805,83 @@ if (!token) {
 }
 
   // ===== Resolve customer từ token trên KV =====
-  async function kvGet(k) {
-    try { return await getJSON(env, k, null); } catch (_) { return null; }
-  }
+async function kvGet(k) {
+  try { return await getJSON(env, k, null); } catch (_) { return null; }
+}
 
-  // 1) Thử nhiều khoá phổ biến
-  const keyCandidates = [
-    'token:' + token,
-    'customer_token:' + token,
-    'auth:' + token,
-    'customer:' + token,   // có thể lưu thẳng object customer
-    'session:' + token,    // { customer: {...} } hoặc { user: {...} }
-    'shv_session:' + token // biến thể session khác
+// 1) Thử nhiều khoá phổ biến với token gốc
+const tryKeys = async (tok) => {
+  const keys = [
+    'token:' + tok,
+    'customer_token:' + tok,
+    'auth:' + tok,
+    'customer:' + tok,   // có thể lưu thẳng object customer
+    'session:' + tok,    // { customer: {...} } hoặc { user: {...} }
+    'shv_session:' + tok // biến thể session khác
   ];
 
-  let customer = null;
-  let raw = null;
-
-  for (const k of keyCandidates) {
-    raw = await kvGet(k);
-    if (!raw) continue;
+  for (const k of keys) {
+    const val = await kvGet(k);
+    if (!val) continue;
 
     // session → lấy đối tượng customer/user bên trong
-    if (k.includes('session:') && (raw.customer || raw.user)) {
-      customer = raw.customer || raw.user;
-      break;
+    if (k.includes('session:') && (val.customer || val.user)) {
+      return val.customer || val.user;
     }
 
     // Nếu KV đã trả thẳng object customer
-    if (typeof raw === 'object' && raw !== null) {
-      customer = raw;
-      break;
+    if (typeof val === 'object' && val !== null) {
+      return val;
     }
 
     // Nếu KV trả chuỗi (id/phone) → tra tiếp theo id
-    if (typeof raw === 'string') {
-      const cid = String(raw).trim();
-      customer = await (kvGet('customer:' + cid) || kvGet('customer:id:' + cid));
-      if (customer) break;
+    if (typeof val === 'string') {
+      const cid = String(val).trim();
+      const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+      if (obj) return obj;
     }
 
     // Nếu object có customer_id / customerId → tra tiếp
-    if (raw && (raw.customer_id || raw.customerId)) {
-      const cid = raw.customer_id || raw.customerId;
-      customer = await (kvGet('customer:' + cid) || kvGet('customer:id:' + cid));
-      if (customer) break;
+    if (val && (val.customer_id || val.customerId)) {
+      const cid = val.customer_id || val.customerId;
+      const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+      if (obj) return obj;
     }
   }
+  return null;
+};
 
-  // 2) Fallback: token có thể là JWT → decode lấy id
-  if (!customer && token.split('.').length === 3) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const cid = payload.customer_id || payload.customerId || payload.sub || payload.id || '';
-      if (cid) {
-        customer = await (kvGet('customer:' + cid) || kvGet('customer:id:' + cid));
-      }
-    } catch (_) {}
-  }
+let customer = await tryKeys(token);
 
-  // 3) Kiểm tra hợp lệ: chấp nhận nếu có phone **hoặc** có id
-  const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
-  const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
+// 2) Nếu chưa ra, thử token đã giải mã base64 (FE đang gửi "Y3VzdF8..." = "cust_...")
+if (!customer) {
+  try {
+    const b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(b64);
+    if (decoded && decoded !== token) {
+      customer = await tryKeys(decoded);
+    }
+  } catch (_) {}
+}
 
-  if (!customer || (!custPhone && !custId)) {
-    return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
-  }
+// 3) Fallback: token có thể là JWT → decode lấy id rồi tra
+if (!customer && token.split('.').length === 3) {
+  try {
+    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const cid = p.customer_id || p.customerId || p.sub || p.id || '';
+    if (cid) {
+      customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+    }
+  } catch (_) {}
+}
+
+// 4) Kiểm tra hợp lệ: chấp nhận nếu có phone **hoặc** có id
+const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
+const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
+
+if (!customer || (!custPhone && !custId)) {
+  return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+}
   // ===== /Resolve customer =====
 
   let allOrders = await getJSON(env, 'orders:list', []);
