@@ -218,7 +218,42 @@ async function createOrder(req, env) {
   const createdAt = Date.now();
 
   // Build totals
+  // ✅ ENRICH ITEMS WITH COST
   const items = Array.isArray(body.items) ? body.items : [];
+  
+  for (const item of items) {
+    if (!item.cost || item.cost === 0) {
+      const variantId = item.id || item.sku;
+      if (variantId) {
+        console.log('[ORDER] Looking for cost:', variantId);
+        const allProducts = await getJSON(env, 'products:list', []);
+        
+        for (const summary of allProducts) {
+          const product = await getJSON(env, 'product:' + summary.id, null);
+          if (!product || !Array.isArray(product.variants)) continue;
+          
+          const variant = product.variants.find(v => 
+            String(v.id || v.sku || '') === String(variantId) ||
+            String(v.sku || '') === String(item.sku || '')
+          );
+          
+          if (variant) {
+            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+            for (const key of keys) {
+              if (variant[key] != null) {
+                item.cost = Number(variant[key] || 0);
+                console.log('[ORDER] ✅ Found cost:', { id: variantId, cost: item.cost });
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Build totals
   const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
   );
@@ -269,7 +304,40 @@ async function createOrderPublic(req, env) {
   const createdAt = body.createdAt || body.created_at || Date.now();
   const status = body.status || 'pending';
   const customer = body.customer || {};
+  // ✅ ENRICH ITEMS WITH COST
   const items = Array.isArray(body.items) ? body.items : [];
+  
+  for (const item of items) {
+    if (!item.cost || item.cost === 0) {
+      const variantId = item.id || item.sku;
+      if (variantId) {
+        console.log('[ORDER-PUBLIC] Looking for cost:', variantId);
+        const allProducts = await getJSON(env, 'products:list', []);
+        
+        for (const summary of allProducts) {
+          const product = await getJSON(env, 'product:' + summary.id, null);
+          if (!product || !Array.isArray(product.variants)) continue;
+          
+          const variant = product.variants.find(v => 
+            String(v.id || v.sku || '') === String(variantId) ||
+            String(v.sku || '') === String(item.sku || '')
+          );
+          
+          if (variant) {
+            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+            for (const key of keys) {
+              if (variant[key] != null) {
+                item.cost = Number(variant[key] || 0);
+                console.log('[ORDER-PUBLIC] ✅ Found cost:', { id: variantId, cost: item.cost });
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
 
   const totals = body.totals || {};
   const shipping_fee = Number(body.shipping_fee ?? totals.ship ?? totals.shipping_fee ?? 0);
@@ -318,7 +386,41 @@ async function createOrderLegacy(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
+  // ✅ ENRICH ITEMS WITH COST
   const items = Array.isArray(body.items) ? body.items : [];
+  
+  for (const item of items) {
+    if (!item.cost || item.cost === 0) {
+      const variantId = item.id || item.sku;
+      if (variantId) {
+        console.log('[ORDER-LEGACY] Looking for cost:', variantId);
+        const allProducts = await getJSON(env, 'products:list', []);
+        
+        for (const summary of allProducts) {
+          const product = await getJSON(env, 'product:' + summary.id, null);
+          if (!product || !Array.isArray(product.variants)) continue;
+          
+          const variant = product.variants.find(v => 
+            String(v.id || v.sku || '') === String(variantId) ||
+            String(v.sku || '') === String(item.sku || '')
+          );
+          
+          if (variant) {
+            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+            for (const key of keys) {
+              if (variant[key] != null) {
+                item.cost = Number(variant[key] || 0);
+                console.log('[ORDER-LEGACY] ✅ Found cost:', { id: variantId, cost: item.cost });
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+  
   const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
 
   const subtotal = items.reduce((sum, item) =>
