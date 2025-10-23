@@ -710,24 +710,6 @@ async function getStats(req, env) {
     console.log('[STATS] ❌ Cost not found for:', variantId);
     return 0;
   }
-    const variantId = item && (item.id || item.sku);
-    if (!variantId) return 0;
-
-    const all = await getJSON(env, 'products:list', []);
-    for (const s of all) {
-      const p = await getJSON(env, 'product:' + s.id, null);
-      if (!p || !Array.isArray(p.variants)) continue;
-      const v = p.variants.find(v =>
-        String(v.id || v.sku || '') === String(variantId) ||
-        String(v.sku || '') === String(item.sku || '')
-      );
-      if (v) {
-        const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-        for (const k of keys) if (v[k] != null) return Number(v[k] || 0);
-      }
-    }
-    return 0;
-  }
 
   let orderCount = 0;
   let revenue = 0;
