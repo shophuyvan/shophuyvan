@@ -140,6 +140,11 @@ class StatsManager {
     const toTime = new Date(toDate + 'T23:59:59+07:00').getTime();
     
     console.log('[Stats] Date range:', { fromTime, toTime });
+	// Helper chuẩn hóa số tiền — ĐƯA LÊN TRƯỚC KHI buildCostMap DÙNG
+const toNum = (x) => {
+  if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
+  return Number(x || 0);
+};
 // ==== Fallback cost map from Products (product/variant import_price) ====
 // Dùng helper toNum đã có sẵn trong file, KHÔNG khai báo thêm ở đây.
 
@@ -220,10 +225,6 @@ const COST_MAP = await buildCostMap();
     });
     
     console.log('[Stats] Filtered orders:', orders.length);
-
-    const toNum = (x) => typeof x === 'string'
-      ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
-      : (Number(x || 0));
 
     // Tính platform stats
     let totalOrders = orders.length;
