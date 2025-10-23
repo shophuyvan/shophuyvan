@@ -239,30 +239,34 @@ class StatsManager {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
     
-    // Tổng theo platform (đảm bảo luôn dựa trên items.variant cost)
-    const totalRevenue =
-      (platformStats['Website']?.revenue || 0) +
-      (platformStats['Zalo MiniApp']?.revenue || 0);
-    
-    const totalCost =
-      (platformStats['Website']?.cost_price || 0) +
-      (platformStats['Zalo MiniApp']?.cost_price || 0);
-    
-    this.statsData = {
+    // Tổng theo platform
+const web  = platformStats['Website']     || { orders: 0, revenue: 0, cost_price: 0 };
+const mini = platformStats['Zalo MiniApp'] || { orders: 0, revenue: 0, cost_price: 0 };
+
+// Dùng cost từ backend (đã tính theo variants)
+const backendCost = Number(
+  backendStats?.cost_price ?? backendStats?.goods_cost ?? 0
+);
+
+this.statsData = {
   orders: totalOrders,
   cancels: cancelOrders,
   returns: returnOrders,
   confirmed: confirmedOrders,
 
-  revenue: backendStats.revenue || 0,
-  // lấy trực tiếp từ backend, fallback qua alias goods_cost
-  cost_price: Number(backendStats.cost_price ?? backendStats.goods_cost ?? 0),
+  // Doanh thu = tổng revenue của 2 platform
+  revenue: (web.revenue + mini.revenue),
 
+  // Giá nhập = số backend đã tính từ variants
+  cost_price: backendCost,
+
+  // Bảng nền tảng: giữ cost theo items đã cộng ở trên
   platforms: [
-    { name: 'Website',    ...platformStats['Website'],    color: '#1976d2' },
-    { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
+    { name: 'Website',     orders: web.orders,  revenue: web.revenue,  cost_price: web.cost_price,  color: '#3b82f6' },
+    { name: 'Zalo MiniApp', orders: mini.orders, revenue: mini.revenue, cost_price: mini.cost_price, color: '#7c3aed' }
   ],
 
+  // Top sản phẩm đã gom ở trên
   top_products: topProducts
 };
     

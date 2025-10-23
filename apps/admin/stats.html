@@ -427,10 +427,21 @@
   }
 }
 </style>
-</head>
-<script src="./admin_real.js"></script>
+<script src="./admin_real.js?v=27"></script>
 <script src="./sidebar-layout.js"></script>
 <script src="./stats-manager.js"></script>
+<script src="./stats.js"></script>
+<script>
+  // Chặn khi chưa có token để tránh trắng trang
+  if (window.Admin && typeof Admin.ensureAuth === 'function') {
+    Admin.ensureAuth();
+  }
+  // Khởi tạo layout để hiện sidebar + topbar
+  if (window.AdminLayout && typeof AdminLayout.init === 'function') {
+    AdminLayout.init('Thống Kê');
+  }
+</script>
+</head>
 <body>
 
 <!-- Date Filter -->
