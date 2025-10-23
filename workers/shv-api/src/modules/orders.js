@@ -886,16 +886,16 @@ if (!token) {
   }
   allOrders = enriched;
 
-  const custPhone = customer.phone || customer.mobile || customer.tel || null;
-  const custId    = customer.id || customer.customer_id || customer.customerId || null;
+  const pPhone = customer.phone || customer.mobile || customer.tel || null;
+  const pId    = customer.id || customer.customer_id || customer.customerId || null;
 
   const myOrders = allOrders.filter(order => {
     const oc = order.customer || {};
     const orderPhone = oc.phone || order.phone || null;
     const orderId    = oc.id || oc.customer_id || null;
 
-    return (custPhone && orderPhone && String(orderPhone) === String(custPhone))
-        || (custId && orderId && String(orderId) === String(custId));
+    return (pPhone && orderPhone && String(orderPhone) === String(pPhone))
+    || (pId && orderId && String(orderId) === String(pId));
   });
 
   myOrders.sort((a, b) => {
