@@ -1,8 +1,10 @@
 // workers/shv-api/src/lib/response.js
 export function corsHeaders(req) {
   const origin = req.headers.get('Origin') || '*';
-  const reqHdr = req.headers.get('Access-Control-Request-Headers') || 
-                 'authorization,content-type,x-token,x-customer-token,x-requested-with';
+  const reqHdr = req.headers.get('Access-Control-Request-Headers') ||
+  'authorization,content-type,x-token,x-customer-token,x-requested-with';
+
+  'Access-Control-Expose-Headers': 'x-token,x-customer-token',
   
   return {
     'Access-Control-Allow-Origin': origin,

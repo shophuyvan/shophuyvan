@@ -772,24 +772,63 @@ async function getStats(req, env) {
 // PUBLIC: Get My Orders (Customer)
 // ===================================================================
 async function getMyOrders(req, env) {
-  // Ưu tiên x-customer-token; fallback x-token; fallback Authorization: Bearer
+ // Lấy token từ nhiều nguồn: header + Authorization + Cookie
+function parseCookie(str) {
+  const out = {};
+  (str || '').split(';').forEach(p => {
+    const i = p.indexOf('=');
+    if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+  });
+  return out;
+}
+
+// 1) header ưu tiên x-customer-token, rồi x-token
 let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
 
+// 2) Authorization: Bearer ...
 if (!token) {
-  const auth = req.headers.get('authorization') || '';
-  const m = auth.match(/^Bearer\s+(.+)$/i);
+  const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
   if (m) token = m[1];
 }
+
+// 3) Cookie: customer_token / x-customer-token / token
+if (!token) {
+  const c = parseCookie(req.headers.get('cookie') || '');
+  token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
+}
+
+// Chuẩn hoá token
+token = String(token || '').trim().replace(/^"+|"+$/g, '');
 
 if (!token) {
   return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
 }
 
-  const customer = await getJSON(env, 'token:' + token, null);
-  
-  if (!customer || !customer.phone) {
-    return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+  // Thử nhiều khoá KV để map token -> customer
+const keyCandidates = [
+  'token:' + token,
+  'customer_token:' + token,
+  'customer:' + token,
+  'auth:' + token,
+  'session:' + token, // fallback: có thể chứa { customer: {...} }
+];
+
+let customer = null;
+for (const k of keyCandidates) {
+  const val = await getJSON(env, k, null);
+  if (!val) continue;
+
+  if (k.startsWith('session:') && val && (val.customer || val.user)) {
+    customer = val.customer || val.user;
+    break;
   }
+  customer = val;
+  break;
+}
+
+if (!customer || !customer.phone) {
+  return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+}
 
   let allOrders = await getJSON(env, 'orders:list', []);
   
