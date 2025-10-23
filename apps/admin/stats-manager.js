@@ -249,18 +249,22 @@ class StatsManager {
       (platformStats['Zalo MiniApp']?.cost_price || 0);
     
     this.statsData = {
-      orders: totalOrders,
-      cancels: cancelOrders,
-      returns: returnOrders,
-      confirmed: confirmedOrders,
-      revenue: totalRevenue,
-      cost_price: totalCost,
-      platforms: [
-        { name: 'Website', ...platformStats['Website'], color: '#1976d2' },
-        { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
-      ],
-      top_products: topProducts
-    };
+  orders: totalOrders,
+  cancels: cancelOrders,
+  returns: returnOrders,
+  confirmed: confirmedOrders,
+
+  revenue: backendStats.revenue || 0,
+  // lấy trực tiếp từ backend, fallback qua alias goods_cost
+  cost_price: Number(backendStats.cost_price ?? backendStats.goods_cost ?? 0),
+
+  platforms: [
+    { name: 'Website',    ...platformStats['Website'],    color: '#1976d2' },
+    { name: 'Zalo MiniApp', ...platformStats['Zalo MiniApp'], color: '#7b1fa2' }
+  ],
+
+  top_products: topProducts
+};
     
     console.log('[Stats] Final stats data:', this.statsData);
     

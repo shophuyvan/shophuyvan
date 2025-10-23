@@ -750,7 +750,16 @@ async function getStats(req, env) {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 20);
 
-  return json({ ok: true, orders: orderCount, revenue, profit, top_products: topProducts, from, to, granularity }, {}, req);
+  return json({
+  ok: true,
+  orders: orderCount,
+  revenue,
+  profit,
+  cost_price: goodsCost,   // << thêm
+  goods_cost: goodsCost,   // << thêm (alias)
+  top_products: topProducts,
+  from, to, granularity
+}, {}, req);
 }
 
 // PUBLIC: Get My Orders (Customer)
