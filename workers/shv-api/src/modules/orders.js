@@ -812,6 +812,10 @@ async function kvGet(k) {
 // 1) Thử nhiều khoá phổ biến với token gốc
 const tryKeys = async (tok) => {
   const keys = [
+    // 🔹 KHÔNG prefix — đề phòng KV lưu thẳng theo token (ví dụ: "cust_abc")
+    tok,
+    'cust:' + tok,
+    'customerToken:' + tok,
     'token:' + tok,
     'customer_token:' + tok,
     'auth:' + tok,
@@ -853,13 +857,24 @@ const tryKeys = async (tok) => {
 
 let customer = await tryKeys(token);
 
-// 2) Nếu chưa ra, thử token đã giải mã base64 (FE đang gửi "Y3VzdF8..." = "cust_...")
+// 2) Nếu chưa ra, thử token đã giải mã base64 (FE gửi "Y3VzdF8..." = "cust_...")
 if (!customer) {
   try {
-    const b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-    const decoded = atob(b64);
+    let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    // Bổ sung padding để độ dài %4 == 0 (atob yêu cầu)
+    while (b64.length % 4) b64 += '=';
+
+    const decoded = atob(b64);   // ví dụ: "cust_1761008058371_gtrlglo"
     if (decoded && decoded !== token) {
+      // Thử lại theo nhóm key chuẩn
       customer = await tryKeys(decoded);
+
+      // Thử trực tiếp key 'customer:<decoded>' như KV đang lưu
+      if (!customer) {
+        customer =
+          (await kvGet('customer:' + decoded)) ||
+          (await kvGet('customer:id:' + decoded));
+      }
     }
   } catch (_) {}
 }
