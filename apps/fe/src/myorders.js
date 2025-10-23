@@ -170,12 +170,16 @@ async function loadOrders() {
   showLoading();
   
   try {
-    const token = localStorage.getItem('x-token') || '';
-    
-    if (!token) {
-      showError('Vui lòng đăng nhập để xem đơn hàng');
-      return;
-    }
+    const token =
+  localStorage.getItem('x-customer-token') ||
+  localStorage.getItem('customer_token')   ||
+  localStorage.getItem('x-token')          ||
+  '';
+
+if (!token) {
+  showError('Vui lòng đăng nhập để xem đơn hàng');
+  return;
+}
     
     // Thử nhiều endpoint
     const endpoints = [

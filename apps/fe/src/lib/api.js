@@ -1,4 +1,4 @@
-
+// apps/fe/src/lib/api.js
 // FE shared API helper (v24) - default export + get/post, x-token, timeout/retry
 function withTimeout(promise, ms=10000){
   return new Promise((resolve, reject)=>{
@@ -12,8 +12,16 @@ async function core(path, init = {}) {
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const headers = new Headers(init.headers || {});
-  const token = (localStorage && localStorage.getItem('x-token')) || '';
-  if (token && !headers.has('x-token')) headers.set('x-token', token);
+  const token = (localStorage && (
+  localStorage.getItem('x-customer-token') ||
+  localStorage.getItem('customer_token')   ||
+  localStorage.getItem('x-token')
+)) || '';
+
+if (token) {
+  if (!headers.has('x-customer-token')) headers.set('x-customer-token', token);
+  if (!headers.has('Authorization'))     headers.set('Authorization', 'Bearer ' + token); // fallback
+}
 
   let body = init.body;
   const isFd = (typeof FormData !== 'undefined') && body instanceof FormData;
@@ -21,7 +29,7 @@ async function core(path, init = {}) {
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     body = JSON.stringify(body);
   }
-  const req = fetch(url, { method: init.method || 'GET', headers, body });
+  const req = fetch(url, { method: init.method || 'GET', headers, body, credentials: 'include' });
   const res = await withTimeout(req, init.timeout || 10000);
   if (res.status >= 500 && (init._retried!==true)) {
     return await core(path, { ...init, _retried:true });
