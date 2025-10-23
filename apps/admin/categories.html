@@ -165,8 +165,8 @@
     ? decodeURIComponent(slug).replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
     : 'Tất cả sản phẩm';
   
-  $('#breadcrumb-cat').textContent = catName;
-  $('#cat-title').textContent = catName;
+  if ($('#breadcrumb-cat')) $('#breadcrumb-cat').textContent = catName;
+  if ($('#cat-title')) $('#cat-title').textContent = catName;
 
   // Load sản phẩm
   async function loadProducts() {
@@ -180,25 +180,25 @@
       const products = data.items || [];
 
       // Cập nhật số lượng
-      $('#total-products').textContent = products.length;
+      if ($('#total-products')) $('#total-products').textContent = products.length;
 
       // Render sản phẩm
+      const grid = $('#products-grid');
+      if (!grid) return;
+
       if (products.length === 0) {
-        $('#products-grid').innerHTML = `
-          <div class="col-span-full text-center py-10 text-gray-500">
-            Không tìm thấy sản phẩm trong danh mục này
-          </div>`;
+        grid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">Không tìm thấy sản phẩm trong danh mục này</div>';
         return;
       }
 
-      $('#products-grid').innerHTML = products.map(renderProductCard).join('');
+      grid.innerHTML = products.map(renderProductCard).join('');
 
     } catch (error) {
       console.error('Load products error:', error);
-      $('#products-grid').innerHTML = `
-        <div class="col-span-full text-center py-10 text-red-500">
-          Không thể tải sản phẩm. Vui lòng thử lại sau.
-        </div>`;
+      const grid = $('#products-grid');
+      if (grid) {
+        grid.innerHTML = '<div class="col-span-full text-center py-10 text-red-500">Không thể tải sản phẩm. Vui lòng thử lại sau.</div>';
+      }
     }
   }
 
@@ -214,7 +214,7 @@
         <div class="relative aspect-square bg-gray-100">
           <img src="${p.images?.[0] || IMG_FALLBACK}" 
                class="absolute inset-0 w-full h-full object-cover" 
-               alt="${p.title}"
+               alt="${p.title || 'Sản phẩm'}"
                loading="lazy"
                onerror="this.src='${IMG_FALLBACK}'"/>
         </div>
@@ -231,10 +231,12 @@
   }
 
   // Xử lý sort
-  $('#sort-select')?.addEventListener('change', function(e) {
-    // TODO: Implement sorting
-    console.log('Sort by:', e.target.value);
-  });
+  const sortSelect = $('#sort-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', function(e) {
+      console.log('Sort by:', e.target.value);
+    });
+  }
 
   // Init
   loadProducts();
@@ -247,17 +249,23 @@
       sidebar.style.display = 'block';
       sidebar.classList.add('open');
     });
-    sidebar.querySelector('.mask')?.addEventListener('click', () => {
-      sidebar.classList.remove('open');
-      setTimeout(() => sidebar.style.display = 'none', 300);
-    });
+    const mask = sidebar.querySelector('.mask');
+    if (mask) {
+      mask.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        setTimeout(() => { sidebar.style.display = 'none'; }, 300);
+      });
+    }
   }
 
   // Xử lý cart button
-  $('#header-cart-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.location.href = '/cart.html';
-  });
+  const cartBtn = $('#header-cart-btn');
+  if (cartBtn) {
+    cartBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = '/cart.html';
+    });
+  }
 
 })();
 </script>
