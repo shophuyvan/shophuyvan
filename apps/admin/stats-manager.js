@@ -140,6 +140,71 @@ class StatsManager {
     const toTime = new Date(toDate + 'T23:59:59+07:00').getTime();
     
     console.log('[Stats] Date range:', { fromTime, toTime });
+	// ==== Fallback cost map from Products (product/variant import_price) ====
+const toNum = (x) => typeof x === 'string'
+  ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+  : (Number(x || 0));
+
+const buildCostMap = async () => {
+  const plist = await Admin.tryPaths([
+    '/admin/products',
+    '/admin/product/list',
+    '/admin/products/list'
+  ]);
+  const prows = plist?.items || plist?.data || plist?.products || plist?.rows || plist?.list || [];
+  const costMap = Object.create(null);
+
+  const fetchDetail = async (id) => {
+    try {
+      const detail = await Admin.tryPaths([
+        `/admin/products/get?id=${encodeURIComponent(id)}`,
+        `/admin/product/get?id=${encodeURIComponent(id)}`,
+        `/admin/products/detail?id=${encodeURIComponent(id)}`,
+        `/admin/product/detail?id=${encodeURIComponent(id)}`,
+        `/admin/product?id=${encodeURIComponent(id)}`
+      ]);
+      return detail?.item || detail?.data || detail || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // duyệt danh sách sản phẩm -> lấy biến thể và đẩy vào costMap
+  for (const it of prows) {
+    const pid = it?.id || it?._id;
+    if (!pid) continue;
+
+    const p = await fetchDetail(pid);
+    if (!p) continue;
+
+    const variants = Array.isArray(p.variants) ? p.variants
+                  : Array.isArray(p.options)  ? p.options
+                  : Array.isArray(p.skus)     ? p.skus
+                  : [];
+
+    if (variants.length) {
+      for (const v of variants) {
+        const vid   = v.id || v._id || v.variant_id || v.sku_id || v.sku || v.code;
+        const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+        if (vid) costMap[vid] = cost;                    // map theo variant id
+      }
+    }
+
+    // map theo product id & title (phòng khi line không có variant)
+    const pcost = toNum(
+      p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price
+    );
+    if (pid && pcost) costMap[pid] = pcost;
+
+    const ptitle = (p.title || p.name || '').toLowerCase().trim();
+    if (ptitle && pcost) costMap[ptitle] = pcost;
+  }
+
+  return costMap;
+};
+
+const COST_MAP = await buildCostMap();
+// ==== END cost map ====
 
     // GỌI BACKEND API để lấy stats (backend đã tính cost từ variants)
     const backendStats = await Admin.req(`/admin/stats?from=${fromTime}&to=${toTime}`);
@@ -213,12 +278,31 @@ class StatsManager {
 
         // Tính cost_price cho platform (từ items.cost nếu có)
         let orderCost = 0;
-        lines.forEach(it => {
-          const qty = toNum(it.qty ?? it.quantity ?? it.count ?? 1);
-          const unitCost = toNum(it.cost ?? it.cost_price ?? 0);
-          orderCost += qty * unitCost;
-        });
-        platformStats[platform].cost_price += orderCost;
+lines.forEach(it => {
+  const qty = toNum(it.qty ?? it.quantity ?? it.count ?? 1);
+
+  // 1) ưu tiên cost có sẵn trên line
+  let unitCost = toNum(
+    it.cost ?? it.cost_price ?? it.import_price ?? it.price_import ?? 0
+  );
+
+  // 2) nếu chưa có, fallback từ COST_MAP:
+  if (!unitCost) {
+    const vid = it.variant_id || it.sku_id || it.sku || it.variantId || it.variant;
+    const pid = it.product_id || it.productId || it.pid || it.id;
+    const keyTitle = (it.title || it.name || it.product_name || '').toLowerCase().trim();
+
+    unitCost = toNum(
+      (vid && COST_MAP[vid]) ??
+      (pid && COST_MAP[pid]) ??
+      (keyTitle && COST_MAP[keyTitle]) ?? 0
+    );
+  }
+
+  orderCost += qty * unitCost;
+});
+
+platformStats[platform].cost_price += orderCost;
 
         // Top products
         lines.forEach(item => {
