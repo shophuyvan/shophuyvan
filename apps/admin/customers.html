@@ -130,10 +130,7 @@
       color: #6b7280;
       margin-top: 4px;
     }
-  </style>
-<!-- layout chung cho toàn bộ trang admin -->
-  <script src="/apps/admin/sidebar-layout.js"></script>
-</head>
+	
 <body>
 
 <div class="card">
@@ -270,11 +267,6 @@ if (window.AdminLayout && typeof AdminLayout.init === 'function') {
 }
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[Customers] DOM loaded, initializing...');
-
-  // Initialize sidebar layout
-  if (window.AdminLayout) {
-    AdminLayout.init('Quản lý Khách hàng');
-  }
 
   const $ = (id) => document.getElementById(id);
 
