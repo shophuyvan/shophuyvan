@@ -135,53 +135,80 @@
 </footer>
 
 <script type="module" src="/src/cat-menu.js?v=36"></script>
+
 <script>
 (function() {
-  const $ = function(sel) { return document.querySelector(sel); };
+  const $ = function(s, r) { return (r || document).querySelector(s); };
   const fmt = function(n) { return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; };
   const IMG_FALLBACK = '/public/logo.png';
+  
   const params = new URLSearchParams(window.location.search);
-  const slug = params.get('c') || '';
-  const catName = slug ? decodeURIComponent(slug).replace(/-/g, ' ').replace(/\b\w/g, function(m) { return m.toUpperCase(); }) : 'Tất cả sản phẩm';
-  if ($('#breadcrumb-cat')) $('#breadcrumb-cat').textContent = catName;
-  if ($('#cat-title')) $('#cat-title').textContent = catName;
+  const slug = params.get("c") || params.get("category") || "";
+  
+  const catName = decodeURIComponent(slug || 'Danh mục')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, function(m) { return m.toUpperCase(); });
+  
+  const h1 = $('#shv-h1');
+  const leaf = $('#shv-bc-leaf');
+  if (h1) h1.textContent = catName;
+  if (leaf) leaf.textContent = catName;
+  
+  const PAGE_SIZE = 40;
+
   async function loadProducts() {
     try {
-      const url = slug ? 'https://shv-api.shophuyvan.workers.dev/public/products?category_slug=' + slug : 'https://shv-api.shophuyvan.workers.dev/public/products';
-      const res = await fetch(url);
-      const data = await res.json();
-      const products = data.items || [];
-      if ($('#total-products')) $('#total-products').textContent = products.length;
-      const grid = $('#products-grid');
+      const url = 'https://shv-api.shophuyvan.workers.dev/public/products?category_slug=' + slug;
+      const r = await fetch(url);
+      const data = await r.json();
+      const all = data.items || [];
+      
+      const totalEl = document.querySelector("#rs-total");
+      if (totalEl) totalEl.textContent = all.length;
+      
+      const grid = document.querySelector("#rs-grid");
       if (!grid) return;
-      if (products.length === 0) {
-        grid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">Không tìm thấy sản phẩm trong danh mục này</div>';
+      
+      if (!all.length) {
+        grid.innerHTML = '<div class="p-4 text-gray-500">Không tìm thấy sản phẩm trong danh mục này.</div>';
         return;
       }
-      grid.innerHTML = products.map(renderProductCard).join('');
-    } catch (error) {
-      console.error('Load products error:', error);
-      const grid = $('#products-grid');
-      if (grid) grid.innerHTML = '<div class="col-span-full text-center py-10 text-red-500">Không thể tải sản phẩm</div>';
+      
+      const tpl = function(p) {
+        const img = (p.images && p.images[0]) || IMG_FALLBACK;
+        const title = p.title || 'Sản phẩm';
+        const variant = (p.variants && p.variants[0]) || {};
+        const price = variant.price_sale || variant.price || 0;
+        const oldPrice = variant.price || 0;
+        const sold = p.sold || 0;
+        
+        return '<a href="/product.html?id=' + p.id + '" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">' +
+          '<div class="relative aspect-[4/3] bg-gray-100">' +
+          '<img src="' + img + '" class="absolute inset-0 w-full h-full object-cover" alt="' + title + '" />' +
+          '</div>' +
+          '<div class="p-3">' +
+          '<h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">' + title + '</h3>' +
+          '<div class="flex items-baseline gap-2">' +
+          '<div class="text-red-600 font-semibold">' + fmt(price) + '</div>' +
+          (price < oldPrice ? '<div class="text-gray-400 line-through text-xs">' + fmt(oldPrice) + '</div>' : '') +
+          '</div>' +
+          '<div class="mt-1 text-xs text-gray-500">Đã bán ' + sold + '</div>' +
+          '</div>' +
+          '</a>';
+      };
+      
+      grid.innerHTML = all.slice(0, PAGE_SIZE).map(tpl).join("");
+      
+    } catch (e) {
+      console.error("Load products failed", e);
+      const grid = document.querySelector("#rs-grid");
+      if (grid) {
+        grid.innerHTML = '<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>';
+      }
     }
   }
-  function renderProductCard(p) {
-    const firstVariant = (p.variants && p.variants[0]) || {};
-    const price = firstVariant.price_sale || firstVariant.price || 0;
-    const originalPrice = firstVariant.price || 0;
-    const hasDiscount = price > 0 && price < originalPrice;
-    return '<a href="/product.html?id=' + p.id + '" class="block border rounded-xl overflow-hidden bg-white hover:shadow-md transition"><div class="relative aspect-square bg-gray-100"><img src="' + (p.images && p.images[0] || IMG_FALLBACK) + '" class="absolute inset-0 w-full h-full object-cover" alt="' + (p.title || 'Sản phẩm') + '" loading="lazy" onerror="this.src=\'' + IMG_FALLBACK + '\'"/></div><div class="p-3"><h3 class="text-sm line-clamp-2 min-h-[40px] mb-2">' + (p.title || 'Sản phẩm') + '</h3><div class="flex items-baseline gap-2"><div class="text-red-600 font-semibold">' + fmt(price) + '</div>' + (hasDiscount ? '<div class="text-gray-400 line-through text-xs">' + fmt(originalPrice) + '</div>' : '') + '</div><div class="mt-1 text-xs text-gray-500">Đã bán ' + (p.sold || 0) + '</div></div></a>';
-  }
+  
   loadProducts();
-  const menuBtn = $('#menuBtn');
-  const sidebar = $('#shv-sidebar');
-  if (menuBtn && sidebar) {
-    menuBtn.addEventListener('click', function() { sidebar.style.display = 'block'; sidebar.classList.add('open'); });
-    const mask = sidebar.querySelector('.mask');
-    if (mask) mask.addEventListener('click', function() { sidebar.classList.remove('open'); setTimeout(function() { sidebar.style.display = 'none'; }, 300); });
-  }
-  const cartBtn = $('#header-cart-btn');
-  if (cartBtn) cartBtn.addEventListener('click', function(e) { e.preventDefault(); window.location.href = '/cart.html'; });
 })();
 </script>
 </body>
