@@ -10,7 +10,6 @@
 </head>
 <body class="bg-slate-50">
 
-<!-- Header giống trang chủ -->
 <header class="header-shop">
   <div class="top">
     <button id="menuBtn" class="icon-btn" aria-label="Menu">
@@ -28,7 +27,7 @@
     </a>
 
     <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 8px;">
-      <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản" style="position: relative;">
+      <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
@@ -64,14 +63,13 @@
   </div>
 </header>
 
-<!-- Sidebar -->
 <div id="shv-sidebar" aria-hidden="true">
   <div class="mask"></div>
   <aside class="panel">
     <div class="title">Menu</div>
     <div id="sidebar-auth">
-      <a href="/login.html" class="item" id="sidebar-login">🔐 Đăng nhập</a>
-      <a href="/register.html" class="item" id="sidebar-register">✏️ Đăng ký</a>
+      <a href="/login.html" class="item">🔐 Đăng nhập</a>
+      <a href="/register.html" class="item">✏️ Đăng ký</a>
     </div>
     <a href="/" class="item">🏠 Trang chủ</a>
     <a href="/guide.html" class="item">📘 Hướng dẫn</a>
@@ -80,7 +78,6 @@
   </aside>
 </div>
 
-<!-- Breadcrumb -->
 <div class="max-w-6xl mx-auto px-4 py-3">
   <nav class="text-sm text-gray-600">
     <a href="/" class="hover:text-blue-600">Trang chủ</a>
@@ -89,7 +86,6 @@
   </nav>
 </div>
 
-<!-- Hero banner danh mục -->
 <section class="max-w-6xl mx-auto px-4 mb-6">
   <div class="relative rounded-2xl overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 h-40">
     <div class="absolute inset-0 flex items-center justify-start px-8">
@@ -101,10 +97,7 @@
   </div>
 </section>
 
-<!-- Filters và sản phẩm -->
 <section class="max-w-6xl mx-auto px-4 pb-10">
-  
-  <!-- Toolbar -->
   <div class="flex items-center justify-between mb-4">
     <div class="text-sm text-gray-600">
       Tìm thấy <span id="total-products" class="font-semibold text-gray-900">0</span> sản phẩm
@@ -116,13 +109,9 @@
       <option value="price-desc">Giá giảm dần</option>
     </select>
   </div>
-
-  <!-- Grid sản phẩm -->
   <div id="products-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
-
 </section>
 
-<!-- Footer -->
 <footer class="border-t bg-white mt-10">
   <div class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-4 text-sm">
     <div>
@@ -147,128 +136,53 @@
 
 <script type="module" src="/src/cat-menu.js?v=36"></script>
 <script>
-// ============================================
-// CATEGORY PAGE SCRIPT - SIMPLE VERSION
-// ============================================
-
 (function() {
-  const $ = (sel) => document.querySelector(sel);
-  const fmt = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+  const $ = function(sel) { return document.querySelector(sel); };
+  const fmt = function(n) { return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; };
   const IMG_FALLBACK = '/public/logo.png';
-
-  // Lấy slug từ URL
   const params = new URLSearchParams(window.location.search);
   const slug = params.get('c') || '';
-
-  // Cập nhật tên danh mục
-  const catName = slug
-    ? decodeURIComponent(slug).replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
-    : 'Tất cả sản phẩm';
-  
+  const catName = slug ? decodeURIComponent(slug).replace(/-/g, ' ').replace(/\b\w/g, function(m) { return m.toUpperCase(); }) : 'Tất cả sản phẩm';
   if ($('#breadcrumb-cat')) $('#breadcrumb-cat').textContent = catName;
   if ($('#cat-title')) $('#cat-title').textContent = catName;
-
-  // Load sản phẩm
   async function loadProducts() {
     try {
-      const url = slug 
-        ? `https://shv-api.shophuyvan.workers.dev/public/products?category_slug=${slug}`
-        : `https://shv-api.shophuyvan.workers.dev/public/products`;
-      
+      const url = slug ? 'https://shv-api.shophuyvan.workers.dev/public/products?category_slug=' + slug : 'https://shv-api.shophuyvan.workers.dev/public/products';
       const res = await fetch(url);
       const data = await res.json();
       const products = data.items || [];
-
-      // Cập nhật số lượng
       if ($('#total-products')) $('#total-products').textContent = products.length;
-
-      // Render sản phẩm
       const grid = $('#products-grid');
       if (!grid) return;
-
       if (products.length === 0) {
         grid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">Không tìm thấy sản phẩm trong danh mục này</div>';
         return;
       }
-
       grid.innerHTML = products.map(renderProductCard).join('');
-
     } catch (error) {
       console.error('Load products error:', error);
       const grid = $('#products-grid');
-      if (grid) {
-        grid.innerHTML = '<div class="col-span-full text-center py-10 text-red-500">Không thể tải sản phẩm. Vui lòng thử lại sau.</div>';
-      }
+      if (grid) grid.innerHTML = '<div class="col-span-full text-center py-10 text-red-500">Không thể tải sản phẩm</div>';
     }
   }
-
-  // Template card sản phẩm
   function renderProductCard(p) {
     const firstVariant = (p.variants && p.variants[0]) || {};
     const price = firstVariant.price_sale || firstVariant.price || 0;
     const originalPrice = firstVariant.price || 0;
     const hasDiscount = price > 0 && price < originalPrice;
-
-    return `
-      <a href="/product.html?id=${p.id}" class="block border rounded-xl overflow-hidden bg-white hover:shadow-md transition">
-        <div class="relative aspect-square bg-gray-100">
-          <img src="${p.images?.[0] || IMG_FALLBACK}" 
-               class="absolute inset-0 w-full h-full object-cover" 
-               alt="${p.title || 'Sản phẩm'}"
-               loading="lazy"
-               onerror="this.src='${IMG_FALLBACK}'"/>
-        </div>
-        <div class="p-3">
-          <h3 class="text-sm line-clamp-2 min-h-[40px] mb-2">${p.title || 'Sản phẩm'}</h3>
-          <div class="flex items-baseline gap-2">
-            <div class="text-red-600 font-semibold">${fmt(price)}</div>
-            ${hasDiscount ? `<div class="text-gray-400 line-through text-xs">${fmt(originalPrice)}</div>` : ''}
-          </div>
-          <div class="mt-1 text-xs text-gray-500">Đã bán ${p.sold || 0}</div>
-        </div>
-      </a>
-    `;
+    return '<a href="/product.html?id=' + p.id + '" class="block border rounded-xl overflow-hidden bg-white hover:shadow-md transition"><div class="relative aspect-square bg-gray-100"><img src="' + (p.images && p.images[0] || IMG_FALLBACK) + '" class="absolute inset-0 w-full h-full object-cover" alt="' + (p.title || 'Sản phẩm') + '" loading="lazy" onerror="this.src=\'' + IMG_FALLBACK + '\'"/></div><div class="p-3"><h3 class="text-sm line-clamp-2 min-h-[40px] mb-2">' + (p.title || 'Sản phẩm') + '</h3><div class="flex items-baseline gap-2"><div class="text-red-600 font-semibold">' + fmt(price) + '</div>' + (hasDiscount ? '<div class="text-gray-400 line-through text-xs">' + fmt(originalPrice) + '</div>' : '') + '</div><div class="mt-1 text-xs text-gray-500">Đã bán ' + (p.sold || 0) + '</div></div></a>';
   }
-
-  // Xử lý sort
-  const sortSelect = $('#sort-select');
-  if (sortSelect) {
-    sortSelect.addEventListener('change', function(e) {
-      console.log('Sort by:', e.target.value);
-    });
-  }
-
-  // Init
   loadProducts();
-
-  // Xử lý sidebar
   const menuBtn = $('#menuBtn');
   const sidebar = $('#shv-sidebar');
   if (menuBtn && sidebar) {
-    menuBtn.addEventListener('click', () => {
-      sidebar.style.display = 'block';
-      sidebar.classList.add('open');
-    });
+    menuBtn.addEventListener('click', function() { sidebar.style.display = 'block'; sidebar.classList.add('open'); });
     const mask = sidebar.querySelector('.mask');
-    if (mask) {
-      mask.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        setTimeout(() => { sidebar.style.display = 'none'; }, 300);
-      });
-    }
+    if (mask) mask.addEventListener('click', function() { sidebar.classList.remove('open'); setTimeout(function() { sidebar.style.display = 'none'; }, 300); });
   }
-
-  // Xử lý cart button
   const cartBtn = $('#header-cart-btn');
-  if (cartBtn) {
-    cartBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = '/cart.html';
-    });
-  }
-
+  if (cartBtn) cartBtn.addEventListener('click', function(e) { e.preventDefault(); window.location.href = '/cart.html'; });
 })();
 </script>
-
 </body>
 </html>
