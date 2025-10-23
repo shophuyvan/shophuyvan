@@ -678,9 +678,38 @@ async function getStats(req, env) {
   }
   list = enriched;
 
-  // cost helper
+  // cost helper - LUÔN TÌM LẠI TỪ VARIANT
   async function getCost(item) {
-    if (item && item.cost != null) return Number(item.cost || 0);
+    const variantId = item && (item.id || item.sku);
+    if (!variantId) return 0;
+
+    console.log('[STATS] Getting cost for:', variantId);
+    const all = await getJSON(env, 'products:list', []);
+    
+    for (const s of all) {
+      const p = await getJSON(env, 'product:' + s.id, null);
+      if (!p || !Array.isArray(p.variants)) continue;
+      
+      const v = p.variants.find(v =>
+        String(v.id || v.sku || '') === String(variantId) ||
+        String(v.sku || '') === String(item.sku || '')
+      );
+      
+      if (v) {
+        const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+        for (const k of keys) {
+          if (v[k] != null) {
+            const cost = Number(v[k] || 0);
+            console.log('[STATS] ✅ Found cost:', { variantId, cost });
+            return cost;
+          }
+        }
+      }
+    }
+    
+    console.log('[STATS] ❌ Cost not found for:', variantId);
+    return 0;
+  }
     const variantId = item && (item.id || item.sku);
     if (!variantId) return 0;
 
@@ -720,8 +749,7 @@ async function getStats(req, env) {
     revenue += orderRevenue;
 
     for (const item of items) {
-      let cost = Number(item.cost || 0);
-      if (!cost) cost = await getCost(item);
+      const cost = await getCost(item);  // ✅ LUÔN GỌI getCost()
       goodsCost += cost * Number(item.qty || 1);
 
       const name = item.name || item.title || item.id || 'unknown';
