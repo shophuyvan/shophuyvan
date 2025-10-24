@@ -1040,6 +1040,7 @@ if (!token && !phoneFallback) {
 
   myOrders.sort((a, b) => Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0));
 
-  return json({ ok: true, orders: myOrders, count: myOrders.length }, {}, req);
+  // Trả về cả thông tin 'customer' đã tìm thấy (có chứa tier, points)
+  return json({ ok: true, orders: myOrders, count: myOrders.length, customer: customer || null }, {}, req);
 }
 

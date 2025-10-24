@@ -220,6 +220,32 @@ if (!token) {
     }
     
     state.orders = orders;
+
+    // MỚI: Render thông tin customer/tier
+    if (data.customer) {
+      try {
+        const tierName = data.customer.tier_name || (data.customer.tier ? data.customer.tier.name : 'Chưa xếp hạng');
+        const tierPoints = data.customer.points || 0;
+        
+        const tierInfoEl = document.getElementById('customerTierInfo'); 
+        if (tierInfoEl) {
+          tierInfoEl.innerHTML = `
+            <span class="font-medium">Hạng thành viên:</span> 
+            <span class="font-bold text-blue-600">${tierName}</span> 
+            <span class="mx-2 text-gray-400">|</span>
+            <span class="font-medium">Điểm tích luỹ:</span> 
+            <span class="font-bold text-blue-600">${new Intl.NumberFormat('vi-VN').format(tierPoints)}</span>
+            <a href="/member.html" class="float-right text-blue-600 hover:underline">Chi tiết 
+              &rarr;
+            </a>
+          `;
+          tierInfoEl.style.display = 'block';
+        }
+      } catch (e) {
+        console.warn('Failed to render tier info', e);
+      }
+    }
+    
     hideLoading();
     renderOrders();
     

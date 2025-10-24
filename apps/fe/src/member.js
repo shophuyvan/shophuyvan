@@ -3,6 +3,34 @@
 
 const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
 
+// API Helper
+async function api(endpoint, options = {}) {
+  const token = localStorage.getItem('customer_token') || 
+                localStorage.getItem('x-customer-token') || 
+                localStorage.getItem('x-token');
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Lỗi mạng' }));
+    throw new Error(err.message || err.error || 'Lỗi không xác định');
+  }
+  
+  return response.json();
+}
+
 const TIER_INFO = {
   retail: {
     name: 'Thành viên thường',
@@ -184,25 +212,39 @@ async function init() {
       return;
     }
     
-    // Lấy thông tin customer từ localStorage
-    const customerInfo = JSON.parse(localStorage.getItem('customer_info') || '{}');
+    // Gọi API để lấy thông tin mới nhất
+    // Chúng ta dùng /orders/my vì nó trả về cả 'customer' object (sẽ được cấu hình ở bước 2)
+    const data = await api('/orders/my');
     
-    if (!customerInfo.id) {
-      showError('Không thể lấy thông tin khách hàng');
-      return;
+    if (!data.customer || !data.customer.id) {
+      // Fallback nếu API /orders/my chưa có customer
+      const customerInfo = JSON.parse(localStorage.getItem('customer_info') || '{}');
+      if (customerInfo.id) {
+        console.warn('[Member] Using stale data from localStorage');
+        const points = customerInfo.points || 0;
+        const tier = customerInfo.tier || getCurrentTier(points);
+        renderTierCard(tier, points);
+        renderProgress(tier, points);
+      } else {
+        throw new Error('Không thể lấy thông tin khách hàng');
+      }
+    } else {
+      // Sử dụng dữ liệu mới nhất từ API
+      const customerInfo = data.customer;
+      const points = customerInfo.points || 0;
+      const tier = customerInfo.tier_name || getCurrentTier(points); // Ưu tiên tier_name từ API
+      
+      // Cập nhật lại localStorage
+      localStorage.setItem('customer_info', JSON.stringify(customerInfo));
+      
+      renderTierCard(tier, points);
+      renderProgress(tier, points);
     }
-    
-    const points = customerInfo.points || 0;
-    const tier = customerInfo.tier || getCurrentTier(points);
-    
-    // Render UI
-    renderTierCard(tier, points);
-    renderProgress(tier, points);
+
+    // Render danh sách tier (việc này không cần data động)
     renderTierList();
     
     showContent();
-    
-    console.log('[Member] Loaded:', { tier, points });
     
   } catch (error) {
     console.error('[Member] Error:', error);
@@ -211,8 +253,27 @@ async function init() {
 }
 
 function adjustBrightness(color, percent) {
-  // Đơn giản hóa - trả về màu đã cho
-  return color;
+  let r = parseInt(color.substring(1, 3), 16);
+  let g = parseInt(color.substring(3, 5), 16);
+  let b = parseInt(color.substring(5, 7), 16);
+
+  r = Math.floor(r * (100 + percent) / 100);
+  g = Math.floor(g * (100 + percent) / 100);
+  b = Math.floor(b * (100 + percent) / 100);
+
+  r = (r < 255) ? r : 255;
+  g = (g < 255) ? g : 255;
+  b = (b < 255) ? b : 255;
+  
+  r = (r > 0) ? r : 0;
+  g = (g > 0) ? g : 0;
+  b = (b > 0) ? b : 0;
+
+  const RR = ((r.toString(16).length === 1) ? "0" + r.toString(16) : r.toString(16));
+  const GG = ((g.toString(16).length === 1) ? "0" + g.toString(16) : g.toString(16));
+  const BB = ((b.toString(16).length === 1) ? "0" + b.toString(16) : b.toString(16));
+
+  return "#" + RR + GG + BB;
 }
 
 // Initialize
