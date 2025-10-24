@@ -122,13 +122,18 @@ export default {
      }
 
       // Shipping module
-      if (path.startsWith('/shipping') ||
-          path.startsWith('/admin/shipping') ||
-          path.startsWith('/api/addresses') ||
-          path.startsWith('/v1/platform/areas') ||
-          path.startsWith('/v1/platform/orders/price')) {
-        return shipping.handle(req, env, ctx);
-      }
+     if (path.startsWith('/shipping') ||
+         path.startsWith('/admin/shipping') ||
+         path.startsWith('/api/addresses') ||
+         path.startsWith('/v1/platform/areas') ||
+         path.startsWith('/v1/platform/orders/price') ||
+         path.startsWith('/v1/platform/orders/optimize') ||
+         path.startsWith('/v1/platform/orders/label') ||
+         path.startsWith('/v1/platform/orders/token') ||
+         path.startsWith('/v1/platform/carriers') ||
+         path.startsWith('/v1/platform/warehouses')) {
+       return shipping.handle(req, env, ctx);
+     }
 
       // Cart Sync module
       if (path.startsWith('/api/cart/sync')) {
