@@ -930,11 +930,23 @@ async function getMyOrders(req, env) {
 
   const eq = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
+  // Chuẩn hoá số ĐT: bỏ khoảng trắng, dấu chấm, gạch…; đổi +84/84 thành 0 ở đầu
+  const normalizePhone = (s) => {
+    let x = String(s || '').replace(/[\s\.\-]/g, '');
+    if (x.startsWith('+84')) x = '0' + x.slice(3);
+    if (x.startsWith('84') && x.length > 9) x = '0' + x.slice(2);
+    return x;
+  };
+
   return (
-    (pPhone && orderPhone && eq(orderPhone, pPhone))      // khớp theo phone
-    || (pId && orderId && eq(orderId, pId))               // khớp theo id
-    || (pEmail && orderEmail && eq(orderEmail, pEmail))   // khớp theo email
-    || (pToken && orderToken && eq(orderToken, pToken))   // khớp theo token lưu trong đơn (nếu có)
+    // phone
+    (pPhone && orderPhone && normalizePhone(orderPhone) === normalizePhone(pPhone))
+    // id
+    || (pId && orderId && eq(orderId, pId))
+    // email
+    || (pEmail && orderEmail && eq(orderEmail, pEmail))
+    // token
+    || (pToken && orderToken && eq(orderToken, pToken))
   );
 });
 
