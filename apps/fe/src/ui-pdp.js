@@ -573,16 +573,17 @@ $('#shv-cta-add')?.addEventListener('click', (e) => {
 $('#shv-cta-buy')?.addEventListener('click', async (e) => {
   e.preventDefault();
   try {
-    const maybePromise = window.openVariantModal('buy');const maybePromise = window.openVariantModal('buy');const maybePromise = window.openVariantModal('buy');
-      if (maybePromise && typeof maybePromise.then === 'function') {
-        await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
-      } else {
-        await new Promise(r => setTimeout(r, 150));
-      }
-    } catch {}
-    window.location.href = '/checkout.html';
-  });
-}
+    const maybePromise = window.openVariantModal('buy');
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
+    } else {
+      await new Promise(r => setTimeout(r, 150));
+    }
+  } catch (err) {
+    console.error('[PDP] Buy now error:', err);
+  }
+  window.location.href = '/checkout.html';
+});
 
 // ✅ FIXED: openVariantModal với thumbnail icons
 function openVariantModal(mode) {
