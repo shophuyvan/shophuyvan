@@ -1032,6 +1032,7 @@ async function customerMe(req, env) {
     console.error('[Customers] Me error:', e);
     return json({ ok: false, error: 'Invalid token' }, { status: 401 }, req);
   }
+}
 
 // ===================================================================
 // TIER SYSTEM HELPER FUNCTIONS
