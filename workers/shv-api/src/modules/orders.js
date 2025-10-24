@@ -772,135 +772,134 @@ async function getStats(req, env) {
 // PUBLIC: Get My Orders (Customer)
 // ===================================================================
 async function getMyOrders(req, env) {
- // Lấy token từ nhiều nguồn: header + Authorization + Cookie
-function parseCookie(str) {
-  const out = {};
-  (str || '').split(';').forEach(p => {
-    const i = p.indexOf('=');
-    if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
-  });
-  return out;
-}
-
-// 1) header ưu tiên x-customer-token, rồi x-token
-let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
-
-// 2) Authorization: Bearer ...
-if (!token) {
-  const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
-  if (m) token = m[1];
-}
-
-// 3) Cookie: customer_token / x-customer-token / token
-if (!token) {
-  const c = parseCookie(req.headers.get('cookie') || '');
-  token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
-}
-
-// Chuẩn hoá token
-token = String(token || '').trim().replace(/^"+|"+$/g, '');
-
-if (!token) {
-  return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
-}
-
-  // ===== Resolve customer từ token trên KV =====
-async function kvGet(k) {
-  try { return await getJSON(env, k, null); } catch (_) { return null; }
-}
-
-// 1) Thử nhiều khoá phổ biến với token gốc
-const tryKeys = async (tok) => {
-  const keys = [
-    // 🔹 KHÔNG prefix — đề phòng KV lưu thẳng theo token (ví dụ: "cust_abc")
-    tok,
-    'cust:' + tok,
-    'customerToken:' + tok,
-    'token:' + tok,
-    'customer_token:' + tok,
-    'auth:' + tok,
-    'customer:' + tok,   // có thể lưu thẳng object customer
-    'session:' + tok,    // { customer: {...} } hoặc { user: {...} }
-    'shv_session:' + tok // biến thể session khác
-  ];
-
-  for (const k of keys) {
-    const val = await kvGet(k);
-    if (!val) continue;
-
-    // session → lấy đối tượng customer/user bên trong
-    if (k.includes('session:') && (val.customer || val.user)) {
-      return val.customer || val.user;
-    }
-
-    // Nếu KV đã trả thẳng object customer
-    if (typeof val === 'object' && val !== null) {
-      return val;
-    }
-
-    // Nếu KV trả chuỗi (id/phone) → tra tiếp theo id
-    if (typeof val === 'string') {
-      const cid = String(val).trim();
-      const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-      if (obj) return obj;
-    }
-
-    // Nếu object có customer_id / customerId → tra tiếp
-    if (val && (val.customer_id || val.customerId)) {
-      const cid = val.customer_id || val.customerId;
-      const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-      if (obj) return obj;
-    }
+  // --- A. Lấy token từ nhiều nguồn: header + Authorization + Cookie
+  function parseCookie(str) {
+    const out = {};
+    (str || '').split(';').forEach(p => {
+      const i = p.indexOf('=');
+      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+    });
+    return out;
   }
-  return null;
-};
 
-let customer = await tryKeys(token);
+  // 1) header ưu tiên x-customer-token, rồi x-token
+  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
 
-// 2) Nếu chưa ra, thử token đã giải mã base64 (FE gửi "Y3VzdF8..." = "cust_...")
-if (!customer) {
-  try {
-    let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-    // Bổ sung padding để độ dài %4 == 0 (atob yêu cầu)
-    while (b64.length % 4) b64 += '=';
+  // 2) Authorization: Bearer ...
+  if (!token) {
+    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+    if (m) token = m[1];
+  }
 
-    const decoded = atob(b64);   // ví dụ: "cust_1761008058371_gtrlglo"
-    if (decoded && decoded !== token) {
-      // Thử lại theo nhóm key chuẩn
-      customer = await tryKeys(decoded);
+  // 3) Cookie: customer_token / x-customer-token / token
+  if (!token) {
+    const c = parseCookie(req.headers.get('cookie') || '');
+    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
+  }
 
-      // Thử trực tiếp key 'customer:<decoded>' như KV đang lưu
-      if (!customer) {
-        customer =
-          (await kvGet('customer:' + decoded)) ||
-          (await kvGet('customer:id:' + decoded));
+  // Chuẩn hoá token
+  token = String(token || '').trim().replace(/^"+|"+$/g, '');
+
+  if (!token) {
+    return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
+  }
+
+  // --- B. Resolve customer trong KV theo token ---
+  async function kvGet(k) {
+    try { return await getJSON(env, k, null); } catch (_) { return null; }
+  }
+
+  // Thử nhiều khoá thông dụng với token gốc
+  const tryKeys = async (tok) => {
+    const keys = [
+      tok,                      // KV có thể lưu thẳng theo token
+      'cust:' + tok,
+      'customerToken:' + tok,
+      'token:' + tok,
+      'customer_token:' + tok,
+      'auth:' + tok,
+      'customer:' + tok,        // có thể lưu trực tiếp object customer
+      'session:' + tok,         // { customer:{...} } hay { user:{...} }
+      'shv_session:' + tok
+    ];
+
+    for (const k of keys) {
+      const val = await kvGet(k);
+      if (!val) continue;
+
+      // Nếu là session → lấy object bên trong
+      if (k.includes('session:') && (val.customer || val.user)) {
+        return val.customer || val.user;
+      }
+
+      // Nếu KV trả thẳng object customer
+      if (typeof val === 'object' && val !== null) {
+        return val;
+      }
+
+      // Nếu KV trả chuỗi id → tra tiếp theo id
+      if (typeof val === 'string') {
+        const cid = String(val).trim();
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+
+      // Nếu object có customer_id/customerId → tra tiếp
+      if (val && (val.customer_id || val.customerId)) {
+        const cid = val.customer_id || val.customerId;
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
       }
     }
-  } catch (_) {}
-}
+    return null;
+  };
 
-// 3) Fallback: token có thể là JWT → decode lấy id rồi tra
-if (!customer && token.split('.').length === 3) {
-  try {
-    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const cid = p.customer_id || p.customerId || p.sub || p.id || '';
-    if (cid) {
-      customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-    }
-  } catch (_) {}
-}
+  // 1) Dùng token gốc
+  let customer = await tryKeys(token);
 
-// 4) Kiểm tra hợp lệ: chấp nhận nếu có phone **hoặc** có id
-const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
-const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
+  // 2) Nếu chưa có, thử giải mã base64 (FE đang gửi “Y3VzdF8…”, thực chất là “cust_…”)
+  if (!customer) {
+    try {
+      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';           // padding
+      const decoded = atob(b64);                   // ví dụ: "cust_1761008058371_gtrlglo"
+      if (decoded && decoded !== token) {
+        // Thử lại nhóm key chuẩn
+        customer = await tryKeys(decoded);
 
-if (!customer || (!custPhone && !custId)) {
-  return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
-}
-  // ===== /Resolve customer =====
+        // Thử trực tiếp theo cách KV của bạn đang lưu: "customer:cust_...."
+        if (!customer) {
+          customer =
+            (await kvGet('customer:' + decoded)) ||
+            (await kvGet('customer:id:' + decoded));
+        }
+      }
+    } catch { /* ignore */ }
+  }
 
+  // 3) Nếu token là JWT → decode lấy id rồi tra tiếp
+  if (!customer && token.split('.').length === 3) {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
+      if (cid) {
+        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 4) Chấp nhận nếu customer có phone HOẶC có id
+  const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
+  const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
+
+  if (!customer || (!custPhone && !custId)) {
+    return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+  }
+
+  // --- C. Lọc đơn theo phone hoặc id khách ---
   let allOrders = await getJSON(env, 'orders:list', []);
-  
+
+  // enrich đơn thiếu items
   const enriched = [];
   for (const order of allOrders) {
     if (!order.items) {
@@ -921,14 +920,11 @@ if (!customer || (!custPhone && !custId)) {
     const orderId    = oc.id || oc.customer_id || null;
 
     return (pPhone && orderPhone && String(orderPhone) === String(pPhone))
-    || (pId && orderId && String(orderId) === String(pId));
+        || (pId && orderId && String(orderId) === String(pId));
   });
 
-  myOrders.sort((a, b) => {
-    const timeA = Number(a.createdAt || a.created_at || 0);
-    const timeB = Number(b.createdAt || b.created_at || 0);
-    return timeB - timeA;
-  });
+  myOrders.sort((a, b) => Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0));
 
   return json({ ok: true, orders: myOrders, count: myOrders.length }, {}, req);
 }
+
