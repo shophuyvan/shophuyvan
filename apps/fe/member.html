@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thông tin thành viên - Shop Huy Vân</title>
+  <link rel="stylesheet" href="/public/styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tier-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    }
+    .tier-icon {
+      font-size: 64px;
+      margin-bottom: 12px;
+    }
+    .tier-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .tier-points {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e5e7eb;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+      transition: width 0.6s ease;
+    }
+    .tier-list {
+      display: grid;
+      gap: 16px;
+    }
+    .tier-item {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      border-left: 4px solid #e5e7eb;
+      transition: all 0.3s;
+    }
+    .tier-item:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .tier-item.active {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+    .tier-item.locked {
+      opacity: 0.6;
+    }
+    .tier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .tier-title {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .tier-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-current {
+      background: #10b981;
+      color: white;
+    }
+    .badge-next {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .tier-benefit {
+      font-size: 14px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .spinner {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <div class="container mx-auto px-4 py-6 max-w-4xl">
+    <!-- Loading -->
+    <div id="loadingState" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p class="text-gray-600">Đang tải thông tin...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="errorState" class="empty-state" style="display: none;">
+      <div class="text-5xl mb-4">😕</div>
+      <h3 class="text-lg font-semibold mb-2" id="errorMessage">Có lỗi xảy ra</h3>
+      <p class="text-gray-600 mb-4">Vui lòng <a href="/login.html" class="text-blue-600 hover:underline">đăng nhập</a> để xem thông tin thành viên</p>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" style="display: none;">
+      <h1 class="text-3xl font-bold mb-6">Thông tin thành viên</h1>
+
+      <!-- Tier Card -->
+      <div class="tier-card" id="tierCard">
+        <div class="tier-icon" id="tierIcon">👤</div>
+        <div class="tier-name" id="tierName">Thành viên thường</div>
+        <div class="tier-points" id="tierPoints">0 điểm</div>
+      </div>
+
+      <!-- Progress -->
+      <div class="bg-white rounded-12px p-6 mb-6">
+        <h2 class="font-semibold text-lg mb-4">Tiến độ nâng hạng</h2>
+        <div id="progressSection">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+          </div>
+          <p class="text-sm text-gray-600" id="progressText">Tích lũy 0 / 1,000,000đ để lên Thành viên bạc</p>
+        </div>
+      </div>
+
+      <!-- Benefits -->
+      <div class="bg-white rounded-lg p-6 mb-6">
+        <h2 class="font-semibold text-lg mb-4">Lợi ích theo hạng thành viên</h2>
+        <div class="tier-list" id="tierList"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 justify-center">
+        <a href="/myorders.html" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          📦 Đơn hàng của tôi
+        </a>
+        <a href="/" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+          🛍️ Tiếp tục mua sắm
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/member.js"></script>
+</body>
+</html>

@@ -64,14 +64,36 @@ export function pickLowestPrice(product){
 /**
  * Get customer type from localStorage
  */
-function getCustomerType() {
+/**
+ * Lấy thông tin tier từ localStorage
+ * @returns {object} - { tier, discount, tierName }
+ */
+function getTierInfo() {
   try {
     const customerInfo = localStorage.getItem('customer_info');
-    if (!customerInfo) return 'retail';
+    if (!customerInfo) return { tier: 'retail', discount: 0, tierName: 'Thành viên thường' };
+    
     const info = JSON.parse(customerInfo);
-    return info.customer_type || 'retail';
+    const tier = info.tier || 'retail';
+    
+    // Ánh xạ tier sang discount %
+    const tierMap = {
+      'retail': { discount: 0, name: 'Thành viên thường', icon: '👤' },
+      'silver': { discount: 3, name: 'Thành viên bạc', icon: '🥈' },
+      'gold': { discount: 5, name: 'Thành viên vàng', icon: '🥇' },
+      'diamond': { discount: 8, name: 'Thành viên kim cương', icon: '💎' }
+    };
+    
+    const tierData = tierMap[tier] || tierMap['retail'];
+    
+    return {
+      tier,
+      discount: tierData.discount,
+      tierName: tierData.name,
+      icon: tierData.icon
+    };
   } catch {
-    return 'retail';
+    return { tier: 'retail', discount: 0, tierName: 'Thành viên thường' };
   }
 }
 
@@ -80,62 +102,70 @@ function getCustomerType() {
  * Wholesale customers see wholesale_price if available
  */
 export function pickPriceByCustomer(product, variant) {
-  const customerType = getCustomerType();
+  const tierInfo = getTierInfo();
   const basePrice = pickPrice(product, variant);
   
-  // If retail customer, return normal price
-  if (customerType === 'retail') {
-    return basePrice;
+  // ✅ Tính giá giảm theo tier
+  let discountedBase = basePrice.base;
+  
+  if (tierInfo.discount > 0 && basePrice.base > 0) {
+    const discountAmount = basePrice.base * (tierInfo.discount / 100);
+    discountedBase = Math.floor(basePrice.base - discountAmount);
   }
   
-  // If wholesale customer, check for wholesale_price
-  if (customerType === 'wholesale') {
-    let wholesalePrice = null;
-    
-    if (variant) {
-      wholesalePrice = num(variant.wholesale_price);
-    }
-    
-    if (!wholesalePrice || wholesalePrice <= 0) {
-      wholesalePrice = num(product.wholesale_price);
-    }
-    
-    // If wholesale price exists and valid, use it
-    if (wholesalePrice > 0) {
-      return {
-        base: wholesalePrice,
-        original: basePrice.base > wholesalePrice ? basePrice.base : null,
-        sale: wholesalePrice,
-        regular: basePrice.base > wholesalePrice ? basePrice.base : null
-      };
-    }
+  // ✅ Nếu có giá gốc, hãy hiển thị
+  let original = basePrice.original;
+  if (!original && basePrice.base > 0 && discountedBase < basePrice.base) {
+    original = basePrice.base; // Giá ban đầu là basePrice
   }
   
-  // Fallback to normal price
-  return basePrice;
+  return {
+    base: discountedBase,
+    original: original,
+    sale: discountedBase,
+    regular: original,
+    tier: tierInfo.tier,
+    discount: tierInfo.discount,
+    tierName: tierInfo.tierName
+  };
 }
+
 
 /**
  * Format price with customer type consideration
  */
 export function formatPriceByCustomer(product, variant) {
   const priceInfo = pickPriceByCustomer(product, variant);
-  const customerType = getCustomerType();
+  const tierInfo = getTierInfo();
   
   let html = '';
   
+  // Hiển thị giá với discount
   if (priceInfo.original && priceInfo.base < priceInfo.original) {
     html = `<div>
       <b class="text-rose-600">${formatPrice(priceInfo.base)}</b>
-      <span class="line-through opacity-70 text-sm ml-1">${formatPrice(priceInfo.original)}</span>
-    </div>`;
+      <span class="line-through opacity-70 text-sm ml-1">${formatPrice(priceInfo.original)}</span>`;
+    
+    // ✅ Thêm badge giảm giá theo tier
+    if (tierInfo.discount > 0) {
+      html += `<span style="background:#10b981;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">${tierInfo.icon} -${tierInfo.discount}%</span>`;
+    }
+    
+    html += `</div>`;
   } else {
-    html = `<div><b class="text-rose-600">${formatPrice(priceInfo.base)}</b></div>`;
+    html = `<div><b class="text-rose-600">${formatPrice(priceInfo.base)}</b>`;
+    
+    // ✅ Thêm badge nếu có discount
+    if (tierInfo.discount > 0) {
+      html += `<span style="background:#10b981;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">${tierInfo.icon} -${tierInfo.discount}%</span>`;
+    }
+    
+    html += `</div>`;
   }
   
-  // Add badge for wholesale customers
-  if (customerType === 'wholesale') {
-    html += `<div style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">🪙 Giá sỉ</div>`;
+  // ✅ Hiển thị tier name
+  if (tierInfo.discount > 0) {
+    html += `<div style="font-size:11px;color:#059669;margin-top:4px;font-weight:600;">${tierInfo.tierName}</div>`;
   }
   
   return html;

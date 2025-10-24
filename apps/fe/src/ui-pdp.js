@@ -561,10 +561,10 @@ function injectStickyCTA() {
     $('#shv-cta-zalo').href = zBtn.href;
   }
 
-  $('#shv-cta-add')?.addEventListener('click', (e) => {
+$('#shv-cta-add')?.addEventListener('click', (e) => {
   e.preventDefault();
   if (typeof window.openVariantModal === 'function') {
-    window.openVariantModal('cart')openVariantModal('cart');
+    window.openVariantModal('cart');
   } else {
     window.location.href = '/cart.html';
   }

@@ -8,6 +8,7 @@ import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
 import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
+import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -167,7 +168,56 @@ async function adjustInventory(items, env, direction = -1) {
 
   console.log('[INV-DEBUG] adjustInventory DONE');
 }
+    /**
+ * Cộng điểm cho customer khi đặt hàng thành công
+ * @param {object} customer - Customer object từ request
+ * @param {number} revenue - Doanh thu (giá sau khi giảm)
+ * @param {object} env - Cloudflare env
+ * @returns {object} - { upgraded, oldTier, newTier, points }
+ */
+async function addPointsToCustomer(customer, revenue, env) {
+  if (!customer || !customer.id) {
+    console.log('[TIER] No customer info, skip points');
+    return { upgraded: false, points: 0 };
+  }
+
+  try {
+    const customerKey = `customer:${customer.id}`;
+    let custData = await env.SHV.get(customerKey);
     
+    if (!custData) {
+      console.log('[TIER] Customer not found in KV:', customer.id);
+      return { upgraded: false, points: 0 };
+    }
+
+    const cust = JSON.parse(custData);
+    const pointsToAdd = Math.floor(revenue);
+    
+    const tierResult = addPoints(cust, pointsToAdd);
+    
+    await env.SHV.put(customerKey, JSON.stringify(cust));
+    await env.SHV.put(`customer:email:${cust.email}`, JSON.stringify(cust));
+    
+    console.log('[TIER] Points added', {
+      customerId: customer.id,
+      pointsAdded: pointsToAdd,
+      totalPoints: cust.points,
+      upgraded: tierResult.upgraded,
+      oldTier: tierResult.oldTier,
+      newTier: tierResult.newTier
+    });
+
+    return {
+      upgraded: tierResult.upgraded,
+      oldTier: tierResult.oldTier,
+      newTier: tierResult.newTier,
+      points: cust.points
+    };
+  } catch (e) {
+    console.error('[TIER] Error adding points:', e);
+    return { upgraded: false, points: 0 };
+  }
+}
 // ===================================================================
 // Router entry
 // ===================================================================
@@ -281,9 +331,15 @@ async function createOrder(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
-  // Trừ kho
+ // Trừ kho
   if (shouldAdjustStock(order.status)) {
     await adjustInventory(normalizeOrderItems(order.items), env, -1);
+  }
+
+  // ✅ Cộng điểm cho customer
+  if (order.status === 'confirmed') {
+    const tierInfo = await addPointsToCustomer(order.customer, revenue, env);
+    console.log('[ORDER] Tier update:', tierInfo);
   }
 
   const response = json({ ok: true, id }, {}, req);
@@ -373,6 +429,12 @@ async function createOrderPublic(req, env) {
     await adjustInventory(normalizeOrderItems(order.items), env, -1);
   }
 
+  // ✅ Cộng điểm cho customer
+  if (shouldAdjustStock(order.status)) {
+    const tierInfo = await addPointsToCustomer(order.customer, revenue, env);
+    console.log('[ORDER-PUBLIC] Tier update:', tierInfo);
+  }
+
   const response = json({ ok: true, id }, {}, req);
   await idemSet(idem.key, env, response);
   return response;
@@ -456,6 +518,12 @@ async function createOrderLegacy(req, env) {
 
   if (shouldAdjustStock(order.status)) {
     await adjustInventory(normalizeOrderItems(order.items), env, -1);
+  }
+
+  // ✅ Cộng điểm cho customer
+  if (shouldAdjustStock(order.status)) {
+    const tierInfo = await addPointsToCustomer(order.customer || {}, revenue, env);
+    console.log('[ORDER-LEGACY] Tier update:', tierInfo);
   }
 
   return json({ ok: true, id, data: order }, {}, req);

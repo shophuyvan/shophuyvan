@@ -1032,4 +1032,81 @@ async function customerMe(req, env) {
     console.error('[Customers] Me error:', e);
     return json({ ok: false, error: 'Invalid token' }, { status: 401 }, req);
   }
+
+// ===================================================================
+// TIER SYSTEM HELPER FUNCTIONS
+// ===================================================================
+
+const TIER_CONFIG = {
+  retail: {
+    name: 'Thành viên thu?ng',
+    icon: '??',
+    min_points: 0,
+    discount: 0,
+    color: '#6b7280'
+  },
+  silver: {
+    name: 'Thành viên b?c',
+    icon: '??',
+    min_points: 1000000,
+    discount: 3,
+    color: '#94a3b8'
+  },
+  gold: {
+    name: 'Thành viên vàng',
+    icon: '??',
+    min_points: 3000000,
+    discount: 5,
+    color: '#fbbf24'
+  },
+  diamond: {
+    name: 'Thành viên kim cuong',
+    icon: '??',
+    min_points: 5000000,
+    discount: 8,
+    color: '#06b6d4'
+  }
+};
+
+function calculateTier(points) {
+  const p = Number(points || 0);
+  if (p >= TIER_CONFIG.diamond.min_points) return 'diamond';
+  if (p >= TIER_CONFIG.gold.min_points) return 'gold';
+  if (p >= TIER_CONFIG.silver.min_points) return 'silver';
+  return 'retail';
+}
+
+function getTierInfo(tier) {
+  return TIER_CONFIG[tier] || TIER_CONFIG.retail;
+}
+
+function updateCustomerTier(customer) {
+  const newTier = calculateTier(customer.points);
+  const oldTier = customer.tier || 'retail';
+  
+  if (newTier !== oldTier) {
+    customer.tier = newTier;
+    customer.tier_updated_at = new Date().toISOString();
+    console.log(\[TIER] Customer \ upgraded: \ ? \ (points: \)\);
+    return true;
+  }
+  return false;
+}
+
+function addPoints(customer, points) {
+  const oldTier = customer.tier || 'retail';
+  customer.points = (Number(customer.points || 0) + Number(points || 0));
+  const upgraded = updateCustomerTier(customer);
+  const newTier = customer.tier || 'retail';
+  
+  return { upgraded, oldTier, newTier };
+}
+
+export {
+  TIER_CONFIG,
+  calculateTier,
+  getTierInfo,
+  updateCustomerTier,
+  addPoints
+};
 }
