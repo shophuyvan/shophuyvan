@@ -769,22 +769,25 @@ async function fetchProduct(id) {
 
     const prForLD = await pricePair(CURRENT || PRODUCT);
 
-    const structuredData = {
-      "@context": "https://schema.org/",
-      "@type": "Product",
-      ...
-      "offers": {
-        "@type": "Offer",
-        "price": prForLD.base,
-        "priceCurrency": "VND",
-        "availability": "https://schema.org/InStock"
-      }
-    };
-    
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(structuredData);
-    document.head.appendChild(script);
+    // JSON-LD (Product) – lấy giá theo variant nếu có
+const ldPricePair = await pricePair(CURRENT || PRODUCT);
+const structuredData = {
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": (PRODUCT.title || PRODUCT.name || "").toString(),
+  "image": imagesOf(PRODUCT),
+  "description": (PRODUCT.description || PRODUCT.desc || "").toString(),
+  "offers": {
+    "@type": "Offer",
+    "price": ldPricePair.base,
+    "priceCurrency": "VND",
+    "availability": "https://schema.org/InStock"
+  }
+};
+const script = document.createElement('script');
+script.type = 'application/ld+json';
+script.text = JSON.stringify(structuredData);
+document.head.appendChild(script);
 
   } catch(e) {
     console.error('[PDP] Init error:', e);
