@@ -857,17 +857,20 @@ async function getMyOrders(req, env) {
   // 1) Dùng token gốc
   let customer = await tryKeys(token);
 
-  // 2) Nếu chưa có, thử giải mã base64 (FE đang gửi “Y3VzdF8…”, thực chất là “cust_…”)
+  // 2) Nếu chưa có, thử giải mã base64 (FE thường gửi “Y3VzdF8…”, decode ra “cust_…”)
+  let decodedTokenId = '';
   if (!customer) {
     try {
       let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4) b64 += '=';           // padding
-      const decoded = atob(b64);                   // ví dụ: "cust_1761008058371_gtrlglo"
+      while (b64.length % 4) b64 += '=';  // padding
+      const decoded = atob(b64);          // ví dụ: "cust_1761008058371_gtrlglo"
       if (decoded && decoded !== token) {
-        // Thử lại nhóm key chuẩn
+        decodedTokenId = decoded; // lưu lại để fallback lọc theo id
+
+        // Thử nhóm key chuẩn với chuỗi đã decode
         customer = await tryKeys(decoded);
 
-        // Thử trực tiếp theo cách KV của bạn đang lưu: "customer:cust_...."
+        // Thử trực tiếp theo cách KV đang lưu: "customer:cust_...."
         if (!customer) {
           customer =
             (await kvGet('customer:' + decoded)) ||
@@ -884,6 +887,7 @@ async function getMyOrders(req, env) {
       const cid = p.customer_id || p.customerId || p.sub || p.id || '';
       if (cid) {
         customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (!customer) decodedTokenId = String(cid);
       }
     } catch { /* ignore */ }
   }
