@@ -100,6 +100,7 @@ function renderOrder(order) {
             >
             <div class="flex-1 min-w-0">
               <div class="font-medium text-gray-900 text-sm truncate">${item.product_name}</div>
+              ${item.variant_name ? `<div class="text-xs text-gray-500 mt-1">Phân loại: ${item.variant_name}</div>` : ''}
               <div class="text-xs text-gray-500 mt-1">Số lượng: x${item.quantity}</div>
               <div class="text-sm font-semibold text-blue-600 mt-1">
                 ${formatPrice(item.price * item.quantity)}
@@ -210,8 +211,8 @@ if (!token) {
       return;
     }
     
-    // Extract orders array
-    const orders = data.orders || data.items || data.data || [];
+    // Extract orders array: API may return an array directly or nested object
+    const orders = Array.isArray(data) ? data : data.orders || data.items || data.data || [];
     
     if (!Array.isArray(orders)) {
       showError('Dữ liệu không hợp lệ');

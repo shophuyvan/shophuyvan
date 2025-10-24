@@ -272,31 +272,46 @@ async function createOrder(req, env) {
   const items = Array.isArray(body.items) ? body.items : [];
   
   for (const item of items) {
-    if (!item.cost || item.cost === 0) {
-      const variantId = item.id || item.sku;
-      if (variantId) {
-        console.log('[ORDER] Looking for cost:', variantId);
-        const allProducts = await getJSON(env, 'products:list', []);
+    const variantId = item.id || item.sku;
+    if (variantId) { // Chỉ xử lý item có ID/SKU variant
+      const allProducts = await getJSON(env, 'products:list', []);
+      let variantFound = null;
+
+      for (const summary of allProducts) {
+        const product = await getJSON(env, 'product:' + summary.id, null);
+        if (!product || !Array.isArray(product.variants)) continue;
         
-        for (const summary of allProducts) {
-          const product = await getJSON(env, 'product:' + summary.id, null);
-          if (!product || !Array.isArray(product.variants)) continue;
-          
-          const variant = product.variants.find(v => 
-            String(v.id || v.sku || '') === String(variantId) ||
-            String(v.sku || '') === String(item.sku || '')
-          );
-          
-          if (variant) {
-            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-            for (const key of keys) {
-              if (variant[key] != null) {
-                item.cost = Number(variant[key] || 0);
-                console.log('[ORDER] ✅ Found cost:', { id: variantId, cost: item.cost });
-                break;
-              }
-            }
+        const variant = product.variants.find(v => 
+          String(v.id || v.sku || '') === String(variantId) ||
+          String(v.sku || '') === String(item.sku || '')
+        );
+        
+        if (variant) {
+          variantFound = variant;
+          break;
+        }
+      }
+
+      if (variantFound) {
+        // BẮT BUỘC SỬ DỤNG GIÁ VARIANT (Theo yêu cầu của khách hàng)
+        const priceKeys = ['price', 'sale_price', 'list_price', 'gia_ban'];
+        for (const key of priceKeys) {
+          if (variantFound[key] != null) {
+            item.price = Number(variantFound[key] || 0);
+            console.log('[ORDER] ✅ Enforced variant price:', { id: variantId, price: item.price });
             break;
+          }
+        }
+
+        // Xử lý Cost (chỉ khi item.cost chưa được gửi lên)
+        if (!item.cost || item.cost === 0) {
+          const costKeys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+          for (const key of costKeys) {
+            if (variantFound[key] != null) {
+              item.cost = Number(variantFound[key] || 0);
+              console.log('[ORDER] ✅ Found cost:', { id: variantId, cost: item.cost });
+              break;
+            }
           }
         }
       }
