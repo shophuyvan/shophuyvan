@@ -213,12 +213,29 @@ function mediaList(p) {
 }
 
 function variantsOf(p) {
-  if (Array.isArray(p?.variants)) return p.variants;
+  if (!p) return [];
+  
+  // Nếu có mảng variants hợp lệ
+  if (Array.isArray(p?.variants) && p.variants.length) return p.variants;
+
+  // Dò các field khác thường dùng
   const keys = ['skus', 'sku_list', 'children', 'items', 'options', 'variations', 'combos', 'list'];
   for (const k of keys) {
     const v = p?.[k];
-    if (Array.isArray(v)) return v;
+    if (Array.isArray(v) && v.length) return v;
   }
+
+  // Nếu không có biến thể rõ ràng, tự tạo 1 biến thể mặc định
+  if (p.price || p.sale_price || p.price_sale) {
+    return [{
+      id: p.id || p._id || p.slug || 'default',
+      name: p.title || p.name || 'Mặc định',
+      price: p.sale_price || p.price_sale || p.price,
+      stock: p.stock || p.qty || p.quantity || 0,
+      image: p.image || (Array.isArray(p.images) ? p.images[0] : '')
+    }];
+  }
+
   return [];
 }
 
