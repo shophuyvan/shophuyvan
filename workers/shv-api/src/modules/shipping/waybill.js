@@ -182,7 +182,8 @@ export async function createWaybill(req, env) {
     // Call SuperAI API
     const data = await superFetch(env, '/v1/platform/orders/create', {
   method: 'POST',
-  body: payload
+  body: payload,
+  useBearer: true
 });
 
     console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
