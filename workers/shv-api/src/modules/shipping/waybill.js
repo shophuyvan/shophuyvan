@@ -122,7 +122,7 @@ export async function createWaybill(req, env) {
       weight: chargeableWeightGrams(body, order) || 500,
       cod: Number(order.cod || body.cod || 0),
 	  // Aliases SuperAI
-  value: Number(order.value || body.value || (order.cod ?? body.cod) || payload?.amount || 0),
+  value: Number(order.value || body.value || order.cod || body.cod || calculateOrderAmount(order, body) || 0),
   soc: body.soc || order.soc || '',
       
       // Payer (REQUIRED) - '1' = Shop trả phí, '2' = Người nhận trả
@@ -182,8 +182,7 @@ export async function createWaybill(req, env) {
     // Call SuperAI API
     const data = await superFetch(env, '/v1/platform/orders/create', {
   method: 'POST',
-  body: payload,
-  useBearer: true
+  body: payload
 });
 
     console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
