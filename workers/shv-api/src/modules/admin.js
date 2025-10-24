@@ -1087,7 +1087,7 @@ function updateCustomerTier(customer) {
   if (newTier !== oldTier) {
     customer.tier = newTier;
     customer.tier_updated_at = new Date().toISOString();
-    console.log(\[TIER] Customer \ upgraded: \ ? \ (points: \)\);
+    console.log(`[TIER] Customer ${customer.id} upgraded: ${oldTier} → ${newTier} (points: ${customer.points})`);
     return true;
   }
   return false;
