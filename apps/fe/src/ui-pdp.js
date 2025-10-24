@@ -545,18 +545,18 @@ function injectStickyCTA() {
   }
 
   $('#shv-cta-add')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (typeof openVariantModal === 'function') {
-      openVariantModal('cart');
-    } else {
-      window.location.href = '/cart.html';
-    }
-  });
+  e.preventDefault();
+  if (typeof window.openVariantModal === 'function') {
+    window.openVariantModal('cart');
+  } else {
+    window.location.href = '/cart.html';
+  }
+});
 
-  $('#shv-cta-buy')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      const maybePromise = openVariantModal('buy');
+$('#shv-cta-buy')?.addEventListener('click', async (e) => {
+  e.preventDefault();
+  try {
+    const maybePromise = window.openVariantModal('buy');
       if (maybePromise && typeof maybePromise.then === 'function') {
         await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
       } else {
@@ -585,7 +585,7 @@ function openVariantModal(mode) {
     position:fixed;
     inset:0;
     background:rgba(0,0,0,.45);
-    z-index:70;
+    z-index:130;
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -767,20 +767,20 @@ async function fetchProduct(id) {
 
     document.title = `${PRODUCT.title || PRODUCT.name || 'Sản phẩm'} - Shop Huy Vân`;
 
+    const prForLD = await pricePair(CURRENT || PRODUCT);
+
     const structuredData = {
       "@context": "https://schema.org/",
       "@type": "Product",
-      "name": PRODUCT.title || PRODUCT.name,
-      "image": imagesOf(PRODUCT),
-      "description": PRODUCT.description || PRODUCT.desc || '',
+      ...
       "offers": {
         "@type": "Offer",
-        "price": pricePair(PRODUCT).base,
+        "price": prForLD.base,
         "priceCurrency": "VND",
         "availability": "https://schema.org/InStock"
       }
     };
-
+    
     const script = document.createElement('script');
     script.type = 'application/ld+json';
     script.text = JSON.stringify(structuredData);
@@ -823,22 +823,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAdd) {
     btnAdd.onclick = (e) => {
       e.preventDefault();
-      if (typeof openVariantModal === 'function') {
-        openVariantModal('cart');
-      } else {
-        console.error('openVariantModal not found');
-      }
+      if (typeof window.openVariantModal === 'function') {
+  window.openVariantModal('cart');
+} else {
+  console.error('[PDP] openVariantModal not found on window');
+}
     };
   }
   
   if (btnBuy) {
     btnBuy.onclick = (e) => {
       e.preventDefault();
-      if (typeof openVariantModal === 'function') {
-        openVariantModal('buy');
-      } else {
-        console.error('openVariantModal not found');
-      }
+      if (typeof window.openVariantModal === 'function') {
+  window.openVariantModal('buy');
+} else {
+  console.error('[PDP] openVariantModal not found on window');
+}
     };
   }
   
