@@ -1110,4 +1110,3 @@ export {
   updateCustomerTier,
   addPoints
 };
-}
