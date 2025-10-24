@@ -532,7 +532,18 @@ async function createOrder(req, env) {
 
   const createdAt = body.createdAt || body.created_at || Date.now();
   const status = body.status || 'pending';
-  const customer = body.customer || {};
+  // MỚI: Gộp thông tin khách hàng đăng nhập (nếu có) vào thông tin checkout
+  const finalCustomer = { 
+    ...(loggedInCustomer || {}),  // Ưu tiên ID, tier, points từ user đăng nhập
+    ...(body.customer || {})      // Ghi đè bằng tên, sđt, địa chỉ từ form checkout
+  };
+  
+  if (loggedInCustomer && loggedInCustomer.id) {
+    finalCustomer.id = loggedInCustomer.id; // Đảm bảo ID được giữ lại
+  }
+  
+  const customer = finalCustomer; // Sử dụng đối tượng customer đã gộp
+  
   // ✅ ENRICH ITEMS WITH COST
   const items = Array.isArray(body.items) ? body.items : [];
   
