@@ -933,3 +933,4 @@ window.PRODUCT_UTILS = {
 };
 
 console.log('[PDP] UI initialized successfully');
+}
