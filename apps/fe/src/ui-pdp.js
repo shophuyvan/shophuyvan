@@ -564,7 +564,7 @@ function injectStickyCTA() {
   $('#shv-cta-add')?.addEventListener('click', (e) => {
   e.preventDefault();
   if (typeof window.openVariantModal === 'function') {
-    window.openVariantModal('cart');
+    window.openVariantModal('cart')openVariantModal('cart');
   } else {
     window.location.href = '/cart.html';
   }
