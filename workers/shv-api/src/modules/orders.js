@@ -915,17 +915,28 @@ async function getMyOrders(req, env) {
   }
   allOrders = enriched;
 
-  const pPhone = (customer && (customer.phone || customer.mobile || customer.tel)) || null;
-  const pId    = (customer && (customer.id || customer.customer_id || customer.customerId)) || decodedTokenId || null;
+  // Thông tin khách để đối chiếu
+  const pPhone  = (customer && (customer.phone || customer.mobile || customer.tel)) || null;
+  const pId     = (customer && (customer.id || customer.customer_id || customer.customerId)) || decodedTokenId || null;
+  const pEmail  = (customer && (customer.email || customer.mail)) || null;
+  const pToken  = decodedTokenId || null; // khi token decode ra "cust_..." hoặc một mã nhận diện khác
 
   const myOrders = allOrders.filter(order => {
-    const oc = order.customer || {};
-    const orderPhone = oc.phone || order.phone || null;
-    const orderId    = oc.id || oc.customer_id || null;
+  const oc          = order.customer || {};
+  const orderPhone  = oc.phone  || order.phone  || null;
+  const orderId     = oc.id     || oc.customer_id || null;
+  const orderEmail  = oc.email  || order.email  || null;
+  const orderToken  = oc.token  || oc.customer_token || order.customer_token || null;
 
-    return (pPhone && orderPhone && String(orderPhone) === String(pPhone))
-        || (pId && orderId && String(orderId) === String(pId));
-  });
+  const eq = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+  return (
+    (pPhone && orderPhone && eq(orderPhone, pPhone))      // khớp theo phone
+    || (pId && orderId && eq(orderId, pId))               // khớp theo id
+    || (pEmail && orderEmail && eq(orderEmail, pEmail))   // khớp theo email
+    || (pToken && orderToken && eq(orderToken, pToken))   // khớp theo token lưu trong đơn (nếu có)
+  );
+});
 
   myOrders.sort((a, b) => Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0));
 
