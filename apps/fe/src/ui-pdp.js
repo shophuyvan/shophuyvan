@@ -573,7 +573,7 @@ $('#shv-cta-add')?.addEventListener('click', (e) => {
 $('#shv-cta-buy')?.addEventListener('click', async (e) => {
   e.preventDefault();
   try {
-    const maybePromise = window.openVariantModal('buy');
+    const maybePromise = window.openVariantModal('buy');const maybePromise = window.openVariantModal('buy');const maybePromise = window.openVariantModal('buy');
       if (maybePromise && typeof maybePromise.then === 'function') {
         await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
       } else {
@@ -587,7 +587,63 @@ $('#shv-cta-buy')?.addEventListener('click', async (e) => {
 // ✅ FIXED: openVariantModal với thumbnail icons
 function openVariantModal(mode) {
   const mask = document.createElement('div');
+  document.body.appendChild(mask);
   mask.id = 'shv-variant-mask';
+  mask.style.display = 'flex';
+  mask.style.opacity = 1;
+  mask.style.zIndex = 130;
+  mask.id = 'shv-variant-mask';
+  // ✅ Thêm style overlay để modal hiển thị toàn màn hình
+mask.style.cssText = `
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 130;
+  transition: all 0.25s ease;
+`;
+
+// ✅ Render danh sách biến thể thật từ dữ liệu sản phẩm
+const product = window.PRODUCT_UTILS?.getProduct?.() || {};
+const variants = variantsOf(product);
+const variantList = variants.map((v, i) => `
+  <div data-vid="${v.id || i}" 
+       style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
+       onclick="this.parentElement.querySelectorAll('div').forEach(d=>d.style.border='1px solid #ddd');this.style.border='2px solid #ef4444';window.selectedVariant='${v.id || i}'">
+    <span>${v.name || 'Biến thể ' + (i + 1)}</span>
+    <span style="color:#ef4444;font-weight:600;">${(v.price || 0).toLocaleString()}đ</span>
+  </div>
+`).join('');
+
+mask.innerHTML = `
+  <div style="
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:12px 12px 0 0;
+    padding:20px;
+    text-align:center;
+    box-shadow:0 -4px 20px rgba(0,0,0,0.2);
+  ">
+    <h3 style="margin-bottom:12px;font-size:18px;">Chọn biến thể</h3>
+    <div style="text-align:left;max-height:250px;overflow-y:auto;margin-bottom:20px;">
+      ${variantList || '<p>Không có biến thể nào.</p>'}
+    </div>
+    <button id="vm-close" style="
+      background:#ef4444;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;
+    ">Đóng</button>
+  </div>
+`;
+
+// ✅ Nút đóng
+mask.querySelector('#vm-close').onclick = () => mask.remove();
 
   // Ẩn thanh đáy khi mở modal (lưu lại trạng thái cũ)
   const bottomBar = document.querySelector('.shv-bottom-bar');
