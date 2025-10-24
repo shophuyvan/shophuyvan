@@ -247,6 +247,80 @@ export async function handle(req, env, ctx) {
 // PUBLIC: Create Order
 // ===================================================================
 async function createOrder(req, env) {
+
+  // --- BEGIN: HELPER TÌM CUSTOMER (COPY TỪ getMyOrders) ---
+  const parseCookie = (str) => {
+    const out = {};
+    (str || '').split(';').forEach(p => {
+      const i = p.indexOf('=');
+      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+    });
+    return out;
+  }
+  const kvGet = async (k) => {
+    try { return await getJSON(env, k, null); } catch (_) { return null; }
+  }
+  const tryKeys = async (tok) => {
+    if (!tok) return null;
+    const keys = [
+      tok, 'cust:' + tok, 'customerToken:' + tok, 'token:' + tok,
+      'customer_token:' + tok, 'auth:' + tok, 'customer:' + tok,
+      'session:' + tok, 'shv_session:' + tok
+    ];
+    for (const k of keys) {
+      const val = await kvGet(k);
+      if (!val) continue;
+      if (k.includes('session:') && (val.customer || val.user)) {
+        return val.customer || val.user;
+      }
+      if (typeof val === 'object' && val !== null) return val;
+      if (typeof val === 'string') {
+        const cid = String(val).trim();
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+      if (val && (val.customer_id || val.customerId)) {
+        const cid = val.customer_id || val.customerId;
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+    }
+    return null;
+  };
+  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
+  if (!token) {
+    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+    if (m) token = m[1];
+  }
+  if (!token) {
+    const c = parseCookie(req.headers.get('cookie') || '');
+    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
+  }
+  token = String(token || '').trim().replace(/^"+|"+$/g, '');
+  
+  let loggedInCustomer = await tryKeys(token);
+  if (!loggedInCustomer && token) {
+     try {
+      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      const decoded = atob(b64);
+      if (decoded && decoded !== token) {
+        loggedInCustomer = await tryKeys(decoded);
+        if (!loggedInCustomer) {
+          loggedInCustomer = (await kvGet('customer:' + decoded)) || (await kvGet('customer:id:' + decoded));
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  if (!loggedInCustomer && token && token.split('.').length === 3) {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
+      if (cid) loggedInCustomer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+    } catch { /* ignore */ }
+  }
+  // --- END: HELPER TÌM CUSTOMER ---
+
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
@@ -330,10 +404,20 @@ async function createOrder(req, env) {
     sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
   ) - discount;
 
+  // MỚI: Gộp thông tin khách hàng đăng nhập (nếu có) vào thông tin checkout
+  const finalCustomer = { 
+    ...(loggedInCustomer || {}),  // Ưu tiên ID, tier, points từ user đăng nhập
+    ...(body.customer || {})      // Ghi đè bằng tên, sđt, địa chỉ từ form checkout
+  };
+  
+  if (loggedInCustomer && loggedInCustomer.id) {
+    finalCustomer.id = loggedInCustomer.id; // Đảm bảo ID được giữ lại
+  }
+  
   const order = {
     id, createdAt,
     status: 'confirmed',
-    customer: body.customer,
+    customer: finalCustomer, // Sử dụng đối tượng customer đã gộp
     items,
     subtotal, shipping_fee, discount, shipping_discount, revenue, profit,
     note: body.note || '',
@@ -365,7 +449,81 @@ async function createOrder(req, env) {
 // ===================================================================
 // PUBLIC: Create Order (alt)
 // ===================================================================
-async function createOrderPublic(req, env) {
+async function createOrder(req, env) {
+
+  // --- BEGIN: HELPER TÌM CUSTOMER (COPY TỪ getMyOrders) ---
+  const parseCookie = (str) => {
+    const out = {};
+    (str || '').split(';').forEach(p => {
+      const i = p.indexOf('=');
+      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+    });
+    return out;
+  }
+  const kvGet = async (k) => {
+    try { return await getJSON(env, k, null); } catch (_) { return null; }
+  }
+  const tryKeys = async (tok) => {
+    if (!tok) return null;
+    const keys = [
+      tok, 'cust:' + tok, 'customerToken:' + tok, 'token:' + tok,
+      'customer_token:' + tok, 'auth:' + tok, 'customer:' + tok,
+      'session:' + tok, 'shv_session:' + tok
+    ];
+    for (const k of keys) {
+      const val = await kvGet(k);
+      if (!val) continue;
+      if (k.includes('session:') && (val.customer || val.user)) {
+        return val.customer || val.user;
+      }
+      if (typeof val === 'object' && val !== null) return val;
+      if (typeof val === 'string') {
+        const cid = String(val).trim();
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+      if (val && (val.customer_id || val.customerId)) {
+        const cid = val.customer_id || val.customerId;
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+    }
+    return null;
+  };
+  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
+  if (!token) {
+    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+    if (m) token = m[1];
+  }
+  if (!token) {
+    const c = parseCookie(req.headers.get('cookie') || '');
+    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
+  }
+  token = String(token || '').trim().replace(/^"+|"+$/g, '');
+  
+  let loggedInCustomer = await tryKeys(token);
+  if (!loggedInCustomer && token) {
+     try {
+      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      const decoded = atob(b64);
+      if (decoded && decoded !== token) {
+        loggedInCustomer = await tryKeys(decoded);
+        if (!loggedInCustomer) {
+          loggedInCustomer = (await kvGet('customer:' + decoded)) || (await kvGet('customer:id:' + decoded));
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  if (!loggedInCustomer && token && token.split('.').length === 3) {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
+      if (cid) loggedInCustomer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+    } catch { /* ignore */ }
+  }
+  // --- END: HELPER TÌM CUSTOMER ---
+
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
