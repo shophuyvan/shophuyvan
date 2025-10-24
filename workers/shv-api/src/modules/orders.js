@@ -892,11 +892,11 @@ async function getMyOrders(req, env) {
     } catch { /* ignore */ }
   }
 
-  // 4) Chấp nhận nếu customer có phone HOẶC có id
+  // 4) Chấp nhận nếu: (a) tìm được customer có phone/id, hoặc (b) không có customer nhưng có decodedTokenId
   const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
   const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
 
-  if (!customer || (!custPhone && !custId)) {
+  if (!customer && !decodedTokenId) {
     return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
   }
 
@@ -915,8 +915,8 @@ async function getMyOrders(req, env) {
   }
   allOrders = enriched;
 
-  const pPhone = customer.phone || customer.mobile || customer.tel || null;
-  const pId    = customer.id || customer.customer_id || customer.customerId || null;
+  const pPhone = (customer && (customer.phone || customer.mobile || customer.tel)) || null;
+  const pId    = (customer && (customer.id || customer.customer_id || customer.customerId)) || decodedTokenId || null;
 
   const myOrders = allOrders.filter(order => {
     const oc = order.customer || {};
