@@ -786,6 +786,7 @@ mask.querySelector('#vm-close').onclick = () => mask.remove();
 
   updPrice(); // ✅ GIỮ NGUYÊN (sẽ tự resolve promise)
 }
+}
 
 
 // === FETCH PRODUCT ===
