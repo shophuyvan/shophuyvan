@@ -798,11 +798,16 @@ async function getMyOrders(req, env) {
   }
 
   // Chuẩn hoá token
-  token = String(token || '').trim().replace(/^"+|"+$/g, '');
+token = String(token || '').trim().replace(/^"+|"+$/g, '');
 
-  if (!token) {
-    return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
-  }
+// NEW: cho phép truyền phone qua query/header để fallback
+const url = new URL(req.url);
+const phoneFallback = (url.searchParams.get('phone') || req.headers.get('x-customer-phone') || '').trim();
+
+// Nếu không có token và cũng không có phone → báo lỗi như cũ
+if (!token && !phoneFallback) {
+  return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
+}
 
   // --- B. Resolve customer trong KV theo token ---
   async function kvGet(k) {
@@ -896,9 +901,9 @@ async function getMyOrders(req, env) {
   const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
   const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
 
-  if (!customer && !decodedTokenId) {
-    return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
-  }
+  if (!customer && !decodedTokenId && !phoneFallback) {
+  return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
+}
 
   // --- C. Lọc đơn theo phone hoặc id khách ---
   let allOrders = await getJSON(env, 'orders:list', []);
@@ -916,7 +921,7 @@ async function getMyOrders(req, env) {
   allOrders = enriched;
 
   // Thông tin khách để đối chiếu
-  const pPhone  = (customer && (customer.phone || customer.mobile || customer.tel)) || null;
+  const pPhone  = phoneFallback || (customer && (customer.phone || customer.mobile || customer.tel)) || null;
   const pId     = (customer && (customer.id || customer.customer_id || customer.customerId)) || decodedTokenId || null;
   const pEmail  = (customer && (customer.email || customer.mail)) || null;
   const pToken  = decodedTokenId || null; // khi token decode ra "cust_..." hoặc một mã nhận diện khác
