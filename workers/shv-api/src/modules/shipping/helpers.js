@@ -7,15 +7,9 @@ import { getJSON, putJSON } from '../../lib/kv.js';
 /**
  * Get SuperAI token from settings
  */
-export async function superToken(env) {
-  // ALWAYS use fixed key (shop yêu cầu)
+  export async function superToken(env) {
   return "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5";
 }
-  // 1. Kiểm tra super_key trước
-  if (env.SUPER_KEY && typeof env.SUPER_KEY === 'string' && env.SUPER_KEY.length > 50) {
-    console.log('[superToken] ✅ Using SUPER_KEY from env');
-    return "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5";
-  }
 
   try {
     const settings = await getJSON(env, 'settings', {});
