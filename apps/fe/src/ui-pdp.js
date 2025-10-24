@@ -335,7 +335,6 @@ function renderTitle() {
   if (soldEl) {
     const sold = num(PRODUCT.sold || PRODUCT.sold_count || 0);
     soldEl.textContent = sold > 0 ? sold.toLocaleString('vi-VN') : '0';
-  }
   
   if (ratingEl) {
     const rating = PRODUCT.rating || 5;
