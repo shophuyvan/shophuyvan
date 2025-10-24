@@ -538,6 +538,7 @@ function injectFloatingCart() {
   setInterval(upd, 1500);
   window.addEventListener('shv:cart-changed', upd);
 }
+}
 
 // === STICKY CTA ===
 function injectStickyCTA() {
@@ -923,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[PDP] Bottom bar handlers initialized');
 });
 
-// === EXPOSE GLOBAL API ===
+/ === EXPOSE GLOBAL API ===
 window.openVariantModal = openVariantModal;
 window.PRODUCT_UTILS = {
   getProduct: () => PRODUCT,
@@ -934,4 +935,4 @@ window.PRODUCT_UTILS = {
 };
 
 console.log('[PDP] UI initialized successfully');
-}
+})();
