@@ -449,7 +449,7 @@ async function createOrder(req, env) {
 // ===================================================================
 // PUBLIC: Create Order (alt)
 // ===================================================================
-async function createOrder(req, env) {
+async function createOrderPublic(req, env) {
 
   // --- BEGIN: HELPER TÌM CUSTOMER (COPY TỪ getMyOrders) ---
   const parseCookie = (str) => {
