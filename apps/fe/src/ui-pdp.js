@@ -653,6 +653,45 @@ function openVariantModal(mode) {
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:#f3f4f6;width:28px;height:28px;border-radius:14px;font-size:16px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
   </div>`;
   mask.innerHTML = html;
+  const listEl = mask.querySelector('#vm-variants');
+
+  function renderVariantList() {
+    if (!listEl) return;
+    listEl.innerHTML = (vs || []).map((v, i) => {
+      const thumb = (imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '');
+      const active = (CURRENT && (CURRENT === v || (CURRENT.id && (String(CURRENT.id) === String(v.id)))));
+      return `
+        <button data-idx="${i}" style="
+          display:flex;align-items:center;gap:8px;
+          border:1px solid ${active ? '#ef4444' : '#e5e7eb'};
+          background:${active ? '#fff5f5' : '#fff'};
+          border-radius:10px;padding:8px;cursor:pointer;text-align:left
+        ">
+          ${thumb ? `<img src="${thumb}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:6px;border:1px solid #f1f5f9;background:#fff" />` : ``}
+          <span style="font-weight:600;font-size:13px;line-height:1.2">${htmlEscape(v.name || v.title || v.sku || 'Tuỳ chọn')}</span>
+        </button>`;
+    }).join('');
+  }
+
+  renderVariantList();
+
+  // Chọn biến thể
+  listEl?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-idx]');
+    if (!btn) return;
+    const i = Number(btn.dataset.idx || 0);
+    CURRENT = vs[i] || CURRENT;
+
+    // Cập nhật ảnh, giá, tồn kho trong header modal
+    const imgEl = mask.querySelector('#vm-img');
+    if (imgEl) imgEl.src = imagesOf(CURRENT)[0] || imagesOf(PRODUCT)[0] || '';
+
+    // Gọi cập nhật giá/tồn kho đang có sẵn
+    updPrice();
+
+    // Vẽ lại danh sách để highlight item đang chọn
+    renderVariantList();
+  });
 
   // === Các xử lý sự kiện ===
   async function updPrice() {
