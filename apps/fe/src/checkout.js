@@ -71,19 +71,25 @@ async function fetchAndRenderQuote(){
   try{
     // ==== ENDPOINT-FIRST with FALLBACKS ====
     const payload = {
-      receiver_province: to_province,
-      receiver_district: to_district,
-      weight_gram: Number(weight || 0),
-      cod: subtotal
-    };
+  // kho gửi (nếu bạn có lưu trong localStorage; nếu không có thì để rỗng cho BE tự mặc định)
+  sender_province:  localStorage.getItem('wh_province') || '',
+  sender_district:  localStorage.getItem('wh_district') || '',
+  // người nhận
+  receiver_province: to_province,
+  receiver_district: to_district,
+  receiver_commune: to_ward || '',
+  // gói hàng
+  weight_gram: Number(weight || 0),
+  cod: subtotal,         // tổng tiền hàng cần thu hộ
+  option_id: '1'
+};
     let arr = [];
     try {
       const TOKEN = localStorage.getItem('ship_api_token') || '';
-      const resEP = await api('/v1/platform/orders/price', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${TOKEN}` },
-        body: payload
-      });
+      const resEP = await api('/shipping/price', {
+  method: 'POST',
+  body: payload
+});
       arr = (resEP && (resEP.items || resEP.data)) || [];
     } catch (e) { /* ignore */ }
 
@@ -194,43 +200,6 @@ async function fetchAndRenderQuote(){
     lastPricing = arr;
     renderSummary();
 
-    
-    // ==== START PATCH: fetch shipping quotes (endpoint-first with fallback) ====
-    const payload = {
-      receiver_province: to_province,
-      receiver_district: to_district,
-      weight_gram: Number(weight || 0),
-      cod: subtotal
-    };
-    let arr = [];
-    try {
-      const TOKEN = localStorage.getItem('ship_api_token') || '';
-      const resEP = await api('/v1/platform/orders/price', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${TOKEN}` },
-        body: payload
-      });
-      arr = (resEP && (resEP.items || resEP.data)) || [];
-    } catch (e) { /* ignore */ }
-
-    if (!Array.isArray(arr) || !arr.length) {
-      arr = getFixedQuotes(weight);
-      if (!Array.isArray(arr) || !arr.length) {
-        try {
-          const resLegacy = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${Number(weight)||0}&cod=${subtotal}`);
-          arr = (resLegacy && (resLegacy.items || resLegacy.data)) || resLegacy || [];
-        } catch (e) { arr = []; }
-      }
-    }
-
-    arr = arr.map(o => ({
-      provider: o.provider || o.carrier || '',
-      service_code: o.service_code || o.service || '',
-      name: o.name || o.service_name || ((o.provider||'') + (o.service_code?(' - '+o.service_code):'')),
-      fee: Number(o.fee || o.total_fee || o.price || 0),
-      eta: o.eta || o.leadtime || o.leadtime_text || ''
-    })).filter(o => o.fee >= 0);
-    // ==== END PATCH ====
     
 // Render list
     quoteList.innerHTML = arr.map(opt => `

@@ -42,41 +42,44 @@ async function getShippingPrice(req, env) {
     const shipping = settings.shipping || {};
 
     const payload = {
-      // Names
-      sender_province: body.sender_province || shipping.sender_province || '',
-      sender_district: body.sender_district || shipping.sender_district || '',
-      receiver_province: body.receiver_province || body.to_province || '',
-      receiver_district: body.receiver_district || body.to_district || '',
-      receiver_commune: body.receiver_commune || body.to_ward || '',
-      // Codes (added for aggregator compatibility)
-      sender_province_code: body.sender_province_code || shipping.sender_province_code || '',
-      sender_district_code: body.sender_district_code || shipping.sender_district_code || '',
-      sender_commune_code: body.sender_commune_code || shipping.sender_commune_code || '',
-      receiver_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-      receiver_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-      receiver_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-      // Root-level aliases some providers expect
-      province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-      district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-      commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-      to_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-      to_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-      to_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-      // Parcel
-      weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
-      cod: Number(body.cod || 0) || 0,
-      length_cm: Number(body.length_cm || 0) || 0,
-      width_cm: Number(body.width_cm || 0) || 0,
-      height_cm: Number(body.height_cm || 0) || 0,
-      option_id: body.option_id || shipping.option_id || '1'
-    };
+  // Names
+  sender_province: body.sender_province || shipping.sender_province || '',
+  sender_district: body.sender_district || shipping.sender_district || '',
+  receiver_province: body.receiver_province || body.to_province || '',
+  receiver_district: body.receiver_district || body.to_district || '',
+  receiver_commune: body.receiver_commune || body.to_ward || '',
+  // Codes (added for aggregator compatibility)
+  sender_province_code: body.sender_province_code || shipping.sender_province_code || '',
+  sender_district_code: body.sender_district_code || shipping.sender_district_code || '',
+  sender_commune_code: body.sender_commune_code || shipping.sender_commune_code || '',
+  receiver_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+  receiver_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+  receiver_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+  // Root-level aliases some providers expect
+  province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+  district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+  commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+  to_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
+  to_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
+  to_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
+  // Parcel
+  weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
+  cod: Number(body.cod || 0) || 0,
+  length_cm: Number(body.length_cm || 0) || 0,
+  width_cm: Number(body.width_cm || 0) || 0,
+  height_cm: Number(body.height_cm || 0) || 0,
+  option_id: body.option_id || shipping.option_id || '1',
+
+  // ==== NEW: aliases để tương thích SuperAI ====
+  weight: Number(body.weight_gram || body.weight || 0) || 0,
+  value:  Number(body.cod || 0) || 0
+};
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
       body: payload,
       // Some environments require Bearer Auth instead of Token header
       headers: {},
-      useBearer: true
     });
 
     const items = normalizeShippingRates(data);
@@ -240,19 +243,21 @@ async function getMiniPrice(req, env) {
 
 // Normalize shipping rates from various API responses
 function normalizeShippingRates(data) {
-  const arr = (data?.data && (data.data.items || data.data.rates)) || 
-              data?.data || data || [];
+  const arr = (data?.data && (data.data.services || data.data.items || data.data.rates)) ||
+            data?.data || data || [];
   
   const items = [];
   
   const pushOne = (rate) => {
     if (!rate) return;
     
-    const fee = Number(rate.fee ?? rate.price ?? rate.total_fee ?? rate.amount ?? 0);
-    const eta = rate.eta ?? rate.leadtime_text ?? rate.leadtime ?? '';
-    const provider = rate.provider ?? rate.carrier ?? rate.brand ?? rate.code ?? 'dvvc';
-    const service_code = rate.service_code ?? rate.service ?? rate.serviceId ?? '';
-    const name = rate.name ?? rate.service_name ?? rate.display ?? 'Dịch vụ';
+    const fee = Number(
+  rate.shipment_fee ?? rate.fee ?? rate.price ?? rate.total_fee ?? rate.amount ?? 0
+);
+const eta = rate.estimated_delivery ?? rate.eta ?? rate.leadtime_text ?? rate.leadtime ?? '';
+const provider = rate.carrier_name ?? rate.provider ?? rate.carrier ?? rate.brand ?? rate.code ?? 'dvvc';
+const service_code = rate.service_code ?? rate.service ?? rate.serviceId ?? '';
+const name = rate.name ?? rate.service_name ?? rate.display ?? (rate.carrier_name || 'Dịch vụ');
     
     if (fee > 0) {
       items.push({ provider, service_code, name, fee, eta });
