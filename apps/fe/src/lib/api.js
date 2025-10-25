@@ -12,11 +12,34 @@ async function core(path, init = {}) {
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
   const headers = new Headers(init.headers || {});
-  const token = (localStorage && (
+
+// Token đăng nhập khách/nhân viên (nếu có) – vẫn giữ để dùng cho các API khác
+const loginToken = (localStorage && (
   localStorage.getItem('x-customer-token') ||
   localStorage.getItem('customer_token')   ||
   localStorage.getItem('x-token')
 )) || '';
+
+// Static API Token của SuperAI
+const superToken = (
+  (localStorage && (localStorage.getItem('super_token') || localStorage.getItem('x-token'))) ||
+  'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5' // Fallback bắt buộc
+).trim();
+
+// Nếu không phải /shipping/* thì dùng như cũ
+if (!/^\/(shipping|areas|orders\/(price|optimize|create))/.test(path)) {
+  if (loginToken) {
+    if (!headers.has('x-customer-token')) headers.set('x-customer-token', loginToken);
+    if (!headers.has('Authorization'))     headers.set('Authorization', 'Bearer ' + loginToken);
+  }
+} else {
+  // Với SuperAI shipping, BẮT BUỘC header Token
+  headers.set('Token', superToken);
+
+  // Tránh nhầm lẫn ủy quyền: bỏ các header Bearer cũ nếu có
+  headers.delete('Authorization');
+  headers.delete('x-customer-token');
+}
 
 if (token) {
   if (!headers.has('x-customer-token')) headers.set('x-customer-token', token);

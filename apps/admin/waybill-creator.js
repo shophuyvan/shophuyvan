@@ -384,10 +384,10 @@ return receiver;
   const response = await fetch(this.baseURL + endpoint, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Token': token,     // SuperAI yêu cầu header này
-      'x-token': token    // giữ lại nếu nơi khác còn dùng
-    },
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Token': token
+},
     body: JSON.stringify(payload)
   });
 
