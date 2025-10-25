@@ -90,8 +90,9 @@ export async function createWaybill(req, env) {
       name: orderName,
       phone: receiverPhone,
       address: receiverAddress,
-      province: receiverProvince || receiverProvinceCode,
-      district: receiverDistrict || receiverDistrictCode,
+      province: receiverProvince,
+      district: receiverDistrict,
+      commune: (body.receiver_commune || order.customer?.ward || body.to_commune || ''),
       
       // Amount (REQUIRED)
       amount: calculateOrderAmount(order, body),
@@ -233,19 +234,21 @@ export async function createWaybill(req, env) {
 }
 
 function buildWaybillItems(body, order) {
-  const items = Array.isArray(order.items) ? order.items : 
+  const items = Array.isArray(order.items) ? order.items :
                (Array.isArray(body.items) ? body.items : []);
 
-  if (!items.length) {
+  // Nếu không có items thì trả fallback
+  if (!items || items.length === 0) {
     return [{
+      sku: 'DEFAULT',
       name: 'Sản phẩm',
-      product_price: 0,
-      quantity: 1,
+      price: 0,
       weight: 500,
-      product_code: 'DEFAULT'
+      quantity: 1
     }];
   }
 
+  // Có items thì map đúng schema SuperAI
   return items.map((item, index) => {
     let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
     if (weight <= 0) weight = 500;
@@ -255,12 +258,28 @@ function buildWaybillItems(body, order) {
     if (!name) name = `Sản phẩm ${index + 1}`;
 
     return {
+      sku: item.sku || item.id || `ITEM${index + 1}`,
       name: name,
-      product_price: Number(item.price || 0),
-      quantity: Number(item.qty || item.quantity || 1),
+      price: Number(item.price || 0),
       weight: weight,
-      product_code: item.sku || item.id || `ITEM${index + 1}`
+      quantity: Number(item.qty || item.quantity || 1)
     };
+  });
+}
+    let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
+    if (weight <= 0) weight = 500;
+
+    let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
+    if (name.length > 100) name = name.substring(0, 97) + '...';
+    if (!name) name = `Sản phẩm ${index + 1}`;
+
+    return {
+  sku: item.sku || item.id || `ITEM${index + 1}`,
+  name: name,
+  price: Number(item.price || 0),
+  weight: weight,
+  quantity: Number(item.qty || item.quantity || 1)
+};
   });
 }
 
