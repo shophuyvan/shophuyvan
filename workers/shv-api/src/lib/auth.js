@@ -2,6 +2,8 @@
 // lib/auth.js - Authentication Helper (FIXED - Compatible with both systems)
 // ===================================================================
 import { superToken } from '../modules/shipping/helpers.js';
+import { parseCookie } from './utils'; // thêm dòng này nếu CHƯA có
+
 
 export async function sha256Hex(text) {
   const data = await crypto.subtle.digest(
@@ -21,14 +23,19 @@ export async function adminOK(req, env) {
   try {
     const url = new URL(req.url);
     
-    // Get token from multiple sources
-    let token = req.headers.get('Token') ||
-            req.headers.get('x-token') ||
-            req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ||
-            url.searchParams.get('token') ||
-            '';
-
-console.log('[Auth] Incoming token length:', token ? token.length : 0);
+    // Ưu tiên x-token (từ FE), sau đó Token, Bearer, query ?token, cookie
+    let token =
+      req.headers.get('x-token') ||
+      req.headers.get('Token') ||
+      ((req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1]) ||
+      url.searchParams.get('token') ||
+      parseCookie(req.headers.get('cookie') || '')['x-token'] ||
+      parseCookie(req.headers.get('cookie') || '')['token'] ||
+      '';
+    
+    token = String(token || '').trim().replace(/^"+|"+$/g, '');
+    
+    console.log('[Auth] Incoming token length:', token ? token.length : 0);
     
     if (!token) {
       console.log('[Auth] No token provided');
