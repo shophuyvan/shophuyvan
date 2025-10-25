@@ -133,8 +133,11 @@ export async function createWaybill(req, env) {
       provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
       service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
-      // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
+       // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
       config: String(body.config || order.config || '1'),
+
+      // Product type (SuperAI)
+      product_type: String(body.product_type || order.product_type || '2'),
       
       // Option ID
       option_id: shipping.option_id || '1',
@@ -264,22 +267,6 @@ function buildWaybillItems(body, order) {
       weight: weight,
       quantity: Number(item.qty || item.quantity || 1)
     };
-  });
-}
-    let weight = Number(item.weight_gram || item.weight_grams || item.weight || 0);
-    if (weight <= 0) weight = 500;
-
-    let name = String(item.name || item.title || `Sản phẩm ${index + 1}`).trim();
-    if (name.length > 100) name = name.substring(0, 97) + '...';
-    if (!name) name = `Sản phẩm ${index + 1}`;
-
-    return {
-  sku: item.sku || item.id || `ITEM${index + 1}`,
-  name: name,
-  price: Number(item.price || 0),
-  weight: weight,
-  quantity: Number(item.qty || item.quantity || 1)
-};
   });
 }
 
