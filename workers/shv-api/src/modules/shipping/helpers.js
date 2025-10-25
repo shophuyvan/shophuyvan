@@ -22,27 +22,30 @@ export async function superFetch(env, path, options = {}) {
   // ✅ THÊM LOG ĐỂ DEBUG TOKEN
   console.log('[superFetch] 🔑 Token retrieved:', token ? `${token.substring(0, 20)}...` : '❌ EMPTY');
 
+  const method = (options.method || 'GET').toUpperCase();
+
   const headers = {
-  'Accept': 'application/json',
-  'Token': String(token || '').trim(),
-  ...options.headers
-};
+    'Accept': 'application/json',
+    'Token': String(token || '').trim(),
+    // Sẽ bổ sung Content-Type bên dưới nếu có body là object
+    ...options.headers
+  };
 
   // ✅ LOG HEADERS TRƯỚC KHI GỬI
   console.log('[superFetch] 📤 Headers:', JSON.stringify(headers, null, 2));
   console.log('[superFetch] 🌐 URL:', base + path);
 
-  const config = {
-    method: options.method || 'GET',
-    headers
-  };
+  const config = { method, headers };
 
-  if (options.body) {
+  if (options.body !== undefined && options.body !== null) {
     if (typeof options.body === 'string') {
+      // Đã là chuỗi JSON (hoặc form khác) thì giữ nguyên
       config.body = options.body;
+      // Nếu bạn muốn ép luôn JSON thì có thể bỏ qua nhánh string này
     } else {
+      // Object → stringify và đặt Content-Type
       config.body = JSON.stringify(options.body);
-      config.headers['Content-Type'] = 'application/json';
+      config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json';
     }
   }
 
@@ -54,15 +57,33 @@ export async function superFetch(env, path, options = {}) {
   try {
     const response = await fetch(base + path, config);
     const responseText = await response.text();
-    
+
     // ✅ LOG RESPONSE
     console.log('[superFetch] 📥 Response status:', response.status);
-    console.log('[superFetch] 📥 Response body:', responseText.substring(0, 500));
-    
-    return JSON.parse(responseText);
+    console.log('[superFetch] 📥 Response body:', (responseText || '').substring(0, 500));
+
+    // Kiểm tra content-type để quyết định parse
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const isJson = contentType.includes('application/json');
+
+    // Nếu là JSON → parse an toàn
+    if (isJson) {
+      try {
+        const json = responseText ? JSON.parse(responseText) : null;
+        // Trả về luôn JSON (kể cả lỗi 4xx/5xx để caller tự xử lý)
+        return json ?? { ok: false, status: response.status, raw: null };
+      } catch (err) {
+        console.warn('[superFetch] ⚠️ JSON parse failed:', err?.message);
+        return { ok: false, status: response.status, raw: responseText || null };
+      }
+    }
+
+    // Không phải JSON → trả về raw để nhìn được lỗi thật
+    return { ok: response.ok, status: response.status, raw: responseText || null };
+
   } catch (e) {
     console.error('[superFetch] ❌ Error:', path, e);
-    return null;
+    return { ok: false, status: 0, raw: String(e?.message || e) };
   }
 }
 /**

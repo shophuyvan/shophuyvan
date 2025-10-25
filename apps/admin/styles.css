@@ -488,12 +488,14 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
 }
 
 @media (max-width: 768px) {
+  /* Hide desktop view */
   .order-row-desktop {
-    display: none;
+    display: none !important;
   }
   
+  /* Show mobile view */
   .order-row-mobile {
-    display: table-row;
+    display: table-row !important;
   }
   
   .order-row-mobile td {
@@ -501,9 +503,15 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
     border: 0 !important;
   }
   
+  /* Container adjustments */
   .orders-container {
     padding: 0;
     margin: 0 -24px;
+  }
+  
+  .orders-table {
+    width: 100%;
+    display: table;
   }
   
   .toolbar {
@@ -512,5 +520,94 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
     margin-right: -24px;
     padding: 12px 16px;
     margin-bottom: 12px;
+  }
+  
+  /* Mobile card full width */
+  .order-card-mobile {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  
+  /* Fix item images on mobile */
+  .order-card-mobile .order-item {
+    padding: 10px;
+  }
+  
+  .order-card-mobile .item-img {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .order-card-mobile .item-name {
+    font-size: 13px;
+  }
+  
+  .order-card-mobile .item-variant {
+    font-size: 12px;
+  }
+  
+  .order-card-mobile .item-price {
+    font-size: 14px;
+  }
+  
+  .order-card-mobile .item-qty {
+    font-size: 12px;
+  }
+  
+  /* Customer header responsive */
+  .order-card-header {
+    flex-wrap: nowrap;
+  }
+  
+  .order-customer {
+    flex-wrap: wrap;
+  }
+  
+  .order-customer .phone {
+    flex-basis: 100%;
+    margin-left: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ultra compact for small phones */
+  .order-card-mobile .item-img {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .order-card-mobile .item-name {
+    font-size: 12px;
+  }
+  
+  .order-card-mobile .item-variant,
+  .order-card-mobile .item-price,
+  .order-card-mobile .item-qty {
+    font-size: 11px;
+  }
+  
+  .order-card-header {
+    padding: 12px 14px;
+  }
+  
+  .order-card-items {
+    padding: 12px 14px;
+  }
+  
+  .order-card-footer {
+    padding: 12px 14px;
+  }
+  
+  .order-customer {
+    font-size: 13px;
+  }
+  
+  .order-id {
+    font-size: 11px;
+    padding: 4px 8px;
   }
 }

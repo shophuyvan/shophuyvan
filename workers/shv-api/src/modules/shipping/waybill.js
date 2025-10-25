@@ -1,5 +1,6 @@
+// workers/shv-api/src/modules/shipping/waybill.js
 // ===================================================================
-// modules/shipping/waybill.js - Waybill Creation (FIXED COMPLETE)
+//  Waybill Creation (FIXED COMPLETE)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../../lib/response.js';
