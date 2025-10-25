@@ -356,7 +356,7 @@ return receiver;
       const payload = this.buildPayload(order, sender, receiver);
       console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
 
-      const result = await this.callAPI('/admin/shipping/create', payload);
+      const result = await this.callAPI('/shipping/create', payload);
       console.log('[WaybillCreator] Result:', result);
 
       if (result && result.ok) {
@@ -374,16 +374,20 @@ return receiver;
   // ==================== CALL API ====================
   
   async callAPI(endpoint, payload) {
-    const token = localStorage.getItem('x-token') || '';
-    
-    const response = await fetch(this.baseURL + endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-token': token
-      },
-      body: JSON.stringify(payload)
-    });
+  // Lấy token từ localStorage (ưu tiên super_token nếu có)
+  const token = (localStorage.getItem('super_token') || localStorage.getItem('x-token') || '').trim();
+
+  const response = await fetch(this.baseURL + endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // BẮT BUỘC: SuperAI yêu cầu header "Token"
+      'Token': token,
+      // Giữ x-token nếu bạn còn dùng ở nơi khác
+      'x-token': token
+    },
+    body: JSON.stringify(payload)
+  });
 
     if (!response.ok) {
       const text = await response.text();
