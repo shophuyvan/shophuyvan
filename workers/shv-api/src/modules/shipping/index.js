@@ -32,8 +32,8 @@ export async function handle(req, env, ctx) {
     return pricing.handle(req, env, ctx);
   }
 
-  // Waybill creation
-  if (path === '/admin/shipping/create' && req.method === 'POST') {
+  / Waybill creation
+  if ((path === '/admin/shipping/create' || path === '/shipping/create') && req.method === 'POST') {
     return createWaybill(req, env);
   }
 

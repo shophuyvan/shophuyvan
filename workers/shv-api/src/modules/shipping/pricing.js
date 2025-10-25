@@ -97,35 +97,10 @@ async function getShippingQuote(req, env) {
   const to_district = url.searchParams.get('to_district') || '';
   const cod = Number(url.searchParams.get('cod') || 0) || 0;
 
-  const settings = await getJSON(env, 'settings', {});
-  const bearer = settings?.shipping?.super_token || '';
-
-  if (bearer) {
-    try {
-      const apiUrl = 'https://api.mysupership.vn/v1/ai/orders/superai';
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + bearer
-        },
-        body: JSON.stringify({
-          receiver: { province: to_province, district: to_district },
-          weight_gram: Math.max(0, Math.round(weight || 0)),
-          cod: cod
-        })
-      });
-
-      const data = await response.json();
-      const items = normalizeShippingRates(data);
-
-      if (items.length) {
-        return json({ ok: true, items }, {}, req);
-      }
-    } catch (e) {
-      console.error('SuperAI quote error:', e);
-    }
-  }
+  // Legacy Bearer-based quote disabled – using /shipping/price only
+/*
+  ...(giữ nguyên khối trên nhưng bọc trong comment)...
+*/
 
   // Fallback
   const unit = Math.max(1, Math.ceil((weight || 0) / 500));

@@ -24,14 +24,9 @@ export async function superFetch(env, path, options = {}) {
 
   const headers = {
     'Accept': 'application/json',
+    'Token': token,
     ...options.headers
   };
-
-  if (options.useBearer) {
-    headers['Authorization'] = 'Bearer ' + token;
-  } else {
-    headers['Token'] = token;
-  }
 
   // ✅ LOG HEADERS TRƯỚC KHI GỬI
   console.log('[superFetch] 📤 Headers:', JSON.stringify(headers, null, 2));
