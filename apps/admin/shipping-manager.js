@@ -56,13 +56,14 @@ class ShippingManager {
       
       // CRITICAL: Luôn gửi token trong header
       const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['x-token'] = token;
-      }
+  'Content-Type': 'application/json'
+};
+
+if (token) {
+  headers['Token'] = token.trim();
+  // (tuỳ chọn) vẫn giữ x-token nếu bạn dùng cho mục đích khác
+  headers['x-token'] = token.trim();
+}
 
       const config = {
         method: options.method || 'GET',
