@@ -3,6 +3,7 @@ import * as areas from './areas.js';
 import * as warehouses from './warehouses.js';
 import * as pricing from './pricing.js';
 import { createWaybill } from './waybill.js';
+import { superToken } from './helpers.js';
 
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);

@@ -1,6 +1,7 @@
 // ===================================================================
 // lib/auth.js - Authentication Helper (FIXED - Compatible with both systems)
 // ===================================================================
+import { superToken } from '../modules/shipping/helpers.js';
 
 export async function sha256Hex(text) {
   const data = await crypto.subtle.digest(
@@ -26,6 +27,8 @@ export async function adminOK(req, env) {
             req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ||
             url.searchParams.get('token') ||
             '';
+
+console.log('[Auth] Incoming token length:', token ? token.length : 0);
     
     if (!token) {
       console.log('[Auth] No token provided');
@@ -79,15 +82,16 @@ export async function adminOK(req, env) {
       }
     }
     
-    // ===== STATIC SUPER KEY (cho tích hợp vận chuyển) =====
-    if (env?.SUPER_KEY) {
-      const superKey = String(env.SUPER_KEY).trim();
-      if (token && token === superKey) {
-        console.log('[Auth] Valid SUPER_KEY');
-        return true;
-      }
-    }
-
+    // ===== STATIC SUPER KEY (tích hợp vận chuyển) qua helpers.superToken =====
+try {
+  const superKey = (await superToken(env)).trim();
+  if (token && token === superKey) {
+    console.log('[Auth] Valid SUPER_KEY via superToken');
+    return true;
+  }
+} catch (e) {
+  // fallback im lặng nếu có lỗi khi đọc superToken
+}
     console.log('[Auth] Token validation failed');
     return false;
     

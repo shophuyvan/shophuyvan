@@ -124,6 +124,7 @@ class OrdersManager {
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
       const variantName = item.variant ? String(item.variant) : '';
       const itemQty = Number(item.qty || item.quantity || 1);
+      const itemPrice = Number(item.price || 0);
       
       return `
         <div class="order-item">
@@ -131,11 +132,77 @@ class OrdersManager {
           <div class="item-info">
             <div class="item-name">${itemTitle}</div>
             ${variantName ? `<div class="item-variant">${variantName}</div>` : ''}
-            <div class="item-qty">${itemQty}</div>
+            <div class="item-price-qty">
+              <span class="item-price">${this.formatPrice(itemPrice)}</span>
+              <span class="item-qty">x${itemQty}</span>
+            </div>
           </div>
         </div>
       `;
     }).join('');
+
+   // Desktop card view (hiển thị đẹp hơn cho PC)
+    const desktopCard = `
+      <div class="order-card-desktop">
+        <div class="order-card-header-desktop">
+          <div class="order-customer-info">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+            </svg>
+            <div>
+              <div class="customer-name">${custName}</div>
+              ${custPhone ? `<div class="customer-phone">${custPhone}</div>` : ''}
+            </div>
+          </div>
+          <div class="order-meta">
+            <span class="order-id-badge">Đơn #${orderId.slice(-8)}</span>
+            <span class="order-date">${created}</span>
+          </div>
+        </div>
+        <div class="order-card-body">
+          <div class="order-items-col">
+            ${itemsHTML}
+          </div>
+          <div class="order-details-col">
+            <div class="detail-row">
+              <span class="label">Tổng tiền:</span>
+              <span class="value price-total">${this.formatPrice(total)}</span>
+            </div>
+            ${provider ? `
+              <div class="detail-row">
+                <span class="label">Vận chuyển:</span>
+                <span class="value">${provider}</span>
+              </div>
+            ` : ''}
+            ${tracking ? `
+              <div class="detail-row">
+                <span class="label">Tracking:</span>
+                <span class="value tracking-code">${tracking}</span>
+              </div>
+            ` : ''}
+            <div class="detail-row">
+              <span class="label">Nguồn:</span>
+              <span class="value">${source}</span>
+            </div>
+          </div>
+          <div class="order-actions-col">
+            <button class="btn btn-view" data-view="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              Xem
+            </button>
+            <button class="btn btn-danger" data-delete="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
 
     // Mobile card view
     const mobileCard = `
@@ -198,22 +265,8 @@ class OrdersManager {
 
     return `
       <tr class="order-row-desktop">
-        <td>
-          <div class="items-list">
-            ${itemsHTML}
-          </div>
-        </td>
-        <td class="nowrap">${orderId}</td>
-        <td class="nowrap">${provider || '-'}</td>
-        <td class="nowrap">${tracking || '-'}</td>
-        <td class="nowrap">${this.formatPrice(total)}</td>
-        <td class="nowrap">${created}</td>
-        <td>${source}</td>
-        <td class="text-right">
-          <div class="btn-group">
-            <button class="btn btn-sm" data-view="${orderId}">Xem</button>
-            <button class="btn btn-sm btn-danger" data-delete="${orderId}">Xoá</button>
-          </div>
+        <td colspan="8">
+          ${desktopCard}
         </td>
       </tr>
       <tr class="order-row-mobile">
