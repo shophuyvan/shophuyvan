@@ -16,7 +16,7 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  * Fetch from SuperAI API
  */
 export async function superFetch(env, path, options = {}) {
-  const base = 'https://dev.superai.vn';
+  const base = 'https://superai.vn';
   const token = await superToken(env);
 
   // ✅ THÊM LOG ĐỂ DEBUG TOKEN
@@ -82,7 +82,7 @@ export async function lookupDistrictCode(env, provinceCode, districtName) {
     console.log(`[Helpers] 🔍 Looking up district: "${districtName}" in province: ${provinceCode}`);
 
     // Gọi API SuperAI để lấy danh sách quận/huyện
-    const base = 'https://dev.superai.vn';
+    const base = 'https://superai.vn';
     const token = await superToken(env);
     
     const url = `${base}/v1/platform/areas/district?province_code=${provinceCode}`;
@@ -197,7 +197,7 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
 
     console.log(`[Helpers] 🔍 Looking up commune: "${communeName}" in district: ${districtCode}`);
 
-    const base = 'https://dev.superai.vn';
+    const base = 'https://superai.vn';
     const token = await superToken(env);
     
     const url = `${base}/v1/platform/areas/commune?district_code=${districtCode}`;
