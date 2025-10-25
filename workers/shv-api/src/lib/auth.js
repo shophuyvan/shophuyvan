@@ -21,10 +21,11 @@ export async function adminOK(req, env) {
     const url = new URL(req.url);
     
     // Get token from multiple sources
-    let token = req.headers.get('x-token') || 
-                req.headers.get('Authorization')?.replace('Bearer ', '') ||
-                url.searchParams.get('token') || 
-                '';
+    let token = req.headers.get('Token') ||
+            req.headers.get('x-token') ||
+            req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ||
+            url.searchParams.get('token') ||
+            '';
     
     if (!token) {
       console.log('[Auth] No token provided');
@@ -78,6 +79,15 @@ export async function adminOK(req, env) {
       }
     }
     
+    // ===== STATIC SUPER KEY (cho tích hợp vận chuyển) =====
+    if (env?.SUPER_KEY) {
+      const superKey = String(env.SUPER_KEY).trim();
+      if (token && token === superKey) {
+        console.log('[Auth] Valid SUPER_KEY');
+        return true;
+      }
+    }
+
     console.log('[Auth] Token validation failed');
     return false;
     

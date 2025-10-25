@@ -284,3 +284,154 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
     font-size: 11px;
   }
 }
+
+/* Mobile Order Cards */
+.order-row-mobile {
+  display: none;
+}
+
+.order-card-mobile {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.order-card-header {
+  background: #f9fafb;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-customer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  flex: 1;
+  min-width: 0;
+}
+
+.order-customer svg {
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.order-customer .phone {
+  color: #6b7280;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.order-id {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.order-card-items {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-card-footer {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.order-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.order-info-row .label {
+  color: #6b7280;
+}
+
+.order-info-row .value {
+  color: #111827;
+  font-weight: 500;
+  text-align: right;
+}
+
+.order-info-row .value.price {
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.order-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.order-actions .btn svg {
+  flex-shrink: 0;
+}
+
+.order-actions .btn-view {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.order-actions .btn-view:hover {
+  background: #2563eb;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .order-row-desktop {
+    display: none;
+  }
+  
+  .order-row-mobile {
+    display: table-row;
+  }
+  
+  .order-row-mobile td {
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  
+  .card {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  
+  .toolbar {
+    border-radius: 0;
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 12px 16px;
+  }
+}

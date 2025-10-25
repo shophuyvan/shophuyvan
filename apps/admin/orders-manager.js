@@ -95,11 +95,16 @@ class OrdersManager {
     this.wireOrderRowEvents();
   }
 
-  renderOrderRow(order) {
+ renderOrderRow(order) {
     const items = Array.isArray(order.items) ? order.items : [];
     
     // Totals
     const { total } = this.calculateOrderTotals(order);
+
+    // Customer info
+    const customer = order.customer || {};
+    const custName = customer.name || order.customer_name || order.name || 'Khách';
+    const custPhone = customer.phone || order.phone || '';
 
     // Shipping info
     const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
@@ -114,7 +119,7 @@ class OrdersManager {
     // Render all items with images
     const itemsHTML = items.map(item => {
       let img = item.image || item.img || item.thumbnail || item.variant_image || '';
-      img = img ? this.cloudify(img, 'w_64,h_64,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
+      img = img ? this.cloudify(img, 'w_80,h_80,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
       
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
       const variantName = item.variant ? String(item.variant) : '';
@@ -132,8 +137,67 @@ class OrdersManager {
       `;
     }).join('');
 
+    // Mobile card view
+    const mobileCard = `
+      <div class="order-card-mobile" data-order-id="${orderId}">
+        <div class="order-card-header">
+          <div class="order-customer">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+            </svg>
+            <span>${custName}</span>
+            ${custPhone ? `<span class="phone">• ${custPhone}</span>` : ''}
+          </div>
+          <div class="order-id">Đơn ${orderId.slice(-8)}</div>
+        </div>
+        
+        <div class="order-card-items">
+          ${itemsHTML}
+        </div>
+        
+        <div class="order-card-footer">
+          <div class="order-info-row">
+            <span class="label">Tổng tiền:</span>
+            <span class="value price">${this.formatPrice(total)}</span>
+          </div>
+          ${provider ? `
+            <div class="order-info-row">
+              <span class="label">Vận chuyển:</span>
+              <span class="value">${provider}</span>
+            </div>
+          ` : ''}
+          ${tracking ? `
+            <div class="order-info-row">
+              <span class="label">Mã vận đơn:</span>
+              <span class="value">${tracking}</span>
+            </div>
+          ` : ''}
+          <div class="order-info-row">
+            <span class="label">Thời gian:</span>
+            <span class="value">${created}</span>
+          </div>
+          
+          <div class="order-actions">
+            <button class="btn btn-sm btn-view" data-view="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              Xem chi tiết
+            </button>
+            <button class="btn btn-sm btn-danger" data-delete="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
     return `
-      <tr>
+      <tr class="order-row-desktop">
         <td>
           <div class="items-list">
             ${itemsHTML}
@@ -150,6 +214,11 @@ class OrdersManager {
             <button class="btn btn-sm" data-view="${orderId}">Xem</button>
             <button class="btn btn-sm btn-danger" data-delete="${orderId}">Xoá</button>
           </div>
+        </td>
+      </tr>
+      <tr class="order-row-mobile">
+        <td colspan="8">
+          ${mobileCard}
         </td>
       </tr>
     `;
