@@ -374,17 +374,19 @@ return receiver;
   // ==================== CALL API ====================
   
   async callAPI(endpoint, payload) {
-  // Lấy token từ localStorage (ưu tiên super_token nếu có)
-  const token = (localStorage.getItem('super_token') || localStorage.getItem('x-token') || '').trim();
+  // Lấy token trong localStorage; nếu không có thì dùng Static API Token
+  const token =
+    (localStorage.getItem('super_token') ||
+     localStorage.getItem('x-token') ||
+     'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5'   // Fallback bắt buộc
+    ).trim();
 
   const response = await fetch(this.baseURL + endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // BẮT BUỘC: SuperAI yêu cầu header "Token"
-      'Token': token,
-      // Giữ x-token nếu bạn còn dùng ở nơi khác
-      'x-token': token
+      'Token': token,     // SuperAI yêu cầu header này
+      'x-token': token    // giữ lại nếu nơi khác còn dùng
     },
     body: JSON.stringify(payload)
   });

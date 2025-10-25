@@ -97,16 +97,7 @@ class OrdersManager {
 
   renderOrderRow(order) {
     const items = Array.isArray(order.items) ? order.items : [];
-    const firstItem = items[0] || {};
     
-    // Image
-    let img = firstItem.image || firstItem.img || firstItem.thumbnail || '';
-    img = img ? this.cloudify(img) : this.getPlaceholderImage();
-
-    // Item info
-    const itemTitle = String(firstItem.name || firstItem.title || firstItem.sku || 'Sản phẩm');
-    const itemQty = Number(firstItem.qty || firstItem.quantity || 1);
-
     // Totals
     const { total } = this.calculateOrderTotals(order);
 
@@ -120,15 +111,32 @@ class OrdersManager {
     const source = String(order.source || order.channel || order.platform || 'Web');
     const orderId = String(order.id || '');
 
+    // Render all items with images
+    const itemsHTML = items.map(item => {
+      let img = item.image || item.img || item.thumbnail || item.variant_image || '';
+      img = img ? this.cloudify(img, 'w_64,h_64,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
+      
+      const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
+      const variantName = item.variant ? String(item.variant) : '';
+      const itemQty = Number(item.qty || item.quantity || 1);
+      
+      return `
+        <div class="order-item">
+          <img src="${img}" alt="${itemTitle}" class="item-img"/>
+          <div class="item-info">
+            <div class="item-name">${itemTitle}</div>
+            ${variantName ? `<div class="item-variant">${variantName}</div>` : ''}
+            <div class="item-qty">SL: ${itemQty}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     return `
       <tr>
         <td>
-          <div class="item-cell">
-            <img src="${img}" alt="${itemTitle}"/>
-            <div class="item-meta">
-              <div class="name">${itemTitle}</div>
-              <div>x${itemQty}</div>
-            </div>
+          <div class="items-list">
+            ${itemsHTML}
           </div>
         </td>
         <td class="nowrap">${orderId}</td>
