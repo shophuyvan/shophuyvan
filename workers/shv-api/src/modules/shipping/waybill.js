@@ -7,7 +7,7 @@ import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode } from './helpers.js';
+import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken } from './helpers.js';
 
 export async function createWaybill(req, env) {
   const idem = await idemGet(req, env);
@@ -18,9 +18,23 @@ export async function createWaybill(req, env) {
     });
   }
 
-  if (!(await adminOK(req, env))) {
-    return errorResponse('Unauthorized', 401, req);
-  }
+  // Cho phép qua nếu là adminOK, hoặc header Token/x-token/Bearer khớp super key
+let isAllowed = await adminOK(req, env);
+if (!isAllowed) {
+  const headerToken =
+    (req.headers.get('Token') ||
+     req.headers.get('x-token') ||
+     (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '') ||
+     ''
+    ).trim();
+
+  const superKey = (await superToken(env)).trim();
+  isAllowed = headerToken && headerToken === superKey;
+}
+
+if (!isAllowed) {
+  return errorResponse('Unauthorized', 401, req);
+}
 
   try {
     const body = await readBody(req) || {};

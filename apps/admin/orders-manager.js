@@ -126,7 +126,7 @@ class OrdersManager {
           <div class="item-info">
             <div class="item-name">${itemTitle}</div>
             ${variantName ? `<div class="item-variant">${variantName}</div>` : ''}
-            <div class="item-qty">SL: ${itemQty}</div>
+            <div class="item-qty">${itemQty}</div>
           </div>
         </div>
       `;
