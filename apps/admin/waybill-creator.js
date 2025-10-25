@@ -249,9 +249,13 @@ return receiver;
     }
 
     if (!receiver.district_code) {
-      errors.push('Chưa có mã Quận/Huyện người nhận');
-    }
+  errors.push('Chưa có mã Quận/Huyện người nhận');
+}
 
+// BẮT BUỘC WARD/COMMUNE CODE
+if (!receiver.commune_code) {
+  errors.push('Chưa có mã Phường/Xã (ward/commune) người nhận');
+}
     return errors;
   }
 
@@ -275,7 +279,11 @@ return receiver;
       return {
         name: name,
         qty: Number(item.qty || 1),
-        price: Number(item.price || 0),
+        // Ưu tiên giá từ variants
+        price: Number(
+          (item.variant_price ?? (item.variant?.price)) ??
+          item.price ?? 0
+        ),
         weight_grams: weight
       };
     });
@@ -353,11 +361,23 @@ return receiver;
       console.log('[WaybillCreator] ✅ Receiver with validated codes:', receiver);
 
       const payload = this.buildPayload(order, sender, receiver);
-       console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
- 	  console.log('[WaybillCreator] >>> Sending codes:', {
-      receiver_province_code: payload.receiver_province_code,
-      receiver_district_code: payload.receiver_district_code
-    });
+console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
+console.log('[WaybillCreator] >>> Sending codes:', {
+  receiver_province_code: payload.receiver_province_code,
+  receiver_district_code: payload.receiver_district_code
+});
+
+// CHẶN KHI THIẾU SERVICE CODE
+if (!payload.service_code || String(payload.service_code).trim() === '') {
+  this.handleException(new Error('Thiếu service_code – vui lòng chọn gói dịch vụ vận chuyển'));
+  return;
+}
+
+// CHẶN KHI THIẾU WARD/COMMUNE CODE
+if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim() === '') {
+  this.handleException(new Error('Thiếu mã Phường/Xã (receiver_commune_code)'));
+  return;
+}
 
       const result = await this.callAPI('/shipping/create', payload);
       console.log('[WaybillCreator] Result:', result);

@@ -520,8 +520,43 @@ class OrdersManager {
         }
       };
     }
+
+    // Create waybill button — yêu cầu nhập service_code & receiver_commune_code nếu thiếu
+    const createBtn = document.getElementById('btn-create-waybill');
+    if (createBtn) {
+      createBtn.onclick = async () => {
+        if (!this.currentOrder) return;
+
+        // Clone nông: thao tác trực tiếp trên currentOrder để WaybillCreator đọc được
+        const order = this.currentOrder;
+
+        // Bắt buộc SERVICE CODE
+        let service = order.service_code || order.shipping_service || '';
+        if (!service || String(service).trim() === '') {
+          service = (window.prompt('Nhập service_code (bắt buộc):', '') || '').trim();
+          if (!service) { alert('Chưa nhập service_code'); return; }
+        }
+        order.service_code = service;
+
+        // Bắt buộc WARD/COMMUNE CODE (receiver_commune_code)
+        let ward = order.receiver_commune_code || order.commune_code || '';
+        if (!ward || String(ward).trim() === '') {
+          ward = (window.prompt('Nhập mã Phường/Xã (receiver_commune_code):', '') || '').trim();
+          if (!ward) { alert('Chưa nhập receiver_commune_code'); return; }
+        }
+        order.receiver_commune_code = ward;
+
+        // Gọi WaybillCreator
+        if (window.waybillCreator && typeof window.waybillCreator.createWaybill === 'function') {
+          await window.waybillCreator.createWaybill(order);
+        } else {
+          alert('Không tìm thấy WaybillCreator. Vui lòng kiểm tra file waybill-creator.js');
+        }
+      };
+    }
   }
 }
+
 
 // Global instance
 window.ordersManager = new OrdersManager();
