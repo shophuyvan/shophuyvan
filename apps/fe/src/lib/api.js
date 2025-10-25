@@ -41,10 +41,6 @@ if (!/^\/(shipping|areas|orders\/(price|optimize|create))/.test(path)) {
   headers.delete('x-customer-token');
 }
 
-if (token) {
-  if (!headers.has('x-customer-token')) headers.set('x-customer-token', token);
-  if (!headers.has('Authorization'))     headers.set('Authorization', 'Bearer ' + token); // fallback
-}
 
   let body = init.body;
   const isFd = (typeof FormData !== 'undefined') && body instanceof FormData;

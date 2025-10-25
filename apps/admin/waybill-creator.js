@@ -354,7 +354,11 @@ return receiver;
       console.log('[WaybillCreator] ✅ Receiver with validated codes:', receiver);
 
       const payload = this.buildPayload(order, sender, receiver);
-      console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
+       console.log('[WaybillCreator] Payload:', JSON.stringify(payload, null, 2));
+ 	  console.log('[WaybillCreator] >>> Sending codes:', {
+      receiver_province_code: payload.receiver_province_code,
+      receiver_district_code: payload.receiver_district_code
+    });
 
       const result = await this.callAPI('/shipping/create', payload);
       console.log('[WaybillCreator] Result:', result);
