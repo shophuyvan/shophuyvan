@@ -374,30 +374,37 @@ return receiver;
   // ==================== CALL API ====================
   
   async callAPI(endpoint, payload) {
-  // Lấy token trong localStorage; nếu không có thì dùng Static API Token
-  const token =
+  // Super key duy nhất dùng cho API vận chuyển
+  const SUPER_KEY = 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
+
+  // Nếu là nhóm /shipping/* thì bắt buộc dùng SUPER_KEY
+  const isShipping = /^\/shipping\//.test(endpoint);
+
+  // Với các endpoint khác có thể dùng token đăng nhập (nếu cần)
+  const loginToken =
     (localStorage.getItem('super_token') ||
-     localStorage.getItem('x-token') ||
-     'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5'   // Fallback bắt buộc
+     localStorage.getItem('x-token') || ''
     ).trim();
+
+  // Quy tắc: /shipping/* => chỉ gửi Token = SUPER_KEY (không gửi Authorization)
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Token': isShipping ? SUPER_KEY : (loginToken || SUPER_KEY)
+  };
 
   const response = await fetch(this.baseURL + endpoint, {
     method: 'POST',
-    headers: {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-  'Token': token
-},
+    headers,
     body: JSON.stringify(payload)
   });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-
-    return await response.json();
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
   }
+  return await response.json();
+}
 
   // ==================== HANDLE SUCCESS ====================
   
