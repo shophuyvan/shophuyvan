@@ -8,7 +8,7 @@ import { getJSON, putJSON } from '../../lib/kv.js';
  * Get SuperAI token from settings
  */
   export async function superToken(env) {
-  return "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5";
+  return "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5".trim();
 }
 
 
@@ -23,10 +23,10 @@ export async function superFetch(env, path, options = {}) {
   console.log('[superFetch] 🔑 Token retrieved:', token ? `${token.substring(0, 20)}...` : '❌ EMPTY');
 
   const headers = {
-    'Accept': 'application/json',
-    'Token': token,
-    ...options.headers
-  };
+  'Accept': 'application/json',
+  'Token': String(token || '').trim(),
+  ...options.headers
+};
 
   // ✅ LOG HEADERS TRƯỚC KHI GỬI
   console.log('[superFetch] 📤 Headers:', JSON.stringify(headers, null, 2));
