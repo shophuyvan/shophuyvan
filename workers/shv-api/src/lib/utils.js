@@ -35,10 +35,16 @@ export function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
 }
 
-export function formatVND(amount) {
-  try {
-    return Number(amount || 0).toLocaleString('vi-VN') + 'đ';
-  } catch {
-    return (amount || 0) + 'đ';
-  }
+// --- cookie utils ---
+export function parseCookie(str = '') {
+  const out = {};
+  if (!str) return out;
+  str.split(/; */).forEach((pair) => {
+    if (!pair) return;
+    const idx = pair.indexOf('=');
+    const key = idx >= 0 ? pair.slice(0, idx) : pair;
+    const val = idx >= 0 ? pair.slice(idx + 1) : '';
+    out[decodeURIComponent(key.trim())] = decodeURIComponent((val || '').trim());
+  });
+  return out;
 }
