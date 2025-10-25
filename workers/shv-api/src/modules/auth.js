@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/auth.js - Authentication Module
+// workers/shv-api/src/modules/auth.js - Authentication Module
 // ===================================================================
 
 import { json, errorResponse } from '../lib/response.js';

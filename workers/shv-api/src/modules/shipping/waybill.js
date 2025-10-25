@@ -18,9 +18,7 @@ export async function createWaybill(req, env) {
     });
   }
 
-  // Cho phép qua nếu là adminOK, hoặc header Token/x-token/Bearer khớp super key
-let isAllowed = await adminOK(req, env);
-if (!isAllowed) {
+  // Cho phép public access với static token
   const headerToken =
     (req.headers.get('Token') ||
      req.headers.get('x-token') ||
@@ -28,13 +26,17 @@ if (!isAllowed) {
      ''
     ).trim();
 
-  const superKey = (await superToken(env)).trim();
-  isAllowed = headerToken && headerToken === superKey;
-}
+  const superKey = 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
+  const isAdmin = await adminOK(req, env);
+  const isAllowed = isAdmin || (headerToken && headerToken === superKey);
 
-if (!isAllowed) {
-  return errorResponse('Unauthorized', 401, req);
-}
+  if (!isAllowed) {
+    console.error('[Waybill] Unauthorized - Token mismatch', { 
+      received: headerToken ? headerToken.substring(0, 20) + '...' : 'EMPTY',
+      expected: superKey.substring(0, 20) + '...'
+    });
+    return errorResponse('Unauthorized', 401, req);
+  }
 
   try {
     const body = await readBody(req) || {};
