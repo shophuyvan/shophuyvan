@@ -295,7 +295,7 @@ class OrdersManager {
         <td>
           <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
         </td>
-        <td colspan="2"> {/* SỬA Ở ĐÂY */}
+        <td colspan="2">
           ${desktopCard}
         </td>
       </tr>
@@ -303,7 +303,7 @@ class OrdersManager {
          <td>
            <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
          </td>
-        <td colspan="2"> {/* SỬA Ở ĐÂY */}
+        <td colspan="2">
           ${mobileCard}
         </td>
       </tr>
@@ -341,7 +341,15 @@ class OrdersManager {
         this.updateSelectAllCheckboxState();
       });
     });
-  }
+
+    // THÊM LẠI: Xử lý sự kiện cho nút "Xóa"
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute('data-delete');
+        await this.deleteOrder(id); // Gọi hàm deleteOrder đã có sẵn
+      };
+    });
+  } // <<< Kết thúc hàm wireOrderRowEvents
 
   // ==================== DELETE ORDER ====================
   
