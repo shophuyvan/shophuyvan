@@ -187,33 +187,9 @@ async function listProducts(env) {
 
   } catch (e) { // CATCH CHO TOÀN BỘ HÀM
     console.error(`[listProducts] 💥 Xảy ra lỗi nghiêm trọng:`, e); // LOG MỚI
-    throw e; // Ném lại lỗi để hàm gọi (listAdminProducts) bắt được và trả về 500
+throw e; // Ném lại lỗi để hàm gọi (listAdminProducts) bắt được và trả về 500
   }
-}
-  const items = [];
-  let cursor;
-
-  do {
-    const result = await env.SHV.list({ prefix: 'product:', cursor });
-    
-    for (const key of result.keys) {
-      const product = await getJSON(env, key.name, null);
-      if (product) {
-        product.id = product.id || key.name.slice('product:'.length);
-        items.push(toSummary(product));
-      }
-    }
-    
-    cursor = result.list_complete ? null : result.cursor;
-  } while (cursor);
-
-  // Cache the list
-  if (items.length) {
-    await putJSON(env, 'products:list', items);
-  }
-
-  return items;
-}
+} 
 
 /**
  * ✅ Category matching helper (FIXED)
