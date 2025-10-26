@@ -209,11 +209,15 @@ export async function createWaybill(req, env) {
 
     console.log('[Waybill] SuperAI response:', JSON.stringify(data, null, 2));
 
-    // Check for success
-    const code = data?.data?.code || data?.code || null;
-    const tracking = data?.data?.tracking || data?.tracking || code || null;
+    // Check for success (SỬA LẠI THEO LOG)
+    // SuperAI trả về { "error": false, "data": {...} } khi thành công
+    const isSuccess = data?.error === false && data?.data;
+    
+    // Lấy mã vận đơn từ các trường SuperAI trả về
+    const code = data?.data?.carrier_code || data?.data?.superai_code || data?.data?.code || null;
+    const tracking = data?.data?.superai_code || data?.data?.carrier_code || data?.data?.tracking || code || null;
 
-    if (code || tracking) {
+    if (isSuccess && (code || tracking)) {
       await putJSON(env, 'shipment:' + (order.id || body.order_id || code), {
         provider: payload.provider,
         service_code: payload.service_code,
