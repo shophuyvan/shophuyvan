@@ -1288,3 +1288,4 @@ if (!token && !phoneFallback) {
   // Trả về cả thông tin 'customer' đã tìm thấy (có chứa tier, points)
   return json({ ok: true, orders: myOrders, count: myOrders.length, customer: customer || null }, {}, req);
 }
+}

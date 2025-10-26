@@ -243,6 +243,8 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .order-item .item-variant {
@@ -544,6 +546,8 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
   
   .order-card-mobile .item-name {
     font-size: 13px;
+    -webkit-line-clamp: 2 !important;
+    max-height: 2.6em;
   }
   
   .order-card-mobile .item-variant {
@@ -582,6 +586,8 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
   
   .order-card-mobile .item-name {
     font-size: 12px;
+    -webkit-line-clamp: 2 !important;
+    max-height: 2.4em;
   }
   
   .order-card-mobile .item-variant,
@@ -674,41 +680,45 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
   background: #dc2626;
 }
 
-/* Fix mobile overflow and width issues */
+/* Force no horizontal scroll on mobile */
 @media (max-width: 768px) {
-  body {
+  html, body {
+    max-width: 100vw;
     overflow-x: hidden !important;
   }
   
-  .admin-content-area {
+  #adminSidebar {
+    max-width: 260px;
+  }
+  
+  .admin-main-content {
+    max-width: 100vw;
     overflow-x: hidden !important;
   }
   
-  .container {
+  .order-card-mobile,
+  .order-card-header,
+  .order-card-items,
+  .order-card-footer {
+    max-width: 100vw !important;
     overflow-x: hidden !important;
   }
   
-  .order-card-mobile * {
+  .order-item {
+    max-width: calc(100vw - 32px) !important;
+  }
+  
+  .order-item .item-name,
+  .order-item .item-variant {
+    max-width: calc(100vw - 140px) !important;
+  }
+  
+  .order-info-row {
     max-width: 100%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
   }
   
   .order-info-row .value {
-    max-width: 60%;
-  }
-  
-  .tracking-code {
-    font-size: 10px !important;
-    word-break: break-all;
-  }
-  
-  .order-actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .order-actions .btn {
-    width: 100%;
+    max-width: 55%;
+    font-size: 12px;
   }
 }
