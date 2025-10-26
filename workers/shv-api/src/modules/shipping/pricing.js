@@ -42,44 +42,22 @@ async function getShippingPrice(req, env) {
     const shipping = settings.shipping || {};
 
     const payload = {
-  // Names
-  sender_province: body.sender_province || shipping.sender_province || '',
-  sender_district: body.sender_district || shipping.sender_district || '',
-  receiver_province: body.receiver_province || body.to_province || '',
-  receiver_district: body.receiver_district || body.to_district || '',
-  receiver_commune: body.receiver_commune || body.to_ward || '',
-  // Codes (added for aggregator compatibility)
-  sender_province_code: body.sender_province_code || shipping.sender_province_code || '',
-  sender_district_code: body.sender_district_code || shipping.sender_district_code || '',
-  sender_commune_code: body.sender_commune_code || shipping.sender_commune_code || '',
-  receiver_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-  receiver_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-  receiver_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-  // Root-level aliases some providers expect
-  province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-  district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-  commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-  to_province_code: body.receiver_province_code || body.province_code || body.to_province_code || '',
-  to_district_code: body.receiver_district_code || body.district_code || body.to_district_code || '',
-  to_commune_code: body.receiver_commune_code || body.commune_code || body.ward_code || body.to_commune_code || '',
-  // Parcel
-  weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
-  cod: Number(body.cod || 0) || 0,
-  length_cm: Number(body.length_cm || 0) || 0,
-  width_cm: Number(body.width_cm || 0) || 0,
-  height_cm: Number(body.height_cm || 0) || 0,
-  option_id: body.option_id || shipping.option_id || '1',
-
-  // ==== NEW: aliases để tương thích SuperAI ====
-  weight: Number(body.weight_gram || body.weight || 0) || 0,
-  value:  Number(body.cod || 0) || 0
-};
+      // Tên (theo tài liệu SuperAI)
+      sender_province: body.sender_province || shipping.sender_province || '',
+      sender_district: body.sender_district || shipping.sender_district || '',
+      receiver_province: body.receiver_province || body.to_province || '',
+      receiver_district: body.receiver_district || body.to_district || '',
+      receiver_commune: body.receiver_commune || body.to_ward || '',
+      
+      // Gói hàng (theo tài liệu SuperAI)
+      weight: Number(body.weight_gram || body.weight || 0) || 0,
+      value:  Number(body.cod || 0) || 0
+    };
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
-      body: payload,
-      // Some environments require Bearer Auth instead of Token header
-      headers: {},
+      body: payload
+      // headers: {} (ĐÃ XÓA)
     });
 
     const items = normalizeShippingRates(data);

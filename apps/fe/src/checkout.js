@@ -84,8 +84,8 @@ async function fetchAndRenderQuote(){
   sender_province:  localStorage.getItem('wh_province') || '',
   sender_district:  localStorage.getItem('wh_district') || '',
   // người nhận
-  receiver_province: to_province,
-  receiver_district: to_district,
+  receiver_province_code: to_province,
+  receiver_district_code: to_district,
   receiver_commune: to_ward || '',
   // gói hàng (tính từ trọng lượng SP đã lưu khi add-to-cart)
   weight_gram: Number(weight || 0),
@@ -97,7 +97,7 @@ async function fetchAndRenderQuote(){
 console.log('[Checkout] weight (gram) =', payload.weight_gram, 'items=', (cart||[]).map(it=>({w:(it.weight_gram||it.weight_grams||it.weight||0), q:it.qty})));
 let arr = [];
 try {
-  const resEP = await api('/orders/price', {
+  const resEP = await api('/shipping/price', {
     method: 'POST',
     body: payload
   });
