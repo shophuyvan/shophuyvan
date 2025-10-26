@@ -614,7 +614,8 @@ export async function cancelWaybill(req, env) {
             if (order) {
               order.status = 'cancelled';
               order.tracking_code = 'CANCELLED';
-              await putJSON(env, 'order:'A' + orderId, order);
+              // FIX: Removed extra 'A'
+              await putJSON(env, 'order:' + orderId, order);
             }
           }
         }
