@@ -554,16 +554,13 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
   async autoPickService(sender, receiver, order) {
     try {
       const url = 'https://dev.superai.vn/v1/platform/orders/price';
-      const token =
-        (typeof window !== 'undefined' && (window.SUPER_KEY || window.SUPER_TOKEN)) ||
-        (typeof SUPER_KEY !== 'undefined' ? SUPER_KEY : '') ||
-        (this.loginToken || '');
+      const token = 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
 
       const headers = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Token': token
-      };
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Token': token
+    };
 
       // Tính cân nặng & giá trị đơn
       const totalWeight =
@@ -572,11 +569,49 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
           ? order.items.reduce((s, it) => s + Number(it.weight_grams || it.weight || 0), 0)
           : 0) || 500;
 
+      // --- Chuẩn hoá địa chỉ: nếu thiếu tên thì tra theo CODE qua /areas ---
+      // Ưu tiên dùng tên có sẵn; nếu không có tên thì dựa theo *_code để gọi API lấy tên
+      const provinceCodeSender  = sender.province_code   || sender.sender_province_code;
+      const districtCodeSender  = sender.district_code   || sender.sender_district_code;
+      const provinceCodeRecv    = receiver.province_code || receiver.receiver_province_code;
+      const districtCodeRecv    = receiver.district_code || receiver.receiver_district_code;
+
+      // Hàm tra tên tỉnh/huyện theo CODE
+      const getProvinceNameByCode = async (code) => {
+        if (!code) return '';
+        const r = await fetch(`https://dev.superai.vn/v1/platform/areas/province`, { headers });
+        const j = await r.json();
+        const arr = Array.isArray(j?.data) ? j.data : [];
+        const found = arr.find(x => String(x.code) === String(code));
+        return (found?.name || '').trim();
+      };
+      const getDistrictNameByCode = async (provinceCode, districtCode) => {
+        if (!districtCode) return '';
+        const r = await fetch(`https://dev.superai.vn/v1/platform/areas/district?province=${encodeURIComponent(provinceCode || '')}`, { headers });
+        const j = await r.json();
+        const arr = Array.isArray(j?.data) ? j.data : [];
+        const found = arr.find(x => String(x.code) === String(districtCode));
+        return (found?.name || '').trim();
+      };
+
+      // Lấy tên tỉnh/huyện (sender)
+      let senderProvinceName = (sender.province || sender.province_name || '').trim();
+      if (!senderProvinceName && provinceCodeSender) senderProvinceName = await getProvinceNameByCode(provinceCodeSender);
+      let senderDistrictName = (sender.district || sender.district_name || '').trim();
+      if (!senderDistrictName && provinceCodeSender && districtCodeSender) senderDistrictName = await getDistrictNameByCode(provinceCodeSender, districtCodeSender);
+
+      // Lấy tên tỉnh/huyện (receiver)
+      let receiverProvinceName = (receiver.province || receiver.province_name || '').trim();
+      if (!receiverProvinceName && provinceCodeRecv) receiverProvinceName = await getProvinceNameByCode(provinceCodeRecv);
+      let receiverDistrictName = (receiver.district || receiver.district_name || '').trim();
+      if (!receiverDistrictName && provinceCodeRecv && districtCodeRecv) receiverDistrictName = await getDistrictNameByCode(provinceCodeRecv, districtCodeRecv);
+
+      // Body gọi orders/price (cần TÊN tỉnh/huyện)
       const body = {
-        sender_province:  sender.province  || sender.province_name  || '',
-        sender_district:  sender.district  || sender.district_name  || '',
-        receiver_province: receiver.province || receiver.province_name || '',
-        receiver_district: receiver.district || receiver.district_name || '',
+        sender_province:  senderProvinceName,
+        sender_district:  senderDistrictName,
+        receiver_province: receiverProvinceName,
+        receiver_district: receiverDistrictName,
         weight: totalWeight,
         value: Number(order.amount || order.value || 0)
       };
