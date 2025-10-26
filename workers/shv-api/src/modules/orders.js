@@ -331,12 +331,6 @@ async function createOrder(req, env) {
   }
   // --- END: HELPER TÌM CUSTOMER ---
 
-  // LOG MỚI: Ghi lại customer tìm được (hoặc null)
-  console.log('[getMyOrders] 👤 Customer resolved:', customer ? { id: customer.id, phone: customer.phone, email: customer.email } : null);
-  // LOG MỚI: Ghi lại các thông tin dùng để lọc
-  console.log('[getMyOrders] 🔍 Filter criteria:', { pPhone, pId, pEmail, pToken });
-
-
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
