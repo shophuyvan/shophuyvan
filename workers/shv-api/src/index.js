@@ -125,9 +125,9 @@ export default {
          path === '/admin/stats' ||
          path === '/orders/my' ||                // ✅ thêm
          // FIX LỖI IN: Thêm route cho /shipping/print
-  if (path === '/shipping/print' && req.method === 'POST') {
-    return printWaybill(req, env);
-  }
+     if (path === '/shipping/print' && req.method === 'POST') {
+       return printWaybill(req, env);
+     }
 
       // Shipping module (ensure Token header for SuperAI v1 routes)
      if (path.startsWith('/shipping') ||
