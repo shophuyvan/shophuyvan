@@ -567,42 +567,20 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
           ? order.items.reduce((s, it) => s + Number(it.weight_grams || it.weight || 0), 0)
           : 0) || 500;
 
-      // --- Chuẩn hoá địa chỉ: nếu thiếu tên thì tra theo CODE qua /areas ---
-      // Ưu tiên dùng tên có sẵn; nếu không có tên thì dựa theo *_code để gọi API lấy tên
-      const provinceCodeSender  = sender.province_code   || sender.sender_province_code;
-      const districtCodeSender  = sender.district_code   || sender.sender_district_code;
-      const provinceCodeRecv    = receiver.province_code || receiver.receiver_province_code;
-      const districtCodeRecv    = receiver.district_code || receiver.receiver_district_code;
-
-      // Hàm tra tên tỉnh/huyện theo CODE
-      const getProvinceNameByCode = async (code) => {
-        if (!code) return '';
-        const r = await fetch(this.baseURL + '/v1/platform/areas/province', { headers });
-        const j = await r.json();
-        const arr = Array.isArray(j?.data) ? j.data : [];
-        const found = arr.find(x => String(x.code) === String(code));
-        return (found?.name || '').trim();
-      };
-      const getDistrictNameByCode = async (provinceCode, districtCode) => {
-        if (!districtCode) return '';
-        const r = await fetch(this.baseURL + `/v1/platform/areas/district?province=${encodeURIComponent(provinceCode || '')}`, { headers });
-        const j = await r.json();
-        const arr = Array.isArray(j?.data) ? j.data : [];
-        const found = arr.find(x => String(x.code) === String(districtCode));
-        return (found?.name || '').trim();
-      };
-
-      // Lấy tên tỉnh/huyện (sender)
+      // --- Lấy TÊN (Names) trực tiếp từ sender/receiver objects ---
+      // (Không cần tra cứu API vì TÊN đã có sẵn trong đơn hàng)
       let senderProvinceName = (sender.province || sender.province_name || '').trim();
-      if (!senderProvinceName && provinceCodeSender) senderProvinceName = await getProvinceNameByCode(provinceCodeSender);
       let senderDistrictName = (sender.district || sender.district_name || '').trim();
-      if (!senderDistrictName && provinceCodeSender && districtCodeSender) senderDistrictName = await getDistrictNameByCode(provinceCodeSender, districtCodeSender);
-
-      // Lấy tên tỉnh/huyện (receiver)
       let receiverProvinceName = (receiver.province || receiver.province_name || '').trim();
-      if (!receiverProvinceName && provinceCodeRecv) receiverProvinceName = await getProvinceNameByCode(provinceCodeRecv);
       let receiverDistrictName = (receiver.district || receiver.district_name || '').trim();
-      if (!receiverDistrictName && provinceCodeRecv && districtCodeRecv) receiverDistrictName = await getDistrictNameByCode(provinceCodeRecv, districtCodeRecv);
+      
+      // Log nếu thiếu tên
+      if (!senderProvinceName || !senderDistrictName) {
+        console.warn('[WaybillCreator] autoPickService: Thiếu TÊN Tỉnh/Huyện người gửi.');
+      }
+      if (!receiverProvinceName || !receiverDistrictName) {
+        console.warn('[WaybillCreator] autoPickService: Thiếu TÊN Tỉnh/Huyện người nhận.');
+      }
 
       // Body gọi orders/price (cần TÊN tỉnh/huyện)
       const body = {
@@ -616,7 +594,8 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
 
       const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
       const json = await res.json();
-      const services = (json && json.data && json.data.services) ? json.data.services : [];
+      // SỬA: Worker trả về { data: [items] } chứ không phải { data: { services: [...] } }
+      const services = (json && Array.isArray(json.data)) ? json.data : [];
 
       if (!Array.isArray(services) || services.length === 0) {
         console.warn('[WaybillCreator] autoPickService: No services');
