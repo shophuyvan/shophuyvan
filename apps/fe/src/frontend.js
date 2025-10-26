@@ -1,6 +1,43 @@
 
 // === SHV perf helper ===
 function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
+	/**
+ * Chọn kích thước banner tối ưu theo device
+ * Desktop: 1600x900 (16:9)
+ * Mobile: 800x600 (4:3)
+ */
+function getOptimalBannerSize() {
+  const isMobile = window.innerWidth < 768;
+  
+  if (isMobile) {
+    return {
+      width: 800,
+      height: 600,
+      aspectRatio: '4:3',
+      paddingBottom: '75%'
+    };
+  } else {
+    return {
+      width: 1600,
+      height: 900,
+      aspectRatio: '16:9',
+      paddingBottom: '42.5%'
+    };
+  }
+}
+
+/**
+ * Tối ưu hóa ảnh banner với Cloudinary theo kích thước device
+ */
+function cloudifyBanner(url) {
+  if (!url) return url;
+  
+  const size = getOptimalBannerSize();
+  const transform = `w_${size.width},h_${size.height},c_fill,q_auto,f_auto`;
+  
+  return cloudify(url, transform);
+}
+
   try {
     if (!u) return u;
     const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://shophuyvan1.pages.dev';
@@ -40,10 +77,20 @@ async function loadBanners() {
   bannerWrap.style.position='relative';
   bannerWrap.style.width='100%';
   
-  // ✅ Aspect ratio 16:9 cho desktop, 4:3 cho mobile
-  const isMobile = window.innerWidth < 768;
-  const aspectRatio = isMobile ? '75%' : '42.5%'; // 4:3 mobile, 16:9 desktop
-  bannerWrap.style.paddingBottom = aspectRatio;
+  async function loadBanners() { 
+  if(!bannerWrap) return;
+  
+  let data = await api('/banners');
+  if (!data || data.ok===false) data = await api('/public/banners');
+  const items = (data && (data.items || data.banners || data.data)) || [];
+  
+  bannerWrap.style.overflow='hidden';
+  bannerWrap.style.position='relative';
+  bannerWrap.style.width='100%';
+  
+  // ✅ Sử dụng hàm getOptimalBannerSize()
+  const size = getOptimalBannerSize();
+  bannerWrap.style.paddingBottom = size.paddingBottom;
   
   bannerWrap.innerHTML = `<div id="banner-track" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;transition:transform 0.7s ease-in-out;"></div>`;
   
@@ -53,9 +100,39 @@ async function loadBanners() {
     const d = document.createElement('div');
     d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
     
+    // ✅ Sử dụng cloudifyBanner thay vì cloudify
+    const optimizedUrl = cloudifyBanner(b.image || b.url);
+    
     const imgHtml = `<img 
-      src="${b.image||b.url}" 
+      src="${optimizedUrl}" 
       alt="${b.alt||'banner'}" 
+      data-original-src="${b.image||b.url}"
+      style="width:100%;height:100%;object-fit:cover;object-position:center;"
+      loading="${items.indexOf(b)===0?'eager':'lazy'}"
+    />`;
+    
+    d.innerHTML = b.link 
+      ? `<a href="${b.link}" target="_blank" rel="noopener" style="display:block;width:100%;height:100%;">${imgHtml}</a>`
+      : imgHtml;
+    
+    track.appendChild(d);
+  });
+  
+  bannerWrap.innerHTML = `<div id="banner-track" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;transition:transform 0.7s ease-in-out;"></div>`;
+  
+  const track = document.getElementById('banner-track');
+  
+  items.forEach(b => {
+    const d = document.createElement('div');
+    d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
+    
+     // ✅ Sử dụng cloudifyBanner thay vì cloudify
+    const optimizedUrl = cloudifyBanner(b.image || b.url);
+    
+    const imgHtml = `<img 
+      src="${optimizedUrl}" 
+      alt="${b.alt||'banner'}" 
+      data-original-src="${b.image||b.url}"
       style="width:100%;height:100%;object-fit:cover;object-position:center;"
       loading="${items.indexOf(b)===0?'eager':'lazy'}"
     />`;
@@ -157,14 +234,22 @@ async function loadBanners() {
     }, 3500);
   }
   
-  // ✅ Resize handler
+  // ✅ Resize handler - tự động cập nhật kích thước
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      const newIsMobile = window.innerWidth < 768;
-      const newAspectRatio = newIsMobile ? '75%' : '42.5%';
-      bannerWrap.style.paddingBottom = newAspectRatio;
+      const size = getOptimalBannerSize();
+      bannerWrap.style.paddingBottom = size.paddingBottom;
+      
+      // Reload ảnh banner
+      const img = bannerWrap.querySelector('img');
+      if (img) {
+        const originalSrc = img.getAttribute('data-original-src');
+        if (originalSrc) {
+          img.src = cloudifyBanner(originalSrc);
+        }
+      }
     }, 200);
   });
 }
