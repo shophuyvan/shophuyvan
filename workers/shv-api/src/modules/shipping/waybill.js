@@ -438,10 +438,17 @@ export async function autoCreateWaybill(order, env) {
     const receiverDistrictCode = await validateDistrictCode(env, receiverProvinceCode || '79', rawReceiverDistrictCode, receiverDistrict);
     const receiverCommuneCode = (order.customer?.commune_code || order.customer?.ward_code || '');
 
-    // Tính toán các giá trị
+// Tính toán các giá trị
     const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
-    const totalCOD = Number(order.cod || order.revenue || totalAmount || 0);
+
+    // SỬA: Logic Phí (Theo yêu cầu của bạn: Khách trả phí)
+    // Payer = 2 (Khách trả phí)
+    // COD = Chỉ thu hộ tiền hàng (subtotal)
+    const payer = '2';
+    const totalCOD = Number(order.subtotal || 0);
+    // Giá trị đơn hàng (value) vẫn là tổng (revenue)
+    const totalValue = Number(order.revenue || order.total || totalAmount || 0);
 
     const payload = {
       name: orderName,
@@ -473,11 +480,11 @@ export async function autoCreateWaybill(order, env) {
 
       weight_gram: totalWeight,
       weight: totalWeight,
-      cod: totalCOD,
-      value: totalCOD,
+      cod: totalCOD, // Sửa: Thu hộ tiền hàng (subtotal)
+      value: totalValue, // Sửa: Giá trị đơn hàng (full)
       soc: order.soc || order.id || '',
       
-      payer: '1', // Shop trả phí
+      payer: payer, // Sửa: '2' (Khách trả phí)
       provider: (order.shipping_provider || 'vtp').toLowerCase(),
       service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
       config: '1', // Cho xem hàng
@@ -500,11 +507,20 @@ export async function autoCreateWaybill(order, env) {
     });
 
     const isSuccess = data?.error === false && data?.data;
-    const code = data?.data?.carrier_code || data?.data?.superai_code || data?.data?.code || null;
-    const tracking = data?.data?.superai_code || data?.data?.carrier_code || data?.data?.tracking || code || null;
+    // SỬA: Lấy 2 mã tracking riêng biệt
+    const carrier_code = data?.data?.carrier_code || null; // Mã NV (SPXVN...)
+    const superai_code = data?.data?.superai_code || null; // Mã SuperAI (CTOS...)
+    const carrier_id = data?.data?.carrier_id || null;
 
-    if (isSuccess && (code || tracking)) {
-      return { ok: true, code, tracking, provider: payload.provider, raw: data.data };
+    if (isSuccess && (carrier_code || superai_code)) {
+      return { 
+        ok: true, 
+        carrier_code: carrier_code,     // Mã nhà vận chuyển (SPXVN...)
+        superai_code: superai_code,     // Mã SuperAI (CTOS...)
+        carrier_id: carrier_id,
+        provider: payload.provider, 
+        raw: data.data 
+      };
     }
 
     const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
@@ -514,4 +530,106 @@ export async function autoCreateWaybill(order, env) {
     console.error('[autoCreateWaybill] Exception:', e);
     return { ok: false, message: e.message };
   }
+}
+
+/**
+ * HÀM MỚI: Lấy link IN VẬN ĐƠN
+ * Gọi từ /shipping/print
+ */
+export async function printWaybill(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const superaiCode = body.superai_code;
+
+    if (!superaiCode) {
+      return errorResponse('Missing superai_code', 400, req);
+    }
+
+    // 1. Lấy Print Token
+    const tokenRes = await superFetch(env, '/v1/platform/orders/token', {
+      method: 'POST',
+      body: {
+        code: [superaiCode]
+      }
+    });
+    
+    const printToken = tokenRes?.data?.token;
+    if (!printToken) {
+      return errorResponse('Không lấy được print token từ SuperAI', 400, req);
+    }
+
+    // 2. Trả về URL in
+    // SuperAI dùng base URL khác cho in ấn
+    const printUrl = `https://api.superai.vn/v1/platform/orders/label?token=${printToken}&size=S13`;
+    
+    return json({ ok: true, print_url: printUrl }, {}, req);
+
+  } catch (e) {
+    console.error('[printWaybill] Exception:', e);
+    return errorResponse(e.message, 500, req);
+  }
+}
+
+/**
+ * HÀM MỚI: HỦY VẬN ĐƠN
+ * Gọi từ /shipping/cancel
+ */
+export async function cancelWaybill(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const superaiCode = body.superai_code;
+
+    if (!superaiCode) {
+      return errorResponse('Missing superai_code', 400, req);
+    }
+
+    // 1. Gọi API Hủy của SuperAI
+    const cancelRes = await superFetch(env, '/v1/platform/orders/cancel', {
+      method: 'POST',
+      body: {
+        code: [superaiCode]
+      }
+    });
+
+    if (cancelRes.error === false || (cancelRes.data && cancelRes.data.success)) {
+      // 2. Cập nhật trạng thái trong KV
+      try {
+        const list = await getJSON(env, 'orders:list', []);
+        let orderId = null;
+        
+        const index = list.findIndex(o => 
+          o.superai_code === superaiCode || 
+          o.tracking_code === superaiCode || 
+          o.shipping_tracking === superaiCode
+        );
+        
+        if (index > -1) {
+          list[index].status = 'cancelled';
+          list[index].tracking_code = 'CANCELLED';
+          orderId = list[index].id;
+          await putJSON(env, 'orders:list', list);
+          
+          if (orderId) {
+            const order = await getJSON(env, 'order:' + orderId, null);
+            if (order) {
+              order.status = 'cancelled';
+              order.tracking_code = 'CANCELLED';
+              await putJSON(env, 'order:'A' + orderId, order);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[cancelWaybill] Lỗi cập nhật KV, nhưng SuperAI đã hủy OK:', e.message);
+      }
+      
+      return json({ ok: true, message: 'Hủy thành công' }, {}, req);
+    }
+
+    return errorResponse(cancelRes.message || 'Lỗi từ SuperAI', 400, req);
+
+  } catch (e) {
+    console.error('[cancelWaybill] Exception:', e);
+    return errorResponse(e.message, 500, req);
+  }
+}
 }

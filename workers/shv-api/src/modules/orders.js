@@ -9,7 +9,7 @@ import { readBody } from '../lib/utils.js';
 import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
-import { autoCreateWaybill } from './shipping/waybill.js';
+import { autoCreateWaybill, printWaybill, cancelWaybill } from './shipping/waybill.js';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -241,6 +241,10 @@ export async function handle(req, env, ctx) {
   if (path === '/admin/orders/print' && method === 'GET') return printOrder(req, env);
   if (path === '/admin/stats' && method === 'GET') return getStats(req, env);
 
+  // Tác vụ Vận đơn (In tem, Hủy)
+  if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
+  if (path === '/shipping/cancel' && method === 'POST') return cancelWaybill(req, env);
+
   return errorResponse('Route not found', 404, req);
 }
 
@@ -448,13 +452,15 @@ async function createOrder(req, env) {
     // Truyền toàn bộ object 'order' vừa tạo
     const waybillResult = await autoCreateWaybill(order, env); 
 
-    if (waybillResult.ok && waybillResult.tracking) {
-      console.log('[OrderCreate] Auto-create SUCCESS:', waybillResult.tracking);
+    if (waybillResult.ok && (waybillResult.carrier_code || waybillResult.superai_code)) {
+      console.log('[OrderCreate] Auto-create SUCCESS:', waybillResult.carrier_code);
       
       // Cập nhật mã vận đơn và trạng thái vào đơn hàng
-      order.tracking_code = waybillResult.tracking;
-      order.shipping_tracking = waybillResult.tracking; // alias
-      order.carrier_code = waybillResult.code; // alias
+      // SỬA: Lưu mã của NHÀ VẬN CHUYỂN (SPXVN...) làm tracking_code chính
+      order.tracking_code = waybillResult.carrier_code;
+      order.shipping_tracking = waybillResult.carrier_code; // alias
+      order.superai_code = waybillResult.superai_code; // Lưu mã SuperAI riêng
+      order.carrier_id = waybillResult.carrier_id;
       order.status = 'shipping'; // Cập nhật trạng thái
       order.waybill_data = waybillResult.raw; // Lưu lại data trả về
       
@@ -464,7 +470,8 @@ async function createOrder(req, env) {
       const list = await getJSON(env, 'orders:list', []);
       const index = list.findIndex(o => o.id === id);
       if (index > -1) {
-        list[index].tracking_code = waybillResult.tracking;
+        // SỬA: Lưu đúng mã tracking vào list
+        list[index].tracking_code = waybillResult.carrier_code;
         list[index].status = 'shipping';
         await putJSON(env, 'orders:list', list);
       }

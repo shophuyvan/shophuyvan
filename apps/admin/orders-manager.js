@@ -186,12 +186,17 @@ class OrdersManager {
             </div>
           </div>
           <div class="order-actions-col">
-            <button class="btn btn-view" data-view="${orderId}">
+            <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
               </svg>
-              Xem
+              In Vận Đơn
+            </button>
+            <button class="btn btn-danger" data-cancel="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
             </button>
             <button class="btn btn-danger" data-delete="${orderId}">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,11 +257,17 @@ class OrdersManager {
               </svg>
               Xem chi tiết
             </button>
-            <button class="btn btn-sm btn-danger" data-delete="${orderId}">
+            <button class="btn btn-sm btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
               </svg>
-              Xóa
+              In Vận Đơn
+            </button>
+            <button class="btn btn-sm btn-danger" data-cancel="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
             </button>
           </div>
         </div>
@@ -278,20 +289,19 @@ class OrdersManager {
   }
 
   wireOrderRowEvents() {
-    // View buttons
-    document.querySelectorAll('[data-view]').forEach(btn => {
+    // Nút "In Vận Đơn" (thay cho "Xem")
+    document.querySelectorAll('[data-print]').forEach(btn => {
       btn.onclick = () => {
-        const id = btn.getAttribute('data-view');
-        const order = this.orders.find(o => String(o.id || '') === id);
-        if (order) this.showOrderDetail(order);
+        const id = btn.getAttribute('data-print');
+        this.printOrder(id); // Gọi hàm in mới
       };
     });
 
-    // Delete buttons
-    document.querySelectorAll('[data-delete]').forEach(btn => {
+    // Nút "Hủy Vận Đơn" (thay cho "Xóa")
+    document.querySelectorAll('[data-cancel]').forEach(btn => {
       btn.onclick = async () => {
-        const id = btn.getAttribute('data-delete');
-        await this.deleteOrder(id);
+        const id = btn.getAttribute('data-cancel');
+        await this.cancelWaybill(id); // Gọi hàm hủy mới
       };
     });
   }
@@ -483,6 +493,85 @@ class OrdersManager {
 
     printWindow.document.write(html);
     printWindow.document.close();
+  }
+
+  // ==================== PRINT ORDER (NEW) ====================
+  
+  async printOrder(orderId) {
+    const order = this.orders.find(o => String(o.id || '') === orderId);
+    if (!order) {
+      alert('Không tìm thấy đơn hàng!');
+      return;
+    }
+
+    const superaiCode = order.superai_code || order.tracking_code || '';
+    if (!superaiCode) {
+      alert('Đơn hàng này chưa có Mã Vận Đơn (SuperAI Code) để in.');
+      return;
+    }
+    
+    Admin.toast('Đang lấy link in vận đơn...');
+    
+    try {
+      const res = await Admin.req('/shipping/print', {
+        method: 'POST',
+        body: {
+          superai_code: superaiCode
+        }
+      });
+
+      if (res.ok && res.print_url) {
+        Admin.toast('✅ Đã lấy link in, đang mở...');
+        window.open(res.print_url, '_blank');
+      } else {
+        alert('Lỗi khi lấy link in: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống khi in: ' + e.message);
+    }
+  }
+
+  // ==================== CANCEL WAYBILL (NEW) ====================
+  
+  async cancelWaybill(orderId) {
+    const order = this.orders.find(o => String(o.id || '') === orderId);
+    if (!order) {
+      alert('Không tìm thấy đơn hàng!');
+      return;
+    }
+
+    const superaiCode = order.superai_code || order.tracking_code || '';
+    if (!superaiCode) {
+      alert('Đơn hàng này chưa có Mã Vận Đơn, không thể hủy.');
+      return;
+    }
+
+    if (!confirm(`Bạn có chắc muốn HỦY VẬN ĐƠN\n\nMã vận đơn: ${superaiCode}\nĐơn hàng: ${orderId}\n\nLưu ý: Thao tác này sẽ gửi yêu cầu HỦY ĐƠN HÀNG qua SuperAI.`)) {
+      return;
+    }
+    
+    Admin.toast('Đang gửi yêu cầu hủy vận đơn...');
+    
+    try {
+      const res = await Admin.req('/shipping/cancel', {
+        method: 'POST',
+        body: {
+          superai_code: superaiCode
+        }
+      });
+
+      if (res.ok) {
+        Admin.toast('✅ Đã hủy vận đơn thành công!');
+        // Cập nhật trạng thái đơn hàng trên giao diện
+        order.status = 'cancelled';
+        order.tracking_code = 'CANCELLED';
+        this.renderOrdersList();
+      } else {
+        alert('Lỗi khi hủy vận đơn: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống khi hủy: ' + e.message);
+    }
   }
 
   // ==================== INIT ====================
