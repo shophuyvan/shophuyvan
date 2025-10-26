@@ -57,7 +57,8 @@ export async function handle(req, env, ctx) {
   // ===== ADMIN ROUTES =====
 
   // Admin: List all products
-  if (path === '/admin/products' && method === 'GET') {
+  // FIX: Handle both /admin/products AND /admin/products/list
+  if ((path === '/admin/products' || path === '/admin/products/list') && method === 'GET') {
     return listAdminProducts(req, env);
   }
 

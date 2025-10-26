@@ -98,7 +98,9 @@ export default {
       // Products module
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
-          path.startsWith('/admin/products') ||
+          path === '/admin/products' || // EXACT match
+          path === '/admin/products/list' || // EXACT match for list
+          path.startsWith('/admin/products/') || // Specific actions like /get, /upsert
           path === '/product') {
         return products.handle(req, env, ctx);
       }
