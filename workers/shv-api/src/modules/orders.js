@@ -1174,24 +1174,35 @@ if (!token && !phoneFallback) {
   let decodedTokenId = '';
   if (!customer) {
     try {
-      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4) b64 += '=';  // padding
-      const decoded = atob(b64);          // ví dụ: "cust_1761008058371_gtrlglo"
-      if (decoded && decoded !== token) {
-        decodedTokenId = decoded; // lưu lại để fallback lọc theo id
+    let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';  // padding
+    const decoded = atob(b64);          // SẼ RA DẠNG: "cust_12345:176149..."
 
-        // Thử nhóm key chuẩn với chuỗi đã decode
-        customer = await tryKeys(decoded);
+    // SỬA: Check xem có phải token "id:timestamp" không
+    if (decoded && decoded.includes(':')) { 
 
-        // Thử trực tiếp theo cách KV đang lưu: "customer:cust_...."
-        if (!customer) {
-          customer =
-            (await kvGet('customer:' + decoded)) ||
-            (await kvGet('customer:id:' + decoded));
-        }
+      const customerId = decoded.split(':')[0]; // SỬA: Lấy ID khách hàng
+
+      if (customerId) {
+        decodedTokenId = customerId; // SỬA: Lưu lại ID khách hàng (chỉ ID)
+
+        // SỬA: Thử tìm khách hàng bằng ID
+        customer =
+          (await kvGet('customer:' + customerId)) ||
+          (await kvGet('customer:id:' + customerId));
       }
-    } catch { /* ignore */ }
-  }
+    }
+    // GIỮ LẠI LOGIC CŨ (phòng trường hợp token là dạng khác)
+    else if (decoded && decoded !== token) {
+      decodedTokenId = decoded;
+      customer = await tryKeys(decoded);
+      if (!customer) {
+        customer =
+          (await kvGet('customer:' + decoded)) ||
+          (await kvGet('customer:id:' + decoded));
+      }
+    }
+  } catch { /* ignore */ }
 
   // 3) Nếu token là JWT → decode lấy id rồi tra tiếp
   if (!customer && token.split('.').length === 3) {
