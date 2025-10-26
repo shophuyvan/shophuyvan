@@ -705,13 +705,405 @@ function openVariantModal(mode) {
   async function addSelectedToCart() {
     const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
     const src = CURRENT || PRODUCT;
-    const pr = await pricePair(src); // ✅ THÊM biến pr
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
     const item = {
       id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
       name: PRODUCT.title || PRODUCT.name || '',
       image: imagesOf(src)[0] || '',
       variantName: src.name || '',
-      price: Number(pr.base || 0), // ✅ DÙNG pr.base
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
       qty
     };
     addToCart(item, qty);

@@ -1,4 +1,4 @@
-
+// \apps\fe\src\checkout.js
 // --- Enhancements: phone validation & double-submit guard ---
 const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
 let __placing = false;
@@ -71,37 +71,41 @@ async function fetchAndRenderQuote(){
   try{
     // ==== ENDPOINT-FIRST with FALLBACKS ====
     const payload = {
-  // kho gửi (nếu bạn có lưu trong localStorage; nếu không có thì để rỗng cho BE tự mặc định)
+  // kho gửi
   sender_province:  localStorage.getItem('wh_province') || '',
   sender_district:  localStorage.getItem('wh_district') || '',
   // người nhận
   receiver_province: to_province,
   receiver_district: to_district,
   receiver_commune: to_ward || '',
-  // gói hàng
+  // gói hàng (tính từ trọng lượng SP đã lưu khi add-to-cart)
   weight_gram: Number(weight || 0),
-  cod: subtotal,         // tổng tiền hàng cần thu hộ
+  weight:      Number(weight || 0),  // alias cho Worker → SuperAI
+  value:       Number(subtotal || 0),// alias cho Worker → SuperAI
+  cod:         Number(subtotal || 0),
   option_id: '1'
 };
-    let arr = [];
-    try {
-      const TOKEN = localStorage.getItem('ship_api_token') || '';
-      const resEP = await api('/shipping/price', {
-  method: 'POST',
-  body: payload
-});
-      arr = (resEP && (resEP.items || resEP.data)) || [];
-    } catch (e) { /* ignore */ }
+
+let arr = [];
+try {
+  const resEP = await api('/v1/platform/orders/price', {
+    method: 'POST',
+    body: payload
+  });
+  arr = (resEP && (resEP.items || resEP.data)) || [];
+} catch (e) { arr = []; }
 
     if (!Array.isArray(arr) || !arr.length) {
-      arr = getFixedQuotes(weight);
-      if (!Array.isArray(arr) || !arr.length) {
-        try {
-          const resLegacy = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${Number(weight)||0}&cod=${subtotal}`);
-          arr = (resLegacy && (resLegacy.items || resLegacy.data)) || resLegacy || [];
-        } catch (e) { arr = []; }
-      }
-    }
+  quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển từ SuperAI.</div>';
+  chosen = null;
+  localStorage.removeItem('ship_provider');
+  localStorage.removeItem('ship_service');
+  localStorage.removeItem('ship_name');
+  localStorage.removeItem('ship_fee');
+  localStorage.removeItem('ship_eta');
+  renderSummary();
+  return;
+}
 
     // Normalize
     arr = arr.map(o => ({

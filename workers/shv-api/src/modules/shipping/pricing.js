@@ -191,15 +191,19 @@ async function getMiniPrice(req, env) {
     const body = await readBody(req) || {};
     
     const payload = {
-      sender_province: String(body.sender_province || body.from?.province_code || ''),
-      sender_district: String(body.sender_district || body.from?.district_code || ''),
-      receiver_province: String(body.receiver_province || body.to_province || body.to?.province_code || ''),
-      receiver_district: String(body.receiver_district || body.to_district || body.to?.district_code || ''),
-      receiver_commune: String(body.receiver_commune || body.to_ward || body.to?.commune_code || body.to?.ward_code || ''),
-      weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
-      cod: Number(body.cod || 0) || 0,
-      option_id: String(body.option_id || '1')
-    };
+  sender_province: String(body.sender_province || body.from?.province_code || ''),
+  sender_district: String(body.sender_district || body.from?.district_code || ''),
+  receiver_province: String(body.receiver_province || body.to_province || body.to?.province_code || ''),
+  receiver_district: String(body.receiver_district || body.to_district || body.to?.district_code || ''),
+  receiver_commune: String(body.receiver_commune || body.to_ward || body.to?.commune_code || body.to?.ward_code || ''),
+  // Trọng lượng & COD từ checkout
+  weight_gram: Number(body.weight_gram || body.weight || 0) || 0,
+  cod: Number(body.cod || body.value || 0) || 0,
+  option_id: String(body.option_id || '1'),
+  // 👇 Alias để SuperAI nhận đúng tham số
+  weight: Number(body.weight_gram || body.weight || 0) || 0,
+  value:  Number(body.value || body.cod || 0) || 0
+};
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
@@ -231,7 +235,9 @@ function normalizeShippingRates(data) {
 );
 const eta = rate.estimated_delivery ?? rate.eta ?? rate.leadtime_text ?? rate.leadtime ?? '';
 const provider = rate.carrier_name ?? rate.provider ?? rate.carrier ?? rate.brand ?? rate.code ?? 'dvvc';
-const service_code = rate.service_code ?? rate.service ?? rate.serviceId ?? '';
+const service_code = String(
+  rate.service_code ?? rate.service ?? rate.serviceId ?? rate.carrier_id ?? ''
+);
 const name = rate.name ?? rate.service_name ?? rate.display ?? (rate.carrier_name || 'Dịch vụ');
     
     if (fee > 0) {
