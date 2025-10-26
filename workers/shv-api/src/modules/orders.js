@@ -331,6 +331,12 @@ async function createOrder(req, env) {
   }
   // --- END: HELPER TÌM CUSTOMER ---
 
+  // LOG MỚI: Ghi lại customer tìm được (hoặc null)
+  console.log('[getMyOrders] 👤 Customer resolved:', customer ? { id: customer.id, phone: customer.phone, email: customer.email } : null);
+  // LOG MỚI: Ghi lại các thông tin dùng để lọc
+  console.log('[getMyOrders] 🔍 Filter criteria:', { pPhone, pId, pEmail, pToken });
+
+
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
@@ -1079,6 +1085,7 @@ async function getStats(req, env) {
 // PUBLIC: Get My Orders (Customer)
 // ===================================================================
 async function getMyOrders(req, env) {
+  console.log('[getMyOrders] 🚀 Request received'); // LOG MỚI
   // --- A. Lấy token từ nhiều nguồn: header + Authorization + Cookie
   function parseCookie(str) {
     const out = {};
@@ -1233,6 +1240,9 @@ if (!token && !phoneFallback) {
   const pEmail  = (customer && (customer.email || customer.mail)) || null;
   const pToken  = decodedTokenId || null; // khi token decode ra "cust_..." hoặc một mã nhận diện khác
 
+  // LOG MỚI: Ghi lại tổng số đơn hàng trước khi lọc
+  console.log('[getMyOrders] 📚 Total orders before filter:', allOrders.length);
+
   const myOrders = allOrders.filter(order => {
   const oc          = order.customer || {};
   const orderPhone  = oc.phone  || order.phone  || null;
@@ -1263,6 +1273,11 @@ if (!token && !phoneFallback) {
 });
 
   myOrders.sort((a, b) => Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0));
+
+  // LOG MỚI: Ghi lại số đơn hàng sau khi lọc và thông tin trả về
+  console.log('[getMyOrders] ✅ Filtered orders count:', myOrders.length);
+  console.log('[getMyOrders] ✅ Returning customer:', customer ? { id: customer.id } : null);
+
 
   // Trả về cả thông tin 'customer' đã tìm thấy (có chứa tier, points)
   return json({ ok: true, orders: myOrders, count: myOrders.length, customer: customer || null }, {}, req);
