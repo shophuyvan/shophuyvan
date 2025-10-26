@@ -367,20 +367,22 @@ console.log('[WaybillCreator] >>> Sending codes:', {
   receiver_district_code: payload.receiver_district_code
 });
 
-// BỔ SUNG SERVICE CODE NẾU CÒN TRỐNG
+ // TỰ ĐỘNG LẤY SERVICE CODE NẾU TRỐNG (gọi SuperAI /v1/platform/orders/price)
  if (!payload.service_code || String(payload.service_code).trim() === '') {
    const fromOrder = String(order.service_code || order.shipping_service || order.service || '').trim();
-   if (fromOrder) {
-     payload.service_code = fromOrder;
-   } else {
-     const input = (window.prompt('Nhập service_code (bắt buộc):', '') || '').trim();
-     if (!input) { this.handleException(new Error('Thiếu service_code – vui lòng chọn gói dịch vụ vận chuyển')); return; }
-     // Lưu lại để lần sau không phải nhập lại
-     order.service_code = input;
-     payload.service_code = input;
+   payload.service_code = fromOrder;
+
+   if (!payload.service_code) {
+     payload.service_code = await this.autoPickService(sender, receiver, order);
+     if (payload.service_code) {
+       // Lưu lại để lần sau không phải gọi lại
+       order.service_code = payload.service_code;
+     } else {
+       this.handleException(new Error('Không lấy được service_code tự động (orders/price). Vui lòng chọn thủ công.'));
+       return;
+     }
    }
  }
-
 // CHẶN KHI THIẾU WARD/COMMUNE CODE
 if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim() === '') {
   this.handleException(new Error('Thiếu mã Phường/Xã (receiver_commune_code)'));
@@ -548,9 +550,62 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
       Admin.toast(`❌ Lỗi thông tin ${type}`);
     }
   }
-}
+  // --- AUTO PICK SERVICE (SuperAI /v1/platform/orders/price) ---
+  async autoPickService(sender, receiver, order) {
+    try {
+      const url = 'https://dev.superai.vn/v1/platform/orders/price';
+      const token =
+        (typeof window !== 'undefined' && (window.SUPER_KEY || window.SUPER_TOKEN)) ||
+        (typeof SUPER_KEY !== 'undefined' ? SUPER_KEY : '') ||
+        (this.loginToken || '');
 
+      const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Token': token
+      };
+
+      // Tính cân nặng & giá trị đơn
+      const totalWeight =
+        Number(order.weight_gram || order.weight || 0) ||
+        (Array.isArray(order.items)
+          ? order.items.reduce((s, it) => s + Number(it.weight_grams || it.weight || 0), 0)
+          : 0) || 500;
+
+      const body = {
+        sender_province:  sender.province  || sender.province_name  || '',
+        sender_district:  sender.district  || sender.district_name  || '',
+        receiver_province: receiver.province || receiver.province_name || '',
+        receiver_district: receiver.district || receiver.district_name || '',
+        weight: totalWeight,
+        value: Number(order.amount || order.value || 0)
+      };
+
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      const json = await res.json();
+      const services = (json && json.data && json.data.services) ? json.data.services : [];
+
+      if (!Array.isArray(services) || services.length === 0) {
+        console.warn('[WaybillCreator] autoPickService: No services');
+        return '';
+      }
+
+      // Chọn rẻ nhất theo shipment_fee
+      services.sort((a, b) => Number(a.shipment_fee || 0) - Number(b.shipment_fee || 0));
+      const best = services[0];
+
+      // SuperAI trả về carrier_id; dùng carrier_id làm service_code
+      return String(best.carrier_id || best.carrier_code || '').trim();
+    } catch (e) {
+      console.warn('[WaybillCreator] autoPickService failed:', e);
+      return '';
+    }
+  }
+
+}
+ 
 // Global instance
+
 window.waybillCreator = new WaybillCreator();
 window.WaybillCreator = WaybillCreator;
 
