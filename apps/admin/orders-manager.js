@@ -472,6 +472,15 @@ class OrdersManager {
     `;
 
     const printWindow = window.open('', '_blank');
+
+    // KIỂM TRA NẾU POPUP BỊ CHẶN
+    if (!printWindow || printWindow.closed || typeof printWindow.closed == 'undefined') {
+        alert('Lỗi: Trình duyệt đã chặn cửa sổ in.\n\n' +
+              'Vui lòng cho phép pop-up (cửa sổ bật lên) cho trang này và thử lại,\n' +
+              'hoặc bấm nút "In vận đơn" một lần nữa.');
+        return; // Dừng lại
+    }
+
     printWindow.document.write(html);
     printWindow.document.close();
   }
