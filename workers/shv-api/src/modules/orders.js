@@ -9,6 +9,7 @@ import { readBody } from '../lib/utils.js';
 import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
+import { autoCreateWaybill } from './shipping/waybill.js';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -440,6 +441,42 @@ async function createOrder(req, env) {
   if (shouldAdjustStock(order.status)) {
     await adjustInventory(normalizeOrderItems(order.items), env, -1);
   }
+
+  // [BẮT ĐẦU] TỰ ĐỘNG TẠO VẬN ĐƠN NGAY KHI ĐẶT HÀNG
+  try {
+    console.log('[OrderCreate] Auto-creating waybill for order:', order.id);
+    // Truyền toàn bộ object 'order' vừa tạo
+    const waybillResult = await autoCreateWaybill(order, env); 
+
+    if (waybillResult.ok && waybillResult.tracking) {
+      console.log('[OrderCreate] Auto-create SUCCESS:', waybillResult.tracking);
+      
+      // Cập nhật mã vận đơn và trạng thái vào đơn hàng
+      order.tracking_code = waybillResult.tracking;
+      order.shipping_tracking = waybillResult.tracking; // alias
+      order.carrier_code = waybillResult.code; // alias
+      order.status = 'shipping'; // Cập nhật trạng thái
+      order.waybill_data = waybillResult.raw; // Lưu lại data trả về
+      
+      // Lưu lại đơn hàng (cả list và chi tiết)
+      await putJSON(env, 'order:' + id, order);
+      
+      const list = await getJSON(env, 'orders:list', []);
+      const index = list.findIndex(o => o.id === id);
+      if (index > -1) {
+        list[index].tracking_code = waybillResult.tracking;
+        list[index].status = 'shipping';
+        await putJSON(env, 'orders:list', list);
+      }
+    } else {
+      console.warn('[OrderCreate] Auto-create FAILED:', waybillResult.message);
+      // Không làm crash đơn hàng, chỉ log lỗi
+    }
+  } catch (e) {
+    console.error('[OrderCreate] Auto-create EXCEPTION:', e.message);
+    // Không làm crash đơn hàng
+  }
+  // [KẾT THÚC] TỰ ĐỘNG TẠO VẬN ĐƠN
 
   // ✅ Cộng điểm cho customer
   if (order.status === 'confirmed') {

@@ -411,3 +411,108 @@ function calculateOrderAmount(order, body) {
   // 5. Default minimum
   return 10000; // 10k VND minimum
 }
+
+/**
+ * HÀM NỘI BỘ: Tự động tạo vận đơn khi khách đặt hàng
+ * Được gọi từ /modules/orders.js
+ * @param {object} order - Toàn bộ đối tượng order đã được tạo
+ * @param {object} env - Worker env
+ * @returns {object} - { ok: true, tracking: '...', ... }
+ */
+export async function autoCreateWaybill(order, env) {
+  try {
+    const settings = await getJSON(env, 'settings', {}) || {};
+    const shipping = settings.shipping || {};
+    const store = settings.store || {};
+
+    const products = buildWaybillItems({}, order); // Dùng order object
+    const orderName = products.length > 0 ? products[0].name : 'Đơn hàng';
+
+    // Lấy thông tin người nhận từ order
+    const receiverPhone = sanitizePhone(order.customer?.phone || '0900000000');
+    const receiverAddress = order.customer?.address || '';
+    const receiverProvince = order.customer?.province || '';
+    const receiverDistrict = order.customer?.district || '';
+    const receiverProvinceCode = order.customer?.province_code || '';
+    const rawReceiverDistrictCode = order.customer?.district_code || '';
+    const receiverDistrictCode = await validateDistrictCode(env, receiverProvinceCode || '79', rawReceiverDistrictCode, receiverDistrict);
+    const receiverCommuneCode = (order.customer?.commune_code || order.customer?.ward_code || '');
+
+    // Tính toán các giá trị
+    const totalAmount = calculateOrderAmount(order, {});
+    const totalWeight = chargeableWeightGrams({}, order) || 500;
+    const totalCOD = Number(order.cod || order.revenue || totalAmount || 0);
+
+    const payload = {
+      name: orderName,
+      phone: receiverPhone,
+      address: receiverAddress,
+      province: receiverProvince,
+      district: receiverDistrict,
+      commune: (order.customer?.commune || order.customer?.ward || ''),
+      amount: totalAmount,
+
+      sender_name: shipping.sender_name || store.name || 'Shop',
+      sender_phone: sanitizePhone(shipping.sender_phone || store.phone || '0900000000'),
+      sender_address: shipping.sender_address || store.address || '',
+      sender_province: shipping.sender_province || store.province || '',
+      sender_district: shipping.sender_district || store.district || '',
+      sender_province_code: shipping.sender_province_code || '79',
+      sender_district_code: shipping.sender_district_code || '760',
+      sender_commune_code: shipping.sender_commune_code || '',
+
+      receiver_name: order.customer?.name || 'Khách',
+      receiver_phone: receiverPhone,
+      receiver_address: receiverAddress,
+      receiver_province: receiverProvince,
+      receiver_district: receiverDistrict,
+      receiver_commune: (order.customer?.commune || order.customer?.ward || ''),
+      receiver_province_code: receiverProvinceCode,
+      receiver_district_code: receiverDistrictCode,
+      receiver_commune_code: receiverCommuneCode,
+
+      weight_gram: totalWeight,
+      weight: totalWeight,
+      cod: totalCOD,
+      value: totalCOD,
+      soc: order.soc || order.id || '',
+      
+      payer: '1', // Shop trả phí
+      provider: (order.shipping_provider || 'vtp').toLowerCase(),
+      service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
+      config: '1', // Cho xem hàng
+      product_type: '2',
+      option_id: shipping.option_id || '1',
+      products: products,
+      note: order.note || ''
+    };
+
+    const validation = validateWaybillPayload(payload);
+    if (!validation.ok) {
+      console.error('[autoCreateWaybill] Validation failed:', validation.errors);
+      return { ok: false, message: 'Validation failed: ' + validation.errors.join(', ') };
+    }
+
+    const data = await superFetch(env, '/v1/platform/orders/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const isSuccess = data?.error === false && data?.data;
+    const code = data?.data?.carrier_code || data?.data?.superai_code || data?.data?.code || null;
+    const tracking = data?.data?.superai_code || data?.data?.carrier_code || data?.data?.tracking || code || null;
+
+    if (isSuccess && (code || tracking)) {
+      return { ok: true, code, tracking, provider: payload.provider, raw: data.data };
+    }
+
+    const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
+    return { ok: false, message: errorMessage, raw: data };
+
+  } catch (e) {
+    console.error('[autoCreateWaybill] Exception:', e);
+    return { ok: false, message: e.message };
+  }
+}
+}
