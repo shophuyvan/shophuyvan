@@ -1193,17 +1193,17 @@ if (!token && !phoneFallback) {
       }
     }
     // GIỮ LẠI LOGIC CŨ (phòng trường hợp token là dạng khác)
-        else if (decoded && decoded !== token) {
-          decodedTokenId = decoded;
-          customer = await tryKeys(decoded);
-          if (!customer) {
-            customer =
-              (await kvGet('customer:' + decoded)) ||
-              (await kvGet('customer:id:' + decoded));
-          }
-        }
-      } // <<< THÊM DẤU '}' NÀY ĐỂ ĐÓNG 'TRY'
-      catch { /* ignore */ }
+    else if (decoded && decoded !== token) {
+      decodedTokenId = decoded;
+      customer = await tryKeys(decoded);
+      if (!customer) {
+        customer =
+          (await kvGet('customer:' + decoded)) ||
+          (await kvGet('customer:id:' + decoded));
+      }
+    }
+  } // <<< DẤU '}' NÀY ĐÓNG 'TRY'
+  catch { /* ignore */ }
 
   // 3) Nếu token là JWT → decode lấy id rồi tra tiếp
   if (!customer && token.split('.').length === 3) {

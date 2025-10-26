@@ -611,3 +611,104 @@ hr{border:0;border-top:1px solid var(--border);margin:12px 0}
     padding: 4px 8px;
   }
 }
+
+/* Mobile order actions buttons */
+.order-actions .btn-print {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.order-actions .btn-print:hover {
+  background: #2563eb;
+}
+
+.order-actions .btn-cancel {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.order-actions .btn-cancel:hover {
+  background: #d97706;
+}
+
+.order-actions .btn-delete {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.order-actions .btn-delete:hover {
+  background: #dc2626;
+}
+
+/* Desktop order actions buttons */
+.order-actions-col .btn-print {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.order-actions-col .btn-print:hover {
+  background: #2563eb;
+}
+
+.order-actions-col .btn-cancel {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.order-actions-col .btn-cancel:hover {
+  background: #d97706;
+}
+
+.order-actions-col .btn-delete {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.order-actions-col .btn-delete:hover {
+  background: #dc2626;
+}
+
+/* Fix mobile overflow and width issues */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden !important;
+  }
+  
+  .admin-content-area {
+    overflow-x: hidden !important;
+  }
+  
+  .container {
+    overflow-x: hidden !important;
+  }
+  
+  .order-card-mobile * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .order-info-row .value {
+    max-width: 60%;
+  }
+  
+  .tracking-code {
+    font-size: 10px !important;
+    word-break: break-all;
+  }
+  
+  .order-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .order-actions .btn {
+    width: 100%;
+  }
+}
