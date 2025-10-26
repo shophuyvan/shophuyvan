@@ -109,11 +109,87 @@ function toSummary(product) {
  * Build products list from KV
  */
 async function listProducts(env) {
-  // Try to get cached list first
-  let list = await getJSON(env, 'products:list', null);
-  if (list && list.length) return list;
+  const LIST_KEY = 'products:list';
+  const DETAIL_PREFIX = 'product:';
+  console.log('[listProducts] 🚀 Bắt đầu...'); // LOG MỚI
 
-  // Fallback: build from individual product keys
+  try { // THÊM TRY...CATCH BAO QUANH
+    // Try to get cached list first
+    console.log(`[listProducts] Đang đọc danh sách cache: ${LIST_KEY}`); // LOG MỚI
+    let list = null;
+    try { // TRY...CATCH RIÊNG CHO getJSON LIST
+      list = await getJSON(env, LIST_KEY, null);
+    } catch (e) {
+      console.error(`[listProducts] ❌ Lỗi khi đọc danh sách cache ${LIST_KEY}:`, e.message); // LOG MỚI
+      list = null; // Đảm bảo list là null nếu lỗi
+    }
+
+    if (list && Array.isArray(list) && list.length > 0) {
+      console.log(`[listProducts] ✅ Trả về ${list.length} sản phẩm từ cache`); // LOG MỚI
+      return list;
+    } else {
+      console.log(`[listProducts] ⚠️ Cache trống hoặc không hợp lệ, sẽ tạo lại từ chi tiết`); // LOG MỚI
+    }
+
+    // Fallback: build from individual product keys
+    const items = [];
+    let cursor = undefined; // KHỞI TẠO CURSOR = undefined
+
+    console.log(`[listProducts] 🔍 Bắt đầu liệt kê các key có tiền tố '${DETAIL_PREFIX}'`); // LOG MỚI
+    let iteration = 0; // Đếm số lần lặp
+
+    do {
+      iteration++;
+      console.log(`[listProducts]   - Lần lặp ${iteration}, cursor: ${cursor ? '...' : 'none'}`); // LOG MỚI
+      let result = null;
+      try { // TRY...CATCH RIÊNG CHO LIST KEYS
+        result = await env.SHV.list({ prefix: DETAIL_PREFIX, cursor: cursor });
+      } catch (e) {
+        console.error(`[listProducts] ❌ Lỗi khi liệt kê key (lần lặp ${iteration}):`, e.message); // LOG MỚI
+        throw new Error(`Lỗi khi liệt kê key KV: ${e.message}`); // Ném lỗi để dừng lại
+      }
+
+      console.log(`[listProducts]   - Tìm thấy ${result.keys.length} key, list_complete: ${result.list_complete}`); // LOG MỚI
+
+      for (const key of result.keys) {
+        try { // TRY...CATCH RIÊNG CHO getJSON DETAIL
+          const product = await getJSON(env, key.name, null);
+          if (product) {
+            product.id = product.id || key.name.slice(DETAIL_PREFIX.length);
+            items.push(toSummary(product));
+          } else {
+            console.warn(`[listProducts]     - ⚠️ Dữ liệu cho key ${key.name} bị trống`); // LOG MỚI
+          }
+        } catch (e) {
+          console.error(`[listProducts]     - ❌ Lỗi khi đọc sản phẩm ${key.name}:`, e.message); // LOG MỚI
+          continue; // Bỏ qua sản phẩm lỗi
+        }
+      }
+
+      cursor = result.list_complete ? null : result.cursor;
+    } while (cursor);
+
+    console.log(`[listProducts] ✅ Đã tạo lại ${items.length} sản phẩm từ chi tiết`); // LOG MỚI
+
+    // Cache the list
+    if (items.length > 0) {
+      try { // TRY...CATCH RIÊNG CHO putJSON LIST
+        console.log(`[listProducts] 💾 Đang lưu danh sách đã tạo vào cache ${LIST_KEY}`); // LOG MỚI
+        await putJSON(env, LIST_KEY, items);
+        console.log(`[listProducts] ✅ Lưu cache thành công`); // LOG MỚI
+      } catch (e) {
+        console.error(`[listProducts] ❌ Lỗi khi lưu cache:`, e.message); // LOG MỚI
+        // Không ném lỗi, vẫn trả về danh sách đã tạo
+      }
+    }
+
+    return items;
+
+  } catch (e) { // CATCH CHO TOÀN BỘ HÀM
+    console.error(`[listProducts] 💥 Xảy ra lỗi nghiêm trọng:`, e); // LOG MỚI
+    throw e; // Ném lại lỗi để hàm gọi (listAdminProducts) bắt được và trả về 500
+  }
+}
   const items = [];
   let cursor;
 
