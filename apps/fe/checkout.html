@@ -483,6 +483,14 @@ async function placeOrder() {
     placing = false;
     return;
   }
+
+  // THÊM KIỂM TRA ĐỘ DÀI ĐỊA CHỈ CHI TIẾT
+  if (address.length < 10) {
+    showError('Địa chỉ chi tiết quá ngắn. Vui lòng điền đầy đủ số nhà, tên đường (tối thiểu 10 ký tự).');
+    placing = false; // Ngăn không cho submit
+    $('address').focus(); // Tự động trỏ vào ô địa chỉ
+    return; // Dừng hàm
+  }
   
   const cleanPhone = phone.replace(/\D/g, '');
   if (!VN_PHONE_RE.test(cleanPhone)) {
