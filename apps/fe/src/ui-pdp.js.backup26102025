@@ -213,29 +213,12 @@ function mediaList(p) {
 }
 
 function variantsOf(p) {
-  if (!p) return [];
-  
-  // Nếu có mảng variants hợp lệ
-  if (Array.isArray(p?.variants) && p.variants.length) return p.variants;
-
-  // Dò các field khác thường dùng
+  if (Array.isArray(p?.variants)) return p.variants;
   const keys = ['skus', 'sku_list', 'children', 'items', 'options', 'variations', 'combos', 'list'];
   for (const k of keys) {
     const v = p?.[k];
-    if (Array.isArray(v) && v.length) return v;
+    if (Array.isArray(v)) return v;
   }
-
-  // Nếu không có biến thể rõ ràng, tự tạo 1 biến thể mặc định
-  if (p.price || p.sale_price || p.price_sale) {
-    return [{
-      id: p.id || p._id || p.slug || 'default',
-      name: p.title || p.name || 'Mặc định',
-      price: p.sale_price || p.price_sale || p.price,
-      stock: p.stock || p.qty || p.quantity || 0,
-      image: p.image || (Array.isArray(p.images) ? p.images[0] : '')
-    }];
-  }
-
   return [];
 }
 
@@ -561,90 +544,33 @@ function injectStickyCTA() {
     $('#shv-cta-zalo').href = zBtn.href;
   }
 
-$('#shv-cta-add')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  if (typeof window.openVariantModal === 'function') {
-    window.openVariantModal('cart');
-  } else {
-    window.location.href = '/cart.html';
-  }
-});
-
-$('#shv-cta-buy')?.addEventListener('click', async (e) => {
-  e.preventDefault();
-  try {
-    const maybePromise = window.openVariantModal('buy');
-    if (maybePromise && typeof maybePromise.then === 'function') {
-      await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
+  $('#shv-cta-add')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (typeof openVariantModal === 'function') {
+      openVariantModal('cart');
     } else {
-      await new Promise(r => setTimeout(r, 150));
+      window.location.href = '/cart.html';
     }
-  } catch (err) {
-    console.error('[PDP] Buy now error:', err);
-  }
-  window.location.href = '/checkout.html';
-});
+  });
+
+  $('#shv-cta-buy')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const maybePromise = openVariantModal('buy');
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        await Promise.race([maybePromise, new Promise(r => setTimeout(r, 300))]);
+      } else {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    } catch {}
+    window.location.href = '/checkout.html';
+  });
+}
 
 // ✅ FIXED: openVariantModal với thumbnail icons
 function openVariantModal(mode) {
   const mask = document.createElement('div');
-  document.body.appendChild(mask);
   mask.id = 'shv-variant-mask';
-  mask.style.display = 'flex';
-  mask.style.opacity = 1;
-  mask.style.zIndex = 130;
-  mask.id = 'shv-variant-mask';
-  // ✅ Thêm style overlay để modal hiển thị toàn màn hình
-mask.style.cssText = `
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 130;
-  transition: all 0.25s ease;
-`;
-
-// ✅ Render danh sách biến thể thật từ dữ liệu sản phẩm
-const product = window.PRODUCT_UTILS?.getProduct?.() || {};
-const variants = variantsOf(product);
-const variantList = variants.map((v, i) => `
-  <div data-vid="${v.id || i}" 
-       style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
-       onclick="this.parentElement.querySelectorAll('div').forEach(d=>d.style.border='1px solid #ddd');this.style.border='2px solid #ef4444';window.selectedVariant='${v.id || i}'">
-    <span>${v.name || 'Biến thể ' + (i + 1)}</span>
-    <span style="color:#ef4444;font-weight:600;">${(v.price || 0).toLocaleString()}đ</span>
-  </div>
-`).join('');
-
-mask.innerHTML = `
-  <div style="
-    width:100%;
-    max-width:520px;
-    background:#fff;
-    border-radius:12px 12px 0 0;
-    padding:20px;
-    text-align:center;
-    box-shadow:0 -4px 20px rgba(0,0,0,0.2);
-  ">
-    <h3 style="margin-bottom:12px;font-size:18px;">Chọn biến thể</h3>
-    <div style="text-align:left;max-height:250px;overflow-y:auto;margin-bottom:20px;">
-      ${variantList || '<p>Không có biến thể nào.</p>'}
-    </div>
-    <button id="vm-close" style="
-      background:#ef4444;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;
-    ">Đóng</button>
-  </div>
-`;
-
-// ✅ Nút đóng
-mask.querySelector('#vm-close').onclick = () => mask.remove();
 
   // Ẩn thanh đáy khi mở modal (lưu lại trạng thái cũ)
   const bottomBar = document.querySelector('.shv-bottom-bar');
@@ -659,7 +585,7 @@ mask.querySelector('#vm-close').onclick = () => mask.remove();
     position:fixed;
     inset:0;
     background:rgba(0,0,0,.45);
-    z-index:130;
+    z-index:70;
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -727,6 +653,45 @@ mask.querySelector('#vm-close').onclick = () => mask.remove();
     <button id="vm-close" aria-label="Đóng" style="position:absolute;right:10px;top:10px;border:none;background:#f3f4f6;width:28px;height:28px;border-radius:14px;font-size:16px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
   </div>`;
   mask.innerHTML = html;
+  const listEl = mask.querySelector('#vm-variants');
+
+  function renderVariantList() {
+    if (!listEl) return;
+    listEl.innerHTML = (vs || []).map((v, i) => {
+      const thumb = (imagesOf(v)[0] || imagesOf(PRODUCT)[0] || '');
+      const active = (CURRENT && (CURRENT === v || (CURRENT.id && (String(CURRENT.id) === String(v.id)))));
+      return `
+        <button data-idx="${i}" style="
+          display:flex;align-items:center;gap:8px;
+          border:1px solid ${active ? '#ef4444' : '#e5e7eb'};
+          background:${active ? '#fff5f5' : '#fff'};
+          border-radius:10px;padding:8px;cursor:pointer;text-align:left
+        ">
+          ${thumb ? `<img src="${thumb}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:6px;border:1px solid #f1f5f9;background:#fff" />` : ``}
+          <span style="font-weight:600;font-size:13px;line-height:1.2">${htmlEscape(v.name || v.title || v.sku || 'Tuỳ chọn')}</span>
+        </button>`;
+    }).join('');
+  }
+
+  renderVariantList();
+
+  // Chọn biến thể
+  listEl?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-idx]');
+    if (!btn) return;
+    const i = Number(btn.dataset.idx || 0);
+    CURRENT = vs[i] || CURRENT;
+
+    // Cập nhật ảnh, giá, tồn kho trong header modal
+    const imgEl = mask.querySelector('#vm-img');
+    if (imgEl) imgEl.src = imagesOf(CURRENT)[0] || imagesOf(PRODUCT)[0] || '';
+
+    // Gọi cập nhật giá/tồn kho đang có sẵn
+    updPrice();
+
+    // Vẽ lại danh sách để highlight item đang chọn
+    renderVariantList();
+  });
 
   // === Các xử lý sự kiện ===
   async function updPrice() {
@@ -740,13 +705,405 @@ mask.querySelector('#vm-close').onclick = () => mask.remove();
   async function addSelectedToCart() {
     const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
     const src = CURRENT || PRODUCT;
-    const pr = await pricePair(src); // ✅ THÊM biến pr
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
     const item = {
       id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
       name: PRODUCT.title || PRODUCT.name || '',
       image: imagesOf(src)[0] || '',
       variantName: src.name || '',
-      price: Number(pr.base || 0), // ✅ DÙNG pr.base
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
+      qty
+    };
+    addToCart(item, qty);
+  }
+  async function addSelectedToCart() {
+    const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
+    const src = CURRENT || PRODUCT;
+    const pr = await pricePair(src);
+
+    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    const weight_grams = Number(
+      src.variant_weight ??
+      src.variant?.weight ??
+      src.product_weight ??
+      src.product?.weight ??
+      src.weight_grams ??
+      src.weight ??
+      PRODUCT.weight_grams ??
+      PRODUCT.weight ??
+      0
+    );
+
+    const item = {
+      id: String(PRODUCT.id || PRODUCT._id || PRODUCT.slug || Date.now()),
+      name: PRODUCT.title || PRODUCT.name || '',
+      image: imagesOf(src)[0] || '',
+      variantName: src.name || '',
+      price: Number(pr.base || 0),
+      weight_grams,        // 👈 thêm trọng lượng vào giỏ
       qty
     };
     addToCart(item, qty);
@@ -785,7 +1142,6 @@ mask.querySelector('#vm-close').onclick = () => mask.remove();
   mask.onclick = (e) => { if (e.target === mask) closeModal(); };
 
   updPrice(); // ✅ GIỮ NGUYÊN (sẽ tự resolve promise)
-}
 }
 
 
@@ -842,32 +1198,28 @@ async function fetchProduct(id) {
 
     document.title = `${PRODUCT.title || PRODUCT.name || 'Sản phẩm'} - Shop Huy Vân`;
 
-    const prForLD = await pricePair(CURRENT || PRODUCT);
+    const structuredData = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": PRODUCT.title || PRODUCT.name,
+      "image": imagesOf(PRODUCT),
+      "description": PRODUCT.description || PRODUCT.desc || '',
+      "offers": {
+        "@type": "Offer",
+        "price": pricePair(PRODUCT).base,
+        "priceCurrency": "VND",
+        "availability": "https://schema.org/InStock"
+      }
+    };
 
-    // JSON-LD (Product) – lấy giá theo variant nếu có
-const ldPricePair = await pricePair(CURRENT || PRODUCT);
-const structuredData = {
-  "@context": "https://schema.org/",
-  "@type": "Product",
-  "name": (PRODUCT.title || PRODUCT.name || "").toString(),
-  "image": imagesOf(PRODUCT),
-  "description": (PRODUCT.description || PRODUCT.desc || "").toString(),
-  "offers": {
-    "@type": "Offer",
-    "price": ldPricePair.base,
-    "priceCurrency": "VND",
-    "availability": "https://schema.org/InStock"
-  }
-};
-const script = document.createElement('script');
-script.type = 'application/ld+json';
-script.text = JSON.stringify(structuredData);
-document.head.appendChild(script);
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(structuredData);
+    document.head.appendChild(script);
 
   } catch(e) {
     console.error('[PDP] Init error:', e);
   }
-}
 })();
 
 // === IMAGE OPTIMIZATION ===
@@ -902,22 +1254,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAdd) {
     btnAdd.onclick = (e) => {
       e.preventDefault();
-      if (typeof window.openVariantModal === 'function') {
-  window.openVariantModal('cart');
-} else {
-  console.error('[PDP] openVariantModal not found on window');
-}
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('cart');
+      } else {
+        console.error('openVariantModal not found');
+      }
     };
   }
   
   if (btnBuy) {
     btnBuy.onclick = (e) => {
       e.preventDefault();
-      if (typeof window.openVariantModal === 'function') {
-  window.openVariantModal('buy');
-} else {
-  console.error('[PDP] openVariantModal not found on window');
-}
+      if (typeof openVariantModal === 'function') {
+        openVariantModal('buy');
+      } else {
+        console.error('openVariantModal not found');
+      }
     };
   }
   
