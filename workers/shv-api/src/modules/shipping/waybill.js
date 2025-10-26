@@ -633,3 +633,112 @@ export async function cancelWaybill(req, env) {
     return errorResponse(e.message, 500, req);
   }
 }
+
+/**
+ * HÀM MỚI: Lấy link IN HÀNG LOẠT
+ * Gọi từ /shipping/print-bulk
+ */
+export async function printWaybillsBulk(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const superaiCodes = body.superai_codes; // Mảng các mã SuperAI
+
+    if (!Array.isArray(superaiCodes) || superaiCodes.length === 0) {
+      return errorResponse('Missing or empty superai_codes array', 400, req);
+    }
+
+    // 1. Lấy Print Token HÀNG LOẠT
+    const tokenRes = await superFetch(env, '/v1/platform/orders/token', {
+      method: 'POST',
+      body: {
+        code: superaiCodes // Gửi mảng mã SuperAI
+      }
+    });
+    
+    const printToken = tokenRes?.data?.token;
+    if (!printToken) {
+      return errorResponse('Không lấy được print token hàng loạt từ SuperAI', 400, req);
+    }
+
+    // 2. Trả về URL in (SuperAI tự xử lý in hàng loạt với cùng token)
+    const printUrl = `https://api.superai.vn/v1/platform/orders/label?token=${printToken}&size=S13`;
+    
+    return json({ ok: true, print_url: printUrl, count: superaiCodes.length }, {}, req);
+
+  } catch (e) {
+    console.error('[printWaybillsBulk] Exception:', e);
+    return errorResponse(e.message, 500, req);
+  }
+}
+
+/**
+ * HÀM MỚI: HỦY HÀNG LOẠT
+ * Gọi từ /shipping/cancel-bulk
+ */
+export async function cancelWaybillsBulk(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const superaiCodes = body.superai_codes; // Mảng các mã SuperAI
+
+    if (!Array.isArray(superaiCodes) || superaiCodes.length === 0) {
+      return errorResponse('Missing or empty superai_codes array', 400, req);
+    }
+
+    // 1. Gọi API Hủy HÀNG LOẠT của SuperAI
+    const cancelRes = await superFetch(env, '/v1/platform/orders/cancel', {
+      method: 'POST',
+      body: {
+        code: superaiCodes // Gửi mảng mã SuperAI
+      }
+    });
+
+    // SuperAI trả về { error: false } nếu thành công chung, không có chi tiết từng đơn
+    if (cancelRes.error === false || (cancelRes.data && cancelRes.data.success)) {
+      // 2. Cập nhật trạng thái trong KV cho TẤT CẢ các đơn đã gửi yêu cầu hủy
+      let updatedCount = 0;
+      try {
+        const list = await getJSON(env, 'orders:list', []);
+        let listChanged = false;
+        
+        for (const codeToCancel of superaiCodes) {
+          const index = list.findIndex(o => 
+            o.superai_code === codeToCancel || 
+            o.tracking_code === codeToCancel || 
+            o.shipping_tracking === codeToCancel
+          );
+          
+          if (index > -1 && list[index].status !== 'cancelled') {
+            list[index].status = 'cancelled';
+            list[index].tracking_code = 'CANCELLED';
+            listChanged = true;
+            updatedCount++;
+            
+            const orderId = list[index].id;
+            if (orderId) {
+              const order = await getJSON(env, 'order:' + orderId, null);
+              if (order && order.status !== 'cancelled') {
+                order.status = 'cancelled';
+                order.tracking_code = 'CANCELLED';
+                await putJSON(env, 'order:' + orderId, order);
+              }
+            }
+          }
+        }
+        
+        if (listChanged) {
+          await putJSON(env, 'orders:list', list);
+        }
+      } catch (e) {
+        console.warn('[cancelWaybillsBulk] Lỗi cập nhật KV, nhưng SuperAI có thể đã hủy OK:', e.message);
+      }
+      
+      return json({ ok: true, message: `Đã gửi yêu cầu hủy cho ${superaiCodes.length} đơn.`, cancelled_count: updatedCount }, {}, req);
+    }
+
+    return errorResponse(cancelRes.message || 'Lỗi hủy hàng loạt từ SuperAI', 400, req);
+
+  } catch (e) {
+    console.error('[cancelWaybillsBulk] Exception:', e);
+    return errorResponse(e.message, 500, req);
+  }
+}

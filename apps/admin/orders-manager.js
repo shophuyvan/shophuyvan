@@ -5,8 +5,11 @@
 
 class OrdersManager {
   constructor() {
-    this.orders = [];
+    this.allOrders = []; // Chứa tất cả đơn hàng gốc
+    this.orders = []; // Chứa danh sách đã lọc theo trạng thái
     this.currentOrder = null;
+    this.selectedOrders = new Set();
+    this.currentStatusFilter = 'all'; // Trạng thái lọc mặc định
   }
 
   // ==================== UTILITIES ====================
@@ -55,13 +58,20 @@ class OrdersManager {
   // ==================== LOAD ORDERS ====================
   
   async loadOrders() {
+    Admin.toast('🔄 Đang tải đơn hàng...');
     try {
       const response = await Admin.req('/api/orders', { method: 'GET' });
-      this.orders = response?.items || [];
-      this.renderOrdersList();
+      this.allOrders = response?.items || []; // Lưu vào allOrders
+      Admin.toast(`✅ Tải xong ${this.allOrders.length} đơn hàng.`);
+
+      this.renderStatusTabs(); // Tạo các tab trạng thái
+      this.filterAndRenderOrders(); // Lọc và hiển thị theo trạng thái hiện tại
+
     } catch (error) {
       console.error('[OrdersManager] Load orders error:', error);
       Admin.toast('❌ Lỗi tải danh sách đơn hàng');
+      document.getElementById('list').innerHTML = '<tr><td colspan="2" style="text-align:center;color:red;padding:2rem">Lỗi tải dữ liệu</td></tr>';
+      document.getElementById('status-tabs-container').innerHTML = '<span style="color: red;">Lỗi tải trạng thái</span>';
     }
   }
 
@@ -83,6 +93,12 @@ class OrdersManager {
   renderOrdersList() {
     const tbody = document.getElementById('list');
     if (!tbody) return;
+
+    // Reset trạng thái chọn khi tải lại danh sách
+    this.selectedOrders.clear();
+    this.updateBulkActionsToolbar();
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
     if (this.orders.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:2rem">Chưa có đơn hàng</td></tr>';
@@ -276,12 +292,18 @@ class OrdersManager {
 
     return `
       <tr class="order-row-desktop">
-        <td colspan="8">
+        <td>
+          <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
+        </td>
+        <td colspan="7"> {/* Giảm colspan đi 1 */}
           ${desktopCard}
         </td>
       </tr>
       <tr class="order-row-mobile">
-        <td colspan="8">
+         <td>
+           <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
+         </td>
+        <td colspan="7"> {/* Giảm colspan đi 1 */}
           ${mobileCard}
         </td>
       </tr>
@@ -303,6 +325,21 @@ class OrdersManager {
         const id = btn.getAttribute('data-cancel');
         await this.cancelWaybill(id); // Gọi hàm hủy mới
       };
+    });
+
+    // Xử lý sự kiện cho từng checkbox đơn hàng
+    document.querySelectorAll('.order-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (event) => {
+        const orderId = event.target.dataset.orderId;
+        if (event.target.checked) {
+          this.selectedOrders.add(orderId);
+        } else {
+          this.selectedOrders.delete(orderId);
+        }
+        this.updateBulkActionsToolbar();
+        // Cập nhật trạng thái của checkbox "Chọn tất cả"
+        this.updateSelectAllCheckboxState();
+      });
     });
   }
 
@@ -574,15 +611,258 @@ class OrdersManager {
     }
   }
 
+  // ==================== BULK ACTIONS TOOLBAR ====================
+
+  updateBulkActionsToolbar() {
+    const toolbar = document.getElementById('bulk-actions-toolbar');
+    const countSpan = document.getElementById('selected-count');
+    const selectedCount = this.selectedOrders.size;
+
+    if (toolbar && countSpan) {
+      if (selectedCount > 0) {
+        toolbar.style.display = 'flex';
+        countSpan.textContent = `Đã chọn: ${selectedCount}`;
+      } else {
+        toolbar.style.display = 'none';
+      }
+    }
+  }
+
+  // ==================== SELECT ALL CHECKBOX ====================
+
+  handleSelectAllChange(event) {
+    const isChecked = event.target.checked;
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = isChecked;
+      const orderId = checkbox.dataset.orderId;
+      if (isChecked) {
+        this.selectedOrders.add(orderId);
+      } else {
+        this.selectedOrders.delete(orderId);
+      }
+    });
+    this.updateBulkActionsToolbar();
+  }
+
+  updateSelectAllCheckboxState() {
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    if (!selectAllCheckbox) return;
+    const allCheckboxes = document.querySelectorAll('.order-checkbox');
+    const totalVisible = allCheckboxes.length;
+    const totalSelected = this.selectedOrders.size;
+
+    if (totalVisible > 0 && totalSelected === totalVisible) {
+      selectAllCheckbox.checked = true;
+      selectAllCheckbox.indeterminate = false;
+    } else if (totalSelected > 0) {
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = true;
+    } else {
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = false;
+    }
+  }
+
+  // ==================== BULK PRINT ORDERS ====================
+
+  async printSelectedOrders() {
+    const selectedIds = Array.from(this.selectedOrders);
+    if (selectedIds.length === 0) {
+      alert('Vui lòng chọn ít nhất một đơn hàng để in.');
+      return;
+    }
+
+    const superaiCodes = selectedIds.map(id => {
+      const order = this.orders.find(o => String(o.id || '') === id);
+      return order?.superai_code || order?.tracking_code || null;
+    }).filter(Boolean); // Lọc bỏ các đơn chưa có mã SuperAI
+
+    if (superaiCodes.length === 0) {
+      alert('Các đơn hàng đã chọn chưa có Mã Vận Đơn (SuperAI Code) để in.');
+      return;
+    }
+
+    Admin.toast(`Đang lấy link in cho ${superaiCodes.length} vận đơn...`);
+
+    try {
+      const res = await Admin.req('/shipping/print-bulk', {
+        method: 'POST',
+        body: {
+          superai_codes: superaiCodes // Gửi mảng mã SuperAI
+        }
+      });
+
+      if (res.ok && res.print_url) {
+        Admin.toast('✅ Đã lấy link in, đang mở...');
+        window.open(res.print_url, '_blank');
+      } else {
+        alert('Lỗi khi lấy link in hàng loạt: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống khi in hàng loạt: ' + e.message);
+    }
+  }
+
+  // ==================== BULK CANCEL ORDERS ====================
+
+  async cancelSelectedOrders() {
+    const selectedIds = Array.from(this.selectedOrders);
+    if (selectedIds.length === 0) {
+      alert('Vui lòng chọn ít nhất một đơn hàng để hủy.');
+      return;
+    }
+
+    const ordersToCancel = selectedIds.map(id => {
+      const order = this.orders.find(o => String(o.id || '') === id);
+      return { id: id, superai_code: order?.superai_code || order?.tracking_code || null };
+    });
+
+    const superaiCodesToCancel = ordersToCancel
+                                  .map(o => o.superai_code)
+                                  .filter(Boolean); // Chỉ hủy những đơn đã có mã
+
+    if (superaiCodesToCancel.length === 0) {
+      alert('Các đơn hàng đã chọn chưa có Mã Vận Đơn, không thể hủy hàng loạt.');
+      return;
+    }
+
+    if (!confirm(`Bạn có chắc muốn HỦY ${superaiCodesToCancel.length} VẬN ĐƠN đã chọn?\n\nLưu ý: Thao tác này sẽ gửi yêu cầu HỦY ĐƠN HÀNG qua SuperAI.`)) {
+      return;
+    }
+
+    Admin.toast(`Đang gửi yêu cầu hủy ${superaiCodesToCancel.length} vận đơn...`);
+
+    try {
+      const res = await Admin.req('/shipping/cancel-bulk', {
+        method: 'POST',
+        body: {
+          superai_codes: superaiCodesToCancel // Gửi mảng mã SuperAI
+        }
+      });
+
+      if (res.ok) {
+        Admin.toast(`✅ Đã hủy ${res.cancelled_count || superaiCodesToCancel.length} vận đơn thành công!`);
+        // Tải lại danh sách để cập nhật trạng thái
+        this.loadOrders();
+      } else {
+        alert('Lỗi khi hủy vận đơn hàng loạt: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống khi hủy hàng loạt: ' + e.message);
+    }
+  }
+
+
+  // ==================== STATUS TABS & FILTERING ====================
+
+  renderStatusTabs() {
+    const tabsContainer = document.getElementById('status-tabs-container');
+    if (!tabsContainer) return;
+
+    // Đếm số lượng đơn theo từng trạng thái
+    const statusCounts = this.allOrders.reduce((counts, order) => {
+      const status = String(order.status || 'unknown').toLowerCase();
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    }, {});
+
+    // Danh sách các trạng thái muốn hiển thị (có thể tùy chỉnh)
+    // Dựa theo hình ảnh SuperAI của bạn và các trạng thái phổ biến
+    const displayStatuses = [
+      { key: 'all', name: 'Tất cả' },
+      { key: 'pending', name: 'Chờ xử lý' }, // Trạng thái mặc định khi mới tạo
+      { key: 'confirmed', name: 'Đã xác nhận' }, // Sau khi admin xác nhận
+      { key: 'shipping', name: 'Chờ lấy hàng' }, // Đã tạo vận đơn
+      { key: 'delivering', name: 'Đang giao' }, // Lấy từ webhook SuperAI
+      { key: 'delivered', name: 'Giao thành công' }, // Lấy từ webhook SuperAI
+      { key: 'cancelled', name: 'Đã hủy' }, // Khi hủy đơn hoặc hủy vận đơn
+      // Thêm các trạng thái khác nếu cần: returning, returned, failed_delivery,...
+    ];
+
+    let tabsHTML = '';
+    displayStatuses.forEach(statusInfo => {
+      const statusKey = statusInfo.key;
+      const statusName = statusInfo.name;
+      const count = (statusKey === 'all') ? this.allOrders.length : (statusCounts[statusKey] || 0);
+      const isActive = statusKey === this.currentStatusFilter;
+
+      // Chỉ hiển thị tab nếu có đơn hàng (trừ tab "Tất cả")
+      if (count > 0 || statusKey === 'all') {
+        tabsHTML += `
+          <button class="tab ${isActive ? 'active' : ''}" data-status="${statusKey}">
+            ${statusName}
+            <span class="count">${count}</span>
+          </button>
+        `;
+      }
+    });
+
+    tabsContainer.innerHTML = tabsHTML;
+
+    // Gắn sự kiện click cho các tab vừa tạo
+    tabsContainer.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => this.handleStatusTabClick(tab.dataset.status));
+    });
+  }
+
+  handleStatusTabClick(statusKey) {
+    if (statusKey === this.currentStatusFilter) return; // Không làm gì nếu bấm lại tab cũ
+
+    this.currentStatusFilter = statusKey;
+
+    // Cập nhật giao diện active cho tab
+    const tabsContainer = document.getElementById('status-tabs-container');
+    tabsContainer.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.status === statusKey);
+    });
+
+    // Lọc và render lại danh sách đơn hàng
+    this.filterAndRenderOrders();
+  }
+
+  filterAndRenderOrders() {
+    const filterKey = this.currentStatusFilter;
+
+    if (filterKey === 'all') {
+      this.orders = [...this.allOrders]; // Hiển thị tất cả
+    } else {
+      this.orders = this.allOrders.filter(order =>
+        String(order.status || 'unknown').toLowerCase() === filterKey
+      );
+    }
+
+    // Render lại danh sách đã lọc
+    this.renderOrdersList();
+  }
+
+
   // ==================== INIT ====================
-  
+
   init() {
     this.loadOrders();
     this.wireGlobalEvents();
-    console.log('[OrdersManager] Initialized ✅');
+    console.log('[OrdersManager] Initialized ✅ with Bulk Actions');
   }
 
   wireGlobalEvents() {
+    // Nút "Chọn tất cả"
+    const selectAllCheckbox = document.getElementById('select-all-orders');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', (event) => this.handleSelectAllChange(event));
+    }
+
+    // Nút In hàng loạt
+    const bulkPrintBtn = document.getElementById('bulk-print-btn');
+    if (bulkPrintBtn) {
+      bulkPrintBtn.addEventListener('click', () => this.printSelectedOrders());
+    }
+
+    // Nút Hủy hàng loạt
+    const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
+    if (bulkCancelBtn) {
+      bulkCancelBtn.addEventListener('click', () => this.cancelSelectedOrders());
+    }
     // Reload button
     const reloadBtn = document.getElementById('reload-orders');
     if (reloadBtn) {

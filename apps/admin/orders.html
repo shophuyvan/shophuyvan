@@ -156,7 +156,6 @@
       margin-top: 16px;
     }
 
-    /* Auto waybill notification */
     #auto-waybill-notification {
       position: fixed;
       top: 20px;
@@ -169,6 +168,55 @@
       z-index: 2000;
       animation: slideIn 0.3s ease-out;
       display: none;
+    }
+
+    /* CSS cho Tab Trạng thái */
+    .status-tabs {
+      background: white;
+      padding: 10px 16px;
+      border-radius: 8px 8px 0 0; /* Bo góc trên */
+      margin-bottom: 0px; /* Bỏ margin dưới nếu thanh toolbar dính liền */
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap; /* Cho phép xuống dòng nếu nhiều tab */
+      border-bottom: 1px solid #e5e7eb; /* Đường kẻ dưới */
+    }
+    .status-tabs .tab {
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 999px; /* Bo tròn */
+      background-color: #f9fafb;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap; /* Không xuống dòng chữ trong tab */
+    }
+    .status-tabs .tab:hover {
+      background-color: #f3f4f6;
+      border-color: #9ca3af;
+    }
+    .status-tabs .tab.active {
+      background-color: #3b82f6; /* Màu xanh khi active */
+      color: white;
+      border-color: #3b82f6;
+      font-weight: 600;
+    }
+    .status-tabs .tab .count {
+      display: inline-block;
+      margin-left: 6px;
+      background-color: rgba(255, 255, 255, 0.2); /* Nền mờ cho số lượng */
+      color: inherit; /* Màu chữ giống tab */
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .status-tabs .tab.active .count {
+        background-color: rgba(255, 255, 255, 0.3);
     }
 
     @keyframes slideIn {
@@ -192,11 +240,34 @@
 </div>
 
 <!-- Orders Table -->
+<div id="status-tabs-container" class="status-tabs">
+  <button class="tab active" data-status="all">Tất cả</button>
+  <span style="color: #ccc;">Đang tải trạng thái...</span>
+</div>
+
+<div id="bulk-actions-toolbar" class="toolbar" style="display: none; position: sticky; top: 70px; z-index: 90; background-color: #e0f2fe; border: 1px solid #7dd3fc;">
+  <div>
+    <span id="selected-count" style="font-weight: 600;">Đã chọn: 0</span>
+  </div>
+  <div class="btn-group">
+    <button id="bulk-print-btn" class="btn secondary">🖨️ In Vận Đơn Đã Chọn</button>
+    <button id="bulk-cancel-btn" class="btn danger">🚫 Hủy Vận Đơn Đã Chọn</button>
+  </div>
+</div>
+
 <div class="card orders-container">
   <table class="table orders-table">
+    <thead>
+      <tr>
+        <th style="width: 40px;">
+          <input type="checkbox" id="select-all-orders" title="Chọn tất cả / Bỏ chọn tất cả">
+        </th>
+        <th>Thông Tin Đơn Hàng</th>
+        </tr>
+    </thead>
     <tbody id="list">
       <tr>
-        <td colspan="8" style="text-align:center;padding:2rem">Đang tải...</td>
+        <td colspan="2" style="text-align:center;padding:2rem">Đang tải...</td>
       </tr>
     </tbody>
   </table>

@@ -9,7 +9,7 @@ import { readBody } from '../lib/utils.js';
 import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
-import { autoCreateWaybill, printWaybill, cancelWaybill } from './shipping/waybill.js';
+import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -242,8 +242,13 @@ export async function handle(req, env, ctx) {
   if (path === '/admin/stats' && method === 'GET') return getStats(req, env);
 
   // Tác vụ Vận đơn (In tem, Hủy)
-  if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
+if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
   if (path === '/shipping/cancel' && method === 'POST') return cancelWaybill(req, env);
+
+  // Hành động hàng loạt
+  if (path === '/shipping/print-bulk' && method === 'POST') return printWaybillsBulk(req, env);
+  if (path === '/shipping/cancel-bulk' && method === 'POST') return cancelWaybillsBulk(req, env);
+
 
   return errorResponse('Route not found', 404, req);
 }
