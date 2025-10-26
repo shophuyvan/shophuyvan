@@ -14,6 +14,7 @@ import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
+import { printWaybill } from './modules/shipping/waybill.js'; // THÊM ĐỂ FIX LỖI IN
 
 console.log('[Index] ✅ Module Products đã import:', typeof Products, Products ? Object.keys(Products) : 'undefined'); // LOG KIỂM TRA IMPORT
 
@@ -123,10 +124,10 @@ export default {
          path.startsWith('/public/order-create') ||
          path === '/admin/stats' ||
          path === '/orders/my' ||                // ✅ thêm
-         path === '/orders'    ||                // ✅ thêm (để /orders?customer=me cũng qua được)
-         path.startsWith('/orders/')) {          // ✅ thêm (đề phòng biến thể sau này)
-       return Orders.handle(req, env, ctx);
-     }
+         // FIX LỖI IN: Thêm route cho /shipping/print
+  if (path === '/shipping/print' && req.method === 'POST') {
+    return printWaybill(req, env);
+  }
 
       // Shipping module (ensure Token header for SuperAI v1 routes)
      if (path.startsWith('/shipping') ||

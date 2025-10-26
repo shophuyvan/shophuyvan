@@ -283,12 +283,16 @@ function buildWaybillItems(body, order) {
     if (!name) name = `Sản phẩm ${index + 1}`;
 
     return {
-      sku: item.sku || item.id || `ITEM${index + 1}`,
-      name: name,
-      price: Number(item.price || 0),
-      weight: weight,
-      quantity: Number(item.qty || item.quantity || 1)
-    };
+  sku: item.sku || item.id || `ITEM${index + 1}`,
+  name: name,
+  // SỬA: Ưu tiên giá từ variants
+  price: Number(
+    (item.variant_price ?? (item.variant?.price)) ??
+    item.price ?? 0
+  ),
+  weight: weight,
+  quantity: Number(item.qty || item.quantity || 1)
+};
   });
 }
 
