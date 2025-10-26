@@ -633,4 +633,3 @@ export async function cancelWaybill(req, env) {
     return errorResponse(e.message, 500, req);
   }
 }
-}
