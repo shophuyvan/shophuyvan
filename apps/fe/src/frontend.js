@@ -1,4 +1,3 @@
-
 // === SHV perf helper ===
 function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
 	/**
@@ -49,7 +48,7 @@ function cloudifyBanner(url) {
   } catch(e) { return u; }
 }
 // ===================================================================
-// IMPORT PRICE FUNCTIONS - THÊM ĐOẠN NÀY
+// IMPORT PRICE FUNCTIONS
 // ===================================================================
 import { formatPriceByCustomer, pickPriceByCustomer } from './lib/price.js';
 import api from './lib/api.js';
@@ -73,17 +72,6 @@ async function loadBanners() {
   const items = (data && (data.items || data.banners || data.data)) || [];
   
   // ✅ Tạo container với aspect ratio cố định
-  bannerWrap.style.overflow='hidden';
-  bannerWrap.style.position='relative';
-  bannerWrap.style.width='100%';
-  
-  async function loadBanners() { 
-  if(!bannerWrap) return;
-  
-  let data = await api('/banners');
-  if (!data || data.ok===false) data = await api('/public/banners');
-  const items = (data && (data.items || data.banners || data.data)) || [];
-  
   bannerWrap.style.overflow='hidden';
   bannerWrap.style.position='relative';
   bannerWrap.style.width='100%';
@@ -118,33 +106,7 @@ async function loadBanners() {
     track.appendChild(d);
   });
   
-  bannerWrap.innerHTML = `<div id="banner-track" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;transition:transform 0.7s ease-in-out;"></div>`;
-  
-  const track = document.getElementById('banner-track');
-  
-  items.forEach(b => {
-    const d = document.createElement('div');
-    d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
-    
-     // ✅ Sử dụng cloudifyBanner thay vì cloudify
-    const optimizedUrl = cloudifyBanner(b.image || b.url);
-    
-    const imgHtml = `<img 
-      src="${optimizedUrl}" 
-      alt="${b.alt||'banner'}" 
-      data-original-src="${b.image||b.url}"
-      style="width:100%;height:100%;object-fit:cover;object-position:center;"
-      loading="${items.indexOf(b)===0?'eager':'lazy'}"
-    />`;
-    
-    d.innerHTML = b.link 
-      ? `<a href="${b.link}" target="_blank" rel="noopener" style="display:block;width:100%;height:100%;">${imgHtml}</a>`
-      : imgHtml;
-    
-    track.appendChild(d);
-  });
-  
-  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU =====
+  // ===== CHỌN ĐOẠN NÀY - BẮT ĐẦU =====
   // ✅ Thêm dots indicator
   let dotsContainer = null;
   if (items.length > 1) {
@@ -161,9 +123,9 @@ async function loadBanners() {
     
     bannerWrap.appendChild(dotsContainer);
   }
-  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC =====
+  // ===== CHỌN ĐOẠN NÀY - KẾT THÚC =====
   
-  // ===== CHÈN ĐOẠN NÀY - BẮT ĐẦU (NÚT PREV/NEXT) =====
+  // ===== CHỌN ĐOẠN NÀY - BẮT ĐẦU (NÚT PREV/NEXT) =====
   // ✅ Thêm nút prev/next
   if (items.length > 1) {
     const btnStyle = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:10;font-size:28px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;backdrop-filter:blur(4px);';
@@ -188,7 +150,7 @@ async function loadBanners() {
     // Lưu reference cho dùng sau
     window._bannerNavBtns = { prevBtn, nextBtn };
   }
-  // ===== CHÈN ĐOẠN NÀY - KẾT THÚC (NÚT PREV/NEXT) =====
+  // ===== CHỌN ĐOẠN NÀY - KẾT THÚC (NÚT PREV/NEXT) =====
   
   // ✅ Auto slide (với đồng bộ dots và nút)
   if (items.length > 1) {
@@ -299,11 +261,10 @@ async function loadNew(){ if(!newWrap) return;
 } else {
   newWrap.parentElement?.classList?.remove('hidden');
   newWrap.innerHTML = items.map(card).join('');
-// bỏ hydratePrices vì server đã trả price_display
   await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
   console.log('[PRICE] FE new', { tier: items?.[0]?.price_tier, price: items?.[0]?.price_display });
 }
-} // ← đóng function loadNew()
+}
 
 // All products with pagination
 async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
@@ -327,7 +288,6 @@ async function renderAll(){ if(!allWrap) return;
     return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
   });
   allWrap.innerHTML = filtered.map(card).join('');
-  // bỏ hydratePrices vì server đã trả price_display
   await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
   console.log('[PRICE] FE all', { tier: filtered?.[0]?.price_tier, price: filtered?.[0]?.price_display, n: filtered.length });
 }
@@ -379,14 +339,13 @@ function priceStr(p) {
     ? `<div data-price><b>${price.toLocaleString()}đ</b></div>`
     : `<div data-price><b>Liên hệ</b></div>`;
 }
-// --- Price hydration (sold/rating only): silent + fewer endpoints ---
+
 const __priceCache = new Map();
 async function fetchFullProduct(id){
   try {
     if (!id) return null;
     if (__priceCache.has(id)) return __priceCache.get(id);
 
-    // Chỉ thử 2 endpoint, đủ dùng cho sold/rating
     const paths = [
       `/public/products/${encodeURIComponent(id)}`,
       `/products/${encodeURIComponent(id)}`
@@ -403,14 +362,12 @@ async function fetchFullProduct(id){
       } catch {}
     }
 
-    // Không log [hydrate] nữa để tránh spam console
     __priceCache.set(id, item);
     return item;
   } catch {
     return null;
   }
 }
-
 
 function priceHtmlFrom(p){
   const toNum = (x)=> (typeof x==='string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
@@ -421,7 +378,6 @@ function priceHtmlFrom(p){
     const cand = [];
     const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
     
-    // CHỈ lấy giá từ variants
     if (vars.length){
       for (const v of vars){
         push(v.price_sale ?? v.sale_price ?? v.sale);
@@ -433,14 +389,11 @@ function priceHtmlFrom(p){
   };
 
   try{
-    // 1) Giá theo nhóm khách nếu có
     if (typeof formatPriceByCustomer === 'function') {
       const html = formatPriceByCustomer(p, null);
-      // nếu formatter trả 0đ/để trống → Fallback
       if (html && !/0\s*đ/i.test(html)) return html;
     }
 
-    // 2) Fallback cứng: min(sale, price, cost) trên biến thể/sản phẩm
     const n = getMin(p);
     return `<div><b class="text-rose-600">${n.toLocaleString('vi-VN')}đ</b></div>`;
   }catch{
@@ -448,21 +401,16 @@ function priceHtmlFrom(p){
   }
 }
 
-async function hydratePrices(/* items */) {
+async function hydratePrices() {
   try {
-    // no-op to avoid per-card network calls
-    // (left in place to keep callers safe)
     return;
   } catch { return; }
 }
 
-// Also silence any leftover [hydrate] debug logs just in case:
 const __HYDRATE_LOG__ = false;
 const __logHydrate = (...args) => { if (__HYDRATE_LOG__) console.log('[hydrate]', ...args); };
-// [BẮT ĐẦU CHÈN] Bơm số đã bán & rating sau render
-// Nhận: array ID (string) hoặc lấy từ DOM nếu không truyền vào
+
 async function hydrateSoldAndRating(items){
-  // nếu items là mảng object => convert sang mảng id
   let ids = [];
   if (Array.isArray(items) && items.length) {
     if (typeof items[0] === 'string') {
@@ -488,14 +436,12 @@ async function hydrateSoldAndRating(items){
     const sold = toNum(full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0);
     let ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating);
     const ratingCount = toNum(full.rating_count ?? full.reviews ?? full.review_count ?? 0);
-    if (!Number.isFinite(ratingAvg) || ratingAvg <= 0) ratingAvg = 5.0; // ✅ mặc định 5.0
+    if (!Number.isFinite(ratingAvg) || ratingAvg <= 0) ratingAvg = 5.0;
 
     if (soldEl)   soldEl.textContent   = `Đã bán ${sold.toLocaleString('vi-VN')}`;
-    if (ratingEl) ratingEl.textContent = `⭐ ${ratingAvg.toFixed(1)} (${ratingCount})`;
+    if (ratingEl) ratingEl.textContent = `★ ${ratingAvg.toFixed(1)} (${ratingCount})`;
   }
 }
-// [KẾT THÚC CHÈN]
-
 
 function card(p){
   const id  = p.id || p.key || '';
@@ -508,7 +454,7 @@ function card(p){
       <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
-	<span class="js-rating" data-id="${id}">⭐ 5.0 (0)</span>
+	<span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
     <span class="js-sold"   data-id="${id}">Đã bán 0</span>
     </div>
   </a>`;
@@ -527,7 +473,7 @@ filterInput?.addEventListener('input', renderAll);
   } catch (e) { console.error(e); }
 })();
 
-// Policy section content (static for now)
+// Policy section content
 const policyBox = document.getElementById('policy-box');
 if(policyBox){
   policyBox.innerHTML = `<ol class='list-decimal pl-5'>
@@ -539,10 +485,7 @@ if(policyBox){
 </ol>`;
 }
 
-
-// --- v25 runtime fixes (no HTML/CSS changes) ---
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Banner overflow guard on .hero
   try {
     const hero = document.querySelector('.hero');
     if (hero) { hero.style.overflow='hidden'; }
@@ -551,7 +494,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   } catch {}
 
-  // Mobile hamburger top-left; toggle open/close; auto-close on scroll/blur
   const btn = document.querySelector('[data-hamburger]') || document.getElementById('hamburger');
   const nav = document.getElementById('mobile-menu') || document.querySelector('[data-mobile-nav]');
   if (btn && nav){
@@ -563,13 +505,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
-// Ensure PLP shows lowest sale price among variants
 function lowestSalePrice(p){
   const vs = Array.isArray(p.variants)? p.variants:[];
   const prices = vs.map(v => Number(v.price_sale||v.sale_price||v.price||0)).filter(n=>n>0);
   if(prices.length) return Math.min(...prices);
   return Number(p.price_sale||p.sale_price||p.price||0);
 }
+
 try{
   if(typeof renderAll==='function'){
     const _renderAll = renderAll;
@@ -580,13 +522,10 @@ try{
   }
 }catch{}
 
-// lazy-load all images by default
 new MutationObserver(()=>{
   document.querySelectorAll('img:not([loading])').forEach(img=> img.setAttribute('loading','lazy'));
 }).observe(document.documentElement, { subtree:true, childList:true });
 
-
-// v26 banner + mobile + price upgrades
 document.addEventListener('DOMContentLoaded', ()=>{
   const sec = document.getElementById('banner');
   if (sec){
@@ -618,40 +557,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('scroll', ()=>{ nav.style.display='none'; });
     window.addEventListener('blur',  ()=>{ nav.style.display='none'; });
   }
+});
 
-  // C) Card price: show min–max; lazy fix 0đ
-  (function(){
-    function range(p){
-      const vs = Array.isArray(p.variants)?p.variants:[];
-      let minS, maxS, minR, maxR;
-      for(const v of vs){
-        const s = v.sale_price ?? v.price_sale ?? null;
-        const r = v.price ?? null;
-        if(s!=null){ minS = (minS==null? s: Math.min(minS,s)); maxS = (maxS==null? s: Math.max(maxS,s)); }
-        if(r!=null){ minR = (minR==null? r: Math.min(minR,r)); maxR = (maxR==null? r: Math.max(maxR,r)); }
-      }
-      return {minS,maxS,minR,maxR};
-    }
-    const fmt = (n)=> Number(n||0).toLocaleString('vi-VN')+'đ';
-    // initial pass
-    document.querySelectorAll('[data-card-id]').forEach(card=>{
-      const priceBox = card.querySelector('[data-price]'); if(!priceBox) return;
-      const min = card.getAttribute('data-min'), max = card.getAttribute('data-max');
-      if(min && max && min!==max) priceBox.innerHTML = `<b>${fmt(min)} - ${fmt(max)}</b>`;
-    });
-  })(); // ← đóng IIFE "C) Card price"
-});      // ← đóng DOMContentLoaded của v26
-
-// v28 banner hard clamp & hamburger-in-header
 document.addEventListener('DOMContentLoaded', ()=>{
-  if(document.querySelector('.header-shop')) return; // header already has its own menu
-  // Hard clamp: only first banner cell visible
+  if(document.querySelector('.header-shop')) return;
   try{
     const wrap = document.getElementById('banner-wrap');
     if(wrap){ Array.from(wrap.children).forEach((c,i)=>{ if(i>0) c.style.display='none'; }); }
   }catch{}
 
-  // If there's a header, re-parent hamburger into it to avoid overlap with logo
   try{
     const header = document.querySelector('header, .header, .topbar, nav');
     const btn = document.getElementById('__shv_hamburger') || document.querySelector('[data-hamburger], #hamburger, #mobile-menu-btn');
@@ -663,9 +577,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }catch{}
 });
 
-// v29: banner responsive + hamburger doesn't overlap logo
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Banner: keep 16:9 by default, scale with container; no overflow
   (function(){
     const banner = document.getElementById('banner');
     const wrap = document.getElementById('banner-wrap') || banner?.querySelector('.grid');
@@ -689,7 +601,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('resize', ()=>{ reflow(); fitMedia(); });
   })();
 
-  // Hamburger vs logo
   (function(){
     const header = document.querySelector('header, .header, .topbar, nav');
     const logo = header?.querySelector('img[alt], .logo, [data-logo], h1, .brand');
@@ -697,7 +608,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(header && logo && btn){
       header.style.position = header.style.position || 'relative';
       btn.style.position='absolute'; btn.style.left='8px'; btn.style.top='8px'; btn.style.zIndex='50';
-      logo.style.marginLeft = '40px'; // reserve space for hamburger
+      logo.style.marginLeft = '40px';
     }
     const nav = document.getElementById('mobile-menu') || document.querySelector('[data-mobile-nav]');
     if(btn && nav){
