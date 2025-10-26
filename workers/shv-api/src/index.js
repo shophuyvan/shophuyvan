@@ -125,7 +125,7 @@ export default {
          path === '/orders/my' ||                // ✅ thêm
          path === '/orders'    ||                // ✅ thêm (để /orders?customer=me cũng qua được)
          path.startsWith('/orders/')) {          // ✅ thêm (đề phòng biến thể sau này)
-       return orders.handle(req, env, ctx);
+       return Orders.handle(req, env, ctx);
      }
 
       // Shipping module (ensure Token header for SuperAI v1 routes)
