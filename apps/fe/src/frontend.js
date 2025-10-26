@@ -1,6 +1,5 @@
 // === SHV perf helper ===
-function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
-	/**
+/**
  * Chọn kích thước banner tối ưu theo device
  * Desktop: 1600x900 (16:9)
  * Mobile: 800x600 (4:3)
@@ -37,6 +36,7 @@ function cloudifyBanner(url) {
   return cloudify(url, transform);
 }
 
+function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   try {
     if (!u) return u;
     const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://shophuyvan1.pages.dev';
