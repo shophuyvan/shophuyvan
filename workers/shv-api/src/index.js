@@ -15,6 +15,8 @@ import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
 
+console.log('[Index] ✅ Module Products đã import:', typeof Products, Products ? Object.keys(Products) : 'undefined'); // LOG KIỂM TRA IMPORT
+
 /**
  * Logger middleware
  */
@@ -102,7 +104,8 @@ export default {
           path === '/admin/products/list' || // EXACT match for list
           path.startsWith('/admin/products/') || // Specific actions like /get, /upsert
           path === '/product') {
-        return products.handle(req, env, ctx);
+        console.log('[Index] ➡️ Đang gọi Products.handle cho path:', path, 'Module Products có tồn tại:', typeof Products); // LOG KIỂM TRA TRƯỚC KHI GỌI
+        return Products.handle(req, env, ctx);
       }
 
       // [INV-TRACE] router marker for Orders
