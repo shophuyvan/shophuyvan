@@ -38,6 +38,7 @@ function logEntry(req) {
  */
 export default {
   async fetch(req, env, ctx) {
+    console.log('--- Worker Request v1.1 ---'); // THÊM LOG NÀY
     logEntry(req);
 
     // Handle CORS preflight
