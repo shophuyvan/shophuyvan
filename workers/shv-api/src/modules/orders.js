@@ -421,7 +421,13 @@ async function createOrder(req, env) {
     items,
     subtotal, shipping_fee, discount, shipping_discount, revenue, profit,
     note: body.note || '',
-    source: 'fe'
+    source: 'fe',
+    
+    // BỔ SUNG CÁC TRƯỜNG VẬN CHUYỂN BỊ THIẾU
+    shipping_name: body.shipping_name || null,
+    shipping_eta: body.shipping_eta || null,
+    shipping_provider: body.shipping_provider || null,
+    shipping_service: body.shipping_service || null
   };
 
   // Save order
