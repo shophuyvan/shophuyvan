@@ -97,7 +97,7 @@ async function fetchAndRenderQuote(){
 console.log('[Checkout] weight (gram) =', payload.weight_gram, 'items=', (cart||[]).map(it=>({w:(it.weight_gram||it.weight_grams||it.weight||0), q:it.qty})));
 let arr = [];
 try {
-  const resEP = await api('/v1/platform/orders/price', {
+  const resEP = await api('/orders/price', {
     method: 'POST',
     body: payload
   });
