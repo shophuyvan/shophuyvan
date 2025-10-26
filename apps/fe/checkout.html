@@ -345,10 +345,12 @@ async function loadWards(districtCode) {
 }
 
 async function getShippingQuote() {
-  const provinceCode = $('province_code').value;
-  const districtCode = $('district_code').value;
+  const provinceEl = $('province');
+  const districtEl = $('district');
+  const provinceName = provinceEl.options[provinceEl.selectedIndex]?.text || '';
+  const districtName = districtEl.options[districtEl.selectedIndex]?.text || '';
   
-  if (!provinceCode || !districtCode) {
+  if (!provinceName || !districtName || provinceEl.value === '') {
     $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Vui lòng chọn địa chỉ đầy đủ</div>';
     return;
   }
@@ -364,8 +366,8 @@ async function getShippingQuote() {
     
     try {
       const payload = {
-       receiver_province: provinceCode,
-       receiver_district: districtCode,
+       receiver_province: provinceName,
+       receiver_district: districtName,
        weight_gram: weight,
        value: subtotal,   // alias cho worker/SuperAI
        cod: subtotal
@@ -509,11 +511,21 @@ async function placeOrder() {
   resultEl.textContent = '';
   
   try {
+    // Đọc TÊN từ dropdown
+    const provinceName = $('province').options[$('province').selectedIndex]?.text || '';
+    const districtName = $('district').options[$('district').selectedIndex]?.text || '';
+    const communeName = $('ward').options[$('ward').selectedIndex]?.text || '';
+    
     const payload = {
       customer: {
         name: name,
         phone: cleanPhone,
         address: address,
+        // Gửi TÊN
+        province: provinceName,
+        district: districtName,
+        commune: communeName,
+        // Giữ lại CODE (nếu backend cần)
         province_code: provinceCode,
         district_code: districtCode,
         commune_code: wardCode,
