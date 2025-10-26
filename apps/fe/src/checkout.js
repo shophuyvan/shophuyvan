@@ -279,9 +279,9 @@ orderBtn?.addEventListener('click', async () => {
     // legacy body removed; using consolidated payload below
     const body = {
       customer: { name, phone, address,
-        province_code: document.getElementById('province')?.value||'',
-        district_code: document.getElementById('district')?.value||'',
-        commune_code: document.getElementById('ward')?.value||''
+        province: document.getElementById('province')?.value||'',
+        district: document.getElementById('district')?.value||'',
+        commune: document.getElementById('ward')?.value||''
       },
       items: cart.map(it=>({ id: it.id||it.sku||'', sku: it.sku||it.id||'', name: it.name, qty: Number(it.qty||1), price: Number(it.price||0), cost: Number(it.cost||0||null), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) })),
       note: '',
