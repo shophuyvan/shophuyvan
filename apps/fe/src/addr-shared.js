@@ -89,8 +89,8 @@
   function setOptions(selectEl, arr, savedVal){
     if(!selectEl) return;
     const val = savedVal ?? selectEl.value;
-    // SỬA: Thay value="${o.name}" thành value="${o.code}"
-    selectEl.innerHTML = '<option value="">-- Chọn --</option>' + (arr||[]).map(o=>`<option value="${o.code}">${o.name}</option>`).join('');
+    // HOÀN TÁC: Trả về value="${o.name}"
+    selectEl.innerHTML = '<option value="">-- Chọn --</option>' + (arr||[]).map(o=>`<option value="${o.name}">${o.name}</option>`).join('');
     if(val){ selectEl.value = val; }
     selectEl.dispatchEvent(new Event('change',{bubbles:true}));
   }
