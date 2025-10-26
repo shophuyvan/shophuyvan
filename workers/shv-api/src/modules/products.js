@@ -591,5 +591,7 @@ async function deleteProduct(req, env) {
   } catch (e) {
     return errorResponse(e, 500, req);
   }
+} // <<< THÊM DẤU } NÀY ĐỂ ĐÓNG HÀM deleteProduct
 
 console.log('✅ products.js loaded - CATEGORY FILTER FIXED');
+// <<< Cuối file >>>
