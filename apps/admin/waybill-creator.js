@@ -328,7 +328,7 @@ if (!receiver.commune_code) {
       cod: Number(order.cod || 0),
       weight_gram: totalWeight || 500,
       note: order.note || '',
-      service_code: order.shipping_service || order.service_code || ''
+      service_code: String(order.service_code || order.shipping_service || order.service || '').trim()
     };
 
     return payload;
@@ -367,11 +367,19 @@ console.log('[WaybillCreator] >>> Sending codes:', {
   receiver_district_code: payload.receiver_district_code
 });
 
-// CHẶN KHI THIẾU SERVICE CODE
-if (!payload.service_code || String(payload.service_code).trim() === '') {
-  this.handleException(new Error('Thiếu service_code – vui lòng chọn gói dịch vụ vận chuyển'));
-  return;
-}
+// BỔ SUNG SERVICE CODE NẾU CÒN TRỐNG
+ if (!payload.service_code || String(payload.service_code).trim() === '') {
+   const fromOrder = String(order.service_code || order.shipping_service || order.service || '').trim();
+   if (fromOrder) {
+     payload.service_code = fromOrder;
+   } else {
+     const input = (window.prompt('Nhập service_code (bắt buộc):', '') || '').trim();
+     if (!input) { this.handleException(new Error('Thiếu service_code – vui lòng chọn gói dịch vụ vận chuyển')); return; }
+     // Lưu lại để lần sau không phải nhập lại
+     order.service_code = input;
+     payload.service_code = input;
+   }
+ }
 
 // CHẶN KHI THIẾU WARD/COMMUNE CODE
 if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim() === '') {
