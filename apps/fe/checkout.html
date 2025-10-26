@@ -261,6 +261,16 @@ function renderCartItems() {
   updateSummary();
 }
 
+// Hiển thị trọng lượng thân thiện (theo gram/kg, không ép 1kg)
+function toHumanWeight(grams) {
+  const g = Number(grams || 0);
+  if (g <= 0) return '0 g';
+  if (g < 1000) return `${g} g`;
+  const kg = g / 1000;
+  return (kg % 1 === 0) ? `${kg.toFixed(0)} kg` : `${kg.toFixed(1)} kg`;
+}
+
+
 function updateSummary() {
   const { subtotal, shippingFee, discount, total } = calculateTotals();
   $('subtotal').textContent = fmtVND(subtotal);
@@ -269,9 +279,11 @@ function updateSummary() {
   $('grand-total').textContent = fmtVND(total);
   
   const cart = getCart();
-  const totalWeight = cart.reduce((sum, item) => sum + (Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1)), 0);
-  const weightKg = Math.max(1, Math.ceil(totalWeight / 1000));
-  $('total-weight').textContent = `${weightKg} kg`;
+  const totalWeight = cart.reduce(
+  (sum, item) => sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1),
+  0
+);
+$('total-weight').textContent = toHumanWeight(totalWeight);
 }
 
 async function loadProvinces() {
@@ -352,11 +364,12 @@ async function getShippingQuote() {
     
     try {
       const payload = {
-        receiver_province: provinceCode,
-        receiver_district: districtCode,
-        weight_gram: weight,
-        cod: subtotal
-      };
+       receiver_province: provinceCode,
+       receiver_district: districtCode,
+       weight_gram: weight,
+       value: subtotal,   // alias cho worker/SuperAI
+       cod: subtotal
+     };
       const res = await api('/shipping/price', {
         method: 'POST',
         body: payload
@@ -373,9 +386,9 @@ async function getShippingQuote() {
       console.log('API shipping failed, using fallback');
     }
     
-    if (!items.length) {
-      items = getFixedQuotes(weight);
-    }
+   // if (!items.length) {
+//   items = getFixedQuotes(weight);
+// }
     
     items = items.filter(o => o.fee > 0);
     if (!items.length) {

@@ -94,7 +94,7 @@ async function fetchAndRenderQuote(){
   cod:         Number(subtotal || 0),
   option_id: '1'
 };
-console.log('[Checkout] weight (gram) =', payload.weight_gram, 'items=', (items||[]).map(it=>({w:(it.weight_gram||it.weight_grams||it.weight||0), q:it.qty})));
+console.log('[Checkout] weight (gram) =', payload.weight_gram, 'items=', (cart||[]).map(it=>({w:(it.weight_gram||it.weight_grams||it.weight||0), q:it.qty})));
 let arr = [];
 try {
   const resEP = await api('/v1/platform/orders/price', {
@@ -118,12 +118,12 @@ try {
 
     // Normalize
     arr = arr.map(o => ({
-      provider: o.provider || o.carrier || '',
-      service_code: o.service_code || o.service || '',
-      name: o.name || o.service_name || ((o.provider||'') + (o.service_code?(' - '+o.service_code):'')),
-      fee: Number(o.fee || o.total_fee || o.price || 0),
-      eta: o.eta || o.leadtime || o.leadtime_text || ''
-    })).filter(o => o.fee >= 0);
+  provider: o.provider || o.carrier || '',
+  service_code: o.service_code || o.service || o.carrier_id || '',
+  name: o.name || o.service_name || ((o.provider||'') + (o.service_code?(' - '+o.service_code):'')),
+  fee: Number(o.fee || o.total_fee || o.price || 0),
+  eta: o.eta || o.leadtime || o.leadtime_text || ''
+})).filter(o => o.fee >= 0);
 
     if(arr.length===0){
       quoteList.innerHTML = '<div class="text-sm text-gray-500">Không có gói vận chuyển khả dụng.</div>';
@@ -181,65 +181,7 @@ try {
     quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển.</div>';
   }
 },
-      to_province: to_province, to_district: to_district, to_ward: to_ward,
-      items: cart.map(it=>({ sku: it.id||it.sku||'', qty: Number(it.qty||1), price: Number(it.price||0), weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0) })),
-      package: { weight_grams: Number(weight||0) },
-      total_cod: subtotal
-    };
-    // let res = await api('/api/shipping/quote', { method:'POST', body: payload });
-    if(!Array.isArray(arr) || arr.length===0){
-      // Fallback to legacy
-      res = await api(`/shipping/quote?to_province=${encodeURIComponent(to_province)}&to_district=${encodeURIComponent(to_district)}&weight=${Number(weight)||0}&cod=${subtotal}`);
-      arr = (res?.items || res || []);
-    }
-    arr = arr.map(o=>({
-      provider: o.provider||o.carrier||'',
-      service_code: o.service_code || o.service || '',
-      name: o.name || o.service_name || (o.provider||'') + (o.service_code?(' - '+o.service_code):''),
-      fee: Number(o.fee || o.total_fee || o.price || 0),
-      eta: o.eta || o.leadtime || o.leadtime_text || ''
-    })).filter(o=>o.fee>=0);
-
-    if(arr.length===0){ quoteList.innerHTML = '<div class="text-sm text-gray-500">Không có gói vận chuyển khả dụng.</div>'; return; }
-    arr.sort((a,b)=> a.fee - b.fee);
-    const best = arr[0];
-    chosen = { provider: best.provider, service_code: best.service_code, name: best.name, fee: best.fee, eta: best.eta };
-    localStorage.setItem('ship_provider', chosen.provider||'');
-    localStorage.setItem('ship_service', chosen.service_code||'');
-    localStorage.setItem('ship_name', chosen.name||'');
-    localStorage.setItem('ship_fee', String(chosen.fee||0));
-    localStorage.setItem('ship_eta', chosen.eta||'');
-
-    lastPricing = arr;
-    renderSummary();
-
-    
-// Render list
-    quoteList.innerHTML = arr.map(opt => `
-      <label class="flex items-center gap-3 border rounded p-3">
-        <input type="radio" name="ship" value="${opt.provider}|${opt.service_code}" data-fee="${opt.fee}" data-eta="${opt.eta||''}" data-name="${opt.name}" ${opt===best?'checked':''}/>
-        <div class="flex-1"><div class="font-medium">${opt.name}</div><div class="text-sm">Phí: ${formatPrice(opt.fee)} • ETA: ${opt.eta || '-'}</div></div>
-      </label>
-    `).join('');
-
-    // Allow manual change
-    quoteList.querySelectorAll('input[name=ship]').forEach(r=>r.onchange=()=>{
-      const fee = Number(r.dataset.fee||0), name=r.dataset.name||'', eta=r.dataset.eta||'';
-      const [prov,svc] = String(r.value||'').split('|');
-      chosen = { provider: prov||'', service_code: svc||'', fee, name, eta };
-      localStorage.setItem('ship_provider', chosen.provider||'');
-      localStorage.setItem('ship_service', chosen.service_code||'');
-      localStorage.setItem('ship_name', name);
-      localStorage.setItem('ship_fee', String(fee));
-      localStorage.setItem('ship_eta', eta||'');
-      renderSummary();
-    });
-
-  }catch(e){
-    console.error(e);
-    quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển.</div>';
-  }
-}
+      /* removed legacy duplicate block */
 testVoucherBtn?.addEventListener('click', async ()=> {
   const cart = getCart();
   const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
