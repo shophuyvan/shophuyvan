@@ -515,4 +515,3 @@ export async function autoCreateWaybill(order, env) {
     return { ok: false, message: e.message };
   }
 }
-}
