@@ -4,8 +4,9 @@
 
 import { json, corsHeaders } from './lib/response.js';
 import * as categories from './modules/categories.js';
-import * as orders from './modules/orders.js';
-import * as products from './modules/products.js';
+import * as Orders from './modules/orders.js';
+import * as Products from './modules/products.js';
+import * as WebhookHandler from './modules/webhook-handler.js'; // THÊM DÒNG NÀY
 import * as shipping from './modules/shipping/index.js';
 import * as settings from './modules/settings.js';
 import * as banners from './modules/banners.js';
@@ -205,6 +206,11 @@ export default {
           msg: 'Worker alive',
           version: 'v4.2'
         }, {}, req);
+      }
+
+      // THÊM ROUTE WEBHOOK Ở ĐÂY
+      else if (path === '/webhook/superai' && req.method === 'POST') {
+         return WebhookHandler.handleSuperAIWebhook(req, env);
       }
 
       // Not found

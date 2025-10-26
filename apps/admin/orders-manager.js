@@ -295,7 +295,7 @@ class OrdersManager {
         <td>
           <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
         </td>
-        <td colspan="7"> {/* Giảm colspan đi 1 */}
+        <td colspan="2"> {/* SỬA Ở ĐÂY */}
           ${desktopCard}
         </td>
       </tr>
@@ -303,7 +303,7 @@ class OrdersManager {
          <td>
            <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
          </td>
-        <td colspan="7"> {/* Giảm colspan đi 1 */}
+        <td colspan="2"> {/* SỬA Ở ĐÂY */}
           ${mobileCard}
         </td>
       </tr>
@@ -771,13 +771,18 @@ class OrdersManager {
     // Dựa theo hình ảnh SuperAI của bạn và các trạng thái phổ biến
     const displayStatuses = [
       { key: 'all', name: 'Tất cả' },
-      { key: 'pending', name: 'Chờ xử lý' }, // Trạng thái mặc định khi mới tạo
-      { key: 'confirmed', name: 'Đã xác nhận' }, // Sau khi admin xác nhận
-      { key: 'shipping', name: 'Chờ lấy hàng' }, // Đã tạo vận đơn
-      { key: 'delivering', name: 'Đang giao' }, // Lấy từ webhook SuperAI
-      { key: 'delivered', name: 'Giao thành công' }, // Lấy từ webhook SuperAI
-      { key: 'cancelled', name: 'Đã hủy' }, // Khi hủy đơn hoặc hủy vận đơn
-      // Thêm các trạng thái khác nếu cần: returning, returned, failed_delivery,...
+      // Các trạng thái SuperAI phổ biến (lấy key từ status_name webhook, viết thường)
+      { key: 'pending pickup', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
+      { key: 'picking', name: 'Đang lấy hàng' },
+      { key: 'delivering', name: 'Đang giao' },
+      { key: 'delivered', name: 'Đã giao' },
+      { key: 'returning', name: 'Đang hoàn' },
+      { key: 'returned', name: 'Đã hoàn' },
+      { key: 'cancelled', name: 'Đã hủy' },
+      { key: 'lost', name: 'Thất lạc' },
+      // Thêm các trạng thái nội bộ nếu cần
+      { key: 'pending', name: 'Chờ xử lý (Nội bộ)' },
+      { key: 'confirmed', name: 'Đã xác nhận (Nội bộ)' },
     ];
 
     let tabsHTML = '';
