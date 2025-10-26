@@ -123,8 +123,13 @@ export default {
          path.startsWith('/public/orders') ||
          path.startsWith('/public/order-create') ||
          path === '/admin/stats' ||
-         path === '/orders/my' ||                // ✅ thêm
-         // FIX LỖI IN: Thêm route cho /shipping/print
+         path === '/orders/my') { // SỬA: Xóa '||' và thêm '){'
+
+       return Orders.handle(req, env, ctx); // THÊM: Dòng xử lý
+
+     } // THÊM: Dấu đóng cho khối Orders
+
+     // FIX LỖI IN: Thêm route cho /shipping/print (TÁCH RIÊNG RA)
      if (path === '/shipping/print' && req.method === 'POST') {
        return printWaybill(req, env);
      }
