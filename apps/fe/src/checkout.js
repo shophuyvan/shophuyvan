@@ -102,7 +102,10 @@ try {
     body: payload
   });
   arr = (resEP && (resEP.items || resEP.data)) || [];
-} catch (e) { arr = []; }
+} catch (e) {
+	console.error('[SHIPPING API FAILED]', e);
+	arr = [];
+	}
 
     if (!Array.isArray(arr) || !arr.length) {
   quoteList.innerHTML = '<div class="text-sm text-red-600">Không lấy được giá vận chuyển từ SuperAI.</div>';
