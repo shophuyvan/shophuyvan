@@ -8,6 +8,15 @@ function releaseSubmit(btn){ __placing=false; btn?.removeAttribute('disabled'); 
 import { api } from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+// Hiển thị khối lượng theo đơn vị thân thiện (không ép về 1kg)
+function toHumanWeight(g){
+  const n = Number(g||0);
+  if (n <= 0) return '0 g';
+  if (n < 1000) return `${n} g`;
+  const kg = n / 1000;
+  return (kg % 1 === 0) ? `${kg.toFixed(0)} kg` : `${kg.toFixed(1)} kg`;
+}
+
 
 // === Fixed Shipping Rate Table (weight in grams -> VND) ===
 function getFixedQuotes(weightGrams){
@@ -85,7 +94,7 @@ async function fetchAndRenderQuote(){
   cod:         Number(subtotal || 0),
   option_id: '1'
 };
-
+console.log('[Checkout] weight (gram) =', payload.weight_gram, 'items=', (items||[]).map(it=>({w:(it.weight_gram||it.weight_grams||it.weight||0), q:it.qty})));
 let arr = [];
 try {
   const resEP = await api('/v1/platform/orders/price', {
@@ -288,6 +297,7 @@ function renderSummary(){
 
     <div>
       <div class="font-semibold mb-1">Vận chuyển</div>
+      <div class="text-sm">Khối lượng: ${toHumanWeight((items||[]).reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0))}</div>
       <div class="text-sm">${ship_name}${ship_eta?` • ${ship_eta}`:''}</div>
     </div>
 
