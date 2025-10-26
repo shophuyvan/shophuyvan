@@ -214,23 +214,24 @@ export async function createWaybill(req, env) {
     const isSuccess = data?.error === false && data?.data;
     
     // Lấy mã vận đơn từ các trường SuperAI trả về
-    const code = data?.data?.carrier_code || data?.data?.superai_code || data?.data?.code || null;
-    const tracking = data?.data?.superai_code || data?.data?.carrier_code || data?.data?.tracking || code || null;
+   // SỬA: Lấy mã SuperAI và mã NV (carrier) riêng biệt
+    const carrier_code = data?.data?.carrier_code || data?.data?.code || null;
+    const superai_code = data?.data?.superai_code || data?.data?.tracking || null;
 
-    if (isSuccess && (code || tracking)) {
-      await putJSON(env, 'shipment:' + (order.id || body.order_id || code), {
+    if (isSuccess && (carrier_code || superai_code)) {
+      await putJSON(env, 'shipment:' + (order.id || body.order_id || carrier_code), { // Dùng order.id hoặc carrier_code làm key
         provider: payload.provider,
         service_code: payload.service_code,
-        code,
-        tracking,
+        carrier_code: carrier_code, // Lưu mã NV
+        superai_code: superai_code, // Lưu mã SuperAI
         raw: data,
         createdAt: Date.now()
       });
 
       const response = json({ 
         ok: true, 
-        code, 
-        tracking, 
+        carrier_code: carrier_code, // Sửa: Trả về mã NV
+        superai_code: superai_code, // Sửa: Trả về mã SuperAI
         provider: payload.provider 
       }, {}, req);
       

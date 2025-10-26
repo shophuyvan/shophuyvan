@@ -446,30 +446,35 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
       Admin.toast('✅ Đã tạo vận đơn thành công');
     }
     
-    const tracking = result.tracking || result.tracking_code || 
-                    result.code || result.waybill_code || '';
+    // SỬA: Lấy mã SuperAI và mã NV (carrier) riêng biệt
+  const carrier_code = result.carrier_code || result.tracking || result.code || '';
+  const superai_code = result.superai_code || '';
 
-    if (tracking) {
-      try {
-        await this.callAPI('/admin/orders/upsert', {
-          id: order.id,
-          tracking_code: tracking,
-          shipping_provider: result.provider || order.shipping_provider,
-          status: 'shipping'
-        });
-        console.log('[WaybillCreator] ✅ Updated order with tracking:', tracking);
+  if (carrier_code || superai_code) { // Sửa: Check cả 2 mã
+    try {
+      await this.callAPI('/admin/orders/upsert', {
+        id: order.id,
+        tracking_code: carrier_code, // Sửa: Dùng carrier_code cho tracking
+        superai_code: superai_code,  // THÊM: Lưu mã SuperAI để in
+        shipping_provider: result.provider || order.shipping_provider,
+        status: 'shipping'
+      });
+      console.log('[WaybillCreator] ✅ Updated order with codes:', { carrier_code, superai_code }); // Sửa log
       } catch (e) {
         console.warn('[WaybillCreator] ⚠️ Update order error:', e);
       }
 
       alert(`✅ TẠO VẬN ĐƠN THÀNH CÔNG!\n\n` +
-            `Mã vận đơn: ${tracking}\n` +
-            `Nhà vận chuyển: ${result.provider || order.shipping_provider || ''}\n\n` +
-            `Đơn hàng đã được cập nhật.`);
+          `Mã vận đơn: ${carrier_code}\n` + // Sửa: Hiển thị mã NV
+          `Nhà vận chuyển: ${result.provider || order.shipping_provider || ''}\n\n` +
+          `Đơn hàng đã được cập nhật.`);
 
-      if (window.ordersManager) {
-        window.ordersManager.openPrintWaybill(order, tracking);
-      }
+    if (window.ordersManager && superai_code) { // Sửa: Check superai_code
+      // Sửa: Gửi mã SuperAI (superai_code) đi để in
+      window.ordersManager.openPrintWaybill(order, superai_code); 
+    } else if (window.ordersManager) {
+       console.warn('[WaybillCreator] Không có superai_code để mở cửa sổ in.');
+    }
     } else {
       alert('✅ Tạo vận đơn thành công!\n\nChi tiết:\n' + 
             JSON.stringify(result, null, 2).substring(0, 500));
