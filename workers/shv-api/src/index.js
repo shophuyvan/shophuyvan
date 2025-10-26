@@ -121,7 +121,7 @@ export default {
        return orders.handle(req, env, ctx);
      }
 
-      // Shipping module
+      // Shipping module (ensure Token header for SuperAI v1 routes)
      if (path.startsWith('/shipping') ||
          path.startsWith('/admin/shipping') ||
          path.startsWith('/api/addresses') ||
@@ -132,7 +132,23 @@ export default {
          path.startsWith('/v1/platform/orders/token') ||
          path.startsWith('/v1/platform/carriers') ||
          path.startsWith('/v1/platform/warehouses')) {
-       return shipping.handle(req, env, ctx);
+     
+       let r = req;
+     
+       // SuperAI v1 endpoints: auto inject headers if missing
+       if (path.startsWith('/v1/platform/')) {
+         const h = new Headers(req.headers);
+         if (!h.get('Token')) {
+           h.set('Token', env.SUPER_KEY || 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5');
+         }
+         if (!h.get('Accept')) h.set('Accept', 'application/json');
+         if (req.method !== 'GET' && !h.get('Content-Type')) {
+           h.set('Content-Type', 'application/json');
+         }
+         r = new Request(req, { headers: h });
+       }
+     
+       return shipping.handle(r, env, ctx);
      }
 
       // Cart Sync module

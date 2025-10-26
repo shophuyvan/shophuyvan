@@ -553,14 +553,12 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
   // --- AUTO PICK SERVICE (SuperAI /v1/platform/orders/price) ---
   async autoPickService(sender, receiver, order) {
     try {
-      const url = 'https://dev.superai.vn/v1/platform/orders/price';
-      const token = 'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5';
+      const url = this.baseURL + '/v1/platform/orders/price';
 
       const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Token': token
-    };
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
 
       // Tính cân nặng & giá trị đơn
       const totalWeight =
@@ -579,7 +577,7 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
       // Hàm tra tên tỉnh/huyện theo CODE
       const getProvinceNameByCode = async (code) => {
         if (!code) return '';
-        const r = await fetch(`https://dev.superai.vn/v1/platform/areas/province`, { headers });
+        const r = await fetch(this.baseURL + '/v1/platform/areas/province', { headers });
         const j = await r.json();
         const arr = Array.isArray(j?.data) ? j.data : [];
         const found = arr.find(x => String(x.code) === String(code));
@@ -587,7 +585,7 @@ if (!payload.receiver_commune_code || String(payload.receiver_commune_code).trim
       };
       const getDistrictNameByCode = async (provinceCode, districtCode) => {
         if (!districtCode) return '';
-        const r = await fetch(`https://dev.superai.vn/v1/platform/areas/district?province=${encodeURIComponent(provinceCode || '')}`, { headers });
+        const r = await fetch(this.baseURL + `/v1/platform/areas/district?province=${encodeURIComponent(provinceCode || '')}`, { headers });
         const j = await r.json();
         const arr = Array.isArray(j?.data) ? j.data : [];
         const found = arr.find(x => String(x.code) === String(districtCode));
