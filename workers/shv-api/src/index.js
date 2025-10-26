@@ -14,7 +14,7 @@ import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import { handleCartSync } from './modules/cart-sync-handler.js';
-import { printWaybill } from './modules/shipping/waybill.js'; // THÊM ĐỂ FIX LỖI IN
+import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js'; // SỬA: THÊM HỦY & IN HÀNG LOẠT
 
 console.log('[Index] ✅ Module Products đã import:', typeof Products, Products ? Object.keys(Products) : 'undefined'); // LOG KIỂM TRA IMPORT
 
@@ -129,9 +129,19 @@ export default {
 
      } // THÊM: Dấu đóng cho khối Orders
 
-     // FIX LỖI IN: Thêm route cho /shipping/print (TÁCH RIÊNG RA)
-     if (path === '/shipping/print' && req.method === 'POST') {
-       return printWaybill(req, env);
+     // THÊM: Route HỦY VẬN ĐƠN
+     if (path === '/shipping/cancel' && req.method === 'POST') {
+       return cancelWaybill(req, env);
+     }
+
+     // THÊM: Route IN HÀNG LOẠT
+     if (path === '/shipping/print-bulk' && req.method === 'POST') {
+       return printWaybillsBulk(req, env);
+     }
+
+     // THÊM: Route HỦY HÀNG LOẠT
+     if (path === '/shipping/cancel-bulk' && req.method === 'POST') {
+       return cancelWaybillsBulk(req, env);
      }
 
       // Shipping module (ensure Token header for SuperAI v1 routes)
