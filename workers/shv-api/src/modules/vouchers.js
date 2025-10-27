@@ -107,12 +107,7 @@ async function upsertVoucher(req, env) {
     }
 
     await putJSON(env, 'vouchers', list);
-      list[index] = { ...list[index], ...voucher };
-    } else {
-      list.push(voucher);
-    }
-
-    await putJSON(env, 'vouchers', list);
+    // DÒNG NÀY VÀ 4 DÒNG SAU ĐÓ BỊ DƯ THỪA - ĐÃ XÓA
     return json({ ok: true, items: list }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
