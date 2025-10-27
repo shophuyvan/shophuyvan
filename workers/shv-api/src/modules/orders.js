@@ -460,23 +460,23 @@ async function createOrder(req, env) {
     if (waybillResult.ok && (waybillResult.carrier_code || waybillResult.superai_code)) {
       console.log('[OrderCreate] Auto-create SUCCESS:', waybillResult.carrier_code);
       
-      // Cập nhật mã vận đơn và trạng thái vào đơn hàng
-      // SỬA: Lưu mã của NHÀ VẬN CHUYỂN (SPXVN...) làm tracking_code chính
       order.tracking_code = waybillResult.carrier_code;
       order.shipping_tracking = waybillResult.carrier_code; // alias
-      order.superai_code = waybillResult.superai_code; // Lưu mã SuperAI riêng
+      order.superai_code = waybillResult.superai_code; 
       order.carrier_id = waybillResult.carrier_id;
-      order.status = 'shipping'; // Cập nhật trạng thái
-      order.waybill_data = waybillResult.raw; // Lưu lại data trả về
+      order.status = 'shipping'; 
+      order.waybill_data = waybillResult.raw; 
       
-      // Lưu lại đơn hàng (cả list và chi tiết)
+    
       await putJSON(env, 'order:' + id, order);
       
       const list = await getJSON(env, 'orders:list', []);
       const index = list.findIndex(o => o.id === id);
       if (index > -1) {
-        // SỬA: Lưu đúng mã tracking vào list
+        // ✅ SỬA: Lưu cả tracking_code, superai_code, carrier_id vào list
         list[index].tracking_code = waybillResult.carrier_code;
+        list[index].superai_code = waybillResult.superai_code;
+        list[index].carrier_id = waybillResult.carrier_id;
         list[index].status = 'shipping';
         await putJSON(env, 'orders:list', list);
       }
