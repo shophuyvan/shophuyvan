@@ -164,7 +164,7 @@ h3 {
         <option value="auto_freeship">Miễn ship tự động</option>
       </select>
     </div>
-    <div class="col" id="min_purchase_col" style="display: none;">
+    <div class="col" id="min_purchase_col">
       <label>Điều kiện miễn ship (>=)</label>
       <input id="min_purchase" class="input" type="number" min="0" placeholder="150000"/>
     </div>
@@ -187,26 +187,6 @@ h3 {
     <div class="col"> <button class="btn primary" id="save">Lưu Voucher</button>
     </div>
   </div>
-  
-  <script>
-    document.addEventListener('DOMContentLoaded', function() { // THÊM DÒNG NÀY
-      const voucherTypeSelect = document.getElementById('voucher_type');
-      const minPurchaseCol = document.getElementById('min_purchase_col');
-      const offCol = document.getElementById('off').closest('.col'); // Lấy cả cột chứa input %
-
-      function toggleFields() {
-        const showMinPurchase = voucherTypeSelect.value === 'auto_freeship';
-        minPurchaseCol.style.display = showMinPurchase ? 'block' : 'none';
-        // Ẩn/hiện cột Giảm (%)
-        offCol.style.display = showMinPurchase ? 'none' : 'block'; 
-      }
-
-      voucherTypeSelect.addEventListener('change', toggleFields);
-      
-      // Trigger change lúc tải trang
-      toggleFields(); // Gọi trực tiếp hàm toggleFields
-    }); // THÊM DÒNG NÀY
-  </script>
 </div>
 
 <!-- Vouchers List -->
