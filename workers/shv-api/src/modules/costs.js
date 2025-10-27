@@ -38,7 +38,7 @@ export async function handle(req, env, ctx) {
  */
 async function getCosts(req, env) {
   const costs = await getJSON(env, COST_KEY, []);
-  return json({ ok: true, costs });
+  return json({ ok: true, costs }, {}, req);
 }
 
 /**
@@ -62,7 +62,7 @@ async function saveCosts(req, env) {
 
     await putJSON(env, COST_KEY, validCosts);
 
-    return json({ ok: true, message: 'Costs saved', costs: validCosts });
+    return json({ ok: true, message: 'Costs saved', costs: validCosts }, {}, req);
 
   } catch (e) {
     console.error('[Costs] Save error:', e);
