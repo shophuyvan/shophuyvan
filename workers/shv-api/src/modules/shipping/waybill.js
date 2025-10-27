@@ -615,49 +615,59 @@ export async function printWaybill(req, env) {
   <title>Vận Đơn</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:10px; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:5px; }
     .page { 
       width:148mm; 
       height:210mm; 
       background:white; 
       margin:auto; 
-      padding:8px; 
+      padding:6px; 
       box-shadow:0 0 5px rgba(0,0,0,0.1);
       overflow:hidden;
       position:relative;
+      display:flex;
+      flex-direction:column;
     }
-    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; border-bottom:2px solid #ff6b35; padding-bottom:4px; }
-    .logo { width:60px; height:40px; }
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; border-bottom:2px solid #ff6b35; padding-bottom:3px; }
+    .logo { width:50px; height:35px; }
     .logo img { width:100%; height:100%; object-fit:contain; }
-    .tracking-main { text-align:center; font-weight:bold; font-size:18px; letter-spacing:1px; }
-    .barcode-section { text-align:center; margin:4px 0; }
-    .barcode-section img { height:35px; margin-bottom:2px; }
-    .barcode-text { font-size:10px; font-weight:bold; letter-spacing:1px; }
+    .tracking-main { text-align:center; font-weight:bold; font-size:16px; letter-spacing:1px; flex:1; }
     
-    .info-section { display:flex; gap:6px; margin:6px 0; font-size:11px; }
-    .info-box { flex:1; padding:4px; border:1px solid #ddd; }
-    .info-box h4 { font-size:9px; font-weight:bold; background:#f0f0f0; margin-bottom:2px; padding:2px; }
-    .info-box p { font-size:10px; margin:1px 0; line-height:1.3; }
-    .info-box strong { display:block; font-size:11px; margin-top:2px; }
+    .barcode-section { text-align:center; margin:3px 0; }
+    .barcode-section img { height:30px; margin-bottom:1px; }
+    .barcode-text { font-size:9px; font-weight:bold; letter-spacing:1px; }
     
-    .sort-code { text-align:center; font-size:9px; background:#f9f9f9; padding:2px; margin:4px 0; border:1px dashed #999; }
+    .info-section { display:flex; gap:4px; margin:4px 0; font-size:10px; }
+    .info-box { flex:1; padding:3px; border:1px solid #ddd; }
+    .info-box h4 { font-size:8px; font-weight:bold; background:#f0f0f0; margin-bottom:1px; padding:1px; }
+    .info-box p { font-size:9px; margin:0.5px 0; line-height:1.2; }
+    .info-box strong { display:block; font-size:9px; margin-top:1px; }
     
-    .items-section { margin:4px 0; }
-    .items-section h4 { font-size:9px; font-weight:bold; background:#f0f0f0; padding:2px; }
-    .items-table { width:100%; font-size:10px; border-collapse:collapse; }
-    .items-table th { background:#f0f0f0; padding:2px; text-align:left; font-size:9px; border-bottom:1px solid #ddd; }
+    .sort-code { text-align:center; font-size:8px; background:#f9f9f9; padding:1px; margin:3px 0; border:1px dashed #999; }
     
-    .qr-barcode { display:flex; justify-content:space-around; align-items:flex-end; margin:6px 0; gap:6px; }
+    .items-section { margin:3px 0; flex-grow:1; display:flex; flex-direction:column; }
+    .items-section h4 { font-size:8px; font-weight:bold; background:#f0f0f0; padding:1px; }
+    .items-table { width:100%; font-size:9px; border-collapse:collapse; }
+    .items-table th { background:#f0f0f0; padding:1px; text-align:left; font-size:8px; border-bottom:1px solid #ddd; }
+    .items-table td { padding:1px 2px; border-bottom:1px solid #eee; }
+    .items-body { flex-grow:1; overflow-y:auto; }
+    
+    .payment-section { margin:3px 0; padding:4px; background:#fff3cd; border:1.5px solid #ff6b35; border-radius:2px; text-align:center; }
+    .payment-section h5 { font-size:9px; font-weight:bold; color:#333; margin-bottom:2px; }
+    .payment-amount { font-size:16px; font-weight:bold; color:#ff6b35; letter-spacing:1px; }
+    .payment-type { font-size:8px; color:#666; margin-top:1px; }
+    
+    .qr-barcode { display:flex; justify-content:space-around; align-items:flex-end; margin:3px 0; gap:4px; }
     .qr-box { text-align:center; flex:1; }
-    .qr-box img { width:80px; height:80px; border:1px solid #ddd; }
-    .qr-label { font-size:8px; margin-top:2px; }
+    .qr-box img { width:70px; height:70px; border:1px solid #ddd; }
+    .qr-label { font-size:7px; margin-top:1px; }
     
-    .footer { font-size:9px; text-align:center; margin-top:4px; padding-top:4px; border-top:1px solid #ddd; }
+    .footer { font-size:8px; text-align:center; margin-top:2px; padding-top:2px; border-top:1px solid #ddd; }
     .hotline { font-weight:bold; color:#ff6b35; }
     
     @media print {
       body { background:white; padding:0; }
-      .page { width:100%; height:100%; margin:0; padding:8px; box-shadow:none; }
+      .page { width:100%; height:100%; margin:0; padding:6px; box-shadow:none; page-break-after:avoid; }
     }
   </style>
 </head>
@@ -666,7 +676,7 @@ export async function printWaybill(req, env) {
     <!-- Header với Logo -->
     <div class="header">
       <div class="logo">
-        <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2240%22%3E%3Crect fill=%22%23f0f0f0%22 width=%2260%22 height=%2240%22/%3E%3C/svg%3E'">
+        <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2235%22%3E%3Crect fill=%22%23f0f0f0%22 width=%2250%22 height=%2235%22/%3E%3C/svg%3E'">
       </div>
       <div class="tracking-main">${superaiCode}</div>
     </div>
@@ -682,62 +692,65 @@ export async function printWaybill(req, env) {
       <div class="info-box">
         <h4>👤 NGƯỜI GỬI</h4>
         <p><strong>${sender.name || store.name || 'Shop'}</strong></p>
-        <p>📍 ${sender.address || store.address || ''}</p>
+        <p>${sender.address || store.address || ''}</p>
         <p>☎️ ${sender.phone || store.phone || ''}</p>
       </div>
       <div class="info-box">
         <h4>📦 NGƯỜI NHẬN</h4>
-        <p><strong>${receiver.name || customer.name || ''}</strong></p>
-        <p>📍 ${receiver.address || customer.address || ''}</p>
+        <p><strong>${receiver.name || customer.name || 'Khách'}</strong></p>
+        <p>${receiver.address || customer.address || ''}</p>
         <p>☎️ ${receiver.phone || customer.phone || ''}</p>
       </div>
     </div>
 
     <!-- Sort Code -->
     <div class="sort-code">
-      <strong>${superaiCode}</strong><br>
+      ${superaiCode}<br>
       <small>Ngày gửi: ${createdDate.split(',')[0]}</small>
     </div>
 
     <!-- Nội dung hàng -->
     <div class="items-section">
       <h4>📋 NỘI DUNG HÀNG (${items.length} sản phẩm)</h4>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th>Sản phẩm</th>
-            <th>SL</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsList || '<tr><td colspan="2" style="padding:4px;text-align:center;color:#999">Không có sản phẩm</td></tr>'}
-        </tbody>
-      </table>
+      <div class="items-body">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width:60%">Sản phẩm</th>
+              <th style="width:20%">SL</th>
+              <th style="width:20%; text-align:right">Giá</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsList || '<tr><td colspan="3" style="padding:4px;text-align:center;color:#999">Không có sản phẩm</td></tr>'}
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Tổng tiền thu -->
-    <div class="payment-section" style="margin:6px 0; padding:6px; background:#fff3cd; border:2px solid #ff6b35; border-radius:4px;">
-      <div style="font-size:11px; font-weight:bold; color:#333; margin-bottom:4px;">💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</div>
-      <div style="font-size:20px; font-weight:bold; color:#ff6b35; text-align:center; letter-spacing:1px;">
+    <div class="payment-section">
+      <h5>💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</h5>
+      <div class="payment-amount">
         ${Number(order.cod || order.amount || 0).toLocaleString('vi-VN')} đ
       </div>
-      <div style="font-size:9px; color:#666; margin-top:2px; text-align:center;">
+      <div class="payment-type">
         ${order.cod ? '(Thu hộ - COD)' : '(Thanh toán)'}
       </div>
     </div>
 
-    <!-- QR Code -->
+    <!-- QR Code - Dùng tracking code SPXVN -->
     <div class="qr-barcode">
       <div class="qr-box">
-        <img src="${qrcodeSrc}" alt="QR Code" onerror="this.style.display='none'">
-        <div class="qr-label">Mã vận chuyển</div>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(order.tracking_code || superaiCode)}" alt="QR Code">
+        <div class="qr-label">Mã tracking</div>
       </div>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <p>Vui lòng kiểm tra lại thông tin trước khi gửi</p>
-      <p class="hotline">Hotline: 0909128999</p>
+      <p>Kiểm tra lại thông tin trước khi gửi</p>
+      <p class="hotline">Hotline: ${store.phone || '0909128999'}</p>
     </div>
   </div>
 
