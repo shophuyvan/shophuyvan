@@ -376,6 +376,13 @@
     <option value="active">Active</option>
     <option value="inactive">Inactive</option>
   </select>
+  <select id="filter-tier" class="input">
+    <option value="">Tất cả tier</option>
+    <option value="retail">🆓 Thường</option>
+    <option value="silver">🥈 Bạc</option>
+    <option value="gold">🥇 Vàng</option>
+    <option value="diamond">💎 Kim cương</option>
+  </select>
 </div>
   
   <div class="table-responsive">
@@ -386,10 +393,9 @@
         <th>Email</th>
         <th>Số điện thoại</th>
         <th>Loại</th>
+        <th>Tier</th>
         <th>Điểm</th>
         <th>Trạng thái</th>
-        <th>Đăng nhập lần cuối</th>
-        <th>Hành động</th>
       </tr>
     </thead>
     <tbody id="customers-list">
@@ -434,6 +440,17 @@
           <option value="retail">Khách lẻ (Giá thường)</option>
           <option value="wholesale">Khách sỉ (Giá sỉ)</option>
         </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Hạng thành viên (Tier)</label>
+        <select id="customer-tier" class="input">
+          <option value="retail">🆓 Thường (0đ)</option>
+          <option value="silver">🥈 Bạc (1.000.000đ+)</option>
+          <option value="gold">🥇 Vàng (3.000.000đ+)</option>
+          <option value="diamond">💎 Kim cương (5.000.000đ+)</option>
+        </select>
+        <small style="color: #6b7280; font-size: 11px;">Tier tự động tính theo điểm, bạn có thể ghi đè thủ công</small>
       </div>
       
       <div class="form-group">
@@ -545,6 +562,15 @@ document.addEventListener('DOMContentLoaded', function() {
         ? new Date(customer.last_login).toLocaleString('vi-VN')
         : 'Chưa đăng nhập';
       
+      const tierConfig = {
+        retail: { name: 'Thường', icon: '🆓', color: '#6b7280' },
+        silver: { name: 'Bạc', icon: '🥈', color: '#94a3b8' },
+        gold: { name: 'Vàng', icon: '🥇', color: '#fbbf24' },
+        diamond: { name: 'Kim cương', icon: '💎', color: '#06b6d4' }
+      };
+      const tier = customer.tier || 'retail';
+      const tierInfo = tierConfig[tier] || tierConfig.retail;
+      
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>
@@ -554,6 +580,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <td>${customer.email}</td>
         <td>${customer.phone || '-'}</td>
         <td><span class="customer-type-badge ${typeClass}">${typeName}</span></td>
+        <td><span class="points-badge" style="background: ${tierInfo.color}20; color: ${tierInfo.color};">${tierInfo.icon} ${tierInfo.name}</span></td>
         <td><span class="points-badge">${customer.points || 0} điểm</span></td>
         <td class="${statusClass}">${customer.status || 'active'}</td>
         <td style="font-size: 12px;">${lastLogin}</td>
@@ -584,6 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchTerm = $('search-input').value.toLowerCase();
     const typeFilter = $('filter-type').value;
     const statusFilter = $('filter-status').value;
+    const tierFilter = $('filter-tier').value; // ✅ THÊM
     
     filteredCustomers = allCustomers.filter(customer => {
       const matchSearch = !searchTerm || 
@@ -593,8 +621,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const matchType = !typeFilter || customer.customer_type === typeFilter;
       const matchStatus = !statusFilter || customer.status === statusFilter;
+      const matchTier = !tierFilter || customer.tier === tierFilter; // ✅ THÊM
       
-      return matchSearch && matchType && matchStatus;
+      return matchSearch && matchType && matchStatus && matchTier; // ✅ THÊM matchTier
     });
     
     renderCustomers();
@@ -604,6 +633,7 @@ document.addEventListener('DOMContentLoaded', function() {
   $('search-input').addEventListener('input', filterCustomers);
   $('filter-type').addEventListener('change', filterCustomers);
   $('filter-status').addEventListener('change', filterCustomers);
+  $('filter-tier').addEventListener('change', filterCustomers); // ✅ THÊM
 
   // Create customer
   $('btn-create-customer').onclick = () => {
@@ -618,6 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const password = $('customer-password').value;
     const phone = $('customer-phone').value.trim();
     const customer_type = $('customer-type').value;
+    const tier = $('customer-tier').value; // ✅ THÊM
     const points = parseInt($('customer-points').value) || 0;
     const status = $('customer-status').value;
     
@@ -632,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     try {
-      const body = { full_name: name, email, phone, customer_type, points, status };
+      const body = { full_name: name, email, phone, customer_type, tier, points, status }; // ✅ THÊM tier
       if (password) body.password = password;
       
       const method = id ? 'PUT' : 'POST';
@@ -670,6 +701,7 @@ document.addEventListener('DOMContentLoaded', function() {
       $('customer-email').value = customer.email;
       $('customer-phone').value = customer.phone || '';
       $('customer-type').value = customer.customer_type;
+      $('customer-tier').value = customer.tier || 'retail'; // ✅ THÊM
       $('customer-points').value = customer.points || 0;
       $('customer-status').value = customer.status || 'active';
       $('customer-password').value = '';

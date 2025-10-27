@@ -742,7 +742,7 @@ async function listCustomers(req, env) {
 async function createCustomer(req, env) {
   try {
     const body = await req.json();
-    const { email, password, full_name, phone, customer_type, points } = body;
+    const { email, password, full_name, phone, customer_type, tier, points } = body; // ✅ THÊM tier
 
     if (!email || !password || !full_name) {
       return json({ ok: false, error: 'Email, password và họ tên là bắt buộc' }, { status: 400 }, req);
@@ -766,8 +766,9 @@ async function createCustomer(req, env) {
       password_hash,
       full_name,
       phone: phone || '',
-      customer_type: customer_type || 'retail', // 'retail' | 'wholesale'
+      customer_type: customer_type || 'retail',
       points: points || 0,
+      tier: tier || calculateTier(points || 0), // ✅ Ưu tiên tier từ body, fallback tính theo points
       status: 'active',
       created_at: now,
       updated_at: now,
@@ -830,7 +831,12 @@ async function updateCustomer(req, env, customerId) {
     if (body.full_name) customer.full_name = body.full_name;
     if (body.phone) customer.phone = body.phone;
     if (body.customer_type) customer.customer_type = body.customer_type;
-    if (body.points !== undefined) customer.points = body.points;
+    if (body.tier) customer.tier = body.tier; // ✅ THÊM
+    if (body.points !== undefined) {
+      customer.points = body.points;
+      // Tự động tính lại tier nếu không gửi tier thủ công
+      if (!body.tier) customer.tier = calculateTier(body.points);
+    }
     if (body.status) customer.status = body.status;
 
     if (body.password) {
@@ -912,6 +918,7 @@ async function customerRegister(req, env) {
       phone: phone || '',
       customer_type: 'retail', // Mặc định là khách lẻ
       points: 0,
+      tier: 'retail', // ✅ THÊM: Gán tier mặc định
       status: 'active',
       created_at: now,
       updated_at: now,
