@@ -308,21 +308,14 @@ function minVarPrice(p){
 }
 
 function priceStr(p) {
-	// ƯU TIÊN GIÁ DO SERVER TÍNH TỪ VARIANTS
-  if (Number.isFinite(p?.price_display)) {
-    const price = Number(p.price_display) || 0;
-    const cmp   = Number(p.compare_at_display) || 0;
-    if (price <= 0) return `<div data-price><b>Liên hệ</b></div>`;
-    if (cmp > price) {
-      return `<div><b>${price.toLocaleString('vi-VN')}đ</b> <span class="text-sm line-through opacity-70">${cmp.toLocaleString('vi-VN')}đ</span></div>`;
-    }
-    return `<div data-price><b>${price.toLocaleString('vi-VN')}đ</b></div>`;
-  }
-  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI
+  // ✅ SỬ DỤNG LOGIC GIÁ SỈ/LẺ MỚI LÀM ƯU TIÊN
+  // Hàm này (từ price.js) sẽ tự động kiểm tra khách hàng
+  // và hiển thị giá chính xác (Sỉ, Kim Cương, hoặc Lẻ)
   if (typeof formatPriceByCustomer === 'function') {
     return formatPriceByCustomer(p, null);
   }
   
+  // --- Fallback (nếu price.js tải lỗi) ---
   // CHỈ lấy giá từ variants
   const mv = minVarPrice(p);
   if (!mv) return `<div data-price><b>Liên hệ</b></div>`;
