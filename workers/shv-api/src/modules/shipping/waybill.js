@@ -701,6 +701,17 @@ export async function printWaybill(req, env) {
       </table>
     </div>
 
+    <!-- Tổng tiền thu -->
+    <div class="payment-section" style="margin:6px 0; padding:6px; background:#fff3cd; border:2px solid #ff6b35; border-radius:4px;">
+      <div style="font-size:11px; font-weight:bold; color:#333; margin-bottom:4px;">💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</div>
+      <div style="font-size:20px; font-weight:bold; color:#ff6b35; text-align:center; letter-spacing:1px;">
+        ${Number(order.cod || order.amount || 0).toLocaleString('vi-VN')} đ
+      </div>
+      <div style="font-size:9px; color:#666; margin-top:2px; text-align:center;">
+        ${order.cod ? '(Thu hộ - COD)' : '(Thanh toán)'}
+      </div>
+    </div>
+
     <!-- QR Code -->
     <div class="qr-barcode">
       <div class="qr-box">
