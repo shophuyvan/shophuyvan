@@ -417,14 +417,25 @@ async function hydrateSoldAndRating(items){
                .filter(Boolean);
   }
 
+  // SỬA: Lấy priceEl
   for (const id of ids){
     const ratingEl = document.querySelector(`.js-rating[data-id="${id}"]`);
     const soldEl   = document.querySelector(`.js-sold[data-id="${id}"]`);
-    if (!ratingEl && !soldEl) continue;
+    const priceEl  = document.querySelector(`.js-price[data-id="${id}"]`); // THÊM DÒNG NÀY
+
+    // SỬA: Chỉ 'continue' nếu không có element NÀO
+    if (!ratingEl && !soldEl && !priceEl) continue;
 
     const full = await fetchFullProduct(id);
     if (!full) continue;
 
+    // --- Cập nhật Giá (Price) ---
+    if (priceEl && typeof formatPriceByCustomer === 'function') {
+      // 'full' object CÓ chứa 'wholesale_price'
+      priceEl.innerHTML = formatPriceByCustomer(full, null); 
+    }
+
+    // --- Cập nhật Đã bán (Sold) & Đánh giá (Rating) ---
     const toNum = (x)=> (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0));
     const sold = toNum(full.sold ?? full.sales ?? full.sold_count ?? full.total_sold ?? full.order_count ?? 0);
     let ratingAvg   = Number(full.rating_avg ?? full.rating_average ?? full.rating);
@@ -444,7 +455,9 @@ function card(p){
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 price" data-id="${id}">${priceStr(p)}</div>
+      <div class="mt-1 text-blue-600 price js-price" data-id="${id}">
+        <b class="text-rose-600">...</b>
+      </div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
 	<span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
@@ -468,13 +481,11 @@ filterInput?.addEventListener('input', renderAll);
     window.addEventListener('customer-info-loaded', () => {
       console.log('[Homepage] Customer info updated! Re-rendering product prices.');
       
-      // Chạy lại renderAll để cập nhật giá (cho mục "Tất cả sản phẩm")
-      if (typeof renderAll === 'function') {
-        renderAll();
-      }
-      // Chạy lại loadNew để cập nhật giá (cho mục "Sản phẩm mới")
-      if (typeof loadNew === 'function') {
-         loadNew();
+      // Chỉ cần gọi hydrateSoldAndRating. Nó sẽ tự động tìm
+      // tất cả các .js-price elements trên trang và cập nhật chúng
+      // với giá mới (Sỉ/Kim Cương/v.v.)
+      if (typeof hydrateSoldAndRating === 'function') {
+         hydrateSoldAndRating(); // Không cần tham số, nó sẽ tự quét
       }
     });
 
