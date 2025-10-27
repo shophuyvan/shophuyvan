@@ -556,14 +556,14 @@ async loadInventoryValue() {
       topProductsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Chưa có dữ liệu</td></tr>';
       return;
     }
-    
-    // Helper rút gọn tên
+
+    // Helper rút gọn tên (đặt bên trong hàm)
     const shortenName = (name, maxLength = 30) => {
       if (!name) return '';
       if (name.length <= maxLength) return name;
       return name.substring(0, maxLength) + '...';
     };
-
+    
     topProductsTable.innerHTML = topProducts.map((p, idx) => `
       <tr>
         <td>${idx + 1}</td>
@@ -580,6 +580,7 @@ async loadInventoryValue() {
         <td style="text-align:right">${this.formatMoney(p.revenue)}</td>
       </tr>
     `).join('');
+  }
 
   // ==================== INIT ====================
   init() {
