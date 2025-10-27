@@ -564,10 +564,14 @@ class OrdersManager {
         }
       });
 
-      if (res.ok && (res.print_url || res.print_html)) {
-        Admin.toast('đã lấy link đang mở');
-        const url = res.print_url || res.print_html;
-        window.open(url, '_blank');
+      if (res.ok && res.print_html) {
+        Admin.toast('✅ Đã tải template in, đang mở...');
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(res.print_html);
+        printWindow.document.close();
+      } else if (res.ok && res.print_url) {
+        Admin.toast('✅ Đã lấy link in, đang mở...');
+        window.open(res.print_url, '_blank');
       } else {
         alert('Lỗi khi lấy link in: ' + (res.message || 'Không rõ lỗi'));
       }

@@ -735,7 +735,7 @@ export async function printWaybill(req, env) {
 </body>
 </html>`;
 
-    return json({ ok: true, print_html: html, print_url: `data:text/html;base64,${btoa(html)}` }, {}, req);
+    return json({ ok: true, print_html: html }, {}, req);
 
   } catch (e) {
     console.error('[printWaybill] Exception:', e);
