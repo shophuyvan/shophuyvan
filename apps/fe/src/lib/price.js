@@ -3,6 +3,7 @@ export function formatPrice(v){ return (Number(v)||0).toLocaleString('vi-VN') + 
 // Pricing priority: variant (sale|price) > product (sale|price)
 // Return shape expected by UIs: { base, original } and keep aliases { sale, regular } for backwards-compat.
 export function pickPrice(product, variant){
+  // 1. Ưu tiên giá từ BIẾN THỂ (dùng ở trang chi tiết)
   if (variant) {
     const sale = num(variant.sale_price ?? variant.price_sale);
     const price = num(variant.price);
@@ -10,6 +11,20 @@ export function pickPrice(product, variant){
     const original = (sale>0 && price>sale) ? price : null;
     return { base, original, sale: base, regular: original };
   }
+
+  // 2. SỬA LỖI: Đọc giá từ 'price_display' (dùng ở trang chủ)
+  // Trang chủ truyền vào 'product' tóm tắt, giá nằm ở 'price_display'
+  const pSaleDisplay = num(product.price_display);
+  const pOrigDisplay = num(product.compare_at_display);
+
+  if (pSaleDisplay > 0) {
+     const base = pSaleDisplay;
+     const original = (pOrigDisplay > pSaleDisplay) ? pOrigDisplay : null;
+     return { base, original, sale: base, regular: original };
+  }
+  // --- Hết SỬA LỖI ---
+
+  // 3. Fallback: Đọc giá từ 'price' (dùng ở trang chi tiết, SP không có biến thể)
   const pSale = num(product.sale_price ?? product.price_sale);
   const pPrice = num(product.price);
   const base = pSale>0 ? pSale : (pPrice>0 ? pPrice : 0);
