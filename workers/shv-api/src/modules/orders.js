@@ -231,7 +231,8 @@ export async function handle(req, env, ctx) {
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
-  if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);  // ← THÊM DÒNG NÀY
+  if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
+  if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);  // ← THÊM DÒNG NÀY
 
   // ADMIN
   if (path === '/api/orders' && method === 'GET') return listOrders(req, env);
@@ -1287,5 +1288,70 @@ if (!token && !phoneFallback) {
 
   // Trả về cả thông tin 'customer' đã tìm thấy (có chứa tier, points)
   return json({ ok: true, orders: myOrders, count: myOrders.length, customer: customer || null }, {}, req);
+}
+
+// ===================================================================
+// PUBLIC: Cancel Order (Customer)
+// ===================================================================
+async function cancelOrderCustomer(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const orderId = body.order_id;
+
+    if (!orderId) {
+      return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
+    }
+
+    // Lấy đơn hàng
+    const order = await getJSON(env, 'order:' + orderId, null);
+    if (!order) {
+      return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
+    }
+
+    // Kiểm tra trạng thái: CHỈ cho phép hủy đơn pending/confirmed
+    const status = String(order.status || '').toLowerCase();
+    if (!status.includes('pending') && !status.includes('confirmed') && !status.includes('cho')) {
+      return json({ ok: false, error: 'Không thể hủy đơn hàng này' }, { status: 400 }, req);
+    }
+
+    // Cập nhật trạng thái
+    order.status = 'cancelled';
+    order.cancelled_at = Date.now();
+    order.cancelled_by = 'customer';
+
+    // Hoàn kho (nếu đơn đã trừ kho)
+    if (shouldAdjustStock(status)) {
+      await adjustInventory(normalizeOrderItems(order.items), env, +1); // +1 = hoàn kho
+    }
+
+    // Hủy vận đơn nếu có
+    if (order.superai_code || order.tracking_code) {
+      try {
+        await cancelWaybill({ 
+          body: JSON.stringify({ superai_code: order.superai_code || order.tracking_code }),
+          headers: req.headers 
+        }, env);
+        order.tracking_code = 'CANCELLED';
+      } catch (e) {
+        console.warn('[cancelOrderCustomer] Không hủy được vận đơn:', e.message);
+      }
+    }
+
+    // Lưu lại
+    await putJSON(env, 'order:' + orderId, order);
+
+    const list = await getJSON(env, 'orders:list', []);
+    const index = list.findIndex(o => o.id === orderId);
+    if (index > -1) {
+      list[index] = order;
+      await putJSON(env, 'orders:list', list);
+    }
+
+    return json({ ok: true, message: 'Đã hủy đơn hàng' }, {}, req);
+
+  } catch (e) {
+    console.error('[cancelOrderCustomer] Error:', e);
+    return json({ ok: false, error: e.message }, { status: 500 }, req);
+  }
 }
 }

@@ -83,6 +83,16 @@ function renderOrder(order) {
   const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
   const totalAmount = Math.max(0, subtotal + shippingFee - discount);
   
+  // ✅ Thông tin khách hàng
+  const customer = order.customer || {};
+  const customerName = customer.name || order.name || '';
+  const customerPhone = customer.phone || order.phone || '';
+  const customerAddress = customer.address || order.address || '';
+  
+  // ✅ Kiểm tra có thể hủy đơn không
+  const canCancel = String(order.status || '').toLowerCase().includes('pending') || 
+                    String(order.status || '').toLowerCase().includes('cho');
+  
   // ✅ Enrich items với thông tin đầy đủ
   const enrichedItems = items.map(item => ({
     ...item,
@@ -104,6 +114,14 @@ function renderOrder(order) {
           ${getStatusText(order.status)}
         </span>
       </div>
+      
+      ${customerName || customerPhone || customerAddress ? `
+      <div style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
+        ${customerName ? `<div class="mb-1"><span class="text-gray-600">Người nhận:</span> <span class="font-medium">${customerName}</span></div>` : ''}
+        ${customerPhone ? `<div class="mb-1"><span class="text-gray-600">Số điện thoại:</span> <span class="font-medium">${customerPhone}</span></div>` : ''}
+        ${customerAddress ? `<div><span class="text-gray-600">Địa chỉ:</span> <span class="font-medium">${customerAddress}</span></div>` : ''}
+      </div>
+      ` : ''}
       
       <div class="order-body">
         ${enrichedItems.map(item => `
@@ -131,12 +149,14 @@ function renderOrder(order) {
           <span class="text-gray-600 text-sm">Tổng cộng: </span>
           <span class="font-bold text-blue-600 text-lg">${formatPrice(totalAmount)}</span>
         </div>
+        ${canCancel ? `
         <button 
-          class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
-          onclick="viewOrderDetail('${order.id}')"
+          class="px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100"
+          onclick="cancelOrder('${order.id}')"
         >
-          Xem chi tiết
+          Hủy đơn
         </button>
+        ` : ''}
       </div>
     </div>
   `;
@@ -272,10 +292,31 @@ if (!token) {
   }
 }
 
-// Xem chi tiết đơn hàng
-window.viewOrderDetail = function(orderId) {
-  // TODO: Navigate to order detail page
-  alert(`Chi tiết đơn hàng #${orderId}\n\n(Chức năng đang phát triển)`);
+// Hủy đơn hàng
+window.cancelOrder = async function(orderId) {
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  const confirmMsg = `Bạn có chắc muốn hủy đơn hàng này?\n\nĐơn hàng: #${orderId.slice(0, 8).toUpperCase()}`;
+  if (!confirm(confirmMsg)) return;
+  
+  try {
+    // Gọi API hủy đơn
+    const response = await api('/orders/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId })
+    });
+    
+    if (response && response.ok) {
+      alert('Đã hủy đơn hàng thành công');
+      loadOrders(); // Reload danh sách
+    } else {
+      alert('Không thể hủy đơn. Vui lòng liên hệ shop.');
+    }
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    alert('Có lỗi xảy ra. Vui lòng thử lại.');
+  }
 };
 
 // Event: Filter tabs
