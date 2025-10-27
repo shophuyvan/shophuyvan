@@ -470,6 +470,21 @@ filterInput?.addEventListener('input', renderAll);
     await loadBanners(); await loadCategories();
     await loadNew();
     await loadAll();
+
+    // THÊM: Lắng nghe sự kiện đăng nhập từ cart-badge-realtime.js
+    window.addEventListener('customer-info-loaded', () => {
+      console.log('[Homepage] Customer info updated! Re-rendering product prices.');
+      
+      // Chạy lại renderAll để cập nhật giá (cho mục "Tất cả sản phẩm")
+      if (typeof renderAll === 'function') {
+        renderAll();
+      }
+      // Chạy lại loadNew để cập nhật giá (cho mục "Sản phẩm mới")
+      if (typeof loadNew === 'function') {
+         loadNew();
+      }
+    });
+
   } catch (e) { console.error(e); }
 })();
 

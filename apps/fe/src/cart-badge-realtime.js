@@ -90,8 +90,14 @@ async function fetchCustomerInfo() {
     const token = localStorage.getItem('customer_token') || localStorage.getItem('x-customer-token');
     if (!token) {
       // Not logged in, ensure old data is clear
+      const wasLoggedIn = !!window.currentCustomer; // Kiểm tra xem trước đó có đăng nhập không
       window.currentCustomer = null;
       localStorage.removeItem('customer_info');
+      
+      // THÊM: Bắn sự kiện nếu vừa log out (để F5 giá)
+      if (wasLoggedIn) {
+        window.dispatchEvent(new CustomEvent('customer-info-loaded', { detail: null }));
+      }
       return;
     }
 
@@ -106,6 +112,9 @@ async function fetchCustomerInfo() {
       // Store in localStorage for price.js
       localStorage.setItem('customer_info', JSON.stringify(data.customer));
       console.log('[Auth] Customer info loaded:', data.customer.email, data.customer.tier);
+
+      // THÊM: Bắn sự kiện để trang chủ (frontend.js) biết
+      window.dispatchEvent(new CustomEvent('customer-info-loaded', { detail: data.customer }));
     } else {
       // Token invalid or expired
       window.currentCustomer = null;
