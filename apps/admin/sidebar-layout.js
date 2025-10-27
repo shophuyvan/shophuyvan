@@ -325,6 +325,13 @@
             </svg>
             Marketing & Ads
           </a>
+
+          <a href="/costs.html" class="admin-menu-item" data-page="costs">
+            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2zM3 10c0-1.105 1.343-2 3-2m0 0c1.657 0 3 .895 3 2s-1.343 2-3 2m0-4c-1.657 0-3 .895-3 2s1.343 2 3 2m0-4c-1.657 0-3 .895-3 2s1.343 2 3 2m12 0c0 1.105-1.343 2-3 2m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2m-6 4c0 1.105-1.343 2-3 2m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2"/>
+            </svg>
+            Quản lý Chi Phí
+          </a>
         </div>
       </nav>
 

@@ -13,6 +13,7 @@ import * as banners from './modules/banners.js';
 import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
+import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js'; // SỬA: THÊM HỦY & IN HÀNG LOẠT
 
@@ -196,6 +197,11 @@ export default {
       if (path === '/vouchers' ||
           path.startsWith('/admin/vouchers')) {
         return vouchers.handle(req, env, ctx);
+      }
+
+      // THÊM: Routes cho Quản lý Chi Phí
+      if (path.startsWith('/admin/costs')) {
+        return costs.handle(req, env, ctx);
       }
 
       // ============================================

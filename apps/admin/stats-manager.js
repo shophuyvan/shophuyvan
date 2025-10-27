@@ -53,71 +53,46 @@ class StatsManager {
   }
 
   // ==================== COST MANAGEMENT ====================
-  showCostModal() {
-    this.$('costModal').classList.add('show');
-    this.renderCostList();
-  }
-
-  closeCostModal() {
-    this.$('costModal').classList.remove('show');
-  }
-
-  addCost() {
-    const name = this.$('costName').value.trim();
-    const amount = parseFloat(this.$('costAmount').value) || 0;
-    const type = document.querySelector('input[name="costType"]:checked').value;
-    
-    if (!name || amount <= 0) {
-      alert('Vui lòng nhập đầy đủ thông tin chi phí');
-      return;
+  async loadCosts() {
+    try {
+      const data = await Admin.req('/admin/costs');
+      this.costs = data.costs || [];
+      console.log('[Stats] Costs loaded:', this.costs.length);
+    } catch (error) {
+      console.error('Failed to load costs for stats:', error);
+      this.costs = [];
     }
-    
-    this.costs.push({ name, amount, type, id: Date.now() });
-    
-    this.$('costName').value = '';
-    this.$('costAmount').value = '';
-    
-    this.saveCosts();
-  }
-
-  deleteCost(id) {
-    if (!confirm('Xác nhận xóa chi phí này?')) return;
-    this.costs = this.costs.filter(c => c.id !== id);
-    this.saveCosts();
-  }
-
-  saveCosts() {
-    this.renderCostList();
-    this.updateStats();
-  }
-
-  renderCostList() {
-    const container = this.$('costListContainer');
-    
-    if (this.costs.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:#999;padding:20px">Chưa có chi phí nào</div>';
-      return;
-    }
-    
-    container.innerHTML = this.costs.map(c => `
-      <div class="cost-item">
-        <div class="cost-info">
-          <div class="cost-name">${c.name}</div>
-          <div class="cost-detail">${c.type === 'monthly' ? 'Theo tháng' : 'Theo mỗi đơn'}</div>
-        </div>
-        <div class="cost-amount">${this.formatMoney(c.amount)}</div>
-        <button class="btn-delete" onclick="window.statsManager.deleteCost(${c.id})">×</button>
-      </div>
-    `).join('');
   }
 
   calculateTotalCosts(orderCount) {
     let total = 0;
+
+    // Lấy số ngày trong khoảng
+    const fromDateStr = this.$('fromDate').value;
+    const toDateStr = this.$('toDate').value;
+    
+    if (!fromDateStr || !toDateStr) {
+      return 0; // Chưa chọn ngày
+    }
+
+    const fromDate = new Date(fromDateStr + 'T00:00:00+07:00');
+    const toDate = new Date(toDateStr + 'T23:59:59+07:00');
+    
+    // Tính số ngày trong khoảng (tối thiểu là 1)
+    const timeDiff = toDate.getTime() - fromDate.getTime();
+    const daysInRange = Math.max(1, Math.round(timeDiff / (1000 * 60 * 60 * 24)));
+    
+    // Lấy số ngày trong tháng của ngày BẮT ĐẦU
+    const daysInMonth = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0).getDate();
+    
     this.costs.forEach(c => {
       if (c.type === 'monthly') {
-        total += c.amount;
+        // Chia chi phí tháng ra theo ngày, rồi nhân với số ngày trong khoảng
+        const dailyCost = (c.amount || 0) / daysInMonth;
+        total += dailyCost * daysInRange;
       } else {
-        total += c.amount * orderCount;
+        // Chi phí theo đơn
+        total += (c.amount || 0) * orderCount;
       }
     });
     return total;
@@ -126,6 +101,7 @@ class StatsManager {
   // ==================== LOAD STATS ====================
   async loadStats() {
   try {
+    await this.loadCosts(); // Tải lại chi phí mỗi khi lọc
     console.log('[Stats] Loading stats...');
     const fromDate = this.$('fromDate').value;
     const toDate = this.$('toDate').value;
@@ -580,13 +556,7 @@ async loadInventoryValue() {
     this.$('btnToday').addEventListener('click', () => this.setToday());
     this.$('btnThisWeek').addEventListener('click', () => this.setThisWeek());
     this.$('btnThisMonth').addEventListener('click', () => this.setThisMonth());
-    this.$('costCard').addEventListener('click', () => this.showCostModal());
-    this.$('closeModal').addEventListener('click', () => this.closeCostModal());
-    this.$('btnAddCost').addEventListener('click', () => this.addCost());
-    
-    this.$('costModal').addEventListener('click', (e) => {
-      if (e.target.id === 'costModal') this.closeCostModal();
-    });
+	this.$('costCard').style.cursor = 'default';
 
     // Initialize auth
     if (window.Admin) {
@@ -594,7 +564,8 @@ async loadInventoryValue() {
     }
 
     // Load initial data
-    setTimeout(() => {
+    setTimeout(async () => {
+      await this.loadCosts(); // Tải chi phí trước
       this.setToday();
       this.loadInventoryValue();
     }, 500);
