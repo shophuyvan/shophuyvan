@@ -87,7 +87,7 @@ function getCustomerInfo() {
   try {
     // 1. Ưu tiên thông tin vừa tải (từ cart-badge)
     if (window.currentCustomer) {
-      return window.currentCustomer;
+      return window.currentCustomer; // Trả về toàn bộ thông tin (đã sửa)
     }
     
     // 2. Fallback về localStorage (cho lần tải đầu tiên)
@@ -96,27 +96,12 @@ function getCustomerInfo() {
       return { tier: 'retail', customer_type: 'retail' }; // Khách vãng lai
     }
     
-    const info = JSON.parse(customerInfo);
-    const tier = info.tier || 'retail';
-    
-    // Ánh xạ tier sang discount %
-    const tierMap = {
-      'retail': { discount: 0, name: 'Thành viên thường', icon: '👤' },
-      'silver': { discount: 3, name: 'Thành viên bạc', icon: '🥈' },
-      'gold': { discount: 5, name: 'Thành viên vàng', icon: '🥇' },
-      'diamond': { discount: 8, name: 'Thành viên kim cương', icon: '💎' }
-    };
-    
-    const tierData = tierMap[tier] || tierMap['retail'];
-    
-    return {
-      tier,
-      discount: tierData.discount,
-      tierName: tierData.name,
-      icon: tierData.icon
-    };
+    // SỬA LỖI: Trả về toàn bộ 'info' object, không phải chỉ thông tin tier
+    return JSON.parse(customerInfo);
+
   } catch {
-    return { tier: 'retail', discount: 0, tierName: 'Thành viên thường' };
+    // Fallback an toàn
+    return { tier: 'retail', customer_type: 'retail' };
   }
 }
 
