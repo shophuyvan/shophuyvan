@@ -1,5 +1,3 @@
-import api from './lib/api.js'; // THÊM DÒNG NÀY
-
 /**
  * FILE PATH: shophuyvan-main/apps/fe/src/cart-badge-realtime.js
  * 
@@ -83,53 +81,9 @@ function updateBadges() {
 }
 
 /**
- * Fetch customer info and store it
- */
-async function fetchCustomerInfo() {
-  try {
-    const token = localStorage.getItem('customer_token') || localStorage.getItem('x-customer-token');
-    if (!token) {
-      // Not logged in, ensure old data is clear
-      window.currentCustomer = null;
-      localStorage.removeItem('customer_info');
-      return;
-    }
-
-    // Check if data is already loaded
-    if (window.currentCustomer) return; 
-
-    const data = await api('/api/customers/me');
-
-    if (data && data.ok && data.customer) {
-      // Store info globally for this session
-      window.currentCustomer = data.customer;
-      // Store in localStorage for price.js
-      localStorage.setItem('customer_info', JSON.stringify(data.customer));
-      console.log('[Auth] Customer info loaded:', data.customer.email, data.customer.tier);
-    } else {
-      // Token invalid or expired
-      window.currentCustomer = null;
-      localStorage.removeItem('customer_info');
-      localStorage.removeItem('customer_token');
-      localStorage.removeItem('x-customer-token');
-    }
-  } catch (error) {
-    console.warn('[Auth] Failed to fetch customer info:', error.message);
-    // Clear potentially bad data
-    window.currentCustomer = null;
-    localStorage.removeItem('customer_info');
-    localStorage.removeItem('customer_token');
-    localStorage.removeItem('x-customer-token');
-  }
-}
-
-/**
  * Initialize badge sync
  */
-async function init() { // SỬA: Thêm 'async'
-  // THÊM: Tải thông tin khách hàng trước
-  await fetchCustomerInfo();
-
+function init() {
   // Initial update
   updateBadges();
   
