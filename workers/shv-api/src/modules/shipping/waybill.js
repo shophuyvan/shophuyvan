@@ -586,11 +586,20 @@ export async function printWaybill(req, env) {
     // 2. Lấy settings để có logo
     const settings = await getJSON(env, 'settings', {}) || {};
     const store = settings.store || {};
-    const logo = store.logo || 'https://via.placeholder.com/100';
+    const logo = storeSettings.logo || 'https://shophuyvan1.pages.dev/logo.png';
 
     // 3. Tạo HTML template A5 dọc
-    const sender = order.sender || {};
-    const receiver = order.receiver || {};
+    // ✅ Fallback: Nếu không có sender/receiver, dùng dữ liệu từ settings + hardcode
+    
+    const sender = order.sender || {
+      name: 'SHOP HUY VÂN',
+      phone: '0909128999',
+      address: '91/6 Liên Khu 5-11-12 Phường Bình Trị Đông Thành Phố Hồ Chí Minh',
+      province: 'Thành phố Hồ Chí Minh',
+      district: 'Quận Bình Tân'
+    };
+    
+    const receiver = order.receiver || order.customer || {};
     const customer = order.customer || {};
     const items = Array.isArray(order.items) ? order.items : [];
     
@@ -720,9 +729,9 @@ export async function printWaybill(req, env) {
       <div class="info-col">
         <span class="label">👤 NGƯỜI GỬI</span>
         <div class="content">
-          <strong>${sender.name || store.name || 'Shop'}</strong>
-          <div class="address">${sender.address || store.address || ''}</div>
-          <div class="phone">☎️ ${sender.phone || store.phone || ''}</div>
+          <strong>${sender.name || storeSettings.name || 'Shop'}</strong>
+          <div class="address">${sender.address || storeSettings.address || ''}</div>
+          <div class="phone">☎️ ${sender.phone || storeSettings.phone || ''}</div>
         </div>
       </div>
       <div class="info-col">
@@ -772,7 +781,7 @@ export async function printWaybill(req, env) {
     <!-- Tổng tiền thu - NỔI BẬT -->
     <div class="payment-box">
       <div class="payment-title">💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</div>
-      <div class="payment-amount">${Number(order.cod || order.amount || 0).toLocaleString('vi-VN')} đ</div>
+      <div class="payment-amount">${Number(order.subtotal || order.cod || order.amount || 0).toLocaleString('vi-VN')} đ</div>
       <div class="payment-type">${order.cod ? '(Thu hộ - COD)' : '(Thanh toán)'}</div>
     </div>
 
@@ -787,7 +796,7 @@ export async function printWaybill(req, env) {
     <!-- Footer -->
     <div class="footer">
       <div class="footer-note">Vui lòng kiểm tra lại thông tin trước khi gửi</div>
-      <div class="hotline">Hotline: ${store.phone || '0909128999'}</div>
+      <div class="hotline">Hotline: 0909128999 - 0933190000</div>
     </div>
   </div>
 
