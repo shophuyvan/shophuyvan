@@ -93,7 +93,7 @@ export function getWaybillHTML(data) {
       margin-bottom: 2px;
     }
     .barcode-text {
-      font-size: 14px;
+      font-size: 21px;
       font-weight: bold;
       letter-spacing: 1px;
     }
