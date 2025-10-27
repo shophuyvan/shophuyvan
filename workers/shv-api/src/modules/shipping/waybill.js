@@ -550,7 +550,21 @@ export async function printWaybill(req, env) {
   try {
     const body = await readBody(req) || {};
     const superaiCode = body.superai_code;
-    const order = body.order || {};
+    let order = body.order || {};
+    
+    // ✅ Nếu admin không gửi order, tìm từ KV
+    if (!order.id || !order.items) {
+      console.log('[printWaybill] Order incomplete, searching KV...');
+      const list = await getJSON(env, 'orders:list', []);
+      const found = list.find(o => o.superai_code === superaiCode || o.shipping_tracking === superaiCode);
+      if (found && found.id) {
+        const fullOrder = await getJSON(env, 'order:' + found.id, null);
+        if (fullOrder) {
+          order = fullOrder;
+          console.log('[printWaybill] ✅ Found full order from KV');
+        }
+      }
+    }
 
     if (!superaiCode) {
       return errorResponse('Missing superai_code', 400, req);

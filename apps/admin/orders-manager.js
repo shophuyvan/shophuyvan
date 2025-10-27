@@ -554,13 +554,15 @@ class OrdersManager {
       return;
     }
     
-    Admin.toast('Đang lấy link in vận đơn...');
+    Admin.toast('Đang lấy template in vận đơn...');
     
     try {
+      // ✅ THÊM order vào body
       const res = await Admin.req('/shipping/print', {
         method: 'POST',
         body: {
-          superai_code: superaiCode
+          superai_code: superaiCode,
+          order: order
         }
       });
 
