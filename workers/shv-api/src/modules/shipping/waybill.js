@@ -550,12 +550,13 @@ export async function printWaybill(req, env) {
   try {
     const body = await readBody(req) || {};
     const superaiCode = body.superai_code;
+    const order = body.order || {};
 
     if (!superaiCode) {
       return errorResponse('Missing superai_code', 400, req);
     }
 
-    // 1. Lấy Print Token
+    // 1. Lấy Print Token từ SuperAI để có barcode
     const tokenRes = await superFetch(env, '/v1/platform/orders/token', {
       method: 'POST',
       body: {
@@ -568,11 +569,162 @@ export async function printWaybill(req, env) {
       return errorResponse('Không lấy được print token từ SuperAI', 400, req);
     }
 
-    // 2. Trả về URL in
-    // SuperAI dùng base URL khác cho in ấn
-    const printUrl = `https://api.superai.vn/v1/platform/orders/label?token=${printToken}&size=S13`;
+    // 2. Lấy settings để có logo
+    const settings = await getJSON(env, 'settings', {}) || {};
+    const store = settings.store || {};
+    const logo = store.logo || 'https://via.placeholder.com/100';
+
+    // 3. Tạo HTML template A5 dọc
+    const sender = order.sender || {};
+    const receiver = order.receiver || {};
+    const customer = order.customer || {};
+    const items = Array.isArray(order.items) ? order.items : [];
     
-    return json({ ok: true, print_url: printUrl }, {}, req);
+    const createdDate = order.createdAt ? new Date(Number(order.createdAt)).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
+    const barcodeSrc = `https://api.superai.vn/v1/platform/orders/barcode?token=${printToken}&format=code128`;
+    const qrcodeSrc = `https://api.superai.vn/v1/platform/orders/qrcode?token=${printToken}`;
+
+    const itemsList = items.map(item => `
+      <tr>
+        <td style="padding:4px 2px;font-size:10px;border-bottom:1px solid #ddd">
+          <div>${item.name || ''}</div>
+          ${item.variant ? `<div style="color:#666;font-size:9px">${item.variant}</div>` : ''}
+        </td>
+        <td style="padding:4px 2px;text-align:center;font-size:10px;border-bottom:1px solid #ddd">${item.qty || 1}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vận Đơn</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:10px; }
+    .page { 
+      width:148mm; 
+      height:210mm; 
+      background:white; 
+      margin:auto; 
+      padding:8px; 
+      box-shadow:0 0 5px rgba(0,0,0,0.1);
+      overflow:hidden;
+      position:relative;
+    }
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; border-bottom:2px solid #ff6b35; padding-bottom:4px; }
+    .logo { width:60px; height:40px; }
+    .logo img { width:100%; height:100%; object-fit:contain; }
+    .tracking-main { text-align:center; font-weight:bold; font-size:18px; letter-spacing:1px; }
+    .barcode-section { text-align:center; margin:4px 0; }
+    .barcode-section img { height:35px; margin-bottom:2px; }
+    .barcode-text { font-size:10px; font-weight:bold; letter-spacing:1px; }
+    
+    .info-section { display:flex; gap:6px; margin:6px 0; font-size:11px; }
+    .info-box { flex:1; padding:4px; border:1px solid #ddd; }
+    .info-box h4 { font-size:9px; font-weight:bold; background:#f0f0f0; margin-bottom:2px; padding:2px; }
+    .info-box p { font-size:10px; margin:1px 0; line-height:1.3; }
+    .info-box strong { display:block; font-size:11px; margin-top:2px; }
+    
+    .sort-code { text-align:center; font-size:9px; background:#f9f9f9; padding:2px; margin:4px 0; border:1px dashed #999; }
+    
+    .items-section { margin:4px 0; }
+    .items-section h4 { font-size:9px; font-weight:bold; background:#f0f0f0; padding:2px; }
+    .items-table { width:100%; font-size:10px; border-collapse:collapse; }
+    .items-table th { background:#f0f0f0; padding:2px; text-align:left; font-size:9px; border-bottom:1px solid #ddd; }
+    
+    .qr-barcode { display:flex; justify-content:space-around; align-items:flex-end; margin:6px 0; gap:6px; }
+    .qr-box { text-align:center; flex:1; }
+    .qr-box img { width:80px; height:80px; border:1px solid #ddd; }
+    .qr-label { font-size:8px; margin-top:2px; }
+    
+    .footer { font-size:9px; text-align:center; margin-top:4px; padding-top:4px; border-top:1px solid #ddd; }
+    .hotline { font-weight:bold; color:#ff6b35; }
+    
+    @media print {
+      body { background:white; padding:0; }
+      .page { width:100%; height:100%; margin:0; padding:8px; box-shadow:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header với Logo -->
+    <div class="header">
+      <div class="logo">
+        <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2240%22%3E%3Crect fill=%22%23f0f0f0%22 width=%2260%22 height=%2240%22/%3E%3C/svg%3E'">
+      </div>
+      <div class="tracking-main">${superaiCode}</div>
+    </div>
+
+    <!-- Barcode -->
+    <div class="barcode-section">
+      <img src="${barcodeSrc}" alt="Barcode" onerror="this.style.display='none'">
+      <div class="barcode-text">${superaiCode}</div>
+    </div>
+
+    <!-- Thông tin gửi/nhận -->
+    <div class="info-section">
+      <div class="info-box">
+        <h4>👤 NGƯỜI GỬI</h4>
+        <p><strong>${sender.name || store.name || 'Shop'}</strong></p>
+        <p>📍 ${sender.address || store.address || ''}</p>
+        <p>☎️ ${sender.phone || store.phone || ''}</p>
+      </div>
+      <div class="info-box">
+        <h4>📦 NGƯỜI NHẬN</h4>
+        <p><strong>${receiver.name || customer.name || ''}</strong></p>
+        <p>📍 ${receiver.address || customer.address || ''}</p>
+        <p>☎️ ${receiver.phone || customer.phone || ''}</p>
+      </div>
+    </div>
+
+    <!-- Sort Code -->
+    <div class="sort-code">
+      <strong>${superaiCode}</strong><br>
+      <small>Ngày gửi: ${createdDate.split(',')[0]}</small>
+    </div>
+
+    <!-- Nội dung hàng -->
+    <div class="items-section">
+      <h4>📋 NỘI DUNG HÀNG (${items.length} sản phẩm)</h4>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Sản phẩm</th>
+            <th>SL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsList || '<tr><td colspan="2" style="padding:4px;text-align:center;color:#999">Không có sản phẩm</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- QR Code -->
+    <div class="qr-barcode">
+      <div class="qr-box">
+        <img src="${qrcodeSrc}" alt="QR Code" onerror="this.style.display='none'">
+        <div class="qr-label">Mã vận chuyển</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Vui lòng kiểm tra lại thông tin trước khi gửi</p>
+      <p class="hotline">Hotline: 0909128999</p>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(() => window.print(), 500);
+    };
+  </script>
+</body>
+</html>`;
+
+    return json({ ok: true, print_html: html, print_url: `data:text/html;base64,${btoa(html)}` }, {}, req);
 
   } catch (e) {
     console.error('[printWaybill] Exception:', e);
