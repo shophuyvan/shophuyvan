@@ -14,14 +14,39 @@ class CostsManager {
     return Number(n || 0).toLocaleString('vi-VN') + 'đ';
   }
 
-  // ==================== INIT ====================
+ // ==================== INIT ====================
   async init() {
     console.log('[CostsManager] Initializing...');
-    if (window.Admin) {
+
+    try {
+      // Chờ cho 'Admin' object sẵn sàng
+      await this.waitForAdmin(); 
+      
+      console.log('[CostsManager] Admin object is ready.');
       Admin.ensureAuth();
+      await this.loadCosts();
+      console.log('[CostsManager] Initialized ✅');
+
+    } catch (error) {
+      console.error('Admin object failed to load:', error);
+      alert('Lỗi nghiêm trọng: Không thể tải mô-đun API. Vui lòng tải lại trang.');
     }
-    await this.loadCosts();
-    console.log('[CostsManager] Initialized ✅');
+  }
+
+  // Hàm mới để chờ Admin
+  waitForAdmin(timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      const interval = setInterval(() => {
+        if (window.Admin) {
+          clearInterval(interval);
+          resolve();
+        } else if (Date.now() - startTime > timeout) {
+          clearInterval(interval);
+          reject(new Error('Admin object timed out'));
+        }
+      }, 50); // Check every 50ms
+    });
   }
 
   // ==================== API ====================
