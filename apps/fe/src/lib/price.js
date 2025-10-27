@@ -118,11 +118,32 @@ export function pickPriceByCustomer(product, variant) {
   // --- 1. ƯU TIÊN: GIÁ SỈ ---
   // (Giả sử loại khách hàng 'wholesale' hoặc 'si')
   if (type === 'wholesale' || type === 'si') {
-    const vWholesale = num(variant?.wholesale_price ?? variant?.price_wholesale);
-    const pWholesale = num(product?.wholesale_price ?? product?.price_wholesale);
     
-    // Lấy giá sỉ (ưu tiên variant, fallback về product)
-    const wholesalePrice = vWholesale > 0 ? vWholesale : (pWholesale > 0 ? pWholesale : 0);
+    let wholesalePrice = 0;
+
+    if (variant) {
+      // 1. Nếu đang ở trang chi tiết (có chọn variant)
+      wholesalePrice = num(variant.wholesale_price ?? variant.price_wholesale);
+    
+    } else if (product && Array.isArray(product.variants) && product.variants.length > 0) {
+      // 2. SỬA LỖI: Nếu ở trang chủ (không có variant), tìm giá sỉ THẤP NHẤT
+      let minWholesale = Infinity;
+      for (const v of product.variants) {
+        const vPrice = num(v.wholesale_price ?? v.price_wholesale);
+        if (vPrice > 0 && vPrice < minWholesale) {
+          minWholesale = vPrice;
+        }
+      }
+      if (minWholesale !== Infinity) {
+        wholesalePrice = minWholesale;
+      }
+    }
+
+    // 3. Fallback: Nếu vẫn không có, tìm ở cấp độ sản phẩm
+    if (wholesalePrice === 0) {
+      wholesalePrice = num(product?.wholesale_price ?? product?.price_wholesale);
+    }
+    // --- HẾT SỬA LỖI ---
 
     if (wholesalePrice > 0) {
       return {
