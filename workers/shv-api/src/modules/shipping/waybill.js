@@ -512,9 +512,14 @@ export async function autoCreateWaybill(order, env) {
     });
 
     const isSuccess = data?.error === false && data?.data;
-    // SỬA: Lấy 2 mã tracking riêng biệt
-    const carrier_code = data?.data?.carrier_code || null; // Mã NV (SPXVN...)
-    const superai_code = data?.data?.superai_code || null; // Mã SuperAI (CTOS...)
+    
+    // ✅ LOG CHI TIẾT - Xem SuperAI trả về gì
+    console.log('[autoCreateWaybill] 📊 SuperAI response data keys:', Object.keys(data?.data || {}));
+    console.log('[autoCreateWaybill] 📋 Full response data:', JSON.stringify(data?.data, null, 2));
+    
+    // Sá»¬A: Láº¥y 2 mÃ£ tracking riÃªng biá»‡t
+    const carrier_code = data?.data?.carrier_code || data?.data?.code || null;
+    const superai_code = data?.data?.superai_code || data?.data?.tracking || data?.data?.order_code || null;
     const carrier_id = data?.data?.carrier_id || null;
 
     if (isSuccess && (carrier_code || superai_code)) {
