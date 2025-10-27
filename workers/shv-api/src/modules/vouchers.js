@@ -259,7 +259,7 @@ function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 // Main Handler (Thêm route mới)
 // ===================================================================
 // Dòng này phải nằm SAU định nghĩa hàm applyVoucher
-export async function handle(req, env, ctx) {
+  export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
@@ -292,7 +292,5 @@ export async function handle(req, env, ctx) {
   if (path === '/vouchers/apply' && method === 'POST') {
     return applyVoucher(req, env);
   }
-
   return errorResponse('Route not found', 404, req);
-}
 }
