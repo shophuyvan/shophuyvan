@@ -10,6 +10,7 @@ import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
+import { applyVoucher } from './vouchers.js'; // THÊM DÒNG NÀY
 
 // -------------------------------------------------------------------
 // Helpers
@@ -402,20 +403,71 @@ async function createOrder(req, env) {
       }
     }
   }
-  
-  // Build totals
+  // Build subtotal first
   const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
   );
+  // Lấy phí ship gốc từ request
   const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
-  const discount = Number(body?.totals?.discount || body.discount || 0);
-  const shipping_discount = Number(body?.totals?.shipping_discount || body.shipping_discount || 0);
-  const revenue = Math.max(0, subtotal + shipping_fee - (discount + shipping_discount));
-  const profit = items.reduce((sum, item) =>
-    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
-  ) - discount;
 
-  // MỚI: Gộp thông tin khách hàng đăng nhập (nếu có) vào thông tin checkout
+  // Lấy mã voucher từ request (nếu có)
+  const voucher_code_input = body.voucher_code || null; // Lấy từ body checkout gửi lên
+  let validated_voucher_code = null;
+  let validated_discount = 0; // Giảm tiền hàng
+  let validated_ship_discount = 0; // Giảm tiền ship
+
+  // Nếu khách có nhập voucher, gọi API /vouchers/apply để kiểm tra lại lần cuối
+  if (voucher_code_input) {
+    console.log('[OrderCreate] Re-validating voucher:', voucher_code_input);
+    try {
+      // Tạo một request giả lập để truyền vào hàm applyVoucher
+      const fakeReq = new Request(req.url, {
+          method: 'POST',
+          headers: req.headers, // Chuyển tiếp headers nếu cần cho logic auth/tier khác
+          body: JSON.stringify({ // Dữ liệu cần thiết cho applyVoucher
+              code: voucher_code_input,
+              customer_id: finalCustomer.id || null, // finalCustomer đã được gộp ở trên
+              subtotal: subtotal
+          })
+      });
+      // Gọi hàm applyVoucher đã import
+      const applyResultResponse = await applyVoucher(fakeReq, env); // Truyền fakeReq và env
+      const applyData = await applyResultResponse.json(); // Đọc kết quả JSON
+
+      // Kiểm tra xem API applyVoucher có trả về OK không
+      if (applyResultResponse.status === 200 && applyData.ok) {
+        validated_voucher_code = applyData.code; // Lưu lại mã đã được xác thực
+        validated_discount = applyData.discount || 0;
+        validated_ship_discount = applyData.ship_discount || 0;
+        console.log('[OrderCreate] Voucher validation SUCCESS:', {
+            code: validated_voucher_code,
+            discount: validated_discount,
+            ship_discount: validated_ship_discount
+        });
+      } else {
+        // Nếu applyVoucher báo lỗi (hết hạn, hết lượt,...)
+        console.warn('[OrderCreate] Voucher validation FAILED:', applyData.error || 'Unknown error');
+        // Không dừng việc tạo đơn, chỉ là không áp dụng voucher này
+        // validated_voucher_code, validated_discount, validated_ship_discount sẽ giữ giá trị mặc định là null/0
+      }
+    } catch (e) {
+      // Nếu có lỗi nghiêm trọng khi gọi applyVoucher
+      console.error('[OrderCreate] EXCEPTION calling applyVoucher:', e);
+      // Tiếp tục tạo đơn mà không có voucher
+    }
+  }
+
+  // Tính toán lại tổng tiền dựa trên kết quả kiểm tra voucher
+  const final_discount = validated_discount; // Chỉ dùng discount từ applyVoucher trả về
+  const final_ship_discount = validated_ship_discount; // Chỉ dùng ship_discount từ applyVoucher trả về
+
+  // Tính toán doanh thu và lợi nhuận cuối cùng
+  const revenue = Math.max(0, subtotal + shipping_fee - (final_discount + final_ship_discount));
+  const profit = items.reduce((sum, item) =>
+    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0 // Lợi nhuận gộp từ sản phẩm
+  ) - final_discount; // Trừ đi phần giảm giá tiền hàng (giảm ship không ảnh hưởng lợi nhuận SP)
+
+  // MỚI: Gộp thông tin khách hàng đăng nhập ... (Đoạn này giữ nguyên)
   const finalCustomer = { 
     ...(loggedInCustomer || {}),  // Ưu tiên ID, tier, points từ user đăng nhập
     ...(body.customer || {})      // Ghi đè bằng tên, sđt, địa chỉ từ form checkout
@@ -430,7 +482,11 @@ async function createOrder(req, env) {
     status: 'pending',
     customer: finalCustomer,
     items,
-    subtotal, shipping_fee, discount, shipping_discount, revenue, profit,
+    subtotal, shipping_fee,
+    discount: final_discount, // Lưu discount đã được xác thực
+    shipping_discount: final_ship_discount, // Lưu ship_discount đã được xác thực
+    revenue, profit, // Lưu revenue, profit đã tính lại
+    voucher_code: validated_voucher_code, // Lưu mã voucher đã được xác thực (hoặc null)
     note: body.note || '',
     source: 'fe',
     
@@ -836,6 +892,68 @@ async function upsertOrder(req, env) {
 
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + order.id, order);
+
+  // --- THÊM: Xử lý Voucher Usage khi đơn Hoàn thành ---
+  const newStatus = String(body.status || order.status || '').toLowerCase(); // Lấy status mới từ body hoặc order
+  // Lấy trạng thái cũ từ bản ghi trong KV trước khi cập nhật
+  const oldOrderData = (index >= 0 && list[index]) ? list[index] : null;
+  const oldStatus = String(oldOrderData?.status || '').toLowerCase();
+
+  console.log('[OrderUpdate] Status change detected:', { oldStatus, newStatus, orderId: order.id, voucherCode: order.voucher_code });
+
+  // Chỉ xử lý khi chuyển sang 'completed' VÀ trạng thái cũ KHÁC 'completed' VÀ có voucher code
+  if (newStatus === 'completed' && oldStatus !== 'completed' && order.voucher_code) {
+    const voucherCode = order.voucher_code;
+    const customerId = order.customer?.id || null; // Lấy ID khách hàng từ đơn hàng
+
+    console.log('[OrderComplete] Processing voucher usage:', { voucherCode, customerId });
+    try {
+      // 1. Cập nhật usage_count cho voucher
+      const allVouchers = await getJSON(env, 'vouchers', []); // Đọc danh sách voucher
+      const vIndex = allVouchers.findIndex(v => (v.code || '').toUpperCase() === voucherCode.toUpperCase());
+
+      if (vIndex >= 0) {
+        // Tăng usage_count lên 1
+        allVouchers[vIndex].usage_count = (allVouchers[vIndex].usage_count || 0) + 1;
+        // Lưu lại toàn bộ danh sách voucher vào KV
+        await putJSON(env, 'vouchers', allVouchers);
+        console.log(`[OrderComplete] Incremented usage_count for ${voucherCode} to ${allVouchers[vIndex].usage_count}`);
+      } else {
+        // Trường hợp hiếm gặp: voucher đã bị xóa sau khi đơn hàng được tạo
+        console.warn('[OrderComplete] Voucher not found in list for usage count update:', voucherCode);
+      }
+
+      // 2. Cập nhật lịch sử sử dụng của khách hàng (nếu có customerId)
+      if (customerId && voucherCode) { // Thêm kiểm tra voucherCode lần nữa cho chắc
+        const historyKey = `customer_voucher_history:${customerId}`;
+        const history = await getJSON(env, historyKey, []); // Đọc lịch sử hiện tại
+
+        // Chỉ thêm mã vào lịch sử nếu giới hạn dùng/người > 0 VÀ mã chưa có trong lịch sử đủ số lần
+        const voucherInfo = allVouchers[vIndex]; // Lấy thông tin voucher đã tìm ở trên
+        if (voucherInfo && voucherInfo.usage_limit_per_user > 0) {
+           const timesUsed = history.filter(usedCode => (usedCode || '').toUpperCase() === voucherCode.toUpperCase()).length;
+           // Nếu số lần đã dùng < giới hạn => thêm vào lịch sử
+           if (timesUsed < voucherInfo.usage_limit_per_user) {
+              history.push(voucherCode); // Thêm mã vào cuối danh sách
+              await putJSON(env, historyKey, history); // Lưu lại lịch sử mới
+              console.log('[OrderComplete] Updated usage history for customer:', customerId, 'Added:', voucherCode);
+           } else {
+              console.log('[OrderComplete] Customer already reached usage limit for this voucher, history not updated:', {customerId, voucherCode});
+           }
+        } else {
+           console.log('[OrderComplete] No user limit or voucher info missing, skipping history update for:', customerId);
+        }
+      } else {
+         console.log('[OrderComplete] No customerId, skipping usage history update.');
+      }
+    } catch (e) {
+      // Nếu có lỗi khi cập nhật voucher/lịch sử, ghi log nhưng không làm crash việc update đơn hàng
+      console.error('[OrderComplete] EXCEPTION updating voucher usage/history:', e);
+    }
+  } else {
+     console.log('[OrderUpdate] No voucher processing needed for this status change.');
+  }
+  // --- KẾT THÚC THÊM ---
 
   return json({ ok: true, id: order.id, data: order }, {}, req);
 }

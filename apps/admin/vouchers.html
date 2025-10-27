@@ -168,21 +168,44 @@ h3 {
       <label>Điều kiện miễn ship (>=)</label>
       <input id="min_purchase" class="input" type="number" min="0" placeholder="150000"/>
     </div>
-    <div>
-      <label>&nbsp;</label>
-      <button class="btn primary" id="save">Lưu</button>
+    </div> </div> <div class="row mt-4"> 
+    <div class="col">
+      <label>Giới hạn dùng/người</label>
+      <input id="usage_limit_per_user" class="input" type="number" min="0" value="1" placeholder="1 (0 = không giới hạn)"/>
+    </div>
+    <div class="col">
+      <label>Tổng giới hạn lượt dùng</label>
+      <input id="usage_limit_total" class="input" type="number" min="0" placeholder="100 (0 = không giới hạn)"/>
+    </div>
+    <div class="col">
+      <label>Ngày hết hạn (tùy chọn)</label>
+      <input id="expires_at" class="input" type="datetime-local"/>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col"> <button class="btn primary" id="save">Lưu Voucher</button>
     </div>
   </div>
   
   <script>
-    document.getElementById('voucher_type').addEventListener('change', function() {
-      const showMinPurchase = this.value === 'auto_freeship';
-      document.getElementById('min_purchase_col').style.display = showMinPurchase ? 'block' : 'none';
-      // Nếu là Mã giảm giá, đảm bảo trường Giảm (%) hiển thị
-      document.getElementById('off').closest('.col').style.display = showMinPurchase ? 'none' : 'block'; 
-    });
-    // Trigger change lúc tải trang
-    document.getElementById('voucher_type').dispatchEvent(new Event('change'));
+    document.addEventListener('DOMContentLoaded', function() { // THÊM DÒNG NÀY
+      const voucherTypeSelect = document.getElementById('voucher_type');
+      const minPurchaseCol = document.getElementById('min_purchase_col');
+      const offCol = document.getElementById('off').closest('.col'); // Lấy cả cột chứa input %
+
+      function toggleFields() {
+        const showMinPurchase = voucherTypeSelect.value === 'auto_freeship';
+        minPurchaseCol.style.display = showMinPurchase ? 'block' : 'none';
+        // Ẩn/hiện cột Giảm (%)
+        offCol.style.display = showMinPurchase ? 'none' : 'block'; 
+      }
+
+      voucherTypeSelect.addEventListener('change', toggleFields);
+      
+      // Trigger change lúc tải trang
+      toggleFields(); // Gọi trực tiếp hàm toggleFields
+    }); // THÊM DÒNG NÀY
   </script>
 </div>
 
@@ -194,7 +217,7 @@ h3 {
       <th>Mã / Tên</th>
       <th>Loại</th>
       <th>Chi tiết</th>
-      <th>Trạng thái</th>
+      <th>Hạn dùng</th> <th>Giới hạn</th> <th>Trạng thái</th>
     </tr>
   </thead>
   <tbody id="list">
@@ -220,7 +243,14 @@ document.addEventListener('DOMContentLoaded', function() {
   $('#save').onclick = async () => {
     const code = $('#code').value.trim();
     const voucher_type = $('#voucher_type').value;
-    const on = $('#on').value === 'true'; // Giữ lại trạng thái ON/OFF
+    const on = $('#on').value === 'true'; 
+    
+    // Đọc các trường mới
+    const usage_limit_per_user = parseInt($('#usage_limit_per_user').value || '1'); // Mặc định là 1
+    const usage_limit_total = parseInt($('#usage_limit_total').value || '0'); // Mặc định là 0 (vô hạn)
+    const expires_at_input = $('#expires_at').value;
+    // Chuyển đổi datetime-local sang timestamp (milliseconds) hoặc null
+    const expires_at = expires_at_input ? new Date(expires_at_input).getTime() : null; 
 
     if (!code) {
       alert('Vui lòng nhập mã voucher (dùng làm ID)');
@@ -228,9 +258,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let body = { 
-      code, // Dùng code làm ID duy nhất
+      code, 
       on, 
-      voucher_type 
+      voucher_type,
+      // Thêm các trường mới vào body
+      usage_limit_per_user: usage_limit_per_user >= 0 ? usage_limit_per_user : 1, // Đảm bảo không âm
+      usage_limit_total: usage_limit_total >= 0 ? usage_limit_total : 0, // Đảm bảo không âm
+      expires_at: expires_at,
+      usage_count: 0 // Sẽ được cập nhật ở lần sau nếu là edit
     };
 
     if (voucher_type === 'code') {
@@ -239,17 +274,16 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('Giảm giá (%) phải từ 1 đến 100');
         return;
       }
-      body.off = off; // Chỉ lưu % giảm cho loại 'code'
-      // Có thể thêm các trường khác như min_order, max_discount sau
-      body.min_purchase = 0; // Reset trường này cho loại code
+      body.off = off; 
+      body.min_purchase = 0; 
     } else if (voucher_type === 'auto_freeship') {
       const min_purchase = Number($('#min_purchase').value || 0);
       if (min_purchase <= 0) {
         alert('Vui lòng nhập số tiền Điều kiện miễn ship hợp lệ (lớn hơn 0)');
         return;
       }
-      body.min_purchase = min_purchase; // Lưu điều kiện
-      body.off = 0; // Reset trường này cho loại freeship
+      body.min_purchase = min_purchase; 
+      body.off = 0; 
     }
 
     try {
@@ -304,11 +338,32 @@ document.addEventListener('DOMContentLoaded', function() {
           detailText = `Đơn >= ${formatPrice(v.min_purchase || 0)}`;
         }
 
+        // Hiển thị ngày hết hạn
+        let expiryText = '-';
+        if (v.expires_at) {
+          try {
+            expiryText = new Date(v.expires_at).toLocaleString('vi-VN', { 
+              day: '2-digit', month: '2-digit', year: 'numeric', 
+              hour: '2-digit', minute: '2-digit' 
+            });
+          } catch { expiryText = 'Lỗi ngày'; }
+        }
+
+        // Hiển thị giới hạn
+        let limitText = '';
+        if (v.usage_limit_per_user > 0) {
+          limitText += `1/người`;
+        }
+        if (v.usage_limit_total > 0) {
+          limitText += `${limitText ? ', ' : ''}${v.usage_count || 0}/${v.usage_limit_total} tổng`;
+        }
+        if (!limitText) limitText = 'Không giới hạn';
+
         tr.innerHTML = `
           <td><strong>${v.code}</strong></td>
           <td>${typeText}</td>
           <td>${detailText}</td>
-          <td>${statusText}</td>
+          <td>${expiryText}</td> <td>${limitText}</td> <td>${statusText}</td>
         `;
         tb.appendChild(tr);
 
