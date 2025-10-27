@@ -615,142 +615,179 @@ export async function printWaybill(req, env) {
   <title>Vận Đơn</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:5px; }
+    body { font-family: 'Arial', sans-serif; background:#fff; }
     .page { 
       width:148mm; 
       height:210mm; 
       background:white; 
-      margin:auto; 
-      padding:6px; 
-      box-shadow:0 0 5px rgba(0,0,0,0.1);
-      overflow:hidden;
+      padding:8px;
       position:relative;
-      display:flex;
-      flex-direction:column;
     }
-    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; border-bottom:2px solid #ff6b35; padding-bottom:3px; }
-    .logo { width:50px; height:35px; }
+    
+    /* Header Top */
+    .header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding-bottom:4px; border-bottom:3px solid #ff6b35; }
+    .logo { width:60px; height:50px; }
     .logo img { width:100%; height:100%; object-fit:contain; }
-    .tracking-main { text-align:center; font-weight:bold; font-size:16px; letter-spacing:1px; flex:1; }
+    .header-title { flex:1; text-align:center; margin:0 10px; }
+    .header-title .main-code { font-size:18px; font-weight:bold; letter-spacing:2px; }
+    .header-title .sub-text { font-size:10px; color:#666; }
+    .header-info { text-align:right; font-size:9px; }
+    .header-info .time { font-weight:bold; }
     
-    .barcode-section { text-align:center; margin:3px 0; }
-    .barcode-section img { height:30px; margin-bottom:1px; }
-    .barcode-text { font-size:9px; font-weight:bold; letter-spacing:1px; }
+    /* Barcode */
+    .barcode-section { text-align:center; margin-bottom:4px; }
+    .barcode-img { height:32px; margin-bottom:2px; }
+    .barcode-text { font-size:10px; font-weight:bold; letter-spacing:1px; }
     
-    .info-section { display:flex; gap:4px; margin:4px 0; font-size:10px; }
-    .info-box { flex:1; padding:3px; border:1px solid #ddd; }
-    .info-box h4 { font-size:8px; font-weight:bold; background:#f0f0f0; margin-bottom:1px; padding:1px; }
-    .info-box p { font-size:9px; margin:0.5px 0; line-height:1.2; }
-    .info-box strong { display:block; font-size:9px; margin-top:1px; }
+    /* Info 2 cột */
+    .info-row { display:flex; gap:8px; margin-bottom:4px; }
+    .info-col { flex:1; border:1.5px solid #333; padding:4px; }
+    .info-col .label { font-size:9px; font-weight:bold; background:#f0f0f0; padding:1px 2px; margin-bottom:2px; display:block; }
+    .info-col .content { font-size:10px; line-height:1.3; }
+    .info-col .content strong { display:block; font-weight:bold; font-size:10px; margin-bottom:2px; }
+    .info-col .address { font-size:9px; margin:1px 0; }
+    .info-col .phone { font-size:9px; margin:1px 0; }
     
-    .sort-code { text-align:center; font-size:8px; background:#f9f9f9; padding:1px; margin:3px 0; border:1px dashed #999; }
+    /* Sort code */
+    .sort-box { text-align:center; border:1.5px dashed #333; padding:3px; margin-bottom:4px; }
+    .sort-code { font-size:11px; font-weight:bold; letter-spacing:1px; }
+    .sort-date { font-size:8px; color:#666; }
     
-    .items-section { margin:3px 0; flex-grow:1; display:flex; flex-direction:column; }
-    .items-section h4 { font-size:8px; font-weight:bold; background:#f0f0f0; padding:1px; }
+    /* Items */
+    .items-box { margin-bottom:4px; border:1.5px solid #333; }
+    .items-header { background:#f0f0f0; padding:2px 4px; font-size:9px; font-weight:bold; }
+    .items-content { padding:3px 4px; }
     .items-table { width:100%; font-size:9px; border-collapse:collapse; }
-    .items-table th { background:#f0f0f0; padding:1px; text-align:left; font-size:8px; border-bottom:1px solid #ddd; }
-    .items-table td { padding:1px 2px; border-bottom:1px solid #eee; }
-    .items-body { flex-grow:1; overflow-y:auto; }
+    .items-table tr { border-bottom:1px solid #ddd; }
+    .items-table td { padding:2px 3px; }
+    .items-table th { background:#f9f9f9; padding:2px 3px; font-size:8px; font-weight:bold; text-align:left; }
     
-    .payment-section { margin:3px 0; padding:4px; background:#fff3cd; border:1.5px solid #ff6b35; border-radius:2px; text-align:center; }
-    .payment-section h5 { font-size:9px; font-weight:bold; color:#333; margin-bottom:2px; }
-    .payment-amount { font-size:16px; font-weight:bold; color:#ff6b35; letter-spacing:1px; }
-    .payment-type { font-size:8px; color:#666; margin-top:1px; }
+    /* Payment box - NỔI BẬT */
+    .payment-box { 
+      background:#fff3cd; 
+      border:2px solid #ff6b35; 
+      padding:6px; 
+      margin-bottom:4px; 
+      text-align:center; 
+      border-radius:3px;
+    }
+    .payment-title { font-size:10px; font-weight:bold; color:#333; margin-bottom:3px; }
+    .payment-amount { font-size:20px; font-weight:bold; color:#ff6b35; letter-spacing:2px; margin-bottom:2px; }
+    .payment-type { font-size:8px; color:#666; }
     
-    .qr-barcode { display:flex; justify-content:space-around; align-items:flex-end; margin:3px 0; gap:4px; }
-    .qr-box { text-align:center; flex:1; }
-    .qr-box img { width:70px; height:70px; border:1px solid #ddd; }
-    .qr-label { font-size:7px; margin-top:1px; }
+    /* QR Barcode section */
+    .qr-section { display:flex; gap:8px; margin-bottom:4px; }
+    .qr-box { flex:1; border:1.5px solid #333; padding:3px; text-align:center; }
+    .qr-box img { width:100%; max-width:90px; height:auto; border:1px solid #ddd; }
+    .qr-label { font-size:8px; font-weight:bold; margin-top:2px; }
     
-    .footer { font-size:8px; text-align:center; margin-top:2px; padding-top:2px; border-top:1px solid #ddd; }
-    .hotline { font-weight:bold; color:#ff6b35; }
+    /* Footer */
+    .footer { text-align:center; border-top:1px solid #ddd; padding-top:3px; font-size:9px; }
+    .footer-note { font-size:8px; color:#666; margin-bottom:1px; }
+    .hotline { font-weight:bold; color:#ff6b35; font-size:10px; }
     
     @media print {
-      body { background:white; padding:0; }
-      .page { width:100%; height:100%; margin:0; padding:6px; box-shadow:none; page-break-after:avoid; }
+      body { margin:0; padding:0; background:white; }
+      .page { width:100%; height:100%; margin:0; padding:8px; page-break-after:avoid; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <!-- Header với Logo -->
-    <div class="header">
+    <!-- Header Top -->
+    <div class="header-top">
       <div class="logo">
-        <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2235%22%3E%3Crect fill=%22%23f0f0f0%22 width=%2250%22 height=%2235%22/%3E%3C/svg%3E'">
+        <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-size=%2216%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ELogo%3C/text%3E%3C/svg%3E'">
       </div>
-      <div class="tracking-main">${superaiCode}</div>
+      <div class="header-title">
+        <div class="main-code">${superaiCode}</div>
+        <div class="sub-text">Mã vận đơn</div>
+      </div>
+      <div class="header-info">
+        <div class="time">${createdDate.split(' ')[0]}</div>
+        <div style="font-size:8px">${createdDate.split(' ')[1] || ''}</div>
+      </div>
     </div>
 
     <!-- Barcode -->
     <div class="barcode-section">
-      <img src="${barcodeSrc}" alt="Barcode" onerror="this.style.display='none'">
+      <img src="${barcodeSrc}" alt="Barcode" class="barcode-img" onerror="this.style.display='none'">
       <div class="barcode-text">${superaiCode}</div>
     </div>
 
     <!-- Thông tin gửi/nhận -->
-    <div class="info-section">
-      <div class="info-box">
-        <h4>👤 NGƯỜI GỬI</h4>
-        <p><strong>${sender.name || store.name || 'Shop'}</strong></p>
-        <p>${sender.address || store.address || ''}</p>
-        <p>☎️ ${sender.phone || store.phone || ''}</p>
+    <div class="info-row">
+      <div class="info-col">
+        <span class="label">👤 NGƯỜI GỬI</span>
+        <div class="content">
+          <strong>${sender.name || store.name || 'Shop'}</strong>
+          <div class="address">${sender.address || store.address || ''}</div>
+          <div class="phone">☎️ ${sender.phone || store.phone || ''}</div>
+        </div>
       </div>
-      <div class="info-box">
-        <h4>📦 NGƯỜI NHẬN</h4>
-        <p><strong>${receiver.name || customer.name || 'Khách'}</strong></p>
-        <p>${receiver.address || customer.address || ''}</p>
-        <p>☎️ ${receiver.phone || customer.phone || ''}</p>
+      <div class="info-col">
+        <span class="label">📦 NGƯỜI NHẬN</span>
+        <div class="content">
+          <strong>${receiver.name || customer.name || 'Khách'}</strong>
+          <div class="address">${receiver.address || customer.address || ''}</div>
+          <div class="phone">☎️ ${receiver.phone || customer.phone || ''}</div>
+        </div>
       </div>
     </div>
 
-    <!-- Sort Code -->
-    <div class="sort-code">
-      ${superaiCode}<br>
-      <small>Ngày gửi: ${createdDate.split(',')[0]}</small>
+    <!-- Sort code -->
+    <div class="sort-box">
+      <div class="sort-code">${superaiCode}</div>
+      <div class="sort-date">Ngày gửi: ${createdDate.split(' ')[0]}</div>
     </div>
 
     <!-- Nội dung hàng -->
-    <div class="items-section">
-      <h4>📋 NỘI DUNG HÀNG (${items.length} sản phẩm)</h4>
-      <div class="items-body">
+    <div class="items-box">
+      <div class="items-header">📦 NỘI DUNG HÀNG (${items.length} sản phẩm)</div>
+      <div class="items-content">
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width:60%">Sản phẩm</th>
-              <th style="width:20%">SL</th>
-              <th style="width:20%; text-align:right">Giá</th>
+              <th style="width:55%">Sản phẩm</th>
+              <th style="width:15%; text-align:center">SL</th>
+              <th style="width:30%; text-align:right">Giá</th>
             </tr>
           </thead>
           <tbody>
-            ${itemsList || '<tr><td colspan="3" style="padding:4px;text-align:center;color:#999">Không có sản phẩm</td></tr>'}
+            ${items.map((item, idx) => `
+              <tr>
+                <td>
+                  <strong>${item.name || 'SP'}</strong>
+                  ${item.variant ? `<div style="font-size:8px; color:#666">${item.variant}</div>` : ''}
+                </td>
+                <td style="text-align:center; font-weight:bold">${item.qty || 1}</td>
+                <td style="text-align:right">${Number(item.price || 0).toLocaleString('vi-VN')} đ</td>
+              </tr>
+            `).join('') || '<tr><td colspan="3" style="text-align:center; color:#999">Không có sản phẩm</td></tr>'}
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Tổng tiền thu -->
-    <div class="payment-section">
-      <h5>💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</h5>
-      <div class="payment-amount">
-        ${Number(order.cod || order.amount || 0).toLocaleString('vi-VN')} đ
-      </div>
-      <div class="payment-type">
-        ${order.cod ? '(Thu hộ - COD)' : '(Thanh toán)'}
-      </div>
+    <!-- Tổng tiền thu - NỔI BẬT -->
+    <div class="payment-box">
+      <div class="payment-title">💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</div>
+      <div class="payment-amount">${Number(order.cod || order.amount || 0).toLocaleString('vi-VN')} đ</div>
+      <div class="payment-type">${order.cod ? '(Thu hộ - COD)' : '(Thanh toán)'}</div>
     </div>
 
-    <!-- QR Code - Dùng tracking code SPXVN -->
-    <div class="qr-barcode">
+    <!-- QR & Barcode -->
+    <div class="qr-section">
       <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(order.tracking_code || superaiCode)}" alt="QR Code">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(order.tracking_code || superaiCode)}" alt="QR Code">
         <div class="qr-label">Mã tracking</div>
       </div>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <p>Kiểm tra lại thông tin trước khi gửi</p>
-      <p class="hotline">Hotline: ${store.phone || '0909128999'}</p>
+      <div class="footer-note">Vui lòng kiểm tra lại thông tin trước khi gửi</div>
+      <div class="hotline">Hotline: ${store.phone || '0909128999'}</div>
     </div>
   </div>
 
