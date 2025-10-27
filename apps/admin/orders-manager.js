@@ -548,9 +548,9 @@ class OrdersManager {
       return;
     }
 
-    const superaiCode = order.superai_code || order.tracking_code || '';
+    const superaiCode = order.superai_code || '';
     if (!superaiCode) {
-      alert('Đơn hàng này chưa có Mã Vận Đơn (SuperAI Code) để in.');
+      alert('Đơn hàng này chưa có Mã SuperAI để in. Vui lòng chờ hệ thống xử lý.');
       return;
     }
     
@@ -584,9 +584,9 @@ class OrdersManager {
       return;
     }
 
-    const superaiCode = order.superai_code || order.tracking_code || '';
+    const superaiCode = order.superai_code || '';
     if (!superaiCode) {
-      alert('Đơn hàng này chưa có Mã Vận Đơn, không thể hủy.');
+      alert('Đơn hàng này chưa có Mã SuperAI, không thể hủy.');
       return;
     }
 
@@ -682,8 +682,8 @@ class OrdersManager {
 
     const superaiCodes = selectedIds.map(id => {
       const order = this.orders.find(o => String(o.id || '') === id);
-      return order?.superai_code || order?.tracking_code || null;
-    }).filter(Boolean); // Lọc bỏ các đơn chưa có mã SuperAI
+      return order?.superai_code || null;
+    }).filter(Boolean);
 
     if (superaiCodes.length === 0) {
       alert('Các đơn hàng đã chọn chưa có Mã Vận Đơn (SuperAI Code) để in.');
@@ -722,7 +722,7 @@ class OrdersManager {
 
     const ordersToCancel = selectedIds.map(id => {
       const order = this.orders.find(o => String(o.id || '') === id);
-      return { id: id, superai_code: order?.superai_code || order?.tracking_code || null };
+      return { id: id, superai_code: order?.superai_code || null };
     });
 
     const superaiCodesToCancel = ordersToCancel
