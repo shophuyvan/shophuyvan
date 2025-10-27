@@ -54,18 +54,18 @@ function getStatusClass(status) {
 // Lấy text hiển thị cho trạng thái
 function getStatusText(status) {
   const s = String(status).toLowerCase();
-  if (s.includes('pending') || s.includes('cho')) return 'Chờ xác nhận';
+  if (s.includes('pending') || s.includes('confirmed') || s.includes('cho')) return 'Chờ xác nhận';
   if (s.includes('shipping') || s.includes('giao')) return 'Đang giao hàng';
   if (s.includes('completed') || s.includes('hoan')) return 'Hoàn thành';
   if (s.includes('cancelled') || s.includes('huy')) return 'Đã hủy';
   return status;
 }
 
-// Kiểm tra order có khớp filter không
+/// Kiểm tra order có khớp filter không
 function matchFilter(order, filter) {
   if (filter === 'all') return true;
   const s = String(order.status).toLowerCase();
-  if (filter === 'pending') return s.includes('pending') || s.includes('cho');
+  if (filter === 'pending') return s.includes('pending') || s.includes('confirmed') || s.includes('cho');
   if (filter === 'shipping') return s.includes('shipping') || s.includes('giao');
   if (filter === 'completed') return s.includes('completed') || s.includes('hoan');
   if (filter === 'cancelled') return s.includes('cancelled') || s.includes('huy');
@@ -90,8 +90,8 @@ function renderOrder(order) {
   const customerAddress = customer.address || order.address || '';
   
   // ✅ Kiểm tra có thể hủy đơn không
-  const canCancel = String(order.status || '').toLowerCase().includes('pending') || 
-                    String(order.status || '').toLowerCase().includes('cho');
+  const s = String(order.status || '').toLowerCase();
+  const canCancel = s.includes('pending') || s.includes('confirmed') || s.includes('cho');
   
   // ✅ Enrich items với thông tin đầy đủ
   const enrichedItems = items.map(item => ({

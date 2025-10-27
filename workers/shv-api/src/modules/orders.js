@@ -427,8 +427,8 @@ async function createOrder(req, env) {
   
   const order = {
     id, createdAt,
-    status: 'confirmed',
-    customer: finalCustomer, // Sử dụng đối tượng customer đã gộp
+    status: 'pending',
+    customer: finalCustomer,
     items,
     subtotal, shipping_fee, discount, shipping_discount, revenue, profit,
     note: body.note || '',
