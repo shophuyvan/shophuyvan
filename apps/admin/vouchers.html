@@ -157,11 +157,33 @@ h3 {
         <option value="false">OFF</option>
       </select>
     </div>
+    <div class="col">
+      <label>Loại Voucher</label>
+      <select id="voucher_type" class="input">
+        <option value="code">Mã giảm giá (%)</option>
+        <option value="auto_freeship">Miễn ship tự động</option>
+      </select>
+    </div>
+    <div class="col" id="min_purchase_col" style="display: none;">
+      <label>Điều kiện miễn ship (>=)</label>
+      <input id="min_purchase" class="input" type="number" min="0" placeholder="150000"/>
+    </div>
     <div>
       <label>&nbsp;</label>
       <button class="btn primary" id="save">Lưu</button>
     </div>
   </div>
+  
+  <script>
+    document.getElementById('voucher_type').addEventListener('change', function() {
+      const showMinPurchase = this.value === 'auto_freeship';
+      document.getElementById('min_purchase_col').style.display = showMinPurchase ? 'block' : 'none';
+      // Nếu là Mã giảm giá, đảm bảo trường Giảm (%) hiển thị
+      document.getElementById('off').closest('.col').style.display = showMinPurchase ? 'none' : 'block'; 
+    });
+    // Trigger change lúc tải trang
+    document.getElementById('voucher_type').dispatchEvent(new Event('change'));
+  </script>
 </div>
 
 <!-- Vouchers List -->
@@ -169,8 +191,9 @@ h3 {
 <table class="table">
   <thead>
     <tr>
-      <th>Mã</th>
-      <th>Giảm</th>
+      <th>Mã / Tên</th>
+      <th>Loại</th>
+      <th>Chi tiết</th>
       <th>Trạng thái</th>
     </tr>
   </thead>
@@ -196,20 +219,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
   $('#save').onclick = async () => {
     const code = $('#code').value.trim();
-    const off = Number($('#off').value || 0);
-    const on = $('#on').value === 'true';
+    const voucher_type = $('#voucher_type').value;
+    const on = $('#on').value === 'true'; // Giữ lại trạng thái ON/OFF
 
     if (!code) {
-      alert('Vui lòng nhập mã voucher');
+      alert('Vui lòng nhập mã voucher (dùng làm ID)');
       return;
     }
 
-    if (off <= 0 || off > 100) {
-      alert('Giảm giá phải từ 1% đến 100%');
-      return;
-    }
+    let body = { 
+      code, // Dùng code làm ID duy nhất
+      on, 
+      voucher_type 
+    };
 
-    const body = { code, off, on };
+    if (voucher_type === 'code') {
+      const off = Number($('#off').value || 0);
+      if (off <= 0 || off > 100) {
+        alert('Giảm giá (%) phải từ 1 đến 100');
+        return;
+      }
+      body.off = off; // Chỉ lưu % giảm cho loại 'code'
+      // Có thể thêm các trường khác như min_order, max_discount sau
+      body.min_purchase = 0; // Reset trường này cho loại code
+    } else if (voucher_type === 'auto_freeship') {
+      const min_purchase = Number($('#min_purchase').value || 0);
+      if (min_purchase <= 0) {
+        alert('Vui lòng nhập số tiền Điều kiện miễn ship hợp lệ (lớn hơn 0)');
+        return;
+      }
+      body.min_purchase = min_purchase; // Lưu điều kiện
+      body.off = 0; // Reset trường này cho loại freeship
+    }
 
     try {
       let r = await Admin.req('/admin/vouchers/upsert', { method: 'POST', body });
@@ -255,12 +296,24 @@ document.addEventListener('DOMContentLoaded', function() {
           '<span style="color:#10b981;font-weight:600">ON</span>' : 
           '<span style="color:#ef4444;font-weight:600">OFF</span>';
         
+        let typeText = 'Mã giảm giá';
+        let detailText = `<span style="color:#f59e0b;font-weight:600">${v.off || 0}%</span>`;
+
+        if (v.voucher_type === 'auto_freeship') {
+          typeText = 'Miễn ship tự động';
+          detailText = `Đơn >= ${formatPrice(v.min_purchase || 0)}`;
+        }
+
         tr.innerHTML = `
           <td><strong>${v.code}</strong></td>
-          <td><span style="color:#f59e0b;font-weight:600">${v.off || v.percent || 0}%</span></td>
+          <td>${typeText}</td>
+          <td>${detailText}</td>
           <td>${statusText}</td>
         `;
         tb.appendChild(tr);
+
+        // Helper format giá tiền (thêm vào trong hàm load hoặc ngoài cùng)
+        function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
       });
 
       console.log('[Vouchers] Loaded', items.length, 'vouchers');

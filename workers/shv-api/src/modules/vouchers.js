@@ -79,17 +79,34 @@ async function upsertVoucher(req, env) {
       (v.code || '').toUpperCase() === code
     );
 
-    const voucher = {
-      code: code,
-      off: Number(body.off || 0),
-      on: String(body.on || 'ON'),
-      description: body.description || '',
-      min_order: Number(body.min_order || 0),
-      max_discount: Number(body.max_discount || 0),
-      expires_at: body.expires_at || null
+    // Dữ liệu cơ bản
+    let voucherData = {
+      code: code, // Code là ID
+      on: body.on === true || String(body.on) === 'true', // Chuyển sang boolean
+      voucher_type: body.voucher_type === 'auto_freeship' ? 'auto_freeship' : 'code' // Loại voucher
+      // Thêm các trường khác nếu cần: description, expires_at...
     };
 
+    // Dữ liệu tùy theo loại
+    if (voucherData.voucher_type === 'code') {
+      voucherData.off = Math.max(0, Math.min(100, Number(body.off || 0))); // % giảm
+      // Reset các trường không liên quan
+      voucherData.min_purchase = 0; 
+    } else { // auto_freeship
+      voucherData.min_purchase = Math.max(0, Number(body.min_purchase || 0)); // Điều kiện
+      // Reset các trường không liên quan
+      voucherData.off = 0; 
+    }
+
     if (index >= 0) {
+      // Cập nhật: Giữ lại các trường cũ không được gửi lên (nếu có)
+      // và ghi đè bằng dữ liệu mới
+      list[index] = { ...list[index], ...voucherData }; 
+    } else {
+      list.push(voucherData);
+    }
+
+    await putJSON(env, 'vouchers', list);
       list[index] = { ...list[index], ...voucher };
     } else {
       list.push(voucher);

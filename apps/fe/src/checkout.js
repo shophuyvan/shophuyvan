@@ -8,6 +8,40 @@ function releaseSubmit(btn){ __placing=false; btn?.removeAttribute('disabled'); 
 import { api } from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+// --- THÊM: Logic Auto Freeship ---
+let applicableFreeshipVoucher = null; // Lưu voucher freeship đang được áp dụng
+
+async function fetchAndApplyAutoFreeship(subtotal, currentShipFee) {
+  try {
+    const res = await api('/vouchers'); // Lấy tất cả voucher public
+    const vouchers = res.items || [];
+    
+    // Tìm voucher freeship tự động ĐANG BẬT và ĐỦ ĐIỀU KIỆN
+    const foundVoucher = vouchers.find(v => 
+      v.voucher_type === 'auto_freeship' &&
+      v.on === true && // Phải đang bật
+      subtotal >= (v.min_purchase || 0) // Phải đủ điều kiện
+    );
+
+    applicableFreeshipVoucher = foundVoucher || null; // Lưu lại để hiển thị
+
+    if (applicableFreeshipVoucher) {
+      console.log('[AutoFreeship] Áp dụng:', applicableFreeshipVoucher.code, 'cho đơn >=', applicableFreeshipVoucher.min_purchase);
+      // Giả sử miễn 100% phí ship
+      return 0; // Trả về phí ship mới là 0
+    } else {
+      console.log('[AutoFreeship] Không có voucher nào đủ điều kiện.');
+      return currentShipFee; // Giữ nguyên phí ship hiện tại
+    }
+
+  } catch (error) {
+    console.error('[AutoFreeship] Lỗi khi kiểm tra voucher:', error);
+    applicableFreeshipVoucher = null;
+    return currentShipFee; // Lỗi thì giữ nguyên phí ship
+  }
+}
+// --- KẾT THÚC THÊM ---
+
 // Hiển thị khối lượng theo đơn vị thân thiện (không ép về 1kg)
 function toHumanWeight(g){
   const n = Number(g||0);
@@ -59,7 +93,7 @@ const orderBtn = document.getElementById('place-order');
 const orderResult = document.getElementById('order-result');
 const summaryEl = document.getElementById('cart-summary');
 // expose a summary updater for voucher-ui.js to call
-window.__updateSummary = function(){ try{ renderSummary(); }catch(e){} };
+window.__updateSummary = async function(){ try{ await renderSummary(); }catch(e){} }; // SỬA: Thêm async/await
 
 let chosen = null;
 let lastPricing = null;
@@ -150,7 +184,7 @@ try {
     localStorage.setItem('ship_eta', chosen.eta||'');
 
     lastPricing = arr;
-    renderSummary();
+    await renderSummary(); // SỬA: Thêm await
 
     // Render list
     quoteList.innerHTML = arr.map((opt, idx) => `
@@ -176,7 +210,7 @@ try {
       localStorage.setItem('ship_name', name);
       localStorage.setItem('ship_fee', String(fee));
       localStorage.setItem('ship_eta', eta||'');
-      renderSummary();
+      await renderSummary(); // SỬA: Thêm await
     });
 
   }catch(e){
@@ -204,21 +238,29 @@ function getCart(){
 }
 function calcSubtotal(items){ return (items||[]).reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0); }
 
-function renderSummary(){
+async function renderSummary(){ // SỬA: Thêm async
   if(!summaryEl) return;
   const items = getCart();
   const sub = calcSubtotal(items);
-  const ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
+  let original_ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0); // Phí ship gốc
   const ship_name = chosen?.name ?? (localStorage.getItem('ship_name')||'Chưa chọn');
   const ship_eta = chosen?.eta ?? (localStorage.getItem('ship_eta')||'');
-  const v_discount = Number(localStorage.getItem('voucher_discount')||0);
-  const v_ship_discount = Number(localStorage.getItem('voucher_ship_discount')||0);
-  const name = document.getElementById('name')?.value || '';
-  const phone = document.getElementById('phone')?.value || '';
-  const address = document.getElementById('address')?.value || '';
+  
+  // SỬA: Gọi kiểm tra auto freeship
+  let ship_fee = await fetchAndApplyAutoFreeship(sub, original_ship_fee);
+  let autoFreeshipApplied = applicableFreeshipVoucher !== null;
+  let autoFreeshipDiscount = autoFreeshipApplied ? original_ship_fee : 0; // Số tiền được giảm bởi auto freeship
 
-  const fee_after = Math.max(0, ship_fee - v_ship_discount);
-  const total = Math.max(0, sub - v_discount + fee_after);
+  // Lấy giảm giá từ MÃ VOUCHER NHẬP TAY
+  const manual_v_discount = Number(localStorage.getItem('voucher_discount')||0);
+  // Mã nhập tay có thể giảm thêm phí ship (nếu voucher đó hỗ trợ)
+  const manual_v_ship_discount = Number(localStorage.getItem('voucher_ship_discount')||0); 
+
+  // Tính phí ship cuối cùng sau khi áp cả auto và manual (nếu có)
+  const final_ship_fee = Math.max(0, ship_fee - manual_v_ship_discount);
+  
+  // Tính tổng tiền cuối cùng
+  const total = Math.max(0, sub - manual_v_discount + final_ship_fee);
 
   const itemsHtml = items.map(it=>`
     <div class="flex justify-between text-sm py-1">
@@ -231,8 +273,8 @@ function renderSummary(){
   <div class="space-y-3">
     <div>
       <div class="font-semibold mb-1">Địa chỉ nhận hàng</div>
-      <div class="text-sm">${name||'-'} ${phone?`• ${phone}`:''}</div>
-      <div class="text-sm">${address||'-'}</div>
+      <div class="text-sm">${document.getElementById('name')?.value || '-'} ${document.getElementById('phone')?.value ? `• ${document.getElementById('phone')?.value}` : ''}</div>
+      <div class="text-sm">${document.getElementById('address')?.value || '-'}</div>
     </div>
 
     <div>
@@ -248,12 +290,21 @@ function renderSummary(){
 
     <div class="border-t pt-2 text-sm">
       <div class="flex justify-between"><span>Tổng tiền hàng</span><span>${formatPrice(sub)}</span></div>
-      <div class="flex justify-between"><span>Tổng tiền phí vận chuyển</span><span>${formatPrice(ship_fee)}</span></div>
-      ${v_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm giá</span><span>-${formatPrice(v_discount)}</span></div>`:''}
-      ${v_ship_discount?`<div class="flex justify-between text-emerald-700"><span>Giảm phí vận chuyển</span><span>-${formatPrice(v_ship_discount)}</span></div>`:''}
+      
+      <div class="flex justify-between">
+        <span>Phí vận chuyển</span>
+        <span>${autoFreeshipApplied ? `<span class="line-through opacity-70">${formatPrice(original_ship_fee)}</span> ${formatPrice(ship_fee)}` : formatPrice(ship_fee)}</span>
+      </div>
+
+      ${autoFreeshipApplied ? `<div class="flex justify-between text-emerald-700"><span>Miễn ship tự động (${applicableFreeshipVoucher.code})</span><span>-${formatPrice(autoFreeshipDiscount)}</span></div>` : ''}
+
+      ${manual_v_discount ? `<div class="flex justify-between text-emerald-700"><span>Giảm giá (Mã)</span><span>-${formatPrice(manual_v_discount)}</span></div>` : ''}
+      ${manual_v_ship_discount ? `<div class="flex justify-between text-emerald-700"><span>Giảm ship (Mã)</span><span>-${formatPrice(manual_v_ship_discount)}</span></div>` : ''}
+      
       <div class="flex justify-between font-semibold text-base mt-1"><span>Tổng thanh toán</span><span>${formatPrice(total)}</span></div>
     </div>
   </div>`;
+}
 }
 document.getElementById('name')?.addEventListener('input', ()=>renderSummary());
 document.getElementById('phone')?.addEventListener('input', ()=>renderSummary());
