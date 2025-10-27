@@ -8,37 +8,6 @@ import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js'; // THÊM DÒNG NÀY
 
 /**
- * Main handler for voucher routes
- */
-export async function handle(req, env, ctx) {
-  const url = new URL(req.url);
-  const path = url.pathname;
-  const method = req.method;
-
-  // Public: Get all vouchers
-  if (path === '/vouchers' && method === 'GET') {
-    return getPublicVouchers(req, env);
-  }
-
-  // Admin: List all vouchers
-  if (path === '/admin/vouchers/list' && method === 'GET') {
-    return listAdminVouchers(req, env);
-  }
-
-  // Admin: Upsert voucher
-  if (path === '/admin/vouchers/upsert' && method === 'POST') {
-    return upsertVoucher(req, env);
-  }
-
-  // Admin: Delete voucher (optional, if needed)
-  if (path === '/admin/vouchers/delete' && method === 'POST') {
-    return deleteVoucher(req, env);
-  }
-
-  return errorResponse('Route not found', 404, req);
-}
-
-/**
  * Public: Get all vouchers
  */
 async function getPublicVouchers(req, env) {
