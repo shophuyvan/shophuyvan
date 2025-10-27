@@ -1,6 +1,6 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill HTML Template (SPX Format)
+// Waybill HTML Template (SPX Format) - UPDATED: Larger Font + Single Row Layout
 // ===================================================================
 
 export function getWaybillHTML(data) {
@@ -34,7 +34,7 @@ export function getWaybillHTML(data) {
       width: 148mm; 
       height: 210mm; 
       background: white; 
-      padding: 12px;
+      padding: 10px;
       position: relative;
       overflow: hidden;
     }
@@ -44,13 +44,13 @@ export function getWaybillHTML(data) {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 3px solid #ff6b35;
     }
     .logo { 
-      width: 50px; 
-      height: 50px; 
+      width: 45px; 
+      height: 45px; 
     }
     .logo img { 
       width: 100%; 
@@ -60,22 +60,22 @@ export function getWaybillHTML(data) {
     .header-code {
       flex: 1;
       text-align: center;
-      margin: 0 15px;
+      margin: 0 12px;
     }
     .header-code .main-code {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: bold;
       letter-spacing: 1px;
       color: #000;
     }
     .header-code .sub-text {
-      font-size: 11px;
+      font-size: 12px;
       color: #666;
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .header-date {
       text-align: right;
-      font-size: 12px;
+      font-size: 13px;
     }
     .header-date .time {
       font-weight: bold;
@@ -84,141 +84,177 @@ export function getWaybillHTML(data) {
     /* BARCODE */
     .barcode-section {
       text-align: center;
-      margin-bottom: 8px;
-      padding: 6px;
+      margin-bottom: 6px;
+      padding: 4px;
       border: 1px solid #ddd;
     }
     .barcode-img {
-      height: 40px;
-      margin-bottom: 4px;
+      height: 35px;
+      margin-bottom: 2px;
     }
     .barcode-text {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: bold;
       letter-spacing: 1px;
     }
     
-    /* SENDER/RECEIVER - 2 COLUMN */
-    .info-section {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .info-box {
-      flex: 1;
+    /* SENDER - SINGLE ROW */
+    .sender-section {
       border: 2px solid #333;
-      padding: 8px;
+      padding: 6px;
       background: #f9f9f9;
+      margin-bottom: 6px;
     }
-    .info-box .label {
-      font-size: 12px;
+    .sender-label {
+      font-size: 13px;
       font-weight: bold;
       background: #ff6b35;
       color: white;
-      padding: 3px 5px;
-      margin-bottom: 6px;
-      display: block;
-    }
-    .info-box .name {
-      font-size: 13px;
-      font-weight: bold;
+      padding: 2px 4px;
       margin-bottom: 4px;
+      display: inline-block;
     }
-    .info-box .address {
-      font-size: 12px;
-      line-height: 1.3;
-      margin-bottom: 3px;
-      word-wrap: break-word;
+    .sender-content {
+      display: flex;
+      gap: 15px;
     }
-    .info-box .phone {
-      font-size: 12px;
+    .sender-name {
+      font-size: 16px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+    .sender-address {
+      font-size: 15px;
+      line-height: 1.2;
+      flex: 1;
+    }
+    .sender-phone {
+      font-size: 15px;
       font-weight: bold;
       color: #ff6b35;
+      min-width: 100px;
+    }
+    
+    /* RECEIVER - SINGLE ROW */
+    .receiver-section {
+      border: 2px solid #333;
+      padding: 6px;
+      background: #f9f9f9;
+      margin-bottom: 6px;
+    }
+    .receiver-label {
+      font-size: 13px;
+      font-weight: bold;
+      background: #ff6b35;
+      color: white;
+      padding: 2px 4px;
+      margin-bottom: 4px;
+      display: inline-block;
+    }
+    .receiver-content {
+      display: flex;
+      gap: 15px;
+    }
+    .receiver-name {
+      font-size: 16px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+    .receiver-address {
+      font-size: 15px;
+      line-height: 1.2;
+      flex: 1;
+    }
+    .receiver-phone {
+      font-size: 15px;
+      font-weight: bold;
+      color: #ff6b35;
+      min-width: 100px;
     }
     
     /* PRODUCT TABLE */
     .items-section {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       border: 2px solid #333;
     }
     .items-header {
       background: #ff6b35;
       color: white;
-      padding: 6px 8px;
-      font-size: 12px;
+      padding: 5px 6px;
+      font-size: 13px;
       font-weight: bold;
     }
     .items-table {
       width: 100%;
-      font-size: 12px;
+      font-size: 15px;
       border-collapse: collapse;
     }
     .items-table th {
       background: #f0f0f0;
-      padding: 6px 4px;
+      padding: 5px 4px;
       font-weight: bold;
       text-align: left;
       border-bottom: 1px solid #ddd;
-      font-size: 11px;
+      font-size: 13px;
     }
     .items-table td {
-      padding: 6px 4px;
+      padding: 5px 4px;
       border-bottom: 1px solid #ddd;
     }
     .items-table .qty {
       text-align: center;
       font-weight: bold;
+      font-size: 15px;
     }
     .items-table .price {
       text-align: right;
+      font-size: 15px;
     }
     
     /* PAYMENT BOX - NỘI BẬT */
     .payment-section {
       background: #fff3cd;
       border: 3px solid #ff6b35;
-      padding: 10px;
-      margin-bottom: 8px;
+      padding: 8px;
+      margin-bottom: 6px;
       text-align: center;
       border-radius: 4px;
     }
     .payment-title {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: bold;
       color: #000;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .payment-amount {
-      font-size: 24px;
+      font-size: 26px;
       font-weight: bold;
       color: #ff6b35;
       letter-spacing: 1px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .payment-note {
-      font-size: 11px;
+      font-size: 12px;
       color: #666;
     }
     
-    /* QR CODE */
+    /* QR CODE - TO HƠN */
     .qr-section {
       display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
+      justify-content: center;
+      margin-bottom: 6px;
     }
     .qr-box {
-      flex: 1;
       border: 2px solid #333;
-      padding: 6px;
+      padding: 8px;
       text-align: center;
     }
     .qr-box img {
-      width: 100%;
-      max-width: 100px;
-      height: auto;
+      width: 140px;
+      height: 140px;
     }
     .qr-label {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: bold;
       margin-top: 4px;
     }
@@ -227,22 +263,23 @@ export function getWaybillHTML(data) {
     .footer {
       text-align: center;
       border-top: 1px solid #ddd;
-      padding-top: 6px;
-      font-size: 11px;
+      padding-top: 4px;
+      font-size: 12px;
     }
     .footer-note {
       color: #666;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
+      font-size: 12px;
     }
     .hotline {
       font-weight: bold;
       color: #ff6b35;
-      font-size: 12px;
+      font-size: 13px;
     }
     
     @media print {
       body { margin: 0; padding: 0; background: white; }
-      .page { width: 100%; height: 100%; margin: 0; padding: 12px; page-break-after: avoid; }
+      .page { width: 100%; height: 100%; margin: 0; padding: 10px; page-break-after: avoid; }
     }
   </style>
 </head>
@@ -259,7 +296,7 @@ export function getWaybillHTML(data) {
       </div>
       <div class="header-date">
         <div class="time">${createdDate.split(' ')[0]}</div>
-        <div style="font-size:11px">${createdDate.split(' ')[1] || ''}</div>
+        <div style="font-size:12px">${createdDate.split(' ')[1] || ''}</div>
       </div>
     </div>
 
@@ -269,19 +306,23 @@ export function getWaybillHTML(data) {
       <div class="barcode-text">${superaiCode}</div>
     </div>
 
-    <!-- SENDER / RECEIVER -->
-    <div class="info-section">
-      <div class="info-box">
-        <span class="label">👤 NGƯỜI GỬI</span>
-        <div class="name">${sender.name || store.name || 'Shop'}</div>
-        <div class="address">${sender.address || store.address || ''}</div>
-        <div class="phone">☎️ ${sender.phone || store.phone || ''}</div>
+    <!-- SENDER - SINGLE ROW -->
+    <div class="sender-section">
+      <span class="sender-label">👤 NGƯỜI GỬI</span>
+      <div class="sender-content">
+        <div class="sender-name">${sender.name || store.name || 'Shop'}</div>
+        <div class="sender-address">${sender.address || store.address || ''}</div>
+        <div class="sender-phone">☎️ ${sender.phone || store.phone || ''}</div>
       </div>
-      <div class="info-box">
-        <span class="label">📦 NGƯỜI NHẬN</span>
-        <div class="name">${receiver.name || customer.name || 'Khách'}</div>
-        <div class="address">${receiver.address || customer.address || ''}</div>
-        <div class="phone">☎️ ${receiver.phone || customer.phone || ''}</div>
+    </div>
+
+    <!-- RECEIVER - SINGLE ROW -->
+    <div class="receiver-section">
+      <span class="receiver-label">📦 NGƯỜI NHẬN</span>
+      <div class="receiver-content">
+        <div class="receiver-name">${receiver.name || customer.name || 'Khách'}</div>
+        <div class="receiver-address">${receiver.address || customer.address || ''}</div>
+        <div class="receiver-phone">☎️ ${receiver.phone || customer.phone || ''}</div>
       </div>
     </div>
 
@@ -301,12 +342,12 @@ export function getWaybillHTML(data) {
             <tr>
               <td>
                 <strong>${item.name || 'SP'}</strong>
-                ${item.variant ? `<div style="font-size:11px; color:#666">${item.variant}</div>` : ''}
+                ${item.variant ? `<div style="font-size:12px; color:#666">${item.variant}</div>` : ''}
               </td>
               <td class="qty">${item.qty || 1}</td>
               <td class="price">${Number(item.price || 0).toLocaleString('vi-VN')} đ</td>
             </tr>
-          `).join('') || '<tr><td colspan="3" style="text-align:center; color:#999; padding:8px">Không có sản phẩm</td></tr>'}
+          `).join('') || '<tr><td colspan="3" style="text-align:center; color:#999; padding:6px">Không có sản phẩm</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -321,7 +362,7 @@ export function getWaybillHTML(data) {
     <!-- QR CODE -->
     <div class="qr-section">
       <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(order.tracking_code || superaiCode)}" alt="QR Code">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(order.tracking_code || superaiCode)}" alt="QR Code">
         <div class="qr-label">Mã tracking</div>
       </div>
     </div>
