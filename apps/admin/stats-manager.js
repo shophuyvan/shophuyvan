@@ -279,17 +279,39 @@ lines.forEach(it => {
 
 platformStats[platform].cost_price += orderCost;
 
-        // Top products
+        // Top products (variant level)
         lines.forEach(item => {
-          const productName = item.title || item.name || item.product_name || 'Unknown';
+          // Lấy ID biến thể (ưu tiên sku, variant_id, v.v.)
+          const variantKey = item.sku || item.variant_id || item.sku_id || item.variantId || item.code || 'unknown';
+          
+          // Lấy tên sản phẩm (để rút gọn)
+          const productName = item.product_name || item.product_title || 'Sản phẩm';
+          
+          // Lấy tên biến thể
+          const variantName = item.title || item.name || item.variant_title || item.variant_name || 'Biến thể';
+          
+          // Lấy hình ảnh (ưu tiên variant image, fallback product image)
+          const image = item.image || item.img_url || item.img || item.product_image || './no-image.svg';
+
           const qty = toNum(item.qty ?? item.quantity ?? 1);
           const price = toNum(item.price ?? item.unit_price ?? 0);
 
-          if (!productStats[productName]) {
-            productStats[productName] = { name: productName, qty: 0, revenue: 0 };
+          // Tạo key duy nhất, phòng trường hợp 2 sản phẩm khác nhau có 'unknown' sku
+          const uniqueKey = variantKey === 'unknown' ? `${productName}::${variantName}` : variantKey;
+
+          if (!productStats[uniqueKey]) {
+            productStats[uniqueKey] = { 
+              key: uniqueKey,
+              productName: productName, // Tên sản phẩm gốc
+              variantName: variantName, // Tên biến thể (VD: Đỏ, L)
+              image: image,             // Hình ảnh
+              qty: 0, 
+              revenue: 0 
+            };
           }
-          productStats[productName].qty += qty;
-          productStats[productName].revenue += price * qty;
+          
+          productStats[uniqueKey].qty += qty;
+          productStats[uniqueKey].revenue += price * qty;
         });
       }
     });
@@ -317,8 +339,10 @@ this.statsData = {
   // Doanh thu = tổng revenue của 2 platform
   revenue: (web.revenue + mini.revenue),
 
-  // Giá nhập = số backend đã tính từ variants
-  cost_price: (backendCost > 0 ? backendCost : computedCost),
+ // SỬA LỖI: Luôn dùng cost_price tính toán ở frontend (computedCost)
+  // vì nó đã lọc đơn huỷ. Backend API (/admin/stats) đang trả về
+  // cost của cả đơn huỷ (backendCost).
+  cost_price: computedCost,
 
   // Bảng nền tảng: giữ cost theo items đã cộng ở trên
   platforms: [
@@ -533,20 +557,29 @@ async loadInventoryValue() {
       return;
     }
     
+    // Helper rút gọn tên
+    const shortenName = (name, maxLength = 30) => {
+      if (!name) return '';
+      if (name.length <= maxLength) return name;
+      return name.substring(0, maxLength) + '...';
+    };
+
     topProductsTable.innerHTML = topProducts.map((p, idx) => `
       <tr>
         <td>${idx + 1}</td>
         <td>
           <div class="product-item">
-            <img class="product-img" src="./no-image.svg" alt="" onerror="this.src='./no-image.svg'"/>
-            <span>${p.name || ''}</span>
+            <img class="product-img" src="${p.image || './no-image.svg'}" alt="" onerror="this.src='./no-image.svg'"/>
+            <div>
+              <span style="font-weight: 600; color: #1e293b; display: block;">${p.variantName || 'Biến thể'}</span>
+              <div style="font-size: 12px; color: #64748b;">${shortenName(p.productName)}</div>
+            </div>
           </div>
         </td>
         <td style="text-align:right">${p.qty || 0}</td>
         <td style="text-align:right">${this.formatMoney(p.revenue)}</td>
       </tr>
     `).join('');
-  }
 
   // ==================== INIT ====================
   init() {
