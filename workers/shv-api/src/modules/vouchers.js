@@ -117,6 +117,7 @@ async function deleteVoucher(req, env) {
   } catch (e) {
     return errorResponse(e, 500, req);
   }
+} // <-- THÊM DẤU NGOẶC ĐÓNG HÀM TẠI ĐÂY
   // ===================================================================
 // API: Apply Voucher (Called by Checkout)
 // ===================================================================
@@ -223,11 +224,10 @@ async function applyVoucher(req, env) {
 // Helper (có thể đặt ở utils.js nếu dùng nhiều nơi)
 function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 
-
 // ===================================================================
 // Main Handler (Thêm route mới)
 // ===================================================================
-// Dòng này phải nằm SAU định nghĩa hàm applyVoucher
+
   export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
