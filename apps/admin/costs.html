@@ -55,7 +55,7 @@
   <div class="container" id="app">
     <div class="page-header">
       <h2>Quản lý Chi Phí</h2>
-      <button class="btn primary" id="btnSave" onclick="manager.saveCosts()">
+      <button class="btn primary" id="btnSave" onclick="window.manager.saveCosts()">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V3"></path></svg>
         Lưu thay đổi
       </button>
@@ -77,7 +77,7 @@
           <label><input type="radio" name="costType" value="per_order"> Theo đơn hàng</label>
         </div>
       </div>
-      <button class="btn" id="btnAddCost" onclick="manager.addCost()">Thêm</button>
+      <button class="btn" id="btnAddCost" onclick="window.manager.addCost()">Thêm</button>
     </div>
 
     <div class="card cost-list">
@@ -91,9 +91,12 @@
   <script src="/sidebar-layout.js"></script>
   <script src="/costs-manager.js"></script>
   <script>
-    AdminLayout.init('Quản lý Chi Phí');
-    const manager = new CostsManager();
-    manager.init();
+    // Chờ DOM load xong để đảm bảo Admin và AdminLayout đã sẵn sàng
+    document.addEventListener('DOMContentLoaded', () => {
+      AdminLayout.init('Quản lý Chi Phí');
+      window.manager = new CostsManager(); // Gán vào window để HTML gọi được
+      window.manager.init();
+    });
   </script>
 </body>
 </html>

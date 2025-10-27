@@ -103,7 +103,7 @@ class CostsManager {
         <div classs="cost-item-amount">${this.formatMoney(c.amount)}</div>
         <div classs="cost-item-amount">${c.type === 'monthly' ? '/ tháng' : '/ đơn'}</div>
         <div class="cost-item-actions">
-          <button class="btn danger" onclick="manager.deleteCost('${c.id}')">Xóa</button>
+          <button class="btn danger" onclick="window.manager.deleteCost('${c.id}')">Xóa</button>
         </div>
       </div>
     `).join('');
