@@ -2,7 +2,7 @@ import { json } from '../../lib/response.js';
 import * as areas from './areas.js';
 import * as warehouses from './warehouses.js';
 import * as pricing from './pricing.js';
-import { createWaybill } from './waybill.js';
+import { createWaybill, printWaybill } from './waybill.js';
 import { superToken } from './helpers.js';
 
 export async function handle(req, env, ctx) {
@@ -36,9 +36,14 @@ export async function handle(req, env, ctx) {
     return pricing.handle(req, env, ctx);
   }
 
-  // Waybill creation
+   // Waybill creation
   if ((path === '/admin/shipping/create' || path === '/shipping/create') && req.method === 'POST') {
     return createWaybill(req, env);
+  }
+
+  // Waybill printing
+  if (path === '/shipping/print' && req.method === 'POST') {
+    return printWaybill(req, env);
   }
 
   return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
