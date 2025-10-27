@@ -121,7 +121,7 @@ async function deleteVoucher(req, env) {
   // ===================================================================
 // API: Apply Voucher (Called by Checkout)
 // ===================================================================
-async function applyVoucher(req, env) {
+export async function applyVoucher(req, env) {
   try {
     // Đọc dữ liệu gửi lên từ checkout.js
     const body = await readBody(req) || {};
