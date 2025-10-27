@@ -77,12 +77,28 @@ function renderOrder(order) {
   const items = order.items || [];
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
   
+  // ✅ Tính tổng tiền chính xác
+  const subtotal = Number(order.subtotal || 0);
+  const shippingFee = Number(order.shipping_fee || 0);
+  const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+  const totalAmount = Math.max(0, subtotal + shippingFee - discount);
+  
+  // ✅ Enrich items với thông tin đầy đủ
+  const enrichedItems = items.map(item => ({
+    ...item,
+    product_name: item.product_name || item.name || 'Sản phẩm',
+    variant_name: item.variant_name || item.variant || '',
+    image: item.image || item.img || item.thumbnail || '/assets/no-image.svg',
+    price: Number(item.price || 0),
+    quantity: Number(item.qty || item.quantity || 1)
+  }));
+  
   return `
     <div class="order-card" data-order-id="${order.id}">
       <div class="order-header">
         <div>
           <div class="font-semibold text-gray-900">Đơn hàng #${orderNumber}</div>
-          <div class="text-xs text-gray-500 mt-1">${formatDate(order.created_at)}</div>
+          <div class="text-xs text-gray-500 mt-1">${formatDate(order.createdAt || order.created_at)}</div>
         </div>
         <span class="status-badge ${getStatusClass(order.status)}">
           ${getStatusText(order.status)}
@@ -90,10 +106,10 @@ function renderOrder(order) {
       </div>
       
       <div class="order-body">
-        ${items.map(item => `
+        ${enrichedItems.map(item => `
           <div class="order-item">
             <img 
-              src="${item.image || '/assets/no-image.svg'}" 
+              src="${item.image}" 
               alt="${item.product_name}"
               class="order-item-img"
               onerror="this.src='/assets/no-image.svg'"
@@ -113,7 +129,7 @@ function renderOrder(order) {
       <div class="order-footer">
         <div>
           <span class="text-gray-600 text-sm">Tổng cộng: </span>
-          <span class="font-bold text-blue-600 text-lg">${formatPrice(order.total)}</span>
+          <span class="font-bold text-blue-600 text-lg">${formatPrice(totalAmount)}</span>
         </div>
         <button 
           class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
