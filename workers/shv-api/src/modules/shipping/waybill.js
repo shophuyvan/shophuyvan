@@ -586,7 +586,7 @@ export async function printWaybill(req, env) {
     // 2. Lấy settings để có logo
     const settings = await getJSON(env, 'settings', {}) || {};
     const store = settings.store || {};
-    const logo = storeSettings.logo || 'https://shophuyvan1.pages.dev/logo.png';
+    const logo = store.logo || 'https://shophuyvan1.pages.dev/logo.png';
 
     // 3. Tạo HTML template A5 dọc
     // ✅ Fallback: Nếu không có sender/receiver, dùng dữ liệu từ settings + hardcode
@@ -729,9 +729,9 @@ export async function printWaybill(req, env) {
       <div class="info-col">
         <span class="label">👤 NGƯỜI GỬI</span>
         <div class="content">
-          <strong>${sender.name || storeSettings.name || 'Shop'}</strong>
-          <div class="address">${sender.address || storeSettings.address || ''}</div>
-          <div class="phone">☎️ ${sender.phone || storeSettings.phone || ''}</div>
+          <strong>${sender.name || store.name || 'Shop'}</strong>
+          <div class="address">${sender.address || store.address || ''}</div>
+          <div class="phone">â˜Žï¸ ${sender.phone || store.phone || ''}</div>
         </div>
       </div>
       <div class="info-col">
