@@ -415,7 +415,8 @@ async loadInventoryValue() {
     
     const revenue = this.statsData.revenue || 0;
     const costPrice = this.statsData.cost_price || 0;
-    const extraCosts = this.calculateTotalCosts(soldOrders);
+// LÀM TRÒN chi phí thêm để sửa lỗi hiển thị
+    const extraCosts = Math.round(this.calculateTotalCosts(soldOrders)); 
     const profit = revenue - costPrice - extraCosts;
     
     this.$('totalOrders').textContent = totalOrders;
