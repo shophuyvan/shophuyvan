@@ -168,7 +168,7 @@ h3 {
       <label>Điều kiện miễn ship (>=)</label>
       <input id="min_purchase" class="input" type="number" min="0" placeholder="150000"/>
     </div>
-    </div> </div> <div class="row mt-4"> 
+   </div> <div class="row mt-4"> 
     <div class="col">
       <label>Giới hạn dùng/người</label>
       <input id="usage_limit_per_user" class="input" type="number" min="0" value="1" placeholder="1 (0 = không giới hạn)"/>
@@ -218,6 +218,7 @@ h3 {
       <th>Loại</th>
       <th>Chi tiết</th>
       <th>Hạn dùng</th> <th>Giới hạn</th> <th>Trạng thái</th>
+      <th>Hành động</th>
     </tr>
   </thead>
   <tbody id="list">
@@ -364,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <td>${typeText}</td>
           <td>${detailText}</td>
           <td>${expiryText}</td> <td>${limitText}</td> <td>${statusText}</td>
+          <td><button class="btn" style="background: #fee2e2; color: #b91c1c; font-size: 13px; padding: 5px 10px;" onclick="deleteVoucher('${v.code}')">Xóa</button></td>
         `;
         tb.appendChild(tr);
 
@@ -377,6 +379,30 @@ document.addEventListener('DOMContentLoaded', function() {
       $('#list').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#ef4444">Lỗi tải dữ liệu</td></tr>';
     }
   }
+
+  // Hàm xóa voucher
+  window.deleteVoucher = async (code) => {
+    if (!code) return;
+    if (!confirm(`Bạn có chắc muốn xóa voucher "${code}" không? Sẽ không thể hoàn tác.`)) {
+      return;
+    }
+
+    try {
+      const r = await Admin.req('/admin/vouchers/delete', { 
+        method: 'POST', 
+        body: { code } 
+      });
+
+      if (r && r.ok) {
+        Admin.toast('✅ Đã xóa voucher');
+        load(); // Tải lại danh sách
+      } else {
+        alert('❌ Xóa thất bại: ' + (r?.message || 'Lỗi không xác định'));
+      }
+    } catch (error) {
+      alert('❌ Xóa thất bại: ' + error.message);
+    }
+  };
 
   // Initial load
   load();
