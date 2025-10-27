@@ -295,6 +295,4 @@ export async function handle(req, env, ctx) {
 
   return errorResponse('Route not found', 404, req);
 }
-
-// Import readBody nếu chưa có ở đầu file
-// import { readBody } from '../lib/utils.js';
+}
