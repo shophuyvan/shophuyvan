@@ -1,5 +1,18 @@
 // myorders.js - Quản lý đơn hàng của khách
 import api from './lib/api.js';
+// THÊM: Cấu hình TIER để dịch tên
+const TIER_CONFIG = {
+  retail: { name: 'Thành viên thường', color: '#6b7280' },
+  silver: { name: 'Thành viên bạc', color: '#94a3b8' },
+  gold: { name: 'Thành viên vàng', color: '#fbbf24' },
+  diamond: { name: 'Thành viên kim cương', color: '#06b6d4' }
+};
+
+// THÊM: Helper lấy thông tin tier
+function getTierInfo(tierKey) {
+  const key = String(tierKey || 'retail').toLowerCase();
+  return TIER_CONFIG[key] || TIER_CONFIG.retail;
+}
 
 const state = {
   orders: [],
@@ -260,7 +273,11 @@ if (!token) {
     // MỚI: Render thông tin customer/tier
     if (data.customer) {
       try {
-        const tierName = data.customer.tier_name || (data.customer.tier ? data.customer.tier.name : 'Chưa xếp hạng');
+        // SỬA: data.customer.tier là "retail", cần tra cứu
+        const tierKey = data.customer.tier || 'retail'; // Lấy key, ví dụ "retail"
+        const tierInfo = getTierInfo(tierKey); // Tra cứu TIER_CONFIG
+        const tierName = tierInfo.name; // Lấy 'Thành viên thường'
+
         const tierPoints = data.customer.points || 0;
         
         const tierInfoEl = document.getElementById('customerTierInfo'); 
