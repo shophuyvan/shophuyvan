@@ -9,117 +9,363 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    .product-card { transition: all 0.2s ease; }
-    .product-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
-    .variant-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .shipping-option { transition: all 0.2s ease; cursor: pointer; }
-    .shipping-option:hover { transform: scale(1.02); }
-    .shipping-option.selected { border-color: #10b981; background: #ecfdf5; }
-    .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s ease-in-out infinite; }
-    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    img { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .gradient-emerald {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    
+    .product-card { 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .product-card:hover { 
+      transform: translateY(-4px); 
+      box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+    }
+    
+    .variant-badge { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    .shipping-option { 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border: 2px solid #e5e7eb;
+    }
+    
+    .shipping-option:hover { 
+      transform: translateX(4px);
+      border-color: #10b981;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+    }
+    
+    .shipping-option.selected { 
+      border-color: #10b981;
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+    }
+    
+    .skeleton { 
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); 
+      background-size: 200% 100%; 
+      animation: loading 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes loading { 
+      0% { background-position: 200% 0; } 
+      100% { background-position: -200% 0; } 
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    .voucher-input:focus {
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    
+    .btn-secondary {
+      border: 2px solid #10b981;
+      color: #10b981;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    .success-message {
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      border: 2px solid #10b981;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    .error-message {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      border: 2px solid #ef4444;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    .info-message {
+      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+      border: 2px solid #3b82f6;
+    }
+    
+    @media (max-width: 768px) {
+      .container-main {
+        padding-bottom: 200px;
+      }
+    }
   </style>
 </head>
 
-<body class="bg-gray-50">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
 
-<header class="bg-white border-b sticky top-0 z-40 shadow-sm">
-  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
-    <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <img src="/logo.png" class="w-8 h-8 rounded" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23e5e7eb%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'" />
-      <span class="font-bold text-lg">SHOP HUY VÂN</span>
+<header class="bg-white border-b sticky top-0 z-50 shadow-lg backdrop-blur-sm bg-white/95">
+  <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-4">
+    <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity group">
+      <div class="relative">
+        <img src="/logo.png" class="w-10 h-10 rounded-xl shadow-md group-hover:shadow-lg transition-shadow" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect fill=%22%2310b981%22 width=%2240%22 height=%2240%22 rx=%228%22/%3E%3C/svg%3E'" />
+        <div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+      </div>
+      <div>
+        <div class="font-bold text-lg leading-none">SHOP HUY VÂN</div>
+        <div class="text-xs text-gray-500">Thanh toán an toàn</div>
+      </div>
     </a>
-    <div class="ml-auto text-sm text-gray-600">
-      <span class="hidden sm:inline">Thanh toán an toàn</span>
-      <span class="inline sm:hidden">🔒</span>
+    <div class="ml-auto flex items-center gap-2 text-sm font-medium">
+      <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+      </svg>
+      <span class="hidden sm:inline text-green-700">Bảo mật</span>
     </div>
   </div>
 </header>
 
-<main class="max-w-4xl mx-auto px-4 py-6 space-y-4 pb-32">
-  <h1 class="text-2xl font-bold">Thanh toán</h1>
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6 container-main">
   
-  <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
-    <div class="p-4 border-b bg-gradient-to-r from-rose-50 to-pink-50">
-      <h2 class="font-semibold text-lg flex items-center gap-2">
-        <span>🛒</span>
-        <span>Đơn hàng (<span id="cart-count">0</span> sản phẩm)</span>
+  <!-- Progress Steps -->
+  <div class="flex items-center justify-center gap-2 mb-8">
+    <div class="flex items-center">
+      <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">✓</div>
+      <div class="ml-2 text-sm font-semibold text-green-600">Giỏ hàng</div>
+    </div>
+    <div class="w-12 h-0.5 bg-green-500"></div>
+    <div class="flex items-center">
+      <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">2</div>
+      <div class="ml-2 text-sm font-semibold text-green-600">Thanh toán</div>
+    </div>
+    <div class="w-12 h-0.5 bg-gray-300"></div>
+    <div class="flex items-center">
+      <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 font-bold text-sm">3</div>
+      <div class="ml-2 text-sm font-medium text-gray-400">Hoàn tất</div>
+    </div>
+  </div>
+
+  <h1 class="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+    Thanh toán đơn hàng
+  </h1>
+  
+  <!-- Cart Items -->
+  <section class="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+    <div class="p-5 border-b bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50">
+      <h2 class="font-bold text-xl flex items-center gap-3">
+        <span class="text-2xl">🛒</span>
+        <span>Đơn hàng của bạn</span>
+        <span class="ml-auto bg-white px-3 py-1 rounded-full text-sm font-semibold text-emerald-600 shadow-sm">
+          <span id="cart-count">0</span> sản phẩm
+        </span>
       </h2>
     </div>
-    <div id="cart-items" class="divide-y max-h-96 overflow-y-auto">
-      <div class="p-8 text-center text-gray-500">
-        <div class="skeleton w-full h-32 rounded-xl mb-3"></div>
+    <div id="cart-items" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
+      <div class="p-12 text-center">
+        <div class="skeleton w-full h-40 rounded-2xl mb-4"></div>
+        <div class="skeleton w-3/4 h-6 rounded-lg mx-auto"></div>
       </div>
     </div>
-    <div class="p-4 border-t bg-gray-50">
-      <div class="flex justify-between items-center text-lg font-semibold">
-        <span>Tạm tính</span>
-        <span id="subtotal" class="text-rose-600">0₫</span>
+    <div class="p-5 border-t bg-gradient-to-r from-gray-50 to-gray-100">
+      <div class="flex justify-between items-center">
+        <span class="text-lg font-semibold text-gray-700">Tạm tính</span>
+        <span id="subtotal" class="text-2xl font-bold text-emerald-600">0₫</span>
       </div>
     </div>
   </section>
 
-  <section class="bg-white rounded-2xl p-4 shadow-sm">
-    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
-      <span>📍</span>
-      <span>Địa chỉ nhận hàng</span>
+  <!-- Customer Info -->
+  <section class="bg-white rounded-3xl p-6 shadow-xl border border-gray-100">
+    <h2 class="font-bold text-xl mb-5 flex items-center gap-3">
+      <span class="text-2xl">📍</span>
+      <span>Thông tin nhận hàng</span>
     </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <input id="name" placeholder="Họ tên *" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
-      <input id="phone" placeholder="Số điện thoại *" type="tel" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
-      <select id="province" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none">
-        <option value="">-- Chọn Tỉnh/Thành phố *</option>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="relative">
+        <input id="name" placeholder="Họ và tên *" 
+          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
+        <span class="absolute right-4 top-4 text-gray-400">👤</span>
+      </div>
+      
+      <div class="relative">
+        <input id="phone" placeholder="Số điện thoại *" type="tel" 
+          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
+        <span class="absolute right-4 top-4 text-gray-400">📱</span>
+      </div>
+      
+      <select id="province" class="border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer">
+        <option value="">-- Tỉnh/Thành phố *</option>
       </select>
-      <select id="district" class="col-span-1 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" disabled>
-        <option value="">-- Chọn Quận/Huyện *</option>
+      
+      <select id="district" class="border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer" disabled>
+        <option value="">-- Quận/Huyện *</option>
       </select>
-      <select id="ward" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" disabled>
-        <option value="">-- Chọn Phường/Xã *</option>
+      
+      <select id="ward" class="md:col-span-2 border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer" disabled>
+        <option value="">-- Phường/Xã *</option>
       </select>
-      <input id="address" placeholder="Địa chỉ chi tiết (số nhà, tên đường) *" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" required />
-      <textarea id="note" placeholder="Ghi chú (không bắt buộc)" rows="2" class="col-span-1 md:col-span-2 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none resize-none"></textarea>
+      
+      <div class="md:col-span-2 relative">
+        <input id="address" placeholder="Số nhà, tên đường (tối thiểu 10 ký tự) *" 
+          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
+        <span class="absolute right-4 top-4 text-gray-400">🏠</span>
+      </div>
+      
+      <textarea id="note" placeholder="Ghi chú đơn hàng (không bắt buộc)" rows="3" 
+        class="md:col-span-2 border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all resize-none font-medium"></textarea>
     </div>
     <input type="hidden" id="province_code" />
     <input type="hidden" id="district_code" />
     <input type="hidden" id="ward_code" />
   </section>
 
-  <section class="bg-white rounded-2xl p-4 shadow-sm">
-    <h2 class="font-semibold text-lg mb-3 flex items-center gap-2">
-      <span>🚚</span>
-      <span>Vận chuyển</span>
+  <!-- Shipping -->
+  <section class="bg-white rounded-3xl p-6 shadow-xl border border-gray-100">
+    <h2 class="font-bold text-xl mb-4 flex items-center gap-3">
+      <span class="text-2xl">🚚</span>
+      <span>Phương thức vận chuyển</span>
     </h2>
-    <div class="text-sm text-gray-600 mb-3">
-      Khối lượng: <span id="total-weight" class="font-semibold">-</span>
+    <div class="flex items-center gap-3 mb-5 bg-blue-50 p-4 rounded-2xl border border-blue-200">
+      <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+      </svg>
+      <div class="text-sm">
+        <span class="font-semibold text-gray-700">Khối lượng đơn hàng:</span>
+        <span id="total-weight" class="font-bold text-blue-700 ml-2">-</span>
+      </div>
     </div>
-    <div id="shipping-list" class="space-y-2">
-      <div class="text-sm text-gray-500 text-center py-4">
-        Vui lòng chọn địa chỉ để xem phí vận chuyển
+    <div id="shipping-list" class="space-y-3">
+      <div class="text-center py-8 text-gray-400">
+        <div class="text-4xl mb-3">📦</div>
+        <p class="font-medium">Vui lòng chọn địa chỉ để xem phí vận chuyển</p>
       </div>
     </div>
   </section>
 
-  <section class="bg-white rounded-2xl p-4 shadow-sm">
-    <h2 class="font-semibold text-lg mb-3">Chi tiết thanh toán</h2>
-    <div class="space-y-2 text-sm">
-      <div class="flex justify-between">
-        <span>Tổng sản phẩm:</span>
-        <span id="summary-subtotal">0₫</span>
-      </div>
-      <div class="flex justify-between">
-        <span>Phí vận chuyển:</span>
-        <span id="summary-shipping" class="text-emerald-600 font-semibold">0₫</span>
-      </div>
+  <!-- Voucher Section -->
+  <section class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-6 shadow-xl border-2 border-amber-200">
+    <h2 class="font-bold text-xl mb-4 flex items-center gap-3">
+      <span class="text-2xl">🎟️</span>
+      <span>Mã giảm giá</span>
+      <span class="ml-auto text-xs bg-amber-200 text-amber-800 px-3 py-1 rounded-full font-semibold">Không bắt buộc</span>
+    </h2>
+    <div class="flex gap-3">
+      <input 
+        id="voucher-input" 
+        type="text" 
+        placeholder="Nhập mã giảm giá (VD: OPEN111)" 
+        class="voucher-input flex-1 border-2 border-amber-300 rounded-2xl px-5 py-4 font-semibold uppercase transition-all bg-white focus:border-emerald-500"
+        autocomplete="off"
+      />
+      <button 
+        id="apply-voucher" 
+        class="btn-secondary px-8 py-4 rounded-2xl font-bold text-lg whitespace-nowrap shadow-lg hover:shadow-xl transition-all"
+      >
+        Áp dụng
+      </button>
     </div>
-    <div class="flex justify-between py-3 border-t mt-3 text-xl font-bold">
-      <span>Tổng thanh toán:</span>
-      <span id="grand-total" class="text-emerald-600">0₫</span>
+    <div id="voucher-result" class="hidden mt-4"></div>
+  </section>
+
+  <!-- Order Summary -->
+  <section class="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 sticky bottom-4">
+    <h2 class="font-bold text-xl mb-5 flex items-center gap-3">
+      <span class="text-2xl">💰</span>
+      <span>Chi tiết thanh toán</span>
+    </h2>
+    <div class="space-y-3 mb-5">
+      <div class="flex justify-between items-center text-base">
+        <span class="text-gray-600">Tổng sản phẩm:</span>
+        <span id="summary-subtotal" class="font-semibold text-gray-900">0₫</span>
+      </div>
+      <div class="flex justify-between items-center text-base">
+        <span class="text-gray-600">Phí vận chuyển:</span>
+        <span id="summary-shipping" class="font-semibold text-emerald-600">0₫</span>
+      </div>
+      <!-- Discount row will be added dynamically here -->
     </div>
-    <div id="error-message" class="hidden text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200 mt-3"></div>
-    <button id="place-order" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed mt-4">
-      Đặt hàng
+    <div class="flex justify-between items-center py-5 border-t-2 border-gray-200 mb-5">
+      <span class="text-xl font-bold text-gray-900">Tổng thanh toán:</span>
+      <span id="grand-total" class="text-3xl font-bold text-emerald-600">0₫</span>
+    </div>
+    
+    <div id="error-message" class="hidden mb-4"></div>
+    
+    <button id="place-order" 
+      class="btn-primary w-full text-white px-8 py-5 rounded-2xl font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+      <span class="flex items-center justify-center gap-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span>Đặt hàng ngay</span>
+      </span>
     </button>
-    <div id="order-result" class="text-sm mt-3 text-center"></div>
+    
+    <div id="order-result" class="text-center mt-4"></div>
+    
+    <div class="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500">
+      <div class="flex items-center gap-1">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+        </svg>
+        <span>Thanh toán bảo mật</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+        </svg>
+        <span>Xác nhận qua email</span>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -153,9 +399,7 @@ function getFixedQuotes(weightGrams) {
   const cap = Math.min(kg, 6);
   const table = {
     vtp: { name: 'Viettel Post', rates: {1:18000,2:23000,3:28000,4:33000,5:38000,6:43000} },
-    spx: { name: 'SPX Express',  rates: {1:15000,2:25000,3:35000,4:45000,5:55000,6:65000} },
-    jt:  { name: 'J&T Express',  rates: {1:20000,2:25000,3:25000,4:30000,5:35000,6:40000} },
-    ghn: { name: 'GHN',          rates: {1:19000,2:19000,3:24000,4:29000,5:34000,6:39000} },
+    ghn: { name: 'GHN', rates: {1:19000,2:19000,3:24000,4:29000,5:34000,6:39000} },
   };
   function extend(code) {
     const r = table[code].rates;
@@ -168,13 +412,14 @@ function getFixedQuotes(weightGrams) {
     provider: code,
     service_code: 'fixed',
     name: info.name,
-    fee: kg<=6 ? info.rates[cap] : extend(code),
+    fee: extend(code),
     eta: 'Giao hàng tiêu chuẩn'
   }));
 }
 
 let selectedShipping = null;
 let placing = false;
+let appliedVoucher = null;
 
 function getCart() {
   try {
@@ -185,7 +430,6 @@ function getCart() {
   } catch { return []; }
 }
 
-// ✅ FIX: Clear cart function
 function clearCart() {
   try {
     localStorage.removeItem('cart');
@@ -194,8 +438,7 @@ function clearCart() {
     localStorage.removeItem('shv_cart_v1');
     window.dispatchEvent(new Event('storage'));
     window.dispatchEvent(new CustomEvent('shv:cart-changed'));
-    window.dispatchEvent(new CustomEvent('cart-cleared'));
-    console.log('✅ Cart cleared successfully');
+    console.log('✅ Cart cleared');
   } catch(e) {
     console.error('❌ Clear cart error:', e);
   }
@@ -204,10 +447,12 @@ function clearCart() {
 function calculateTotals() {
   const cart = getCart();
   const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
-  const shippingFee = selectedShipping ? Number(selectedShipping.fee || 0) : 0;
-  const discount = 0;
+  const shippingFeeOriginal = selectedShipping ? Number(selectedShipping.fee || 0) : 0;
+  const discount = appliedVoucher ? Number(appliedVoucher.discount || 0) : 0;
+  const shippingDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount || 0) : 0;
+  const shippingFee = Math.max(0, shippingFeeOriginal - shippingDiscount);
   const total = Math.max(0, subtotal + shippingFee - discount);
-  return { subtotal, shippingFee, discount, total };
+  return { subtotal, shippingFee, shippingFeeOriginal, discount, shippingDiscount, total };
 }
 
 function renderCartItems() {
@@ -219,11 +464,14 @@ function renderCartItems() {
   
   if (!cart.length) {
     container.innerHTML = `
-      <div class="p-8 text-center text-gray-500">
-        <div class="text-6xl mb-3">🛒</div>
-        <p>Giỏ hàng trống</p>
-        <a href="/" class="inline-block mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-          Tiếp tục mua sắm
+      <div class="p-12 text-center">
+        <div class="text-7xl mb-4 animate-bounce">🛒</div>
+        <p class="text-xl text-gray-500 font-semibold mb-6">Giỏ hàng trống</p>
+        <a href="/" class="inline-flex items-center gap-2 px-8 py-4 btn-primary text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span>Tiếp tục mua sắm</span>
         </a>
       </div>
     `;
@@ -234,24 +482,36 @@ function renderCartItems() {
     const image = cloudify(item.variantImage || item.image || '/icon.png');
     const itemTotal = Number(item.price || 0) * Number(item.qty || 1);
     return `
-      <div class="product-card p-4 flex gap-4 items-start hover:bg-gray-50">
-        <img src="${image}" alt="${item.name}" class="w-24 h-24 rounded-xl object-cover flex-shrink-0 border-2 border-gray-100" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E'" />
+      <div class="product-card p-5 flex gap-5 items-start">
+        <div class="relative flex-shrink-0">
+          <img src="${image}" alt="${item.name}" 
+            class="w-28 h-28 rounded-2xl object-cover border-2 border-gray-100 shadow-md" 
+            loading="lazy" 
+            onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22112%22 height=%22112%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22112%22 height=%22112%22 rx=%2216%22/%3E%3C/svg%3E'" />
+          <div class="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center shadow-lg">
+            ${item.qty}
+          </div>
+        </div>
         <div class="flex-1 min-w-0">
-          <h3 class="font-semibold text-sm line-clamp-2 mb-1">${item.name || 'Sản phẩm'}</h3>
+          <h3 class="font-bold text-base line-clamp-2 mb-2 text-gray-900">${item.name || 'Sản phẩm'}</h3>
           ${item.variantName || item.variant ? `
-            <div class="mb-2">
-              <span class="inline-block px-3 py-1 text-xs rounded-full variant-badge text-white font-medium">
+            <div class="mb-3">
+              <span class="inline-block px-4 py-1.5 text-sm rounded-xl variant-badge text-white font-semibold">
                 ${item.variantName || item.variant}
               </span>
             </div>
           ` : ''}
-          <div class="flex items-center justify-between">
-            <div class="text-rose-600 font-bold">${fmtVND(item.price)}</div>
-            <div class="text-sm text-gray-600">Số lượng: <span class="font-semibold">${item.qty}</span></div>
-          </div>
-          <div class="mt-2 text-right">
-            <span class="text-xs text-gray-500">Thành tiền: </span>
-            <span class="font-bold text-emerald-600 text-lg">${fmtVND(itemTotal)}</span>
+          <div class="flex items-end justify-between mt-auto">
+            <div>
+              <div class="text-sm text-gray-500 mb-1">Đơn giá</div>
+              <div class="text-xl font-bold text-emerald-600">${fmtVND(item.price)}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-gray-500 mb-1">Thành tiền</div>
+              <div class="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                ${fmtVND(itemTotal)}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -261,7 +521,6 @@ function renderCartItems() {
   updateSummary();
 }
 
-// Hiển thị trọng lượng thân thiện (theo gram/kg, không ép 1kg)
 function toHumanWeight(grams) {
   const g = Number(grams || 0);
   if (g <= 0) return '0 g';
@@ -270,20 +529,55 @@ function toHumanWeight(grams) {
   return (kg % 1 === 0) ? `${kg.toFixed(0)} kg` : `${kg.toFixed(1)} kg`;
 }
 
-
 function updateSummary() {
-  const { subtotal, shippingFee, discount, total } = calculateTotals();
+  const { subtotal, shippingFee, shippingFeeOriginal, discount, shippingDiscount, total } = calculateTotals();
+  
   $('subtotal').textContent = fmtVND(subtotal);
   $('summary-subtotal').textContent = fmtVND(subtotal);
-  $('summary-shipping').textContent = fmtVND(shippingFee);
+  
+  // Show original shipping fee with strikethrough if discount applied
+  if (shippingDiscount > 0) {
+    $('summary-shipping').innerHTML = `
+      <span class="line-through text-gray-400 mr-2">${fmtVND(shippingFeeOriginal)}</span>
+      <span class="text-emerald-600 font-bold">${fmtVND(shippingFee)}</span>
+    `;
+  } else {
+    $('summary-shipping').textContent = fmtVND(shippingFee);
+  }
+  
+  // Add/update discount row
+  let discountRow = document.querySelector('#discount-row');
+  const summaryDiv = document.querySelector('.space-y-3.mb-5');
+  
+  if ((discount > 0 || shippingDiscount > 0) && summaryDiv) {
+    const totalDiscount = discount + shippingDiscount;
+    if (!discountRow) {
+      discountRow = document.createElement('div');
+      discountRow.id = 'discount-row';
+      discountRow.className = 'flex justify-between items-center text-base slide-in';
+      summaryDiv.appendChild(discountRow);
+    }
+    discountRow.innerHTML = `
+      <span class="text-emerald-700 font-semibold flex items-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <span>Giảm giá:</span>
+      </span>
+      <span class="font-bold text-emerald-600">-${fmtVND(totalDiscount)}</span>
+    `;
+  } else if (discountRow) {
+    discountRow.remove();
+  }
+  
   $('grand-total').textContent = fmtVND(total);
   
   const cart = getCart();
   const totalWeight = cart.reduce(
-  (sum, item) => sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1),
-  0
-);
-$('total-weight').textContent = toHumanWeight(totalWeight);
+    (sum, item) => sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1),
+    0
+  );
+  $('total-weight').textContent = toHumanWeight(totalWeight);
 }
 
 async function loadProvinces() {
@@ -291,7 +585,7 @@ async function loadProvinces() {
     const res = await api('/shipping/provinces');
     const provinces = res.items || res.data || [];
     const select = $('province');
-    select.innerHTML = '<option value="">-- Chọn Tỉnh/Thành phố *</option>';
+    select.innerHTML = '<option value="">-- Tỉnh/Thành phố *</option>';
     provinces.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.code;
@@ -308,7 +602,7 @@ async function loadDistricts(provinceCode) {
     const res = await api(`/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
     const districts = res.items || res.data || [];
     const select = $('district');
-    select.innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
+    select.innerHTML = '<option value="">-- Quận/Huyện *</option>';
     select.disabled = false;
     districts.forEach(item => {
       const opt = document.createElement('option');
@@ -316,7 +610,7 @@ async function loadDistricts(provinceCode) {
       opt.textContent = item.name;
       select.appendChild(opt);
     });
-    $('ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+    $('ward').innerHTML = '<option value="">-- Phường/Xã *</option>';
     $('ward').disabled = true;
     $('district_code').value = '';
     $('ward_code').value = '';
@@ -330,7 +624,7 @@ async function loadWards(districtCode) {
     const res = await api(`/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
     const wards = res.items || res.data || [];
     const select = $('ward');
-    select.innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+    select.innerHTML = '<option value="">-- Phường/Xã *</option>';
     select.disabled = false;
     wards.forEach(item => {
       const opt = document.createElement('option');
@@ -351,12 +645,22 @@ async function getShippingQuote() {
   const districtName = districtEl.options[districtEl.selectedIndex]?.text || '';
   
   if (!provinceName || !districtName || provinceEl.value === '') {
-    $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Vui lòng chọn địa chỉ đầy đủ</div>';
+    $('shipping-list').innerHTML = `
+      <div class="text-center py-8 text-gray-400">
+        <div class="text-4xl mb-3">📍</div>
+        <p class="font-medium">Vui lòng chọn địa chỉ đầy đủ</p>
+      </div>
+    `;
     return;
   }
   
   try {
-    $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Đang tải phí vận chuyển...</div>';
+    $('shipping-list').innerHTML = `
+      <div class="text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-200 border-t-emerald-600 mb-3"></div>
+        <p class="text-gray-600 font-medium">Đang tải phí vận chuyển...</p>
+      </div>
+    `;
     
     const cart = getCart();
     const weight = cart.reduce((sum, item) => sum + Number(item.weight_gram || item.weight || 0) * Number(item.qty || 1), 0) || 500;
@@ -366,12 +670,12 @@ async function getShippingQuote() {
     
     try {
       const payload = {
-       receiver_province: provinceName,
-       receiver_district: districtName,
-       weight_gram: weight,
-       value: subtotal,   // alias cho worker/SuperAI
-       cod: subtotal
-     };
+        receiver_province: provinceName,
+        receiver_district: districtName,
+        weight_gram: weight,
+        value: subtotal,
+        cod: subtotal
+      };
       const res = await api('/shipping/price', {
         method: 'POST',
         body: payload
@@ -388,13 +692,14 @@ async function getShippingQuote() {
       console.log('API shipping failed, using fallback');
     }
     
-   // if (!items.length) {
-//   items = getFixedQuotes(weight);
-// }
-    
     items = items.filter(o => o.fee > 0);
     if (!items.length) {
-      $('shipping-list').innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Không có dịch vụ vận chuyển khả dụng</div>';
+      $('shipping-list').innerHTML = `
+        <div class="text-center py-8 text-gray-400">
+          <div class="text-4xl mb-3">📦</div>
+          <p class="font-medium">Không có dịch vụ vận chuyển khả dụng</p>
+        </div>
+      `;
       return;
     }
     
@@ -407,18 +712,23 @@ async function getShippingQuote() {
     }).sort((a, b) => a.fee - b.fee);
     
     $('shipping-list').innerHTML = items.map((item, idx) => `
-      <label class="shipping-option flex items-center justify-between border-2 rounded-xl p-4 ${idx === 0 ? 'selected' : ''}">
-        <div class="flex items-center gap-3 flex-1">
+      <label class="shipping-option flex items-center justify-between rounded-2xl p-5 ${idx === 0 ? 'selected' : ''} cursor-pointer">
+        <div class="flex items-center gap-4 flex-1">
           <input type="radio" name="ship_opt" value="${idx}" ${idx === 0 ? 'checked' : ''} 
             data-provider="${item.provider}" data-service="${item.service_code}" 
             data-fee="${item.fee}" data-eta="${item.eta || ''}" data-name="${item.name}"
-            class="w-5 h-5 text-emerald-600" />
+            class="w-5 h-5 text-emerald-600 focus:ring-2 focus:ring-emerald-500" />
           <div class="flex-1">
-            <div class="font-semibold">${item.name}</div>
-            <div class="text-sm text-gray-600">${item.eta || 'Giao hàng tiêu chuẩn'}</div>
+            <div class="font-bold text-base text-gray-900">${item.name}</div>
+            <div class="text-sm text-gray-600 mt-1 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+              </svg>
+              <span>${item.eta || 'Giao hàng tiêu chuẩn'}</span>
+            </div>
           </div>
         </div>
-        <div class="font-bold text-emerald-600 text-lg">${fmtVND(item.fee)}</div>
+        <div class="font-bold text-xl text-emerald-600">${fmtVND(item.fee)}</div>
       </label>
     `).join('');
     
@@ -450,17 +760,147 @@ async function getShippingQuote() {
     }
   } catch (e) {
     console.error('Get quote error:', e);
-    $('shipping-list').innerHTML = '<div class="text-sm text-red-600 text-center py-4">Lỗi khi lấy phí vận chuyển</div>';
+    $('shipping-list').innerHTML = `
+      <div class="error-message p-5 rounded-2xl text-center">
+        <div class="text-3xl mb-2">⚠️</div>
+        <p class="font-semibold text-red-700">Lỗi khi lấy phí vận chuyển</p>
+      </div>
+    `;
   }
 }
 
+async function applyVoucher() {
+  const input = $('voucher-input');
+  const btn = $('apply-voucher');
+  const result = $('voucher-result');
+  const code = input.value.trim().toUpperCase();
+  
+  if (!code) {
+    result.innerHTML = `
+      <div class="error-message p-4 rounded-2xl flex items-center gap-3">
+        <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <span class="font-semibold text-red-700">Vui lòng nhập mã giảm giá</span>
+      </div>
+    `;
+    result.classList.remove('hidden');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="pulse">Đang kiểm tra...</span>';
+  result.innerHTML = `
+    <div class="info-message p-4 rounded-2xl flex items-center gap-3">
+      <div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-200 border-t-blue-600"></div>
+      <span class="font-medium text-blue-700">Đang kiểm tra mã giảm giá...</span>
+    </div>
+  `;
+  result.classList.remove('hidden');
+  
+  try {
+    const cart = getCart();
+    const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
+    
+    const res = await api('/vouchers/apply', {
+      method: 'POST',
+      body: {
+        code: code,
+        subtotal: subtotal,
+        customer_id: null
+      }
+    });
+    
+    if (res.ok === true && res.valid === true) {
+      appliedVoucher = {
+        code: res.code,
+        discount: res.discount || 0,
+        ship_discount: res.ship_discount || 0
+      };
+      
+      const totalSaved = (res.discount || 0) + (res.ship_discount || 0);
+      result.innerHTML = `
+        <div class="success-message p-5 rounded-2xl">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0">
+              <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-bold text-lg text-green-800 mb-1">
+                ${res.message || 'Áp dụng mã giảm giá thành công!'}
+              </div>
+              <div class="text-green-700">
+                Bạn đã tiết kiệm được <span class="font-bold text-xl">${fmtVND(totalSaved)}</span>
+              </div>
+            </div>
+            <button onclick="clearVoucher()" class="text-green-700 hover:text-green-900 font-bold text-xl">
+              ✕
+            </button>
+          </div>
+        </div>
+      `;
+      input.disabled = true;
+      btn.textContent = '✓ Đã áp dụng';
+      btn.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+      updateSummary();
+    } else {
+      appliedVoucher = null;
+      result.innerHTML = `
+        <div class="error-message p-4 rounded-2xl flex items-center gap-3">
+          <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+          </svg>
+          <span class="font-semibold text-red-700">${res.message || 'Mã giảm giá không hợp lệ'}</span>
+        </div>
+      `;
+      btn.disabled = false;
+      btn.textContent = 'Áp dụng';
+      updateSummary();
+    }
+  } catch (err) {
+    appliedVoucher = null;
+    result.innerHTML = `
+      <div class="error-message p-4 rounded-2xl flex items-center gap-3">
+        <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <span class="font-semibold text-red-700">${err.message || 'Có lỗi xảy ra khi kiểm tra mã'}</span>
+      </div>
+    `;
+    btn.disabled = false;
+    btn.textContent = 'Áp dụng';
+    updateSummary();
+  }
+}
+
+window.clearVoucher = function() {
+  appliedVoucher = null;
+  $('voucher-input').value = '';
+  $('voucher-input').disabled = false;
+  $('voucher-result').classList.add('hidden');
+  const btn = $('apply-voucher');
+  btn.textContent = 'Áp dụng';
+  btn.disabled = false;
+  btn.classList.remove('bg-green-100', 'text-green-700', 'border-green-300');
+  updateSummary();
+};
+
 function showError(message) {
   const errorEl = $('error-message');
-  errorEl.textContent = '⚠️ ' + message;
+  errorEl.innerHTML = `
+    <div class="error-message p-4 rounded-2xl flex items-center gap-3">
+      <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+      <span class="font-semibold text-red-700">${message}</span>
+    </div>
+  `;
   errorEl.classList.remove('hidden');
   setTimeout(() => {
     errorEl.classList.add('hidden');
-  }, 5000);
+  }, 6000);
 }
 
 async function placeOrder() {
@@ -484,17 +924,16 @@ async function placeOrder() {
     return;
   }
 
-  // THÊM KIỂM TRA ĐỘ DÀI ĐỊA CHỈ CHI TIẾT
   if (address.length < 10) {
-    showError('Địa chỉ chi tiết quá ngắn. Vui lòng điền đầy đủ số nhà, tên đường (tối thiểu 10 ký tự).');
-    placing = false; // Ngăn không cho submit
-    $('address').focus(); // Tự động trỏ vào ô địa chỉ
-    return; // Dừng hàm
+    showError('Địa chỉ chi tiết quá ngắn. Vui lòng nhập đầy đủ số nhà, tên đường (tối thiểu 10 ký tự).');
+    placing = false;
+    $('address').focus();
+    return;
   }
   
   const cleanPhone = phone.replace(/\D/g, '');
   if (!VN_PHONE_RE.test(cleanPhone)) {
-    showError('Số điện thoại không hợp lệ (VD: 0912345678)!');
+    showError('Số điện thoại không hợp lệ! Vui lòng nhập đúng định dạng (VD: 0912345678).');
     placing = false;
     return;
   }
@@ -512,14 +951,18 @@ async function placeOrder() {
     return;
   }
   
-  const { subtotal, shippingFee, discount, total } = calculateTotals();
+  const { subtotal, shippingFee, shippingFeeOriginal, discount, shippingDiscount, total } = calculateTotals();
   
   btn.disabled = true;
-  btn.textContent = 'Đang xử lý...';
+  btn.innerHTML = `
+    <span class="flex items-center justify-center gap-3">
+      <div class="inline-block animate-spin rounded-full h-6 w-6 border-3 border-white border-t-transparent"></div>
+      <span>Đang xử lý đơn hàng...</span>
+    </span>
+  `;
   resultEl.textContent = '';
   
   try {
-    // Đọc TÊN từ dropdown
     const provinceName = $('province').options[$('province').selectedIndex]?.text || '';
     const districtName = $('district').options[$('district').selectedIndex]?.text || '';
     const communeName = $('ward').options[$('ward').selectedIndex]?.text || '';
@@ -529,11 +972,9 @@ async function placeOrder() {
         name: name,
         phone: cleanPhone,
         address: address,
-        // Gửi TÊN
         province: provinceName,
         district: districtName,
         commune: communeName,
-        // Giữ lại CODE (nếu backend cần)
         province_code: provinceCode,
         district_code: districtCode,
         commune_code: wardCode,
@@ -552,19 +993,19 @@ async function placeOrder() {
       })),
       totals: {
         subtotal: subtotal,
-        shipping_fee: shippingFee,
+        shipping_fee: shippingFeeOriginal,
         discount: discount,
-        shipping_discount: 0,
+        shipping_discount: shippingDiscount,
         total: total
       },
       shipping_provider: selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
       shipping_name: selectedShipping.name,
       shipping_eta: selectedShipping.eta,
-      shipping_fee: shippingFee,
+      shipping_fee: shippingFeeOriginal,
       discount: discount,
-      shipping_discount: 0,
-      voucher_code: '',
+      shipping_discount: shippingDiscount,
+      voucher_code: appliedVoucher ? appliedVoucher.code : '',
       note: note,
       source: 'website',
       status: 'placed'
@@ -584,42 +1025,44 @@ async function placeOrder() {
     if (res.ok || res.id) {
       const orderId = res.id || res.order_id || '';
       
-      // ✅ FIX: Clear cart IMMEDIATELY after success
       clearCart();
       
       resultEl.innerHTML = `
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-3">
-          <div class="flex items-center gap-2 text-green-700 font-semibold mb-2">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
-            <span>✓ Đặt hàng thành công!</span>
+        <div class="success-message p-6 rounded-2xl shadow-lg">
+          <div class="flex flex-col items-center text-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+              <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-green-800 mb-2">Đặt hàng thành công!</div>
+              <div class="text-green-700 mb-1">Mã đơn hàng: <span class="font-bold">${orderId}</span></div>
+              <div class="text-sm text-green-600">Chúng tôi sẽ liên hệ với bạn trong thời gian sớm nhất.</div>
+            </div>
           </div>
-          <p class="text-sm text-gray-600">Mã đơn hàng: <strong>${orderId}</strong></p>
-          <p class="text-sm text-gray-600 mt-1">Chúng tôi sẽ liên hệ với bạn sớm nhất.</p>
         </div>
       `;
       
       setTimeout(() => {
         window.location.href = '/?order_success=1&order_id=' + orderId;
-      }, 2000);
+      }, 2500);
     } else {
       throw new Error(res.error || res.message || 'Đặt hàng thất bại');
     }
   } catch (e) {
     console.error('Place order error:', e);
-    showError(e.message || 'Có lỗi xảy ra khi đặt hàng');
+    showError(e.message || 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại.');
     btn.disabled = false;
-    btn.textContent = 'Đặt hàng';
+    btn.innerHTML = `
+      <span class="flex items-center justify-center gap-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span>Đặt hàng ngay</span>
+      </span>
+    `;
     placing = false;
-  } finally {
-    // ✅ FIX: Always reset button state
-    if (btn.disabled) {
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = 'Đặt hàng';
-      }, 3000);
-    }
   }
 }
 
@@ -658,6 +1101,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   $('place-order').addEventListener('click', placeOrder);
   
+  const applyVoucherBtn = $('apply-voucher');
+  const voucherInput = $('voucher-input');
+  if (applyVoucherBtn) {
+    applyVoucherBtn.addEventListener('click', applyVoucher);
+  }
+  if (voucherInput) {
+    voucherInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyVoucher();
+      }
+    });
+  }
+  
   ['name', 'phone', 'address'].forEach(id => {
     const el = $(id);
     if (el) {
@@ -666,9 +1123,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-console.log('✅ Checkout page loaded - Cart clear FIXED');
+console.log('✅ Checkout page loaded - Voucher integrated');
 </script>
 
 </body>
 </html>
-      
