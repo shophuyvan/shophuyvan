@@ -37,20 +37,17 @@ async function applyVoucher(){
 
   try {
     // Gọi API endpoint MỚI: /vouchers/apply
-    const response = await api('/vouchers/apply', {
+    const data = await api('/vouchers/apply', {
       method:'POST',
-      body: JSON.stringify({
-        code: code,                 // Mã voucher khách nhập
-        customer_id: customerId,    // ID khách hàng (có thể là null)
-        subtotal: sub              // Tổng tiền hàng
-      })
+      body: {
+        code: code,
+        customer_id: customerId,
+        subtotal: sub
+      }
     });
 
-    // Đọc kết quả JSON từ API
-    const data = await response.json();
-
-    // Kiểm tra xem API có trả về lỗi không (status 4xx, 5xx hoặc data.ok === false)
-    if (!response.ok || !data.ok) {
+    // Kiểm tra kết quả
+    if (!data || !data.ok) {
       // Nếu có lỗi, ném lỗi với thông báo từ API
       throw new Error(data.error || 'Mã không hợp lệ hoặc đã hết hạn/lượt dùng');
     }
