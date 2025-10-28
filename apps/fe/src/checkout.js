@@ -219,7 +219,8 @@ try {
   }
 },
       /* removed legacy duplicate block */
-testVoucherBtn?.addEventListener('click', async ()=> {
+testVoucherBtn?.addEventListener('click', async (event)=> { // SỬA: Thêm (event)
+  event.preventDefault(); // THÊM: Ngăn chặn form submit và tải lại trang
   const code = voucherInput.value?.trim() || null;
   voucherResult.textContent = 'Đang kiểm tra...';
   voucherResult.style.color = '#888'; // Màu xám trung tính
