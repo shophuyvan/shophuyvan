@@ -384,17 +384,52 @@
     */
   });
 
-  // Facebook Login
+// Facebook Login
   document.getElementById('btn-facebook-register').addEventListener('click', () => {
-    showToast('Tính năng đăng nhập Facebook đang phát triển', 'error');
+    if (typeof FB === 'undefined') {
+      showToast('Lỗi: Không tải được SDK Facebook. Vui lòng thử lại.', 'error');
+      return;
+    }
     
-    // ⚠️ TODO: Khi có Facebook App ID, uncomment và config:
-    /*
-    const FB_APP_ID = 'YOUR_FACEBOOK_APP_ID';
-    const REDIRECT_URI = encodeURIComponent(window.location.origin + '/auth/facebook/callback');
-    const fbAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${FB_APP_ID}&redirect_uri=${REDIRECT_URI}&state=register&scope=email,public_profile`;
-    window.location.href = fbAuthUrl;
-    */
+    FB.login(function(response) {
+      if (response.authResponse) {
+        console.log('FB Login Success:', response);
+        showToast('Đang xác thực với máy chủ...', 'success');
+        
+        // Gửi access token về backend
+        fetch(`${API_BASE}/auth/facebook/login`, { // Sử dụng API_BASE
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ accessToken: response.authResponse.accessToken })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.token && data.customer) {
+            // Đăng nhập/Đăng ký thành công
+            localStorage.setItem('customer_token', data.token);
+            localStorage.setItem('x-customer-token', data.token);
+            localStorage.setItem('customer_info', JSON.stringify(data.customer));
+            
+            showToast('✅ Đăng nhập Facebook thành công!', 'success');
+            
+            setTimeout(() => {
+              window.location.href = '/index.html'; // Chuyển về trang chủ
+            }, 1500);
+            
+          } else {
+            throw new Error(data.error || 'Xác thực backend thất bại.');
+          }
+        })
+        .catch(err => {
+          console.error('[Facebook Backend Error]', err);
+          showToast(err.message || 'Lỗi khi đăng nhập Facebook.', 'error');
+        });
+        
+      } else {
+        console.log('Người dùng hủy đăng nhập Facebook.');
+        showToast('Bạn đã hủy đăng nhập Facebook', 'error');
+      }
+    }, {scope: 'email,public_profile'}); // Yêu cầu quyền
   });
   // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
@@ -477,6 +512,26 @@
     }
   });
 })();
+<</script>
+
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '786006640925553', // APP ID CỦA BẠN
+      cookie     : true,
+      xfbml      : true,
+      version    : 'v19.0'
+    });
+    FB.AppEvents.logPageView();   
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/vi_VN/sdk.js"; // Dùng bản tiếng Việt
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
 </script>
 
 </body>
