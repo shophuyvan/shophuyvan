@@ -220,11 +220,74 @@ try {
 },
       /* removed legacy duplicate block */
 testVoucherBtn?.addEventListener('click', async ()=> {
-  const cart = getCart();
-  const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
-  const res = await api('/pricing/preview', { method:'POST', body: { items, shipping_fee: chosen?.fee||0, voucher_code: voucherInput.value||null } });
-  lastPricing = res;
-  voucherResult.textContent = `Tạm tính: ${formatPrice(res.subtotal)} | Giảm: ${formatPrice((res.discount_product||0)+(res.discount_shipping||0))} | Tổng: ${formatPrice(res.total)}`;
+  const code = voucherInput.value?.trim() || null;
+  voucherResult.textContent = 'Đang kiểm tra...';
+  voucherResult.style.color = '#888'; // Màu xám trung tính
+  
+  try {
+    const cart = getCart();
+    // Giữ nguyên logic map 'items' như gốc, vì it.price đã là giá variant từ giỏ hàng
+    const items = cart.map(it => ({ id: it.id, category: '', price: it.price, qty: it.qty }));
+    // Lấy phí ship hiện tại từ 'chosen' hoặc localStorage
+    const current_ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
+    
+    const res = await api('/pricing/preview', { 
+      method:'POST', 
+      body: { 
+        items, 
+        shipping_fee: current_ship_fee, 
+        voucher_code: code 
+      } 
+    });
+    
+    // Kiểm tra các trường hợp API trả về lỗi (ví dụ: voucher hết hạn, không hợp lệ)
+    const voucherInfo = res.check_voucher || {};
+    if (res.ok === false || res.success === false || voucherInfo.valid === false) {
+        // Lấy thông báo lỗi cụ thể từ API
+        const errorMsg = res.message || voucherInfo.message || 'Mã voucher không hợp lệ';
+        throw new Error(errorMsg);
+    }
+
+    // VOUCHER HỢP LỆ
+    lastPricing = res;
+    
+    // Lưu kết quả giảm giá vào localStorage để renderSummary sử dụng
+    localStorage.setItem('voucher_code', code);
+    localStorage.setItem('voucher_discount', String(res.discount_product || 0));
+    localStorage.setItem('voucher_ship_discount', String(res.discount_shipping || 0)); // Thêm giảm giá ship (nếu có)
+    
+    const totalDiscount = (res.discount_product || 0) + (res.discount_shipping || 0);
+    
+    if (totalDiscount > 0) {
+      voucherResult.textContent = `Áp dụng thành công! Giảm: ${formatPrice(totalDiscount)}`;
+      voucherResult.style.color = 'green';
+    } else {
+      // Hợp lệ nhưng không đủ điều kiện (ví dụ: chưa đạt min_purchase)
+      voucherResult.textContent = 'Mã hợp lệ, nhưng không đủ điều kiện giảm giá.';
+      voucherResult.style.color = '#888'; 
+    }
+
+  } catch (err) {
+    // VOUCHER KHÔNG HỢP LỆ (lỗi mạng hoặc API trả về lỗi)
+    // Xóa voucher cũ nếu áp dụng lỗi
+    localStorage.removeItem('voucher_code');
+    localStorage.removeItem('voucher_discount');
+    localStorage.removeItem('voucher_ship_discount');
+    
+    // Hiển thị lỗi
+    voucherResult.textContent = err.message || 'Mã voucher không hợp lệ';
+    voucherResult.style.color = 'red';
+    console.error('[Voucher Error]', err);
+    
+  } finally {
+    // Luôn cập nhật lại summary (hàm này được expose ở đầu file)
+    // Dùng await để đảm bảo auto-freeship (nếu có) chạy xong
+    if (window.__updateSummary) {
+      await window.__updateSummary(); 
+    } else {
+      await renderSummary(); 
+    }
+  }
 });
 
 
