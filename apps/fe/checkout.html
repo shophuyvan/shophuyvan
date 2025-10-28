@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Thanh toán - Shop Huy Vân</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.default.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
   <meta name="description" content="Thanh toán đơn hàng tại Shop Huy Vân - Nhanh chóng, an toàn, bảo mật">
   <meta name="robots" content="noindex, nofollow">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -205,44 +208,44 @@
   </section>
 
   <!-- Customer Info -->
-  <section class="bg-white rounded-3xl p-6 shadow-xl border border-gray-100">
-    <h2 class="font-bold text-lg mb-4 flex items-center gap-3">
-      <span class="text-2xl">📍</span>
+  <section class="bg-white rounded-3xl p-4 shadow-xl border border-gray-100">
+    <h2 class="font-bold text-base mb-3 flex items-center gap-2">
+      <span class="text-xl">📍</span>
       <span>Thông tin nhận hàng</span>
     </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div class="relative">
         <input id="name" placeholder="Họ và tên *" 
-          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
-        <span class="absolute right-4 top-4 text-gray-400">👤</span>
+          class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium" required />
+        <span class="absolute right-3 top-3.5 text-gray-400 text-sm">👤</span>
       </div>
       
       <div class="relative">
         <input id="phone" placeholder="Số điện thoại *" type="tel" 
-          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
-        <span class="absolute right-4 top-4 text-gray-400">📱</span>
+          class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium" required />
+        <span class="absolute right-3 top-3.5 text-gray-400 text-sm">📱</span>
       </div>
       
-      <select id="province" class="border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer">
+      <select id="province" class="border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium appearance-none bg-white cursor-pointer">
         <option value="">-- Tỉnh/Thành phố *</option>
       </select>
       
-      <select id="district" class="border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer" disabled>
+      <select id="district" class="border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium appearance-none bg-white cursor-pointer" disabled>
         <option value="">-- Quận/Huyện *</option>
       </select>
       
-      <select id="ward" class="md:col-span-2 border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium appearance-none bg-white cursor-pointer" disabled>
+      <select id="ward" class="md:col-span-2 border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium appearance-none bg-white cursor-pointer" disabled>
         <option value="">-- Phường/Xã *</option>
       </select>
       
       <div class="md:col-span-2 relative">
         <input id="address" placeholder="Số nhà, tên đường (tối thiểu 10 ký tự) *" 
-          class="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all font-medium" required />
-        <span class="absolute right-4 top-4 text-gray-400">🏠</span>
+          class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all text-sm font-medium" required />
+        <span class="absolute right-3 top-3.5 text-gray-400 text-sm">🏠</span>
       </div>
       
-      <textarea id="note" placeholder="Ghi chú đơn hàng (không bắt buộc)" rows="3" 
-        class="md:col-span-2 border-2 border-gray-200 rounded-2xl px-5 py-4 transition-all resize-none font-medium"></textarea>
+      <textarea id="note" placeholder="Ghi chú đơn hàng (không bắt buộc)" rows="2" 
+        class="md:col-span-2 border-2 border-gray-200 rounded-xl px-4 py-2.5 transition-all resize-none text-sm font-medium"></textarea>
     </div>
     <input type="hidden" id="province_code" />
     <input type="hidden" id="district_code" />
@@ -401,6 +404,8 @@ function getFixedQuotes(weightGrams) {
 let selectedShipping = null;
 let placing = false;
 let appliedVoucher = null;
+
+let tsProvince, tsDistrict, tsWard; // Biến lưu trữ Tom Select
 
 function getCart() {
   try {
@@ -578,18 +583,23 @@ async function loadProvinces() {
 async function loadDistricts(provinceCode) {
   try {
     const res = await api(`/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
-    const districts = res.items || res.data || [];
-    const select = $('district');
-    select.innerHTML = '<option value="">-- Quận/Huyện *</option>';
-    select.disabled = false;
-    districts.forEach(item => {
-      const opt = document.createElement('option');
-      opt.value = item.code;
-      opt.textContent = item.name;
-      select.appendChild(opt);
-    });
-    $('ward').innerHTML = '<option value="">-- Phường/Xã *</option>';
-    $('ward').disabled = true;
+    const districts = (res.items || res.data || []).map(item => ({ value: item.code, text: item.name }));
+    
+    // Cập nhật Tom Select cho Quận/Huyện
+    tsDistrict.clear();
+    tsDistrict.clearOptions();
+    tsDistrict.addOption({ value: '', text: '-- Quận/Huyện *' });
+    tsDistrict.addOptions(districts);
+    tsDistrict.setValue('');
+    tsDistrict.enable();
+
+    // Cập nhật Tom Select cho Phường/Xã
+    tsWard.clear();
+    tsWard.clearOptions();
+    tsWard.addOption({ value: '', text: '-- Phường/Xã *' });
+    tsWard.setValue('');
+    tsWard.disable();
+    
     $('district_code').value = '';
     $('ward_code').value = '';
   } catch (e) {
@@ -600,19 +610,52 @@ async function loadDistricts(provinceCode) {
 async function loadWards(districtCode) {
   try {
     const res = await api(`/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
-    const wards = res.items || res.data || [];
-    const select = $('ward');
-    select.innerHTML = '<option value="">-- Phường/Xã *</option>';
-    select.disabled = false;
-    wards.forEach(item => {
-      const opt = document.createElement('option');
-      opt.value = item.code;
-      opt.textContent = item.name;
-      select.appendChild(opt);
-    });
+    const wards = (res.items || res.data || []).map(item => ({ value: item.code, text: item.name }));
+    
+    // Cập nhật Tom Select cho Phường/Xã
+    tsWard.clear();
+    tsWard.clearOptions();
+    tsWard.addOption({ value: '', text: '-- Phường/Xã *' });
+    tsWard.addOptions(wards);
+    tsWard.setValue('');
+    tsWard.enable();
+    
     $('ward_code').value = '';
   } catch (e) {
     console.error('Load wards error:', e);
+  }
+}
+
+async function loadCustomerInfo() {
+  try {
+    const info = JSON.parse(localStorage.getItem('customer_info') || 'null');
+    if (!info) return;
+
+    console.log('Loading customer info from localStorage...', info);
+
+    $('name').value = info.name || '';
+    $('phone').value = info.phone || '';
+    $('address').value = info.address || '';
+
+    // Tải thông tin địa chỉ đã lưu
+    if (info.provinceCode) {
+      tsProvince.setValue(info.provinceCode); // Cập nhật Tom Select
+      // $('province_code').value = info.provinceCode; // Đã được xử lý bởi event 'change'
+      await loadDistricts(info.provinceCode); // Tải danh sách quận
+      
+      if (info.districtCode) {
+        tsDistrict.setValue(info.districtCode); // Cập nhật Tom Select
+        // $('district_code').value = info.districtCode; // Đã được xử lý bởi event 'change'
+        await loadWards(info.districtCode); // Tải danh sách phường
+        
+        if (info.wardCode) {
+          tsWard.setValue(info.wardCode); // Cập nhật Tom Select
+          // $('ward_code').value = info.wardCode; // Đã được xử lý bởi event 'change'
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load customer info from localStorage', e);
   }
 }
 
@@ -994,6 +1037,20 @@ async function placeOrder() {
     
     console.log('Order payload:', payload);
     
+    try {
+      console.log('Saving customer info to localStorage...');
+      localStorage.setItem('customer_info', JSON.stringify({
+        name: name,
+        phone: cleanPhone,
+        provinceCode: provinceCode,
+        districtCode: districtCode,
+        wardCode: wardCode,
+        address: address
+      }));
+    } catch (e) {
+      console.warn('Failed to save customer info to localStorage', e);
+    }
+    
     const res = await api('/api/orders', {
       method: 'POST',
       headers: { 
@@ -1058,26 +1115,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   renderCartItems();
+  const tsSettings = {
+    create: false,
+    persist: false,
+    // Thêm plugin dropdown_input để hiển thị ô tìm kiếm trong dropdown
+    plugins: ['dropdown_input'], 
+  };
+  
+  // Khởi tạo Tom Select
+  tsProvince = new TomSelect('#province', tsSettings);
+  tsDistrict = new TomSelect('#district', tsSettings);
+  tsWard = new TomSelect('#ward', tsSettings);
+
   await loadProvinces();
   
-  $('province').addEventListener('change', function() {
-    $('province_code').value = this.value;
-    if (this.value) {
-      loadDistricts(this.value);
+  // Tải danh sách tỉnh cho Tom Select
+  try {
+    const res = await api('/shipping/provinces');
+    const provinces = (res.items || res.data || []).map(item => ({ value: item.code, text: item.name }));
+    tsProvince.addOptions(provinces);
+  } catch (e) { console.error('Load provinces error:', e); }
+
+  await loadCustomerInfo(); // Tải thông tin khách hàng
+  
+  tsProvince.on('change', function(value) {
+    $('province_code').value = value;
+    if (value) {
+      loadDistricts(value);
     }
     getShippingQuote();
   });
   
-  $('district').addEventListener('change', function() {
-    $('district_code').value = this.value;
-    if (this.value) {
-      loadWards(this.value);
+  tsDistrict.on('change', function(value) {
+    $('district_code').value = value;
+    if (value) {
+      loadWards(value);
     }
     getShippingQuote();
   });
   
-  $('ward').addEventListener('change', function() {
-    $('ward_code').value = this.value;
+  tsWard.on('change', function(value) {
+    $('ward_code').value = value;
   });
   
   $('place-order').addEventListener('click', placeOrder);
