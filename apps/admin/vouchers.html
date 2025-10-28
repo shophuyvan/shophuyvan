@@ -134,58 +134,110 @@ h3 {
 </head>
 <body>
 
-<!-- Toolbar -->
-<div class="toolbar">
-  <h2 style="margin: 0; font-size: 18px;">🎫 Quản lý Vouchers</h2>
+<!-- Toolbar with Tabs -->
+<div class="toolbar" style="flex-direction: column; align-items: stretch;">
+  <h2 style="margin: 0 0 12px 0; font-size: 18px;">🎫 Quản lý Vouchers</h2>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button id="tab-discount" class="btn primary" style="flex: 1; min-width: 150px;">💰 Giảm Giá (%)</button>
+    <button id="tab-freeship" class="btn" style="flex: 1; min-width: 150px; background: #e5e7eb; color: #374151;">🚚 Miễn Ship</button>
+  </div>
 </div>
 
-<!-- Add Voucher Form -->
-<div class="card">
+<!-- Tab 1: Voucher Giảm Giá -->
+<div id="form-discount" class="card">
+  <h3 style="margin: 0 0 16px 0; color: #1976d2; font-size: 16px;">➕ Tạo Voucher Giảm Giá (%)</h3>
+  
   <div class="row">
-    <div class="col">
-      <label>Mã</label>
-      <input id="code" class="input" placeholder="HUYVAN10"/>
+    <div class="col" style="flex: 1; min-width: 200px;">
+      <label>Mã voucher <span style="color: red;">*</span></label>
+      <input id="code-discount" class="input" placeholder="VD: GIAM10"/>
     </div>
-    <div class="col">
-      <label>Giảm (%)</label>
-      <input id="off" class="input" type="number" min="0" max="100" value="10"/>
+    <div class="col" style="flex: 0 0 120px; min-width: 120px;">
+      <label>Giảm (%) <span style="color: red;">*</span></label>
+      <input id="off-discount" class="input" type="number" min="1" max="100" value="10"/>
     </div>
-    <div class="col">
+    <div class="col" style="flex: 0 0 100px; min-width: 100px;">
       <label>Trạng thái</label>
-      <select id="on" class="input">
+      <select id="on-discount" class="input">
         <option value="true">ON</option>
         <option value="false">OFF</option>
       </select>
     </div>
-    <div class="col">
-      <label>Loại Voucher</label>
-      <select id="voucher_type" class="input">
-        <option value="code">Mã giảm giá (%)</option>
-        <option value="auto_freeship">Miễn ship tự động</option>
-      </select>
+  </div>
+
+  <div class="row" style="margin-top: 12px;">
+    <div class="col" style="flex: 1; min-width: 180px;">
+      <label>Ngày bắt đầu</label>
+      <input id="starts-discount" class="input" type="datetime-local"/>
     </div>
-    <div class="col" id="min_purchase_col">
-      <label>Điều kiện miễn ship (>=)</label>
-      <input id="min_purchase" class="input" type="number" min="0" placeholder="150000"/>
-    </div>
-   </div> <div class="row mt-4"> 
-    <div class="col">
-      <label>Giới hạn dùng/người</label>
-      <input id="usage_limit_per_user" class="input" type="number" min="0" value="1" placeholder="1 (0 = không giới hạn)"/>
-    </div>
-    <div class="col">
-      <label>Tổng giới hạn lượt dùng</label>
-      <input id="usage_limit_total" class="input" type="number" min="0" placeholder="100 (0 = không giới hạn)"/>
-    </div>
-    <div class="col">
-      <label>Ngày hết hạn (tùy chọn)</label>
-      <input id="expires_at" class="input" type="datetime-local"/>
+    <div class="col" style="flex: 1; min-width: 180px;">
+      <label>Ngày hết hạn</label>
+      <input id="expires-discount" class="input" type="datetime-local"/>
     </div>
   </div>
 
-  <div class="row mt-4">
-    <div class="col"> <button class="btn primary" id="save">Lưu Voucher</button>
+  <div class="row" style="margin-top: 12px;">
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Giới hạn/người</label>
+      <input id="usage-per-user-discount" class="input" type="number" min="0" value="1" placeholder="0 = không giới hạn"/>
     </div>
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Tổng giới hạn</label>
+      <input id="usage-total-discount" class="input" type="number" min="0" value="0" placeholder="0 = không giới hạn"/>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 16px;">
+    <button class="btn primary" id="save-discount" style="width: 100%;">💾 Lưu Voucher Giảm Giá</button>
+  </div>
+</div>
+
+<!-- Tab 2: Voucher Miễn Ship -->
+<div id="form-freeship" class="card" style="display: none;">
+  <h3 style="margin: 0 0 16px 0; color: #059669; font-size: 16px;">🚚 Tạo Voucher Miễn Ship Tự Động</h3>
+  
+  <div class="row">
+    <div class="col" style="flex: 1; min-width: 200px;">
+      <label>Mã voucher <span style="color: red;">*</span></label>
+      <input id="code-freeship" class="input" placeholder="VD: FREESHIP150"/>
+    </div>
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Đơn tối thiểu (đ) <span style="color: red;">*</span></label>
+      <input id="min-purchase-freeship" class="input" type="number" min="0" placeholder="150000"/>
+    </div>
+    <div class="col" style="flex: 0 0 100px; min-width: 100px;">
+      <label>Trạng thái</label>
+      <select id="on-freeship" class="input">
+        <option value="true">ON</option>
+        <option value="false">OFF</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 12px;">
+    <div class="col" style="flex: 1; min-width: 180px;">
+      <label>Ngày bắt đầu</label>
+      <input id="starts-freeship" class="input" type="datetime-local"/>
+    </div>
+    <div class="col" style="flex: 1; min-width: 180px;">
+      <label>Ngày hết hạn</label>
+      <input id="expires-freeship" class="input" type="datetime-local"/>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 12px;">
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Giới hạn/người</label>
+      <input id="usage-per-user-freeship" class="input" type="number" min="0" value="1" placeholder="0 = không giới hạn"/>
+    </div>
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Tổng giới hạn</label>
+      <input id="usage-total-freeship" class="input" type="number" min="0" value="0" placeholder="0 = không giới hạn"/>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 16px;">
+    <button class="btn primary" id="save-freeship" style="width: 100%; background: #059669;">💾 Lưu Voucher Miễn Ship</button>
   </div>
 </div>
 
@@ -221,51 +273,69 @@ document.addEventListener('DOMContentLoaded', function() {
   // Vouchers logic
   const $ = s => document.querySelector(s);
 
-  $('#save').onclick = async () => {
-    const code = $('#code').value.trim();
-    const voucher_type = $('#voucher_type').value;
-    const on = $('#on').value === 'true'; 
-    
-    // Đọc các trường mới
-    const usage_limit_per_user = parseInt($('#usage_limit_per_user').value || '1'); // Mặc định là 1
-    const usage_limit_total = parseInt($('#usage_limit_total').value || '0'); // Mặc định là 0 (vô hạn)
-    const expires_at_input = $('#expires_at').value;
-    // Chuyển đổi datetime-local sang timestamp (milliseconds) hoặc null
-    const expires_at = expires_at_input ? new Date(expires_at_input).getTime() : null; 
+  // Tab Switching
+  const tabDiscount = $('#tab-discount');
+  const tabFreeship = $('#tab-freeship');
+  const formDiscount = $('#form-discount');
+  const formFreeship = $('#form-freeship');
+
+  tabDiscount.onclick = () => {
+    tabDiscount.className = 'btn primary';
+    tabFreeship.className = 'btn';
+    tabFreeship.style.background = '#e5e7eb';
+    tabFreeship.style.color = '#374151';
+    formDiscount.style.display = 'block';
+    formFreeship.style.display = 'none';
+  };
+
+  tabFreeship.onclick = () => {
+    tabFreeship.className = 'btn primary';
+    tabDiscount.className = 'btn';
+    tabDiscount.style.background = '#e5e7eb';
+    tabDiscount.style.color = '#374151';
+    formFreeship.style.display = 'block';
+    formDiscount.style.display = 'none';
+  };
+
+  // Save Discount Voucher
+  $('#save-discount').onclick = async () => {
+    const code = $('#code-discount').value.trim();
+    const off = Number($('#off-discount').value || 0);
+    const on = $('#on-discount').value === 'true';
+    const usage_limit_per_user = parseInt($('#usage-per-user-discount').value || '1');
+    const usage_limit_total = parseInt($('#usage-total-discount').value || '0');
+    const starts_at_input = $('#starts-discount').value;
+    const expires_at_input = $('#expires-discount').value;
 
     if (!code) {
-      alert('Vui lòng nhập mã voucher (dùng làm ID)');
+      alert('Vui lòng nhập mã voucher');
+      return;
+    }
+    if (off <= 0 || off > 100) {
+      alert('Giảm giá (%) phải từ 1 đến 100');
       return;
     }
 
-    let body = { 
-      code, 
-      on, 
-      voucher_type,
-      // Thêm các trường mới vào body
-      usage_limit_per_user: usage_limit_per_user >= 0 ? usage_limit_per_user : 1, // Đảm bảo không âm
-      usage_limit_total: usage_limit_total >= 0 ? usage_limit_total : 0, // Đảm bảo không âm
-      expires_at: expires_at,
-      usage_count: 0 // Sẽ được cập nhật ở lần sau nếu là edit
-    };
+    const starts_at = starts_at_input ? new Date(starts_at_input).getTime() : null;
+    const expires_at = expires_at_input ? new Date(expires_at_input).getTime() : null;
 
-    if (voucher_type === 'code') {
-      const off = Number($('#off').value || 0);
-      if (off <= 0 || off > 100) {
-        alert('Giảm giá (%) phải từ 1 đến 100');
-        return;
-      }
-      body.off = off; 
-      body.min_purchase = 0; 
-    } else if (voucher_type === 'auto_freeship') {
-      const min_purchase = Number($('#min_purchase').value || 0);
-      if (min_purchase <= 0) {
-        alert('Vui lòng nhập số tiền Điều kiện miễn ship hợp lệ (lớn hơn 0)');
-        return;
-      }
-      body.min_purchase = min_purchase; 
-      body.off = 0; 
+    if (starts_at && expires_at && starts_at >= expires_at) {
+      alert('Ngày bắt đầu phải trước ngày hết hạn');
+      return;
     }
+
+    const body = {
+      code,
+      on,
+      voucher_type: 'code',
+      off,
+      min_purchase: 0,
+      usage_limit_per_user: usage_limit_per_user >= 0 ? usage_limit_per_user : 1,
+      usage_limit_total: usage_limit_total >= 0 ? usage_limit_total : 0,
+      starts_at,
+      expires_at,
+      usage_count: 0
+    };
 
     try {
       let r = await Admin.req('/admin/vouchers/upsert', { method: 'POST', body });
@@ -274,10 +344,76 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       if (r && r.ok) {
-        Admin.toast('✅ Đã lưu voucher');
-        $('#code').value = '';
-        $('#off').value = '10';
-        $('#on').value = 'true';
+        Admin.toast('✅ Đã lưu voucher giảm giá');
+        $('#code-discount').value = '';
+        $('#off-discount').value = '10';
+        $('#starts-discount').value = '';
+        $('#expires-discount').value = '';
+        $('#usage-per-user-discount').value = '1';
+        $('#usage-total-discount').value = '0';
+        load();
+      } else {
+        alert('❌ Lưu thất bại: ' + (r?.message || 'Lỗi không xác định'));
+      }
+    } catch (error) {
+      alert('❌ Lưu thất bại: ' + error.message);
+    }
+  };
+
+  // Save Freeship Voucher
+  $('#save-freeship').onclick = async () => {
+    const code = $('#code-freeship').value.trim();
+    const min_purchase = Number($('#min-purchase-freeship').value || 0);
+    const on = $('#on-freeship').value === 'true';
+    const usage_limit_per_user = parseInt($('#usage-per-user-freeship').value || '1');
+    const usage_limit_total = parseInt($('#usage-total-freeship').value || '0');
+    const starts_at_input = $('#starts-freeship').value;
+    const expires_at_input = $('#expires-freeship').value;
+
+    if (!code) {
+      alert('Vui lòng nhập mã voucher');
+      return;
+    }
+    if (min_purchase <= 0) {
+      alert('Vui lòng nhập số tiền điều kiện miễn ship hợp lệ (lớn hơn 0)');
+      return;
+    }
+
+    const starts_at = starts_at_input ? new Date(starts_at_input).getTime() : null;
+    const expires_at = expires_at_input ? new Date(expires_at_input).getTime() : null;
+
+    if (starts_at && expires_at && starts_at >= expires_at) {
+      alert('Ngày bắt đầu phải trước ngày hết hạn');
+      return;
+    }
+
+    const body = {
+      code,
+      on,
+      voucher_type: 'auto_freeship',
+      off: 0,
+      min_purchase,
+      usage_limit_per_user: usage_limit_per_user >= 0 ? usage_limit_per_user : 1,
+      usage_limit_total: usage_limit_total >= 0 ? usage_limit_total : 0,
+      starts_at,
+      expires_at,
+      usage_count: 0
+    };
+
+    try {
+      let r = await Admin.req('/admin/vouchers/upsert', { method: 'POST', body });
+      if (!(r && r.ok)) {
+        r = await Admin.req('/admin/voucher', { method: 'POST', body });
+      }
+
+      if (r && r.ok) {
+        Admin.toast('✅ Đã lưu voucher miễn ship');
+        $('#code-freeship').value = '';
+        $('#min-purchase-freeship').value = '';
+        $('#starts-freeship').value = '';
+        $('#expires-freeship').value = '';
+        $('#usage-per-user-freeship').value = '1';
+        $('#usage-total-freeship').value = '0';
         load();
       } else {
         alert('❌ Lưu thất bại: ' + (r?.message || 'Lỗi không xác định'));
@@ -299,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const tb = $('#list');
       
       if (items.length === 0) {
-        tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#999">Chưa có voucher nào</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#999">Chưa có voucher nào</td></tr>';
         return;
       }
 
@@ -311,15 +447,24 @@ document.addEventListener('DOMContentLoaded', function() {
           '<span style="color:#10b981;font-weight:600">ON</span>' : 
           '<span style="color:#ef4444;font-weight:600">OFF</span>';
         
-        let typeText = 'Mã giảm giá';
+        let typeText = 'Giảm giá';
         let detailText = `<span style="color:#f59e0b;font-weight:600">${v.off || 0}%</span>`;
 
         if (v.voucher_type === 'auto_freeship') {
-          typeText = 'Miễn ship tự động';
+          typeText = 'Miễn ship';
           detailText = `Đơn >= ${formatPrice(v.min_purchase || 0)}`;
         }
 
-        // Hiển thị ngày hết hạn
+        let startsText = '-';
+        if (v.starts_at) {
+          try {
+            startsText = new Date(v.starts_at).toLocaleString('vi-VN', { 
+              day: '2-digit', month: '2-digit', year: 'numeric', 
+              hour: '2-digit', minute: '2-digit' 
+            });
+          } catch { startsText = 'Lỗi ngày'; }
+        }
+
         let expiryText = '-';
         if (v.expires_at) {
           try {
@@ -330,10 +475,9 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch { expiryText = 'Lỗi ngày'; }
         }
 
-        // Hiển thị giới hạn
         let limitText = '';
         if (v.usage_limit_per_user > 0) {
-          limitText += `1/người`;
+          limitText += `${v.usage_limit_per_user}/người`;
         }
         if (v.usage_limit_total > 0) {
           limitText += `${limitText ? ', ' : ''}${v.usage_count || 0}/${v.usage_limit_total} tổng`;
@@ -344,23 +488,23 @@ document.addEventListener('DOMContentLoaded', function() {
           <td><strong>${v.code}</strong></td>
           <td>${typeText}</td>
           <td>${detailText}</td>
-          <td>${expiryText}</td> <td>${limitText}</td> <td>${statusText}</td>
+          <td style="font-size: 12px;">${startsText}<br>${expiryText}</td>
+          <td>${limitText}</td>
+          <td>${statusText}</td>
           <td><button class="btn" style="background: #fee2e2; color: #b91c1c; font-size: 13px; padding: 5px 10px;" onclick="deleteVoucher('${v.code}')">Xóa</button></td>
         `;
         tb.appendChild(tr);
-
-        // Helper format giá tiền (thêm vào trong hàm load hoặc ngoài cùng)
-        function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
       });
 
       console.log('[Vouchers] Loaded', items.length, 'vouchers');
     } catch (error) {
       console.error('[Vouchers] Load error:', error);
-      $('#list').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#ef4444">Lỗi tải dữ liệu</td></tr>';
+      $('#list').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#ef4444">Lỗi tải dữ liệu</td></tr>';
     }
   }
 
-  // Hàm xóa voucher
+  function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
+
   window.deleteVoucher = async (code) => {
     if (!code) return;
     if (!confirm(`Bạn có chắc muốn xóa voucher "${code}" không? Sẽ không thể hoàn tác.`)) {
@@ -375,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (r && r.ok) {
         Admin.toast('✅ Đã xóa voucher');
-        load(); // Tải lại danh sách
+        load();
       } else {
         alert('❌ Xóa thất bại: ' + (r?.message || 'Lỗi không xác định'));
       }

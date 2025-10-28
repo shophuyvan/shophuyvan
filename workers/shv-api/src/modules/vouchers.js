@@ -56,6 +56,7 @@ async function upsertVoucher(req, env) {
       // Thêm các trường mới từ body
       usage_limit_per_user: Math.max(0, parseInt(body.usage_limit_per_user || '0')), // Đảm bảo >= 0
       usage_limit_total: Math.max(0, parseInt(body.usage_limit_total || '0')), // Đảm bảo >= 0
+      starts_at: body.starts_at ? Number(body.starts_at) : null, // Lưu timestamp ngày bắt đầu
       expires_at: body.expires_at ? Number(body.expires_at) : null, // Lưu timestamp
       // usage_count sẽ được giữ lại từ voucher cũ nếu là cập nhật
     };
@@ -154,19 +155,25 @@ export async function applyVoucher(req, env) {
       return errorResponse('Mã voucher không hoạt động', 400, req);
     }
 
-    // 3. Voucher đã hết hạn? (So sánh timestamp hiện tại với expires_at)
+    // 3. Voucher chưa bắt đầu? (So sánh timestamp hiện tại với starts_at)
+    if (voucher.starts_at && Date.now() < voucher.starts_at) {
+      console.log('[ApplyVoucher] Fail: Not started yet', { now: Date.now(), starts: voucher.starts_at });
+      return errorResponse('Mã voucher chưa có hiệu lực', 400, req);
+    }
+
+    // 4. Voucher đã hết hạn? (So sánh timestamp hiện tại với expires_at)
     if (voucher.expires_at && Date.now() > voucher.expires_at) {
       console.log('[ApplyVoucher] Fail: Expired', { now: Date.now(), expires: voucher.expires_at });
       return errorResponse('Mã voucher đã hết hạn', 400, req);
     }
 
-    // 4. Voucher đã hết tổng lượt sử dụng?
+   // 5. Voucher đã hết tổng lượt sử dụng?
     if (voucher.usage_limit_total > 0 && (voucher.usage_count || 0) >= voucher.usage_limit_total) {
       console.log('[ApplyVoucher] Fail: Total usage limit reached', { count: voucher.usage_count, limit: voucher.usage_limit_total });
       return errorResponse('Mã voucher đã hết lượt sử dụng', 400, req);
     }
 
-    // 5. Khách hàng này đã dùng quá số lần cho phép? (Chỉ kiểm tra nếu có customerId)
+    // 6. Khách hàng này đã dùng quá số lần cho phép? (Chỉ kiểm tra nếu có customerId)
     if (customerId && voucher.usage_limit_per_user > 0) {
       const historyKey = `customer_voucher_history:${customerId}`;
       const history = await getJSON(env, historyKey, []); // Lấy lịch sử dùng voucher của khách
