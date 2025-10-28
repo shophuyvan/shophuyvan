@@ -1,5 +1,5 @@
 // ===================================================================
-// modules/orders.js - Orders Module (FINAL)
+// modules/orders.js - Orders Module (OPTIMIZED & FIXED)
 // ===================================================================
 
 import { json, errorResponse, corsHeaders } from '../lib/response.js';
@@ -10,51 +10,208 @@ import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
-import { applyVoucher } from './vouchers.js'; // THÊM DÒNG NÀY
+import { applyVoucher, markVoucherUsed } from './vouchers.js'; // ✅ FIX: Thêm markVoucherUsed
 
-// -------------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------------
+// ===================================================================
+// Constants & Helpers
+// ===================================================================
+
+const ORDER_STATUS = {
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  SHIPPING: 'shipping',
+  DELIVERED: 'delivered',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  RETURNED: 'returned'
+};
+
+const CANCEL_STATUSES = ['cancel', 'cancelled', 'huy', 'huỷ', 'hủy', 'returned', 'return', 'pending'];
+
 const shouldAdjustStock = (status) => {
   const s = String(status || '').toLowerCase();
-  // trừ kho cho các trạng thái khác pending/cancel
-  return !['cancel', 'cancelled', 'huy', 'huỷ', 'hủy', 'returned', 'return', 'pending'].includes(s);
+  return !CANCEL_STATUSES.includes(s);
 };
+
 const toNum = (x) => Number(x || 0);
 
-// === normalize order items ===
-// Biến item FE -> { id: <variant-id-or-sku>, product_id: <product-id>, qty, sku, name, variant }
+/**
+ * Normalize phone number (Vietnam format)
+ */
+function normalizePhone(phone) {
+  if (!phone) return '';
+  let x = String(phone).replace(/[\s\.\-\(\)]/g, '');
+  if (x.startsWith('+84')) x = '0' + x.slice(3);
+  if (x.startsWith('84') && x.length > 9) x = '0' + x.slice(2);
+  return x;
+}
+
+/**
+ * Format price for display
+ */
+function formatPrice(n) {
+  try {
+    return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + '₫';
+  } catch {
+    return (n || 0) + '₫';
+  }
+}
+
+// ===================================================================
+// Customer Authentication Helper (REFACTORED - DRY)
+// ===================================================================
+
+/**
+ * Extract customer from token (header/cookie/Authorization)
+ * Returns { customer, customerId, token } or null
+ */
+async function authenticateCustomer(req, env) {
+  function parseCookie(str) {
+    const out = {};
+    (str || '').split(';').forEach(p => {
+      const i = p.indexOf('=');
+      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
+    });
+    return out;
+  }
+
+  async function kvGet(k) {
+    try { return await getJSON(env, k, null); } catch { return null; }
+  }
+
+  async function tryKeys(tok) {
+    if (!tok) return null;
+    const keys = [
+      tok, 'cust:' + tok, 'customerToken:' + tok, 'token:' + tok,
+      'customer_token:' + tok, 'auth:' + tok, 'customer:' + tok,
+      'session:' + tok, 'shv_session:' + tok
+    ];
+
+    for (const k of keys) {
+      const val = await kvGet(k);
+      if (!val) continue;
+
+      if (k.includes('session:') && (val.customer || val.user)) {
+        return val.customer || val.user;
+      }
+
+      if (typeof val === 'object' && val !== null) return val;
+
+      if (typeof val === 'string') {
+        const cid = String(val).trim();
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+
+      if (val && (val.customer_id || val.customerId)) {
+        const cid = val.customer_id || val.customerId;
+        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (obj) return obj;
+      }
+    }
+    return null;
+  }
+
+  // 1. Extract token from headers/cookie
+  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
+
+  if (!token) {
+    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+    if (m) token = m[1];
+  }
+
+  if (!token) {
+    const c = parseCookie(req.headers.get('cookie') || '');
+    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
+  }
+
+  token = String(token || '').trim().replace(/^"+|"+$/g, '');
+
+  // 2. Try to find customer with raw token
+  let customer = await tryKeys(token);
+  let decodedTokenId = '';
+
+  // 3. Try base64 decode
+  if (!customer && token) {
+    try {
+      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      const decoded = atob(b64);
+
+      if (decoded && decoded.includes(':')) {
+        const customerId = decoded.split(':')[0];
+        if (customerId) {
+          decodedTokenId = customerId;
+          customer = (await kvGet('customer:' + customerId)) || (await kvGet('customer:id:' + customerId));
+        }
+      } else if (decoded && decoded !== token) {
+        decodedTokenId = decoded;
+        customer = await tryKeys(decoded);
+        if (!customer) {
+          customer = (await kvGet('customer:' + decoded)) || (await kvGet('customer:id:' + decoded));
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 4. Try JWT decode
+  if (!customer && token && token.split('.').length === 3) {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
+      if (cid) {
+        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
+        if (!customer) decodedTokenId = String(cid);
+      }
+    } catch { /* ignore */ }
+  }
+
+  return {
+    customer,
+    customerId: customer?.id || customer?.customer_id || decodedTokenId || null,
+    token
+  };
+}
+
+// ===================================================================
+// Inventory Management (REFACTORED)
+// ===================================================================
+
+/**
+ * Normalize order items to consistent format
+ */
 function normalizeOrderItems(items) {
   const tryExtractSku = (txt) => {
     if (!txt) return null;
-    // bắt các mẫu K239/K-239…
     const m = String(txt).toUpperCase().match(/\bK[\-]?\d+\b/);
     return m ? m[0].replace('-', '') : null;
   };
 
   return (Array.isArray(items) ? items : []).map(it => {
     const variantSku = tryExtractSku(it.variant || it.name || '');
-    const maybeProductId = String(it.id || '').length > 12 ? (it.id) : null;
+    const maybeProductId = String(it.id || '').length > 12 ? it.id : null;
 
     return {
-      // Ưu tiên id biến thể/variant_id; thiếu thì dùng sku; nếu vẫn thiếu mà bắt được 'Kxxx' thì dùng luôn
       id: it.variant_id ?? it.id ?? it.sku ?? variantSku ?? null,
-      product_id: it.product_id ?? it.pid ?? it.productId ?? (it.product && (it.product.id || it.product.key)) ?? maybeProductId ?? null,
+      product_id: it.product_id ?? it.pid ?? it.productId ?? (it.product?.id || it.product?.key) ?? maybeProductId ?? null,
       sku: it.sku ?? variantSku ?? null,
       name: it.name ?? it.title ?? '',
       variant: it.variant ?? '',
-      qty: Number(it.qty ?? it.quantity ?? 1) || 1
+      qty: Number(it.qty ?? it.quantity ?? 1) || 1,
+      price: Number(it.price || 0),
+      cost: Number(it.cost || 0)
     };
   });
 }
 
 /**
- * Giảm/tăng tồn kho theo danh sách items của đơn
- * direction = -1 → trừ kho, +1 → hoàn kho
+ * Adjust inventory (stock) by items
+ * @param {Array} items - Normalized order items
+ * @param {object} env - Cloudflare env
+ * @param {number} direction - -1 to decrease, +1 to increase
  */
-// Hỗ trợ nhiều field tồn kho cho cả variant & product: stock, ton_kho, quantity, qty_available, ...
 async function adjustInventory(items, env, direction = -1) {
-  console.log('[INV-DEBUG] adjustInventory START', { itemCount: items?.length, direction });
+  console.log('[INV] Adjusting inventory', { itemCount: items?.length, direction });
 
   const STOCK_KEYS = ['stock', 'ton_kho', 'quantity', 'qty_available', 'so_luong'];
 
@@ -77,21 +234,21 @@ async function adjustInventory(items, env, direction = -1) {
   };
 
   for (const it of (items || [])) {
-    const variantId = it.id || it.variant_id || it.sku;   // <= fallback sang SKU
+    const variantId = it.id || it.variant_id || it.sku;
     const productId = it.product_id;
 
-    console.log('[INV-DEBUG] Processing item', {
-      variantId, productId, qty: it.qty, sku: it.sku, name: it.name, variant: it.variant
-    });
+    if (!variantId && !productId) {
+      console.warn('[INV] Skip item: no ID', it);
+      continue;
+    }
 
-    if (!variantId && !productId) { console.warn('[INV-DEBUG] Skip: no ID'); continue; }
-
-    // -- B1: tìm product
+    // Find product
     let product = null;
     if (productId) {
       product = await getJSON(env, 'product:' + productId, null);
       if (!product) product = await getJSON(env, 'products:' + productId, null);
     }
+
     if (!product && variantId) {
       const list = await getJSON(env, 'products:list', []);
       for (const s of list) {
@@ -100,9 +257,9 @@ async function adjustInventory(items, env, direction = -1) {
 
         const text = String(it.variant || it.name || '').toUpperCase();
         const ok = p.variants.some(v => {
-          const vid   = String(v.id || '');
-          const vsku  = String(v.sku || '');
-          const vname = String((v.name || v.title || v.option_name || '')).toUpperCase();
+          const vid = String(v.id || '');
+          const vsku = String(v.sku || '');
+          const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
           return (
             vid === String(variantId) ||
             vsku === String(variantId) ||
@@ -111,21 +268,28 @@ async function adjustInventory(items, env, direction = -1) {
           );
         });
 
-        if (ok) { product = p; break; }
+        if (ok) {
+          product = p;
+          break;
+        }
       }
     }
-    if (!product) { console.warn('[INV-DEBUG] Product not found'); continue; }
+
+    if (!product) {
+      console.warn('[INV] Product not found for item', it);
+      continue;
+    }
 
     const delta = Number(it.qty || 1) * direction;
-    
-    // -- B2: trừ tồn kho ở variant nếu có
     let touched = false;
+
+    // Adjust variant stock
     if (Array.isArray(product.variants) && variantId) {
       const text2 = String(it.variant || it.name || '').toUpperCase();
       const v = product.variants.find(v => {
-        const vid   = String(v.id || '');
-        const vsku  = String(v.sku || '');
-        const vname = String((v.name || v.title || v.option_name || '')).toUpperCase();
+        const vid = String(v.id || '');
+        const vsku = String(v.sku || '');
+        const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
         return (
           vid === String(variantId) ||
           vsku === String(variantId) ||
@@ -133,47 +297,111 @@ async function adjustInventory(items, env, direction = -1) {
           (text2 && vname && text2.includes(vname))
         );
       });
-    
+
       if (v) {
         const before = readStock(v);
-        const after  = before + delta;
+        const after = before + delta;
         const keySet = writeStock(v, after);
-        console.log('[INV-DEBUG] Variant updated', { key: keySet, before, after, variant: v.id || v.sku });
+        console.log('[INV] Variant updated', { key: keySet, before, after, variantId });
         touched = true;
-    
-        // ✅ Cập nhật sold cho biến thể (nếu muốn theo dõi ở variant)
+
+        // Update sold count
         const vSoldBefore = Number(v.sold || v.sold_count || 0);
-        const vSoldAfter  = Math.max(0, vSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
+        const vSoldAfter = Math.max(0, vSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
         v.sold = vSoldAfter;
         v.sold_count = vSoldAfter;
-      } else {
-        console.warn('[INV-DEBUG] Variant not found in product.variants');
       }
     }
-    
-    // -- B3: nếu chưa chạm variant → trừ trên product-level
+
+    // Adjust product-level stock if variant not touched
     if (!touched) {
       const before = readStock(product);
-      const after  = before + delta;
+      const after = before + delta;
       const keySet = writeStock(product, after);
-      console.log('[INV-DEBUG] Product stock updated', { key: keySet, before, after, pid: product.id });
+      console.log('[INV] Product stock updated', { key: keySet, before, after, productId: product.id });
     }
-    
-    // ✅ Cập nhật sold cho product (đảm bảo FE lấy được)
+
+    // Update product sold count
     const pSoldBefore = Number(product.sold || product.sold_count || 0);
-    const pSoldAfter  = Math.max(0, pSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
+    const pSoldAfter = Math.max(0, pSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
     product.sold = pSoldAfter;
     product.sold_count = pSoldAfter;
-    
-    await putJSON(env, 'product:' + product.id, product);
-    } // end for (items)
 
-  console.log('[INV-DEBUG] adjustInventory DONE');
+    await putJSON(env, 'product:' + product.id, product);
+  }
+
+  console.log('[INV] Adjustment complete');
 }
-    /**
- * Cộng điểm cho customer khi đặt hàng thành công
- * @param {object} customer - Customer object từ request
- * @param {number} revenue - Doanh thu (giá sau khi giảm)
+
+// ===================================================================
+// Cost Enrichment Helper (REFACTORED - DRY)
+// ===================================================================
+
+/**
+ * Enrich items with cost & price from product variants
+ * Modifies items array in-place
+ */
+async function enrichItemsWithCostAndPrice(items, env) {
+  const allProducts = await getJSON(env, 'products:list', []);
+
+  for (const item of items) {
+    const variantId = item.id || item.sku;
+    if (!variantId) continue;
+
+    let variantFound = null;
+
+    // Search all products for matching variant
+    for (const summary of allProducts) {
+      const product = await getJSON(env, 'product:' + summary.id, null);
+      if (!product || !Array.isArray(product.variants)) continue;
+
+      const variant = product.variants.find(v =>
+        String(v.id || v.sku || '') === String(variantId) ||
+        String(v.sku || '') === String(item.sku || '')
+      );
+
+      if (variant) {
+        variantFound = variant;
+        break;
+      }
+    }
+
+    if (!variantFound) continue;
+
+    // ✅ Enforce variant price (always use variant price, not FE-sent price)
+    const priceKeys = ['price', 'sale_price', 'list_price', 'gia_ban'];
+    for (const key of priceKeys) {
+      if (variantFound[key] != null) {
+        item.price = Number(variantFound[key] || 0);
+        console.log('[ENRICH] ✅ Set price from variant:', { id: variantId, price: item.price });
+        break;
+      }
+    }
+
+    // Set cost if not provided by FE
+    if (!item.cost || item.cost === 0) {
+      const costKeys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
+      for (const key of costKeys) {
+        if (variantFound[key] != null) {
+          item.cost = Number(variantFound[key] || 0);
+          console.log('[ENRICH] ✅ Set cost from variant:', { id: variantId, cost: item.cost });
+          break;
+        }
+      }
+    }
+  }
+
+  return items;
+}
+
+// ===================================================================
+// Tier & Points Management
+// ===================================================================
+
+/**
+ * Add points to customer when order is completed
+ * @param {object} customer - Customer object from order
+ * @param {number} revenue - Order revenue (after discount)
  * @param {object} env - Cloudflare env
  * @returns {object} - { upgraded, oldTier, newTier, points }
  */
@@ -186,7 +414,7 @@ async function addPointsToCustomer(customer, revenue, env) {
   try {
     const customerKey = `customer:${customer.id}`;
     let custData = await env.SHV.get(customerKey);
-    
+
     if (!custData) {
       console.log('[TIER] Customer not found in KV:', customer.id);
       return { upgraded: false, points: 0 };
@@ -194,12 +422,14 @@ async function addPointsToCustomer(customer, revenue, env) {
 
     const cust = JSON.parse(custData);
     const pointsToAdd = Math.floor(revenue);
-    
+
     const tierResult = addPoints(cust, pointsToAdd);
-    
+
     await env.SHV.put(customerKey, JSON.stringify(cust));
-    await env.SHV.put(`customer:email:${cust.email}`, JSON.stringify(cust));
-    
+    if (cust.email) {
+      await env.SHV.put(`customer:email:${cust.email}`, JSON.stringify(cust));
+    }
+
     console.log('[TIER] Points added', {
       customerId: customer.id,
       pointsAdded: pointsToAdd,
@@ -220,9 +450,11 @@ async function addPointsToCustomer(customer, revenue, env) {
     return { upgraded: false, points: 0 };
   }
 }
+
 // ===================================================================
-// Router entry
+// Router Entry
 // ===================================================================
+
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -233,7 +465,7 @@ export async function handle(req, env, ctx) {
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
-  if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);  // ← THÊM DÒNG NÀY
+  if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);
 
   // ADMIN
   if (path === '/api/orders' && method === 'GET') return listOrders(req, env);
@@ -243,108 +475,34 @@ export async function handle(req, env, ctx) {
   if (path === '/admin/orders/print' && method === 'GET') return printOrder(req, env);
   if (path === '/admin/stats' && method === 'GET') return getStats(req, env);
 
-  // Tác vụ Vận đơn (In tem, Hủy)
-if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
+  // Shipping Waybill
+  if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
   if (path === '/shipping/cancel' && method === 'POST') return cancelWaybill(req, env);
-
-  // Hành động hàng loạt
   if (path === '/shipping/print-bulk' && method === 'POST') return printWaybillsBulk(req, env);
   if (path === '/shipping/cancel-bulk' && method === 'POST') return cancelWaybillsBulk(req, env);
-
 
   return errorResponse('Route not found', 404, req);
 }
 
 // ===================================================================
-// PUBLIC: Create Order
+// PUBLIC: Create Order (Main Endpoint)
 // ===================================================================
+
 async function createOrder(req, env) {
-
-  // --- BEGIN: HELPER TÌM CUSTOMER (COPY TỪ getMyOrders) ---
-  const parseCookie = (str) => {
-    const out = {};
-    (str || '').split(';').forEach(p => {
-      const i = p.indexOf('=');
-      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
-    });
-    return out;
-  }
-  const kvGet = async (k) => {
-    try { return await getJSON(env, k, null); } catch (_) { return null; }
-  }
-  const tryKeys = async (tok) => {
-    if (!tok) return null;
-    const keys = [
-      tok, 'cust:' + tok, 'customerToken:' + tok, 'token:' + tok,
-      'customer_token:' + tok, 'auth:' + tok, 'customer:' + tok,
-      'session:' + tok, 'shv_session:' + tok
-    ];
-    for (const k of keys) {
-      const val = await kvGet(k);
-      if (!val) continue;
-      if (k.includes('session:') && (val.customer || val.user)) {
-        return val.customer || val.user;
-      }
-      if (typeof val === 'object' && val !== null) return val;
-      if (typeof val === 'string') {
-        const cid = String(val).trim();
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-      if (val && (val.customer_id || val.customerId)) {
-        const cid = val.customer_id || val.customerId;
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-    }
-    return null;
-  };
-  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
-  if (!token) {
-    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
-    if (m) token = m[1];
-  }
-  if (!token) {
-    const c = parseCookie(req.headers.get('cookie') || '');
-    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
-  }
-  token = String(token || '').trim().replace(/^"+|"+$/g, '');
-  
-  let loggedInCustomer = await tryKeys(token);
-  if (!loggedInCustomer && token) {
-     try {
-      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4) b64 += '=';
-      const decoded = atob(b64);
-      if (decoded && decoded !== token) {
-        loggedInCustomer = await tryKeys(decoded);
-        if (!loggedInCustomer) {
-          loggedInCustomer = (await kvGet('customer:' + decoded)) || (await kvGet('customer:id:' + decoded));
-        }
-      }
-    } catch { /* ignore */ }
-  }
-  if (!loggedInCustomer && token && token.split('.').length === 3) {
-    try {
-      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
-      if (cid) loggedInCustomer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-    } catch { /* ignore */ }
-  }
-  // --- END: HELPER TÌM CUSTOMER ---
-
+  // Check idempotency
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
+  // Authenticate customer
+  const auth = await authenticateCustomer(req, env);
+
   const body = await readBody(req) || {};
-  console.log('[INV-TRACE] orders.create: payload', {
-    items: Array.isArray(body?.items) ? body.items.map(i => ({
-      id: i.product_id || i.id || i.sku, sku: i.sku, qty: i.qty
-    })) : body?.items,
-    customerId: body?.customer?.phone || body?.customer?.name || null
+  console.log('[ORDER] Creating order', {
+    items: body?.items?.length || 0,
+    customerId: auth.customerId
   });
 
-  // Validate
+  // Validate request body
   const validation = validate(SCH.orderCreate, body);
   if (!validation.ok) {
     return json({ ok: false, error: 'VALIDATION_FAILED', details: validation.errors }, { status: 400 }, req);
@@ -353,148 +511,108 @@ async function createOrder(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  // Build totals
-  // ✅ ENRICH ITEMS WITH COST
-  const items = Array.isArray(body.items) ? body.items : [];
-  
-  for (const item of items) {
-    const variantId = item.id || item.sku;
-    if (variantId) { // Chỉ xử lý item có ID/SKU variant
-      const allProducts = await getJSON(env, 'products:list', []);
-      let variantFound = null;
+  // Normalize & enrich items
+  let items = normalizeOrderItems(body.items || []);
+  items = await enrichItemsWithCostAndPrice(items, env);
 
-      for (const summary of allProducts) {
-        const product = await getJSON(env, 'product:' + summary.id, null);
-        if (!product || !Array.isArray(product.variants)) continue;
-        
-        const variant = product.variants.find(v => 
-          String(v.id || v.sku || '') === String(variantId) ||
-          String(v.sku || '') === String(item.sku || '')
-        );
-        
-        if (variant) {
-          variantFound = variant;
-          break;
-        }
-      }
-
-      if (variantFound) {
-        // BẮT BUỘC SỬ DỤNG GIÁ VARIANT (Theo yêu cầu của khách hàng)
-        const priceKeys = ['price', 'sale_price', 'list_price', 'gia_ban'];
-        for (const key of priceKeys) {
-          if (variantFound[key] != null) {
-            item.price = Number(variantFound[key] || 0);
-            console.log('[ORDER] ✅ Enforced variant price:', { id: variantId, price: item.price });
-            break;
-          }
-        }
-
-        // Xử lý Cost (chỉ khi item.cost chưa được gửi lên)
-        if (!item.cost || item.cost === 0) {
-          const costKeys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-          for (const key of costKeys) {
-            if (variantFound[key] != null) {
-              item.cost = Number(variantFound[key] || 0);
-              console.log('[ORDER] ✅ Found cost:', { id: variantId, cost: item.cost });
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-  // Build subtotal first
+  // Calculate subtotal
   const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
   );
-  // Lấy phí ship gốc từ request
+
+  // ✅ FIX: Extract shipping info correctly
+  const shipping = body.shipping || {};
   const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
 
-  // Lấy mã voucher từ request (nếu có)
-  const voucher_code_input = body.voucher_code || null; // Lấy từ body checkout gửi lên
+  // ✅ FIX: Get voucher code from correct source
+  const voucher_code_input = body.voucher_code || body.totals?.voucher_code || null;
+
   let validated_voucher_code = null;
-  let validated_discount = 0; // Giảm tiền hàng
-  let validated_ship_discount = 0; // Giảm tiền ship
+  let validated_discount = 0;
+  let validated_ship_discount = 0;
 
-  // Nếu khách có nhập voucher, gọi API /vouchers/apply để kiểm tra lại lần cuối
+  // Re-validate voucher if provided
   if (voucher_code_input) {
-    console.log('[OrderCreate] Re-validating voucher:', voucher_code_input);
+    console.log('[ORDER] Re-validating voucher:', voucher_code_input);
     try {
-      // Tạo một request giả lập để truyền vào hàm applyVoucher
-      const fakeReq = new Request(req.url, {
-          method: 'POST',
-          headers: req.headers, // Chuyển tiếp headers nếu cần cho logic auth/tier khác
-          body: JSON.stringify({ // Dữ liệu cần thiết cho applyVoucher
-              code: voucher_code_input,
-              customer_id: finalCustomer.id || null, // finalCustomer đã được gộp ở trên
-              subtotal: subtotal
-          })
-      });
-      // Gọi hàm applyVoucher đã import
-      const applyResultResponse = await applyVoucher(fakeReq, env); // Truyền fakeReq và env
-      const applyData = await applyResultResponse.json(); // Đọc kết quả JSON
+      // Merge customer info
+      const finalCustomer = {
+        ...(auth.customer || {}),
+        ...(body.customer || {})
+      };
+      if (auth.customerId) finalCustomer.id = auth.customerId;
 
-      // Kiểm tra xem API applyVoucher có trả về OK không
-      if (applyResultResponse.status === 200 && applyData.ok) {
-        validated_voucher_code = applyData.code; // Lưu lại mã đã được xác thực
+      const fakeReq = new Request(req.url, {
+        method: 'POST',
+        headers: req.headers,
+        body: JSON.stringify({
+          code: voucher_code_input,
+          customer_id: finalCustomer.id || null,
+          subtotal: subtotal
+        })
+      });
+
+      const applyResultResponse = await applyVoucher(fakeReq, env);
+      const applyData = await applyResultResponse.json();
+
+      if (applyResultResponse.status === 200 && applyData.ok && applyData.valid) {
+        validated_voucher_code = applyData.code;
         validated_discount = applyData.discount || 0;
         validated_ship_discount = applyData.ship_discount || 0;
-        console.log('[OrderCreate] Voucher validation SUCCESS:', {
-            code: validated_voucher_code,
-            discount: validated_discount,
-            ship_discount: validated_ship_discount
+        console.log('[ORDER] Voucher validation SUCCESS:', {
+          code: validated_voucher_code,
+          discount: validated_discount,
+          ship_discount: validated_ship_discount
         });
       } else {
-        // Nếu applyVoucher báo lỗi (hết hạn, hết lượt,...)
-        console.warn('[OrderCreate] Voucher validation FAILED:', applyData.error || 'Unknown error');
-        // Không dừng việc tạo đơn, chỉ là không áp dụng voucher này
-        // validated_voucher_code, validated_discount, validated_ship_discount sẽ giữ giá trị mặc định là null/0
+        console.warn('[ORDER] Voucher validation FAILED:', applyData.message || applyData.error);
       }
     } catch (e) {
-      // Nếu có lỗi nghiêm trọng khi gọi applyVoucher
-      console.error('[OrderCreate] EXCEPTION calling applyVoucher:', e);
-      // Tiếp tục tạo đơn mà không có voucher
+      console.error('[ORDER] EXCEPTION calling applyVoucher:', e);
     }
   }
 
-  // Tính toán lại tổng tiền dựa trên kết quả kiểm tra voucher
-  const final_discount = validated_discount; // Chỉ dùng discount từ applyVoucher trả về
-  const final_ship_discount = validated_ship_discount; // Chỉ dùng ship_discount từ applyVoucher trả về
-
-  // Tính toán doanh thu và lợi nhuận cuối cùng
+  // Calculate final totals
+  const final_discount = validated_discount;
+  const final_ship_discount = validated_ship_discount;
   const revenue = Math.max(0, subtotal + shipping_fee - (final_discount + final_ship_discount));
   const profit = items.reduce((sum, item) =>
-    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0 // Lợi nhuận gộp từ sản phẩm
-  ) - final_discount; // Trừ đi phần giảm giá tiền hàng (giảm ship không ảnh hưởng lợi nhuận SP)
+    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
+  ) - final_discount;
 
-  // MỚI: Gộp thông tin khách hàng đăng nhập ... (Đoạn này giữ nguyên)
-  const finalCustomer = { 
-    ...(loggedInCustomer || {}),  // Ưu tiên ID, tier, points từ user đăng nhập
-    ...(body.customer || {})      // Ghi đè bằng tên, sđt, địa chỉ từ form checkout
+  // ✅ FIX: Merge customer info correctly
+  const finalCustomer = {
+    ...(auth.customer || {}),
+    ...(body.customer || {})
   };
-  
-  if (loggedInCustomer && loggedInCustomer.id) {
-    finalCustomer.id = loggedInCustomer.id; // Đảm bảo ID được giữ lại
+  if (auth.customerId) finalCustomer.id = auth.customerId;
+
+  // Normalize customer phone
+  if (finalCustomer.phone) {
+    finalCustomer.phone = normalizePhone(finalCustomer.phone);
   }
-  
+
+  // Create order object
   const order = {
-    id, createdAt,
-    status: 'pending',
+    id,
+    createdAt,
+    status: ORDER_STATUS.PENDING,
     customer: finalCustomer,
     items,
-    subtotal, shipping_fee,
-    discount: final_discount, // Lưu discount đã được xác thực
-    shipping_discount: final_ship_discount, // Lưu ship_discount đã được xác thực
-    revenue, profit, // Lưu revenue, profit đã tính lại
-    voucher_code: validated_voucher_code, // Lưu mã voucher đã được xác thực (hoặc null)
+    subtotal,
+    shipping_fee,
+    discount: final_discount,
+    shipping_discount: final_ship_discount,
+    revenue,
+    profit,
+    voucher_code: validated_voucher_code,
     note: body.note || '',
-    source: 'fe',
-    
-    // BỔ SUNG CÁC TRƯỜNG VẬN CHUYỂN BỊ THIẾU
-    shipping_name: body.shipping_name || null,
-    shipping_eta: body.shipping_eta || null,
-    shipping_provider: body.shipping_provider || null,
-    shipping_service: body.shipping_service || null
+    source: body.source || 'website',
+    // ✅ FIX: Map shipping info correctly
+    shipping_provider: shipping.provider || body.shipping_provider || null,
+    shipping_service: shipping.service_code || body.shipping_service || null,
+    shipping_name: body.shipping_name || shipping.name || null,
+    shipping_eta: body.shipping_eta || shipping.eta || null
   };
 
   // Save order
@@ -503,193 +621,73 @@ async function createOrder(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
- // Trừ kho
+  // Adjust inventory
   if (shouldAdjustStock(order.status)) {
-    await adjustInventory(normalizeOrderItems(order.items), env, -1);
+    await adjustInventory(items, env, -1);
   }
 
-  // [BẮT ĐẦU] TỰ ĐỘNG TẠO VẬN ĐƠN NGAY KHI ĐẶT HÀNG
-  try {
-    console.log('[OrderCreate] Auto-creating waybill for order:', order.id);
-    // Truyền toàn bộ object 'order' vừa tạo
-    const waybillResult = await autoCreateWaybill(order, env); 
+  // Auto-create waybill
+  if (order.shipping_provider) {
+    try {
+      console.log('[ORDER] Auto-creating waybill');
+      const waybillResult = await autoCreateWaybill(order, env);
 
-    if (waybillResult.ok && (waybillResult.carrier_code || waybillResult.superai_code)) {
-      console.log('[OrderCreate] Auto-create SUCCESS:', waybillResult.carrier_code);
-      
-      order.tracking_code = waybillResult.carrier_code;
-      order.shipping_tracking = waybillResult.carrier_code; // alias
-      order.superai_code = waybillResult.superai_code; 
-      order.carrier_id = waybillResult.carrier_id;
-      order.status = 'shipping'; 
-      order.waybill_data = waybillResult.raw; 
-      
-    
-      await putJSON(env, 'order:' + id, order);
-      
-      const list = await getJSON(env, 'orders:list', []);
-      const index = list.findIndex(o => o.id === id);
-      if (index > -1) {
-        // ✅ SỬA: Lưu cả tracking_code, superai_code, carrier_id vào list
-        list[index].tracking_code = waybillResult.carrier_code;
-        list[index].superai_code = waybillResult.superai_code;
-        list[index].carrier_id = waybillResult.carrier_id;
-        list[index].status = 'shipping';
-        await putJSON(env, 'orders:list', list);
+      if (waybillResult.ok && waybillResult.carrier_code) {
+        order.tracking_code = waybillResult.carrier_code;
+        order.shipping_tracking = waybillResult.carrier_code;
+        order.superai_code = waybillResult.superai_code;
+        order.carrier_id = waybillResult.carrier_id;
+        order.status = ORDER_STATUS.SHIPPING;
+        order.waybill_data = waybillResult.raw;
+
+        await putJSON(env, 'order:' + id, order);
+
+        const index = list.findIndex(o => o.id === id);
+        if (index > -1) {
+          list[index] = order;
+          await putJSON(env, 'orders:list', list);
+        }
+
+        console.log('[ORDER] Waybill created:', waybillResult.carrier_code);
+      } else {
+        console.warn('[ORDER] Waybill creation failed:', waybillResult.message);
       }
-    } else {
-      console.warn('[OrderCreate] Auto-create FAILED:', waybillResult.message);
-      // Không làm crash đơn hàng, chỉ log lỗi
+    } catch (e) {
+      console.error('[ORDER] Waybill creation exception:', e.message);
     }
-  } catch (e) {
-    console.error('[OrderCreate] Auto-create EXCEPTION:', e.message);
-    // Không làm crash đơn hàng
-  }
-  // [KẾT THÚC] TỰ ĐỘNG TẠO VẬN ĐƠN
-
-  // ✅ Cộng điểm cho customer
-  if (order.status === 'confirmed') {
-    const tierInfo = await addPointsToCustomer(order.customer, revenue, env);
-    console.log('[ORDER] Tier update:', tierInfo);
   }
 
-  const response = json({ ok: true, id }, {}, req);
+  const response = json({ ok: true, id, status: order.status, tracking_code: order.tracking_code || null }, {}, req);
   await idemSet(idem.key, env, response);
   return response;
 }
 
 // ===================================================================
-// PUBLIC: Create Order (alt)
+// PUBLIC: Create Order (Alternative Endpoint)
 // ===================================================================
+
 async function createOrderPublic(req, env) {
-
-  // --- BEGIN: HELPER TÌM CUSTOMER (COPY TỪ getMyOrders) ---
-  const parseCookie = (str) => {
-    const out = {};
-    (str || '').split(';').forEach(p => {
-      const i = p.indexOf('=');
-      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
-    });
-    return out;
-  }
-  const kvGet = async (k) => {
-    try { return await getJSON(env, k, null); } catch (_) { return null; }
-  }
-  const tryKeys = async (tok) => {
-    if (!tok) return null;
-    const keys = [
-      tok, 'cust:' + tok, 'customerToken:' + tok, 'token:' + tok,
-      'customer_token:' + tok, 'auth:' + tok, 'customer:' + tok,
-      'session:' + tok, 'shv_session:' + tok
-    ];
-    for (const k of keys) {
-      const val = await kvGet(k);
-      if (!val) continue;
-      if (k.includes('session:') && (val.customer || val.user)) {
-        return val.customer || val.user;
-      }
-      if (typeof val === 'object' && val !== null) return val;
-      if (typeof val === 'string') {
-        const cid = String(val).trim();
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-      if (val && (val.customer_id || val.customerId)) {
-        const cid = val.customer_id || val.customerId;
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-    }
-    return null;
-  };
-  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
-  if (!token) {
-    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
-    if (m) token = m[1];
-  }
-  if (!token) {
-    const c = parseCookie(req.headers.get('cookie') || '');
-    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
-  }
-  token = String(token || '').trim().replace(/^"+|"+$/g, '');
-  
-  let loggedInCustomer = await tryKeys(token);
-  if (!loggedInCustomer && token) {
-     try {
-      let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4) b64 += '=';
-      const decoded = atob(b64);
-      if (decoded && decoded !== token) {
-        loggedInCustomer = await tryKeys(decoded);
-        if (!loggedInCustomer) {
-          loggedInCustomer = (await kvGet('customer:' + decoded)) || (await kvGet('customer:id:' + decoded));
-        }
-      }
-    } catch { /* ignore */ }
-  }
-  if (!loggedInCustomer && token && token.split('.').length === 3) {
-    try {
-      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
-      if (cid) loggedInCustomer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-    } catch { /* ignore */ }
-  }
-  // --- END: HELPER TÌM CUSTOMER ---
-
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
+  const auth = await authenticateCustomer(req, env);
   const body = await readBody(req) || {};
-  const id = body.id || crypto.randomUUID().replace(/-/g, '');
 
+  const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = body.createdAt || body.created_at || Date.now();
-  const status = body.status || 'pending';
-  // MỚI: Gộp thông tin khách hàng đăng nhập (nếu có) vào thông tin checkout
-  const finalCustomer = { 
-    ...(loggedInCustomer || {}),  // Ưu tiên ID, tier, points từ user đăng nhập
-    ...(body.customer || {})      // Ghi đè bằng tên, sđt, địa chỉ từ form checkout
+  const status = body.status || ORDER_STATUS.PENDING;
+
+  // Merge customer info
+  const finalCustomer = {
+    ...(auth.customer || {}),
+    ...(body.customer || {})
   };
-  
-  if (loggedInCustomer && loggedInCustomer.id) {
-    finalCustomer.id = loggedInCustomer.id; // Đảm bảo ID được giữ lại
-  }
-  
-  const customer = finalCustomer; // Sử dụng đối tượng customer đã gộp
-  
-  // ✅ ENRICH ITEMS WITH COST
-  const items = Array.isArray(body.items) ? body.items : [];
-  
-  for (const item of items) {
-    if (!item.cost || item.cost === 0) {
-      const variantId = item.id || item.sku;
-      if (variantId) {
-        console.log('[ORDER-PUBLIC] Looking for cost:', variantId);
-        const allProducts = await getJSON(env, 'products:list', []);
-        
-        for (const summary of allProducts) {
-          const product = await getJSON(env, 'product:' + summary.id, null);
-          if (!product || !Array.isArray(product.variants)) continue;
-          
-          const variant = product.variants.find(v => 
-            String(v.id || v.sku || '') === String(variantId) ||
-            String(v.sku || '') === String(item.sku || '')
-          );
-          
-          if (variant) {
-            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-            for (const key of keys) {
-              if (variant[key] != null) {
-                item.cost = Number(variant[key] || 0);
-                console.log('[ORDER-PUBLIC] ✅ Found cost:', { id: variantId, cost: item.cost });
-                break;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-  }
+  if (auth.customerId) finalCustomer.id = auth.customerId;
+  if (finalCustomer.phone) finalCustomer.phone = normalizePhone(finalCustomer.phone);
+
+  // Normalize & enrich items
+  let items = normalizeOrderItems(body.items || []);
+  items = await enrichItemsWithCostAndPrice(items, env);
 
   const totals = body.totals || {};
   const shipping_fee = Number(body.shipping_fee ?? totals.ship ?? totals.shipping_fee ?? 0);
@@ -705,15 +703,23 @@ async function createOrderPublic(req, env) {
   ) - discount;
 
   const order = {
-    id, createdAt, status, customer, items,
-    shipping_fee, discount, shipping_discount,
-    subtotal, revenue, profit,
+    id,
+    createdAt,
+    status,
+    customer: finalCustomer,
+    items,
+    shipping_fee,
+    discount,
+    shipping_discount,
+    subtotal,
+    revenue,
+    profit,
     shipping_name: body.shipping_name || null,
     shipping_eta: body.shipping_eta || null,
     shipping_provider: body.shipping_provider || null,
     shipping_service: body.shipping_service || null,
     note: body.note || '',
-    source: body.source || 'fe'
+    source: body.source || 'website'
   };
 
   const list = await getJSON(env, 'orders:list', []);
@@ -722,11 +728,11 @@ async function createOrderPublic(req, env) {
   await putJSON(env, 'order:' + id, order);
 
   if (shouldAdjustStock(order.status)) {
-    await adjustInventory(normalizeOrderItems(order.items), env, -1);
+    await adjustInventory(items, env, -1);
   }
 
-  // ✅ Cộng điểm cho customer
-  if (shouldAdjustStock(order.status)) {
+  // ✅ FIX: Only add points when order is COMPLETED, not just confirmed
+  if (order.status === ORDER_STATUS.COMPLETED) {
     const tierInfo = await addPointsToCustomer(order.customer, revenue, env);
     console.log('[ORDER-PUBLIC] Tier update:', tierInfo);
   }
@@ -737,48 +743,17 @@ async function createOrderPublic(req, env) {
 }
 
 // ===================================================================
-// PUBLIC: Create Order (legacy)
+// PUBLIC: Create Order (Legacy Endpoint)
 // ===================================================================
+
 async function createOrderLegacy(req, env) {
   const body = await readBody(req) || {};
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  // ✅ ENRICH ITEMS WITH COST
-  const items = Array.isArray(body.items) ? body.items : [];
-  
-  for (const item of items) {
-    if (!item.cost || item.cost === 0) {
-      const variantId = item.id || item.sku;
-      if (variantId) {
-        console.log('[ORDER-LEGACY] Looking for cost:', variantId);
-        const allProducts = await getJSON(env, 'products:list', []);
-        
-        for (const summary of allProducts) {
-          const product = await getJSON(env, 'product:' + summary.id, null);
-          if (!product || !Array.isArray(product.variants)) continue;
-          
-          const variant = product.variants.find(v => 
-            String(v.id || v.sku || '') === String(variantId) ||
-            String(v.sku || '') === String(item.sku || '')
-          );
-          
-          if (variant) {
-            const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-            for (const key of keys) {
-              if (variant[key] != null) {
-                item.cost = Number(variant[key] || 0);
-                console.log('[ORDER-LEGACY] ✅ Found cost:', { id: variantId, cost: item.cost });
-                break;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-  }
-  
+  let items = normalizeOrderItems(body.items || []);
+  items = await enrichItemsWithCostAndPrice(items, env);
+
   const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
 
   const subtotal = items.reduce((sum, item) =>
@@ -788,14 +763,14 @@ async function createOrderLegacy(req, env) {
     sum + Number(item.cost || 0) * Number(item.qty || item.quantity || 1), 0
   );
 
-  const revenue = subtotal - shipping_fee;
+  const revenue = subtotal + shipping_fee;
   const profit = revenue - cost;
 
   const order = {
     id,
     status: body.status || 'mới',
     name: body.name,
-    phone: body.phone,
+    phone: normalizePhone(body.phone),
     address: body.address,
     note: body.note || body.notes,
     items,
@@ -813,13 +788,7 @@ async function createOrderLegacy(req, env) {
   await putJSON(env, 'order:' + id, order);
 
   if (shouldAdjustStock(order.status)) {
-    await adjustInventory(normalizeOrderItems(order.items), env, -1);
-  }
-
-  // ✅ Cộng điểm cho customer
-  if (shouldAdjustStock(order.status)) {
-    const tierInfo = await addPointsToCustomer(order.customer || {}, revenue, env);
-    console.log('[ORDER-LEGACY] Tier update:', tierInfo);
+    await adjustInventory(items, env, -1);
   }
 
   return json({ ok: true, id, data: order }, {}, req);
@@ -828,6 +797,7 @@ async function createOrderLegacy(req, env) {
 // ===================================================================
 // ADMIN: List Orders
 // ===================================================================
+
 async function listOrders(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
   const list = await getJSON(env, 'orders:list', []);
@@ -868,95 +838,71 @@ async function listOrdersAdmin(req, env) {
 }
 
 // ===================================================================
-// ADMIN: Upsert / Delete / Print / Stats
+// ADMIN: Upsert Order
 // ===================================================================
+
 async function upsertOrder(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
 
-  const order = await readBody(req) || {};
-  order.id = order.id || crypto.randomUUID().replace(/-/g, '');
-  order.createdAt = order.createdAt || Date.now();
+  const body = await readBody(req) || {};
+  const id = body.id || crypto.randomUUID().replace(/-/g, '');
 
   const list = await getJSON(env, 'orders:list', []);
+  const index = list.findIndex(o => o.id === id);
 
+  // Get old order data for status change detection
+  const oldOrder = index >= 0 ? list[index] : null;
+  const oldStatus = String(oldOrder?.status || '').toLowerCase();
+  const newStatus = String(body.status || '').toLowerCase();
+
+  // Create/update order
+  const order = {
+    ...body,
+    id,
+    createdAt: body.createdAt || Date.now()
+  };
+
+  // Recalculate totals
   const items = order.items || [];
   const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
   const cost = items.reduce((sum, item) => sum + Number(item.cost || 0) * Number(item.qty || 1), 0);
 
   order.subtotal = subtotal;
-  order.revenue  = subtotal - Number(order.shipping_fee || 0);
-  order.profit   = order.revenue - cost;
+  order.revenue = subtotal + Number(order.shipping_fee || 0) - Number(order.discount || 0) - Number(order.shipping_discount || 0);
+  order.profit = order.revenue - cost;
 
-  const index = list.findIndex(o => o.id === order.id);
-  if (index >= 0) list[index] = order; else list.unshift(order);
+  // Update list
+  if (index >= 0) {
+    list[index] = order;
+  } else {
+    list.unshift(order);
+  }
 
   await putJSON(env, 'orders:list', list);
-  await putJSON(env, 'order:' + order.id, order);
+  await putJSON(env, 'order:' + id, order);
 
-  // --- THÊM: Xử lý Voucher Usage khi đơn Hoàn thành ---
-  const newStatus = String(body.status || order.status || '').toLowerCase(); // Lấy status mới từ body hoặc order
-  // Lấy trạng thái cũ từ bản ghi trong KV trước khi cập nhật
-  const oldOrderData = (index >= 0 && list[index]) ? list[index] : null;
-  const oldStatus = String(oldOrderData?.status || '').toLowerCase();
-
-  console.log('[OrderUpdate] Status change detected:', { oldStatus, newStatus, orderId: order.id, voucherCode: order.voucher_code });
-
-  // Chỉ xử lý khi chuyển sang 'completed' VÀ trạng thái cũ KHÁC 'completed' VÀ có voucher code
-  if (newStatus === 'completed' && oldStatus !== 'completed' && order.voucher_code) {
-    const voucherCode = order.voucher_code;
-    const customerId = order.customer?.id || null; // Lấy ID khách hàng từ đơn hàng
-
-    console.log('[OrderComplete] Processing voucher usage:', { voucherCode, customerId });
+  // ✅ FIX: Handle voucher usage when order becomes completed
+  if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
+    console.log('[ORDER-UPSERT] Marking voucher as used:', order.voucher_code);
     try {
-      // 1. Cập nhật usage_count cho voucher
-      const allVouchers = await getJSON(env, 'vouchers', []); // Đọc danh sách voucher
-      const vIndex = allVouchers.findIndex(v => (v.code || '').toUpperCase() === voucherCode.toUpperCase());
-
-      if (vIndex >= 0) {
-        // Tăng usage_count lên 1
-        allVouchers[vIndex].usage_count = (allVouchers[vIndex].usage_count || 0) + 1;
-        // Lưu lại toàn bộ danh sách voucher vào KV
-        await putJSON(env, 'vouchers', allVouchers);
-        console.log(`[OrderComplete] Incremented usage_count for ${voucherCode} to ${allVouchers[vIndex].usage_count}`);
-      } else {
-        // Trường hợp hiếm gặp: voucher đã bị xóa sau khi đơn hàng được tạo
-        console.warn('[OrderComplete] Voucher not found in list for usage count update:', voucherCode);
-      }
-
-      // 2. Cập nhật lịch sử sử dụng của khách hàng (nếu có customerId)
-      if (customerId && voucherCode) { // Thêm kiểm tra voucherCode lần nữa cho chắc
-        const historyKey = `customer_voucher_history:${customerId}`;
-        const history = await getJSON(env, historyKey, []); // Đọc lịch sử hiện tại
-
-        // Chỉ thêm mã vào lịch sử nếu giới hạn dùng/người > 0 VÀ mã chưa có trong lịch sử đủ số lần
-        const voucherInfo = allVouchers[vIndex]; // Lấy thông tin voucher đã tìm ở trên
-        if (voucherInfo && voucherInfo.usage_limit_per_user > 0) {
-           const timesUsed = history.filter(usedCode => (usedCode || '').toUpperCase() === voucherCode.toUpperCase()).length;
-           // Nếu số lần đã dùng < giới hạn => thêm vào lịch sử
-           if (timesUsed < voucherInfo.usage_limit_per_user) {
-              history.push(voucherCode); // Thêm mã vào cuối danh sách
-              await putJSON(env, historyKey, history); // Lưu lại lịch sử mới
-              console.log('[OrderComplete] Updated usage history for customer:', customerId, 'Added:', voucherCode);
-           } else {
-              console.log('[OrderComplete] Customer already reached usage limit for this voucher, history not updated:', {customerId, voucherCode});
-           }
-        } else {
-           console.log('[OrderComplete] No user limit or voucher info missing, skipping history update for:', customerId);
-        }
-      } else {
-         console.log('[OrderComplete] No customerId, skipping usage history update.');
-      }
+      await markVoucherUsed(env, order.voucher_code, order.customer?.id || null);
     } catch (e) {
-      // Nếu có lỗi khi cập nhật voucher/lịch sử, ghi log nhưng không làm crash việc update đơn hàng
-      console.error('[OrderComplete] EXCEPTION updating voucher usage/history:', e);
+      console.error('[ORDER-UPSERT] Failed to mark voucher as used:', e);
     }
-  } else {
-     console.log('[OrderUpdate] No voucher processing needed for this status change.');
   }
-  // --- KẾT THÚC THÊM ---
+
+  // ✅ FIX: Add points when order is completed
+  if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED) {
+    const tierInfo = await addPointsToCustomer(order.customer, order.revenue, env);
+    console.log('[ORDER-UPSERT] Tier update:', tierInfo);
+  }
 
   return json({ ok: true, id: order.id, data: order }, {}, req);
 }
+
+// ===================================================================
+// ADMIN: Delete Order
+// ===================================================================
 
 async function deleteOrder(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
@@ -972,6 +918,10 @@ async function deleteOrder(req, env) {
   return json({ ok: true, deleted: id }, {}, req);
 }
 
+// ===================================================================
+// ADMIN: Print Order
+// ===================================================================
+
 async function printOrder(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
 
@@ -986,8 +936,6 @@ async function printOrder(req, env) {
   }
   if (!order) return errorResponse('Order not found', 404, req);
 
-  const fmt = (n) => { try { return new Intl.NumberFormat('vi-VN').format(Number(n || 0)); } catch { return (n || 0); } };
-
   const items = Array.isArray(order.items) ? order.items : [];
   const subtotal = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0);
   const shipping = Number(order.shipping_fee || 0);
@@ -999,10 +947,10 @@ async function printOrder(req, env) {
     <tr>
       <td>${item.sku || item.id || ''}</td>
       <td>${(item.name || '') + (item.variant ? (' - ' + item.variant) : '')}</td>
-      <td style="text-align:right">${fmt(item.qty || 1)}</td>
-      <td style="text-align:right">${fmt(item.price || 0)}</td>
-      <td style="text-align:right">${fmt(item.cost || 0)}</td>
-      <td style="text-align:right">${fmt((item.price || 0) * (item.qty || 1))}</td>
+      <td style="text-align:right">${formatPrice(item.qty || 1)}</td>
+      <td style="text-align:right">${formatPrice(item.price || 0)}</td>
+      <td style="text-align:right">${formatPrice(item.cost || 0)}</td>
+      <td style="text-align:right">${formatPrice((item.price || 0) * (item.qty || 1))}</td>
     </tr>
   `).join('') || `<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>`;
 
@@ -1011,7 +959,7 @@ async function printOrder(req, env) {
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>In đơn ${id}</title>
+  <title>Đơn hàng ${id}</title>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;color:#111827}
     .row{display:flex;justify-content:space-between;margin-bottom:12px}
@@ -1046,16 +994,26 @@ async function printOrder(req, env) {
     <tbody>${rows}</tbody>
   </table>
   <div class="totals">
-    <div><span>Tổng hàng</span><b>${fmt(subtotal)}đ</b></div>
-    <div><span>Phí vận chuyển</span><b>${fmt(shipping)}đ</b></div>
-    ${discount ? (`<div><span>Giảm</span><b>-${fmt(discount)}đ</b></div>`) : ''}
-    <div style="font-size:16px"><span>Tổng thanh toán</span><b>${fmt(total)}đ</b></div>
+    <div><span>Tổng hàng</span><b>${formatPrice(subtotal)}</b></div>
+    <div><span>Phí vận chuyển</span><b>${formatPrice(shipping)}</b></div>
+    ${discount ? (`<div><span>Giảm</span><b>-${formatPrice(discount)}</b></div>`) : ''}
+    <div style="font-size:16px"><span>Tổng thanh toán</span><b>${formatPrice(total)}</b></div>
   </div>
   <script>window.onload = () => setTimeout(() => window.print(), 200);</script>
 </body>
 </html>`;
-  return json({ ok: true, html }, {}, req);
+  
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      ...corsHeaders(req)
+    }
+  });
 }
+
+// ===================================================================
+// ADMIN: Get Stats
+// ===================================================================
 
 async function getStats(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
@@ -1074,21 +1032,26 @@ async function getStats(req, env) {
 
   if (!from || !to) {
     if (granularity === 'day') {
-      from = todayStart; to = todayStart + 86400000;
+      from = todayStart;
+      to = todayStart + 86400000;
     } else if (granularity === 'week') {
       const weekday = (new Date(todayStart + 7 * 3600 * 1000).getDay() + 6) % 7;
       const start = todayStart - weekday * 86400000;
-      from = start; to = start + 7 * 86400000;
+      from = start;
+      to = start + 7 * 86400000;
     } else if (granularity === 'month') {
       const dt = new Date(todayStart + 7 * 3600 * 1000);
       const start = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), 1) - 7 * 3600 * 1000;
-      const end   = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 1) - 7 * 3600 * 1000;
-      from = start; to = end;
+      const end = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 1) - 7 * 3600 * 1000;
+      from = start;
+      to = end;
     } else {
-      from = todayStart; to = todayStart + 86400000;
+      from = todayStart;
+      to = todayStart + 86400000;
     }
   } else {
-    from = Number(from); to = Number(to);
+    from = Number(from);
+    to = Number(to);
   }
 
   // Load & enrich
@@ -1104,46 +1067,6 @@ async function getStats(req, env) {
   }
   list = enriched;
 
-  // cost helper - ƯU TIÊN VARIANT, fallback theo SKU/ID, cuối cùng là so khớp TÊN biến thể
-  async function getCost(item) {
-    const variantIdOrSku = item && (item.id || item.sku);
-    const text = String(item?.variant || item?.name || '').toUpperCase(); // <-- thêm fallback theo tên biến thể
-    const keys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-
-    if (!variantIdOrSku && !text) return 0;
-
-    const all = await getJSON(env, 'products:list', []);
-    for (const s of all) {
-      const p = await getJSON(env, 'product:' + s.id, null);
-      if (!p || !Array.isArray(p.variants)) continue;
-
-      const v = p.variants.find(v => {
-        const vid   = String(v.id || '').toUpperCase();
-        const vsku  = String(v.sku || '').toUpperCase();
-        const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
-
-        // 1) khớp id/sku
-        if (variantIdOrSku && (vid === String(variantIdOrSku).toUpperCase() || vsku === String(variantIdOrSku).toUpperCase())) {
-          return true;
-        }
-        if (item?.sku && vsku === String(item.sku).toUpperCase()) return true;
-
-        // 2) fallback: tên biến thể có chứa/khớp text FE gửi
-        if (text && vname && (vname === text || text.includes(vname) || vname.includes(text))) {
-          return true;
-        }
-        return false;
-      });
-
-      if (v) {
-        for (const k of keys) {
-          if (v[k] != null) return Number(v[k] || 0);
-        }
-      }
-    }
-    return 0;
-  }
-
   let orderCount = 0;
   let revenue = 0;
   let goodsCost = 0;
@@ -1155,16 +1078,12 @@ async function getStats(req, env) {
 
     orderCount += 1;
 
-    const items = Array.isArray(order.items) ? order.items : [];
-    const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
-
-    const shipping = Number(order.shipping_fee || 0);
-    const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
-    const orderRevenue = Math.max(0, order.revenue != null ? Number(order.revenue) : (subtotal + shipping - discount));
+    const orderRevenue = Number(order.revenue || 0);
     revenue += orderRevenue;
 
+    const items = Array.isArray(order.items) ? order.items : [];
     for (const item of items) {
-      const cost = await getCost(item);  // ✅ LUÔN GỌI getCost()
+      const cost = Number(item.cost || 0);
       goodsCost += cost * Number(item.qty || 1);
 
       const name = item.name || item.title || item.id || 'unknown';
@@ -1184,170 +1103,44 @@ async function getStats(req, env) {
     .slice(0, 20);
 
   return json({
-  ok: true,
-  orders: orderCount,
-  revenue,
-  profit,
-  cost_price: goodsCost,   // << thêm
-  goods_cost: goodsCost,   // << thêm (alias)
-  top_products: topProducts,
-  from, to, granularity
-}, {}, req);
+    ok: true,
+    orders: orderCount,
+    revenue,
+    profit,
+    cost_price: goodsCost,
+    goods_cost: goodsCost,
+    top_products: topProducts,
+    from,
+    to,
+    granularity
+  }, {}, req);
 }
 
+// ===================================================================
 // PUBLIC: Get My Orders (Customer)
 // ===================================================================
+
 async function getMyOrders(req, env) {
-  console.log('[getMyOrders] 🚀 Request received'); // LOG MỚI
-  // --- A. Lấy token từ nhiều nguồn: header + Authorization + Cookie
-  function parseCookie(str) {
-    const out = {};
-    (str || '').split(';').forEach(p => {
-      const i = p.indexOf('=');
-      if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim());
-    });
-    return out;
+  console.log('[GET-MY-ORDERS] Request received');
+
+  const auth = await authenticateCustomer(req, env);
+
+  // Allow phone fallback from query params
+  const url = new URL(req.url);
+  const phoneFallback = (url.searchParams.get('phone') || req.headers.get('x-customer-phone') || '').trim();
+
+  if (!auth.customerId && !phoneFallback) {
+    return json({
+      ok: false,
+      error: 'Unauthorized',
+      message: 'Vui lòng đăng nhập'
+    }, { status: 401 }, req);
   }
 
-  // 1) header ưu tiên x-customer-token, rồi x-token
-  let token = req.headers.get('x-customer-token') || req.headers.get('x-token') || '';
-
-  // 2) Authorization: Bearer ...
-  if (!token) {
-    const m = (req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
-    if (m) token = m[1];
-  }
-
-  // 3) Cookie: customer_token / x-customer-token / token
-  if (!token) {
-    const c = parseCookie(req.headers.get('cookie') || '');
-    token = c['customer_token'] || c['x-customer-token'] || c['token'] || '';
-  }
-
-  // Chuẩn hoá token
-token = String(token || '').trim().replace(/^"+|"+$/g, '');
-
-// NEW: cho phép truyền phone qua query/header để fallback
-const url = new URL(req.url);
-const phoneFallback = (url.searchParams.get('phone') || req.headers.get('x-customer-phone') || '').trim();
-
-// Nếu không có token và cũng không có phone → báo lỗi như cũ
-if (!token && !phoneFallback) {
-  return json({ ok: false, error: 'Unauthorized', message: 'Vui lòng đăng nhập' }, { status: 401 }, req);
-}
-
-  // --- B. Resolve customer trong KV theo token ---
-  async function kvGet(k) {
-    try { return await getJSON(env, k, null); } catch (_) { return null; }
-  }
-
-  // Thử nhiều khoá thông dụng với token gốc
-  const tryKeys = async (tok) => {
-    const keys = [
-      tok,                      // KV có thể lưu thẳng theo token
-      'cust:' + tok,
-      'customerToken:' + tok,
-      'token:' + tok,
-      'customer_token:' + tok,
-      'auth:' + tok,
-      'customer:' + tok,        // có thể lưu trực tiếp object customer
-      'session:' + tok,         // { customer:{...} } hay { user:{...} }
-      'shv_session:' + tok
-    ];
-
-    for (const k of keys) {
-      const val = await kvGet(k);
-      if (!val) continue;
-
-      // Nếu là session → lấy object bên trong
-      if (k.includes('session:') && (val.customer || val.user)) {
-        return val.customer || val.user;
-      }
-
-      // Nếu KV trả thẳng object customer
-      if (typeof val === 'object' && val !== null) {
-        return val;
-      }
-
-      // Nếu KV trả chuỗi id → tra tiếp theo id
-      if (typeof val === 'string') {
-        const cid = String(val).trim();
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-
-      // Nếu object có customer_id/customerId → tra tiếp
-      if (val && (val.customer_id || val.customerId)) {
-        const cid = val.customer_id || val.customerId;
-        const obj = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (obj) return obj;
-      }
-    }
-    return null;
-  };
-
-  // 1) Dùng token gốc
-  let customer = await tryKeys(token);
-
-  // 2) Nếu chưa có, thử giải mã base64 (FE thường gửi “Y3VzdF8…”, decode ra “cust_…”)
-  let decodedTokenId = '';
-  if (!customer) {
-    try {
-    let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';  // padding
-    const decoded = atob(b64);          // SẼ RA DẠNG: "cust_12345:176149..."
-
-    // SỬA: Check xem có phải token "id:timestamp" không
-    if (decoded && decoded.includes(':')) { 
-
-      const customerId = decoded.split(':')[0]; // SỬA: Lấy ID khách hàng
-
-      if (customerId) {
-        decodedTokenId = customerId; // SỬA: Lưu lại ID khách hàng (chỉ ID)
-
-        // SỬA: Thử tìm khách hàng bằng ID
-        customer =
-          (await kvGet('customer:' + customerId)) ||
-          (await kvGet('customer:id:' + customerId));
-      }
-    }
-    // GIỮ LẠI LOGIC CŨ (phòng trường hợp token là dạng khác)
-    else if (decoded && decoded !== token) {
-      decodedTokenId = decoded;
-      customer = await tryKeys(decoded);
-      if (!customer) {
-        customer =
-          (await kvGet('customer:' + decoded)) ||
-          (await kvGet('customer:id:' + decoded));
-      }
-    }
-  } // <<< DẤU '}' NÀY ĐÓNG 'TRY'
-  catch { /* ignore */ }
-
-  // 3) Nếu token là JWT → decode lấy id rồi tra tiếp
-  if (!customer && token.split('.').length === 3) {
-    try {
-      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const cid = p.customer_id || p.customerId || p.sub || p.id || '';
-      if (cid) {
-        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
-        if (!customer) decodedTokenId = String(cid);
-      }
-    } catch { /* ignore */ }
-  }
-
-  // 4) Chấp nhận nếu: (a) tìm được customer có phone/id, hoặc (b) không có customer nhưng có decodedTokenId
-  const custPhone = customer && (customer.phone || customer.mobile || customer.tel);
-  const custId    = customer && (customer.id || customer.customer_id || customer.customerId);
-
-  if (!customer && !decodedTokenId && !phoneFallback) {
-  return json({ ok: false, error: 'Invalid token', message: 'Token không hợp lệ' }, { status: 401 }, req);
-}
-
-  // --- C. Lọc đơn theo phone hoặc id khách ---
+  // Load all orders
   let allOrders = await getJSON(env, 'orders:list', []);
 
-  // enrich đơn thiếu items
+  // Enrich orders missing items
   const enriched = [];
   for (const order of allOrders) {
     if (!order.items) {
@@ -1359,58 +1152,45 @@ if (!token && !phoneFallback) {
   }
   allOrders = enriched;
 
-  // Thông tin khách để đối chiếu
-  const pPhone  = phoneFallback || (customer && (customer.phone || customer.mobile || customer.tel)) || null;
-  const pId     = (customer && (customer.id || customer.customer_id || customer.customerId)) || decodedTokenId || null;
-  const pEmail  = (customer && (customer.email || customer.mail)) || null;
-  const pToken  = decodedTokenId || null; // khi token decode ra "cust_..." hoặc một mã nhận diện khác
+  console.log('[GET-MY-ORDERS] Total orders before filter:', allOrders.length);
 
-  // LOG MỚI: Ghi lại tổng số đơn hàng trước khi lọc
-  console.log('[getMyOrders] 📚 Total orders before filter:', allOrders.length);
+  // Prepare filter criteria
+  const pPhone = normalizePhone(phoneFallback || auth.customer?.phone || auth.customer?.mobile || '');
+  const pId = auth.customerId;
+  const pEmail = auth.customer?.email || '';
 
+  // Filter orders
   const myOrders = allOrders.filter(order => {
-  const oc          = order.customer || {};
-  const orderPhone  = oc.phone  || order.phone  || null;
-  const orderId     = oc.id     || oc.customer_id || null;
-  const orderEmail  = oc.email  || order.email  || null;
-  const orderToken  = oc.token  || oc.customer_token || order.customer_token || null;
+    const oc = order.customer || {};
+    const orderPhone = normalizePhone(oc.phone || order.phone || '');
+    const orderId = oc.id || oc.customer_id || '';
+    const orderEmail = String(oc.email || order.email || '').toLowerCase();
 
-  const eq = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    const eq = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
-  // Chuẩn hoá số ĐT: bỏ khoảng trắng, dấu chấm, gạch…; đổi +84/84 thành 0 ở đầu
-  const normalizePhone = (s) => {
-    let x = String(s || '').replace(/[\s\.\-]/g, '');
-    if (x.startsWith('+84')) x = '0' + x.slice(3);
-    if (x.startsWith('84') && x.length > 9) x = '0' + x.slice(2);
-    return x;
-  };
-
-  return (
-    // phone
-    (pPhone && orderPhone && normalizePhone(orderPhone) === normalizePhone(pPhone))
-    // id
-    || (pId && orderId && eq(orderId, pId))
-    // email
-    || (pEmail && orderEmail && eq(orderEmail, pEmail))
-    // token
-    || (pToken && orderToken && eq(orderToken, pToken))
-  );
-});
+    return (
+      (pPhone && orderPhone && orderPhone === pPhone) ||
+      (pId && orderId && eq(orderId, pId)) ||
+      (pEmail && orderEmail && eq(orderEmail, pEmail))
+    );
+  });
 
   myOrders.sort((a, b) => Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0));
 
-  // LOG MỚI: Ghi lại số đơn hàng sau khi lọc và thông tin trả về
-  console.log('[getMyOrders] ✅ Filtered orders count:', myOrders.length);
-  console.log('[getMyOrders] ✅ Returning customer:', customer ? { id: customer.id } : null);
+  console.log('[GET-MY-ORDERS] Filtered orders count:', myOrders.length);
 
-
-  // Trả về cả thông tin 'customer' đã tìm thấy (có chứa tier, points)
-  return json({ ok: true, orders: myOrders, count: myOrders.length, customer: customer || null }, {}, req);
+  return json({
+    ok: true,
+    orders: myOrders,
+    count: myOrders.length,
+    customer: auth.customer || null
+  }, {}, req);
 }
 
 // ===================================================================
 // PUBLIC: Cancel Order (Customer)
 // ===================================================================
+
 async function cancelOrderCustomer(req, env) {
   try {
     const body = await readBody(req) || {};
@@ -1420,42 +1200,42 @@ async function cancelOrderCustomer(req, env) {
       return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
     }
 
-    // Lấy đơn hàng
+    // Get order
     const order = await getJSON(env, 'order:' + orderId, null);
     if (!order) {
       return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
     }
 
-    // Kiểm tra trạng thái: CHỈ cho phép hủy đơn pending/confirmed
+    // Check status: only allow cancel for pending/confirmed
     const status = String(order.status || '').toLowerCase();
     if (!status.includes('pending') && !status.includes('confirmed') && !status.includes('cho')) {
       return json({ ok: false, error: 'Không thể hủy đơn hàng này' }, { status: 400 }, req);
     }
 
-    // Cập nhật trạng thái
-    order.status = 'cancelled';
+    // Update status
+    order.status = ORDER_STATUS.CANCELLED;
     order.cancelled_at = Date.now();
     order.cancelled_by = 'customer';
 
-    // Hoàn kho (nếu đơn đã trừ kho)
+    // Restore inventory if needed
     if (shouldAdjustStock(status)) {
-      await adjustInventory(normalizeOrderItems(order.items), env, +1); // +1 = hoàn kho
+      await adjustInventory(normalizeOrderItems(order.items), env, +1);
     }
 
-    // Hủy vận đơn nếu có
+    // Cancel waybill if exists
     if (order.superai_code || order.tracking_code) {
       try {
-        await cancelWaybill({ 
+        await cancelWaybill({
           body: JSON.stringify({ superai_code: order.superai_code || order.tracking_code }),
-          headers: req.headers 
+          headers: req.headers
         }, env);
         order.tracking_code = 'CANCELLED';
       } catch (e) {
-        console.warn('[cancelOrderCustomer] Không hủy được vận đơn:', e.message);
+        console.warn('[CANCEL-ORDER] Failed to cancel waybill:', e.message);
       }
     }
 
-    // Lưu lại
+    // Save
     await putJSON(env, 'order:' + orderId, order);
 
     const list = await getJSON(env, 'orders:list', []);
@@ -1468,8 +1248,7 @@ async function cancelOrderCustomer(req, env) {
     return json({ ok: true, message: 'Đã hủy đơn hàng' }, {}, req);
 
   } catch (e) {
-    console.error('[cancelOrderCustomer] Error:', e);
+    console.error('[CANCEL-ORDER] Error:', e);
     return json({ ok: false, error: e.message }, { status: 500 }, req);
   }
-}
 }
