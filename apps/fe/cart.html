@@ -516,7 +516,8 @@
   </main>
 
   <script type="module">
-    import { formatPrice } from './src/lib/price.js';
+  import { formatPrice } from './src/lib/price.js';
+  import { api } from './src/lib/api.js';
     
     let cart = [];
     let selectedItems = new Set();
@@ -649,13 +650,14 @@ function loadCart() {
       });
 
       // Apply voucher
-      if (appliedVoucher) {
-        if (appliedVoucher.type === 'percent') {
-          discount += subtotal * (appliedVoucher.value / 100);
-        } else {
-          discount += appliedVoucher.value;
-        }
-      }
+     if (appliedVoucher) {
+       if (appliedVoucher.type === 'percent') {
+         const voucherDiscount = Math.floor(subtotal * (appliedVoucher.value / 100));
+         discount += voucherDiscount;
+       } else {
+         discount += appliedVoucher.value;
+       }
+     }
 
       const total = Math.max(0, subtotal - discount);
 
@@ -794,40 +796,60 @@ function loadCart() {
       `;
     }
 
-    function applyVoucher() {
-      const code = document.getElementById('voucherInput').value.trim();
-      const result = document.getElementById('voucherResult');
-      
-      if (!code) {
-        result.textContent = 'Vui lòng nhập mã voucher';
-        result.className = 'voucher-result error';
-        result.style.display = 'block';
-        return;
-      }
+    async function applyVoucher() {
+  const code = document.getElementById('voucherInput').value.trim();
+  const result = document.getElementById('voucherResult');
+  
+  if (!code) {
+    result.textContent = 'Vui lòng nhập mã voucher';
+    result.className = 'voucher-result error';
+    result.style.display = 'block';
+    return;
+  }
 
-      // Mock voucher validation - replace with API call
-      const vouchers = {
-        'GIAM10': { type: 'percent', value: 10, description: 'Giảm 10%' },
-        'GIAM50K': { type: 'fixed', value: 50000, description: 'Giảm 50.000đ' },
-        'FREESHIP': { type: 'shipping', value: 0, description: 'Miễn phí vận chuyển' }
+  result.textContent = 'Đang kiểm tra...';
+  result.className = 'voucher-result';
+  result.style.display = 'block';
+
+  try {
+    let subtotal = 0;
+    selectedItems.forEach(idx => {
+      const item = cart[idx];
+      subtotal += item.price * item.qty;
+    });
+
+    const res = await api('/vouchers/apply', {
+      method: 'POST',
+      body: {
+        code: code,
+        subtotal: subtotal,
+        customer_id: null
+      }
+    });
+
+    if (res.ok === true && res.valid === true) {
+      appliedVoucher = {
+        code: res.code,
+        type: res.details?.type === 'percentage' ? 'percent' : 'fixed',
+        value: res.discount || 0,
+        description: res.message
       };
-
-      const voucher = vouchers[code.toUpperCase()];
-      
-      if (voucher) {
-        appliedVoucher = voucher;
-        result.textContent = `✓ Áp dụng thành công: ${voucher.description}`;
-        result.className = 'voucher-result success';
-        result.style.display = 'block';
-        updateSummary();
-      } else {
-        appliedVoucher = null;
-        result.textContent = 'Mã voucher không hợp lệ';
-        result.className = 'voucher-result error';
-        result.style.display = 'block';
-        updateSummary();
-      }
+      result.textContent = `✓ ${res.message}`;
+      result.className = 'voucher-result success';
+      updateSummary();
+    } else {
+      appliedVoucher = null;
+      result.textContent = res.message || 'Mã voucher không hợp lệ';
+      result.className = 'voucher-result error';
+      updateSummary();
     }
+  } catch (err) {
+    appliedVoucher = null;
+    result.textContent = err.message || 'Có lỗi xảy ra';
+    result.className = 'voucher-result error';
+    updateSummary();
+  }
+}
 
     function checkout() {
       if (selectedItems.size === 0) {

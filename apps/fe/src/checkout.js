@@ -276,23 +276,26 @@ testVoucherBtn?.addEventListener('click', async (event)=> {
     }));
     const current_ship_fee = chosen?.fee ?? Number(localStorage.getItem('ship_fee')||0);
     
-    const res = await api('/pricing/preview', { 
-      method:'POST', 
-      body: { items, shipping_fee: current_ship_fee, voucher_code: code } 
-    });
+    const res = await api('/vouchers/apply', { 
+     method:'POST', 
+     body: { 
+       code: code,
+       subtotal: calcSubtotal(cart),
+       customer_id: null
+     } 
+    );
     
-    const voucherInfo = res.check_voucher || {};
-    if (res.ok === false || res.success === false || voucherInfo.valid === false) {
-      throw new Error(res.message || voucherInfo.message || 'Mã voucher không hợp lệ');
-    }
+    if (res.ok !== true || res.valid !== true) {
+  throw new Error(res.message || 'Mã voucher không hợp lệ');
+}
 
-    // Lưu kết quả
-    lastPricing = res;
-    localStorage.setItem('voucher_code', code);
-    localStorage.setItem('voucher_discount', String(res.discount_product || 0));
-    localStorage.setItem('voucher_ship_discount', String(res.discount_shipping || 0));
-    
-    const totalDiscount = (res.discount_product || 0) + (res.discount_shipping || 0);
+// Lưu kết quả
+lastPricing = res;
+localStorage.setItem('voucher_code', code);
+localStorage.setItem('voucher_discount', String(res.discount || 0));
+localStorage.setItem('voucher_ship_discount', String(res.ship_discount || 0));
+
+const totalDiscount = (res.discount || 0) + (res.ship_discount || 0);
     
     if (totalDiscount > 0) {
       voucherResult.textContent = `✓ Áp dụng thành công! Giảm: ${formatPrice(totalDiscount)}`;
