@@ -102,23 +102,15 @@ async function deleteVoucher(req, env) {
 
   try {
     const body = await readBody(req) || {};
-    const code = String(body.code || '').toUpperCase();
-
-    if (!code) {
-      return errorResponse('Voucher code is required', 400, req);
-    }
-
-    const list = await getJSON(env, 'vouchers', []);
-    const newList = list.filter(v => 
-      (v.code || '').toUpperCase() !== code
-    );
-
+    // ... (vài dòng code) ...
     await putJSON(env, 'vouchers', newList);
     return json({ ok: true, deleted: code }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
   }
-} // <-- THÊM DẤU NGOẶC ĐÓNG HÀM TẠI ĐÂY
+}
+// } // <-- XÓA DẤU NGOẶC BỊ THỪA Ở ĐÂY
+
   // ===================================================================
 // API: Apply Voucher (Called by Checkout)
 // ===================================================================
@@ -270,3 +262,4 @@ function formatPrice(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
   }
   return errorResponse('Route not found', 404, req);
 }
+// } // <-- XÓA DẤU NGOẶC CUỐI CÙNG NÀY (Nó thuộc về hàm deleteVoucher đã bị lồng sai)

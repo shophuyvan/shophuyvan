@@ -89,4 +89,7 @@ async function applyVoucher(){
 // function getCart(){ try{ return JSON.parse(localStorage.getItem('cart')||'[]'); }catch{return [];} }
 // function subtotal(items){ return (items||[]).reduce((s, it)=> s + (Number(it.price||0) * Number(it.qty||1)), 0); }
 // import { formatPrice } from './lib/price.js'; // Nếu chưa có
-applyBtn?.addEventListener('click', applyVoucher);
+   applyBtn?.addEventListener('click', (event) => {
+     event.preventDefault(); // THÊM: Ngăn chặn form submit và tải lại trang
+     applyVoucher();       // Gọi hàm xử lý voucher của bạn
+   });
