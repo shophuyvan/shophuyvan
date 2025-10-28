@@ -674,7 +674,6 @@
         <img src="/public/logo.png" alt="Logo"/>
         <span>SHOP HUY VÂN</span>
       </a>
-      <a href="checkout.html" class="btn-checkout" id="headerCheckout">Thanh toán</a>
     </div>
   </header>
 
@@ -689,18 +688,6 @@
     </div>
 
     <div id="cartContent"></div>
-
-    <div class="voucher-section" style="display:none" id="voucherSection">
-      <div class="voucher-header">
-        <span class="voucher-icon">🎟️</span>
-        <span>Shop Voucher</span>
-      </div>
-      <div class="voucher-input-group">
-        <input type="text" class="voucher-input" id="voucherInput" placeholder="Nhập mã voucher" autocomplete="off"/>
-        <button class="btn-apply" id="applyVoucher">Áp dụng</button>
-      </div>
-      <div id="voucherResult" class="voucher-result" style="display:none"></div>
-    </div>
 
     <div class="summary-section" style="display:none" id="summarySection">
       <div class="summary-content">
@@ -976,7 +963,6 @@
       return `
         <div class="cart-group">
           <div class="group-header">
-            <input type="checkbox" class="group-checkbox" data-group="${name.includes('Mini') ? 'mini' : 'website'}"/>
             <span class="group-name">${name}</span>
           </div>
           ${groupHtml}
