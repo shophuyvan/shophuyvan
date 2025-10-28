@@ -195,6 +195,7 @@ export default {
 
       // Vouchers module
       if (path === '/vouchers' ||
+          path === '/vouchers/apply' ||
           path.startsWith('/admin/vouchers')) {
         return vouchers.handle(req, env, ctx);
       }
