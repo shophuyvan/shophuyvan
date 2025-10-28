@@ -298,50 +298,49 @@
   </section>
 
   <!-- Order Summary -->
-  <section class="bg-white rounded-3xl p-4 shadow-xl border border-gray-100 sticky bottom-4">
-    <h2 class="font-bold text-lg mb-3 flex items-center gap-3">
-      <span class="text-2xl">💰</span>
+<section class="bg-white rounded-3xl p-3 shadow-xl border border-gray-100 sticky bottom-4">
+    <h2 class="font-bold text-base mb-2 flex items-center gap-2">
+      <span class="text-xl">💰</span>
       <span>Chi tiết thanh toán</span>
     </h2>
-    <div class="space-y-2 mb-3">
-      <div class="flex justify-between items-center text-sm">
+    <div class="space-y-1 mb-2">
+      <div class="flex justify-between items-center text-xs">
         <span class="text-gray-600">Tổng sản phẩm:</span>
         <span id="summary-subtotal" class="font-semibold text-gray-900">0₫</span>
       </div>
-      <div class="flex justify-between items-center text-sm">
+      <div class="flex justify-between items-center text-xs">
         <span class="text-gray-600">Phí vận chuyển:</span>
         <span id="summary-shipping" class="font-semibold text-emerald-600">0₫</span>
       </div>
-      <!-- Discount row will be added dynamically here -->
-    </div>
-    <div class="flex justify-between items-center py-3 border-t-2 border-gray-200 mb-3">
-      <span class="text-base font-bold text-gray-900">Tổng thanh toán:</span>
-      <span id="grand-total" class="text-xl font-bold" style="color: #ee4d2d;">0₫</span>
+      </div>
+    <div class="flex justify-between items-center py-2 border-t-2 border-gray-200 mb-2">
+      <span class="text-sm font-bold text-gray-900">Tổng thanh toán:</span>
+      <span id="grand-total" class="text-lg font-bold" style="color: #ee4d2d;">0₫</span>
     </div>
     
-    <div id="error-message" class="hidden mb-4"></div>
+    <div id="error-message" class="hidden mb-3"></div>
     
     <button id="place-order" 
-      class="w-full text-white px-6 py-3 rounded-xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" style="background: linear-gradient(135deg, #ee4d2d 0%, #d73211 100%); box-shadow: 0 4px 12px rgba(238, 77, 45, 0.3); transition: all 0.3s ease;" onmouseover="this.style.boxShadow='0 6px 20px rgba(238, 77, 45, 0.4)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 12px rgba(238, 77, 45, 0.3)'; this.style.transform='translateY(0)'">
-      <span class="flex items-center justify-center gap-3">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      class="w-full text-white px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" style="background: linear-gradient(135deg, #ee4d2d 0%, #d73211 100%); box-shadow: 0 4px 12px rgba(238, 77, 45, 0.3); transition: all 0.3s ease;" onmouseover="this.style.boxShadow='0 6px 20px rgba(238, 77, 45, 0.4)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 12px rgba(238, 77, 45, 0.3)'; this.style.transform='translateY(0)'">
+      <span class="flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
         <span>Đặt hàng ngay</span>
       </span>
     </button>
     
-    <div id="order-result" class="text-center mt-4"></div>
+    <div id="order-result" class="text-center mt-3"></div>
     
-    <div class="mt-2 flex items-center justify-center gap-3 text-xs text-gray-500">
+    <div class="mt-2 flex items-center justify-center gap-2 text-[10px] text-gray-500">
       <div class="flex items-center gap-1">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
         </svg>
         <span>Thanh toán bảo mật</span>
       </div>
       <div class="flex items-center gap-1">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
           <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
           <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
         </svg>
@@ -527,20 +526,19 @@ function updateSummary() {
   
   // Add/update discount row
   let discountRow = document.querySelector('#discount-row');
-  const summaryDiv = document.querySelector('.space-y-3.mb-5');
+  const summaryDiv = document.querySelector('.space-y-1.mb-2'); // SỬA: Đúng selector
   
   if ((discount > 0 || shippingDiscount > 0) && summaryDiv) {
     const totalDiscount = discount + shippingDiscount;
     if (!discountRow) {
       discountRow = document.createElement('div');
       discountRow.id = 'discount-row';
-      discountRow.className = 'flex justify-between items-center text-base slide-in';
+      discountRow.className = 'flex justify-between items-center text-xs slide-in'; // SỬA: Kích thước chữ
       summaryDiv.appendChild(discountRow);
     }
     discountRow.innerHTML = `
-      <span class="text-emerald-700 font-semibold flex items-center gap-2">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      <span class="text-emerald-700 font-semibold flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"> <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
         <span>Giảm giá:</span>
       </span>
@@ -692,23 +690,23 @@ async function getShippingQuote() {
     }).sort((a, b) => a.fee - b.fee);
     
     $('shipping-list').innerHTML = items.map((item, idx) => `
-      <label class="shipping-option flex items-center justify-between rounded-2xl p-5 ${idx === 0 ? 'selected' : ''} cursor-pointer">
-        <div class="flex items-center gap-4 flex-1">
+      <label class="shipping-option flex items-center justify-between rounded-2xl p-3 ${idx === 0 ? 'selected' : ''} cursor-pointer">
+        <div class="flex items-center gap-3 flex-1">
           <input type="radio" name="ship_opt" value="${idx}" ${idx === 0 ? 'checked' : ''} 
             data-provider="${item.provider}" data-service="${item.service_code}" 
             data-fee="${item.fee}" data-eta="${item.eta || ''}" data-name="${item.name}"
-            class="w-5 h-5 text-emerald-600 focus:ring-2 focus:ring-emerald-500" />
+            class="w-4 h-4 text-emerald-600 focus:ring-2 focus:ring-emerald-500" />
           <div class="flex-1">
-            <div class="font-bold text-base text-gray-900">${item.name}</div>
-            <div class="text-sm text-gray-600 mt-1 flex items-center gap-2">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <div class="font-bold text-sm text-gray-900">${item.name}</div>
+            <div class="text-xs text-gray-600 mt-1 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
               </svg>
               <span>${item.eta || 'Giao hàng tiêu chuẩn'}</span>
             </div>
           </div>
         </div>
-        <div class="font-bold text-xl text-emerald-600">${fmtVND(item.fee)}</div>
+        <div class="font-bold text-lg text-emerald-600">${fmtVND(item.fee)}</div>
       </label>
     `).join('');
     
@@ -823,7 +821,10 @@ async function applyVoucher() {
       `;
       input.disabled = true;
       btn.textContent = '✓ Đã áp dụng';
-      btn.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+      // Xóa class kích thước cũ
+      btn.classList.remove('px-4', 'py-2', 'text-sm');
+      // Thêm class màu và class kích thước mới (nhỏ hơn)
+      btn.classList.add('bg-green-100', 'text-green-700', 'border-green-300', 'px-3', 'py-1.5', 'text-xs');
       updateSummary();
     } else {
       appliedVoucher = null;
