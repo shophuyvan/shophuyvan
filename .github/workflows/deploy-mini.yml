@@ -52,5 +52,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: shv-mini
-          directory: apps/mini/dist
+          directory: ./apps/mini/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
