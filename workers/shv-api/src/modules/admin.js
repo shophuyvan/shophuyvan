@@ -168,12 +168,6 @@ if (addressMatch && (method === 'GET' || method === 'POST' || method === 'PUT' |
 }
 
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
-```
-
----
-
-Rồi **thêm các hàm này trước `export`** (trước dòng `export { TIER_CONFIG, ... }`):
-```
 /**
  * Get customer token from request
  */
