@@ -7,6 +7,7 @@ import { json, corsHeaders } from '../lib/response.js';
  * Main admin handler
  */
 export async function handle(req, env, ctx) {
+  try {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
@@ -129,6 +130,7 @@ if (path === '/api/users/activate' && method === 'POST') {
 }
 
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
+  
   } catch (e) {
     console.error('[Admin] Error:', e);
     return json({ 
