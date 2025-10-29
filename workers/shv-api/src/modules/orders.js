@@ -160,7 +160,7 @@ async function authenticateCustomer(req, env) {
       const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const cid = p.customer_id || p.customerId || p.sub || p.id || '';
       if (cid) {
-        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:'Cid));
+        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
         if (!customer) decodedTokenId = String(cid);
       }
     } catch { /* ignore */ }
