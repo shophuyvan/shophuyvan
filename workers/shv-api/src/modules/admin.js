@@ -122,7 +122,411 @@ if (path === '/api/customers/login' && method === 'POST') {
 if (path === '/api/customers/me' && method === 'GET') {
   return await customerMe(req, env);
 }
+
+// PUBLIC API - Zalo Mini App activate account
+if (path === '/api/users/activate' && method === 'POST') {
+  return await userActivate(req, env);
+}
+
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
+```
+
+Thay bằng:
+```
+// PUBLIC API - Zalo Mini App activate account
+if (path === '/api/users/activate' && method === 'POST') {
+  return await userActivate(req, env);
+}
+
+// PUBLIC API - Addresses (Điểm nhận hàng)
+const addressMatch = path.match(/^\/api\/addresses(?:\/([^\/]+))?$/);
+if (addressMatch && (method === 'GET' || method === 'POST' || method === 'PUT' || method === 'DELETE')) {
+  const addressId = addressMatch[1];
+  
+  if (path === '/api/addresses' && method === 'POST') {
+    return await createAddress(req, env);
+  }
+  if (path === '/api/addresses' && method === 'GET') {
+    return await listAddresses(req, env);
+  }
+  if (addressId && method === 'GET') {
+    return await getAddress(req, env, addressId);
+  }
+  if (addressId && method === 'PUT') {
+    return await updateAddress(req, env, addressId);
+  }
+  if (addressId && method === 'DELETE') {
+    return await deleteAddress(req, env, addressId);
+  }
+  if (path.endsWith('/default') && method === 'PUT') {
+    const id = addressId.replace('/default', '');
+    return await setDefaultAddress(req, env, id);
+  }
+}
+
+    return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
+```
+
+---
+
+Rồi **thêm các hàm này trước `export`** (trước dòng `export { TIER_CONFIG, ... }`):
+```
+/**
+ * Get customer token from request
+ */
+function getCustomerToken(req) {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '') ||
+                req.headers.get('x-customer-token') || '';
+  return token;
+}
+
+/**
+ * Get customer ID from token
+ */
+function getCustomerIdFromToken(token) {
+  if (!token) return null;
+  try {
+    const decoded = atob(token);
+    return decoded.split(':')[0];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Create new address
+ */
+async function createAddress(req, env) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const body = await req.json();
+    const { name, phone, province_code, province_name, district_code, district_name, ward_code, ward_name, address, address_type, note } = body;
+
+    if (!name || !phone || !province_code || !district_code || !address) {
+      return json({ ok: false, error: 'Thiếu thông tin bắt buộc' }, { status: 400 }, req);
+    }
+
+    const addressId = 'addr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    const now = new Date().toISOString();
+
+    // Get list to count, check if this is first address
+    const listKey = `customer:addresses:${customerId}`;
+    const listData = await env.SHV.get(listKey);
+    const list = listData ? JSON.parse(listData) : [];
+    const isFirst = list.length === 0;
+
+    const newAddress = {
+      id: addressId,
+      customer_id: customerId,
+      name,
+      phone,
+      province_code,
+      province_name,
+      district_code,
+      district_name,
+      ward_code,
+      ward_name,
+      address,
+      address_type: address_type || 'home',
+      is_default: isFirst,
+      note: note || '',
+      created_at: now,
+      updated_at: now
+    };
+
+    await env.SHV.put(`customer:address:${addressId}`, JSON.stringify(newAddress));
+    list.push(addressId);
+    await env.SHV.put(listKey, JSON.stringify(list));
+
+    return json({ ok: true, address: newAddress }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] Create error:', e);
+    return json({ ok: false, error: 'Lỗi tạo địa chỉ: ' + e.message }, { status: 500 }, req);
+  }
+}
+
+/**
+ * List all addresses for customer
+ */
+async function listAddresses(req, env) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const listKey = `customer:addresses:${customerId}`;
+    const listData = await env.SHV.get(listKey);
+    const list = listData ? JSON.parse(listData) : [];
+
+    const addresses = [];
+    for (const addressId of list) {
+      const data = await env.SHV.get(`customer:address:${addressId}`);
+      if (data) {
+        addresses.push(JSON.parse(data));
+      }
+    }
+
+    return json({ ok: true, addresses, total: addresses.length }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] List error:', e);
+    return json({ ok: false, error: 'Lỗi tải danh sách địa chỉ' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Get single address
+ */
+async function getAddress(req, env, addressId) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const data = await env.SHV.get(`customer:address:${addressId}`);
+    if (!data) {
+      return json({ ok: false, error: 'Địa chỉ không tìm thấy' }, { status: 404 }, req);
+    }
+
+    const address = JSON.parse(data);
+    if (address.customer_id !== customerId) {
+      return json({ ok: false, error: 'Forbidden' }, { status: 403 }, req);
+    }
+
+    return json({ ok: true, address }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] Get error:', e);
+    return json({ ok: false, error: 'Lỗi tải địa chỉ' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Update address
+ */
+async function updateAddress(req, env, addressId) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const data = await env.SHV.get(`customer:address:${addressId}`);
+    if (!data) {
+      return json({ ok: false, error: 'Địa chỉ không tìm thấy' }, { status: 404 }, req);
+    }
+
+    const address = JSON.parse(data);
+    if (address.customer_id !== customerId) {
+      return json({ ok: false, error: 'Forbidden' }, { status: 403 }, req);
+    }
+
+    const body = await req.json();
+    if (body.name) address.name = body.name;
+    if (body.phone) address.phone = body.phone;
+    if (body.province_code) address.province_code = body.province_code;
+    if (body.province_name) address.province_name = body.province_name;
+    if (body.district_code) address.district_code = body.district_code;
+    if (body.district_name) address.district_name = body.district_name;
+    if (body.ward_code) address.ward_code = body.ward_code;
+    if (body.ward_name) address.ward_name = body.ward_name;
+    if (body.address) address.address = body.address;
+    if (body.address_type) address.address_type = body.address_type;
+    if (body.note !== undefined) address.note = body.note;
+
+    address.updated_at = new Date().toISOString();
+
+    await env.SHV.put(`customer:address:${addressId}`, JSON.stringify(address));
+
+    return json({ ok: true, address }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] Update error:', e);
+    return json({ ok: false, error: 'Lỗi cập nhật địa chỉ' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Delete address
+ */
+async function deleteAddress(req, env, addressId) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const data = await env.SHV.get(`customer:address:${addressId}`);
+    if (!data) {
+      return json({ ok: false, error: 'Địa chỉ không tìm thấy' }, { status: 404 }, req);
+    }
+
+    const address = JSON.parse(data);
+    if (address.customer_id !== customerId) {
+      return json({ ok: false, error: 'Forbidden' }, { status: 403 }, req);
+    }
+
+    await env.SHV.delete(`customer:address:${addressId}`);
+
+    const listKey = `customer:addresses:${customerId}`;
+    const listData = await env.SHV.get(listKey);
+    const list = listData ? JSON.parse(listData) : [];
+    const newList = list.filter(id => id !== addressId);
+    await env.SHV.put(listKey, JSON.stringify(newList));
+
+    return json({ ok: true, message: 'Địa chỉ đã xóa' }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] Delete error:', e);
+    return json({ ok: false, error: 'Lỗi xóa địa chỉ' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Set default address
+ */
+async function setDefaultAddress(req, env, addressId) {
+  try {
+    const token = getCustomerToken(req);
+    const customerId = getCustomerIdFromToken(token);
+    
+    if (!customerId) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+    }
+
+    const listKey = `customer:addresses:${customerId}`;
+    const listData = await env.SHV.get(listKey);
+    const list = listData ? JSON.parse(listData) : [];
+
+    for (const id of list) {
+      const data = await env.SHV.get(`customer:address:${id}`);
+      if (data) {
+        const addr = JSON.parse(data);
+        addr.is_default = (id === addressId);
+        await env.SHV.put(`customer:address:${id}`, JSON.stringify(addr));
+      }
+    }
+
+    const addressData = await env.SHV.get(`customer:address:${addressId}`);
+    const address = addressData ? JSON.parse(addressData) : null;
+
+    return json({ ok: true, message: 'Đặt địa chỉ mặc định thành công', address }, {}, req);
+
+  } catch (e) {
+    console.error('[Addresses] Set default error:', e);
+    return json({ ok: false, error: 'Lỗi đặt địa chỉ mặc định' }, { status: 500 }, req);
+  }
+}
+
+/**
+ * Zalo Mini App - Activate Account (PUBLIC API)
+ * Lấy user info từ Zalo, tạo/link tài khoản customer
+ */
+async function userActivate(req, env) {
+  try {
+    const body = await req.json();
+    const { zalo_id, zalo_name, zalo_avatar, phone, source } = body;
+
+    if (!zalo_id || !zalo_name) {
+      return json({ ok: false, error: 'Thiếu thông tin Zalo' }, { status: 400 }, req);
+    }
+
+    // Tạo email từ zalo_id (vì Zalo không cung cấp email)
+    const email = `zalo_${zalo_id}@shophuyvan.local`;
+    const emailKey = `customer:email:${email.toLowerCase()}`;
+
+    // Kiểm tra xem user đã tồn tại chưa
+    let customerData = await env.SHV.get(emailKey);
+    let customer = null;
+
+    if (customerData) {
+      // Cập nhật thông tin Zalo
+      customer = JSON.parse(customerData);
+      customer.zalo_id = zalo_id;
+      customer.zalo_name = zalo_name;
+      customer.zalo_avatar = zalo_avatar;
+      customer.updated_at = new Date().toISOString();
+      customer.last_login = new Date().toISOString();
+      
+      await env.SHV.put(`customer:${customer.id}`, JSON.stringify(customer));
+      await env.SHV.put(emailKey, JSON.stringify(customer));
+      
+      console.log('[Activate] Updated existing customer:', customer.id);
+    } else {
+      // Tạo customer mới
+      const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      const now = new Date().toISOString();
+      
+      // Password random cho Zalo users
+      const randomPassword = Math.random().toString(36).slice(2, 15);
+      const password_hash = '$2a$10$' + btoa(randomPassword).slice(0, 53);
+
+      customer = {
+        id: customerId,
+        email: email,
+        password_hash,
+        full_name: zalo_name,
+        phone: phone || '',
+        zalo_id: zalo_id,
+        zalo_name: zalo_name,
+        zalo_avatar: zalo_avatar,
+        customer_type: 'retail',
+        points: 0,
+        tier: 'retail',
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        last_login: now,
+        created_by: 'zalo_mini_app',
+        source: source || 'mini'
+      };
+
+      await env.SHV.put(`customer:${customerId}`, JSON.stringify(customer));
+      await env.SHV.put(emailKey, JSON.stringify(customer));
+
+      const listData = await env.SHV.get('customer:list');
+      const list = listData ? JSON.parse(listData) : [];
+      list.push(customerId);
+      await env.SHV.put('customer:list', JSON.stringify(list));
+
+      console.log('[Activate] Created new customer:', customerId);
+    }
+
+    // Auto login - generate token
+    const token = btoa(`${customer.id}:${Date.now()}`);
+
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json({
+      ok: true,
+      id: customer.id,
+      message: 'Kích hoạt thành công!',
+      token: token,
+      customer: safeCustomer
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Activate] Error:', e);
+    return json({ ok: false, error: 'Lỗi kích hoạt: ' + e.message }, { status: 500 }, req);
+  }
+}
 
   } catch (e) {
     console.error('[Admin] Error:', e);

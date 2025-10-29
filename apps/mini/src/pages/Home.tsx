@@ -265,24 +265,56 @@ export default function Home() {
     <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
     <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Shop Huy Vân</div>
     <button
-      onClick={() => {
+      onClick={async () => {
         try {
           const zmp = (window as any).zmp;
-          if (zmp && zmp.login) {
-            zmp.login({
-              success: () => {
-                console.log('✅ Đăng nhập thành công');
-              },
-              fail: (err: any) => {
-                console.error('❌ Lỗi đăng nhập:', err);
-              },
-            });
-          } else {
+          if (!zmp) {
             console.warn('⚠️ SDK Zalo Mini App chưa sẵn sàng');
             window.location.href = '/account';
+            return;
           }
+
+          zmp.getUserInfo({
+            success: async (userInfo: any) => {
+              console.log('✅ Zalo User Info:', userInfo);
+              
+              try {
+                const response = await fetch('https://shv-api.shophuyvan.workers.dev/api/users/activate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    zalo_id: userInfo.id,
+                    zalo_name: userInfo.name,
+                    zalo_avatar: userInfo.avatar,
+                    phone: userInfo.phone || '',
+                    source: 'mini'
+                  })
+                });
+
+                const data = await response.json();
+                console.log('✅ Activate response:', data);
+                
+                if (data.ok || data.id) {
+                  alert('Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân');
+                  setTimeout(() => {
+                    window.location.href = '/member';
+                  }, 800);
+                } else {
+                  alert(data.message || 'Kích hoạt thất bại, vui lòng thử lại');
+                  console.error('❌ Activate failed:', data);
+                }
+              } catch (err) {
+                console.error('❌ Lỗi gửi dữ liệu:', err);
+                alert('Lỗi kích hoạt. Vui lòng thử lại.');
+              }
+            },
+            fail: (err: any) => {
+              console.error('❌ Lỗi lấy thông tin Zalo:', err);
+              alert('Không thể lấy thông tin Zalo. Vui lòng thử lại.');
+            }
+          });
         } catch (e) {
-          console.error('⚠️ Lỗi khi gọi login:', e);
+          console.error('⚠️ Lỗi kích hoạt:', e);
           window.location.href = '/account';
         }
       }}
