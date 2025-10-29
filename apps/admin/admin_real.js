@@ -15,7 +15,9 @@ function cloudify(u, t='w_800,q_auto,f_auto'){
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
-  let apiBase = store('apiBase') || 'https://shv-api.shophuyvan.workers.dev';
+  let apiBase = store('apiBase') || (location.hostname === 'localhost'
+  ? 'http://localhost:8787'
+  : 'https://shv-api.shophuyvan.workers.dev');
 
   function setBase(v){
     if (!v) return apiBase;
@@ -36,11 +38,20 @@ window.Admin = (function(){
 
   async function req(path, init={}){
     const url = (path.startsWith('http')? path : (getBase()+ (path.startsWith('/')?'':'/') + path));
+	// === ADD: append token vào query để backend adminOK nhận chính xác ===
+let finalUrl = url;
+const __t = token && typeof token === 'function' ? token() : '';
+if (__t && finalUrl.startsWith('http://localhost:8787')) {
+  finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(__t);
+}
     const headers = new Headers(init.headers||{});
-    // Attach token (if any)
-    const t = token();
-    if (t) headers.set('x-token', t);
-    let body = init.body;
+// Attach token (if any)
+const t = token();
+if (t) {
+  headers.set('x-token', t);
+  headers.set('authorization', 'Bearer ' + t);
+}
+let body = init.body;
     const isFd = (typeof FormData!=='undefined') && body instanceof FormData;
     if (body && typeof body === 'object' && !isFd) {
       if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -50,8 +61,9 @@ window.Admin = (function(){
     if((init.method||'GET').toUpperCase()!=='GET' && !headers.has('Idempotency-Key')){
       headers.set('Idempotency-Key', 'idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
     }
-    console.info('[Admin.req]', (init.method||'GET'), url);
-    const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
+    console.info('[Admin.req]', (init.method||'GET'), finalUrl);
+// send with cookie + headers
+const res = await fetch(finalUrl, { method: init.method||'GET', headers, body, credentials:'include' });
     let data = null;
     const ctype = res.headers.get('content-type')||'';
     if (ctype.includes('application/json')) {

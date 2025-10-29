@@ -105,10 +105,10 @@ async function createSuperAdmin() {
     
     const superAdmin = {
       id: 'admin_super_001',
-      email: 'admin@shophuyvan.com',
+      email: 'nghiemchihuy@gmail.com',
       password_hash: passwordHash,
       full_name: 'Super Admin',
-      phone: '0901234567',
+      phone: '0909128999',
       avatar: '',
       role_id: 'role_super_admin',
       status: 'active',
@@ -196,7 +196,7 @@ export async function setupSuperAdminKV(env) {
   
   // Create super admin
   const bcrypt = require('bcryptjs');
-  const passwordHash = await bcrypt.hash('Admin@123', 10);
+  const passwordHash = await bcrypt.hash('Nghiem23091984$', 20);
   
   const superAdmin = {
     id: 'admin_super_001',

@@ -21,6 +21,25 @@ export async function sha256Hex(text) {
  */
 export async function adminOK(req, env) {
   try {
+	   // === DEBUG AUTH START ===
+  try {
+    const u = new URL(req.url);
+    const qToken = u.searchParams.get('token') || '';
+    const hAuth  = req.headers.get('authorization') || '';
+    const hXTok  = req.headers.get('x-token') || '';
+    const cookie = req.headers.get('cookie') || '';
+
+    console.log('[Auth][in]', {
+      path: u.pathname,
+      qToken_len: qToken.length,
+      hasAuthHdr: !!hAuth,
+      hasXToken: !!hXTok,
+      hasCookie: !!cookie
+    });
+  } catch (e) {
+    console.log('[Auth][in] parse error', e?.message || e);
+  }
+  // === DEBUG AUTH END ===
     const url = new URL(req.url);
     
     // Ưu tiên x-token (từ FE), sau đó Token, Bearer, query ?token, cookie

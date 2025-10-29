@@ -127,6 +127,11 @@ async function discover<T>(candidates:string[], pick:(data:any)=>T|null): Promis
 }
 
 export const api = {
+  async get(path: string) {
+    const r = await _fetch(path);
+    if (!r.ok) throw new Error(`API error: ${r.status}`);
+    return r.data;
+  },
   products: {
     async list({ limit = 12, category }: { limit?: number; category?: string } = {}) {
       const enc = category ? encodeURIComponent(String(category)) : '';
@@ -233,6 +238,14 @@ return filtered;
         const arr = toArr(data);
         return arr && arr.length ? arr : null;
       });
+    },
+  },
+  banners: {
+    async list() {
+      const r = await _fetch('/banners');
+      if (!r.ok) return [];
+      const data = r.data;
+      return toArr(data);
     },
   }
 };

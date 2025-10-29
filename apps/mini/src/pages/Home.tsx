@@ -106,6 +106,26 @@ export default function Home() {
   // ✅ Slide tự động cho banner
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // ✅ Load banner từ API
+  useEffect(() => {
+    const loadBanners = async () => {
+      try {
+        const res = await api.get('/banners'); // hoặc api.banners.list() nếu có sẵn
+        const data = res?.items || res?.data || [];
+        const activeMini = data.filter(
+          (b: any) => b.platform === 'mini' && b.on !== false
+        );
+        setBanners(activeMini);
+        console.log('✅ Loaded Mini Banners:', activeMini.length);
+      } catch (e) {
+        console.error('❌ Error loading banners:', e);
+        setBanners([]);
+      }
+    };
+    loadBanners();
+  }, []);
+
+  // ✅ Slide tự động cho banner
   useEffect(() => {
     if (!banners || banners.length <= 1) return;
 
