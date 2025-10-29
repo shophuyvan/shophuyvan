@@ -81,7 +81,7 @@ window.addEventListener('online', () => {
   // Trigger background sync nếu có pending orders
   if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
     navigator.serviceWorker.ready.then((registration) => {
-      return registration.sync.register('sync-orders');
+      return (registration as any).sync.register('sync-orders');
     }).catch((err) => {
       console.error('Background sync registration failed:', err);
     });

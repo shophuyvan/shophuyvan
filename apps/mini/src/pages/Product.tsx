@@ -300,7 +300,16 @@ export default function Product() {
       try {
         if (!id) throw new Error('Thiếu id');
         const d = await api.products.detail(id);
-        if (isMounted) setP(d);
+
+// log debug để xem local trả gì
+console.log('🟢 PRODUCT DETAIL RAW =', d);
+
+// Ưu tiên d.item nếu backend trả { ok, item }
+const fullProduct = (d && (d as any).item) ? (d as any).item : d;
+
+console.log('🟡 PRODUCT USED IN UI =', fullProduct);
+
+if (isMounted) setP(fullProduct);
       } catch (e: any) {
         if (isMounted) setError(e?.message || 'Lỗi tải sản phẩm');
       } finally {
@@ -353,6 +362,47 @@ export default function Product() {
   // Sold count
   const soldCount = p?.sold || p?.sold_count || 0;
   const rating = p?.rating || 5;
+  // ✅ Danh sách media (ảnh + video)
+  const mediaList = useMemo(() => {
+  const arr: string[] = [];
+
+  // Thêm toàn bộ video từ API (mảng videos[])
+  if (Array.isArray(p?.videos) && p.videos.length > 0) {
+    arr.push(...p.videos);
+  }
+
+  // Thêm video đơn lẻ (trường hợp cấu trúc cũ có p.video)
+  if (p?.video) {
+    arr.push(p.video);
+  }
+
+  // Thêm danh sách hình ảnh
+  if (Array.isArray(p?.images)) {
+    arr.push(...p.images);
+  }
+
+  // Fallback nếu không có gì
+  return arr.length ? arr : [p?.image || '/icon.png'];
+}, [p]);
+
+  // ✅ Slide tự chuyển sau khi video kết thúc, có thể vuốt tay
+    const [currentMedia, setCurrentMedia] = useState(0);
+    const [touchStartX, setTouchStartX] = useState<number | null>(null);
+    const [touchEndX, setTouchEndX] = useState<number | null>(null);
+    
+    const goNext = () => {
+      if (!mediaList || mediaList.length <= 1) return;
+      setCurrentMedia((prev) =>
+        prev + 1 < mediaList.length ? prev + 1 : prev
+      );
+    };
+    const goPrev = () => {
+      if (!mediaList || mediaList.length <= 1) return;
+      setCurrentMedia((prev) =>
+        prev - 1 >= 0 ? prev - 1 : prev
+      );
+    };
+
   
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
@@ -423,14 +473,103 @@ export default function Product() {
         
         {!loading && p && (
           <div className="bg-white rounded-2xl p-3 shadow">
-            {/* Product Image */}
-            <div className="w-full rounded-xl overflow-hidden bg-gray-100">
-              <img 
-                src={p.image || '/icon.png'} 
-                alt={p.name}
-                className="w-full aspect-square object-cover" 
-              />
-            </div>
+            {/* Product Media (Video + Hình ảnh dạng slide) */}
+    <div className="w-full rounded-xl overflow-hidden bg-gray-100 relative">
+      {mediaList && mediaList.length > 0 ? (
+        <div
+      className="flex transition-transform duration-700 ease-in-out"
+      style={{
+        width: `${mediaList.length * 100}%`,
+        transform: `translateX(-${currentMedia * (100 / mediaList.length)}%)`,
+      }}
+      onTouchStart={(e) => {
+        setTouchStartX(e.touches[0].clientX);
+        setTouchEndX(e.touches[0].clientX);
+      }}
+      onTouchMove={(e) => {
+        setTouchEndX(e.touches[0].clientX);
+      }}
+      onTouchEnd={() => {
+        if (touchStartX === null || touchEndX === null) return;
+        const diff = touchStartX - touchEndX;
+        const threshold = 40;
+        if (diff > threshold) goNext();
+        else if (diff < -threshold) goPrev();
+        setTouchStartX(null);
+        setTouchEndX(null);
+      }}
+    >
+      {mediaList.map((m: string, i: number) => {
+        const isVideo = m.endsWith('.mp4');
+        return (
+          <div
+  key={i}
+  className="w-full flex-shrink-0 flex items-center justify-center bg-black rounded-xl overflow-hidden"
+  style={{
+    width: `${100 / mediaList.length}%`,
+    aspectRatio: '1 / 1', // khung vuông cố định
+  }}
+>
+  {isVideo ? (
+    <video
+      src={m}
+      className="max-w-full max-h-full object-contain cursor-pointer bg-black"
+      autoPlay
+      muted
+      loop
+      playsInline
+      controls
+      preload="auto"
+      onClick={(e) => {
+        const video = e.currentTarget;
+        if (video.muted) {
+          video.muted = false;
+          video.play().catch(() => {});
+        } else {
+          video.muted = true;
+        }
+      }}
+      onEnded={() => {
+        // tuỳ logic của bạn:
+        // nếu bạn muốn sau khi xem hết video tự next slide thì giữ:
+        goNext();
+      }}
+    />
+  ) : (
+    <img
+      src={m}
+      alt={`Media ${i + 1}`}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  )}
+</div>
+
+        );
+      })}
+    </div>
+  ) : (
+    <img
+      src={p.image || '/icon.png'}
+      alt={p.name}
+      className="w-full aspect-square object-cover"
+    />
+  )}
+
+  {/* Nút chấm trượt */}
+  {mediaList && mediaList.length > 1 && (
+    <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+      {mediaList.map((_, i) => (
+        <span
+          key={i}
+          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            i === currentMedia ? 'bg-white' : 'bg-white/50'
+          }`}
+        ></span>
+      ))}
+    </div>
+  )}
+</div>
             
             {/* Product Info */}
             <h1 className="text-lg font-semibold mt-3">{p?.name}</h1>
@@ -500,14 +639,27 @@ export default function Product() {
             </div>
             
             {/* Description */}
-            {p.description && (
-              <div className="mt-4 pt-4 border-t">
-                <h2 className="font-semibold mb-2">Mô tả sản phẩm</h2>
-                <div className="text-sm text-gray-600 whitespace-pre-line">
-                  {p.description}
-                </div>
-              </div>
-            )}
+             {p.description && (
+               <div className="mt-4 pt-4 border-t">
+                 <h2 className="font-semibold mb-3 text-base text-gray-900">
+                   Mô tả sản phẩm
+                 </h2>
+             
+                 <div
+                   className="
+                     text-[15px] leading-relaxed text-gray-700
+                     bg-gray-50 border border-gray-200 rounded-xl p-3
+                     [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2
+                     [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1
+                     [&_p]:mb-3 [&_p]:text-gray-700 [&_p]:leading-relaxed
+                     [&_strong]:text-gray-900 [&_strong]:font-semibold
+                     [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1
+                   "
+                   dangerouslySetInnerHTML={{ __html: p.description }}
+                 />
+               </div>
+             )}
+
           </div>
         )}
       </main>

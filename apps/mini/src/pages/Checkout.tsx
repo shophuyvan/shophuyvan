@@ -26,16 +26,16 @@ function calcFallbackFee(weightGram: number, carrier: string): number {
 }
 
 export default function Checkout() {
-  const [st, setSt] = useState(cart.get());
-  const [form, setForm] = useState({ 
-    name: '', 
-    phone: '', 
-    province: '', 
-    district: '', 
-    ward: '', 
+  const [st, setSt] = useState<any>(cart.get());
+  const [form, setForm] = useState<any>({
+    name: '',
+    phone: '',
+    province: '',
+    district: '',
+    ward: '',
     address: '',
     note: ''
-  });
+  });  
   const [done, setDone] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -213,7 +213,7 @@ export default function Checkout() {
   const grandTotal = st.total + (shippingFee || 0);
 
   // Place order
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (): Promise<void> => {
     setError(null);
     setSubmitting(true);
     

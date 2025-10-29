@@ -100,6 +100,22 @@ export default function Home() {
   // ✅ State cho danh mục động
   const [categories, setCategories] = useState<any[]>([]);
   const [catsLoading, setCatsLoading] = useState(true);
+    // ✅ Banner từ API (kết nối với trang admin)
+  const [banners, setBanners] = useState<any[]>([]);
+
+  // ✅ Slide tự động cho banner
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (!banners || banners.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
+    }, 3500); // thời gian chuyển 3.5 giây
+
+    return () => clearInterval(interval);
+  }, [banners]);
+
 
   // ✅ Load danh mục từ API
   useEffect(() => {
@@ -173,26 +189,89 @@ export default function Home() {
       <Header />
 
       {/* Banner */}
-      <section className="safe-x pt-3">
-        <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 aspect-[16/9] flex items-center justify-center">
-          <span className="text-gray-400 text-sm">Banner</span>
-        </div>
-      </section>
+      {/* Banner Slide động từ API */}
+<section className="safe-x pt-3">
+  {banners && banners.length > 0 ? (
+    <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/9]">
+      <div
+        className="flex transition-transform duration-700 ease-in-out"
+        style={{
+          width: `${banners.length * 100}%`,
+          transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
+        }}
+      >
+        {banners.map((b, i) => (
+          <a
+            key={b.id || i}
+            href={b.link || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full flex-shrink-0"
+            style={{ width: `${100 / banners.length}%` }}
+          >
+            <img
+              src={b.image}
+              alt={b.title || 'Banner'}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </a>
+        ))}
+      </div>
+
+      {/* Nút chấm trượt */}
+      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+        {banners.map((_, i) => (
+          <span
+            key={i}
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              i === currentIndex ? 'bg-white' : 'bg-white/50'
+            }`}
+          ></span>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 aspect-[16/9] flex items-center justify-center">
+      <span className="text-gray-400 text-sm">Banner</span>
+    </div>
+  )}
+</section>
 
       {/* Card kích hoạt */}
-      <section className="safe-x mt-3">
-        <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white shadow-lg">
-          <div className="text-sm opacity-90">Đặc biệt</div>
-          <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
-          <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Shop Huy Vân</div>
-          <a 
-            href="/account" 
-            className="mt-3 inline-flex items-center gap-2 bg-white/90 text-gray-800 text-sm font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
-          >
-            <span>🎁 Kích hoạt ngay</span>
-          </a>
-        </div>
-      </section>
+<section className="safe-x mt-3">
+  <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white shadow-lg">
+    <div className="text-sm opacity-90">Đặc biệt</div>
+    <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
+    <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Shop Huy Vân</div>
+    <button
+      onClick={() => {
+        try {
+          const zmp = (window as any).zmp;
+          if (zmp && zmp.login) {
+            zmp.login({
+              success: () => {
+                console.log('✅ Đăng nhập thành công');
+              },
+              fail: (err: any) => {
+                console.error('❌ Lỗi đăng nhập:', err);
+              },
+            });
+          } else {
+            console.warn('⚠️ SDK Zalo Mini App chưa sẵn sàng');
+            window.location.href = '/account';
+          }
+        } catch (e) {
+          console.error('⚠️ Lỗi khi gọi login:', e);
+          window.location.href = '/account';
+        }
+      }}
+      className="mt-3 inline-flex items-center gap-2 bg-white/90 text-gray-800 text-sm font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
+    >
+      <span>🎁 Kích hoạt ngay</span>
+    </button>
+  </div>
+</section>
 
       {/* ✅ Menu Drawer + Grid danh mục */}
       <section className="safe-x mt-4">

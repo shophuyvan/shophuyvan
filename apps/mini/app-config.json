@@ -1,0 +1,33 @@
+{
+  "app": {
+    "appId": "4294492579288845521",
+    "title": "Shop Huy Vân",
+    "description": "Mini App thương mại cho Shop Huy Vân",
+    "headerColor": "#0ea5e9",
+    "headerTextColor": "white",
+    "textColor": {
+      "light": "black",
+      "dark": "white"
+    },
+    "statusBar": "transparent",
+    "actionBarHidden": false,
+    "hideIOSSafeAreaBottom": true,
+    "hideAndroidBottomNavigationBar": false
+  },
+  "debug": false,
+  "pages": [
+    "pages/index",
+    "pages/category",
+    "pages/product",
+    "pages/cart",
+    "pages/checkout"
+  ],
+  "listCSS": [],
+  "listSyncJS": [],
+  "listAsyncJS": [],
+  "permissions": {
+    "scope.userInfo": {
+      "desc": "Hiển thị tên & avatar để cá nhân hoá mua sắm"
+    }
+  }
+}

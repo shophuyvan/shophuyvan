@@ -5,7 +5,7 @@ function formatPrice(price) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 }
 
-function pickPrice(product, variant) {
+function pickPrice(product: any, variant?: any) {
   if (variant) {
     const sale = Number(variant.sale_price ?? variant.price_sale ?? 0);
     const price = Number(variant.price ?? 0);
@@ -27,17 +27,27 @@ function getImages(item) {
   return imgs.filter(Boolean);
 }
 
+interface VariantModalProps {
+  open: boolean;
+  onClose?: () => void;
+  product: any;
+  variants?: any[];
+  onConfirm?: (variant: any, qty: number, mode: string) => void;
+  mode?: string; // 'cart' | 'buy'
+}
+
 export default function VariantModal({
   open,
   onClose,
   product,
   variants = [],
   onConfirm,
-  mode = 'cart' // 'cart' or 'buy'
-}) {
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  
+  mode = 'cart', // 'cart' or 'buy'
+}: VariantModalProps) {
+
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
+const [quantity, setQuantity] = useState<number>(1);
+
   // Auto-select first variant or cheapest variant
   useEffect(() => {
     if (variants.length > 0 && !selectedVariant) {
@@ -57,7 +67,7 @@ export default function VariantModal({
   }, [variants, selectedVariant, product]);
   
   const currentPrice = useMemo(() => {
-    return selectedVariant ? pickPrice(product, selectedVariant) : pickPrice(product);
+    return selectedVariant ? pickPrice(product, selectedVariant) : pickPrice(product, null as any);
   }, [product, selectedVariant]);
   
   const currentImage = useMemo(() => {
@@ -66,9 +76,10 @@ export default function VariantModal({
     return variantImages[0] || productImages[0] || '/icon.png';
   }, [selectedVariant, product]);
   
-  const handleQuantityChange = (delta) => {
+  const handleQuantityChange = (delta: number) => {
     setQuantity(prev => Math.max(1, prev + delta));
   };
+  
   
   const handleConfirm = () => {
     if (!selectedVariant && variants.length > 0) {
@@ -261,7 +272,7 @@ export default function VariantModal({
         <div className="h-[env(safe-area-inset-bottom,0px)]" />
       </div>
       
-      <style jsx>{`
+      <style >{`
         @keyframes fade-in {
           from { opacity: 0; }
           to { opacity: 1; }

@@ -107,9 +107,7 @@ try { alert('Đã thêm vào giỏ'); } catch {}
         )}
       </div>
 
-      <button onClick={onAdd} className="btn-primary mt-3 text-center w-full">
-        Thêm giỏ hàng
-      </button>
+      {/* Đã ẩn nút thêm giỏ hàng theo yêu cầu */}
     </div>
   );
 }

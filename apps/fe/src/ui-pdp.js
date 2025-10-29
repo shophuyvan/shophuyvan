@@ -440,13 +440,52 @@ function renderMedia(prefer) {
     const it = items[idx];
 
     if (it.type === 'video') {
-      main.innerHTML = `<video autoplay muted playsinline controls style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:12px"></video>`;
-      const v = main.querySelector('video');
-      v.src = it.src;
-      v.load();
+  main.innerHTML = `
+    <video
+      autoplay
+      muted
+      playsinline
+      controls
+      style="
+        width:100%;
+        height:100%;
+        object-fit:contain;
+        background:#000;
+        border-radius:12px;
+        cursor:pointer;
+      "
+    ></video>
+  `;
+  const v = main.querySelector('video');
+  v.src = it.src;
+  v.load();
+
+  // ✅ Bấm vào video -> bật tiếng, bấm lần nữa -> tắt tiếng
+  v.addEventListener('click', () => {
+    if (v.muted) {
+      v.muted = false;
+      v.play().catch(() => {});
     } else {
-      main.innerHTML = `<img src="${it.src}" alt="${PRODUCT.title || PRODUCT.name || ''}" style="width:100%;height:100%;object-fit:contain;border-radius:12px" loading="eager" fetchpriority="high" />`;
+      v.muted = true;
     }
+  });
+} else {
+  main.innerHTML = `
+    <img
+      src="${it.src}"
+      alt="${PRODUCT.title || PRODUCT.name || ''}"
+      style="
+        width:100%;
+        height:100%;
+        object-fit:contain;
+        border-radius:12px;
+        background:#fff;
+      "
+      loading="eager"
+      fetchpriority="high"
+    />
+  `;
+}
     drawArrows();
   }
 
@@ -486,16 +525,38 @@ function renderMedia(prefer) {
   reset();
 }
 
+// ✅ Hiển thị mô tả đẹp giống Mini App + ẩn khi rỗng
 function renderDesc() {
   const el = $('#p-desc');
+  const wrapSection = el?.closest('section');
   if (!el) return;
 
   const raw = PRODUCT.description_html || PRODUCT.description || PRODUCT.desc || '';
-  if (/<\w+/.test(String(raw || ''))) {
-    el.innerHTML = raw;
-  } else {
-    el.innerHTML = mdToHTML(raw) || '<p>Đang cập nhật…</p>';
+  const html = (/<\w+/.test(String(raw || ''))) ? raw : mdToHTML(raw);
+
+  if (!html || html.trim().length < 10) {
+    // Ẩn nếu không có nội dung
+    if (wrapSection) wrapSection.style.display = 'none';
+    return;
   }
+
+  // Gán nội dung mô tả
+  el.innerHTML = html;
+
+  // Thêm style Tailwind đẹp giống bản Mini App
+  el.className = `
+    text-[15px] leading-relaxed text-gray-700
+    bg-gray-50 border border-gray-200 rounded-xl p-4
+    [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2
+    [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1
+    [&_p]:mb-3 [&_p]:text-gray-700 [&_p]:leading-relaxed
+    [&_strong]:text-gray-900 [&_strong]:font-semibold
+    [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1
+    [&_table]:border-collapse [&_td]:border [&_td]:border-gray-200 [&_td]:p-2 [&_td]:align-top
+  `.trim();
+
+  // Đảm bảo section hiển thị nếu có nội dung
+  if (wrapSection) wrapSection.style.display = '';
 }
 
 // === FLOATING CART BUTTON ===
