@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import Home from './pages/Home.tsx';
-import Category from './pages/category.tsx';
-import Product from './pages/product.tsx';
-import Cart from './pages/cart.tsx';
-import Checkout from './pages/checkout.tsx';
-import OrderHistory from './pages/OrderHistory.tsx';
+import Home from './pages/Home';
+import Category from './pages/category';
+import Product from './pages/product';
+import Cart from './pages/cart';
+import Checkout from './pages/checkout';
+import OrderHistory from './pages/OrderHistory';
 
 // === SHV004: Inline Account page (white/blue) ===
 import Header from './components/Header';
