@@ -8,17 +8,16 @@ import { json, corsHeaders } from '../lib/response.js';
  */
 export async function handle(req, env, ctx) {
   try {
-  const url = new URL(req.url);
-  const path = url.pathname;
-  const method = req.method;
+    const url = new URL(req.url);
+    const path = url.pathname;
+    const method = req.method;
 
-  try {
     // Setup route (only once)
     if (path === '/admin/setup/init' && method === 'POST') {
       return await setupSuperAdmin(req, env);
     }
 
-    // Login routes - Hỗ trợ nhiều endpoint
+    // Login routes
     if ((path === '/admin/auth/login' || 
          path === '/admin/login' || 
          path === '/login' || 
@@ -46,89 +45,86 @@ export async function handle(req, env, ctx) {
     const userMatch = path.match(/^\/admin\/users\/([^\/]+)$/);
     if (userMatch) {
       const adminId = userMatch[1];
-      
-      if (method === 'GET') {
-        return await getAdmin(req, env, adminId);
-      }
-      if (method === 'PUT') {
-        return await updateAdmin(req, env, adminId);
-      }
-      if (method === 'DELETE') {
-        return await deleteAdmin(req, env, adminId);
-      }
+      if (method === 'GET') return await getAdmin(req, env, adminId);
+      if (method === 'PUT') return await updateAdmin(req, env, adminId);
+      if (method === 'DELETE') return await deleteAdmin(req, env, adminId);
     }
 
-    // List roles
+    // Roles
     if (path === '/admin/roles/list' && method === 'GET') {
       return await listRoles(req, env);
     }
-
-    // Create role
     if (path === '/admin/roles/create' && method === 'POST') {
       return await createRole(req, env);
     }
 
-    // Get/Update/Delete role by ID
     const roleMatch = path.match(/^\/admin\/roles\/([^\/]+)$/);
     if (roleMatch) {
       const roleId = roleMatch[1];
-      
-      if (method === 'GET') {
-        return await getRole(req, env, roleId);
-      }
-      if (method === 'PUT') {
-        return await updateRole(req, env, roleId);
-      }
-      if (method === 'DELETE') {
-        return await deleteRole(req, env, roleId);
-      }
+      if (method === 'GET') return await getRole(req, env, roleId);
+      if (method === 'PUT') return await updateRole(req, env, roleId);
+      if (method === 'DELETE') return await deleteRole(req, env, roleId);
     }
-	// List customers
-if (path === '/admin/customers/list' && method === 'GET') {
-  return await listCustomers(req, env);
-}
 
-// Create customer (admin tạo)
-if (path === '/admin/customers/create' && method === 'POST') {
-  return await createCustomer(req, env);
-}
+    // Customers
+    if (path === '/admin/customers/list' && method === 'GET') {
+      return await listCustomers(req, env);
+    }
+    if (path === '/admin/customers/create' && method === 'POST') {
+      return await createCustomer(req, env);
+    }
 
-// Get/Update/Delete customer by ID
-const customerMatch = path.match(/^\/admin\/customers\/([^\/]+)$/);
-if (customerMatch) {
-  const customerId = customerMatch[1];
-  
-  if (method === 'GET') {
-    return await getCustomer(req, env, customerId);
-  }
-  if (method === 'PUT') {
-    return await updateCustomer(req, env, customerId);
-  }
-  if (method === 'DELETE') {
-    return await deleteCustomer(req, env, customerId);
-  }
-}
+    const customerMatch = path.match(/^\/admin\/customers\/([^\/]+)$/);
+    if (customerMatch) {
+      const customerId = customerMatch[1];
+      if (method === 'GET') return await getCustomer(req, env, customerId);
+      if (method === 'PUT') return await updateCustomer(req, env, customerId);
+      if (method === 'DELETE') return await deleteCustomer(req, env, customerId);
+    }
 
-// PUBLIC API - Customer register (từ FE)
-if (path === '/api/customers/register' && method === 'POST') {
-  return await customerRegister(req, env);
-}
+    // PUBLIC API - Customer
+    if (path === '/api/customers/register' && method === 'POST') {
+      return await customerRegister(req, env);
+    }
+    if (path === '/api/customers/login' && method === 'POST') {
+      return await customerLogin(req, env);
+    }
+    if (path === '/api/customers/me' && method === 'GET') {
+      return await customerMe(req, env);
+    }
 
-// PUBLIC API - Customer login
-if (path === '/api/customers/login' && method === 'POST') {
-  return await customerLogin(req, env);
-}
-
-// PUBLIC API - Get customer info (cần token)
-if (path === '/api/customers/me' && method === 'GET') {
-  return await customerMe(req, env);
-}
-
-// PUBLIC API - Zalo Mini App activate account
+    // PUBLIC API - Zalo activate
     if (path === '/api/users/activate' && method === 'POST') {
       return await userActivate(req, env);
     }
 
+    // PUBLIC API - Addresses
+    const addressMatch = path.match(/^\/api\/addresses(?:\/([^\/]+))?$/);
+    if (addressMatch) {
+      const addressId = addressMatch[1];
+      
+      if (path === '/api/addresses' && method === 'POST') {
+        return await createAddress(req, env);
+      }
+      if (path === '/api/addresses' && method === 'GET') {
+        return await listAddresses(req, env);
+      }
+      if (addressId && method === 'GET') {
+        return await getAddress(req, env, addressId);
+      }
+      if (addressId && method === 'PUT') {
+        return await updateAddress(req, env, addressId);
+      }
+      if (addressId && method === 'DELETE') {
+        return await deleteAddress(req, env, addressId);
+      }
+      if (path.endsWith('/default') && method === 'PUT') {
+        const id = addressId.replace('/default', '');
+        return await setDefaultAddress(req, env, id);
+      }
+    }
+
+    // 404
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
   
   } catch (e) {
