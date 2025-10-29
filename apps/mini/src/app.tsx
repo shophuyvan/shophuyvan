@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Home from './pages/Home';
-import Category from './pages/category';
-import Product from './pages/product';
-import Cart from './pages/cart';
-import Checkout from './pages/checkout';
+import Category from './pages/Category';
+import Product from './pages/Product';
+import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
 import OrderHistory from './pages/OrderHistory';
 
 // === SHV004: Inline Account page (white/blue) ===
