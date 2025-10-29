@@ -125,9 +125,9 @@ if (path === '/api/customers/me' && method === 'GET') {
 }
 
 // PUBLIC API - Zalo Mini App activate account
-if (path === '/api/users/activate' && method === 'POST') {
-  return await userActivate(req, env);
-}
+    if (path === '/api/users/activate' && method === 'POST') {
+      return await userActivate(req, env);
+    }
 
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
   
