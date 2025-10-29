@@ -34,6 +34,13 @@ jobs:
         run: npm ci
         env:
           NODE_OPTIONS: --max_old_space_size=4096
+          
+      - name: Clear node_modules and Vite cache
+        run: |
+          rm -rf node_modules
+          rm -rf apps/mini/node_modules
+          rm -rf apps/mini/.vite
+          npm cache clean --force
 
       - name: Build MINI workspace
         run: npm -w apps/mini run build
