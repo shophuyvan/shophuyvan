@@ -41,6 +41,11 @@ jobs:
           rm -rf apps/mini/node_modules
           rm -rf apps/mini/.vite
           npm cache clean --force
+          
+       - name: Ensure Vite is installed
+        run: |
+          cd apps/mini
+          npm install vite --save-dev
 
       - name: Build MINI workspace
         run: npm -w apps/mini run build
