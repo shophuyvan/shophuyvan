@@ -383,26 +383,44 @@ export default function Product() {
 
   // NOTE: onConfirm của modal sẽ gọi hàm này
   const addLine = (variant: any, qty: number, mode: 'cart' | 'buy') => {
-    const price = pickPrice(p, variant);
-    const line = {
-      ...p,
-      price,
-      variantName: variant?.name || variant?.sku || '',
-      variantImage:
-        variant?.image ||
-        (Array.isArray(variant?.images) ? variant.images[0] : undefined),
-    };
-    cart.add(line, qty);
-    window.dispatchEvent(new Event('shv:cart-changed'));
+  const price = pickPrice(p, variant);
 
-    if (mode === 'buy') {
-      setTimeout(() => {
-        try {
-          location.href = routes.checkout;
-        } catch {}
-      }, 300);
-    }
+  // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
+  const w = Number(
+    variant?.weight_gram ??
+    variant?.weight_grams ??
+    variant?.weight ??
+    p?.weight_gram ??
+    p?.weight_grams ??
+    p?.weight ??
+    0
+  );
+
+  const line = {
+    ...p,
+    price,
+    variantName: variant?.name || variant?.sku || '',
+    variantImage:
+      variant?.image ||
+      (Array.isArray(variant?.images) ? variant.images[0] : undefined),
+
+    // 🔽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
+    weight_gram: w,
+    weight_grams: w,
+    weight: w,
   };
+
+  cart.add(line, qty);
+  window.dispatchEvent(new Event('shv:cart-changed'));
+
+  if (mode === 'buy') {
+    setTimeout(() => {
+      try {
+        location.href = routes.checkout;
+      } catch {}
+    }, 300);
+  }
+};
 
   const soldCount = p?.sold || p?.sold_count || 0;
   const rating = p?.rating || 5;

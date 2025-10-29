@@ -9,6 +9,11 @@ export type CartLine = {
   price: number;        // unit price
   original?: number | null;
   qty: number;
+
+  // thêm đủ 3 alias trọng lượng (gram) để Checkout đọc được
+  weight_grams?: number | null;
+  weight_gram?: number | null;
+  weight?: number | null;
 };
 
 export type CartState = {
@@ -80,11 +85,25 @@ const variantImage = p.variantImage || (p.variant?.image) || (Array.isArray(p.va
 
 const image = variantImage || p.image || (Array.isArray(p.images) ? p.images[0] : p.thumbnail);
 if (!id) return;
+
+// ✅ LẤY TRỌNG LƯỢNG THỰC (GRAM) TỪ DỮ LIỆU ĐƯA VÀO
+const w = Number(
+  p.weight_grams ?? p.weight_gram ?? p.weight ??
+  p.variant?.weight_grams ?? p.variant?.weight_gram ?? p.variant?.weight ??
+  0
+);
+
 const ix = st.lines.findIndex(l => String(l.id) === String(id));
 if (ix >= 0) {
   st.lines[ix].qty += qty;
 } else {
-  st.lines.push({ id, name, image, variantName, variantImage, price, original, qty });
+  // ✅ LƯU ĐỦ 3 ALIAS CÂN NẶNG (KHÔNG ĐẶT MẶC ĐỊNH): Checkout sẽ đọc đúng
+  st.lines.push({
+    id, name, image, variantName, variantImage, price, original, qty,
+    weight_grams: w > 0 ? w : undefined,
+    weight_gram:  w > 0 ? w : undefined,
+    weight:       w > 0 ? w : undefined,
+  });
 }
     write(recalc(st.lines));
   },

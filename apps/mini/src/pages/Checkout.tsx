@@ -1,12 +1,15 @@
 // apps/mini/src/pages/Checkout.tsx
 // ============================================================================
-// ✅ MỤC TIÊU ĐỒNG BỘ VỚI FE
-// - Màu sắc & typography đồng nhất FE (tông rose: bg-rose-600, hover:bg-rose-700)
-// - Ảnh sản phẩm: w-20 h-20, badge biến thể, layout khối theo FE
-// - API THỰC TẾ 100% (❌ KHÔNG dùng fallback cước vận chuyển)
-// - Voucher: giữ đầy đủ (auto freeship + nhập tay), chọn GIẢM SHIP TỐT NHẤT
-// - Đặt hàng: gửi payload totals chuẩn + Idempotency-Key
-// - Có comment đánh dấu từng khối để tra cứu/sửa sau này
+// ✅ ĐỒNG BỘ VỚI FE (KHÔNG FALLBACK):
+// - Màu sắc/typography theo FE (rose).
+// - Ảnh sản phẩm: w-20 h-20, badge biến thể, layout giống FE.
+// - TÍNH TRỌNG LƯỢNG: chỉ dùng dữ liệu thực (weight_gram || weight_grams || weight
+//   || variant.weight_gram) × qty. Thiếu => 0 (KHÔNG tự đặt mặc định).
+// - Vận chuyển: gọi API thực /shipping/price với weight_gram & value = subtotal.
+//   Nếu thiếu cân nặng => KHÔNG gọi API, báo lỗi rõ ràng.
+// - Voucher: giữ đầy đủ như FE (auto-freeship + mã tay).
+// - Đặt hàng: gửi totals chuẩn + Idempotency-Key.
+// - Comment đánh dấu từng khối để bạn tra cứu/sửa nhanh.
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -16,7 +19,7 @@ import { cloudify } from '@shared/utils/cloudinary';
 
 const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
 
-// === API client tối giản (dùng chung cho mọi request) =======================
+// === API client gọn ===
 const api = async (path: string, options: RequestInit = {}) => {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
@@ -34,10 +37,10 @@ const api = async (path: string, options: RequestInit = {}) => {
 };
 
 export default function Checkout() {
-  // === STATE GIỎ HÀNG (đọc từ shared cart) ==================================
+  // === GIỎ HÀNG ==============================================================
   const [st, setSt] = useState<any>(cart.get());
 
-  // === FORM THÔNG TIN NHẬN HÀNG =============================================
+  // === FORM NHẬN HÀNG ========================================================
   const [form, setForm] = useState<any>({
     name: '',
     phone: '',
@@ -48,12 +51,12 @@ export default function Checkout() {
     note: '',
   });
 
-  // === TRẠNG THÁI GỬI ĐƠN / KẾT QUẢ =========================================
+  // === TRẠNG THÁI SUBMIT =====================================================
   const [done, setDone] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // === DANH MỤC ĐỊA LÝ (TỈNH/ QUẬN/ PHƯỜNG) ==================================
+  // === ĐỊA LÝ ================================================================
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
@@ -61,30 +64,45 @@ export default function Checkout() {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
 
-  // === TỔNG KHỐI LƯỢNG (gram) ===============================================
-  const totalWeightGram = useMemo(
-    () => st.lines.reduce((s, l) => s + (l.weight_gram ?? l.weight ?? 0) * (l.qty ?? 1), 0),
+  // === SUBTOTAL & TRỌNG LƯỢNG THỰC (❌ KHÔNG FALLBACK) =======================
+  // subtotal = Σ (price * qty)
+  const subtotal = useMemo(
+    () => st.lines.reduce((s: number, it: any) => s + Number(it.price || 0) * Number(it.qty || 1), 0),
     [st]
   );
 
-  // === VẬN CHUYỂN (KHÔNG FALLBACK) ==========================================
+  // totalWeightGram = Σ ( (weight_gram || weight_grams || weight || variant.weight_gram) * qty )
+  // Nếu item không có cân nặng => tính 0 cho item đó (đúng yêu cầu "không fallback").
+  const totalWeightGram = useMemo(() => {
+    return st.lines.reduce((sum: number, it: any) => {
+      const w = Number(
+        it.weight_gram ??
+          it.weight_grams ??
+          it.weight ??
+          it.variant?.weight_gram ??
+          0
+      );
+      const q = Number(it.qty || 1);
+      return sum + (w > 0 ? w * q : 0);
+    }, 0);
+  }, [st]);
+
+  // === VẬN CHUYỂN (API thật) ================================================
   const [shippingList, setShippingList] = useState<any[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<any>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
 
-  // === VOUCHER (giữ đầy đủ như FE) ===========================================
+  // === VOUCHER ===============================================================
   const [autoVouchers, setAutoVouchers] = useState<any[]>([]); // auto_freeship
-  const [voucherCode, setVoucherCode] = useState('');           // nhập tay
+  const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
 
   const disabled = st.lines.length === 0 || submitting;
 
-  // ===========================================================================
-  // 1) LOAD AUTO-FREESHIP VOUCHERS (theo FE)
-  // ===========================================================================
+  // 1) LOAD auto freeship
   useEffect(() => {
     (async () => {
       try {
@@ -98,9 +116,7 @@ export default function Checkout() {
     })();
   }, []);
 
-  // ===========================================================================
-  // 2) LOAD ĐỊA LÝ
-  // ===========================================================================
+  // 2) LOAD địa lý
   useEffect(() => {
     let alive = true;
     setLoadingProvinces(true);
@@ -119,8 +135,7 @@ export default function Checkout() {
   }, []);
 
   useEffect(() => {
-    setDistricts([]);
-    setWards([]);
+    setDistricts([]); setWards([]);
     if (!form.province) return;
     let alive = true;
     setLoadingDistricts(true);
@@ -157,47 +172,56 @@ export default function Checkout() {
     return () => { alive = false; };
   }, [form.district]);
 
-  // ===========================================================================
-  // 3) TÍNH GIÁ VẬN CHUYỂN — API THỰC TẾ 100% (❌ KHÔNG FALLBACK)
-  //    - Chỉ gọi khi đã có province & district
-  //    - Lỗi / không có dữ liệu => show lỗi, KHÔNG gán danh sách giả
-  // ===========================================================================
+  // 3) LẤY PHÍ SHIP — chỉ gọi khi có province/district và weight > 0 (❌ NO fallback)
   useEffect(() => {
-    const weight = totalWeightGram || 500; // tối thiểu 0.5kg để tránh 0 phí
     // Reset khi thiếu địa chỉ
     if (!form.province || !form.district) {
-      setShippingList([]);
-      setSelectedShipping(null);
-      setShippingError(null);
+      setShippingList([]); setSelectedShipping(null); setShippingError(null);
+      return;
+    }
+    // Chưa có cân nặng thực → không gọi API, báo lỗi rõ
+    if (totalWeightGram <= 0) {
+      setShippingList([]); setSelectedShipping(null);
+      setShippingError('Thiếu trọng lượng sản phẩm (weight_gram/weight_grams/weight).');
       return;
     }
 
     let alive = true;
     setShippingLoading(true);
     setShippingError(null);
-    (async () => {
-      try {
-        const data = await api('/shipping/price', {
-          method: 'POST',
-          body: JSON.stringify({
-            receiver_province: form.province, // code tỉnh
-            receiver_district: form.district, // code huyện
-            receiver_commune: form.ward || null,
-            weight_gram: weight,
-            cod: 0,
-            value: st.total,
-          }),
-        });
 
-        const items = (data.items || data.data || [])
-          .map((it: any) => ({
-            provider: it.provider,
-            name: it.name || it.provider,
-            service_code: it.service_code,
-            fee: Number(it.fee || 0),
-            eta: it.eta || 'Giao hàng tiêu chuẩn',
-          }))
-          .sort((a: any, b: any) => a.fee - b.fee);
+    (async () => {
+  try {
+    // âœ… Lấy TÊN province/district từ select (giống FE)
+    const provinceEl = document.querySelector('select[value="' + form.province + '"]') as HTMLSelectElement;
+    const districtEl = document.querySelector('select[value="' + form.district + '"]') as HTMLSelectElement;
+    
+    const provinceName = provinces.find(p => p.code === form.province)?.name || form.province;
+    const districtName = districts.find(d => d.code === form.district)?.name || form.district;
+
+    const data = await api('/shipping/price', {
+      method: 'POST',
+      body: JSON.stringify({
+        receiver_province: provinceName,  // âœ… GỬI TÊN
+        receiver_district: districtName,  // âœ… GỬI TÊN
+        receiver_commune: form.ward || '',
+        weight_gram: Number(totalWeightGram),
+        weight: Number(totalWeightGram),
+        value: Number(subtotal || 0),
+        cod: Number(subtotal || 0),
+        option_id: '1',
+      }),
+    });
+
+    // âœ… Handle response đúng structure
+    const rawItems = data.data || data.items || [];
+    const items = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
+          provider: it.provider,
+          name: it.name || it.provider,
+          service_code: it.service_code,
+          fee: Number(it.fee || 0),
+          eta: it.eta || 'Giao hàng tiêu chuẩn',
+        })).sort((a: any, b: any) => a.fee - b.fee);
 
         if (!alive) return;
 
@@ -209,8 +233,7 @@ export default function Checkout() {
       } catch (e: any) {
         if (!alive) return;
         console.error('Get shipping quote error:', e);
-        setShippingList([]);
-        setSelectedShipping(null);
+        setShippingList([]); setSelectedShipping(null);
         setShippingError(e.message || 'Không lấy được phí vận chuyển. Vui lòng thử lại sau.');
       } finally {
         if (alive) setShippingLoading(false);
@@ -218,22 +241,12 @@ export default function Checkout() {
     })();
 
     return () => { alive = false; };
-  }, [form.province, form.district, form.ward, totalWeightGram, st.total]);
+  }, [form.province, form.district, form.ward, totalWeightGram, subtotal]);
 
-  // ===========================================================================
-  // 4) TÍNH TỔNG HỢP (giống FE)
-  //    - subtotal = tổng tiền hàng
-  //    - originalShippingFee = phí ship gốc từ gói đã chọn
-  //    - manualProductDiscount = giảm giá sản phẩm từ voucher MÃ TAY
-  //    - manualShippingDiscount = giảm ship từ voucher MÃ TAY
-  //    - auto freeship = 100% phí ship nếu đạt điều kiện
-  //    - bestShippingDiscount = MAX(auto, manual ship) (❌ không cộng dồn)
-  // ===========================================================================
+  // 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
   const calculatedTotals = useMemo(() => {
-    const subtotal = st.total;
     const originalShippingFee = selectedShipping?.fee || 0;
 
-    // giảm từ voucher tay
     const manualProductDiscount = appliedVoucher?.discount || 0;
     const manualShippingDiscount = appliedVoucher?.ship_discount || 0;
 
@@ -264,11 +277,9 @@ export default function Checkout() {
       isManualShipApplied,
       appliedVoucherCode: isAutoFreeshipApplied ? autoVoucherCode : appliedVoucher?.code,
     };
-  }, [st.total, selectedShipping, appliedVoucher, autoVouchers]);
+  }, [subtotal, selectedShipping, appliedVoucher, autoVouchers]);
 
-  // ===========================================================================
-  // 5) ÁP MÃ VOUCHER TAY (API THỰC TẾ)
-  // ===========================================================================
+  // 5) ÁP MÃ VOUCHER TAY (API thật)
   const handleApplyVoucher = useCallback(async () => {
     if (!voucherCode.trim()) {
       setVoucherError('Vui lòng nhập mã voucher');
@@ -282,7 +293,7 @@ export default function Checkout() {
         method: 'POST',
         body: JSON.stringify({
           code: voucherCode,
-          subtotal: st.total,
+          subtotal,          // dùng subtotal thực
           customer_id: null,
         }),
       });
@@ -297,7 +308,7 @@ export default function Checkout() {
     } finally {
       setVoucherLoading(false);
     }
-  }, [voucherCode, st.total]);
+  }, [voucherCode, subtotal]);
 
   const clearVoucher = () => {
     setVoucherCode('');
@@ -305,42 +316,35 @@ export default function Checkout() {
     setVoucherError(null);
   };
 
-  // ===========================================================================
-  // 6) ĐẶT HÀNG (API THỰC TẾ) — chống double submit, validate chặt
-  // ===========================================================================
+  // 6) ĐẶT HÀNG (API thật) — chặn double submit, validate chặt
   const submit = useCallback(async (): Promise<void> => {
     setError(null);
     setSubmitting(true);
 
     if (!form.name || !form.phone) {
-      setError('Vui lòng nhập họ tên và số điện thoại');
-      setSubmitting(false);
-      return;
+      setError('Vui lòng nhập họ tên và số điện thoại'); setSubmitting(false); return;
     }
     const phoneRegex = /^(03|05|07|08|09)\d{8}$/;
     if (!phoneRegex.test(form.phone.replace(/\D/g, ''))) {
-      setError('Số điện thoại không hợp lệ');
-      setSubmitting(false);
-      return;
+      setError('Số điện thoại không hợp lệ'); setSubmitting(false); return;
     }
     if (!form.province || !form.district || !form.ward) {
-      setError('Vui lòng chọn đầy đủ địa chỉ');
-      setSubmitting(false);
-      return;
+      setError('Vui lòng chọn đầy đủ địa chỉ'); setSubmitting(false); return;
     }
     if (!form.address.trim() || form.address.trim().length < 10) {
       setError('Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường) tối thiểu 10 ký tự');
-      setSubmitting(false);
-      return;
+      setSubmitting(false); return;
+    }
+    if (totalWeightGram <= 0) {
+      setError('Thiếu trọng lượng sản phẩm. Vui lòng bổ sung cân nặng trước khi đặt.');
+      setSubmitting(false); return;
     }
     if (!selectedShipping) {
-      setError('Vui lòng chọn phương thức vận chuyển');
-      setSubmitting(false);
-      return;
+      setError('Vui lòng chọn phương thức vận chuyển'); setSubmitting(false); return;
     }
 
     const {
-      subtotal,
+      subtotal: sub,
       originalShippingFee,
       manualProductDiscount,
       bestShippingDiscount,
@@ -368,12 +372,18 @@ export default function Checkout() {
         price: Number(item.price || 0),
         cost: Number(item.cost || 0),
         qty: Number(item.qty || 1),
-        weight_gram: Number(item.weight_gram || item.weight || 0),
+        weight_gram: Number(
+          item.weight_gram ??
+          item.weight_grams ??
+          item.weight ??
+          item.variant?.weight_gram ??
+          0
+        ),
         variant: item.variantName || '',
         image: item.variantImage || item.image || '',
       })),
       totals: {
-        subtotal,
+        subtotal: sub,
         shipping_fee: originalShippingFee,
         discount: manualProductDiscount,
         shipping_discount: bestShippingDiscount,
@@ -402,12 +412,7 @@ export default function Checkout() {
       });
 
       if (data.ok || data.id) {
-        setDone({
-          kind: 'server',
-          data,
-          endpoint: '/api/orders',
-          orderId: data.id || data.order_id,
-        });
+        setDone({ kind: 'server', data, endpoint: '/api/orders', orderId: data.id || data.order_id });
         cart.clear();
         setSt(cart.get());
       } else {
@@ -418,17 +423,15 @@ export default function Checkout() {
     } finally {
       setSubmitting(false);
     }
-  }, [form, selectedShipping, st, provinces, districts, wards, calculatedTotals]);
+  }, [form, selectedShipping, st, subtotal, totalWeightGram, provinces, districts, wards, calculatedTotals]);
 
-  // === ẢNH SẢN PHẨM (Cloudinary) ============================================
+  // === ẢNH SẢN PHẨM ==========================================================
   const getItemImage = useCallback((item: any) => {
     const rawImg = item.variantImage || item.image || '/icon.png';
     return cloudify(rawImg, 'w_200,h_200,c_fill,q_auto,f_auto');
   }, []);
 
-  // ===========================================================================
-  // 7) UI
-  // ===========================================================================
+  // === UI ====================================================================
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-4xl mx-auto p-3 pb-20">
@@ -439,7 +442,7 @@ export default function Checkout() {
         )}
 
         {done ? (
-          // === KHỐI THÀNH CÔNG =================================================
+          // === THÀNH CÔNG =====================================================
           <div className="bg-white rounded-2xl p-6 shadow">
             <div className="text-center">
               <div className="text-6xl mb-4">✅</div>
@@ -573,10 +576,15 @@ export default function Checkout() {
               />
             </div>
 
-            {/* === VẬN CHUYỂN (chỉ dùng dữ liệu từ API, không fallback) ======== */}
+            {/* === VẬN CHUYỂN (API thật, không fallback) ======================= */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
               <div className="font-semibold text-lg">Vận chuyển</div>
               <div className="text-sm text-gray-600">Khối lượng: {toHumanWeight(totalWeightGram)}</div>
+              {totalWeightGram <= 0 && (
+                <div className="text-sm text-red-600 mt-2">
+                  ⚠️ Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.
+                </div>
+              )}
 
               {!form.province || !form.district ? (
                 <div className="text-sm text-gray-500 py-4 text-center">
@@ -625,7 +633,7 @@ export default function Checkout() {
               )}
             </div>
 
-            {/* === VOUCHER (giữ đầy đủ như FE) ================================= */}
+            {/* === VOUCHER ===================================================== */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
               <div className="font-semibold text-lg">Mã giảm giá</div>
               {appliedVoucher ? (
@@ -685,7 +693,6 @@ export default function Checkout() {
                   </span>
                 </div>
 
-                {/* Giảm giá SP từ voucher tay */}
                 {calculatedTotals.manualProductDiscount > 0 && (
                   <div className="flex justify-between text-rose-600">
                     <span className="font-semibold">🎟️ Giảm giá sản phẩm:</span>
@@ -693,7 +700,6 @@ export default function Checkout() {
                   </div>
                 )}
 
-                {/* Giảm phí ship (auto hoặc voucher tay) */}
                 {calculatedTotals.bestShippingDiscount > 0 && (
                   <div className="flex justify-between text-rose-600">
                     <span className="font-semibold">
@@ -709,7 +715,6 @@ export default function Checkout() {
                 <span className="text-rose-600 text-xl">{fmtVND(calculatedTotals.grandTotal)}</span>
               </div>
 
-              {/* Lỗi chung */}
               {error && (
                 <div className="text-red-600 text-sm mt-3 bg-red-50 p-3 rounded-lg border border-red-200">
                   ⚠️ {error}

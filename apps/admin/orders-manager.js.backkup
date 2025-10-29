@@ -1,6 +1,6 @@
 /**
  * Orders Manager - Quản lý đơn hàng
- * Version: 2.1 (Đã thêm logic Xác nhận đơn hàng)
+ * Version: 2.0
  */
 
 class OrdersManager {
@@ -131,17 +131,10 @@ class OrdersManager {
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
     const source = String(order.source || order.channel || order.platform || 'Web');
     const orderId = String(order.id || '');
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    const status = String(order.status || 'pending').toLowerCase();
-    // ========================================
 
     // Render all items with images
     const itemsHTML = items.map(item => {
-      // ===== ⭐️ FIX HÌNH ẢNH (PROBLEM 1) ⭐️ =====
-      // Code này sẽ tự động hoạt động khi `orders.js` được sửa
-      // Nó sẽ tìm `item.image` hoặc `item.variant_image` đã được lưu.
       let img = item.image || item.img || item.thumbnail || item.variant_image || '';
-      // ========================================
       img = img ? this.cloudify(img, 'w_80,h_80,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
       
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
@@ -163,47 +156,6 @@ class OrdersManager {
         </div>
       `;
     }).join('');
-
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    // Tạo cụm nút hành động dựa trên trạng thái
-    let actionsHTML = '';
-    if (status === 'pending') {
-      // Trạng thái chờ xử lý: Chỉ hiện nút "Xác nhận"
-      actionsHTML = `
-        <button class="btn btn-primary" data-confirm="${orderId}" style="background-color:#28a745; color:white; border-color:#28a745; width: 100%;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          Xác nhận đơn
-        </button>
-      `;
-    } else if (status !== 'cancelled' && status !== 'returned') {
-      // Trạng thái đã xác nhận (shipping, delivering, v.v.): Hiện nút "In" và "Hủy"
-      actionsHTML = `
-        <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
-          </svg>
-          In Vận Đơn
-        </button>
-        <button class="btn btn-danger" data-cancel="${orderId}">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Hủy Vận Đơn
-        </button>
-      `;
-    }
-    // Nút "Xóa" luôn hiển thị (hoặc tùy bạn)
-    actionsHTML += `
-      <button class="btn btn-danger" data-delete="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top: 5px;">
-        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-        </svg>
-        Xóa Đơn
-      </button>
-    `;
-    // ========================================
 
    // Desktop card view (hiển thị đẹp hơn cho PC)
     const desktopCard = `
@@ -248,13 +200,26 @@ class OrdersManager {
               <span class="label">Nguồn:</span>
               <span class="value">${source}</span>
             </div>
-            <div class="detail-row">
-              <span class="label">Trạng thái:</span>
-              <span class="value status status-${status}">${status}</span>
-            </div>
           </div>
           <div class="order-actions-col">
-            ${actionsHTML}
+            <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              In Vận Đơn
+            </button>
+            <button class="btn btn-danger" data-cancel="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
+            </button>
+            <button class="btn btn-danger" data-delete="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
           </div>
         </div>
       </div>
@@ -299,13 +264,26 @@ class OrdersManager {
             <span class="label">Thời gian:</span>
             <span class="value">${created}</span>
           </div>
-          <div class="order-info-row">
-            <span class="label">Trạng thái:</span>
-            <span class="value status status-${status}">${status}</span>
-          </div>
           
           <div class="order-actions">
-            ${actionsHTML}
+            <button class="btn btn-sm btn-print" data-print="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              In Vận Đơn
+            </button>
+            <button class="btn btn-sm btn-cancel" data-cancel="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
+            </button>
+            <button class="btn btn-sm btn-delete" data-delete="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
           </div>
         </div>
       </div>
@@ -347,16 +325,6 @@ class OrdersManager {
         await this.cancelWaybill(id); // Gọi hàm hủy mới
       };
     });
-
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    // Nút "Xác nhận"
-    document.querySelectorAll('[data-confirm]').forEach(btn => {
-      btn.onclick = async () => {
-        const id = btn.getAttribute('data-confirm');
-        await this.confirmOrder(id); // Gọi hàm xác nhận mới
-      };
-    });
-    // ========================================
 
     // Xử lý sự kiện cho từng checkbox đơn hàng
     document.querySelectorAll('.order-checkbox').forEach(checkbox => {
@@ -656,32 +624,6 @@ class OrdersManager {
       alert('Lỗi hệ thống khi hủy: ' + e.message);
     }
   }
-  
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // ==================== CONFIRM ORDER ====================
-  
-  async confirmOrder(orderId) {
-    if (!confirm(`Xác nhận đơn hàng ${orderId}?\nThao tác này sẽ gửi đơn hàng qua đơn vị vận chuyển.`)) return;
-
-    Admin.toast('🔄 Đang xác nhận và tạo vận đơn...');
-    
-    try {
-      const result = await Admin.req('/admin/orders/confirm', {
-        method: 'POST',
-        body: { id: orderId }
-      });
-
-      if (result?.ok) {
-        Admin.toast('✅ Đã xác nhận và tạo vận đơn!');
-        this.loadOrders(); // Tải lại danh sách
-      } else {
-        alert('Xác nhận thất bại: ' + (result?.message || result?.error || 'Lỗi'));
-      }
-    } catch (error) {
-      alert('Lỗi khi xác nhận đơn: ' + error.message);
-    }
-  }
-  // ========================================
 
   // ==================== BULK ACTIONS TOOLBAR ====================
 
@@ -843,12 +785,8 @@ class OrdersManager {
     // Dựa theo hình ảnh SuperAI của bạn và các trạng thái phổ biến
     const displayStatuses = [
       { key: 'all', name: 'Tất cả' },
-      // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-      // Đổi tên 'pending' thành 'Chờ xác nhận' cho rõ
-      { key: 'pending', name: 'Chờ xác nhận' }, // (Trạng thái nội bộ mới)
-      // ========================================
       // Các trạng thái SuperAI phổ biến (lấy key từ status_name webhook, viết thường)
-      { key: 'shipping', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
+      { key: 'pending pickup', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
       { key: 'picking', name: 'Đang lấy hàng' },
       { key: 'delivering', name: 'Đang giao' },
       { key: 'delivered', name: 'Đã giao' },
@@ -857,7 +795,7 @@ class OrdersManager {
       { key: 'cancelled', name: 'Đã hủy' },
       { key: 'lost', name: 'Thất lạc' },
       // Thêm các trạng thái nội bộ nếu cần
-      // { key: 'pending', name: 'Chờ xử lý (Nội bộ)' }, // Đã đổi tên ở trên
+      { key: 'pending', name: 'Chờ xử lý (Nội bộ)' },
       { key: 'confirmed', name: 'Đã xác nhận (Nội bộ)' },
     ];
 
@@ -923,7 +861,7 @@ class OrdersManager {
   init() {
     this.loadOrders();
     this.wireGlobalEvents();
-    console.log('[OrdersManager] Initialized ✅ with Bulk Actions & Confirm Logic');
+    console.log('[OrdersManager] Initialized ✅ with Bulk Actions');
   }
 
   wireGlobalEvents() {

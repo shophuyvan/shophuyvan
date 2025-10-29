@@ -96,12 +96,15 @@ function toSummary(product) {
     sku: product.sku || '',
     price: product.price || 0,
     price_sale: product.price_sale || 0,
-    price_wholesale: product.price_wholesale || 0, // ✅ THÊM DÒNG NÀY
+    price_wholesale: product.price_wholesale || 0, // âœ… THÃŠM DÃ'NG NÃ€Y
     stock: product.stock || 0,
     images: product.images || [],
     category: product.category || '',
     category_slug: product.category_slug || product.category || '',
-    status: (product.status === 0 ? 0 : 1)
+    status: (product.status === 0 ? 0 : 1),
+    weight_gram: product.weight_gram || 0,
+    weight_grams: product.weight_grams || 0,
+    weight: product.weight || 0
   };
 }
 
@@ -345,6 +348,16 @@ async function getProductById(req, env, productId) {
         ok: false, 
         error: 'Product not found' 
       }, { status: 404 }, req);
+    }
+
+    // âœ… Äáº£m báº£o variants cÃ³ weight
+    if (Array.isArray(product.variants)) {
+      product.variants = product.variants.map(v => ({
+        ...v,
+        weight_gram: v.weight_gram || 0,
+        weight_grams: v.weight_grams || 0,
+        weight: v.weight || 0
+      }));
     }
 
     const tier = getCustomerTier(req);

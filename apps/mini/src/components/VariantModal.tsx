@@ -109,14 +109,32 @@ export default function VariantModal({
   };
 
   // STEP: Confirm action
-  const handleConfirm = () => {
-    if (!effectiveVariant && variants.length > 0) {
-      alert('Vui lòng chọn phân loại sản phẩm');
-      return;
-    }
-    onConfirm?.(effectiveVariant || product, quantity, mode);
-    onClose?.();
+const handleConfirm = () => {
+  if (!effectiveVariant && variants.length > 0) {
+    alert('Vui lòng chọn phân loại sản phẩm');
+    return;
+  }
+
+  // ✅ BỔ SUNG TRỌNG LƯỢNG THỰC (GRAM) TRƯỚC KHI ĐẨY RA NGOÀI
+  const chosen = effectiveVariant || product;
+  const w = Number(
+    chosen?.weight_gram ??
+    chosen?.weight_grams ??
+    chosen?.weight ??
+    chosen?.variant?.weight_gram ??
+    0
+  );
+
+  const chosenWithWeight = {
+    ...chosen,
+    weight_gram: w,
+    weight_grams: w,
+    weight: w,
   };
+
+  onConfirm?.(chosenWithWeight, quantity, mode);
+  onClose?.();
+};
 
   if (!open) return null;
 

@@ -160,7 +160,7 @@ async function authenticateCustomer(req, env) {
       const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const cid = p.customer_id || p.customerId || p.sub || p.id || '';
       if (cid) {
-        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:'Cid));
+        customer = (await kvGet('customer:' + cid)) || (await kvGet('customer:id:' + cid));
         if (!customer) decodedTokenId = String(cid);
       }
     } catch { /* ignore */ }
@@ -196,15 +196,10 @@ function normalizeOrderItems(items) {
       product_id: it.product_id ?? it.pid ?? it.productId ?? (it.product?.id || it.product?.key) ?? maybeProductId ?? null,
       sku: it.sku ?? variantSku ?? null,
       name: it.name ?? it.title ?? '',
-      variant: it.variant ?? '', // Đây là tên biến thể
+      variant: it.variant ?? '',
       qty: Number(it.qty ?? it.quantity ?? 1) || 1,
       price: Number(it.price || 0),
-      cost: Number(it.cost || 0),
-      // ===== ⭐️ FIX HÌNH ẢNH (PROBLEM 1) ⭐️ =====
-      // Thêm 2 dòng này để lưu hình ảnh vào đơn hàng
-      image: it.image || it.variantImage || null,
-      variant_image: it.variantImage || it.image || null
-      // ==========================================
+      cost: Number(it.cost || 0)
     };
   });
 }
@@ -479,10 +474,6 @@ export async function handle(req, env, ctx) {
   if (path === '/admin/orders/delete' && method === 'POST') return deleteOrder(req, env);
   if (path === '/admin/orders/print' && method === 'GET') return printOrder(req, env);
   if (path === '/admin/stats' && method === 'GET') return getStats(req, env);
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // Thêm route này
-  if (path === '/admin/orders/confirm' && method === 'POST') return confirmOrderAndCreateWaybill(req, env);
-  // ========================================
 
   // Shipping Waybill
   if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
@@ -520,7 +511,7 @@ async function createOrder(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  // Normalize & enrich items (ĐÃ SỬA normalizeOrderItems để lưu ảnh)
+  // Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
@@ -605,9 +596,9 @@ async function createOrder(req, env) {
   const order = {
     id,
     createdAt,
-    status: ORDER_STATUS.PENDING, // Luôn bắt đầu là PENDING
+    status: ORDER_STATUS.PENDING,
     customer: finalCustomer,
-    items, // items này đã có hình ảnh do hàm normalizeOrderItems đã sửa
+    items,
     subtotal,
     shipping_fee,
     discount: final_discount,
@@ -635,9 +626,6 @@ async function createOrder(req, env) {
     await adjustInventory(items, env, -1);
   }
 
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // Xóa (chú thích) khối tự động tạo vận đơn ở đây
-  /*
   // Auto-create waybill
   if (order.shipping_provider) {
     try {
@@ -668,8 +656,6 @@ async function createOrder(req, env) {
       console.error('[ORDER] Waybill creation exception:', e.message);
     }
   }
-  */
-  // ========================================
 
   const response = json({ ok: true, id, status: order.status, tracking_code: order.tracking_code || null }, {}, req);
   await idemSet(idem.key, env, response);
@@ -699,7 +685,7 @@ async function createOrderPublic(req, env) {
   if (auth.customerId) finalCustomer.id = auth.customerId;
   if (finalCustomer.phone) finalCustomer.phone = normalizePhone(finalCustomer.phone);
 
-  // Normalize & enrich items (ĐÃ SỬA normalizeOrderItems để lưu ảnh)
+  // Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
@@ -721,7 +707,7 @@ async function createOrderPublic(req, env) {
     createdAt,
     status,
     customer: finalCustomer,
-    items, // items này đã có hình ảnh
+    items,
     shipping_fee,
     discount,
     shipping_discount,
@@ -765,7 +751,7 @@ async function createOrderLegacy(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  let items = normalizeOrderItems(body.items || []); // Đã sửa để lưu ảnh
+  let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
   const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
@@ -787,7 +773,7 @@ async function createOrderLegacy(req, env) {
     phone: normalizePhone(body.phone),
     address: body.address,
     note: body.note || body.notes,
-    items, // items này đã có hình ảnh
+    items,
     subtotal,
     shipping_fee,
     total: subtotal + shipping_fee,
@@ -1264,72 +1250,5 @@ async function cancelOrderCustomer(req, env) {
   } catch (e) {
     console.error('[CANCEL-ORDER] Error:', e);
     return json({ ok: false, error: e.message }, { status: 500 }, req);
-  }
-}
-
-// ===================================================================
-// ADMIN: Confirm Order & Create Waybill (LOGIC MỚI)
-// ===================================================================
-async function confirmOrderAndCreateWaybill(req, env) {
-  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
-
-  const body = await readBody(req) || {};
-  const id = body.id;
-  if (!id) return errorResponse('ID đơn hàng là bắt buộc', 400, req);
-
-  // Lấy đơn hàng đầy đủ
-  const order = await getJSON(env, 'order:' + id, null);
-  if (!order) return errorResponse('Không tìm thấy đơn hàng', 404, req);
-
-  const status = String(order.status || '').toLowerCase();
-  if (status !== ORDER_STATUS.PENDING) {
-    return errorResponse(`Đơn hàng đã ở trạng thái "${status}", không thể xác nhận.`, 400, req);
-  }
-
-  // Bắt đầu logic tạo vận đơn (đã copy từ hàm createOrder)
-  if (order.shipping_provider) {
-    try {
-      console.log(`[CONFIRM-ORDER] Creating waybill for ${id}`);
-      const waybillResult = await autoCreateWaybill(order, env);
-
-      if (waybillResult.ok && waybillResult.carrier_code) {
-        // Cập nhật đơn hàng
-        order.tracking_code = waybillResult.carrier_code;
-        order.shipping_tracking = waybillResult.carrier_code;
-        order.superai_code = waybillResult.superai_code;
-        order.carrier_id = waybillResult.carrier_id;
-        order.status = ORDER_STATUS.SHIPPING; // Chuyển trạng thái
-        order.waybill_data = waybillResult.raw;
-        order.confirmed_at = Date.now();
-
-        // Lưu lại
-        await putJSON(env, 'order:' + id, order);
-
-        // Cập nhật list
-        const list = await getJSON(env, 'orders:list', []);
-        const index = list.findIndex(o => o.id === id);
-        if (index > -1) {
-          list[index] = order;
-          await putJSON(env, 'orders:list', list);
-        }
-
-        console.log('[CONFIRM-ORDER] Waybill created:', waybillResult.carrier_code);
-        return json({ 
-          ok: true, 
-          id, 
-          status: order.status, 
-          tracking_code: order.tracking_code 
-        }, {}, req);
-
-      } else {
-        console.warn('[CONFIRM-ORDER] Waybill creation failed:', waybillResult.message);
-        return errorResponse(`Tạo vận đơn thất bại: ${waybillResult.message || 'Lỗi không rõ'}`, 500, req);
-      }
-    } catch (e) {
-      console.error('[CONFIRM-ORDER] Waybill creation exception:', e.message);
-      return errorResponse(`Lỗi hệ thống khi tạo vận đơn: ${e.message}`, 500, req);
-    }
-  } else {
-    return errorResponse('Đơn hàng không có nhà cung cấp vận chuyển.', 400, req);
   }
 }
