@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
@@ -18,9 +22,11 @@ jobs:
         with:
           node-version: 20
 
+      # Cài deps gốc để đảm bảo workspace hoạt động
       - name: Install deps (root, workspaces)
         run: npm install
 
+      # Xoá cache cũ + cài lại sạch
       - name: Clear node_modules and Vite cache
         run: |
           rm -rf node_modules
@@ -29,14 +35,17 @@ jobs:
           npm cache clean --force
           npm install
 
+      # Đảm bảo vite tồn tại trong workspace mini (sau khi cache bị clear)
       - name: Ensure Vite is installed
         run: |
           cd apps/mini
           npm install vite --save-dev
 
+      # Build Zalo Mini App UI (workspace mini)
       - name: Build MINI workspace
         run: npm -w apps/mini run build
 
+      # Deploy dist của mini lên Cloudflare Pages project "shv-mini"
       - name: Publish to Cloudflare Pages (MINI)
         uses: cloudflare/pages-action@v1
         with:
