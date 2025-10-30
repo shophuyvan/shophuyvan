@@ -1365,35 +1365,59 @@ async function confirmOrderAndCreateWaybill(req, env) {
   const id = body.id;
   if (!id) return errorResponse('ID đơn hàng là bắt buộc', 400, req);
 
-  // Lấy đơn hàng đầy đủ
   const order = await getJSON(env, 'order:' + id, null);
   if (!order) return errorResponse('Không tìm thấy đơn hàng', 404, req);
 
   const status = String(order.status || '').toLowerCase();
-  if (status !== ORDER_STATUS.PENDING) {
+  
+  // ✅ CHO PHÉP XÁC NHẬN LẠI nếu đã có mã vận đơn
+  if (status !== ORDER_STATUS.PENDING && status !== 'shipping') {
     return errorResponse(`Đơn hàng đã ở trạng thái "${status}", không thể xác nhận.`, 400, req);
   }
 
-  // Bắt đầu logic tạo vận đơn (đã copy từ hàm createOrder)
+  // ✅ KIỂM TRA ĐÃ CÓ MÃ VẬN ĐƠN CHƯA
+  if (order.tracking_code && order.tracking_code !== 'CANCELLED') {
+    console.log('[CONFIRM-ORDER] ✅ Order already has tracking:', order.tracking_code);
+    
+    if (status === ORDER_STATUS.PENDING) {
+      order.status = 'shipping';
+      order.confirmed_at = Date.now();
+      
+      await putJSON(env, 'order:' + id, order);
+      
+      const list = await getJSON(env, 'orders:list', []);
+      const index = list.findIndex(o => o.id === id);
+      if (index > -1) {
+        list[index] = order;
+        await putJSON(env, 'orders:list', list);
+      }
+    }
+    
+    return json({ 
+      ok: true, 
+      id, 
+      status: order.status, 
+      tracking_code: order.tracking_code,
+      message: 'Đơn hàng đã có mã vận đơn'
+    }, {}, req);
+  }
+
   if (order.shipping_provider) {
     try {
       console.log(`[CONFIRM-ORDER] Creating waybill for ${id}`);
       const waybillResult = await autoCreateWaybill(order, env);
 
       if (waybillResult.ok && waybillResult.carrier_code) {
-        // Cập nhật đơn hàng
         order.tracking_code = waybillResult.carrier_code;
         order.shipping_tracking = waybillResult.carrier_code;
         order.superai_code = waybillResult.superai_code;
         order.carrier_id = waybillResult.carrier_id;
-        order.status = ORDER_STATUS.SHIPPING; // Chuyển trạng thái
+        order.status = 'shipping';
         order.waybill_data = waybillResult.raw;
         order.confirmed_at = Date.now();
 
-        // Lưu lại
         await putJSON(env, 'order:' + id, order);
 
-        // Cập nhật list
         const list = await getJSON(env, 'orders:list', []);
         const index = list.findIndex(o => o.id === id);
         if (index > -1) {
@@ -1401,21 +1425,31 @@ async function confirmOrderAndCreateWaybill(req, env) {
           await putJSON(env, 'orders:list', list);
         }
 
-        console.log('[CONFIRM-ORDER] Waybill created:', waybillResult.carrier_code);
+        console.log('[CONFIRM-ORDER] ✅ Waybill created:', waybillResult.carrier_code);
         return json({ 
           ok: true, 
           id, 
           status: order.status, 
-          tracking_code: order.tracking_code 
+          tracking_code: order.tracking_code,
+          message: waybillResult.message || 'Tạo vận đơn thành công'
         }, {}, req);
 
       } else {
-        console.warn('[CONFIRM-ORDER] Waybill creation failed:', waybillResult.message);
-        return errorResponse(`Tạo vận đơn thất bại: ${waybillResult.message || 'Lỗi không rõ'}`, 500, req);
+        console.warn('[CONFIRM-ORDER] ❌ Waybill failed:', waybillResult.message);
+        return json({
+          ok: false,
+          error: 'WAYBILL_FAILED',
+          message: waybillResult.message || 'Tạo vận đơn thất bại',
+          details: waybillResult.data
+        }, { status: 400 }, req);
       }
     } catch (e) {
-      console.error('[CONFIRM-ORDER] Waybill creation exception:', e.message);
-      return errorResponse(`Lỗi hệ thống khi tạo vận đơn: ${e.message}`, 500, req);
+      console.error('[CONFIRM-ORDER] ❌ Exception:', e.message);
+      return json({
+        ok: false,
+        error: 'EXCEPTION',
+        message: `Lỗi: ${e.message}`
+      }, { status: 500 }, req);
     }
   } else {
     return errorResponse('Đơn hàng không có nhà cung cấp vận chuyển.', 400, req);
