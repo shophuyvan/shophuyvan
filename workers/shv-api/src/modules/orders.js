@@ -1368,12 +1368,16 @@ async function confirmOrderAndCreateWaybill(req, env) {
   const order = await getJSON(env, 'order:' + id, null);
   if (!order) return errorResponse('Không tìm thấy đơn hàng', 404, req);
 
-  const status = String(order.status || '').toLowerCase();
-  
-  // ✅ CHO PHÉP XÁC NHẬN LẠI nếu đã có mã vận đơn
-  if (status !== ORDER_STATUS.PENDING && status !== 'shipping') {
-    return errorResponse(`Đơn hàng đã ở trạng thái "${status}", không thể xác nhận.`, 400, req);
-  }
+  // Chuẩn hoá status: rỗng / "chờ xác nhận" -> pending
+const rawStatus = String(order.status || '').trim().toLowerCase();
+const status = (!rawStatus || rawStatus.includes('cho') || rawStatus.includes('xác') || rawStatus.includes('xac'))
+  ? ORDER_STATUS.PENDING
+  : rawStatus;
+
+// ✅ CHO PHÉP XÁC NHẬN LẠI nếu đã có mã vận đơn
+if (status !== ORDER_STATUS.PENDING && status !== 'shipping') {
+  return errorResponse(`Đơn hàng đã ở trạng thái "${status}", không thể xác nhận.`, 400, req);
+}
 
   // ✅ KIỂM TRA ĐÃ CÓ MÃ VẬN ĐƠN CHƯA
   if (order.tracking_code && order.tracking_code !== 'CANCELLED') {
