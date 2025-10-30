@@ -26,7 +26,7 @@ jobs:
       - name: Install deps (root, workspaces)
         run: npm install
 
-      # Xoá cache cũ + cài lại sạch
+      # Xoá cache cũ + cài lại sạch (bảo thủ theo quy trình bạn đang dùng)
       - name: Clear node_modules and Vite cache
         run: |
           rm -rf node_modules
@@ -45,12 +45,15 @@ jobs:
       - name: Build MINI workspace
         run: npm -w apps/mini run build
 
-      # Deploy dist của mini lên Cloudflare Pages project "shv-mini"
-      - name: Publish to Cloudflare Pages (MINI)
-        uses: cloudflare/pages-action@v1
+      # Deploy dist của mini lên Cloudflare Pages project "shv-mini" (Wrangler v4)
+      - name: Deploy to Cloudflare Pages (MINI)
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: shv-mini
-          directory: ./apps/mini/dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # Wrangler v4: dùng 'pages deploy' thay cho 'pages publish'
+          command: >
+            pages deploy ./apps/mini/dist
+            --project-name=shv-mini
+            --branch=main
+            --commit-dirty=true
