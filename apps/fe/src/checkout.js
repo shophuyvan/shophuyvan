@@ -160,33 +160,39 @@ async function loadProvinces() {
 
 // ====== PHÍ VẬN CHUYỂN (KHÔNG FALLBACK) ======
 async function fetchShippingQuote() {
-  const provinceEl = $('#province'), districtEl = $('#district');
-  const provinceName = provinceEl.options[provinceEl.selectedIndex]?.text || '';
-  const districtName = districtEl.options[districtEl.selectedIndex]?.text || '';
-  
-  if (!provinceName || !districtName || !provinceEl.value) {
-    $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    return;
+  // Đọc code từ TomSelect (nếu có), fallback về <select> gốc
+  var provinceSel = document.getElementById('province');
+  var districtSel = document.getElementById('district');
+  var wardSel     = document.getElementById('ward');
+
+  var hasTsProvince = (typeof tsProvince !== 'undefined') && tsProvince && (typeof tsProvince.getValue === 'function');
+  var hasTsDistrict = (typeof tsDistrict !== 'undefined') && tsDistrict && (typeof tsDistrict.getValue === 'function');
+  var hasTsWard     = (typeof tsWard     !== 'undefined') && tsWard     && (typeof tsWard.getValue     === 'function');
+
+  var provinceCode = hasTsProvince ? tsProvince.getValue() : (provinceSel ? provinceSel.value : '');
+  var districtCode = hasTsDistrict ? tsDistrict.getValue() : (districtSel ? districtSel.value : '');
+  var wardCode     = hasTsWard     ? tsWard.getValue()     : (wardSel     ? wardSel.value     : '');
+
+  function getTextFrom(ts, code, sel) {
+    if (ts && typeof ts.getOption === 'function' && code) {
+      var opt = ts.getOption(code);
+      if (opt && typeof opt.textContent === 'string') return opt.textContent;
+    }
+    if (sel && sel.options && sel.selectedIndex >= 0) {
+      var op = sel.options[sel.selectedIndex];
+      if (op && typeof op.text === 'string') return op.text;
+    }
+    return '';
   }
 
-  // Loading
-  $('shipping-list').innerHTML = `
-    <div class="text-center py-8">
-      <div class="inline-block animate-spin h-10 w-10 border-4 border-rose-200 border-t-rose-600 rounded-full mb-3"></div>
-      <div class="font-medium text-gray-600 text-sm">Đang tải phí vận chuyển…</div>
-    </div>`;
+  var provinceName = getTextFrom(tsProvince, provinceCode, provinceSel);
+  var districtName = getTextFrom(tsDistrict, districtCode, districtSel);
+  var wardName     = getTextFrom(tsWard,     wardCode,     wardSel);
 
-  const cart = getCart();
-  const weight = calcWeight(cart) || 0;
-  const subtotal = calcSubtotal(cart);
-
-  // ✅ Nếu thiếu cân nặng thực tế thì không gọi API
-  if (weight <= 0) {
-    $('shipping-list').innerHTML = `
-      <div class="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
-        <div class="font-semibold text-red-700 text-sm">⚠️ Sản phẩm chưa có trọng lượng – không thể tính phí ship.</div>
-        <div class="text-red-600 text-xs mt-2">Vui lòng liên hệ shop để cập nhật thông tin sản phẩm.</div>
-      </div>`;
+  // Chưa đủ địa chỉ => không gọi API phí ship
+  if (!provinceCode || !districtCode || !wardCode) {
+    var box = document.getElementById('shipping-list');
+    if (box) box.innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
     selectedShipping = null;
     updateSummary();
     return;
