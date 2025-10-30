@@ -170,30 +170,33 @@ class OrdersManager {
     // Tạo cụm nút hành động dựa trên trạng thái
     let actionsHTML = '';
     if (status === 'pending') {
-      // Trạng thái chờ xử lý: Chỉ hiện nút "Xác nhận"
-      actionsHTML = `
-        <button class="btn btn-primary" data-confirm="${orderId}" style="background-color:#28a745; color:white; border-color:#28a745; width: 100%;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          Xác nhận đơn
-        </button>
-      `;
+  // Trạng thái chờ xử lý: Hiện "Xác nhận" + "Sửa tổng"
+  actionsHTML = `
+    <button class="btn btn-primary" data-confirm="${orderId}" style="background-color:#28a745; color:white; border-color:#28a745; width: 100%;">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      Xác nhận đơn
+    </button>
+    <button class="btn" data-edit="${orderId}" style="background-color:#f59e0b; color:white; border-color:#f59e0b; margin-top:5px; width: 100%;">
+      ✏️ Sửa tổng
+    </button>
+  `;
+}
     } else if (status !== 'cancelled' && status !== 'returned') {
-      // Trạng thái đã xác nhận (shipping, delivering, v.v.): Hiện nút "In" và "Hủy"
-      // Nút "Sửa tổng" + "Xóa"
-    actionsHTML += `
-      <button class="btn" data-edit="${orderId}" style="background-color:#f59e0b; color:white; border-color:#f59e0b; margin-top:5px;">
-        ✏️ Sửa tổng
-      </button>
-      <button class="btn btn-danger" data-delete="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top: 5px;">
-        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-        </svg>
-        Xóa Đơn
-      </button>
-    `;
-  } 
+  // Trạng thái đã xác nhận: CHỈ "In vận đơn" + "Hủy vận đơn" + "Xóa"
+  actionsHTML += `
+    <button class="btn" data-print="${orderId}" style="background-color:#0ea5e9; color:white; border-color:#0ea5e9; margin-top:5px;">
+      🖨️ In vận đơn
+    </button>
+    <button class="btn btn-danger" data-cancel="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top:5px;">
+      🚫 Hủy vận đơn
+    </button>
+    <button class="btn btn-danger" data-delete="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top:5px;">
+      🗑️ Xóa Đơn
+    </button>
+  `;
+}
 
    // Desktop card view (hiển thị đẹp hơn cho PC)
     const desktopCard = `
