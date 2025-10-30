@@ -731,15 +731,15 @@ export default function Product() {
             </div>
 
             {/* Description */}
-            {p.description && (
+            {(p.desc || p.description) && (
               <div className="mt-4 pt-4 border-t">
                 <h2 className="font-semibold mb-3 text-base text-gray-900">
                   Mô tả sản phẩm
                 </h2>
 
                 <div
-                  className="text-[15px] leading-relaxed text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:mb-3 [&_p]:text-gray-700 [&_p]:leading-relaxed [&_strong]:text-gray-900 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
-                  dangerouslySetInnerHTML={{ __html: p.description }}
+                  className="text-[15px] leading-relaxed text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:mb-3 [&_p]:text-gray-700 [&_p]:leading-relaxed [&_strong]:text-gray-900 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_img]:block"
+                  dangerouslySetInnerHTML={{ __html: p.desc || p.description }}
                 />
               </div>
             )}
