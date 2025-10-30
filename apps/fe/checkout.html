@@ -1047,11 +1047,17 @@ async function placeOrder() {
       console.warn('Failed to save customer info to localStorage', e);
     }
     
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') ||
+                  localStorage.getItem('x-token') || '';
+    
     const res = await api('/api/orders', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2)
+        'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        'x-customer-token': token,
+        'Authorization': 'Bearer ' + token
       },
       body: payload
     });
@@ -1059,7 +1065,22 @@ async function placeOrder() {
     if (res.ok || res.id) {
       const orderId = res.id || res.order_id || '';
       
+      // ✅ LƯU TOKEN & CUSTOMER INFO TRƯỚC KHI CLEAR CART
+      const token = localStorage.getItem('customer_token') || 
+                    localStorage.getItem('x-customer-token') ||
+                    localStorage.getItem('x-token');
+      const customerInfo = localStorage.getItem('customer_info');
+      
       clearCart();
+      
+      // ✅ RESTORE TOKEN & CUSTOMER INFO
+      if (token) {
+        localStorage.setItem('customer_token', token);
+        localStorage.setItem('x-customer-token', token);
+      }
+      if (customerInfo) {
+        localStorage.setItem('customer_info', customerInfo);
+      }
       
       resultEl.innerHTML = `
         <div class="success-message p-6 rounded-2xl shadow-lg">
@@ -1079,8 +1100,15 @@ async function placeOrder() {
       `;
       
       setTimeout(() => {
-        window.location.href = '/?order_success=1&order_id=' + orderId;
-      }, 2500);
+        // Lưu order info để myorders.js có thể display
+        try {
+          localStorage.setItem('last_order_id', orderId);
+          localStorage.setItem('last_order_time', Date.now().toString());
+        } catch (e) {}
+        
+        // Redirect đến myorders
+        window.location.href = '/myorders.html';
+      }, 3500);
     } else {
       throw new Error(res.error || res.message || 'Đặt hàng thất bại');
     }

@@ -497,19 +497,19 @@ orderBtn?.addEventListener('click', async () => {
     
     console.log('[INV-TRACE] FE.checkout: createOrder payload', body);
     
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') ||
+                  localStorage.getItem('x-token') || '';
+    
     const res = await api('/api/orders', {
       method: 'POST',
-      headers: {
-        'Idempotency-Key': (
-          localStorage.getItem('idem_order') ||
-          (() => {
-            const v = 'idem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('idem_order', v);
-            return v;
-          })()
-        )
+      headers: { 
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'order-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        'x-customer-token': token,
+        'Authorization': 'Bearer ' + token
       },
-      body
+      body: payload
     });
     
     console.log('[INV-TRACE] FE.checkout: createOrder response', res);

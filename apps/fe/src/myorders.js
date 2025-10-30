@@ -16,7 +16,7 @@ function getTierInfo(tierKey) {
 
 const state = {
   orders: [],
-  filter: 'all',
+  filter: 'pending',  // ✅ DEFAULT HIỂN THỊ "CHỜ XÁC NHẬN"
   loading: false
 };
 
@@ -269,8 +269,30 @@ if (!token) {
     }
     
     state.orders = orders;
+    
+    // ✅ HIGHLIGHT ĐƠN HÀNG MỚI NẾU VỪA ĐẶT
+    const lastOrderId = localStorage.getItem('last_order_id');
+    const lastOrderTime = localStorage.getItem('last_order_time');
+    
+    if (lastOrderId && lastOrderTime) {
+      const timeSinceOrder = Date.now() - parseInt(lastOrderTime);
+      // Nếu đặt trong 5 phút, tự động scroll + highlight
+      if (timeSinceOrder < 5 * 60 * 1000) {
+        setTimeout(() => {
+          const orderEl = document.querySelector(`[data-order-id="${lastOrderId}"]`);
+          if (orderEl) {
+            orderEl.style.border = '3px solid #10b981';
+            orderEl.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.3)';
+            orderEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          // Xóa flag sau khi hiển thị
+          localStorage.removeItem('last_order_id');
+          localStorage.removeItem('last_order_time');
+        }, 300);
+      }
+    }
 
-    // MỚI: Render thông tin customer/tier
+    // Mới: Render thông tin customer/tier
     if (data.customer) {
       try {
         // SỬA: data.customer.tier là "retail", cần tra cứu
