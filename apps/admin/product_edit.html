@@ -836,8 +836,8 @@ Mô tả ngắn gọn...
         for (const file of files) {
           const url = await uploadToCloudinary(file, { folder: 'products/descriptions' });
           if (url) {
-            const optimized = optimizeCloudinaryUrl(url, { width: 800, quality: 'auto:good' });
-            insertImageToDesc(optimized, file.name.replace(/\.[^/.]+$/, ''));
+            // ✅ KHÔNG optimize URL, dùng URL gốc
+            insertImageToDesc(url, file.name.replace(/\.[^/.]+$/, ''));
           }
         }
         toast(`✅ Upload thành công ${files.length} ảnh`);
@@ -1015,9 +1015,14 @@ function markdownToHTML(markdown) {
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   
-  // Images: ![alt text](url) - phải xử lý trước bold/italic
+   // Images: ![alt text](url) - phải xử lý trước bold/italic
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, url) {
-    return `<img src="${url}" alt="${alt}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;" loading="lazy"/>`;
+    // ✅ Optimize Cloudinary URL khi render
+    let imgSrc = url.trim();
+    if (imgSrc.includes('cloudinary.com') && imgSrc.includes('/upload/')) {
+      imgSrc = imgSrc.replace('/upload/', '/upload/w_800,q_auto:good,f_auto/');
+    }
+    return `<img src="${imgSrc}" alt="${alt}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;" loading="lazy"/>`;
   });
   
   // Bold và Italic
@@ -1226,10 +1231,17 @@ function formatDescriptionHTML(html) {
   const temp = document.createElement('div');
   temp.innerHTML = html;
   
-  // Đảm bảo images có style đúng
+  // Đảm bảo images có style đúng và optimize URL
   temp.querySelectorAll('img').forEach(img => {
     if (!img.style.cssText) {
       img.style.cssText = 'max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;';
+    }
+    
+    // ✅ Optimize Cloudinary URL
+    let src = img.getAttribute('src') || '';
+    if (src.includes('cloudinary.com') && src.includes('/upload/') && !src.includes('/upload/w_')) {
+      src = src.replace('/upload/', '/upload/w_800,q_auto:good,f_auto/');
+      img.setAttribute('src', src);
     }
   });
   
