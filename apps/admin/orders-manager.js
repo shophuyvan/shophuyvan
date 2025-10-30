@@ -681,8 +681,11 @@ class OrdersManager {
       document.getElementById(id).textContent = '';
     });
 
-    // Show modal
+     // Show modal
     document.getElementById('modal-edit-order').style.display = 'flex';
+
+    // 🧩 Snapshot đơn để giữ nguyên các field vận chuyển khi lưu
+    this._editingOrder = JSON.parse(JSON.stringify(order));
     document.getElementById('editOrderForm').style.display = 'block';
     document.getElementById('editOrderLoading').style.display = 'none';
     document.getElementById('editOrdError').style.display = 'none';
@@ -756,21 +759,41 @@ class OrdersManager {
     document.getElementById('editOrdError').style.display = 'none';
 
     try {
+      // ⚙️ Lấy snapshot đơn gốc để bảo toàn field vận chuyển
+      const origin = this._editingOrder
+        || this.orders.find(o => String(o.id || '') === String(orderId))
+        || {};
+
+      // 🛟 Chỉ pick các field vận chuyển đang có để không bị BE xóa
+      const shippingKeep = {};
+      Object.keys(origin || {}).forEach(k => {
+        if (
+          k.startsWith('ship') ||                 // ship_name, ship_* ...
+          k.startsWith('shipping_') ||            // shipping_provider, shipping_tracking, shipping_fee ...
+          ['provider','service_code','receiver_commune_code','tracking_code','superai_code'].includes(k)
+        ) {
+          shippingKeep[k] = origin[k];
+        }
+      });
+
+      // Gộp payload: CẬP NHẬT tiền + khách, GIỮ nguyên vận chuyển
       const body = {
         id: orderId,
-        customer: {
-          name: name,
-          phone: phone,
-          address: address
-        },
+        // cập nhật thông tin khách
+        customer: { name, phone, address },
+        // đồng bộ thêm address top-level nếu BE đang dùng
+        address,
+        // chỉ cập nhật các trường tiền
         subtotal: Math.round(subtotal),
         shipping_fee: Math.round(shipping),
-        discount: Math.round(discount)
+        discount: Math.round(discount),
+        // giữ nguyên các field vận chuyển hiện có
+        ...shippingKeep
       };
 
       const result = await Admin.req('/admin/orders/upsert', {
         method: 'POST',
-        body: body
+        body
       });
 
       if (result?.ok) {
