@@ -123,17 +123,27 @@ function initTomSelect() {
     if (!code) { tsDistrict?.disable(); tsWard?.disable(); return; }
 
     async function fetchShippingQuote() {
-  // Lấy code & tên tỉnh/quận theo TomSelect (an toàn), fallback về <select> nếu cần
-  const provinceCode = (typeof tsProvince?.getValue === 'function' ? tsProvince.getValue() : $('#province')?.value) || '';
-  const districtCode = (typeof tsDistrict?.getValue === 'function' ? tsDistrict.getValue() : $('#district')?.value) || '';
+  // Đọc từ TomSelect nếu có, fallback về <select>
+  const provinceSel = document.getElementById('province');
+  const districtSel = document.getElementById('district');
 
-  const provinceName =
-    (typeof tsProvince?.getOption === 'function' && provinceCode ? tsProvince.getOption(provinceCode)?.textContent : null) ||
-    ($('#province')?.options?.[$('#province')?.selectedIndex || 0]?.text || '');
+  const hasTsProvince = (typeof tsProvince !== 'undefined') && tsProvince && (typeof tsProvince.getValue === 'function');
+  const hasTsDistrict = (typeof tsDistrict !== 'undefined') && tsDistrict && (typeof tsDistrict.getValue === 'function');
 
-  const districtName =
-    (typeof tsDistrict?.getOption === 'function' && districtCode ? tsDistrict.getOption(districtCode)?.textContent : null) ||
-    ($('#district')?.options?.[$('#district')?.selectedIndex || 0]?.text || '');
+  const provinceCode = hasTsProvince ? tsProvince.getValue() : (provinceSel ? provinceSel.value : '');
+  const districtCode = hasTsDistrict ? tsDistrict.getValue() : (districtSel ? districtSel.value : '');
+
+  const provinceName = (hasTsProvince && (typeof tsProvince.getOption === 'function'))
+    ? ((tsProvince.getOption(provinceCode) && tsProvince.getOption(provinceCode).textContent) || '')
+    : (provinceSel && provinceSel.options && provinceSel.selectedIndex >= 0
+        ? provinceSel.options[provinceSel.selectedIndex].text
+        : '');
+
+  const districtName = (hasTsDistrict && (typeof tsDistrict.getOption === 'function'))
+    ? ((tsDistrict.getOption(districtCode) && tsDistrict.getOption(districtCode).textContent) || '')
+    : (districtSel && districtSel.options && districtSel.selectedIndex >= 0
+        ? districtSel.options[districtSel.selectedIndex].text
+        : '');
 
   if (!provinceName || !districtName || !provinceCode) {
     $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
