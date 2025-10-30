@@ -66,16 +66,16 @@ function renderCart() {
     return `
       <div class="p-3 flex gap-3 items-start">
         <div class="relative flex-shrink-0">
-          <img class="w-20 h-20 rounded-lg object-cover border" src="${img}" alt="${it.name}"
+          <img class="w-20 h-20 rounded-xl object-cover border border-gray-200" src="${img}" alt="${it.name}"
                onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22%3E%3Crect fill=%22%23e5e7eb%22 width=%2280%22 height=%2280%22 rx=%228%22/%3E%3C/svg%3E'"/>
-          <div class="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">${it.qty||1}</div>
+          <div class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">${it.qty||1}</div>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-bold text-xs line-clamp-2 mb-1">${it.name||'Sản phẩm'}</div>
-          ${it.variantName||it.variant ? `<div><span class="text-[10px] px-1.5 py-0.5 bg-blue-500 text-white rounded">${it.variantName||it.variant}</span></div>` : ''}
-          <div class="mt-1 flex justify-between items-end">
-            <div class="text-xs font-bold text-[#ee4d2d]">${fmtVND(it.price)}</div>
-            <div class="text-sm text-gray-600">x ${it.qty||1}</div>
+          <div class="font-bold text-sm line-clamp-2 mb-1 text-gray-800">${it.name||'Sản phẩm'}</div>
+          ${it.variantName||it.variant ? `<div class="mb-2"><span class="inline-block px-2 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200">${it.variantName||it.variant}</span></div>` : ''}
+          <div class="flex justify-between items-center mt-2">
+            <div class="text-sm font-bold text-rose-600">${fmtVND(it.price)}</div>
+            <div class="text-sm text-gray-600">x <span class="font-semibold">${it.qty||1}</span></div>
           </div>
         </div>
       </div>
@@ -93,15 +93,19 @@ function updateSummary() {
   const shipOriginal = selectedShipping ? Number(selectedShipping.fee||0) : 0;
   const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
   const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
-  const bestShipDiscount = Math.max(shipDiscount, 0); // chỉ chọn giảm ship từ voucher tay (auto freeship FE không cộng dồn)
+  const bestShipDiscount = Math.max(shipDiscount, 0);
   const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
   const total = Math.max(0, subtotal - prodDiscount + shipFee);
 
   $('summary-subtotal').textContent = fmtVND(subtotal);
-  $('summary-shipping').innerHTML =
-    bestShipDiscount>0
-      ? `<span class="line-through text-gray-400 mr-2">${fmtVND(shipOriginal)}</span><b class="text-emerald-600">${fmtVND(shipFee)}</b>`
-      : fmtVND(shipFee);
+  
+  // ✅ Hiển thị giá gạch ngang khi có giảm ship
+  if (bestShipDiscount > 0) {
+    $('summary-shipping').innerHTML = `<span class="line-through text-gray-400 mr-2">${fmtVND(shipOriginal)}</span><b class="text-rose-600">${fmtVND(shipFee)}</b>`;
+  } else {
+    $('summary-shipping').innerHTML = `<span class="text-gray-700">${fmtVND(shipFee)}</span>`;
+  }
+  
   $('grand-total').textContent = fmtVND(total);
 }
 
@@ -145,29 +149,33 @@ async function fetchShippingQuote() {
   const provinceEl = $('#province'), districtEl = $('#district');
   const provinceName = provinceEl.options[provinceEl.selectedIndex]?.text || '';
   const districtName = districtEl.options[districtEl.selectedIndex]?.text || '';
+  
   if (!provinceName || !districtName || !provinceEl.value) {
     $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
     return;
   }
 
   // Loading
-  $('shipping-list').innerHTML =
-    `<div class="text-center py-8">
-       <div class="inline-block animate-spin h-12 w-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full mb-3"></div>
-       <div class="font-medium text-gray-600">Đang tải phí vận chuyển…</div>
-     </div>`;
+  $('shipping-list').innerHTML = `
+    <div class="text-center py-8">
+      <div class="inline-block animate-spin h-10 w-10 border-4 border-rose-200 border-t-rose-600 rounded-full mb-3"></div>
+      <div class="font-medium text-gray-600 text-sm">Đang tải phí vận chuyển…</div>
+    </div>`;
 
   const cart = getCart();
-  const weight = calcWeight(cart) || 0; // không đặt mặc định 500g
+  const weight = calcWeight(cart) || 0;
   const subtotal = calcSubtotal(cart);
 
-  // Nếu thiếu cân nặng thực tế thì không gọi API
+  // ✅ Nếu thiếu cân nặng thực tế thì không gọi API
   if (weight <= 0) {
-    $('shipping-list').innerHTML =
-      `<div class="error p-4 rounded-xl text-center">
-         <div class="font-semibold text-red-700">Sản phẩm chưa có trọng lượng – không thể tính phí ship.</div>
-       </div>`;
-    selectedShipping = null; updateSummary(); return;
+    $('shipping-list').innerHTML = `
+      <div class="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
+        <div class="font-semibold text-red-700 text-sm">⚠️ Sản phẩm chưa có trọng lượng – không thể tính phí ship.</div>
+        <div class="text-red-600 text-xs mt-2">Vui lòng liên hệ shop để cập nhật thông tin sản phẩm.</div>
+      </div>`;
+    selectedShipping = null;
+    updateSummary();
+    return;
   }
 
   try {
@@ -176,9 +184,12 @@ async function fetchShippingQuote() {
       body: {
         receiver_province: provinceName,
         receiver_district: districtName,
+        receiver_commune: $('#ward').options[$('#ward').selectedIndex]?.text || '',
         weight_gram: weight,
+        weight: weight,
         value: subtotal,
-        cod: subtotal
+        cod: subtotal,
+        option_id: '1'
       }
     });
 
@@ -194,33 +205,45 @@ async function fetchShippingQuote() {
       .sort((a,b)=> a.fee - b.fee);
 
     if (!items.length) {
-      $('shipping-list').innerHTML =
-        `<div class="error p-4 rounded-xl text-center">
-           <div class="font-semibold text-red-700">API trả về rỗng – không có dịch vụ vận chuyển khả dụng.</div>
-         </div>`;
-      selectedShipping = null; updateSummary(); return;
+      $('shipping-list').innerHTML = `
+        <div class="bg-yellow-50 border-2 border-yellow-200 p-4 rounded-xl text-center">
+          <div class="font-semibold text-yellow-700 text-sm">⚠️ Không có đơn vị vận chuyển khả dụng.</div>
+          <div class="text-yellow-600 text-xs mt-2">Vui lòng thử lại sau hoặc liên hệ shop.</div>
+        </div>`;
+      selectedShipping = null;
+      updateSummary();
+      return;
     }
 
     $('shipping-list').innerHTML = items.map((it, idx)=>`
-      <label class="shipping-option flex items-center justify-between p-3 ${idx===0?'selected':''}">
+      <label class="flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all ${
+        idx===0 
+          ? 'border-rose-500 bg-rose-50' 
+          : 'border-gray-200 hover:border-rose-300 hover:bg-gray-50'
+      }">
         <div class="flex items-center gap-3 flex-1">
           <input type="radio" name="ship_opt" value="${idx}" ${idx===0?'checked':''}
                  data-provider="${it.provider}" data-service="${it.service_code}"
                  data-fee="${it.fee}" data-eta="${it.eta||''}" data-name="${it.name}"
-                 class="w-4 h-4 text-emerald-600"/>
+                 class="w-5 h-5 text-rose-600 focus:ring-2 focus:ring-rose-500"/>
           <div class="flex-1">
-            <div class="font-bold text-sm">${it.name}</div>
-            <div class="text-xs text-gray-600">${it.eta || 'Giao tiêu chuẩn'}</div>
+            <div class="font-bold text-sm text-gray-800">${it.name}</div>
+            <div class="text-xs text-gray-600 mt-1">${it.eta || 'Giao tiêu chuẩn'}</div>
           </div>
         </div>
-        <div class="font-bold text-emerald-600">${fmtVND(it.fee)}</div>
+        <div class="font-bold text-rose-600 text-lg ml-3">${fmtVND(it.fee)}</div>
       </label>
     `).join('');
 
     document.querySelectorAll('input[name="ship_opt"]').forEach(r => {
       r.addEventListener('change', () => {
-        document.querySelectorAll('.shipping-option').forEach(el => el.classList.remove('selected'));
-        r.closest('.shipping-option')?.classList.add('selected');
+        document.querySelectorAll('label:has(input[name="ship_opt"])').forEach(el => {
+          el.classList.remove('border-rose-500', 'bg-rose-50');
+          el.classList.add('border-gray-200');
+        });
+        r.closest('label')?.classList.add('border-rose-500', 'bg-rose-50');
+        r.closest('label')?.classList.remove('border-gray-200');
+        
         selectedShipping = {
           provider: r.dataset.provider,
           service_code: r.dataset.service,
@@ -246,11 +269,13 @@ async function fetchShippingQuote() {
     }
   } catch (e) {
     console.error('Get quote error:', e);
-    $('shipping-list').innerHTML =
-      `<div class="error p-4 rounded-xl text-center">
-         <div class="font-semibold text-red-700">Lỗi khi lấy phí vận chuyển từ API.</div>
-       </div>`;
-    selectedShipping = null; updateSummary();
+    $('shipping-list').innerHTML = `
+      <div class="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center">
+        <div class="font-semibold text-red-700 text-sm">❌ Lỗi khi lấy phí vận chuyển từ API.</div>
+        <div class="text-red-600 text-xs mt-2">${e.message || 'Vui lòng thử lại sau.'}</div>
+      </div>`;
+    selectedShipping = null;
+    updateSummary();
   }
 }
 
@@ -318,25 +343,41 @@ $('place-order').addEventListener('click', async () => {
     const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
     const bestShipDiscount = Math.max(shipDiscount, 0);
 
+    // ✅ Lấy trạng thái cho xem hàng
+    const allowInspection = document.getElementById('allow-inspection')?.checked ?? true;
+    
     const payload = {
       customer: {
         name, phone, address,
-        province: $('#province').value||'',
-        district: $('#district').value||'',
-        commune:  $('#ward').value||''
+        province_code: $('#province').value||'',
+        district_code: $('#district').value||'',
+        commune_code: $('#ward').value||'',
+        province: $('#province').options[$('#province').selectedIndex]?.text || '',
+        district: $('#district').options[$('#district').selectedIndex]?.text || '',
+        commune: $('#ward').options[$('#ward').selectedIndex]?.text || ''
       },
       items: cart.map(it => ({
-        id: it.id||it.sku||'', sku: it.sku||it.id||'',
+        id: it.id||it.sku||'', 
+        sku: it.sku||it.id||'',
         name: it.name,
+        variant: it.variantName || it.variant || '',
+        variantImage: it.variantImage || it.image || '',
+        image: it.variantImage || it.image || '',
         qty: Number(it.qty||1),
         price: Number(it.price||0),
-        weight_grams: Number(it.weight_gram||it.weight||0)
+        cost: Number(it.cost||0),
+        weight_gram: Number(it.weight_gram||it.weight_grams||it.weight||0),
+        weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0),
+        weight: Number(it.weight_gram||it.weight_grams||it.weight||0)
       })),
       note: $('#note').value || '',
-      shipping: {
-        provider: selectedShipping.provider,
-        service_code: selectedShipping.service_code
-      },
+      // ✅ THÊM TRƯỜNG NÀY
+      allow_inspection: allowInspection,
+      cod_amount: allowInspection ? grandTotal : 0, // Nếu cho xem hàng → COD = tổng tiền
+      shipping_provider: selectedShipping.provider,
+      shipping_service: selectedShipping.service_code,
+      shipping_name: selectedShipping.name || '',
+      shipping_eta: selectedShipping.eta || '',
       totals: {
         shipping_fee: shipOriginal,
         discount: prodDiscount,

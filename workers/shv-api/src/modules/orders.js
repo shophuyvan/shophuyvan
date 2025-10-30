@@ -610,13 +610,13 @@ async function createOrder(req, env) {
     finalCustomer.phone = normalizePhone(finalCustomer.phone);
   }
 
-  // Create order object
+ // Create order object
   const order = {
     id,
     createdAt,
-    status: ORDER_STATUS.PENDING, // Luôn bắt đầu là PENDING
+    status: ORDER_STATUS.PENDING,
     customer: finalCustomer,
-    items, // items này đã có hình ảnh do hàm normalizeOrderItems đã sửa
+    items,
     subtotal,
     shipping_fee,
     discount: final_discount,
@@ -626,6 +626,10 @@ async function createOrder(req, env) {
     voucher_code: validated_voucher_code,
     note: body.note || '',
     source: body.source || 'website',
+    // ✅ THÊM CÁC TRƯỜNG MỚI
+    allow_inspection: body.allow_inspection ?? true,
+    cod_amount: body.cod_amount || 0,
+    payment_method: (body.allow_inspection || body.cod_amount > 0) ? 'cod' : 'bank_transfer',
     // ✅ FIX: Map shipping info correctly
     shipping_provider: shipping.provider || body.shipping_provider || null,
     shipping_service: shipping.service_code || body.shipping_service || null,

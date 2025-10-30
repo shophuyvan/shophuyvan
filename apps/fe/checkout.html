@@ -48,13 +48,13 @@
 <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
   <!-- Giỏ hàng -->
   <section class="bg-white rounded-2xl shadow border">
-    <div class="px-4 py-3 border-b bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 flex items-center">
-      <div class="font-bold">🛒 Đơn hàng của bạn</div>
-      <span class="ml-auto bg-white px-3 py-1 rounded-full text-sm font-semibold text-emerald-600 shadow-sm">
+    <div class="px-4 py-3 border-b bg-gradient-to-r from-rose-50 via-pink-50 to-red-50 flex items-center">
+      <div class="font-bold text-gray-800">🛒 Đơn hàng của bạn</div>
+      <span class="ml-auto bg-white px-3 py-1 rounded-full text-sm font-semibold text-rose-600 shadow-sm border border-rose-200">
         <span id="cart-count">0</span> sản phẩm
       </span>
     </div>
-    <div id="cart-items" class="max-h-[420px] overflow-y-auto divide-y"></div>
+    <div id="cart-items" class="max-h-[420px] overflow-y-auto"></div>
     <div class="px-4 py-3 border-t bg-gray-50 flex justify-between">
       <span class="font-semibold">Tạm tính</span>
       <span id="subtotal" class="font-bold text-[#ee4d2d]">0₫</span>
@@ -82,15 +82,26 @@
       <input id="address" class="md:col-span-2 border-2 rounded-xl px-4 py-2.5"
              placeholder="Số nhà, tên đường (tối thiểu 10 ký tự) *" />
       <textarea id="note" rows="2" class="md:col-span-2 border-2 rounded-xl px-4 py-2.5" placeholder="Ghi chú (không bắt buộc)"></textarea>
+      
+      <!-- ✅ CHECKBOX CHO XEM HÀNG -->
+      <div class="md:col-span-2 bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" id="allow-inspection" checked class="w-5 h-5 mt-0.5 text-rose-600 focus:ring-2 focus:ring-rose-500 rounded" />
+          <div class="flex-1">
+            <div class="font-semibold text-gray-800 text-sm">✅ Cho xem hàng trước khi thanh toán</div>
+            <div class="text-xs text-gray-600 mt-1">Bạn có thể kiểm tra hàng trước khi nhận. Nếu không đúng mô tả, bạn có thể từ chối nhận hàng.</div>
+          </div>
+        </label>
+      </div>
     </div>
   </section>
 
   <!-- Vận chuyển -->
   <section class="bg-white rounded-2xl shadow border p-4">
-    <h2 class="font-bold mb-3">🚚 Phương thức vận chuyển</h2>
-    <div class="flex items-center gap-2 mb-3 bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs">
-      <span class="font-semibold text-gray-700">Khối lượng:</span>
-      <span id="total-weight" class="font-bold text-blue-700">-</span>
+    <h2 class="font-bold mb-3 text-lg text-gray-800">🚚 Phương thức vận chuyển</h2>
+    <div class="flex items-center gap-2 mb-3 bg-blue-50 p-3 rounded-xl border border-blue-200">
+      <span class="font-semibold text-gray-700 text-sm">Khối lượng:</span>
+      <span id="total-weight" class="font-bold text-blue-700 text-sm">-</span>
     </div>
     <div id="shipping-list" class="space-y-2">
       <div class="text-center py-8 text-gray-400">Vui lòng chọn địa chỉ để xem phí vận chuyển</div>
@@ -99,6 +110,7 @@
 
   <!-- Voucher -->
   <section class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-4 shadow border-2 border-amber-200">
+    <h2 class="font-bold mb-3 text-gray-800">🎟️ Mã giảm giá <span class="ml-2 text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Không bắt buộc</span></h2>
     <h2 class="font-bold mb-3">🎟️ Mã giảm giá <span class="ml-2 text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Không bắt buộc</span></h2>
     <div class="flex gap-2">
       <input id="voucher-input" type="text" placeholder="Nhập Mã Giảm Giá"

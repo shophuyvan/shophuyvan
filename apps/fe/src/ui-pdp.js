@@ -768,14 +768,15 @@ function openVariantModal(mode) {
     const src = CURRENT || PRODUCT;
     const pr = await pricePair(src);
 
-    // Lấy trọng lượng ưu tiên từ variant -> product -> fallback 0
+    // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
     const weight_grams_val = Number(
-      src.variant_weight ??
-      src.variant?.weight ??
-      src.product_weight ??
-      src.product?.weight ??
+      src.weight_gram ??
       src.weight_grams ??
       src.weight ??
+      src.variant?.weight_gram ??
+      src.variant?.weight_grams ??
+      src.variant?.weight ??
+      PRODUCT.weight_gram ??
       PRODUCT.weight_grams ??
       PRODUCT.weight ??
       0
@@ -786,8 +787,12 @@ function openVariantModal(mode) {
       name: PRODUCT.title || PRODUCT.name || '',
       image: imagesOf(src)[0] || '',
       variantName: src.name || '',
+      variantImage: imagesOf(src)[0] || '',
       price: Number(pr.base || 0),
-      weight_gram: weight_grams_val, // SỬA KEY: Đổi từ weight_grams (số nhiều) sang weight_gram (số ít)
+      // 🔽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
+      weight_gram: weight_grams_val,
+      weight_grams: weight_grams_val,
+      weight: weight_grams_val,
       qty
     };
     addToCart(item, qty);
