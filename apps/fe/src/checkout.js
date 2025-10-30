@@ -112,54 +112,45 @@ function updateSummary() {
 // ====== ĐỊA CHỈ (Tom Select) ======
 let tsProvince, tsDistrict, tsWard;
 function initTomSelect() {
-    tsProvince = new TomSelect('#province', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Tỉnh/Thành phố *' });
+  tsProvince = new TomSelect('#province', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Tỉnh/Thành phố *' });
   tsDistrict = new TomSelect('#district', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Quận/Huyện *', disabled:true });
   tsWard     = new TomSelect('#ward',     { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Phường/Xã *', disabled:true });
 
-  // Dùng sự kiện của TomSelect + guard an toàn
-  tsProvince?.on('change', async (code) => {
-    selectedShipping = null;
-    $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    if (!code) { tsDistrict?.disable(); tsWard?.disable(); return; }
-
-    async function fetchShippingQuote() {
-  // Đọc từ TomSelect nếu có, fallback về <select>
-  const provinceSel = document.getElementById('province');
-  const districtSel = document.getElementById('district');
-
-  const hasTsProvince = (typeof tsProvince !== 'undefined') && tsProvince && (typeof tsProvince.getValue === 'function');
-  const hasTsDistrict = (typeof tsDistrict !== 'undefined') && tsDistrict && (typeof tsDistrict.getValue === 'function');
-
-  const provinceCode = hasTsProvince ? tsProvince.getValue() : (provinceSel ? provinceSel.value : '');
-  const districtCode = hasTsDistrict ? tsDistrict.getValue() : (districtSel ? districtSel.value : '');
-
-  const provinceName = (hasTsProvince && (typeof tsProvince.getOption === 'function'))
-    ? ((tsProvince.getOption(provinceCode) && tsProvince.getOption(provinceCode).textContent) || '')
-    : (provinceSel && provinceSel.options && provinceSel.selectedIndex >= 0
-        ? provinceSel.options[provinceSel.selectedIndex].text
-        : '');
-
-  const districtName = (hasTsDistrict && (typeof tsDistrict.getOption === 'function'))
-    ? ((tsDistrict.getOption(districtCode) && tsDistrict.getOption(districtCode).textContent) || '')
-    : (districtSel && districtSel.options && districtSel.selectedIndex >= 0
-        ? districtSel.options[districtSel.selectedIndex].text
-        : '');
-
-  if (!provinceName || !districtName || !provinceCode) {
-    $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    selectedShipping = null; updateSummary();
-    return;
+  // Province -> load districts
+  if (tsProvince && typeof tsProvince.on === 'function') {
+    tsProvince.on('change', async (code) => {
+      selectedShipping = null;
+      $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
+      if (!code) { if (tsDistrict) tsDistrict.disable(); if (tsWard) tsWard.disable(); return; }
+      try {
+        const res = await api(`/shipping/districts?province_code=${encodeURIComponent(code)}`);
+        const districts = (res.items||res.data||[]).map(d=>({value:d.code, text:d.name}));
+        if (tsDistrict) { tsDistrict.clear(); tsDistrict.clearOptions(); tsDistrict.addOptions(districts); tsDistrict.enable(); tsDistrict.setValue(''); }
+        if (tsWard) { tsWard.clear(); tsWard.clearOptions(); tsWard.disable(); }
+      } catch {}
+    });
   }
 
-    const res = await api(`/shipping/wards?district_code=${encodeURIComponent(code)}`);
-    const wards = (res.items||res.data||[]).map(w=>({value:w.code, text:w.name}));
+  // District -> load wards
+  if (tsDistrict && typeof tsDistrict.on === 'function') {
+    tsDistrict.on('change', async (code) => {
+      selectedShipping = null;
+      $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
+      if (!code) { if (tsWard) tsWard.disable(); return; }
+      try {
+        const res = await api(`/shipping/wards?district_code=${encodeURIComponent(code)}`);
+        const wards = (res.items||res.data||[]).map(w=>({value:w.code, text:w.name}));
+        if (tsWard) { tsWard.clear(); tsWard.clearOptions(); tsWard.addOptions(wards); tsWard.enable(); tsWard.setValue(''); }
+      } catch {}
+    });
+  }
 
-    tsWard?.clear(); tsWard?.clearOptions();
-    tsWard?.addOptions(wards); tsWard?.enable(); tsWard?.setValue('');
-  });
-
-  tsWard?.on('change', () => { fetchShippingQuote(); });
+  // Ward -> fetch shipping price
+  if (tsWard && typeof tsWard.on === 'function') {
+    tsWard.on('change', () => { fetchShippingQuote(); });
+  }
 }
+
 
 async function loadProvinces() {
   const res = await api('/shipping/provinces');
