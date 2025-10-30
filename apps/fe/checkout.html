@@ -47,7 +47,7 @@
 
 <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
   <!-- Giỏ hàng -->
-  <section class="bg-white rounded-2xl shadow border">
+  <section class="p-0">
     <div class="px-4 py-3 border-b bg-gradient-to-r from-rose-50 via-pink-50 to-red-50 flex items-center">
       <div class="font-bold text-gray-800">🛒 Đơn hàng của bạn</div>
       <span class="ml-auto bg-white px-3 py-1 rounded-full text-sm font-semibold text-rose-600 shadow-sm border border-rose-200">
@@ -110,17 +110,16 @@
 
   <!-- Voucher -->
   <section class="p-0 mt-4">
-    <h2 class="font-bold mb-3 text-gray-800">🎟️ Mã giảm giá <span class="ml-2 text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Không bắt buộc</span></h2>
-    <h2 class="font-bold mb-3">🎟️ Mã giảm giá <span class="ml-2 text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Không bắt buộc</span></h2>
-    <div class="flex gap-2">
-      <input id="voucher-input" type="text" placeholder="Nhập Mã Giảm Giá"
-             class="flex-1 border-2 border-amber-300 rounded-xl px-4 py-2 uppercase font-semibold bg-white focus:border-emerald-500"/>
-      <button id="apply-voucher"
-              class="px-4 py-2 rounded-xl font-semibold border-2 border-emerald-600 text-emerald-700 hover:text-white hover:bg-emerald-600 transition">
-        Áp dụng
-      </button>
-    </div>
-    <div id="voucher-result" class="hidden mt-3"></div>
+  <h2 class="font-bold mb-2">Mã giảm giá</h2>
+  <div class="flex gap-2 max-w-md">
+    <input id="voucher-input" type="text" placeholder="Nhập mã giảm giá"
+           class="flex-1 border rounded-lg px-3 py-2 text-sm bg-white focus:border-emerald-500"/>
+    <button id="apply-voucher"
+            class="px-4 py-2 rounded-lg text-sm bg-[#ee4d2d] text-white font-semibold hover:opacity-90 transition">
+      Áp dụng
+    </button>
+  </div>
+  <div id="voucher-result" class="hidden mt-2 text-sm"></div>
   </section>
 
   <!-- Tổng kết + Đặt hàng -->

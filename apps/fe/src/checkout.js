@@ -48,7 +48,7 @@ function calcSubtotal(cart) {
   return cart.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
 }
 function calcWeight(cart) {
-  return cart.reduce((s,it)=> s + Number(it.weight_gram||it.weight||0)*Number(it.qty||1), 0);
+return cart.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
 }
 
 // ====== STATE ======
@@ -122,18 +122,24 @@ function initTomSelect() {
     $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
     if (!code) { tsDistrict?.disable(); tsWard?.disable(); return; }
 
-    const res = await api(`/shipping/districts?province_code=${encodeURIComponent(code)}`);
-    const districts = (res.items||res.data||[]).map(d=>({value:d.code, text:d.name}));
+    async function fetchShippingQuote() {
+  // Lấy code & tên tỉnh/quận theo TomSelect (an toàn), fallback về <select> nếu cần
+  const provinceCode = (typeof tsProvince?.getValue === 'function' ? tsProvince.getValue() : $('#province')?.value) || '';
+  const districtCode = (typeof tsDistrict?.getValue === 'function' ? tsDistrict.getValue() : $('#district')?.value) || '';
 
-    tsDistrict?.clear(); tsDistrict?.clearOptions();
-    tsDistrict?.addOptions(districts); tsDistrict?.enable(); tsDistrict?.setValue('');
-    tsWard?.clear(); tsWard?.clearOptions(); tsWard?.disable();
-  });
+  const provinceName =
+    (typeof tsProvince?.getOption === 'function' && provinceCode ? tsProvince.getOption(provinceCode)?.textContent : null) ||
+    ($('#province')?.options?.[$('#province')?.selectedIndex || 0]?.text || '');
 
-  tsDistrict?.on('change', async (code) => {
-    selectedShipping = null;
+  const districtName =
+    (typeof tsDistrict?.getOption === 'function' && districtCode ? tsDistrict.getOption(districtCode)?.textContent : null) ||
+    ($('#district')?.options?.[$('#district')?.selectedIndex || 0]?.text || '');
+
+  if (!provinceName || !districtName || !provinceCode) {
     $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    if (!code) { tsWard?.disable(); return; }
+    selectedShipping = null; updateSummary();
+    return;
+  }
 
     const res = await api(`/shipping/wards?district_code=${encodeURIComponent(code)}`);
     const wards = (res.items||res.data||[]).map(w=>({value:w.code, text:w.name}));
@@ -356,6 +362,8 @@ $('place-order').addEventListener('click', async () => {
     const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
     const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
     const bestShipDiscount = Math.max(shipDiscount, 0);
+    const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
+    const grandTotal = Math.max(0, subtotal - prodDiscount + shipFee);
 
     // ✅ Lấy trạng thái cho xem hàng
     const allowInspection = document.getElementById('allow-inspection')?.checked ?? true;
