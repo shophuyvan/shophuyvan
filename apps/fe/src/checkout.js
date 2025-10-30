@@ -33,11 +33,16 @@ const toHumanWeight = grams => {
 // ====== CART / TÍNH TỔNG ======
 function getCart() {
   try {
-    const lower = JSON.parse(localStorage.getItem('cart')||'[]');
-    if (Array.isArray(lower) && lower.length) return lower;
-    const upper = JSON.parse(localStorage.getItem('CART')||'[]');
-    return Array.isArray(upper) ? upper : [];
-  } catch { return []; }
+    const keys = ['shv_cart_v1','cart','CART','shv_cart','shv_cart_items'];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) return data;                 // FE cũ: cart=[]
+      if (data && Array.isArray(data.lines)) return data.lines; // {lines:[]}
+    }
+  } catch {}
+  return [];
 }
 function clearCart() {
   ['cart','CART','shv_cart','shv_cart_v1','shv_cart_items'].forEach(k=>localStorage.removeItem(k));
@@ -48,7 +53,13 @@ function calcSubtotal(cart) {
   return cart.reduce((s,it)=> s + Number(it.price||0)*Number(it.qty||1), 0);
 }
 function calcWeight(cart) {
-return cart.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
+  let g = cart.reduce((s,it)=> s + Number(it.weight_gram||it.weight_grams||it.weight||0)*Number(it.qty||1), 0);
+  if (!g) {
+    const cache = Number(localStorage.getItem('cart_weight_gram')||0); // cache set tại trang giỏ hàng
+    if (cache > 0) g = cache;
+  }
+  return g;
+}
 }
 
 // ====== STATE ======
@@ -203,6 +214,7 @@ async function fetchShippingQuote() {
     const cart = getCart();
     const subtotal = calcSubtotal(cart);
     const weight   = calcWeight(cart);
+	$('total-weight').textContent = toHumanWeight(weight);
 
     const res = await api('/shipping/price', {
       method:'POST',
