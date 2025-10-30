@@ -111,24 +111,26 @@ export default {
         return Products.handle(req, env, ctx);
       }
 
-      // [INV-TRACE] router marker for Orders
+       // [INV-TRACE] router marker for Orders
       if (path.startsWith('/api/orders') ||
           path.startsWith('/admin/orders') ||
           path.startsWith('/public/orders') ||
-          path.startsWith('/public/order-create')) {
+          path.startsWith('/public/order-create') ||
+          path.startsWith('/orders/')) {  // ✅ THÊM dòng này
         console.log('[INV-TRACE] router → orders', { path, method: req.method });
       }
+      
       // Orders module
-     if (path.startsWith('/api/orders') ||
-         path.startsWith('/admin/orders') ||
-         path.startsWith('/public/orders') ||
-         path.startsWith('/public/order-create') ||
-         path === '/admin/stats' ||
-         path === '/orders/my') { // SỬA: Xóa '||' và thêm '){'
-
-       return Orders.handle(req, env, ctx); // THÊM: Dòng xử lý
-
-     } // THÊM: Dấu đóng cho khối Orders
+      if (path.startsWith('/api/orders') ||
+          path.startsWith('/admin/orders') ||
+          path.startsWith('/public/orders') ||
+          path.startsWith('/public/order-create') ||
+          path === '/admin/stats' ||
+          path === '/orders/my' ||
+          path === '/orders/cancel' ||          // ✅ THÊM
+          path === '/orders/update') {          // ✅ THÊM route này
+        return Orders.handle(req, env, ctx);
+      }
 
      // THÊM: Route HỦY VẬN ĐƠN
      if (path === '/shipping/cancel' && req.method === 'POST') {
