@@ -136,49 +136,6 @@ export async function handle(req, env, ctx) {
     }, { status: 500 }, req);
   }
 }
-// PUBLIC API - Zalo Mini App activate account
-if (path === '/api/users/activate' && method === 'POST') {
-  return await userActivate(req, env);
-}
-
-// PUBLIC API - Addresses (Điểm nhận hàng)
-const addressMatch = path.match(/^\/api\/addresses(?:\/([^\/]+))?$/);
-if (addressMatch && (method === 'GET' || method === 'POST' || method === 'PUT' || method === 'DELETE')) {
-  const addressId = addressMatch[1];
-  
-  if (path === '/api/addresses' && method === 'POST') {
-    return await createAddress(req, env);
-  }
-  if (path === '/api/addresses' && method === 'GET') {
-    return await listAddresses(req, env);
-  }
-  if (addressId && method === 'GET') {
-    return await getAddress(req, env, addressId);
-  }
-  if (addressId && method === 'PUT') {
-    return await updateAddress(req, env, addressId);
-  }
-  if (addressId && method === 'DELETE') {
-    return await deleteAddress(req, env, addressId);
-  }
-  if (path.endsWith('/default') && method === 'PUT') {
-    const id = addressId.replace('/default', '');
-    return await setDefaultAddress(req, env, id);
-  }
-}
-
-    return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
-  
-  } catch (e) {
-    console.error('[Admin] Error:', e);
-    return json({ 
-      ok: false, 
-      error: 'Internal error', 
-      details: e.message 
-    }, { status: 500 }, req);
-  }
-}
-
 /**
  * Get customer token from request
  */
