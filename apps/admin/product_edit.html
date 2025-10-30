@@ -28,11 +28,30 @@
     <textarea id="shortDesc" class="input" rows="3" placeholder="Mô tả ngắn..."></textarea>
 
     <div class="row" style="align-items: center; margin-bottom: 6px;">
-      <div class="col"><label style="margin: 0;">Mô tả chi tiết (HTML)</label></div>
-      <div><button id="autoFormatDesc" class="btn" type="button">✨ Tự động format</button></div>
+      <div class="col"><label style="margin: 0;">Mô tả chi tiết</label></div>
+      <div style="display: flex; gap: 8px;">
+        <select id="editorMode" class="input" style="width: auto;">
+          <option value="markdown">Markdown (Dễ)</option>
+          <option value="html">HTML (Nâng cao)</option>
+        </select>
+        <label for="descImageFile" class="btn" style="cursor: pointer; margin: 0;">🖼️ Thêm ảnh</label>
+        <input id="descImageFile" type="file" accept="image/*" multiple style="display: none;"/>
+        <button id="autoFormatDesc" class="btn" type="button">✨ Tự động format</button>
+      </div>
     </div>
-    <textarea id="desc" class="input" rows="12" placeholder="<h2>Tiêu Đề Chính</h2><p>Mô tả ngắn gọn...</p><h3>Đặc Điểm Nổi Bật</h3><ul><li>Tính năng 1</li><li>Tính năng 2</li></ul>"></textarea>
-    <div class="hint">💡 Dùng &lt;h2&gt;, &lt;h3&gt; cho tiêu đề | &lt;p&gt; cho đoạn văn | &lt;ul&gt;&lt;li&gt; cho danh sách | &lt;strong&gt; cho chữ đậm</div>
+    <textarea id="desc" class="input" rows="12" placeholder="## Tiêu Đề Chính
+Mô tả ngắn gọn...
+
+### Đặc Điểm Nổi Bật
+- Tính năng 1
+- Tính năng 2
+
+![Tên ảnh](url-ảnh)
+
+**Chữ in đậm** hoặc *chữ in nghiêng*"></textarea>
+    <div class="hint" id="editorHint">
+      💡 <strong>Markdown:</strong> ## Tiêu đề | ### Tiêu đề nhỏ | - Danh sách | **in đậm** | *in nghiêng* | ![alt](url) ảnh | Xuống dòng 2 lần = đoạn mới
+    </div>
 
     <div class="grid">
       <div class="row">
@@ -775,6 +794,57 @@ window.addEventListener('DOMContentLoaded', function() {
   
   console.log('✅ Save button event delegation attached');
   
+  const editorMode = document.getElementById('editorMode');
+  const editorHint = document.getElementById('editorHint');
+  
+  if (editorMode && editorHint) {
+    editorMode.addEventListener('change', function() {
+      if (this.value === 'markdown') {
+        $('#desc').placeholder = `## Tiêu Đề Chính
+Mô tả ngắn gọn...
+
+### Đặc Điểm Nổi Bật
+- Tính năng 1
+- Tính năng 2
+
+![Tên ảnh](url-ảnh)
+
+**Chữ in đậm** hoặc *chữ in nghiêng*`;
+        editorHint.innerHTML = '💡 <strong>Markdown:</strong> ## Tiêu đề | ### Tiêu đề nhỏ | - Danh sách | **in đậm** | *in nghiêng* | ![alt](url) ảnh | Xuống dòng 2 lần = đoạn mới';
+      } else {
+        $('#desc').placeholder = '<h2>Tiêu Đề Chính</h2><p>Mô tả...</p><img src="url" alt=""/><ul><li>Item 1</li></ul>';
+        editorHint.innerHTML = '💡 <strong>HTML:</strong> &lt;h2&gt; tiêu đề | &lt;p&gt; đoạn văn | &lt;ul&gt;&lt;li&gt; danh sách | &lt;strong&gt; in đậm | &lt;img src=""&gt; ảnh | &lt;br&gt; xuống dòng';
+      }
+      renderPreview();
+    });
+  }
+
+  const descImageFile = document.getElementById('descImageFile');
+  if (descImageFile) {
+    descImageFile.addEventListener('change', async function(e) {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      
+      toast(`📤 Đang upload ${files.length} ảnh...`);
+      
+      try {
+        for (const file of files) {
+          const url = await uploadToCloudinary(file, { folder: 'products/descriptions' });
+          if (url) {
+            const optimized = optimizeCloudinaryUrl(url, { width: 800, quality: 'auto:good' });
+            insertImageToDesc(optimized, file.name.replace(/\.[^/.]+$/, ''));
+          }
+        }
+        toast(`✅ Upload thành công ${files.length} ảnh`);
+      } catch (error) {
+        toast('❌ Upload thất bại: ' + error.message);
+      }
+      
+      // Reset input
+      e.target.value = '';
+    });
+  }
+
   const btnAutoFormat = document.getElementById('autoFormatDesc');
   if (btnAutoFormat) {
     btnAutoFormat.addEventListener('click', function() {
@@ -787,10 +857,17 @@ window.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      const formatted = autoFormatDescription(rawContent);
-      descTextarea.value = formatted;
+      const mode = $('#editorMode')?.value || 'markdown';
       
-      toast('✨ Đã format nội dung');
+      if (mode === 'markdown') {
+        // Nếu đang ở chế độ markdown, không cần format gì thêm
+        toast('ℹ️ Markdown tự động format khi preview');
+      } else {
+        // Nếu HTML, dùng auto format
+        const formatted = autoFormatDescription(rawContent);
+        descTextarea.value = formatted;
+        toast('✨ Đã format nội dung HTML');
+      }
       
       // Tự động cập nhật preview
       renderPreview();
@@ -888,6 +965,135 @@ function renderCatPicker(items) {
   ov.addEventListener('click', (e) => {
     if (e.target === ov) ov.remove();
   });
+}
+
+function insertImageToDesc(imageUrl, altText = 'Hình ảnh sản phẩm') {
+  const descTextarea = $('#desc');
+  if (!descTextarea) return;
+  
+  const mode = $('#editorMode')?.value || 'markdown';
+  const cursorPos = descTextarea.selectionStart;
+  const textBefore = descTextarea.value.substring(0, cursorPos);
+  const textAfter = descTextarea.value.substring(cursorPos);
+  
+  let imageCode = '';
+  
+  if (mode === 'markdown') {
+    // Markdown format: ![alt text](url)
+    imageCode = `\n\n![${altText}](${imageUrl})\n\n`;
+  } else {
+    // HTML format với style responsive
+    imageCode = `\n\n<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0;"/>\n\n`;
+  }
+  
+  descTextarea.value = textBefore + imageCode + textAfter;
+  
+  // Đặt cursor sau image code
+  const newCursorPos = cursorPos + imageCode.length;
+  descTextarea.setSelectionRange(newCursorPos, newCursorPos);
+  descTextarea.focus();
+  
+  // Auto preview
+  renderPreview();
+}
+
+function markdownToHTML(markdown) {
+  if (!markdown) return '';
+  
+  let html = markdown.trim();
+  
+  // Escape HTML để tránh XSS (nếu cần)
+  // html = html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  // Headers (phải xử lý trước)
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  
+  // Images: ![alt text](url) - phải xử lý trước bold/italic
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;"/>');
+  
+  // Bold và Italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+  
+  // Lists - xử lý nhiều dòng
+  const lines = html.split('\n');
+  const processed = [];
+  let inList = false;
+  let listType = null;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    // Unordered list
+    if (/^[-*+] /.test(trimmed)) {
+      if (!inList) {
+        processed.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      } else if (listType !== 'ul') {
+        processed.push(`</${listType}><ul>`);
+        listType = 'ul';
+      }
+      processed.push('<li>' + trimmed.replace(/^[-*+] /, '') + '</li>');
+    }
+    // Ordered list
+    else if (/^\d+\. /.test(trimmed)) {
+      if (!inList) {
+        processed.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      } else if (listType !== 'ol') {
+        processed.push(`</${listType}><ol>`);
+        listType = 'ol';
+      }
+      processed.push('<li>' + trimmed.replace(/^\d+\. /, '') + '</li>');
+    }
+    // Empty line hoặc non-list
+    else {
+      if (inList) {
+        processed.push(`</${listType}>`);
+        inList = false;
+        listType = null;
+      }
+      
+      // Giữ nguyên dòng (sẽ xử lý paragraph sau)
+      processed.push(line);
+    }
+  }
+  
+  if (inList) {
+    processed.push(`</${listType}>`);
+  }
+  
+  html = processed.join('\n');
+  
+  // Paragraphs - xuống dòng 2 lần = paragraph mới
+  html = html.replace(/\n\n+/g, '</p><p>');
+  
+  // Wrap toàn bộ trong <p> nếu chưa có
+  if (!html.startsWith('<h') && !html.startsWith('<ul') && !html.startsWith('<ol') && !html.startsWith('<p>')) {
+    html = '<p>' + html;
+  }
+  if (!html.endsWith('</p>') && !html.endsWith('</ul>') && !html.endsWith('</ol>')) {
+    html = html + '</p>';
+  }
+  
+  // Làm sạch các <p> trống
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  html = html.replace(/<p>\s*(<[uh][1-3lol]>)/g, '$1');
+  html = html.replace(/(<\/[uh][1-3lol]>)\s*<\/p>/g, '$1');
+  
+  // Line breaks đơn (1 xuống dòng) = <br>
+  html = html.replace(/([^>])\n([^<])/g, '$1<br>$2');
+  
+  return html;
 }
 
 function autoFormatDescription(rawHTML) {
@@ -999,6 +1205,14 @@ function autoFormatDescription(rawHTML) {
 
 function formatDescriptionHTML(html) {
   if (!html) return '';
+  
+  // Kiểm tra xem có phải markdown không
+  const editorMode = $('#editorMode')?.value || 'markdown';
+  
+  // Nếu là markdown, chuyển sang HTML
+  if (editorMode === 'markdown') {
+    html = markdownToHTML(html);
+  }
   
   // Tạo container tạm để parse HTML
   const temp = document.createElement('div');
