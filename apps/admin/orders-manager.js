@@ -182,7 +182,6 @@ class OrdersManager {
       ✏️ Sửa tổng
     </button>
   `;
-}
     } else if (status !== 'cancelled' && status !== 'returned') {
   // Trạng thái đã xác nhận: CHỈ "In vận đơn" + "Hủy vận đơn" + "Xóa"
   actionsHTML += `
