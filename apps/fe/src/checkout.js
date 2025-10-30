@@ -60,7 +60,6 @@ function calcWeight(cart) {
   }
   return g;
 }
-}
 
 // ====== STATE ======
 let selectedShipping = null;      // { provider, service_code, fee, name, eta }
