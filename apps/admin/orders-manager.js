@@ -121,6 +121,8 @@ class OrdersManager {
     const customer = order.customer || {};
     const custName = customer.name || order.customer_name || order.name || 'Khách';
     const custPhone = customer.phone || order.phone || '';
+    const custAddr  = order.address || customer.address || '';
+
 
     // Shipping info
     const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
@@ -179,23 +181,11 @@ class OrdersManager {
       `;
     } else if (status !== 'cancelled' && status !== 'returned') {
       // Trạng thái đã xác nhận (shipping, delivering, v.v.): Hiện nút "In" và "Hủy"
-      actionsHTML = `
-        <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
-          </svg>
-          In Vận Đơn
-        </button>
-        <button class="btn btn-danger" data-cancel="${orderId}">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Hủy Vận Đơn
-        </button>
-      `;
-    }
-    // Nút "Xóa" luôn hiển thị (hoặc tùy bạn)
+      // Nút "Sửa tổng" + "Xóa"
     actionsHTML += `
+      <button class="btn" data-edit="${orderId}" style="background-color:#f59e0b; color:white; border-color:#f59e0b; margin-top:5px;">
+        ✏️ Sửa tổng
+      </button>
       <button class="btn btn-danger" data-delete="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top: 5px;">
         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -216,6 +206,7 @@ class OrdersManager {
             <div>
               <div class="customer-name">${custName}</div>
               ${custPhone ? `<div class="customer-phone">${custPhone}</div>` : ''}
+              ${custAddr ? `<div class="customer-address">${custAddr}</div>` : ''}
             </div>
           </div>
           <div class="order-meta">
@@ -272,9 +263,10 @@ class OrdersManager {
             ${custPhone ? `<span class="phone">• ${custPhone}</span>` : ''}
           </div>
           <div class="order-id">Đơn ${orderId.slice(-8)}</div>
-        </div>
-        
-        <div class="order-card-items">
+         </div>
+         ${custAddr ? `<div class="order-address" style="padding:4px 0 8px; color:#4b5563;">📍 ${custAddr}</div>` : ''}
+         
+         <div class="order-card-items">
           ${itemsHTML}
         </div>
         
@@ -378,6 +370,15 @@ class OrdersManager {
       btn.onclick = async () => {
         const id = btn.getAttribute('data-delete');
         await this.deleteOrder(id); // Gọi hàm deleteOrder đã có sẵn
+      };
+    });
+
+    // ✅ BỔ SUNG: Xử lý nút "Sửa tổng"
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-edit');
+        const order = this.orders.find(o => String(o.id || '') === id);
+        if (order) this.openEditOrderModal(order);
       };
     });
   } // <<< Kết thúc hàm wireOrderRowEvents
