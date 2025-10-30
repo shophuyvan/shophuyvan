@@ -199,12 +199,17 @@ async function fetchShippingQuote() {
   }
 
   try {
+    // Tính tổng & khối lượng thực từ giỏ hàng (API thật, không fallback)
+    const cart = getCart();
+    const subtotal = calcSubtotal(cart);
+    const weight   = calcWeight(cart);
+
     const res = await api('/shipping/price', {
       method:'POST',
       body: {
         receiver_province: provinceName,
         receiver_district: districtName,
-        receiver_commune: $('#ward').options[$('#ward').selectedIndex]?.text || '',
+        receiver_commune: wardName,   // ✅ không còn đọc .options
         weight_gram: weight,
         weight: weight,
         value: subtotal,

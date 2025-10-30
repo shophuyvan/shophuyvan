@@ -100,6 +100,9 @@ export default function Checkout() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
 
+  // === CHO XEM HÀNG ==========================================================
+  const [allowInspection, setAllowInspection] = useState(true); // ✅ MẶC ĐỊNH = TRUE
+
   const disabled = st.lines.length === 0 || submitting;
 
   // 1) LOAD auto freeship
@@ -398,6 +401,9 @@ export default function Checkout() {
       shipping_discount: bestShippingDiscount,
       voucher_code: appliedVoucherCode || '',
       note: form.note || '',
+      // ✅ THÊM CHO XEM HÀNG
+      allow_inspection: allowInspection,
+      cod_amount: allowInspection ? grandTotal : 0,
       source: 'mini',
       status: 'placed',
     };
@@ -675,45 +681,33 @@ export default function Checkout() {
             <div className="bg-white rounded-2xl p-4 shadow">
               <div className="font-semibold mb-3 text-lg">Chi tiết thanh toán</div>
 
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tổng tiền hàng:</span>
-                  <span className="font-semibold">{fmtVND(calculatedTotals.subtotal)}</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Phí vận chuyển:</span>
-                  <span>
-                    {calculatedTotals.bestShippingDiscount > 0 && (
-                      <span className="line-through text-gray-400 mr-2">
-                        {fmtVND(calculatedTotals.originalShippingFee)}
-                      </span>
-                    )}
-                    <span className="font-semibold">{fmtVND(calculatedTotals.finalShippingFee)}</span>
-                  </span>
-                </div>
-
-                {calculatedTotals.manualProductDiscount > 0 && (
-                  <div className="flex justify-between text-rose-600">
-                    <span className="font-semibold">🎟️ Giảm giá sản phẩm:</span>
-                    <span className="font-semibold">-{fmtVND(calculatedTotals.manualProductDiscount)}</span>
+              {/* ✅ CHECKBOX CHO XEM HÀNG */}
+              <label className="flex items-start gap-3 p-3 mb-3 border-2 border-blue-200 bg-blue-50 rounded-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowInspection}
+                  onChange={(e) => setAllowInspection(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-sm text-blue-900">✓ Cho xem hàng trước khi thanh toán</div>
+                  <div className="text-xs text-blue-700 mt-1">
+                    Bạn có thể kiểm tra hàng trước khi thanh toán cho shipper
                   </div>
-                )}
-
-                {calculatedTotals.bestShippingDiscount > 0 && (
-                  <div className="flex justify-between text-rose-600">
-                    <span className="font-semibold">
-                      {calculatedTotals.isAutoFreeshipApplied ? '🎁 Freeship tự động:' : '🎟️ Giảm phí ship:'}
-                    </span>
-                    <span className="font-semibold">-{fmtVND(calculatedTotals.bestShippingDiscount)}</span>
-                  </div>
-                )}
-              </div>
+                </div>
+              </label>
 
               <div className="flex justify-between py-3 border-t mt-3 text-lg font-bold">
                 <span>Tổng thanh toán:</span>
                 <span className="text-rose-600 text-xl">{fmtVND(calculatedTotals.grandTotal)}</span>
               </div>
+
+              {/* ✅ HIỂN THỊ TRẠNG THÁI COD */}
+              {allowInspection && (
+                <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-200 mt-2">
+                  💰 Thanh toán khi nhận hàng (COD): <span className="font-bold">{fmtVND(calculatedTotals.grandTotal)}</span>
+                </div>
+              )}
 
               {error && (
                 <div className="text-red-600 text-sm mt-3 bg-red-50 p-3 rounded-lg border border-red-200">
