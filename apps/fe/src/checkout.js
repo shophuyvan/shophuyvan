@@ -112,30 +112,37 @@ function updateSummary() {
 // ====== ĐỊA CHỈ (Tom Select) ======
 let tsProvince, tsDistrict, tsWard;
 function initTomSelect() {
-  tsProvince = new TomSelect('#province', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Tỉnh/Thành phố *' });
+    tsProvince = new TomSelect('#province', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Tỉnh/Thành phố *' });
   tsDistrict = new TomSelect('#district', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Quận/Huyện *', disabled:true });
   tsWard     = new TomSelect('#ward',     { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Phường/Xã *', disabled:true });
 
-  $('#province').addEventListener('change', async () => {
-    const code = $('#province').value;
-    selectedShipping = null; $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    if (!code) { tsDistrict.disable(); tsWard.disable(); return; }
+  // Dùng sự kiện của TomSelect + guard an toàn
+  tsProvince?.on('change', async (code) => {
+    selectedShipping = null;
+    $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
+    if (!code) { tsDistrict?.disable(); tsWard?.disable(); return; }
+
     const res = await api(`/shipping/districts?province_code=${encodeURIComponent(code)}`);
     const districts = (res.items||res.data||[]).map(d=>({value:d.code, text:d.name}));
-    tsDistrict.clear(); tsDistrict.clearOptions(); tsDistrict.addOptions(districts); tsDistrict.enable(); tsDistrict.setValue('');
-    tsWard.clear(); tsWard.clearOptions(); tsWard.disable();
+
+    tsDistrict?.clear(); tsDistrict?.clearOptions();
+    tsDistrict?.addOptions(districts); tsDistrict?.enable(); tsDistrict?.setValue('');
+    tsWard?.clear(); tsWard?.clearOptions(); tsWard?.disable();
   });
 
-  $('#district').addEventListener('change', async () => {
-    const code = $('#district').value;
-    selectedShipping = null; $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-    if (!code) { tsWard.disable(); return; }
+  tsDistrict?.on('change', async (code) => {
+    selectedShipping = null;
+    $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
+    if (!code) { tsWard?.disable(); return; }
+
     const res = await api(`/shipping/wards?district_code=${encodeURIComponent(code)}`);
     const wards = (res.items||res.data||[]).map(w=>({value:w.code, text:w.name}));
-    tsWard.clear(); tsWard.clearOptions(); tsWard.addOptions(wards); tsWard.enable(); tsWard.setValue('');
+
+    tsWard?.clear(); tsWard?.clearOptions();
+    tsWard?.addOptions(wards); tsWard?.enable(); tsWard?.setValue('');
   });
 
-  $('#ward').addEventListener('change', () => { fetchShippingQuote(); });
+  tsWard?.on('change', () => { fetchShippingQuote(); });
 }
 
 async function loadProvinces() {
@@ -193,7 +200,14 @@ async function fetchShippingQuote() {
       }
     });
 
+    // ✅ DANH SÁCH PROVIDERS MUỐN ẨN (có thể chỉnh sửa)
+    const HIDDEN_PROVIDERS = ['VTP']; // Ví dụ: ẩn Viettel Post
+    
     let items = (res.items||res.data||[])
+      .filter(o => {
+        const provider = (o.provider || o.carrier || '').toUpperCase();
+        return !HIDDEN_PROVIDERS.includes(provider);
+      })
       .map(o => ({
         provider: o.provider || o.carrier || '',
         service_code: o.service_code || o.service || '',
