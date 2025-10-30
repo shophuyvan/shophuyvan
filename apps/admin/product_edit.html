@@ -758,12 +758,17 @@ window.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    // Convert markdown to HTML trước khi lưu
+    const descRaw = descEl?.value?.trim() || '';
+    const editorMode = $('#editorMode')?.value || 'markdown';
+    const descToSave = editorMode === 'markdown' ? markdownToHTML(descRaw) : descRaw;
+
     const payload = {
       id: state.id || undefined,
       title: titleEl.value.trim(),
       slug: slugEl.value.trim(),
       shortDesc: shortDescEl?.value?.trim() || '',
-      desc: descEl?.value?.trim() || '',
+      desc: descToSave,
       seoTitle: seoTitleEl?.value?.trim() || '',
       seoDesc: seoDescEl?.value?.trim() || '',
       keywords: (keywordsEl?.value || '').split(',').map(s => s.trim()).filter(Boolean),
