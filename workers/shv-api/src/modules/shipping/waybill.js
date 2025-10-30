@@ -515,28 +515,25 @@ export async function autoCreateWaybill(order, env) {
     console.log('[autoCreateWaybill] 📊 SuperAI response data keys:', Object.keys(data?.data || {}));
     console.log('[autoCreateWaybill] 📋 Full response data:', JSON.stringify(data?.data, null, 2));
     
-    // ✅ XỬ LÝ TRƯỜNG HỢP ĐƠN ĐÃ TỒN TẠI (CODE 412)
+    // ✅ XỬ LÝ ĐƠN ĐÃ TỒN TẠI (CODE 412)
     if (data?.error === true && data?.data?.code === 412) {
-      console.log('[autoCreateWaybill] ⚠️ Order already exists (412), extracting existing tracking');
+      console.log('[autoCreateWaybill] ⚠️ Order exists (412), using existing codes');
+      const carrier_code = data?.data?.order_code || null;
+      const superai_code = data?.data?.order_soc || order.id;
       
-      const existingCarrierCode = data?.data?.order_code || null;
-      const existingSuperaiCode = data?.data?.order_soc || order.id || null;
-      
-      if (existingCarrierCode) {
+      if (carrier_code) {
         return {
           ok: true,
-          carrier_code: existingCarrierCode,
-          superai_code: existingSuperaiCode,
+          carrier_code: carrier_code,
+          superai_code: superai_code,
           carrier_id: null,
           provider: payload.provider,
-          raw: data.data,
-          error: false,
-          message: 'Đã sử dụng mã vận đơn có sẵn'
+          raw: data.data
         };
       }
     }
     
-    // ✅ XỬ LÝ TẠO MỚI THÀNH CÔNG
+    // ✅ TẠO MỚI THÀNH CÔNG
     const isSuccess = data?.error === false && data?.data;
     const carrier_code = data?.data?.carrier_code || data?.data?.code || null;
     const superai_code = data?.data?.superai_code || data?.data?.tracking || data?.data?.order_code || null;
@@ -549,13 +546,12 @@ export async function autoCreateWaybill(order, env) {
         superai_code: superai_code,
         carrier_id: carrier_id,
         provider: payload.provider, 
-        raw: data.data,
-        error: false
+        raw: data.data 
       };
     }
 
     const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
-    return { ok: false, error: true, message: errorMessage, data: data };
+    return { ok: false, message: errorMessage, raw: data };
 
   } catch (e) {
     console.error('[autoCreateWaybill] Exception:', e);
