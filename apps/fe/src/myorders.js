@@ -162,14 +162,24 @@ function renderOrder(order) {
           <span class="text-gray-600 text-sm">Tổng cộng: </span>
           <span class="font-bold text-blue-600 text-lg">${formatPrice(totalAmount)}</span>
         </div>
-        ${canCancel ? `
-        <button 
-          class="px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100"
-          onclick="cancelOrder('${order.id}')"
-        >
-          Hủy đơn
-        </button>
-        ` : ''}
+        <div style="display: flex; gap: 8px;">
+          ${canCancel ? `
+          <button 
+            class="px-4 py-2 bg-blue-50 border border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100"
+            onclick="openEditModal('${order.id}')"
+          >
+            ✏️ Chỉnh sửa
+          </button>
+          ` : ''}
+          ${canCancel ? `
+          <button 
+            class="px-4 py-2 bg-red-50 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100"
+            onclick="cancelOrder('${order.id}')"
+          >
+            Hủy đơn
+          </button>
+          ` : ''}
+        </div>
       </div>
     </div>
   `;
@@ -330,6 +340,128 @@ if (!token) {
     hideLoading();
   }
 }
+
+// ✅ CHỈNH SỬA ĐƠN HÀNG
+const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
+
+window.openEditModal = async function(orderId) {
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  // Kiểm tra status có phải "Chờ xác nhận" không
+  const s = String(order.status || '').toLowerCase();
+  const canEdit = s.includes('pending') || s.includes('confirmed') || s.includes('cho');
+  
+  if (!canEdit) {
+    alert('Chỉ có thể chỉnh sửa đơn hàng ở trạng thái "Chờ xác nhận"');
+    return;
+  }
+  
+  const customer = order.customer || {};
+  
+  // Điền dữ liệu hiện tại vào form
+  document.getElementById('editOrderId').value = orderId;
+  document.getElementById('editName').value = customer.name || order.name || '';
+  document.getElementById('editPhone').value = customer.phone || order.phone || '';
+  document.getElementById('editAddress').value = customer.address || order.address || '';
+  
+  // Xóa lỗi cũ
+  ['editNameError', 'editPhoneError', 'editAddressError'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+    document.getElementById(id).textContent = '';
+  });
+  
+  // Hiển thị modal
+  document.getElementById('editOrderModal').style.display = 'flex';
+  document.getElementById('editForm').style.display = 'block';
+  document.getElementById('editLoading').style.display = 'none';
+  document.getElementById('editError').style.display = 'none';
+};
+
+window.closeEditModal = function() {
+  document.getElementById('editOrderModal').style.display = 'none';
+};
+
+window.saveEditOrder = async function() {
+  const orderId = document.getElementById('editOrderId').value;
+  const name = document.getElementById('editName').value.trim();
+  const phone = document.getElementById('editPhone').value.trim();
+  const address = document.getElementById('editAddress').value.trim();
+  
+  // Xóa lỗi cũ
+  ['editNameError', 'editPhoneError', 'editAddressError'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+    document.getElementById(id).textContent = '';
+  });
+  
+  let hasError = false;
+  
+  // Validate tên
+  if (!name) {
+    document.getElementById('editNameError').textContent = 'Vui lòng nhập họ và tên';
+    document.getElementById('editNameError').style.display = 'block';
+    hasError = true;
+  }
+  
+  // Validate SĐT
+  if (!phone) {
+    document.getElementById('editPhoneError').textContent = 'Vui lòng nhập số điện thoại';
+    document.getElementById('editPhoneError').style.display = 'block';
+    hasError = true;
+  } else if (!VN_PHONE_RE.test(phone.replace(/\D/g, ''))) {
+    document.getElementById('editPhoneError').textContent = 'Số điện thoại không hợp lệ (VD: 0912345678)';
+    document.getElementById('editPhoneError').style.display = 'block';
+    hasError = true;
+  }
+  
+  // Validate địa chỉ
+  if (!address) {
+    document.getElementById('editAddressError').textContent = 'Vui lòng nhập địa chỉ';
+    document.getElementById('editAddressError').style.display = 'block';
+    hasError = true;
+  } else if (address.length < 10) {
+    document.getElementById('editAddressError').textContent = 'Địa chỉ quá ngắn (tối thiểu 10 ký tự)';
+    document.getElementById('editAddressError').style.display = 'block';
+    hasError = true;
+  }
+  
+  if (hasError) return;
+  
+  // Hiển thị loading
+  document.getElementById('editForm').style.display = 'none';
+  document.getElementById('editLoading').style.display = 'block';
+  document.getElementById('editError').style.display = 'none';
+  
+  try {
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    const response = await api('/orders/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: orderId,
+        customer: {
+          name: name,
+          phone: cleanPhone,
+          address: address
+        }
+      })
+    });
+    
+    if (response && (response.ok === true || response.success === true || response.status === 'ok')) {
+      alert('✅ Cập nhật đơn hàng thành công!');
+      closeEditModal();
+      loadOrders(); // Reload danh sách
+    } else {
+      throw new Error(response.message || 'Cập nhật thất bại');
+    }
+  } catch (error) {
+    console.error('Edit order error:', error);
+    document.getElementById('editLoading').style.display = 'none';
+    document.getElementById('editForm').style.display = 'block';
+    document.getElementById('editError').textContent = '❌ ' + (error.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+    document.getElementById('editError').style.display = 'block';
+  }
+};
 
 // Hủy đơn hàng
 window.cancelOrder = async function(orderId) {

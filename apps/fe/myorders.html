@@ -162,6 +162,58 @@
     <div id="ordersList"></div>
   </div>
 
+  <!-- ✅ MODAL CHỈNH SỬA ĐƠN HÀNG -->
+  <div id="editOrderModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="font-size: 20px; font-weight: 700; color: #1f2937;">✏️ Chỉnh sửa đơn hàng</h2>
+        <button onclick="closeEditModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">✕</button>
+      </div>
+
+      <div id="editForm" style="display: none;">
+        <input type="hidden" id="editOrderId" />
+
+        <!-- Họ tên -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Họ và tên *</label>
+          <input id="editName" type="text" placeholder="Nhập họ và tên" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;" />
+          <div id="editNameError" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
+        </div>
+
+        <!-- Số điện thoại -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Số điện thoại *</label>
+          <input id="editPhone" type="tel" placeholder="Nhập số điện thoại (VD: 0912345678)" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;" />
+          <div id="editPhoneError" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
+        </div>
+
+        <!-- Địa chỉ -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Địa chỉ chi tiết *</label>
+          <textarea id="editAddress" placeholder="Nhập số nhà, tên đường (tối thiểu 10 ký tự)" rows="3" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
+          <div id="editAddressError" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
+        </div>
+
+        <!-- Buttons -->
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button onclick="saveEditOrder()" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+            💾 Lưu thay đổi
+          </button>
+          <button onclick="closeEditModal()" style="flex: 1; padding: 12px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'">
+            ✕ Hủy
+          </button>
+        </div>
+      </div>
+
+      <div id="editLoading" style="text-align: center; padding: 24px;">
+        <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f4f6; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <p style="color: #6b7280; margin-top: 12px;">Đang xử lý...</p>
+      </div>
+
+      <div id="editError" style="display: none; padding: 12px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 14px; margin-bottom: 12px;"></div>
+    </div>
+  </div>
+
   <script type="module" src="/src/myorders.js"></script>
 </body>
 </html>
