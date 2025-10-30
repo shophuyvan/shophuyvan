@@ -657,8 +657,136 @@ class OrdersManager {
     }
   }
   
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // ==================== CONFIRM ORDER ====================
+  
+  // ===== ⭐️ EDIT ORDER (ADMIN) ====================
+  
+  openEditOrderModal(order) {
+    const { subtotal, shipping, discount, total } = this.calculateOrderTotals(order);
+    const customer = order.customer || {};
+
+    document.getElementById('editOrderId').value = order.id;
+    document.getElementById('editOrdName').value = customer.name || order.name || '';
+    document.getElementById('editOrdPhone').value = customer.phone || order.phone || '';
+    document.getElementById('editOrdAddress').value = customer.address || order.address || '';
+    document.getElementById('editOrdSubtotal').value = Math.round(subtotal);
+    document.getElementById('editOrdShipping').value = Math.round(shipping);
+    document.getElementById('editOrdDiscount').value = Math.round(discount);
+
+    // Reset errors
+    ['editOrdNameErr', 'editOrdPhoneErr', 'editOrdAddressErr'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+      document.getElementById(id).textContent = '';
+    });
+
+    // Show modal
+    document.getElementById('modal-edit-order').style.display = 'flex';
+    document.getElementById('editOrderForm').style.display = 'block';
+    document.getElementById('editOrderLoading').style.display = 'none';
+    document.getElementById('editOrdError').style.display = 'none';
+
+    // Wire save button
+    const saveBtn = document.getElementById('editOrdSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => this.saveEditedOrder();
+    }
+
+    // Wire price change listeners
+    ['editOrdSubtotal', 'editOrdShipping', 'editOrdDiscount'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => this.updateEditOrderTotal());
+      }
+    });
+
+    this.updateEditOrderTotal();
+  }
+
+  updateEditOrderTotal() {
+    const subtotal = Number(document.getElementById('editOrdSubtotal').value || 0);
+    const shipping = Number(document.getElementById('editOrdShipping').value || 0);
+    const discount = Number(document.getElementById('editOrdDiscount').value || 0);
+    const total = Math.max(0, subtotal + shipping - discount);
+
+    document.getElementById('editOrdTotal').textContent = this.formatPrice(total);
+  }
+
+  async saveEditedOrder() {
+    const orderId = document.getElementById('editOrderId').value;
+    const name = document.getElementById('editOrdName').value.trim();
+    const phone = document.getElementById('editOrdPhone').value.trim();
+    const address = document.getElementById('editOrdAddress').value.trim();
+    const subtotal = Number(document.getElementById('editOrdSubtotal').value || 0);
+    const shipping = Number(document.getElementById('editOrdShipping').value || 0);
+    const discount = Number(document.getElementById('editOrdDiscount').value || 0);
+
+    // Reset errors
+    ['editOrdNameErr', 'editOrdPhoneErr', 'editOrdAddressErr'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+      document.getElementById(id).textContent = '';
+    });
+
+    let hasError = false;
+
+    if (!name) {
+      document.getElementById('editOrdNameErr').textContent = 'Vui lòng nhập họ và tên';
+      document.getElementById('editOrdNameErr').style.display = 'block';
+      hasError = true;
+    }
+
+    if (!phone) {
+      document.getElementById('editOrdPhoneErr').textContent = 'Vui lòng nhập số điện thoại';
+      document.getElementById('editOrdPhoneErr').style.display = 'block';
+      hasError = true;
+    }
+
+    if (!address) {
+      document.getElementById('editOrdAddressErr').textContent = 'Vui lòng nhập địa chỉ';
+      document.getElementById('editOrdAddressErr').style.display = 'block';
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    // Show loading
+    document.getElementById('editOrderForm').style.display = 'none';
+    document.getElementById('editOrderLoading').style.display = 'block';
+    document.getElementById('editOrdError').style.display = 'none';
+
+    try {
+      const body = {
+        id: orderId,
+        customer: {
+          name: name,
+          phone: phone,
+          address: address
+        },
+        subtotal: Math.round(subtotal),
+        shipping_fee: Math.round(shipping),
+        discount: Math.round(discount)
+      };
+
+      const result = await Admin.req('/admin/orders/upsert', {
+        method: 'POST',
+        body: body
+      });
+
+      if (result?.ok) {
+        Admin.toast('✅ Cập nhật đơn hàng thành công!');
+        document.getElementById('modal-edit-order').style.display = 'none';
+        this.loadOrders();
+      } else {
+        throw new Error(result?.message || 'Cập nhật thất bại');
+      }
+    } catch (error) {
+      console.error('Edit order error:', error);
+      document.getElementById('editOrderForm').style.display = 'block';
+      document.getElementById('editOrderLoading').style.display = 'none';
+      document.getElementById('editOrdError').textContent = '❌ ' + (error.message || 'Có lỗi xảy ra');
+      document.getElementById('editOrdError').style.display = 'block';
+    }
+  }
+
+  // ===== ⭐️ CONFIRM ORDER ====================
   
   async confirmOrder(orderId) {
     if (!confirm(`Xác nhận đơn hàng ${orderId}?\nThao tác này sẽ gửi đơn hàng qua đơn vị vận chuyển.`)) return;
@@ -980,7 +1108,17 @@ class OrdersManager {
       };
     }
 
-    // Create waybill button — yêu cầu nhập service_code & receiver_commune_code nếu thiếu
+    // ✅ EDIT ORDER BUTTON
+    const editBtn = document.getElementById('btn-edit-order');
+    if (editBtn) {
+      editBtn.onclick = () => {
+        if (this.currentOrder) {
+          this.openEditOrderModal(this.currentOrder);
+        }
+      };
+    }
+
+    // Create waybill button – yêu cầu nhập service_code & receiver_commune_code nếu thiếu
     const createBtn = document.getElementById('btn-create-waybill');
     if (createBtn) {
       createBtn.onclick = async () => {

@@ -465,12 +465,13 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-  // PUBLIC
+// PUBLIC
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
   if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);
+  if (path === '/orders/update' && method === 'POST') return updateOrderCustomer(req, env); // ✅ THÊM DÒNG NÃ Y
 
   // ADMIN
   if (path === '/api/orders' && method === 'GET') return listOrders(req, env);
@@ -1263,6 +1264,85 @@ async function cancelOrderCustomer(req, env) {
 
   } catch (e) {
     console.error('[CANCEL-ORDER] Error:', e);
+    return json({ ok: false, error: e.message }, { status: 500 }, req);
+  }
+}
+
+// ===================================================================
+// PUBLIC: Update Order (Customer) - Chỉnh sửa thông tin nhận hàng
+// ===================================================================
+async function updateOrderCustomer(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const orderId = body.order_id;
+
+    if (!orderId) {
+      return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
+    }
+
+    // Lấy đơn hàng
+    const order = await getJSON(env, 'order:' + orderId, null);
+    if (!order) {
+      return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
+    }
+
+    // Kiểm tra status: chỉ cho phép chỉnh sửa khi "pending/confirmed"
+    const status = String(order.status || '').toLowerCase();
+    const canEdit = status.includes('pending') || status.includes('confirmed') || status.includes('cho');
+    
+    if (!canEdit) {
+      return json({ 
+        ok: false, 
+        error: 'Chỉ có thể chỉnh sửa đơn hàng ở trạng thái "Chờ xác nhận"' 
+      }, { status: 400 }, req);
+    }
+
+    // Validate & update customer info
+    const updatedCustomer = body.customer || {};
+    
+    if (updatedCustomer.name) {
+      order.customer.name = String(updatedCustomer.name).trim();
+    }
+    
+    if (updatedCustomer.phone) {
+      order.customer.phone = normalizePhone(updatedCustomer.phone);
+    }
+    
+    if (updatedCustomer.address) {
+      order.customer.address = String(updatedCustomer.address).trim();
+    }
+
+    // Cập nhật thời gian chỉnh sửa
+    order.updated_at = Date.now();
+    order.updated_by = 'customer';
+
+    // Lưu lại
+    await putJSON(env, 'order:' + orderId, order);
+
+    // Cập nhật trong list
+    const list = await getJSON(env, 'orders:list', []);
+    const index = list.findIndex(o => o.id === orderId);
+    if (index > -1) {
+      list[index] = order;
+      await putJSON(env, 'orders:list', list);
+    }
+
+    console.log('[UPDATE-ORDER] Customer info updated:', {
+      orderId,
+      name: order.customer.name,
+      phone: order.customer.phone,
+      address: order.customer.address
+    });
+
+    return json({ 
+      ok: true, 
+      success: true,
+      message: 'Cập nhật đơn hàng thành công',
+      data: order 
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[UPDATE-ORDER] Error:', e);
     return json({ ok: false, error: e.message }, { status: 500 }, req);
   }
 }
