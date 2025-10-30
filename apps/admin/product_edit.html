@@ -979,11 +979,11 @@ function insertImageToDesc(imageUrl, altText = 'Hình ảnh sản phẩm') {
   let imageCode = '';
   
   if (mode === 'markdown') {
-    // Markdown format: ![alt text](url)
-    imageCode = `\n\n![${altText}](${imageUrl})\n\n`;
+    // Markdown format: ![alt text](url) - không có khoảng trắng
+    imageCode = `\n![${altText}](${imageUrl})\n`;
   } else {
     // HTML format với style responsive
-    imageCode = `\n\n<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0;"/>\n\n`;
+    imageCode = `\n<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;" loading="lazy"/>\n`;
   }
   
   descTextarea.value = textBefore + imageCode + textAfter;
@@ -1011,7 +1011,9 @@ function markdownToHTML(markdown) {
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   
   // Images: ![alt text](url) - phải xử lý trước bold/italic
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;"/>');
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, url) {
+    return `<img src="${url}" alt="${alt}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;" loading="lazy"/>`;
+  });
   
   // Bold và Italic
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -1074,21 +1076,22 @@ function markdownToHTML(markdown) {
   
   html = processed.join('\n');
   
-  // Paragraphs - xuống dòng 2 lần = paragraph mới
+// Paragraphs - xuống dòng 2 lần = paragraph mới
   html = html.replace(/\n\n+/g, '</p><p>');
   
   // Wrap toàn bộ trong <p> nếu chưa có
-  if (!html.startsWith('<h') && !html.startsWith('<ul') && !html.startsWith('<ol') && !html.startsWith('<p>')) {
+  if (!html.startsWith('<h') && !html.startsWith('<ul') && !html.startsWith('<ol') && !html.startsWith('<p>') && !html.startsWith('<img')) {
     html = '<p>' + html;
   }
-  if (!html.endsWith('</p>') && !html.endsWith('</ul>') && !html.endsWith('</ol>')) {
+  if (!html.endsWith('</p>') && !html.endsWith('</ul>') && !html.endsWith('</ol>') && !html.endsWith('/>')) {
     html = html + '</p>';
   }
   
-  // Làm sạch các <p> trống
+  // Làm sạch các <p> trống và <p> chứa img
   html = html.replace(/<p>\s*<\/p>/g, '');
   html = html.replace(/<p>\s*(<[uh][1-3lol]>)/g, '$1');
   html = html.replace(/(<\/[uh][1-3lol]>)\s*<\/p>/g, '$1');
+  html = html.replace(/<p>\s*(<img[^>]+>)\s*<\/p>/g, '$1');
   
   // Line breaks đơn (1 xuống dòng) = <br>
   html = html.replace(/([^>])\n([^<])/g, '$1<br>$2');
@@ -1218,6 +1221,13 @@ function formatDescriptionHTML(html) {
   const temp = document.createElement('div');
   temp.innerHTML = html;
   
+  // Đảm bảo images có style đúng
+  temp.querySelectorAll('img').forEach(img => {
+    if (!img.style.cssText) {
+      img.style.cssText = 'max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block;';
+    }
+  });
+  
   // Format các heading
   temp.querySelectorAll('h1, h2, h3').forEach(h => {
     h.style.cssText = 'font-weight: 700; margin: 16px 0 8px; line-height: 1.3; color: #111827;';
@@ -1268,6 +1278,14 @@ function renderPreview() {
   const title = $('#title')?.value?.trim() || 'Chưa có tên sản phẩm';
   const shortDesc = $('#shortDesc')?.value?.trim() || '';
   const desc = $('#desc')?.value?.trim() || '';
+  
+  // Debug: Log ra nội dung desc
+  if (desc) {
+    console.log('Original desc:', desc.substring(0, 200));
+    const formatted = formatDescriptionHTML(desc);
+    console.log('Formatted HTML:', formatted.substring(0, 200));
+  }
+  
   const images = state.images || [];
   const coverImg = images[0] ? optimizeCloudinaryUrl(images[0], { width: 400 }) : './no-image.svg';
   
@@ -1314,7 +1332,7 @@ function renderPreview() {
         
         ${desc ? `
           <div style="margin: 12px 0; padding: 12px; background: #ffffff; border-radius: 6px; border: 1px solid var(--border);">
-            <div style="max-height: 400px; overflow-y: auto;">
+            <div style="max-height: 400px; overflow-y: auto; word-break: break-word;">
               ${formatDescriptionHTML(desc)}
             </div>
           </div>
