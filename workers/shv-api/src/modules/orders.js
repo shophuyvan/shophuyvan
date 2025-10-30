@@ -465,7 +465,15 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-// PUBLIC
+  // ✅ HANDLE CORS PREFLIGHT (OPTIONS)
+  if (method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders(req)
+    });
+  }
+
+  // PUBLIC
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
