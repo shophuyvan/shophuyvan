@@ -491,15 +491,6 @@ async function userActivate(req, env) {
     console.error('[Activate] Error:', e);
     return json({ ok: false, error: 'Lỗi kích hoạt: ' + e.message }, { status: 500 }, req);
   }
-  
-  } catch (e) {
-    console.error('[Admin] Error:', e);
-    return json({ 
-      ok: false, 
-      error: 'Internal error', 
-      details: e.message 
-    }, { status: 500 }, req);
-  }
 }
 
 /**
