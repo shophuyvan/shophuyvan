@@ -371,15 +371,22 @@ window.openEditModal = async function(orderId) {
     document.getElementById(id).textContent = '';
   });
   
-  // Hiển thị modal
-  document.getElementById('editOrderModal').style.display = 'flex';
+   // Hiển thị modal
+  const modal = document.getElementById('editOrderModal');
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
   document.getElementById('editForm').style.display = 'block';
   document.getElementById('editLoading').style.display = 'none';
   document.getElementById('editError').style.display = 'none';
 };
 
 window.closeEditModal = function() {
-  document.getElementById('editOrderModal').style.display = 'none';
+  const modal = document.getElementById('editOrderModal');
+  modal.style.display = 'none';
+  // Reset form
+  document.getElementById('editForm').style.display = 'block';
+  document.getElementById('editLoading').style.display = 'none';
 };
 
 window.saveEditOrder = async function() {
