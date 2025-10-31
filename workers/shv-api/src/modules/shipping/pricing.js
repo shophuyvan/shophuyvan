@@ -227,10 +227,20 @@ async function getShippingWeight(req, env) {
       if (wClient > 0) { total += wClient * qty; continue; }
 
       // 1) Lấy sản phẩm từ KV
-      const product = await getJSON(env, 'product:' + pid, null);
+      // Một số client gửi product_id dạng "<id>:<text>" (ví dụ thêm tên biến thể sau dấu :)
+      const pidRaw = String(pid || '').trim();
+      const pidClean = pidRaw.includes(':') ? pidRaw.split(':')[0].trim() : pidRaw;
+
+      // Thử nhiều khóa KV để lấy product
+      let product =
+        await getJSON(env, 'product:' + pidClean, null) ||
+        await getJSON(env, 'product:' + pidRaw,   null) ||
+        await getJSON(env, 'prd:'     + pidClean, null);
+
       if (!product) continue;
 
       const variants = Array.isArray(product.variants) ? product.variants : [];
+
       const vid   = String(line.variant_id  ?? line.variantId  ?? '').trim();
       const vsku  = String(line.variant_sku ?? line.sku        ?? '').trim();
       const vname = String(line.variant_name?? line.variantName?? '').trim();
