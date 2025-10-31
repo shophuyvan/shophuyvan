@@ -30,6 +30,18 @@ const toHumanWeight = grams => {
   return (kg%1===0) ? `${kg.toFixed(0)} kg` : `${kg.toFixed(1)} kg`;
 };
 
+// ====== HELPERS AN TOÀN DOM ======
+const val = (id) => {
+  const el = document.getElementById(id);
+  return (el && typeof el.value !== 'undefined') ? String(el.value) : '';
+};
+const textOfSelect = (id) => {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  const opt = el.options && el.options[el.selectedIndex];
+  return (opt && typeof opt.text === 'string') ? opt.text : '';
+};
+
 // ====== CART / TÍNH TỔNG ======
 function getCart() {
   try {
@@ -471,9 +483,9 @@ $('place-order').addEventListener('click', async () => {
     const cart = getCart();
     if (!cart.length) return showError('Giỏ hàng trống.');
 
-    const name = ($('#name').value||'').trim();
-    const phone = ($('#phone').value||'').trim();
-    const address = ($('#address').value||'').trim();
+    const name = val('name').trim();
+    const phone = val('phone').trim();
+    const address = val('address').trim();
     if (!name || !phone || !address) return showError('Vui lòng điền đủ Họ tên, SĐT, Địa chỉ.');
     if (!VN_PHONE_RE.test(phone))   return showError('SĐT không hợp lệ (VD: 0912345678).');
     if (!selectedShipping)          return showError('Vui lòng chọn phương thức vận chuyển.');
@@ -492,12 +504,12 @@ $('place-order').addEventListener('click', async () => {
     const payload = {
       customer: {
         name, phone, address,
-        province_code: $('#province').value||'',
-        district_code: $('#district').value||'',
-        commune_code: $('#ward').value||'',
-        province: $('#province').options[$('#province').selectedIndex]?.text || '',
-        district: $('#district').options[$('#district').selectedIndex]?.text || '',
-        commune: $('#ward').options[$('#ward').selectedIndex]?.text || ''
+        province_code: val('province'),
+        district_code: val('district'),
+        commune_code: val('ward'),
+        province: textOfSelect('province'),
+        district: textOfSelect('district'),
+        commune: textOfSelect('ward')
       },
       items: cart.map(it => ({
         id: it.id||it.sku||'', 
