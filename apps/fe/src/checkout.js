@@ -92,10 +92,13 @@ async function ensureWeight(cart) {
   try {
     // chuẩn hoá payload gửi server: product_id + variant_name + qty
     const lines = cart.map(it => ({
-      product_id: it.productId || it.id,      // id trong object bạn đang có
-      variant_name: it.variant_name || it.variantName || '',
-      qty: Number(it.qty || it.quantity || 1)
-    }));
+  product_id: it.productId || it.product_id || it.pid || it.id,
+  variant_id: it.variant_id || it.variantId || it.vid || (it.variant && it.variant.id) || '',
+  variant_sku: it.variant_sku || it.sku || (it.variant && it.variant.sku) || '',
+  variant_name: it.variant_name || it.variantName || (it.variant && (it.variant.name || it.variant.title)) || '',
+  weight_gram: Number(it.weight_gram ?? it.weight ?? (it.variant && it.variant.weight_gram) ?? 0) || 0,
+  qty: Number(it.qty || 1),
+}));
 
     const res = await api('/shipping/weight', {
       method: 'POST',

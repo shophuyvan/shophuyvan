@@ -150,11 +150,15 @@ const ensureLocalWeight = useCallback(async () => {
   if (totalWeightGram > 0) { setWeightOverride(null); return; }
   try {
     const src = Array.isArray(selectedLines) ? selectedLines : (st.lines || []);
-    const lines = src.map((it: any) => ({
-      product_id: it.productId || it.id,
-      variant_name: it.variant_name || it.variantName || '',
-      qty: Number(it.qty || it.quantity || 1),
-    }));
+const lines = src.map((it: any, idx: number) => ({
+  product_id: it.productId || it.product_id || it.pid || it.id,
+  variant_id: it.variant_id || it.variantId || it.vid || it.variant?.id || '',
+  variant_sku: it.variant_sku || it.sku || it.variant?.sku || '',
+  variant_name: it.variant_name || it.variantName || it.variant?.name || it.variant?.title || '',
+  // nếu client đã có cân nặng biến thể thì gửi luôn cho server dùng trực tiếp
+  weight_gram: Number(it.weight_gram ?? it.weight ?? it.variant?.weight_gram ?? 0) || 0,
+  qty: Number(it.qty || it.quantity || 1),
+}));
     const res = await api('/shipping/weight', {
       method: 'POST',
       body: JSON.stringify({ lines }),
