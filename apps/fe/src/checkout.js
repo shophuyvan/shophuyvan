@@ -31,16 +31,26 @@ const toHumanWeight = grams => {
 };
 
 // ====== HELPERS AN TOÀN DOM ======
+const _el = (id) => document.getElementById(id);
 const val = (id) => {
-  const el = document.getElementById(id);
-  return (el && typeof el.value !== 'undefined') ? String(el.value) : '';
+  const el = _el(id);
+  if (!el) return '';
+  // Phần tử có thuộc tính .value (input/select/textarea…)
+  if ('value' in el) return String(el.value ?? '');
+  // Fallback cho thẻ không có .value
+  const attr = el.getAttribute && el.getAttribute('value');
+  const data = el.dataset && el.dataset.value;
+  return String(attr ?? data ?? '');
 };
 const textOfSelect = (id) => {
-  const el = document.getElementById(id);
+  const el = _el(id);
   if (!el) return '';
-  const opt = el.options && el.options[el.selectedIndex];
+  const sel = /** @type {HTMLSelectElement} */ (el);
+  const idx = typeof sel.selectedIndex === 'number' ? sel.selectedIndex : -1;
+  const opt = (sel.options && idx >= 0) ? sel.options[idx] : null;
   return (opt && typeof opt.text === 'string') ? opt.text : '';
 };
+
 
 // ====== CART / TÍNH TỔNG ======
 function getCart() {
@@ -259,9 +269,9 @@ async function fetchShippingQuote() {
   var hasTsDistrict = (typeof tsDistrict !== 'undefined') && tsDistrict && (typeof tsDistrict.getValue === 'function');
   var hasTsWard     = (typeof tsWard     !== 'undefined') && tsWard     && (typeof tsWard.getValue     === 'function');
 
-  var provinceCode = hasTsProvince ? tsProvince.getValue() : (provinceSel ? provinceSel.value : '');
-  var districtCode = hasTsDistrict ? tsDistrict.getValue() : (districtSel ? districtSel.value : '');
-  var wardCode     = hasTsWard     ? tsWard.getValue()     : (wardSel     ? wardSel.value     : '');
+  var provinceCode = hasTsProvince ? tsProvince.getValue() : val('province');
+  var districtCode = hasTsDistrict ? tsDistrict.getValue() : val('district');
+  var wardCode     = hasTsWard     ? tsWard.getValue()     : val('ward');
 
   function getTextFrom(ts, code, sel) {
     if (ts && typeof ts.getOption === 'function' && code) {
@@ -405,9 +415,9 @@ async function fetchShippingQuote() {
 
 // ====== VOUCHER ======
 async function applyVoucher() {
-  const input = $('voucher-input');
   const result = $('voucher-result');
-  const code = (input.value||'').trim().toUpperCase();
+  const code = val('voucher-input').trim().toUpperCase();
+
 
   if (!code) {
     appliedVoucher = null; updateSummary();
