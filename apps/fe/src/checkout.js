@@ -1,6 +1,6 @@
 // apps/fe/src/checkout.js
 // ====== CẤU HÌNH & TIỆN ÍCH ======
-const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = 'https://api.shophuyvan.vn';
 const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
 const $ = id => document.getElementById(id);
 const fmtVND = v => (Number(v)||0).toLocaleString('vi-VN') + '₫';

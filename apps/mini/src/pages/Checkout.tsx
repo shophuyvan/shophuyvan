@@ -17,7 +17,7 @@ import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
 
-const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = 'https://api.shophuyvan.vn';
 
 // === API client gọn ===
 const api = async (path: string, options: RequestInit = {}) => {
@@ -41,7 +41,7 @@ const api = async (path: string, options: RequestInit = {}) => {
  * Body: { lines: [{ product_id, variant_name, qty }] }
  * Response: { total_gram: number }
  */
-const ensureWeight = async (lines: any[]): Promise<number> => {
+  const fetchServerWeight = async (lines: any[]): Promise<number> => {
   const payload = {
     lines: lines.map((it: any) => ({
       product_id: it.productId || it.id,
@@ -97,23 +97,52 @@ const [serverWeight, setServerWeight] = useState<number | null>(null);
     [st]
   );
 
-  // totalWeightGram = Σ ( (weight_gram || weight_grams || weight || variant.weight_gram) * qty )
-  // Nếu item không có cân nặng => tính 0 cho item đó (đúng yêu cầu "không fallback").
-  const totalWeightGram = useMemo(() => {
-    return st.lines.reduce((sum: number, it: any) => {
-      const w = Number(
-        it.weight_gram ??
-          it.weight_grams ??
-          it.weight ??
-          it.variant?.weight_gram ??
-          0
-      );
-      const q = Number(it.qty || 1);
-      return sum + (w > 0 ? w * q : 0);
-    }, 0);
-  }, [st]);
+// totalWeightGram = Σ ( (weight_gram || weight_grams || weight || variant.weight_gram) * qty )
+// Nếu item không có cân nặng => tính 0 cho item đó (đúng yêu cầu "không fallback").
+const totalWeightGram = useMemo(() => {
+  return st.lines.reduce((sum: number, it: any) => {
+    const w = Number(
+      it.weight_gram ??
+        it.weight_grams ??
+        it.weight ??
+        it.variant?.weight_gram ??
+        0
+    );
+    const q = Number(it.qty || 1);
+    return sum + (w > 0 ? w * q : 0);
+  }, 0);
+}, [st]);
 
-  // === VẬN CHUYỂN (API thật) ================================================
+// Nếu thiếu cân nặng ở cart → hỏi server để lấy total_gram thật
+const [weightOverride, setWeightOverride] = useState<number | null>(null);
+
+  const ensureLocalWeight = useCallback(async () => {
+  if (totalWeightGram > 0) { setWeightOverride(null); return; }
+  try {
+    const lines = st.lines.map((it: any) => ({
+      product_id: it.productId || it.id,
+      variant_name: it.variant_name || it.variantName || '',
+      qty: Number(it.qty || it.quantity || 1),
+    }));
+    const res = await api('/shipping/weight', {
+      method: 'POST',
+      body: JSON.stringify({ lines }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const g = Number((res as any)?.total_gram || 0);
+    if (g > 0) {
+      setWeightOverride(g);
+      try { localStorage.setItem('cart_weight_gram', String(g)); } catch {}
+    }
+  } catch { /* ignore */ }
+}, [st, totalWeightGram]);
+
+useEffect(() => { ensureLocalWeight(); }, [ensureLocalWeight]);
+
+// Cân nặng dùng để tính ship/UI
+const effectiveWeightGram = (weightOverride ?? totalWeightGram);
+
+// === VẬN CHUYỂN (API thật) ================================================
   const [shippingList, setShippingList] = useState<any[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<any>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
@@ -220,7 +249,7 @@ const [serverWeight, setServerWeight] = useState<number | null>(null);
 
         let weightToUse = Number(totalWeightGram || 0);
         if (weightToUse <= 0) {
-          const g = await ensureWeight(st.lines || []);
+          const g = await fetchServerWeight(st.lines || []);
           if (!alive) return;
           if (g > 0) {
             setServerWeight(g);
@@ -617,10 +646,13 @@ const [serverWeight, setServerWeight] = useState<number | null>(null);
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
               <div className="font-semibold text-lg">Vận chuyển</div>
               <div className="text-sm text-gray-600">Khối lượng: {toHumanWeight(
-              (serverWeight && serverWeight > 0
-                ? serverWeight
-                : (Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) || 0)
-              ) || totalWeightGram
+              Number(
+                serverWeight && serverWeight > 0
+                  ? serverWeight
+                  : (totalWeightGram > 0
+                      ? totalWeightGram
+                      : Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) || 0)
+              )
             )}</div>
                           {(
               Number(serverWeight || 0) <= 0 &&
