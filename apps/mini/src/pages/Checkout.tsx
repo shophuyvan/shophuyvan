@@ -33,8 +33,33 @@ const api = async (path: string, options: RequestInit = {}) => {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.message || errData.error || 'API request failed');
   }
-  return res.json();
+    return res.json();
 };
+
+/**
+ * ensureWeight(): nếu giỏ hàng chưa có cân nặng → gọi /shipping/weight
+ * Body: { lines: [{ product_id, variant_name, qty }] }
+ * Response: { total_gram: number }
+ */
+const ensureWeight = async (lines: any[]): Promise<number> => {
+  const payload = {
+    lines: lines.map((it: any) => ({
+      product_id: it.productId || it.id,
+      variant_name: it.variant_name || it.variantName || '',
+      qty: Number(it.qty || it.quantity || 1),
+    })),
+  };
+  const data = await api('/shipping/weight', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  const g = Number(data?.total_gram || 0);
+  if (g > 0) {
+    try { localStorage.setItem('cart_weight_gram', String(g)); } catch {}
+  }
+  return g;
+};
+
 
 export default function Checkout() {
   // === GIỎ HÀNG ==============================================================
@@ -175,17 +200,11 @@ export default function Checkout() {
     return () => { alive = false; };
   }, [form.district]);
 
-  // 3) LẤY PHÍ SHIP — chỉ gọi khi có province/district và weight > 0 (❌ NO fallback)
+    // 3) LẤY PHÍ SHIP — nếu thiếu cân nặng local → hỏi server trước
   useEffect(() => {
     // Reset khi thiếu địa chỉ
     if (!form.province || !form.district) {
       setShippingList([]); setSelectedShipping(null); setShippingError(null);
-      return;
-    }
-    // Chưa có cân nặng thực → không gọi API, báo lỗi rõ
-    if (totalWeightGram <= 0) {
-      setShippingList([]); setSelectedShipping(null);
-      setShippingError('Thiếu trọng lượng sản phẩm (weight_gram/weight_grams/weight).');
       return;
     }
 
@@ -194,31 +213,38 @@ export default function Checkout() {
     setShippingError(null);
 
     (async () => {
-  try {
-    // âœ… Lấy TÊN province/district từ select (giống FE)
-    const provinceEl = document.querySelector('select[value="' + form.province + '"]') as HTMLSelectElement;
-    const districtEl = document.querySelector('select[value="' + form.district + '"]') as HTMLSelectElement;
-    
-    const provinceName = provinces.find(p => p.code === form.province)?.name || form.province;
-    const districtName = districts.find(d => d.code === form.district)?.name || form.district;
+      try {
+        const provinceName = provinces.find(p => p.code === form.province)?.name || form.province;
+        const districtName = districts.find(d => d.code === form.district)?.name || form.district;
 
-    const data = await api('/shipping/price', {
-      method: 'POST',
-      body: JSON.stringify({
-        receiver_province: provinceName,  // âœ… GỬI TÊN
-        receiver_district: districtName,  // âœ… GỬI TÊN
-        receiver_commune: form.ward || '',
-        weight_gram: Number(totalWeightGram),
-        weight: Number(totalWeightGram),
-        value: Number(subtotal || 0),
-        cod: Number(subtotal || 0),
-        option_id: '1',
-      }),
-    });
+        let weightToUse = Number(totalWeightGram || 0);
+        if (weightToUse <= 0) {
+          const g = await ensureWeight(st.lines || []);
+          if (!alive) return;
+          if (g > 0) weightToUse = g;
+          else {
+            setShippingList([]); setSelectedShipping(null);
+            setShippingError('Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.');
+            return;
+          }
+        }
 
-    // âœ… Handle response đúng structure
-    const rawItems = data.data || data.items || [];
-    const items = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
+        const data = await api('/shipping/price', {
+          method: 'POST',
+          body: JSON.stringify({
+            receiver_province: provinceName,
+            receiver_district: districtName,
+            receiver_commune: form.ward || '',
+            weight_gram: Number(weightToUse),
+            weight: Number(weightToUse),
+            value: Number(subtotal || 0),
+            cod: Number(subtotal || 0),
+            option_id: '1',
+          }),
+        });
+
+        const rawItems = data.data || data.items || [];
+        const items = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
           provider: it.provider,
           name: it.name || it.provider,
           service_code: it.service_code,
@@ -244,7 +270,7 @@ export default function Checkout() {
     })();
 
     return () => { alive = false; };
-  }, [form.province, form.district, form.ward, totalWeightGram, subtotal]);
+  }, [form.province, form.district, form.ward, totalWeightGram, subtotal, st.lines, provinces, districts]);
 
   // 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
   const calculatedTotals = useMemo(() => {

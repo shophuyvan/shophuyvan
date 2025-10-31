@@ -61,6 +61,35 @@ function calcWeight(cart) {
   return g;
 }
 
+// API: nếu thiếu cân nặng → hỏi server để lấy total_gram thật
+async function ensureWeight(cart) {
+  let g = calcWeight(cart);
+  if (g > 0) return g;
+
+  try {
+    // chuẩn hoá payload gửi server: product_id + variant_name + qty
+    const lines = cart.map(it => ({
+      product_id: it.productId || it.id,      // id trong object bạn đang có
+      variant_name: it.variant_name || it.variantName || '',
+      qty: Number(it.qty || it.quantity || 1)
+    }));
+
+    const res = await api('/shipping/weight', {
+      method: 'POST',
+      body: { lines }
+    });
+    // kỳ vọng server trả { total_gram: number }
+    g = Number(res?.total_gram || 0);
+    if (g > 0) {
+      localStorage.setItem('cart_weight_gram', String(g)); // cache cho lần sau
+    }
+    return g;
+  } catch (e) {
+    console.warn('[checkout] ensureWeight failed', e);
+    return 0;
+  }
+}
+
 // ====== STATE ======
 let selectedShipping = null;      // { provider, service_code, fee, name, eta }
 let placing = false;
@@ -212,8 +241,9 @@ async function fetchShippingQuote() {
     // Tính tổng & khối lượng thực từ giỏ hàng (API thật, không fallback)
     const cart = getCart();
     const subtotal = calcSubtotal(cart);
-    const weight   = calcWeight(cart);
-	$('total-weight').textContent = toHumanWeight(weight);
+    let   weight   = calcWeight(cart);
+    if (!weight) weight = await ensureWeight(cart);   // ← hỏi server nếu 0g
+    $('total-weight').textContent = toHumanWeight(weight);
 
     const res = await api('/shipping/price', {
       method:'POST',

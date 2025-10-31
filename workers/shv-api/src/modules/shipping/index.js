@@ -20,16 +20,22 @@ export async function handle(req, env, ctx) {
     return areas.handle(req, env, ctx);
   }
 
-  // Warehouses
+    // Warehouses
   if (path === '/shipping/warehouses') {
     return warehouses.handle(req, env, ctx);
   }
 
-   // Pricing/Quote
+  // Pricing/Quote
   if (path === '/v1/platform/orders/price') {
     // dùng mini proxy gọi thẳng SuperAI (alias weight/value đã map trong pricing.getMiniPrice)
     return pricing.getMiniPrice(req, env, ctx);
   }
+
+  // NEW: total weight (tính cân nặng thật)
+  if (path === '/shipping/weight' && req.method === 'POST') {
+    return pricing.handle(req, env, ctx);
+  }
+
   if (path === '/shipping/price' || 
       path === '/shipping/quote' ||
       path === '/api/shipping/quote') {

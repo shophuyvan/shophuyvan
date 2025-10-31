@@ -26,9 +26,14 @@ export async function handle(req, env, ctx) {
     return getShippingQuoteAPI(req, env);
   }
 
-  // POST /v1/platform/orders/price (MINI proxy)
+   // POST /v1/platform/orders/price (MINI proxy)
   if (path === '/v1/platform/orders/price' && req.method === 'POST') {
     return getMiniPrice(req, env);
+  }
+
+  // NEW: POST /shipping/weight
+  if (path === '/shipping/weight' && req.method === 'POST') {
+    return getShippingWeight(req, env);
   }
 
   return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
@@ -198,8 +203,55 @@ async function getMiniPrice(req, env) {
   }
 }
 
+// NEW: compute total_gram từ biến thể x số lượng
+async function getShippingWeight(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const lines = Array.isArray(body.lines) ? body.lines : [];
+    if (!lines.length) return json({ ok: true, total_gram: 0 }, {}, req);
+
+    let total = 0;
+
+    for (const line of lines) {
+      const pid = String(line.product_id ?? line.productId ?? line.id ?? '').trim();
+      const vname = String(line.variant_name ?? line.variantName ?? '').trim();
+      const vid = String(line.variant_id ?? line.variantId ?? '').trim();
+      const qty = Number(line.qty ?? line.quantity ?? 1) || 1;
+
+      if (!pid) continue;
+
+      // Lấy sản phẩm từ KV: key 'product:<id>'
+      const product = await getJSON(env, 'product:' + pid, null);
+      if (!product) continue;
+
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+
+      // Ưu tiên match theo variant_id; nếu không có → match theo tên (không phân biệt hoa/thường)
+      let match = null;
+      if (vid) {
+        match = variants.find(v => String(v.id ?? v._id ?? '').trim() === vid) || null;
+      }
+      if (!match && vname) {
+        const target = vname.toLowerCase().trim();
+        match =
+          variants.find(v => String(v.name ?? v.title ?? '').toLowerCase().trim() === target) ||
+          variants.find(v => String(v.name ?? v.title ?? '').toLowerCase().includes(target)) ||
+          null;
+      }
+
+      const w = Number(match?.weight_gram ?? match?.weight ?? 0) || 0;
+      if (w > 0) total += w * qty;
+    }
+
+    return json({ ok: true, total_gram: Math.round(total) }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
 // Normalize shipping rates from various API responses
 function normalizeShippingRates(data) {
+
   const arr = (data?.data && (data.data.services || data.data.items || data.data.rates)) ||
             data?.data || data || [];
   
