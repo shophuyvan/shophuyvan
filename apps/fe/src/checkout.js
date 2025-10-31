@@ -523,6 +523,19 @@ $('place-order').addEventListener('click', async () => {
 // ====== KHỞI TẠO ======
 (async function init(){
   renderCart();
+  
+  // ✅ GỌI API WEIGHT NGAY KHI LOAD
+  const cart = getCart();
+  if (cart.length > 0) {
+    try {
+      const weight = await ensureWeight(cart);
+      $('total-weight').textContent = toHumanWeight(weight);
+      console.log('[Checkout] Initial weight loaded:', weight, 'g');
+    } catch (e) {
+      console.error('[Checkout] Failed to load weight:', e);
+    }
+  }
+  
   initTomSelect();
   try { await loadProvinces(); } catch {}
   // Nếu đã có địa chỉ lưu trước đó, bạn có thể tự bổ sung khôi phục ở đây (optional)
