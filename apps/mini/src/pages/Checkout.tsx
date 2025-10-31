@@ -64,6 +64,7 @@ const ensureWeight = async (lines: any[]): Promise<number> => {
 export default function Checkout() {
   // === GIỎ HÀNG ==============================================================
   const [st, setSt] = useState<any>(cart.get());
+const [serverWeight, setServerWeight] = useState<number | null>(null);
 
   // === FORM NHẬN HÀNG ========================================================
   const [form, setForm] = useState<any>({
@@ -221,8 +222,10 @@ export default function Checkout() {
         if (weightToUse <= 0) {
           const g = await ensureWeight(st.lines || []);
           if (!alive) return;
-          if (g > 0) weightToUse = g;
-          else {
+          if (g > 0) {
+            setServerWeight(g);
+            weightToUse = g;
+          } else {
             setShippingList([]); setSelectedShipping(null);
             setShippingError('Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.');
             return;
@@ -364,7 +367,9 @@ export default function Checkout() {
       setError('Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường) tối thiểu 10 ký tự');
       setSubmitting(false); return;
     }
-    if (totalWeightGram <= 0) {
+    const localW = (() => { try { return Number(localStorage.getItem('cart_weight_gram') || 0); } catch { return 0; } })();
+    const effWeight = Number(serverWeight || localW || totalWeightGram || 0);
+    if (effWeight <= 0) {
       setError('Thiếu trọng lượng sản phẩm. Vui lòng bổ sung cân nặng trước khi đặt.');
       setSubmitting(false); return;
     }
@@ -455,7 +460,7 @@ export default function Checkout() {
     } finally {
       setSubmitting(false);
     }
-  }, [form, selectedShipping, st, subtotal, totalWeightGram, provinces, districts, wards, calculatedTotals]);
+  }, [form, selectedShipping, st, subtotal, totalWeightGram, serverWeight, provinces, districts, wards, calculatedTotals]);
 
   // === ẢNH SẢN PHẨM ==========================================================
   const getItemImage = useCallback((item: any) => {
@@ -611,12 +616,22 @@ export default function Checkout() {
             {/* === VẬN CHUYỂN (API thật, không fallback) ======================= */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
               <div className="font-semibold text-lg">Vận chuyển</div>
-              <div className="text-sm text-gray-600">Khối lượng: {toHumanWeight(totalWeightGram)}</div>
-              {totalWeightGram <= 0 && (
-                <div className="text-sm text-red-600 mt-2">
-                  ⚠️ Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.
-                </div>
-              )}
+              <div className="text-sm text-gray-600">Khối lượng: {toHumanWeight(
+              (serverWeight && serverWeight > 0
+                ? serverWeight
+                : (Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) || 0)
+              ) || totalWeightGram
+            )}</div>
+                          {(
+              Number(serverWeight || 0) <= 0 &&
+              Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) <= 0 &&
+              totalWeightGram <= 0
+            ) && (
+              <div className="text-sm text-red-600 mt-2">
+                ⚠️ Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.
+              </div>
+            )}
+
 
               {!form.province || !form.district ? (
                 <div className="text-sm text-gray-500 py-4 text-center">
