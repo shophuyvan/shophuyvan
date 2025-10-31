@@ -33,17 +33,40 @@ const toHumanWeight = grams => {
 // ====== CART / TÍNH TỔNG ======
 function getCart() {
   try {
+    // 1) Ưu tiên danh sách đã CHỌN do trang Giỏ hàng lưu sẵn
+    const ckRaw = localStorage.getItem('checkout_items');
+    if (ckRaw) {
+      const ck = JSON.parse(ckRaw);
+      if (Array.isArray(ck) && ck.length) return ck;
+    }
+
+    // 2) Đọc toàn bộ cart
     const keys = ['shv_cart_v1','cart','CART','shv_cart','shv_cart_items'];
+    let all = [];
     for (const k of keys) {
       const raw = localStorage.getItem(k);
       if (!raw) continue;
       const data = JSON.parse(raw);
-      if (Array.isArray(data)) return data;                 // FE cũ: cart=[]
-      if (data && Array.isArray(data.lines)) return data.lines; // {lines:[]}
+      if (Array.isArray(data)) { all = data; break; }                 // FE cũ: cart=[]
+      if (data && Array.isArray(data.lines)) { all = data.lines; break; } // {lines:[]}
     }
+
+    // 3) Nếu có danh sách id đã chọn → lọc từ cart
+    const sidRaw = localStorage.getItem('cart_selected_ids');
+    if (sidRaw) {
+      const ids = JSON.parse(sidRaw);
+      if (Array.isArray(ids) && ids.length) {
+        const set = new Set(ids.map(String));
+        return (all||[]).filter(it => set.has(String(it?.id)));
+      }
+    }
+
+    // 4) Fallback: chưa chọn gì → lấy toàn bộ
+    return all || [];
   } catch {}
   return [];
 }
+
 function clearCart() {
   ['cart','CART','shv_cart','shv_cart_v1','shv_cart_items'].forEach(k=>localStorage.removeItem(k));
   window.dispatchEvent(new Event('storage'));

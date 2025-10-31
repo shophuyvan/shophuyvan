@@ -62,11 +62,33 @@ const api = async (path: string, options: RequestInit = {}) => {
 
 
 export default function Checkout() {
-  // === GIỎ HÀNG ==============================================================
+ // === GIỎ HÀNG ==============================================================
   const [st, setSt] = useState<any>(cart.get());
-const [serverWeight, setServerWeight] = useState<number | null>(null);
+  const [serverWeight, setServerWeight] = useState<number | null>(null);
+
+  // Lọc các dòng đã CHỌN: ưu tiên checkout_items; sau đó cart_selected_ids; fallback = tất cả
+  const selectedIds = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('cart_selected_ids');
+      if (!raw) return new Set<string>();
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return new Set<string>(arr.map(String));
+    } catch {}
+    return new Set<string>();
+  }, [st]);
+
+  const selectedLines = useMemo(() => {
+    try {
+      const ck = JSON.parse(localStorage.getItem('checkout_items') || '[]');
+      if (Array.isArray(ck) && ck.length) return ck;
+    } catch {}
+    const all = Array.isArray(st?.lines) ? st.lines : [];
+    if (selectedIds.size === 0) return all;
+    return all.filter((l: any) => selectedIds.has(String(l?.id)));
+  }, [st, selectedIds]);
 
   // === FORM NHẬN HÀNG ========================================================
+
   const [form, setForm] = useState<any>({
     name: '',
     phone: '',
@@ -90,28 +112,31 @@ const [serverWeight, setServerWeight] = useState<number | null>(null);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
 
-  // === SUBTOTAL & TRỌNG LƯỢNG THỰC (❌ KHÔNG FALLBACK) =======================
-  // subtotal = Σ (price * qty)
+  // subtotal = Σ (price * qty) — chỉ theo dòng đã chọn
   const subtotal = useMemo(
-    () => st.lines.reduce((s: number, it: any) => s + Number(it.price || 0) * Number(it.qty || 1), 0),
-    [st]
+    () => (Array.isArray(selectedLines) ? selectedLines : []).reduce(
+      (s: number, it: any) => s + Number(it.price || 0) * Number(it.qty || 1),
+      0
+    ),
+    [selectedLines]
   );
 
 // totalWeightGram = Σ ( (weight_gram || weight_grams || weight || variant.weight_gram) * qty )
 // Nếu item không có cân nặng => tính 0 cho item đó (đúng yêu cầu "không fallback").
 const totalWeightGram = useMemo(() => {
-  return st.lines.reduce((sum: number, it: any) => {
+  const src = Array.isArray(selectedLines) ? selectedLines : [];
+  return src.reduce((sum: number, it: any) => {
     const w = Number(
       it.weight_gram ??
-        it.weight_grams ??
-        it.weight ??
-        it.variant?.weight_gram ??
-        0
+      it.weight_grams ??
+      it.weight ??
+      it.variant?.weight_gram ??
+      0
     );
     const q = Number(it.qty || 1);
     return sum + (w > 0 ? w * q : 0);
   }, 0);
-}, [st]);
+}, [selectedLines]);
 
 // Nếu thiếu cân nặng ở cart → hỏi server để lấy total_gram thật
 const [weightOverride, setWeightOverride] = useState<number | null>(null);
@@ -249,7 +274,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
 
         let weightToUse = Number(totalWeightGram || 0);
         if (weightToUse <= 0) {
-          const g = await fetchServerWeight(st.lines || []);
+          const g = await fetchServerWeight(selectedLines || []);
           if (!alive) return;
           if (g > 0) {
             setServerWeight(g);
@@ -532,9 +557,9 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
           <div className="space-y-4">
             {/* === ĐƠN HÀNG ===================================================== */}
             <div className="bg-white rounded-2xl p-4 shadow">
-              <div className="font-semibold mb-3">Đơn hàng ({st.lines.length} sản phẩm)</div>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {st.lines.map((l: any) => (
+              <div className="font-semibold mb-3">Đơn hàng ({(selectedLines||[]).length} sản phẩm)</div>
+<div className="space-y-3 max-h-96 overflow-y-auto">
+  {(selectedLines||[]).map((l: any) => (
                   <div key={String(l.id)} className="flex gap-3 p-3 border rounded-xl">
                     <img
                       src={getItemImage(l)}
