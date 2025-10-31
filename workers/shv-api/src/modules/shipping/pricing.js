@@ -210,12 +210,18 @@ async function getShippingWeight(req, env) {
     const lines = Array.isArray(body.lines) ? body.lines : [];
     if (!lines.length) return json({ ok: true, total_gram: 0 }, {}, req);
 
+    // helper: chuẩn hoá chuỗi để so khớp không dấu/không khoảng trắng
+    const norm = (s) => String(s ?? '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // bỏ dấu
+      .toLowerCase().replace(/\s+/g, '').trim();
+
     let total = 0;
 
     for (const line of lines) {
       const pid = String(line.product_id ?? line.productId ?? line.id ?? '').trim();
-      const vname = String(line.variant_name ?? line.variantName ?? '').trim();
+      const vnameRaw = String(line.variant_name ?? line.variantName ?? '').trim();
       const vid = String(line.variant_id ?? line.variantId ?? '').trim();
+      const vsku = String(line.variant_sku ?? line.sku ?? '').trim();
       const qty = Number(line.qty ?? line.quantity ?? 1) || 1;
 
       if (!pid) continue;
@@ -225,19 +231,53 @@ async function getShippingWeight(req, env) {
       if (!product) continue;
 
       const variants = Array.isArray(product.variants) ? product.variants : [];
-
-      // Ưu tiên match theo variant_id; nếu không có → match theo tên (không phân biệt hoa/thường)
       let match = null;
+
+      // 1) Ưu tiên variant_id
       if (vid) {
         match = variants.find(v => String(v.id ?? v._id ?? '').trim() === vid) || null;
       }
-      if (!match && vname) {
-        const target = vname.toLowerCase().trim();
-        match =
-          variants.find(v => String(v.name ?? v.title ?? '').toLowerCase().trim() === target) ||
-          variants.find(v => String(v.name ?? v.title ?? '').toLowerCase().includes(target)) ||
-          null;
+
+      // 2) SKU (nếu FE/Mini có gửi)
+      if (!match && vsku) {
+        const S = vsku.toLowerCase().trim();
+        match = variants.find(v => String(v.sku ?? v.SKU ?? '').toLowerCase().trim() === S) || null;
       }
+
+      // 3) Tên biến thể: không dấu + bỏ khoảng trắng; thử name/title và ghép từ options
+      if (!match && vnameRaw) {
+        const target = norm(vnameRaw);
+
+        const makeNames = (v) => {
+          const base = [
+            v.name, v.title,
+            // phổ biến trên dữ liệu: option1/2/3, options=[], attributes=[]
+            v.option1, v.option2, v.option3
+          ].filter(Boolean).map(norm);
+
+          // ghép options nếu tồn tại
+          const opts = Array.isArray(v.options) ? v.options.map(norm) : [];
+          const attrs = Array.isArray(v.attributes) ? v.attributes.map(a => norm(a?.value ?? a?.name ?? '')).filter(Boolean) : [];
+
+          // candidate chuỗi ghép: "màus-64gb", "64gbmàus", ...
+          const merges = [];
+          if (opts.length) merges.push(norm(opts.join('-')), norm(opts.join(' ')));
+          if (attrs.length) merges.push(norm(attrs.join('-')), norm(attrs.join(' ')));
+
+          return [...base, ...opts, ...attrs, ...merges].filter(Boolean);
+        };
+
+        match = variants.find(v => {
+          const names = makeNames(v);
+          // trùng tuyệt đối
+          if (names.includes(target)) return true;
+          // chứa (cho trường hợp nhận chuỗi dài)
+          return names.some(n => target.includes(n) || n.includes(target));
+        }) || null;
+      }
+
+      // 4) Nếu vẫn chưa match và chỉ có 1 biến thể → dùng biến thể duy nhất
+      if (!match && variants.length === 1) match = variants[0];
 
       const w = Number(match?.weight_gram ?? match?.weight ?? 0) || 0;
       if (w > 0) total += w * qty;
