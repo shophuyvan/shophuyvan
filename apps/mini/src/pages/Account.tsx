@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 
-const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = 'https://api.shophuyvan.vn';
 
 interface Address {
   id: string;

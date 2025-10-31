@@ -1,7 +1,7 @@
 // apps/fe/src/member.js
 // Trang thông tin thành viên
 
-const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = window.API_BASE || 'https://api.shophuyvan.vn';
 
 // API Helper
 async function api(endpoint, options = {}) {

@@ -1,7 +1,10 @@
 /* [FILE: apps/admin/_shared/api-admin.js] */
 (function () {
   window.SHARED = window.SHARED || {};
-  const api = {};
+const api = {};
+
+// ✅ Override API_BASE cho admin
+window.API_BASE = 'https://api.shophuyvan.vn';
 
   // Dùng lại Admin.req() sẵn có để không đụng auth
   api.tryPaths = async (paths) => {

@@ -17,7 +17,7 @@ window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
   let apiBase = store('apiBase') || (location.hostname === 'localhost'
   ? 'http://localhost:8787'
-  : 'https://shv-api.shophuyvan.workers.dev');
+  : 'https://api.shophuyvan.vn');
 
   function setBase(v){
     if (!v) return apiBase;

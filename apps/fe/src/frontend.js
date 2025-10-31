@@ -39,7 +39,7 @@ function cloudifyBanner(url) {
 function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   try {
     if (!u) return u;
-    const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://shophuyvan1.pages.dev';
+    const base = (typeof location!=='undefined' && location.origin) ? location.origin : 'https://shophuyvan.vn';
     const url = new URL(u, base);
     if (!/res\.cloudinary\.com/i.test(url.hostname)) return u;
     if (/\/upload\/[^/]+\//.test(url.pathname)) return url.toString();

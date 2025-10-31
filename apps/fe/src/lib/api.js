@@ -7,7 +7,7 @@ function withTimeout(promise, ms=10000){
   });
 }
 async function core(path, init = {}) {
-  const fallback = 'https://shv-api.shophuyvan.workers.dev';
+  const fallback = 'https://api.shophuyvan.vn';
   const base = (window.API_BASE || fallback).replace(/\/+$/,'');
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 

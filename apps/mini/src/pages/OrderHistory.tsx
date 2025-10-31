@@ -47,7 +47,7 @@ const OrderHistory: React.FC = () => {
       let response = null;
       for (const endpoint of endpoints) {
         try {
-          const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+          const API_BASE = 'https://api.shophuyvan.vn';
           const res = await fetch(`${API_BASE}${endpoint}`, {
             headers: {
               'x-token': token,

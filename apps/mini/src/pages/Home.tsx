@@ -279,7 +279,7 @@ export default function Home() {
               console.log('✅ Zalo User Info:', userInfo);
               
               try {
-                const response = await fetch('https://shv-api.shophuyvan.workers.dev/api/users/activate', {
+                const response = await fetch('https://api.shophuyvan.vn/api/users/activate', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({

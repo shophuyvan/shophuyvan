@@ -1,7 +1,7 @@
 // ==== apps/fe/src/lib/cart-sync-shared.js ====
 // Bản ESM thuần trình duyệt: cung cấp getSessionId, CartSyncManager, initCartSync
 
-const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = 'https://api.shophuyvan.vn';
 const SESSION_KEY = 'shv_session_id';
 const LAST_SYNC_KEY = 'shv_last_sync';
 const DEFAULT_CART_KEY = 'cart'; // FE đang dùng format array trong localStorage

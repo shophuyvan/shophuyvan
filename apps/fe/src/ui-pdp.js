@@ -104,7 +104,7 @@ async function getCustomerInfo() {
     const token = getCustomerToken();
     if (!token) return null;
     
-    const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const API_BASE = window.API_BASE || 'https://api.shophuyvan.vn';
     const res = await fetch(`${API_BASE}/api/customers/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
