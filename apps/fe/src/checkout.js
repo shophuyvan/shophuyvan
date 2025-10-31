@@ -525,7 +525,7 @@ $('place-order').addEventListener('click', async () => {
         weight_grams: Number(it.weight_gram||it.weight_grams||it.weight||0),
         weight: Number(it.weight_gram||it.weight_grams||it.weight||0)
       })),
-      note: $('#note').value || '',
+      note: val('note') || '',
       // ✅ THÊM TRƯỜNG NÀY
       allow_inspection: allowInspection,
       cod_amount: allowInspection ? grandTotal : 0, // Nếu cho xem hàng → COD = tổng tiền
