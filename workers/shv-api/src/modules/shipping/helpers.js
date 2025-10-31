@@ -262,7 +262,18 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
 // ===================================================================
 
 export function chargeableWeightGrams(body = {}, order = {}) {
-  let weight = Number(order.weight_gram || body.weight_gram || body.package?.weight_grams || 0) || 0;
+  // ✅ FIX: Ưu tiên order.weight_gram (đã tính sẵn) trước
+  let weight = Number(
+    order.weight_gram || 
+    order.weight_grams || 
+    order.weight || 
+    body.weight_gram || 
+    body.weight || 
+    body.package?.weight_grams || 
+    0
+  ) || 0;
+  
+  console.log('[chargeableWeight] Order level weight:', weight, 'g');
 
   const items = Array.isArray(body.items) ? body.items :
                (Array.isArray(order.items) ? order.items : []);

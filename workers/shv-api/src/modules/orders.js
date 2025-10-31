@@ -535,9 +535,18 @@ async function createOrder(req, env) {
   // Normalize & enrich items (ĐÃ SỬA normalizeOrderItems để lưu ảnh)
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
+  
+  // ✅ FIX: Tính tổng weight từ items
+  const totalWeight = items.reduce((sum, item) => {
+    const w = Number(item.weight_gram || item.weight_grams || item.weight || 0);
+    const qty = Number(item.qty || 1);
+    return sum + w * qty;
+  }, 0);
+  
+  console.log('[ORDER] Total weight calculated:', totalWeight, 'g from', items.length, 'items');
 
   // Calculate subtotal
-  const subtotal = items.reduce((sum, item) =>
+   const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
   );
 
@@ -621,6 +630,10 @@ async function createOrder(req, env) {
     customer: finalCustomer,
     items,
     subtotal,
+    // ✅ FIX: Lưu weight vào order level
+    weight_gram: totalWeight || 0,
+    weight_grams: totalWeight || 0,
+    weight: totalWeight || 0,
     shipping_fee,
     discount: final_discount,
     shipping_discount: final_ship_discount,

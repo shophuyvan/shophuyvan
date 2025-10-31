@@ -456,6 +456,15 @@ export async function autoCreateWaybill(order, env) {
 // Tính toán các giá trị
     const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
+    
+    // ✅ LOG chi tiết weight
+    console.log('[autoCreateWaybill] 📦 Weight debug:', {
+      order_weight_gram: order.weight_gram,
+      order_weight_grams: order.weight_grams,
+      order_weight: order.weight,
+      calculated: totalWeight,
+      items_count: order.items?.length || 0
+    });
 
     // SỬA: Logic Phí (Theo yêu cầu của bạn: Khách trả phí)
     // Payer = 2 (Khách trả phí)
@@ -619,7 +628,7 @@ export async function printWaybill(req, env) {
     // 2. Lấy settings để có logo
     const settings = await getJSON(env, 'settings', {}) || {};
     const store = settings.store || {};
-    const logo = store.logo || 'https://shophuyvan1.pages.dev/logo.png';
+    const logo = store.logo || 'https://shophuyvan.vn/logo.png';
 
     // 3. Tạo HTML template A5 dọc
     // ✅ Fallback: Nếu không có sender/receiver, dùng dữ liệu từ settings + hardcode
