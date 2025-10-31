@@ -421,22 +421,31 @@ $('apply-voucher').addEventListener('click', applyVoucher);
 
 // ====== KHỞI TẠO ======
 (async function init(){
+  console.log('[Checkout] Init started');
+  
   renderCart();
   
   // ✅ GỌI API WEIGHT NGAY KHI LOAD
   const cart = getCart();
+  console.log('[Checkout] Cart items:', cart.length, cart);
+  
   if (cart.length > 0) {
     try {
+      console.log('[Checkout] Calling ensureWeight...');
       const weight = await ensureWeight(cart);
       $('total-weight').textContent = toHumanWeight(weight);
       console.log('[Checkout] Initial weight loaded:', weight, 'g');
     } catch (e) {
       console.error('[Checkout] Failed to load weight:', e);
     }
+  } else {
+    console.warn('[Checkout] Cart is empty, skipping weight API call');
   }
   
   initTomSelect();
   try { await loadProvinces(); } catch {}
+  
+  console.log('[Checkout] Init completed');
 })();
 
 // ====== ĐẶT HÀNG ======
