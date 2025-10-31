@@ -145,7 +145,14 @@ function renderCart() {
   }).join('') : `<div class="p-10 text-center text-gray-500">Giỏ hàng trống.</div>`;
   $('cart-items').innerHTML = html;
   $('subtotal').textContent = fmtVND(calcSubtotal(cart));
-  $('total-weight').textContent = toHumanWeight(calcWeight(cart));
+  const wLocal = calcWeight(cart);
+  $('total-weight').textContent = toHumanWeight(wLocal);
+  // nếu local = 0g, hỏi server để hiện đúng số gram ngay
+  if (!wLocal) {
+    ensureWeight(cart).then(g => {
+      $('total-weight').textContent = toHumanWeight(g);
+    }).catch(()=>{ /* ignore */ });
+  }
   updateSummary();
 }
 

@@ -144,7 +144,8 @@ const [weightOverride, setWeightOverride] = useState<number | null>(null);
   const ensureLocalWeight = useCallback(async () => {
   if (totalWeightGram > 0) { setWeightOverride(null); return; }
   try {
-    const lines = st.lines.map((it: any) => ({
+    const src = Array.isArray(selectedLines) ? selectedLines : (st.lines || []);
+    const lines = src.map((it: any) => ({
       product_id: it.productId || it.id,
       variant_name: it.variant_name || it.variantName || '',
       qty: Number(it.qty || it.quantity || 1),
@@ -558,8 +559,8 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
             {/* === ĐƠN HÀNG ===================================================== */}
             <div className="bg-white rounded-2xl p-4 shadow">
               <div className="font-semibold mb-3">Đơn hàng ({(selectedLines||[]).length} sản phẩm)</div>
-<div className="space-y-3 max-h-96 overflow-y-auto">
-  {(selectedLines||[]).map((l: any) => (
+             <div className="space-y-3 max-h-96 overflow-y-auto">
+                {(selectedLines||[]).map((l: any) => (
                   <div key={String(l.id)} className="flex gap-3 p-3 border rounded-xl">
                     <img
                       src={getItemImage(l)}
@@ -670,15 +671,9 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
             {/* === VẬN CHUYỂN (API thật, không fallback) ======================= */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
               <div className="font-semibold text-lg">Vận chuyển</div>
-              <div className="text-sm text-gray-600">Khối lượng: {toHumanWeight(
-              Number(
-                serverWeight && serverWeight > 0
-                  ? serverWeight
-                  : (totalWeightGram > 0
-                      ? totalWeightGram
-                      : Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) || 0)
-              )
-            )}</div>
+              <div className="text-sm text-gray-600">
+                Khối lượng: {toHumanWeight(effectiveWeightGram)}
+              </div>
                           {(
               Number(serverWeight || 0) <= 0 &&
               Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) <= 0 &&
