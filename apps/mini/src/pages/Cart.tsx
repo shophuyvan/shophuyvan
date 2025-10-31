@@ -159,19 +159,31 @@ export default function CartPage() {
     return { subtotal, discount, total };
   }, [selectedItems, state.lines]);
 
-  // -----------------------------------------------------------------------------
-  // CHECKOUT: lưu items + voucher rồi điều hướng (đồng bộ FE)
+    // -----------------------------------------------------------------------------
+  // CHECKOUT: lưu items (và set sẵn cân nặng tổng) rồi điều hướng
   // -----------------------------------------------------------------------------
   const handleCheckout = useCallback(() => {
     if (selectedItems.size === 0) {
       alert('Vui lòng chọn ít nhất 1 sản phẩm');
       return;
     }
+
     const selectedCartItems = state.lines.filter(l => selectedItems.has(String(l.id)));
     localStorage.setItem('checkout_items', JSON.stringify(selectedCartItems));
-    // không lưu voucher
+
+    // ✅ set sẵn tổng cân nặng theo mục đã chọn (gram)
+    try {
+      const totalWeight = selectedCartItems.reduce((s, it: any) => {
+        const w = Number((it as any).weight_gram || (it as any).weight_grams || (it as any).weight || 0);
+        return s + w * Number((it as any).qty || 1);
+      }, 0);
+      localStorage.setItem('cart_weight_gram', String(totalWeight));
+    } catch {}
+
+    // điều hướng
     window.location.href = routes.checkout;
   }, [selectedItems, state.lines]);
+
 
   // -----------------------------------------------------------------------------
   // PHÂN NHÓM: Website vs MiniApp (giống FE)
