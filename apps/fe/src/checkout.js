@@ -86,19 +86,25 @@ function calcWeight(cart) {
 
 // API: nếu thiếu cân nặng → hỏi server để lấy total_gram thật
 async function ensureWeight(cart) {
-  let g = calcWeight(cart);
+  // ❗ Không dùng cache local để quyết định có gọi API hay không
+  // Tính cân nặng "thật" chỉ từ từng dòng (weight_gram/weight_grams/weight)
+  let g = cart.reduce((s, it) => {
+    const per = Number(it.weight_gram || it.weight_grams || it.weight || 0);
+    return s + per * Number(it.qty || 1);
+  }, 0);
   if (g > 0) return g;
 
   try {
-    // chuẩn hoá payload gửi server: product_id + variant_name + qty
+    // chuẩn hoá payload gửi server: product_id + variant info + qty
     const lines = cart.map(it => ({
-  product_id: it.productId || it.product_id || it.pid || it.id,
-  variant_id: it.variant_id || it.variantId || it.vid || (it.variant && it.variant.id) || '',
-  variant_sku: it.variant_sku || it.sku || (it.variant && it.variant.sku) || '',
-  variant_name: it.variant_name || it.variantName || (it.variant && (it.variant.name || it.variant.title)) || '',
-  weight_gram: Number(it.weight_gram ?? it.weight ?? (it.variant && it.variant.weight_gram) ?? 0) || 0,
-  qty: Number(it.qty || 1),
-}));
+      product_id: it.productId || it.product_id || it.pid || it.id,
+      variant_id: it.variant_id || it.variantId || it.vid || (it.variant && it.variant.id) || '',
+      variant_sku: it.variant_sku || it.sku || (it.variant && it.variant.sku) || '',
+      variant_name: it.variant_name || it.variantName || (it.variant && (it.variant.name || it.variant.title)) || '',
+      weight_gram: Number(it.weight_gram ?? it.weight ?? (it.variant && it.variant.weight_gram) ?? 0) || 0,
+      qty: Number(it.qty || 1),
+    }));
+
 
     const res = await api('/shipping/weight', {
       method: 'POST',
