@@ -148,9 +148,16 @@ export async function createWaybill(req, env) {
       payer: String(body.payer || order.payer || '1'),
       
      // Service (REQUIRED)
-    // Chuẩn hoá sang mã số SuperAI
-    carrier_code: await resolveCarrierCode(env, (ship.provider || body.provider || order.shipping_provider || order.shipping_provider_code || '')),
-    service_code: ship.service_code || body.service_code || order.shipping_service || '',
+      // ✅ FIX: Ưu tiên order.shipping_provider trước
+      carrier_code: await resolveCarrierCode(env, (
+        order.shipping_provider || 
+        body.shipping_provider || 
+        ship.provider || 
+        body.provider || 
+        order.shipping_provider_code || 
+        ''
+      )),
+      service_code: order.shipping_service || ship.service_code || body.service_code || '',
 
       
        // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
@@ -493,8 +500,14 @@ export async function autoCreateWaybill(order, env) {
       soc: order.soc || order.id || '',
       
       payer: payer, // '2' = Khách trả phí
-      carrier_code: await resolveCarrierCode(env, (order.shipping_provider || order.shipping_provider_code || '')),
-      service_code: order.shipping_service || '', // giữ đúng service đã chọn
+      // ✅ FIX: Đọc đúng trường shipping_provider từ order
+      carrier_code: await resolveCarrierCode(env, (
+        order.shipping_provider || 
+        order.shipping_provider_code || 
+        order.shipping_name || 
+        ''
+      )),
+      service_code: order.shipping_service || order.service_code || '',
       config: '1', // Cho xem hàng
       product_type: '2',
       option_id: shipping.option_id || '1',

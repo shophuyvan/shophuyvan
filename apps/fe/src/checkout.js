@@ -51,7 +51,6 @@ const textOfSelect = (id) => {
   return (opt && typeof opt.text === 'string') ? opt.text : '';
 };
 
-
 // ====== CART / TÍNH TỔNG ======
 function getCart() {
   try {
@@ -564,10 +563,41 @@ $('place-order').addEventListener('click', async () => {
     });
 
     if (res && (res.id || res.success || res.status==='ok')) {
-      $('order-result').innerHTML = `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${res.id||''}</b></div>`;
-      clearCart(); localStorage.removeItem('idem_order');
-      renderCart();
-    } else {
+  // Xoá giỏ hàng & idempotency
+  clearCart();
+  localStorage.removeItem('idem_order');
+
+  // Hiển thị màn hình thành công (overlay)
+  const ov   = document.getElementById('success-overlay');
+  const oid  = document.getElementById('success-order-id');
+  const btn  = document.getElementById('success-btn');
+  const sec  = document.getElementById('success-countdown');
+
+  if (ov) {
+    if (oid) oid.textContent = String(res.id || '');
+    ov.classList.remove('hidden');
+
+    // Button chuyển đến trang quản lý đơn
+    const gotoOrders = () => { window.location.href = '/myorders'; };
+    if (btn) btn.addEventListener('click', gotoOrders);
+
+    // Tự động chuyển sau 5s
+    let t = 5;
+    const timer = setInterval(() => {
+      t -= 1;
+      if (sec) sec.textContent = String(t);
+      if (t <= 0) { clearInterval(timer); gotoOrders(); }
+    }, 1000);
+  } else {
+    // Fallback: nếu không có overlay, vẫn báo thành công ngắn gọn
+    $('order-result').innerHTML =
+      `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${res.id||''}</b></div>`;
+  }
+
+  // Cập nhật UI giỏ hàng phía dưới (không bắt buộc, nhưng an toàn)
+  renderCart();
+} else {
+
       showError(res?.message || 'Đặt hàng thất bại');
     }
   } catch (e) {

@@ -272,8 +272,19 @@ export function chargeableWeightGrams(body = {}, order = {}) {
       weight = items.reduce((sum, item) => {
         const w = Number(item.weight_gram || item.weight_grams || item.weight || 0);
         const qty = Number(item.qty || item.quantity || 1);
-        return sum + w * qty;
+        const itemTotal = w * qty;
+        // ✅ LOG chi tiết để debug
+        console.log('[chargeableWeight] Item:', {
+          name: item.name,
+          weight_gram: item.weight_gram,
+          weight_grams: item.weight_grams,
+          weight: item.weight,
+          qty,
+          itemTotal
+        });
+        return sum + itemTotal;
       }, 0);
+      console.log('[chargeableWeight] Total from items:', weight, 'g');
     } catch (e) {
       console.error('Weight calculation error:', e);
     }

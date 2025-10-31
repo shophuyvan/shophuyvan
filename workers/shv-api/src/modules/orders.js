@@ -200,10 +200,13 @@ function normalizeOrderItems(items) {
       qty: Number(it.qty ?? it.quantity ?? 1) || 1,
       price: Number(it.price || 0),
       cost: Number(it.cost || 0),
-      // ===== ⭐️ FIX HÌNH ẢNH (PROBLEM 1) ⭐️ =====
-      // Thêm 2 dòng này để lưu hình ảnh vào đơn hàng
+      // ===== ⭐️ FIX HÌNH ẢNH VÀ CÂN NẶNG ⭐️ =====
       image: it.image || it.variantImage || null,
-      variant_image: it.variantImage || it.image || null
+      variant_image: it.variantImage || it.image || null,
+      // ✅ THÊM 3 DÒNG NÀY để lưu cân nặng
+      weight_gram: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0,
+      weight_grams: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0,
+      weight: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0
       // ==========================================
     };
   });
