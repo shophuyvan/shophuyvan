@@ -44,8 +44,12 @@ const api = async (path: string, options: RequestInit = {}) => {
   const fetchServerWeight = async (lines: any[]): Promise<number> => {
   const payload = {
     lines: lines.map((it: any) => ({
-      product_id: it.productId || it.id,
-      variant_name: it.variant_name || it.variantName || '',
+      product_id: it.productId || it.product_id || it.pid || it.id,
+      variant_id: it.variant_id || it.variantId || it.vid || it.variant?.id || '',
+      variant_sku: it.variant_sku || it.sku || it.variant?.sku || '',
+      variant_name: it.variant_name || it.variantName || it.variant?.name || it.variant?.title || '',
+      // nếu client đã có cân nặng biến thể thì gửi luôn cho server dùng trực tiếp
+      weight_gram: Number(it.weight_gram ?? it.weight ?? it.variant?.weight_gram ?? 0) || 0,
       qty: Number(it.qty || it.quantity || 1),
     })),
   };
@@ -53,7 +57,6 @@ const api = async (path: string, options: RequestInit = {}) => {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  // hỗ trợ cả 2 dạng: { total_gram } hoặc { data: { total_gram } }
   const g = Number(
     (data && (data.total_gram ?? data.totalGram)) ??
     (data && data.data && (data.data.total_gram ?? data.data.totalGram)) ??
@@ -64,6 +67,7 @@ const api = async (path: string, options: RequestInit = {}) => {
   }
   return g;
 };
+
 
 
 export default function Checkout() {
