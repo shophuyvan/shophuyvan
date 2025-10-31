@@ -8,7 +8,7 @@ import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken } from './helpers.js';
+import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken, resolveCarrierCode } from './helpers.js';
 import { getWaybillHTML } from './waybill-template.js';
 
 export async function createWaybill(req, env) {
@@ -147,9 +147,11 @@ export async function createWaybill(req, env) {
       // Payer (REQUIRED) - '1' = Shop trả phí, '2' = Người nhận trả
       payer: String(body.payer || order.payer || '1'),
       
-      // Service (REQUIRED)
-      provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
-      service_code: ship.service_code || body.service_code || order.shipping_service || '',
+     // Service (REQUIRED)
+    // Chuẩn hoá sang mã số SuperAI
+    carrier_code: await resolveCarrierCode(env, (ship.provider || body.provider || order.shipping_provider || order.shipping_provider_code || '')),
+    service_code: ship.service_code || body.service_code || order.shipping_service || '',
+
       
        // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
       config: String(body.config || order.config || '1'),
@@ -220,21 +222,21 @@ export async function createWaybill(req, env) {
     const superai_code = data?.data?.superai_code || data?.data?.tracking || null;
 
     if (isSuccess && (carrier_code || superai_code)) {
-      await putJSON(env, 'shipment:' + (order.id || body.order_id || carrier_code), { // Dùng order.id hoặc carrier_code làm key
-        provider: payload.provider,
-        service_code: payload.service_code,
-        carrier_code: carrier_code, // Lưu mã NV
-        superai_code: superai_code, // Lưu mã SuperAI
-        raw: data,
-        createdAt: Date.now()
-      });
-
-      const response = json({ 
-        ok: true, 
-        carrier_code: carrier_code, // Sửa: Trả về mã NV
-        superai_code: superai_code, // Sửa: Trả về mã SuperAI
-        provider: payload.provider 
-      }, {}, req);
+      await putJSON(env, 'shipment:' + (order.id || body.order_id || carrier_code), {
+       provider: (order.shipping_provider || body.provider || ship.provider || ''), // lưu tên hiển thị để xem trên Admin
+       carrier_code: carrier_code,        // mã số SuperAI
+       service_code: payload.service_code,
+       superai_code: superai_code,
+       raw: data,
+       createdAt: Date.now()
+     });
+     ...
+     const response = json({ 
+       ok: true,
+       carrier_code: carrier_code,        // mã số SuperAI
+       superai_code: superai_code,
+       provider: (order.shipping_provider || body.provider || ship.provider || '')
+     }, {}, req);
       
       await idemSet(idem.key, env, response);
       return response;
@@ -490,9 +492,9 @@ export async function autoCreateWaybill(order, env) {
       value: totalValue, // Sửa: Giá trị đơn hàng (full)
       soc: order.soc || order.id || '',
       
-      payer: payer, // Sửa: '2' (Khách trả phí)
-      provider: (order.shipping_provider || 'vtp').toLowerCase(),
-      service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
+      payer: payer, // '2' = Khách trả phí
+      carrier_code: await resolveCarrierCode(env, (order.shipping_provider || order.shipping_provider_code || '')),
+      service_code: order.shipping_service || '', // giữ đúng service đã chọn
       config: '1', // Cho xem hàng
       product_type: '2',
       option_id: shipping.option_id || '1',
@@ -522,15 +524,15 @@ export async function autoCreateWaybill(order, env) {
       const superai_code = data?.data?.order_soc || order.id;
       
       if (carrier_code) {
-        return {
-          ok: true,
-          carrier_code: carrier_code,
-          superai_code: superai_code,
-          carrier_id: null,
-          provider: payload.provider,
-          raw: data.data
-        };
-      }
+       return {
+         ok: true,
+         carrier_code: carrier_code,
+         superai_code: superai_code,
+         carrier_id: null,
+         provider: (order.shipping_provider || order.shipping_provider_code || ''),
+         raw: data.data
+       };
+     }
     }
     
     // ✅ TẠO MỚI THÀNH CÔNG
@@ -540,15 +542,16 @@ export async function autoCreateWaybill(order, env) {
     const carrier_id = data?.data?.carrier_id || null;
 
     if (isSuccess && (carrier_code || superai_code)) {
-      return { 
-        ok: true, 
-        carrier_code: carrier_code,
-        superai_code: superai_code,
-        carrier_id: carrier_id,
-        provider: payload.provider, 
-        raw: data.data 
-      };
-    }
+       return { 
+         ok: true, 
+         carrier_code: carrier_code,
+         superai_code: superai_code,
+         carrier_id: carrier_id,
+         provider: (order.shipping_provider || order.shipping_provider_code || ''), 
+         raw: data.data 
+       };
+     }
+
 
     const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
     return { ok: false, message: errorMessage, raw: data };

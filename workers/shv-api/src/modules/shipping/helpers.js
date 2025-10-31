@@ -5,33 +5,29 @@
 import { getJSON, putJSON } from '../../lib/kv.js';
 
 /**
- * Get SuperAI token from settings
+ * Lấy SuperAI token (có thể đổi sang đọc từ env/settings)
  */
-  export async function superToken(env) {
+export async function superToken(env) {
+  // TODO: thay bằng env.SUPERAI_TOKEN khi bạn đã cấu hình secret
   return "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5".trim();
 }
 
-
 /**
- * Fetch from SuperAI API
+ * Fetch SuperAI (giữ nguyên cách log/debug hiện tại)
  */
 export async function superFetch(env, path, options = {}) {
-  const base = 'https://api.superai.vn'; // SỬA: dev -> api
+  const base = 'https://api.superai.vn'; // dùng domain chính
   const token = await superToken(env);
 
-  // ✅ THÊM LOG ĐỂ DEBUG TOKEN
   console.log('[superFetch] 🔑 Token retrieved:', token ? `${token.substring(0, 20)}...` : '❌ EMPTY');
 
   const method = (options.method || 'GET').toUpperCase();
-
   const headers = {
     'Accept': 'application/json',
     'Token': String(token || '').trim(),
-    // Sẽ bổ sung Content-Type bên dưới nếu có body là object
     ...options.headers
   };
 
-  // ✅ LOG HEADERS TRƯỚC KHI GỬI
   console.log('[superFetch] 📤 Headers:', JSON.stringify(headers, null, 2));
   console.log('[superFetch] 🌐 URL:', base + path);
 
@@ -39,38 +35,30 @@ export async function superFetch(env, path, options = {}) {
 
   if (options.body !== undefined && options.body !== null) {
     if (typeof options.body === 'string') {
-      // Đã là chuỗi JSON (hoặc form khác) thì giữ nguyên
       config.body = options.body;
-      // Nếu bạn muốn ép luôn JSON thì có thể bỏ qua nhánh string này
     } else {
-      // Object → stringify và đặt Content-Type
       config.body = JSON.stringify(options.body);
       config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json';
     }
   }
 
-  // ✅ LOG PAYLOAD
   if (config.body) {
-    console.log('[superFetch] 📦 Payload:', config.body.substring(0, 500));
+    console.log('[superFetch] 📦 Payload:', String(config.body).substring(0, 500));
   }
 
   try {
     const response = await fetch(base + path, config);
     const responseText = await response.text();
 
-    // ✅ LOG RESPONSE
     console.log('[superFetch] 📥 Response status:', response.status);
     console.log('[superFetch] 📥 Response body:', (responseText || '').substring(0, 500));
 
-    // Kiểm tra content-type để quyết định parse
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
     const isJson = contentType.includes('application/json');
 
-    // Nếu là JSON → parse an toàn
     if (isJson) {
       try {
         const json = responseText ? JSON.parse(responseText) : null;
-        // Trả về luôn JSON (kể cả lỗi 4xx/5xx để caller tự xử lý)
         return json ?? { ok: false, status: response.status, raw: null };
       } catch (err) {
         console.warn('[superFetch] ⚠️ JSON parse failed:', err?.message);
@@ -78,42 +66,106 @@ export async function superFetch(env, path, options = {}) {
       }
     }
 
-    // Không phải JSON → trả về raw để nhìn được lỗi thật
     return { ok: response.ok, status: response.status, raw: responseText || null };
-
   } catch (e) {
     console.error('[superFetch] ❌ Error:', path, e);
     return { ok: false, status: 0, raw: String(e?.message || e) };
   }
 }
+
+// ===================================================================
+// Carriers: cache danh sách & resolve carrier_code (mã số SuperAI)
+// ===================================================================
+
+const NORM = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim();
+
 /**
- * Tra cứu mã district chuẩn từ SuperAI API
- * @param {Object} env - Cloudflare Workers environment
- * @param {string} provinceCode - Mã tỉnh/thành (VD: '79' cho TP.HCM)
- * @param {string} districtName - Tên quận/huyện (VD: 'Quận 7', 'Huyện Bình Chánh')
- * @returns {Promise<string|null>} - Mã district chuẩn hoặc null nếu không tìm thấy
+ * Lấy danh sách carriers và cache 24h vào KV
+ */
+export async function getCarriersList(env) {
+  const cacheKey = 'ship:carriers';
+  let list = await getJSON(env, cacheKey, null, { ns: 'VANCHUYEN' });
+  if (Array.isArray(list) && list.length) return list;
+
+  const res = await superFetch(env, '/v1/platform/carriers/list', { method: 'GET' });
+  const arr = Array.isArray(res?.data) ? res.data : [];
+  list = arr.map(x => ({
+    id: String(x.id ?? ''),
+    name: String(x.name ?? ''),
+    code: String(x.code ?? ''),   // SuperAI trả dạng chuỗi số (VD: '10' cho SPX)
+    key: NORM(x.name)
+  }));
+
+  if (list.length) {
+    await putJSON(env, cacheKey, list, { ns: 'VANCHUYEN', ttl: 86400 }); // 24h
+  }
+  return list;
+}
+
+/**
+ * Chuẩn hoá input (tên/mã) → trả về carrier_code (chuỗi số)
+ */
+export async function resolveCarrierCode(env, raw) {
+  const input = String(raw ?? '').trim();
+  if (!input) return '';
+  // FE/Admin đã lưu sẵn mã số?
+  if (/^\d+$/.test(input)) return input;
+
+  const list = await getCarriersList(env);
+  const k = NORM(input);
+
+  // 1) match tuyệt đối
+  let hit = list.find(c => c.key === k);
+  if (hit?.code) return String(hit.code);
+
+  // 2) alias thường gặp
+  const alias = {
+    'spx': 'spx express',
+    'shopee express': 'spx express',
+    'best': 'best express',
+    'vtp': 'viettel post',
+    'viettelpost': 'viettel post',
+    'ghn': 'ghn',
+    'giao hang nhanh': 'ghn',
+    'ninjavan': 'ninja van'
+  };
+  const aliasName = alias[k];
+  if (aliasName) {
+    hit = list.find(c => c.key === NORM(aliasName));
+    if (hit?.code) return String(hit.code);
+  }
+
+  // 3) match gần đúng
+  hit = list.find(c => c.key.includes(k) || k.includes(c.key));
+  if (hit?.code) return String(hit.code);
+
+  // 4) fallback an toàn → GHN ('2')
+  const ghn = list.find(c => c.key === 'ghn');
+  return ghn?.code || '2';
+}
+
+// ===================================================================
+// Địa giới hành chính & validate
+// ===================================================================
+
+/**
+ * Tra cứu mã district theo tỉnh + tên quận/huyện
  */
 export async function lookupDistrictCode(env, provinceCode, districtName) {
   try {
-    if (!provinceCode || !districtName) {
-      console.warn('[Helpers] lookupDistrictCode: Missing provinceCode or districtName');
-      return null;
-    }
+    if (!provinceCode || !districtName) return null;
 
     console.log(`[Helpers] 🔍 Looking up district: "${districtName}" in province: ${provinceCode}`);
 
-    // Gọi API SuperAI để lấy danh sách quận/huyện
-    const base = 'https://api.superai.vn'; // SỬA: dev -> api
+    const base = 'https://api.superai.vn';
     const token = await superToken(env);
-    
     const url = `${base}/v1/platform/areas/district?province=${provinceCode}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Token': token
-      }
+      headers: { 'Accept': 'application/json', 'Token': token }
     });
 
     if (!response.ok) {
@@ -122,13 +174,8 @@ export async function lookupDistrictCode(env, provinceCode, districtName) {
     }
 
     const data = await response.json();
-    
-    if (!data?.data || !Array.isArray(data.data)) {
-      console.error('[Helpers] Invalid district API response:', data);
-      return null;
-    }
+    if (!data?.data || !Array.isArray(data.data)) return null;
 
-    // Chuẩn hóa tên để so sánh (bỏ prefix "Quận", "Huyện", "Thị xã"...)
     const normalizedName = districtName.trim().toLowerCase()
       .replace(/^quận\s+/gi, '')
       .replace(/^huyện\s+/gi, '')
@@ -136,9 +183,6 @@ export async function lookupDistrictCode(env, provinceCode, districtName) {
       .replace(/^thành\s+phố\s+/gi, '')
       .trim();
 
-    console.log(`[Helpers] Normalized search: "${normalizedName}"`);
-
-    // Tìm district khớp tên
     const district = data.data.find(d => {
       const dName = (d.name || '').toLowerCase()
         .replace(/^quận\s+/gi, '')
@@ -146,22 +190,10 @@ export async function lookupDistrictCode(env, provinceCode, districtName) {
         .replace(/^thị\s+xã\s+/gi, '')
         .replace(/^thành\s+phố\s+/gi, '')
         .trim();
-      
-      return dName === normalizedName || 
-             dName.includes(normalizedName) || 
-             normalizedName.includes(dName);
+      return dName === normalizedName || dName.includes(normalizedName) || normalizedName.includes(dName);
     });
 
-    if (district && district.code) {
-      console.log(`[Helpers] ✅ Found district: "${district.name}" → code: ${district.code}`);
-      return String(district.code);
-    }
-
-    console.warn(`[Helpers] ⚠️ District not found: "${districtName}" in province ${provinceCode}`);
-    console.log(`[Helpers] Available districts:`, data.data.map(d => `${d.name} (${d.code})`).join(', '));
-    
-    return null;
-
+    return district?.code ? String(district.code) : null;
   } catch (error) {
     console.error('[Helpers] lookupDistrictCode error:', error);
     return null;
@@ -169,78 +201,39 @@ export async function lookupDistrictCode(env, provinceCode, districtName) {
 }
 
 /**
- * Validate và tự động sửa mã district nếu cần
- * @param {Object} env - Cloudflare Workers environment
- * @param {string} provinceCode - Mã tỉnh/thành
- * @param {string} districtCode - Mã quận/huyện hiện tại
- * @param {string} districtName - Tên quận/huyện (để tra cứu nếu code sai)
- * @returns {Promise<string>} - Mã district đã được validate/sửa
+ * Validate/sửa mã district nếu format sai
  */
 export async function validateDistrictCode(env, provinceCode, districtCode, districtName) {
   const code = String(districtCode || '').trim();
+  if (/^\d{3}$/.test(code)) return code;
 
-  // Kiểm tra format cơ bản: 3 chữ số
-  if (/^\d{3}$/.test(code)) {
-    console.log(`[Helpers] ✅ District code format OK: ${code}`);
-    return code;
-  }
-
-  console.warn(`[Helpers] ⚠️ Invalid district_code format: "${code}" (expected 3 digits)`);
-
-  // Nếu có tên district, thử tra cứu
+  console.warn(`[Helpers] ⚠️ Invalid district_code: "${code}"`);
   if (districtName && districtName.trim()) {
-    console.log(`[Helpers] 🔄 Attempting lookup by name: "${districtName}"`);
     const lookedUpCode = await lookupDistrictCode(env, provinceCode, districtName);
-    
-    if (lookedUpCode) {
-      console.log(`[Helpers] ✅ Auto-corrected: "${code}" → "${lookedUpCode}" (via name lookup)`);
-      return lookedUpCode;
-    }
+    if (lookedUpCode) return lookedUpCode;
   }
-
-  // Không tìm được, trả về code gốc và log cảnh báo
-  console.error(`[Helpers] ❌ Cannot validate district_code: "${code}", keeping original value`);
   return code;
 }
 
 /**
- * Tra cứu mã commune/ward chuẩn từ SuperAI API
- * @param {Object} env - Cloudflare Workers environment
- * @param {string} districtCode - Mã quận/huyện
- * @param {string} communeName - Tên phường/xã
- * @returns {Promise<string|null>} - Mã commune chuẩn hoặc null
+ * Tra cứu mã commune theo district + tên phường/xã
  */
 export async function lookupCommuneCode(env, districtCode, communeName) {
   try {
-    if (!districtCode || !communeName) {
-      return null;
-    }
+    if (!districtCode || !communeName) return null;
 
-    console.log(`[Helpers] 🔍 Looking up commune: "${communeName}" in district: ${districtCode}`);
-
-    const base = 'https://api.superai.vn'; // SỬA: dev -> api
+    const base = 'https://api.superai.vn';
     const token = await superToken(env);
-    
     const url = `${base}/v1/platform/areas/commune?district=${districtCode}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Token': token
-      }
+      headers: { 'Accept': 'application/json', 'Token': token }
     });
 
-    if (!response.ok) {
-      console.error('[Helpers] Commune API error:', response.status);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
-    
-    if (!data?.data || !Array.isArray(data.data)) {
-      return null;
-    }
+    if (!data?.data || !Array.isArray(data.data)) return null;
 
     const normalizedName = communeName.trim().toLowerCase()
       .replace(/^phường\s+/gi, '')
@@ -254,32 +247,24 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
         .replace(/^xã\s+/gi, '')
         .replace(/^thị\s+trấn\s+/gi, '')
         .trim();
-      
-      return cName === normalizedName || 
-             cName.includes(normalizedName) || 
-             normalizedName.includes(cName);
+      return cName === normalizedName || cName.includes(normalizedName) || normalizedName.includes(cName);
     });
 
-    if (commune && commune.code) {
-      console.log(`[Helpers] ✅ Found commune: "${commune.name}" → code: ${commune.code}`);
-      return String(commune.code);
-    }
-
-    return null;
-
+    return commune?.code ? String(commune.code) : null;
   } catch (error) {
     console.error('[Helpers] lookupCommuneCode error:', error);
     return null;
   }
 }
-/**
- * Calculate chargeable weight (volumetric)
- */
+
+// ===================================================================
+// Cân nặng tính phí (gross/volumetric) - giữ nguyên logic hiện tại
+// ===================================================================
+
 export function chargeableWeightGrams(body = {}, order = {}) {
   let weight = Number(order.weight_gram || body.weight_gram || body.package?.weight_grams || 0) || 0;
 
-  // Sum from items if not provided
-  const items = Array.isArray(body.items) ? body.items : 
+  const items = Array.isArray(body.items) ? body.items :
                (Array.isArray(order.items) ? order.items : []);
 
   if (!weight && items.length) {
@@ -294,7 +279,6 @@ export function chargeableWeightGrams(body = {}, order = {}) {
     }
   }
 
-  // Volumetric weight: (L*W*H)/5000 kg -> grams
   try {
     const dim = body.package?.dim_cm || body.dim_cm || body.package?.dimensions || {};
     const L = Number(dim.l || dim.length || 0);
