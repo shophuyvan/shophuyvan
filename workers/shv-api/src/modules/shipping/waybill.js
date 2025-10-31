@@ -230,7 +230,7 @@ export async function createWaybill(req, env) {
        raw: data,
        createdAt: Date.now()
      });
-     ...
+
      const response = json({ 
        ok: true,
        carrier_code: carrier_code,        // mã số SuperAI
