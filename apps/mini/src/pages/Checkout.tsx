@@ -53,7 +53,12 @@ const api = async (path: string, options: RequestInit = {}) => {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  const g = Number(data?.total_gram || 0);
+  // hỗ trợ cả 2 dạng: { total_gram } hoặc { data: { total_gram } }
+  const g = Number(
+    (data && (data.total_gram ?? data.totalGram)) ??
+    (data && data.data && (data.data.total_gram ?? data.data.totalGram)) ??
+    0
+  );
   if (g > 0) {
     try { localStorage.setItem('cart_weight_gram', String(g)); } catch {}
   }
@@ -141,7 +146,7 @@ const totalWeightGram = useMemo(() => {
 // Nếu thiếu cân nặng ở cart → hỏi server để lấy total_gram thật
 const [weightOverride, setWeightOverride] = useState<number | null>(null);
 
-  const ensureLocalWeight = useCallback(async () => {
+const ensureLocalWeight = useCallback(async () => {
   if (totalWeightGram > 0) { setWeightOverride(null); return; }
   try {
     const src = Array.isArray(selectedLines) ? selectedLines : (st.lines || []);
@@ -155,15 +160,20 @@ const [weightOverride, setWeightOverride] = useState<number | null>(null);
       body: JSON.stringify({ lines }),
       headers: { 'Content-Type': 'application/json' },
     });
-    const g = Number((res as any)?.total_gram || 0);
+    // đồng bộ cách đọc với PATCH 1
+    const g = Number(
+      (res && (res.total_gram ?? res.totalGram)) ??
+      (res && (res.data?.total_gram ?? res.data?.totalGram)) ??
+      0
+    );
     if (g > 0) {
       setWeightOverride(g);
       try { localStorage.setItem('cart_weight_gram', String(g)); } catch {}
     }
   } catch { /* ignore */ }
-}, [st, totalWeightGram]);
+}, [st, totalWeightGram, selectedLines]);
 
-useEffect(() => { ensureLocalWeight(); }, [ensureLocalWeight]);
+useEffect(() => { ensureLocalWeight(); }, [ensureLocalWeight, selectedLines]);
 
 // Cân nặng dùng để tính ship/UI
 const effectiveWeightGram = (weightOverride ?? totalWeightGram);
@@ -273,7 +283,8 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         const provinceName = provinces.find(p => p.code === form.province)?.name || form.province;
         const districtName = districts.find(d => d.code === form.district)?.name || form.district;
 
-        let weightToUse = Number(totalWeightGram || 0);
+                // dùng cân nặng hiệu lực: override từ server > local tính được
+        let weightToUse = Number((weightOverride ?? totalWeightGram) || 0);
         if (weightToUse <= 0) {
           const g = await fetchServerWeight(selectedLines || []);
           if (!alive) return;
@@ -286,6 +297,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
             return;
           }
         }
+
 
         const data = await api('/shipping/price', {
           method: 'POST',
@@ -328,7 +340,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
     })();
 
     return () => { alive = false; };
-  }, [form.province, form.district, form.ward, totalWeightGram, subtotal, st.lines, provinces, districts]);
+    }, [form.province, form.district, form.ward, totalWeightGram, weightOverride, subtotal, st.lines, provinces, districts, selectedLines]);
 
   // 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
   const calculatedTotals = useMemo(() => {
@@ -674,11 +686,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
               <div className="text-sm text-gray-600">
                 Khối lượng: {toHumanWeight(effectiveWeightGram)}
               </div>
-                          {(
-              Number(serverWeight || 0) <= 0 &&
-              Number((() => { try { return localStorage.getItem('cart_weight_gram'); } catch { return '0'; } })()) <= 0 &&
-              totalWeightGram <= 0
-            ) && (
+                {Number((weightOverride ?? totalWeightGram) || 0) <= 0 && (
               <div className="text-sm text-red-600 mt-2">
                 ⚠️ Thiếu trọng lượng sản phẩm. Không thể tính phí vận chuyển.
               </div>
