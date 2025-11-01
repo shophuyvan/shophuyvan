@@ -48,12 +48,27 @@ async function getShippingPrice(req, env) {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
 
+    // ✅ ƯU TIÊN _code fields cho sender (vì settings có thể lưu tên)
+    const senderProvince = String(
+      body.sender_province_code || 
+      shipping.sender_province_code || 
+      shipping.sender_province || 
+      '79' // Default HCM
+    );
+    
+    const senderDistrict = String(
+      body.sender_district_code || 
+      shipping.sender_district_code || 
+      shipping.sender_district || 
+      ''
+    );
+
     const payload = {
-      // Địa chỉ người gửi
-      sender_province: String(body.sender_province || shipping.sender_province || ''),
-      sender_district: String(body.sender_district || shipping.sender_district || ''),
+      // Địa chỉ người gửi (MÃ)
+      sender_province: senderProvince,
+      sender_district: senderDistrict,
       
-      // Địa chỉ người nhận
+      // Địa chỉ người nhận (MÃ)
       receiver_province: String(body.receiver_province || body.to_province || ''),
       receiver_district: String(body.receiver_district || body.to_district || ''),
       receiver_commune: String(body.receiver_commune || body.to_ward || ''),
@@ -61,8 +76,6 @@ async function getShippingPrice(req, env) {
       // Gói hàng
       weight: Number(body.weight_gram || body.weight || 0) || 0,
       value: Number(body.cod || body.value || 0) || 0,
-      
-      // ✅ THÊM option_id (bắt buộc theo tài liệu SuperAI)
       option_id: String(body.option_id || shipping.option_id || '1')
     };
 
