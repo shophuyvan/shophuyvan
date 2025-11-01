@@ -328,8 +328,6 @@
       }
     }
 </style>
-  <script src="./admin_real.js?v=27"></script>
-  <script src="./sidebar-layout.js"></script>
 </head>
 <body>
 
@@ -387,7 +385,7 @@
   
   <div class="table-responsive">
   <table class="table">
-    <thead>
+     <thead>
       <tr>
         <th>Họ tên</th>
         <th>Email</th>
@@ -396,11 +394,14 @@
         <th>Tier</th>
         <th>Điểm</th>
         <th>Trạng thái</th>
+        <th>Đăng nhập lần cuối</th>
+        <th>Hành động</th>
       </tr>
     </thead>
+
     <tbody id="customers-list">
-      <tr><td colspan="8" style="text-align:center;">Đang tải...</td></tr>
-    </tbody>
+     <tr><td colspan="9" style="text-align:center;">Đang tải...</td></tr>
+   </tbody>
     </table>
 </div>
 
@@ -525,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function() {
       allCustomers = r.customers || [];
       
       if (allCustomers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chưa có khách hàng nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Chưa có khách hàng nào</td></tr>';
         updateStats();
         return;
       }
@@ -550,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     tbody.innerHTML = '';
     
     if (filteredCustomers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Không tìm thấy khách hàng</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Không tìm thấy khách hàng</td></tr>';
       return;
     }
     
@@ -608,10 +609,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Filter customers
   function filterCustomers() {
-    const searchTerm = $('search-input').value.toLowerCase();
-    const typeFilter = $('filter-type').value;
-    const statusFilter = $('filter-status').value;
-    const tierFilter = $('filter-tier').value; // ✅ THÊM
+  const searchTerm = $('search-input').value.trim().toLowerCase();
+  const typeFilter = $('filter-type').value;
+  const statusFilter = $('filter-status').value;
+  const tierFilter = $('filter-tier').value; // ✅ THÊM
+
+  // Nếu tất cả filter rỗng → giữ nguyên toàn bộ danh sách (tránh "biến mất" khi chỉ click)
+  if (!searchTerm && !typeFilter && !statusFilter && !tierFilter) {
+    filteredCustomers = [...allCustomers];
+    renderCustomers();
+    return;
+  }
+
     
     filteredCustomers = allCustomers.filter(customer => {
       const matchSearch = !searchTerm || 
