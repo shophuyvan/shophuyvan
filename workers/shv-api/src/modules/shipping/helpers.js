@@ -316,7 +316,6 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
 // ===================================================================
 // Cân nặng tính phí (gross/volumetric) - giữ nguyên logic hiện tại
 // ===================================================================
-export { lookupProvinceCode, lookupDistrictCode, lookupCommuneCode };
 
 export function chargeableWeightGrams(body = {}, order = {}) {
   // ✅ FIX: Ưu tiên order.weight_gram (đã tính sẵn) trước
