@@ -202,6 +202,23 @@ if (token) {
       const districtName = warehouse.district_name || warehouse.district?.name || '';
       const wardName = warehouse.ward_name || warehouse.commune_name || warehouse.ward?.name || '';
 
+      console.log('[Sync] 🔍 Warehouse location data:', {
+        provinceCode, provinceName,
+        districtCode, districtName,
+        wardCode, wardName
+      });
+
+      // ✅ FIX CRITICAL: Nếu thiếu mã tỉnh/quận, bắt buộc phải map từ tên
+      if (!provinceCode && !provinceName) {
+        alert('⚠️ Warehouse thiếu thông tin tỉnh/thành phố!');
+        return;
+      }
+
+      if (!districtCode && !districtName) {
+        alert('⚠️ Warehouse thiếu thông tin quận/huyện!');
+        return;
+      }
+
       // ✅ FIX: Nếu thiếu province_code, tìm theo tên
       if (!provinceCode && provinceName) {
         console.log('[Sync] Province code missing, searching by name:', provinceName);
@@ -217,14 +234,28 @@ if (token) {
       if (this.$('sender_phone')) this.$('sender_phone').value = phone;
       if (this.$('sender_address')) this.$('sender_address').value = address;
 
-      // Load và select province
+      // ✅ Load và select province - BẮT BUỘC phải có
+      console.log('[Sync] Loading provinces list...');
       const provinces = await this.loadProvinces();
       
-      // ✅ FIX: Luôn tìm theo tên nếu thiếu mã
+      // ✅ LUÔN LUÔN map theo tên nếu thiếu mã
       if (!provinceCode && provinceName) {
+        console.log('[Sync] 🔍 Mapping province by name:', provinceName);
         const match = this.findByName(provinces, provinceName);
         if (match) {
           provinceCode = match.code;
+          console.log('[Sync] ✅ Found province code:', provinceCode);
+        } else {
+          console.error('[Sync] ❌ Cannot find province code for:', provinceName);
+          alert(`❌ Không tìm thấy mã tỉnh cho: ${provinceName}\n\nVui lòng kiểm tra lại!`);
+          return;
+        }
+      }
+      
+      if (!provinceCode) {
+        alert('❌ Không xác định được mã tỉnh/thành phố!');
+        return;
+      }
           console.log('[Sync] ✅ Found province code by name:', provinceName, '→', provinceCode);
         } else {
           console.warn('[Sync] ⚠️ Cannot find province code for:', provinceName);
@@ -239,11 +270,26 @@ if (token) {
             provinces.find(p => p.code === provinceCode)?.name || '';
         }
 
-        // Load districts
+        // ✅ Load districts - BẮT BUỘC phải có
+        console.log('[Sync] Loading districts for province:', provinceCode);
         const districts = await this.loadDistricts(provinceCode);
+        
+        // ✅ LUÔN LUÔN map theo tên nếu thiếu mã
         if (!districtCode && districtName) {
+          console.log('[Sync] 🔍 Mapping district by name:', districtName);
           const match = this.findByName(districts, districtName);
-          if (match) districtCode = match.code;
+          if (match) {
+            districtCode = match.code;
+            console.log('[Sync] ✅ Found district code:', districtCode);
+          } else {
+            console.error('[Sync] ❌ Cannot find district code for:', districtName);
+            alert(`❌ Không tìm thấy mã quận/huyện cho: ${districtName}\n\nVui lòng chọn thủ công!`);
+            // Không return, để user có thể chọn thủ công
+          }
+        }
+        
+        if (!districtCode) {
+          console.warn('[Sync] ⚠️ District code missing, user needs to select manually');
         }
 
         if (districtCode) {

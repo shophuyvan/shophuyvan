@@ -26,7 +26,8 @@ async function getWarehouses(req, env) {
       hasData: !!data,
       isError: data?.error,
       message: data?.message,
-      dataKeys: data ? Object.keys(data) : []
+      dataKeys: data ? Object.keys(data) : [],
+      fullData: JSON.stringify(data, null, 2)  // ✅ THÊM DÒNG NÀY
     });
 
     // Kiểm tra lỗi từ API
@@ -71,16 +72,37 @@ function normalizeWarehouses(data) {
   pushArray(data?.warehouses);
   pushArray(data?.data?.warehouses);
 
-  return source.map(warehouse => ({
-    id: warehouse.id || warehouse.code || '',
-    name: warehouse.name || warehouse.contact_name || warehouse.wh_name || '',
-    phone: warehouse.phone || warehouse.contact_phone || warehouse.wh_phone || '',
-    address: warehouse.address || warehouse.addr || warehouse.wh_address || '',
-    province_code: String(warehouse.province_code || warehouse.provinceId || warehouse.province_code_id || ''),
-    province_name: warehouse.province || warehouse.province_name || '',
-    district_code: String(warehouse.district_code || warehouse.districtId || ''),
-    district_name: warehouse.district || warehouse.district_name || '',
-    ward_code: String(warehouse.commune_code || warehouse.ward_code || ''),
-    ward_name: String(warehouse.commune || warehouse.ward || warehouse.ward_name || '')
-  }));
+  console.log('[Warehouses] 🔍 Raw source count:', source.length);
+
+  return source.map(warehouse => {
+    // ✅ LOG warehouse gốc để debug
+    console.log('[Warehouses] 🔍 Processing warehouse:', {
+      id: warehouse.id,
+      code: warehouse.code,
+      name: warehouse.name,
+      province: warehouse.province,
+      district: warehouse.district,
+      commune: warehouse.commune,
+      keys: Object.keys(warehouse)
+    });
+
+    return {
+      id: warehouse.id || warehouse.code || '',
+      name: warehouse.name || warehouse.contact_name || warehouse.wh_name || '',
+      phone: warehouse.phone || warehouse.contact_phone || warehouse.wh_phone || '',
+      address: warehouse.address || warehouse.addr || warehouse.wh_address || '',
+      
+      // ⚠️ SuperAI KHÔNG trả về province_code, chỉ có tên
+      province_code: String(warehouse.province_code || warehouse.provinceId || warehouse.province_id || ''),
+      province_name: warehouse.province || warehouse.province_name || '',
+      
+      // ⚠️ SuperAI KHÔNG trả về district_code, chỉ có tên
+      district_code: String(warehouse.district_code || warehouse.districtId || warehouse.district_id || ''),
+      district_name: warehouse.district || warehouse.district_name || '',
+      
+      // ✅ Ward code có thể có (ví dụ của bạn có "code": "27460")
+      ward_code: String(warehouse.commune_code || warehouse.ward_code || warehouse.code || ''),
+      ward_name: String(warehouse.commune || warehouse.ward || warehouse.ward_name || warehouse.name || '')
+    };
+  });
 }
