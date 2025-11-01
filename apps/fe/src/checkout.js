@@ -188,167 +188,117 @@ function updateSummary() {
   if (bestShipDiscount > 0) {
     $('summary-shipping').innerHTML = `<span class="line-through text-gray-400 mr-2">${fmtVND(shipOriginal)}</span><b class="text-rose-600">${fmtVND(shipFee)}</b>`;
   } else {
-    $('summary-shipping').innerHTML = `<span class="text-gray-700">${fmtVND(shipFee)}</span>`;
+    $('summary-shipping').textContent = fmtVND(shipFee);
   }
   
   $('grand-total').textContent = fmtVND(total);
 }
 
-// ====== ĐỊA CHỈ (Tom Select) ======
-let tsProvince, tsDistrict, tsWard;
+// ====== TOM SELECT ======
+let provinceTS, districtTS, wardTS;
 function initTomSelect() {
-  tsProvince = new TomSelect('#province', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Tỉnh/Thành phố *' });
-  tsDistrict = new TomSelect('#district', { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Quận/Huyện *', disabled:true });
-  tsWard     = new TomSelect('#ward',     { create:false, maxOptions:500, persist:false, allowEmptyOption:true, placeholder:'-- Phường/Xã *', disabled:true });
-
-  // Province -> load districts
-  if (tsProvince && typeof tsProvince.on === 'function') {
-    tsProvince.on('change', async (code) => {
-      selectedShipping = null;
-      $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-      if (!code) { if (tsDistrict) tsDistrict.disable(); if (tsWard) tsWard.disable(); return; }
-      try {
-        const res = await api(`/shipping/districts?province_code=${encodeURIComponent(code)}`);
-        const districts = (res.items||res.data||[]).map(d=>({value:d.code, text:d.name}));
-        if (tsDistrict) { tsDistrict.clear(); tsDistrict.clearOptions(); tsDistrict.addOptions(districts); tsDistrict.enable(); tsDistrict.setValue(''); }
-        if (tsWard) { tsWard.clear(); tsWard.clearOptions(); tsWard.disable(); }
-      } catch {}
-    });
-  }
-
-  // District -> load wards
-  if (tsDistrict && typeof tsDistrict.on === 'function') {
-    tsDistrict.on('change', async (code) => {
-      selectedShipping = null;
-      $('shipping-list').innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
-      if (!code) { if (tsWard) tsWard.disable(); return; }
-      try {
-        const res = await api(`/shipping/wards?district_code=${encodeURIComponent(code)}`);
-        const wards = (res.items||res.data||[]).map(w=>({value:w.code, text:w.name}));
-        if (tsWard) { tsWard.clear(); tsWard.clearOptions(); tsWard.addOptions(wards); tsWard.enable(); tsWard.setValue(''); }
-      } catch {}
-    });
-  }
-
-  // Ward -> fetch shipping price
-  if (tsWard && typeof tsWard.on === 'function') {
-    tsWard.on('change', () => { fetchShippingQuote(); });
-  }
+  if (typeof TomSelect === 'undefined') return;
+  provinceTS = new TomSelect('#province', { maxItems:1, allowEmptyOption:false, placeholder:'Chọn Tỉnh/TP' });
+  districtTS = new TomSelect('#district', { maxItems:1, allowEmptyOption:false, placeholder:'Chọn Quận/Huyện' });
+  wardTS = new TomSelect('#ward', { maxItems:1, allowEmptyOption:false, placeholder:'Chọn Phường/Xã' });
+  provinceTS.on('change', (v)=>{
+    districtTS.clear(); districtTS.clearOptions(); wardTS.clear(); wardTS.clearOptions();
+    districtTS.enable(); wardTS.disable();
+    if (v) loadDistricts(v);
+    fetchShipping();
+  });
+  districtTS.on('change', (v)=>{
+    wardTS.clear(); wardTS.clearOptions();
+    wardTS.enable();
+    if (v) loadWards(v);
+    fetchShipping();
+  });
+  wardTS.on('change', ()=>{ fetchShipping(); });
 }
-
 
 async function loadProvinces() {
-  const res = await api('/shipping/provinces');
-  const items = res.items||res.data||[];
-  tsProvince.addOptions(items.map(p=>({ value:p.code, text:p.name })));
+  try {
+    const res = await api('/shipping/provinces', { method:'GET' });
+    const arr = res?.data || res?.items || res || [];
+    provinceTS.clear(); provinceTS.clearOptions();
+    arr.forEach(p => provinceTS.addOption({ value: p.code, text: p.name }));
+  } catch (e) { console.error('Load provinces error', e); }
+}
+async function loadDistricts(provinceCode) {
+  try {
+    const res = await api('/shipping/districts?province='+provinceCode, { method:'GET' });
+    const arr = res?.data || res?.items || res || [];
+    districtTS.clear(); districtTS.clearOptions();
+    arr.forEach(d => districtTS.addOption({ value: d.code, text: d.name }));
+  } catch (e) { console.error('Load districts error', e); }
+}
+async function loadWards(districtCode) {
+  try {
+    const res = await api('/shipping/wards?district='+districtCode, { method:'GET' });
+    const arr = res?.data || res?.items || res || [];
+    wardTS.clear(); wardTS.clearOptions();
+    arr.forEach(w => wardTS.addOption({ value: w.code, text: w.name }));
+  } catch (e) { console.error('Load wards error', e); }
 }
 
-// ====== PHÍ VẬN CHUYỂN (KHÔNG FALLBACK) ======
-async function fetchShippingQuote() {
-  // Đọc code từ TomSelect (nếu có), fallback về <select> gốc
-  var provinceSel = document.getElementById('province');
-  var districtSel = document.getElementById('district');
-  var wardSel     = document.getElementById('ward');
+// ====== SHIPPING QUOTE ======
+async function fetchShipping() {
+  const cart = getCart();
+  if (!cart.length) return;
+  
+  const weight = await ensureWeight(cart);
+  const provinceCode = val('province');
+  const districtCode = val('district');
+  const wardCode = val('ward');
 
-  var hasTsProvince = (typeof tsProvince !== 'undefined') && tsProvince && (typeof tsProvince.getValue === 'function');
-  var hasTsDistrict = (typeof tsDistrict !== 'undefined') && tsDistrict && (typeof tsDistrict.getValue === 'function');
-  var hasTsWard     = (typeof tsWard     !== 'undefined') && tsWard     && (typeof tsWard.getValue     === 'function');
-
-  var provinceCode = hasTsProvince ? tsProvince.getValue() : val('province');
-  var districtCode = hasTsDistrict ? tsDistrict.getValue() : val('district');
-  var wardCode     = hasTsWard     ? tsWard.getValue()     : val('ward');
-
-  function getTextFrom(ts, code, sel) {
-    if (ts && typeof ts.getOption === 'function' && code) {
-      var opt = ts.getOption(code);
-      if (opt && typeof opt.textContent === 'string') return opt.textContent;
-    }
-    if (sel && sel.options && sel.selectedIndex >= 0) {
-      var op = sel.options[sel.selectedIndex];
-      if (op && typeof op.text === 'string') return op.text;
-    }
-    return '';
-  }
-
-  var provinceName = getTextFrom(tsProvince, provinceCode, provinceSel);
-  var districtName = getTextFrom(tsDistrict, districtCode, districtSel);
-  var wardName     = getTextFrom(tsWard,     wardCode,     wardSel);
-
-  // Chưa đủ địa chỉ => không gọi API phí ship
-  if (!provinceCode || !districtCode || !wardCode) {
-    var box = document.getElementById('shipping-list');
-    if (box) box.innerHTML = '<div class="py-8 text-center text-gray-400">Chọn đủ địa chỉ để xem phí vận chuyển</div>';
+  if (!provinceCode || !districtCode) {
+    $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Vui lòng chọn địa chỉ đầy đủ</div>`;
     selectedShipping = null;
     updateSummary();
     return;
   }
 
   try {
-    // Tính tổng & khối lượng thực từ giỏ hàng (API thật, không fallback)
-    const cart = getCart();
-    const subtotal = calcSubtotal(cart);
-    let   weight   = calcWeight(cart);
-    if (!weight) weight = await ensureWeight(cart);   // ← hỏi server nếu 0g
-    $('total-weight').textContent = toHumanWeight(weight);
+    $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Đang tải phí vận chuyển...</div>`;
 
     const res = await api('/shipping/price', {
-      method:'POST',
+      method: 'POST',
       body: {
-        receiver_province: provinceName,
-        receiver_district: districtName,
-        receiver_commune: wardName,   // ✅ không còn đọc .options
         weight_gram: weight,
-        weight: weight,
-        value: subtotal,
-        cod: subtotal,
-        option_id: '1'
+        receiver_province: provinceCode,
+        receiver_district: districtCode,
+        receiver_commune: wardCode || ''
       }
     });
 
-    // ✅ DANH SÁCH PROVIDERS MUỐN ẨN (có thể chỉnh sửa)
-    const HIDDEN_PROVIDERS = ['VTP']; // Ví dụ: ẩn Viettel Post
-    
-    let items = (res.items||res.data||[])
-      .filter(o => {
-        const provider = (o.provider || o.carrier || '').toUpperCase();
-        return !HIDDEN_PROVIDERS.includes(provider);
-      })
-      .map(o => ({
-        provider: o.provider || o.carrier || '',
-        service_code: o.service_code || o.service || '',
-        name: o.name || o.service_name || o.provider,
-        fee: Number(o.fee || o.total_fee || 0),
-        eta: o.eta || o.leadtime || ''
-      }))
-      .filter(o => o.fee > 0)
-      .sort((a,b)=> a.fee - b.fee);
-
+    const items = res?.items || [];
     if (!items.length) {
       $('shipping-list').innerHTML = `
         <div class="bg-yellow-50 border-2 border-yellow-200 p-4 rounded-xl text-center">
-          <div class="font-semibold text-yellow-700 text-sm">⚠️ Không có đơn vị vận chuyển khả dụng.</div>
-          <div class="text-yellow-600 text-xs mt-2">Vui lòng thử lại sau hoặc liên hệ shop.</div>
+          <div class="font-semibold text-yellow-700 text-sm">⚠️ Không có đơn vị vận chuyển khả dụng</div>
+          <div class="text-yellow-600 text-xs mt-2">Vui lòng liên hệ shop để được hỗ trợ</div>
         </div>`;
       selectedShipping = null;
       updateSummary();
       return;
     }
 
-    $('shipping-list').innerHTML = items.map((it, idx)=>`
-      <label class="flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all ${
-        idx===0 
-          ? 'border-rose-500 bg-rose-50' 
-          : 'border-gray-200 hover:border-rose-300 hover:bg-gray-50'
-      }">
-        <div class="flex items-center gap-3 flex-1">
-          <input type="radio" name="ship_opt" value="${idx}" ${idx===0?'checked':''}
-                 data-provider="${it.provider}" data-service="${it.service_code}"
-                 data-fee="${it.fee}" data-eta="${it.eta||''}" data-name="${it.name}"
-                 class="w-5 h-5 text-rose-600 focus:ring-2 focus:ring-rose-500"/>
-          <div class="flex-1">
-            <div class="font-bold text-sm text-gray-800">${it.name}</div>
-            <div class="text-xs text-gray-600 mt-1">${it.eta || 'Giao tiêu chuẩn'}</div>
+    // Render options
+    $('shipping-list').innerHTML = items.map(it => `
+      <label class="shipping-option flex items-center justify-between p-4 cursor-pointer border-2 border-gray-200 rounded-xl hover:border-green-500 transition">
+        <input type="radio" name="ship_opt" class="mr-3"
+               data-provider="${it.provider||''}"
+               data-service="${it.service_code||''}"
+               data-fee="${it.fee||0}"
+               data-eta="${it.eta||''}"
+               data-name="${it.name||''}">
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-gray-800 uppercase text-sm">${it.provider||'DVVC'}</span>
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">${it.service_code||''}</span>
           </div>
+          <div class="text-sm text-gray-700 mt-1 font-medium">${it.name || 'Dịch vụ vận chuyển'}</div>
+          <div class="text-xs text-gray-600 mt-1">${it.eta || 'Giao tiêu chuẩn'}</div>
         </div>
         <div class="font-bold text-rose-600 text-lg ml-3">${fmtVND(it.fee)}</div>
       </label>
@@ -551,56 +501,42 @@ $('place-order').addEventListener('click', async () => {
     const res = await api.post('/api/orders', payload, {
       headers: { 'Idempotency-Key': idemKey }
     });
-```
-
----
-
-## 🔄 **TIẾP THEO - GỬI FILE BACKEND**
-
-Bây giờ tôi cần kiểm tra backend để xem logic lưu đơn hàng có ghi đè shipping_provider và weight không.
-
-**VUI LÒNG GỬI CÁC FILE SAU:**
-```
-1. workers/shv-api/src/modules/orders.js
-2. workers/shv-api/src/modules/shipping/index.js  
-3. workers/shv-api/src/modules/shipping/pricing.js
 
     if (res && (res.id || res.success || res.status==='ok')) {
-  // Xoá giỏ hàng & idempotency
-  clearCart();
-  localStorage.removeItem('idem_order');
+      // Xoá giỏ hàng & idempotency
+      clearCart();
+      localStorage.removeItem('idem_order');
 
-  // Hiển thị màn hình thành công (overlay)
-  const ov   = document.getElementById('success-overlay');
-  const oid  = document.getElementById('success-order-id');
-  const btn  = document.getElementById('success-btn');
-  const sec  = document.getElementById('success-countdown');
+      // Hiển thị màn hình thành công (overlay)
+      const ov   = document.getElementById('success-overlay');
+      const oid  = document.getElementById('success-order-id');
+      const btn  = document.getElementById('success-btn');
+      const sec  = document.getElementById('success-countdown');
 
-  if (ov) {
-    if (oid) oid.textContent = String(res.id || '');
-    ov.classList.remove('hidden');
+      if (ov) {
+        if (oid) oid.textContent = String(res.id || '');
+        ov.classList.remove('hidden');
 
-    // Button chuyển đến trang quản lý đơn
-    const gotoOrders = () => { window.location.href = '/myorders'; };
-    if (btn) btn.addEventListener('click', gotoOrders);
+        // Button chuyển đến trang quản lý đơn
+        const gotoOrders = () => { window.location.href = '/myorders'; };
+        if (btn) btn.addEventListener('click', gotoOrders);
 
-    // Tự động chuyển sau 5s
-    let t = 5;
-    const timer = setInterval(() => {
-      t -= 1;
-      if (sec) sec.textContent = String(t);
-      if (t <= 0) { clearInterval(timer); gotoOrders(); }
-    }, 1000);
-  } else {
-    // Fallback: nếu không có overlay, vẫn báo thành công ngắn gọn
-    $('order-result').innerHTML =
-      `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${res.id||''}</b></div>`;
-  }
+        // Tự động chuyển sau 5s
+        let t = 5;
+        const timer = setInterval(() => {
+          t -= 1;
+          if (sec) sec.textContent = String(t);
+          if (t <= 0) { clearInterval(timer); gotoOrders(); }
+        }, 1000);
+      } else {
+        // Fallback: nếu không có overlay, vẫn báo thành công ngắn gọn
+        $('order-result').innerHTML =
+          `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${res.id||''}</b></div>`;
+      }
 
-  // Cập nhật UI giỏ hàng phía dưới (không bắt buộc, nhưng an toàn)
-  renderCart();
-} else {
-
+      // Cập nhật UI giỏ hàng phía dưới (không bắt buộc, nhưng an toàn)
+      renderCart();
+    } else {
       showError(res?.message || 'Đặt hàng thất bại');
     }
   } catch (e) {
