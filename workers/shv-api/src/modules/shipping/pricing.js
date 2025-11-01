@@ -95,17 +95,6 @@ async function getShippingPrice(req, env) {
     } else {
       console.log('[ShippingPrice] ✅ Using warehouse_code:', payload.warehouse_code);
     }
-      
-      // Địa chỉ người nhận (MÃ)
-      receiver_province: String(body.receiver_province || body.to_province || ''),
-      receiver_district: String(body.receiver_district || body.to_district || ''),
-      receiver_commune: String(body.receiver_commune || body.to_ward || ''),
-      
-      // Gói hàng
-      weight: Number(body.weight_gram || body.weight || 0) || 0,
-      value: Number(body.cod || body.value || 0) || 0,
-      option_id: String(body.option_id || shipping.option_id || '1')
-    };
 
     console.log('[ShippingPrice] Payload to SuperAI:', payload);
     console.log('[ShippingPrice] 🔍 DEBUG - Settings shipping:', shipping);
