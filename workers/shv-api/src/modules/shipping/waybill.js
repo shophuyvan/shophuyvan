@@ -8,7 +8,7 @@ import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken, resolveCarrierCode } from './helpers.js';
+import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken } from './helpers.js';
 import { getWaybillHTML } from './waybill-template.js';
 
 export async function createWaybill(req, env) {
@@ -147,18 +147,9 @@ export async function createWaybill(req, env) {
       // Payer (REQUIRED) - '1' = Shop trả phí, '2' = Người nhận trả
       payer: String(body.payer || order.payer || '1'),
       
-     // Service (REQUIRED)
-      // ✅ FIX: Ưu tiên order.shipping_provider trước
-      carrier_code: await resolveCarrierCode(env, (
-        order.shipping_provider || 
-        body.shipping_provider || 
-        ship.provider || 
-        body.provider || 
-        order.shipping_provider_code || 
-        ''
-      )),
-      service_code: order.shipping_service || ship.service_code || body.service_code || '',
-
+      // Service (REQUIRED)
+      provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
+      service_code: ship.service_code || body.service_code || order.shipping_service || '',
       
        // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
       config: String(body.config || order.config || '1'),
@@ -229,21 +220,21 @@ export async function createWaybill(req, env) {
     const superai_code = data?.data?.superai_code || data?.data?.tracking || null;
 
     if (isSuccess && (carrier_code || superai_code)) {
-      await putJSON(env, 'shipment:' + (order.id || body.order_id || carrier_code), {
-       provider: (order.shipping_provider || body.provider || ship.provider || ''), // lưu tên hiển thị để xem trên Admin
-       carrier_code: carrier_code,        // mã số SuperAI
-       service_code: payload.service_code,
-       superai_code: superai_code,
-       raw: data,
-       createdAt: Date.now()
-     });
+      await putJSON(env, 'shipment:' + (order.id || body.order_id || carrier_code), { // Dùng order.id hoặc carrier_code làm key
+        provider: payload.provider,
+        service_code: payload.service_code,
+        carrier_code: carrier_code, // Lưu mã NV
+        superai_code: superai_code, // Lưu mã SuperAI
+        raw: data,
+        createdAt: Date.now()
+      });
 
-     const response = json({ 
-       ok: true,
-       carrier_code: carrier_code,        // mã số SuperAI
-       superai_code: superai_code,
-       provider: (order.shipping_provider || body.provider || ship.provider || '')
-     }, {}, req);
+      const response = json({ 
+        ok: true, 
+        carrier_code: carrier_code, // Sửa: Trả về mã NV
+        superai_code: superai_code, // Sửa: Trả về mã SuperAI
+        provider: payload.provider 
+      }, {}, req);
       
       await idemSet(idem.key, env, response);
       return response;
@@ -456,15 +447,6 @@ export async function autoCreateWaybill(order, env) {
 // Tính toán các giá trị
     const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
-    
-    // ✅ LOG chi tiết weight
-    console.log('[autoCreateWaybill] 📦 Weight debug:', {
-      order_weight_gram: order.weight_gram,
-      order_weight_grams: order.weight_grams,
-      order_weight: order.weight,
-      calculated: totalWeight,
-      items_count: order.items?.length || 0
-    });
 
     // SỬA: Logic Phí (Theo yêu cầu của bạn: Khách trả phí)
     // Payer = 2 (Khách trả phí)
@@ -508,15 +490,9 @@ export async function autoCreateWaybill(order, env) {
       value: totalValue, // Sửa: Giá trị đơn hàng (full)
       soc: order.soc || order.id || '',
       
-      payer: payer, // '2' = Khách trả phí
-      // ✅ FIX: Đọc đúng trường shipping_provider từ order
-      carrier_code: await resolveCarrierCode(env, (
-        order.shipping_provider || 
-        order.shipping_provider_code || 
-        order.shipping_name || 
-        ''
-      )),
-      service_code: order.shipping_service || order.service_code || '',
+      payer: payer, // Sửa: '2' (Khách trả phí)
+      provider: (order.shipping_provider || 'vtp').toLowerCase(),
+      service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
       config: '1', // Cho xem hàng
       product_type: '2',
       option_id: shipping.option_id || '1',
@@ -536,44 +512,27 @@ export async function autoCreateWaybill(order, env) {
       body: JSON.stringify(payload)
     });
 
+    const isSuccess = data?.error === false && data?.data;
+    
+    // ✅ LOG CHI TIẾT - Xem SuperAI trả về gì
     console.log('[autoCreateWaybill] 📊 SuperAI response data keys:', Object.keys(data?.data || {}));
     console.log('[autoCreateWaybill] 📋 Full response data:', JSON.stringify(data?.data, null, 2));
     
-    // ✅ XỬ LÝ ĐƠN ĐÃ TỒN TẠI (CODE 412)
-    if (data?.error === true && data?.data?.code === 412) {
-      console.log('[autoCreateWaybill] ⚠️ Order exists (412), using existing codes');
-      const carrier_code = data?.data?.order_code || null;
-      const superai_code = data?.data?.order_soc || order.id;
-      
-      if (carrier_code) {
-       return {
-         ok: true,
-         carrier_code: carrier_code,
-         superai_code: superai_code,
-         carrier_id: null,
-         provider: (order.shipping_provider || order.shipping_provider_code || ''),
-         raw: data.data
-       };
-     }
-    }
-    
-    // ✅ TẠO MỚI THÀNH CÔNG
-    const isSuccess = data?.error === false && data?.data;
+    // Sá»¬A: Láº¥y 2 mÃ£ tracking riÃªng biá»‡t
     const carrier_code = data?.data?.carrier_code || data?.data?.code || null;
     const superai_code = data?.data?.superai_code || data?.data?.tracking || data?.data?.order_code || null;
     const carrier_id = data?.data?.carrier_id || null;
 
     if (isSuccess && (carrier_code || superai_code)) {
-       return { 
-         ok: true, 
-         carrier_code: carrier_code,
-         superai_code: superai_code,
-         carrier_id: carrier_id,
-         provider: (order.shipping_provider || order.shipping_provider_code || ''), 
-         raw: data.data 
-       };
-     }
-
+      return { 
+        ok: true, 
+        carrier_code: carrier_code,     // Mã nhà vận chuyển (SPXVN...)
+        superai_code: superai_code,     // Mã SuperAI (CTOS...)
+        carrier_id: carrier_id,
+        provider: payload.provider, 
+        raw: data.data 
+      };
+    }
 
     const errorMessage = data?.message || data?.error?.message || data?.error || 'Không tạo được vận đơn';
     return { ok: false, message: errorMessage, raw: data };
@@ -628,7 +587,7 @@ export async function printWaybill(req, env) {
     // 2. Lấy settings để có logo
     const settings = await getJSON(env, 'settings', {}) || {};
     const store = settings.store || {};
-    const logo = store.logo || 'https://shophuyvan.vn/logo.png';
+    const logo = store.logo || 'https://shophuyvan1.pages.dev/logo.png';
 
     // 3. Tạo HTML template A5 dọc
     // ✅ Fallback: Nếu không có sender/receiver, dùng dữ liệu từ settings + hardcode

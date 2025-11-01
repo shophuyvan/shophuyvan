@@ -5,7 +5,7 @@
 
 class ShippingManager {
   constructor() {
-    this.baseURL = 'https://api.shophuyvan.vn';
+    this.baseURL = 'https://shv-api.shophuyvan.workers.dev';
     this.saveTimer = null;
     this.lastSaved = {};
   }
@@ -16,7 +16,7 @@ class ShippingManager {
   }
 
   getToken() {
-    const token = this.$('super_key')?.value || 
+    const token = this.$('super_token')?.value || 
                   localStorage.getItem('x-token') || 
                   localStorage.getItem('super_token') || '';
     return token.trim();
@@ -202,106 +202,52 @@ if (token) {
       const districtName = warehouse.district_name || warehouse.district?.name || '';
       const wardName = warehouse.ward_name || warehouse.commune_name || warehouse.ward?.name || '';
 
-      console.log('[Sync] 🔍 Warehouse location data:', {
-        provinceCode, provinceName,
-        districtCode, districtName,
-        wardCode, wardName
-      });
-
-      // ✅ FIX CRITICAL: Nếu thiếu mã tỉnh/quận, bắt buộc phải map từ tên
-      if (!provinceCode && !provinceName) {
-        alert('⚠️ Warehouse thiếu thông tin tỉnh/thành phố!');
-        return;
-      }
-
-      if (!districtCode && !districtName) {
-        alert('⚠️ Warehouse thiếu thông tin quận/huyện!');
-        return;
-      }
-
       // Fill vào form
       if (this.$('sender_name')) this.$('sender_name').value = name;
       if (this.$('sender_phone')) this.$('sender_phone').value = phone;
       if (this.$('sender_address')) this.$('sender_address').value = address;
 
-      // ✅ GỌI API SUPERAI ĐỂ LẤY MÃ CHÍNH XÁC
-      console.log('[Sync] 🌐 Fetching province codes from SuperAI...');
-      
-      // Nếu thiếu mã tỉnh, gọi API SuperAI để lấy
+      // Load và select province
+      const provinces = await this.loadProvinces();
       if (!provinceCode && provinceName) {
-        console.log('[Sync] 🔍 Mapping province by name:', provinceName);
-        const provincesData = await this.apiCall('/shipping/provinces');
-        const provinces = provincesData?.items || provincesData?.data || [];
-        
         const match = this.findByName(provinces, provinceName);
-        if (match) {
-          provinceCode = match.code;
-          console.log('[Sync] ✅ Found province code from SuperAI:', provinceCode);
-        } else {
-          console.error('[Sync] ❌ Cannot find province code for:', provinceName);
-          alert(`❌ Không tìm thấy mã tỉnh cho: ${provinceName}\n\nDanh sách có: ${provinces.slice(0, 5).map(p => p.name).join(', ')}...`);
-          return;
-        }
-      }
-      
-      if (!provinceCode) {
-        alert('❌ Không xác định được mã tỉnh/thành phố!');
-        return;
+        if (match) provinceCode = match.code;
       }
 
-      // Load provinces vào dropdown
-      const provinces = await this.loadProvinces(provinceCode);
-      this.$('sender_province_sel').value = provinceCode;
-      if (this.$('sender_province_code')) this.$('sender_province_code').value = provinceCode;
-      if (this.$('sender_province')) {
-        this.$('sender_province').value = provinceName || 
-          provinces.find(p => p.code === provinceCode)?.name || '';
-      }
-
-      // ✅ GỌI API SUPERAI ĐỂ LẤY MÃ QUẬN CHÍNH XÁC
-      console.log('[Sync] 🌐 Fetching district codes from SuperAI...');
-      
-      if (!districtCode && districtName) {
-        console.log('[Sync] 🔍 Mapping district by name:', districtName);
-        const districtsData = await this.apiCall(`/shipping/districts?province_code=${provinceCode}`);
-        const districts = districtsData?.items || districtsData?.data || [];
-        
-        const match = this.findByName(districts, districtName);
-        if (match) {
-          districtCode = match.code;
-          console.log('[Sync] ✅ Found district code from SuperAI:', districtCode);
-        } else {
-          console.error('[Sync] ❌ Cannot find district code for:', districtName);
-          alert(`❌ Không tìm thấy mã quận/huyện cho: ${districtName}\n\nDanh sách có: ${districts.slice(0, 5).map(d => d.name).join(', ')}...\n\nVui lòng chọn thủ công!`);
-          // Không return, để user có thể chọn thủ công
-        }
-      }
-      
-      if (!districtCode) {
-        console.warn('[Sync] ⚠️ District code missing, user needs to select manually');
-      }
-
-      // Load districts vào dropdown
-      const districts = await this.loadDistricts(provinceCode, districtCode);
-
-      if (districtCode) {
-        this.$('sender_district_sel').value = districtCode;
-        if (this.$('sender_district_code')) this.$('sender_district_code').value = districtCode;
-        if (this.$('sender_district')) {
-          this.$('sender_district').value = districtName || 
-            districts.find(d => d.code === districtCode)?.name || '';
+      if (provinceCode) {
+        this.$('sender_province_sel').value = provinceCode;
+        if (this.$('sender_province_code')) this.$('sender_province_code').value = provinceCode;
+        if (this.$('sender_province')) {
+          this.$('sender_province').value = provinceName || 
+            provinces.find(p => p.code === provinceCode)?.name || '';
         }
 
-        // Load wards
-        const wards = await this.loadWards(districtCode, wardCode);
-        if (!wardCode && wardName) {
-          const match = this.findByName(wards, wardName);
-          if (match) wardCode = match.code;
+        // Load districts
+        const districts = await this.loadDistricts(provinceCode);
+        if (!districtCode && districtName) {
+          const match = this.findByName(districts, districtName);
+          if (match) districtCode = match.code;
         }
 
-        if (wardCode) {
-          this.$('sender_commune_sel').value = wardCode;
-          if (this.$('sender_commune_code')) this.$('sender_commune_code').value = wardCode;
+        if (districtCode) {
+          this.$('sender_district_sel').value = districtCode;
+          if (this.$('sender_district_code')) this.$('sender_district_code').value = districtCode;
+          if (this.$('sender_district')) {
+            this.$('sender_district').value = districtName || 
+              districts.find(d => d.code === districtCode)?.name || '';
+          }
+
+          // Load wards
+          const wards = await this.loadWards(districtCode);
+          if (!wardCode && wardName) {
+            const match = this.findByName(wards, wardName);
+            if (match) wardCode = match.code;
+          }
+
+          if (wardCode) {
+            this.$('sender_commune_sel').value = wardCode;
+            if (this.$('sender_commune_code')) this.$('sender_commune_code').value = wardCode;
+          }
         }
       }
 
@@ -311,8 +257,8 @@ if (token) {
         if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
       });
 
-      // Auto-save (bỏ qua validation)
-      await this.saveSender(true);
+      // Auto-save
+      await this.saveSender();
 
       this.toast('✅ Đã đồng bộ và lưu thông tin người gửi');
     } catch (error) {
@@ -322,26 +268,24 @@ if (token) {
   }
 
   // ==================== SAVE SENDER ====================
-  async saveSender(skipValidation = false) {
+  async saveSender() {
     try {
       const phone = (this.$('sender_phone')?.value || '').replace(/\D+/g, '');
       const provCode = this.$('sender_province_sel')?.value || '';
       const distCode = this.$('sender_district_sel')?.value || '';
 
-      // Validation (bỏ qua khi đồng bộ tự động)
-      if (!skipValidation) {
-        if (!phone) {
-          alert('Vui lòng nhập SĐT người gửi (chỉ số).');
-          return false;
-        }
-        if (!provCode) {
-          alert('Vui lòng chọn Tỉnh/Thành của người gửi.');
-          return false;
-        }
-        if (!distCode) {
-          alert('Vui lòng chọn Quận/Huyện của người gửi.');
-          return false;
-        }
+      // Validation
+      if (!phone) {
+        alert('Vui lòng nhập SĐT người gửi (chỉ số).');
+        return false;
+      }
+      if (!provCode) {
+        alert('Vui lòng chọn Tỉnh/Thành của người gửi.');
+        return false;
+      }
+      if (!distCode) {
+        alert('Vui lòng chọn Quận/Huyện của người gửi.');
+        return false;
       }
 
       const pairs = [
@@ -354,7 +298,6 @@ if (token) {
         ['shipping.sender_province_code', provCode],
         ['shipping.sender_district_code', distCode],
         ['shipping.sender_commune_code', this.$('sender_commune_sel')?.value || ''],
-        ['shipping.warehouse_code', this.$('warehouse_code')?.value?.trim() || ''],
         ['shipping.option_id', this.$('option_id')?.value?.trim() || '1']
       ];
 
@@ -402,12 +345,12 @@ if (token) {
       set('sender_address', get('shipping.sender_address'));
       set('sender_province', get('shipping.sender_province'));
       set('sender_district', get('shipping.sender_district'));
-      set('warehouse_code', get('shipping.warehouse_code'));
       set('option_id', get('shipping.option_id', '1'));
       set('sender_province_code', get('shipping.sender_province_code'));
       set('sender_district_code', get('shipping.sender_district_code'));
       set('sender_commune_code', get('shipping.sender_commune_code'));
-      set('super_key', get('shipping.super_key') || localStorage.getItem('x-token'));
+      set('super_key', get('shipping.super_key'));
+      set('super_token', get('shipping.super_token') || localStorage.getItem('x-token'));
 
       // Load cascading selects
       const provCode = get('shipping.sender_province_code');
@@ -501,33 +444,26 @@ if (token) {
     const tokenBtn = this.$('save_super');
     if (tokenBtn) {
       tokenBtn.onclick = async () => {
-        const key = this.$('super_key')?.value?.trim() || '';
+        const key = this.$('super_key')?.value || '';
+        const token = this.$('super_token')?.value || '';
         
-        if (!key) {
-          alert('⚠️ Vui lòng nhập API Super Key');
-          return;
-        }
-        
-        try {
-          // Lưu token
+        if (key) {
           await window.Admin.req('/admin/settings/upsert', {
             method: 'POST',
             body: { path: 'shipping.super_key', value: key }
           });
-          
-          // Lưu vào localStorage để API sử dụng
-          localStorage.setItem('x-token', key);
-          localStorage.setItem('super_token', key);
-          
-          this.toast('✅ Đã lưu token, đang đồng bộ warehouse...');
-          
-          // Tự động đồng bộ warehouse
-          await this.syncFromWarehouses();
-          
-        } catch (e) {
-          console.error('[Save Token Error]', e);
-          alert('❌ Lỗi khi lưu token: ' + e.message);
         }
+        
+        if (token) {
+          await window.Admin.req('/admin/settings/upsert', {
+            method: 'POST',
+            body: { path: 'shipping.super_token', value: token }
+          });
+          localStorage.setItem('x-token', token);
+          localStorage.setItem('super_token', token);
+        }
+        
+        this.toast('✅ Đã lưu Super token');
       };
     }
   }

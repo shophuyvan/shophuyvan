@@ -15,9 +15,7 @@ function cloudify(u, t='w_800,q_auto,f_auto'){
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
-  let apiBase = store('apiBase') || (location.hostname === 'localhost'
-  ? 'http://localhost:8787'
-  : 'https://api.shophuyvan.vn');
+  let apiBase = store('apiBase') || 'https://shv-api.shophuyvan.workers.dev';
 
   function setBase(v){
     if (!v) return apiBase;
@@ -38,20 +36,11 @@ window.Admin = (function(){
 
   async function req(path, init={}){
     const url = (path.startsWith('http')? path : (getBase()+ (path.startsWith('/')?'':'/') + path));
-	// === ADD: append token vào query để backend adminOK nhận chính xác ===
-let finalUrl = url;
-const __t = token && typeof token === 'function' ? token() : '';
-if (__t && finalUrl.startsWith('http://localhost:8787')) {
-  finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(__t);
-}
     const headers = new Headers(init.headers||{});
-// Attach token (if any)
-const t = token();
-if (t) {
-  headers.set('x-token', t);
-  headers.set('authorization', 'Bearer ' + t);
-}
-let body = init.body;
+    // Attach token (if any)
+    const t = token();
+    if (t) headers.set('x-token', t);
+    let body = init.body;
     const isFd = (typeof FormData!=='undefined') && body instanceof FormData;
     if (body && typeof body === 'object' && !isFd) {
       if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -61,9 +50,8 @@ let body = init.body;
     if((init.method||'GET').toUpperCase()!=='GET' && !headers.has('Idempotency-Key')){
       headers.set('Idempotency-Key', 'idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
     }
-    console.info('[Admin.req]', (init.method||'GET'), finalUrl);
-// send with cookie + headers
-const res = await fetch(finalUrl, { method: init.method||'GET', headers, body, credentials:'include' });
+    console.info('[Admin.req]', (init.method||'GET'), url);
+    const res = await fetch(url, { method: init.method||'GET', headers, body, credentials:'omit' });
     let data = null;
     const ctype = res.headers.get('content-type')||'';
     if (ctype.includes('application/json')) {
@@ -152,33 +140,6 @@ const res = await fetch(finalUrl, { method: init.method||'GET', headers, body, c
 })();
 
 document.addEventListener('DOMContentLoaded', ()=>window.Admin && Admin.renderApiBase());
-
-// --- SHV patch: stop auto-search "admin@shophuyvan.com" on Customers page ---
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Áp dụng đúng trang Khách hàng
-  if (!(/customers\.html$/i.test(location.pathname) || /\/customers$/i.test(location.pathname))) return;
-
-  const si = document.getElementById('search-input');
-  if (!si) return;
-
-  // Tắt tự điền & reset giá trị ngay từ đầu
-  si.setAttribute('autocomplete','off');
-  si.setAttribute('autocapitalize','off');
-  si.setAttribute('autocorrect','off');
-  si.value = '';
-
-  // Nếu bất kỳ script nào khác gán lại email admin → xóa ngay
-  const clearIfAdmin = ()=>{ if (/^admin@shophuyvan\.com$/i.test(si.value)) si.value = ''; };
-  clearIfAdmin();
-  // chống race với code khác: kiểm tra nhiều nhịp đầu trang
-  setTimeout(clearIfAdmin, 50);
-  setTimeout(clearIfAdmin, 150);
-  setTimeout(clearIfAdmin, 400);
-
-  // Lần đầu focus vào ô search cũng đảm bảo không bị đổ giá trị admin
-  si.addEventListener('focus', clearIfAdmin, { once:true });
-});
-
 
 // v24: Ads page quick wire if not present
 document.addEventListener('DOMContentLoaded', ()=>{

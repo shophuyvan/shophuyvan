@@ -1,6 +1,6 @@
 /**
  * Orders Manager - Quản lý đơn hàng
- * Version: 2.1 (Đã thêm logic Xác nhận đơn hàng)
+ * Version: 2.0
  */
 
 class OrdersManager {
@@ -121,8 +121,6 @@ class OrdersManager {
     const customer = order.customer || {};
     const custName = customer.name || order.customer_name || order.name || 'Khách';
     const custPhone = customer.phone || order.phone || '';
-    const custAddr  = order.address || customer.address || '';
-
 
     // Shipping info
     const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
@@ -133,17 +131,10 @@ class OrdersManager {
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
     const source = String(order.source || order.channel || order.platform || 'Web');
     const orderId = String(order.id || '');
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    const status = String(order.status || 'pending').toLowerCase();
-    // ========================================
 
     // Render all items with images
     const itemsHTML = items.map(item => {
-      // ===== ⭐️ FIX HÌNH ẢNH (PROBLEM 1) ⭐️ =====
-      // Code này sẽ tự động hoạt động khi `orders.js` được sửa
-      // Nó sẽ tìm `item.image` hoặc `item.variant_image` đã được lưu.
       let img = item.image || item.img || item.thumbnail || item.variant_image || '';
-      // ========================================
       img = img ? this.cloudify(img, 'w_80,h_80,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
       
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
@@ -166,37 +157,6 @@ class OrdersManager {
       `;
     }).join('');
 
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    // Tạo cụm nút hành động dựa trên trạng thái
-    let actionsHTML = '';
-    if (status === 'pending') {
-  // Trạng thái chờ xử lý: Hiện "Xác nhận" + "Sửa tổng"
-  actionsHTML = `
-    <button class="btn btn-primary" data-confirm="${orderId}" style="background-color:#28a745; color:white; border-color:#28a745; width: 100%;">
-      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-      </svg>
-      Xác nhận đơn
-    </button>
-    <button class="btn" data-edit="${orderId}" style="background-color:#f59e0b; color:white; border-color:#f59e0b; margin-top:5px; width: 100%;">
-      ✏️ Sửa tổng
-    </button>
-  `;
-    } else if (status !== 'cancelled' && status !== 'returned') {
-  // Trạng thái đã xác nhận: CHỈ "In vận đơn" + "Hủy vận đơn" + "Xóa"
-  actionsHTML += `
-    <button class="btn" data-print="${orderId}" style="background-color:#0ea5e9; color:white; border-color:#0ea5e9; margin-top:5px;">
-      🖨️ In vận đơn
-    </button>
-    <button class="btn btn-danger" data-cancel="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top:5px;">
-      🚫 Hủy vận đơn
-    </button>
-    <button class="btn btn-danger" data-delete="${orderId}" style="background-color:#dc3545; border-color:#dc3545; margin-top:5px;">
-      🗑️ Xóa Đơn
-    </button>
-  `;
-}
-
    // Desktop card view (hiển thị đẹp hơn cho PC)
     const desktopCard = `
       <div class="order-card-desktop">
@@ -208,7 +168,6 @@ class OrdersManager {
             <div>
               <div class="customer-name">${custName}</div>
               ${custPhone ? `<div class="customer-phone">${custPhone}</div>` : ''}
-              ${custAddr ? `<div class="customer-address">${custAddr}</div>` : ''}
             </div>
           </div>
           <div class="order-meta">
@@ -241,13 +200,26 @@ class OrdersManager {
               <span class="label">Nguồn:</span>
               <span class="value">${source}</span>
             </div>
-            <div class="detail-row">
-              <span class="label">Trạng thái:</span>
-              <span class="value status status-${status}">${status}</span>
-            </div>
           </div>
           <div class="order-actions-col">
-            ${actionsHTML}
+            <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              In Vận Đơn
+            </button>
+            <button class="btn btn-danger" data-cancel="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
+            </button>
+            <button class="btn btn-danger" data-delete="${orderId}">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
           </div>
         </div>
       </div>
@@ -265,10 +237,9 @@ class OrdersManager {
             ${custPhone ? `<span class="phone">• ${custPhone}</span>` : ''}
           </div>
           <div class="order-id">Đơn ${orderId.slice(-8)}</div>
-         </div>
-         ${custAddr ? `<div class="order-address" style="padding:4px 0 8px; color:#4b5563;">📍 ${custAddr}</div>` : ''}
-         
-         <div class="order-card-items">
+        </div>
+        
+        <div class="order-card-items">
           ${itemsHTML}
         </div>
         
@@ -293,13 +264,26 @@ class OrdersManager {
             <span class="label">Thời gian:</span>
             <span class="value">${created}</span>
           </div>
-          <div class="order-info-row">
-            <span class="label">Trạng thái:</span>
-            <span class="value status status-${status}">${status}</span>
-          </div>
           
           <div class="order-actions">
-            ${actionsHTML}
+            <button class="btn btn-sm btn-print" data-print="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              In Vận Đơn
+            </button>
+            <button class="btn btn-sm btn-cancel" data-cancel="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Hủy Vận Đơn
+            </button>
+            <button class="btn btn-sm btn-delete" data-delete="${orderId}">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Xóa
+            </button>
           </div>
         </div>
       </div>
@@ -342,16 +326,6 @@ class OrdersManager {
       };
     });
 
-    // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-    // Nút "Xác nhận"
-    document.querySelectorAll('[data-confirm]').forEach(btn => {
-      btn.onclick = async () => {
-        const id = btn.getAttribute('data-confirm');
-        await this.confirmOrder(id); // Gọi hàm xác nhận mới
-      };
-    });
-    // ========================================
-
     // Xử lý sự kiện cho từng checkbox đơn hàng
     document.querySelectorAll('.order-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', (event) => {
@@ -372,15 +346,6 @@ class OrdersManager {
       btn.onclick = async () => {
         const id = btn.getAttribute('data-delete');
         await this.deleteOrder(id); // Gọi hàm deleteOrder đã có sẵn
-      };
-    });
-
-    // ✅ BỔ SUNG: Xử lý nút "Sửa tổng"
-    document.querySelectorAll('[data-edit]').forEach(btn => {
-      btn.onclick = () => {
-        const id = btn.getAttribute('data-edit');
-        const order = this.orders.find(o => String(o.id || '') === id);
-        if (order) this.openEditOrderModal(order);
       };
     });
   } // <<< Kết thúc hàm wireOrderRowEvents
@@ -659,183 +624,6 @@ class OrdersManager {
       alert('Lỗi hệ thống khi hủy: ' + e.message);
     }
   }
-  
-  
-  // ===== ⭐️ EDIT ORDER (ADMIN) ====================
-  
-  openEditOrderModal(order) {
-    const { subtotal, shipping, discount, total } = this.calculateOrderTotals(order);
-    const customer = order.customer || {};
-
-    document.getElementById('editOrderId').value = order.id;
-    document.getElementById('editOrdName').value = customer.name || order.name || '';
-    document.getElementById('editOrdPhone').value = customer.phone || order.phone || '';
-    document.getElementById('editOrdAddress').value = customer.address || order.address || '';
-    document.getElementById('editOrdSubtotal').value = Math.round(subtotal);
-    document.getElementById('editOrdShipping').value = Math.round(shipping);
-    document.getElementById('editOrdDiscount').value = Math.round(discount);
-
-    // Reset errors
-    ['editOrdNameErr', 'editOrdPhoneErr', 'editOrdAddressErr'].forEach(id => {
-      document.getElementById(id).style.display = 'none';
-      document.getElementById(id).textContent = '';
-    });
-
-     // Show modal
-    document.getElementById('modal-edit-order').style.display = 'flex';
-
-    // 🧩 Snapshot đơn để giữ nguyên các field vận chuyển khi lưu
-    this._editingOrder = JSON.parse(JSON.stringify(order));
-    document.getElementById('editOrderForm').style.display = 'block';
-    document.getElementById('editOrderLoading').style.display = 'none';
-    document.getElementById('editOrdError').style.display = 'none';
-
-    // Wire save button
-    const saveBtn = document.getElementById('editOrdSaveBtn');
-    if (saveBtn) {
-      saveBtn.onclick = () => this.saveEditedOrder();
-    }
-
-    // Wire price change listeners
-    ['editOrdSubtotal', 'editOrdShipping', 'editOrdDiscount'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('input', () => this.updateEditOrderTotal());
-      }
-    });
-
-    this.updateEditOrderTotal();
-  }
-
-  updateEditOrderTotal() {
-    const subtotal = Number(document.getElementById('editOrdSubtotal').value || 0);
-    const shipping = Number(document.getElementById('editOrdShipping').value || 0);
-    const discount = Number(document.getElementById('editOrdDiscount').value || 0);
-    const total = Math.max(0, subtotal + shipping - discount);
-
-    document.getElementById('editOrdTotal').textContent = this.formatPrice(total);
-  }
-
-  async saveEditedOrder() {
-    const orderId = document.getElementById('editOrderId').value;
-    const name = document.getElementById('editOrdName').value.trim();
-    const phone = document.getElementById('editOrdPhone').value.trim();
-    const address = document.getElementById('editOrdAddress').value.trim();
-    const subtotal = Number(document.getElementById('editOrdSubtotal').value || 0);
-    const shipping = Number(document.getElementById('editOrdShipping').value || 0);
-    const discount = Number(document.getElementById('editOrdDiscount').value || 0);
-
-    // Reset errors
-    ['editOrdNameErr', 'editOrdPhoneErr', 'editOrdAddressErr'].forEach(id => {
-      document.getElementById(id).style.display = 'none';
-      document.getElementById(id).textContent = '';
-    });
-
-    let hasError = false;
-
-    if (!name) {
-      document.getElementById('editOrdNameErr').textContent = 'Vui lòng nhập họ và tên';
-      document.getElementById('editOrdNameErr').style.display = 'block';
-      hasError = true;
-    }
-
-    if (!phone) {
-      document.getElementById('editOrdPhoneErr').textContent = 'Vui lòng nhập số điện thoại';
-      document.getElementById('editOrdPhoneErr').style.display = 'block';
-      hasError = true;
-    }
-
-    if (!address) {
-      document.getElementById('editOrdAddressErr').textContent = 'Vui lòng nhập địa chỉ';
-      document.getElementById('editOrdAddressErr').style.display = 'block';
-      hasError = true;
-    }
-
-    if (hasError) return;
-
-    // Show loading
-    document.getElementById('editOrderForm').style.display = 'none';
-    document.getElementById('editOrderLoading').style.display = 'block';
-    document.getElementById('editOrdError').style.display = 'none';
-
-    try {
-      // ⚙️ Lấy snapshot đơn gốc để bảo toàn field vận chuyển
-      const origin = this._editingOrder
-        || this.orders.find(o => String(o.id || '') === String(orderId))
-        || {};
-
-      // 🛟 Chỉ pick các field vận chuyển đang có để không bị BE xóa
-      const shippingKeep = {};
-      Object.keys(origin || {}).forEach(k => {
-        if (
-          k.startsWith('ship') ||                 // ship_name, ship_* ...
-          k.startsWith('shipping_') ||            // shipping_provider, shipping_tracking, shipping_fee ...
-          ['provider','service_code','receiver_commune_code','tracking_code','superai_code'].includes(k)
-        ) {
-          shippingKeep[k] = origin[k];
-        }
-      });
-
-      // Gộp payload: CẬP NHẬT tiền + khách, GIỮ nguyên vận chuyển
-      const body = {
-        id: orderId,
-        // cập nhật thông tin khách
-        customer: { name, phone, address },
-        // đồng bộ thêm address top-level nếu BE đang dùng
-        address,
-        // chỉ cập nhật các trường tiền
-        subtotal: Math.round(subtotal),
-        shipping_fee: Math.round(shipping),
-        discount: Math.round(discount),
-        // giữ nguyên các field vận chuyển hiện có
-        ...shippingKeep
-      };
-
-      const result = await Admin.req('/admin/orders/upsert', {
-        method: 'POST',
-        body
-      });
-
-      if (result?.ok) {
-        Admin.toast('✅ Cập nhật đơn hàng thành công!');
-        document.getElementById('modal-edit-order').style.display = 'none';
-        this.loadOrders();
-      } else {
-        throw new Error(result?.message || 'Cập nhật thất bại');
-      }
-    } catch (error) {
-      console.error('Edit order error:', error);
-      document.getElementById('editOrderForm').style.display = 'block';
-      document.getElementById('editOrderLoading').style.display = 'none';
-      document.getElementById('editOrdError').textContent = '❌ ' + (error.message || 'Có lỗi xảy ra');
-      document.getElementById('editOrdError').style.display = 'block';
-    }
-  }
-
-  // ===== ⭐️ CONFIRM ORDER ====================
-  
-  async confirmOrder(orderId) {
-    if (!confirm(`Xác nhận đơn hàng ${orderId}?\nThao tác này sẽ gửi đơn hàng qua đơn vị vận chuyển.`)) return;
-
-    Admin.toast('🔄 Đang xác nhận và tạo vận đơn...');
-    
-    try {
-      const result = await Admin.req('/admin/orders/confirm', {
-        method: 'POST',
-        body: { id: orderId }
-      });
-
-      if (result?.ok) {
-        Admin.toast('✅ Đã xác nhận và tạo vận đơn!');
-        this.loadOrders(); // Tải lại danh sách
-      } else {
-        alert('Xác nhận thất bại: ' + (result?.message || result?.error || 'Lỗi'));
-      }
-    } catch (error) {
-      alert('Lỗi khi xác nhận đơn: ' + error.message);
-    }
-  }
-  // ========================================
 
   // ==================== BULK ACTIONS TOOLBAR ====================
 
@@ -997,12 +785,8 @@ class OrdersManager {
     // Dựa theo hình ảnh SuperAI của bạn và các trạng thái phổ biến
     const displayStatuses = [
       { key: 'all', name: 'Tất cả' },
-      // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-      // Đổi tên 'pending' thành 'Chờ xác nhận' cho rõ
-      { key: 'pending', name: 'Chờ xác nhận' }, // (Trạng thái nội bộ mới)
-      // ========================================
       // Các trạng thái SuperAI phổ biến (lấy key từ status_name webhook, viết thường)
-      { key: 'shipping', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
+      { key: 'pending pickup', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
       { key: 'picking', name: 'Đang lấy hàng' },
       { key: 'delivering', name: 'Đang giao' },
       { key: 'delivered', name: 'Đã giao' },
@@ -1011,7 +795,7 @@ class OrdersManager {
       { key: 'cancelled', name: 'Đã hủy' },
       { key: 'lost', name: 'Thất lạc' },
       // Thêm các trạng thái nội bộ nếu cần
-      // { key: 'pending', name: 'Chờ xử lý (Nội bộ)' }, // Đã đổi tên ở trên
+      { key: 'pending', name: 'Chờ xử lý (Nội bộ)' },
       { key: 'confirmed', name: 'Đã xác nhận (Nội bộ)' },
     ];
 
@@ -1077,7 +861,7 @@ class OrdersManager {
   init() {
     this.loadOrders();
     this.wireGlobalEvents();
-    console.log('[OrdersManager] Initialized ✅ with Bulk Actions & Confirm Logic');
+    console.log('[OrdersManager] Initialized ✅ with Bulk Actions');
   }
 
   wireGlobalEvents() {
@@ -1134,17 +918,7 @@ class OrdersManager {
       };
     }
 
-    // ✅ EDIT ORDER BUTTON
-    const editBtn = document.getElementById('btn-edit-order');
-    if (editBtn) {
-      editBtn.onclick = () => {
-        if (this.currentOrder) {
-          this.openEditOrderModal(this.currentOrder);
-        }
-      };
-    }
-
-    // Create waybill button – yêu cầu nhập service_code & receiver_commune_code nếu thiếu
+    // Create waybill button — yêu cầu nhập service_code & receiver_commune_code nếu thiếu
     const createBtn = document.getElementById('btn-create-waybill');
     if (createBtn) {
       createBtn.onclick = async () => {

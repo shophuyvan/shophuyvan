@@ -286,96 +286,12 @@
     </div>
     
     <div id="ship-actions">
-      <button id="btn-edit-order" class="btn secondary">
-        ✏️ Chỉnh sửa
-      </button>
       <button id="btn-create-waybill" class="btn primary">
-        🔦 Tạo vận đơn
+        📦 Tạo vận đơn
       </button>
       <button id="btn-print-waybill" class="btn secondary">
         🖨️ In vận đơn
       </button>
-    </div>
-  </div>
-</div>
-
-<!-- ✅ MODAL CHỈNH SỬA ĐƠN HÀNG (ADMIN) -->
-<div id="modal-edit-order" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;">
-  <div style="background: white; border-radius: 12px; padding: 24px; width: 95%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h3 style="margin: 0; font-size: 20px; font-weight: 700;">✏️ Chỉnh sửa đơn hàng</h3>
-      <button onclick="closeEditOrderModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">✕</button>
-    </div>
-
-    <div id="editOrderForm">
-      <input type="hidden" id="editOrderId" />
-
-      <!-- Customer Info Section -->
-      <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 8px;">
-        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151;">👤 Thông tin khách hàng</h4>
-        
-        <div style="margin-bottom: 12px;">
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Họ và tên *</label>
-          <input id="editOrdName" type="text" placeholder="Nhập họ và tên" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
-          <div id="editOrdNameErr" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
-        </div>
-
-        <div style="margin-bottom: 12px;">
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Số điện thoại *</label>
-          <input id="editOrdPhone" type="tel" placeholder="Nhập số điện thoại" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
-          <div id="editOrdPhoneErr" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
-        </div>
-
-        <div>
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Địa chỉ *</label>
-          <textarea id="editOrdAddress" placeholder="Nhập địa chỉ chi tiết" rows="3" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
-          <div id="editOrdAddressErr" style="color: #dc2626; font-size: 12px; margin-top: 4px; display: none;"></div>
-        </div>
-      </div>
-
-      <!-- Pricing Section -->
-      <div style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 8px;">
-        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151;">💰 Thông tin giá</h4>
-        
-        <div style="margin-bottom: 12px;">
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Tổng hàng (VND)</label>
-          <input id="editOrdSubtotal" type="number" placeholder="0" min="0" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
-        </div>
-
-        <div style="margin-bottom: 12px;">
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Phí vận chuyển (VND)</label>
-          <input id="editOrdShipping" type="number" placeholder="0" min="0" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
-        </div>
-
-        <div>
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151;">Giảm giá (VND)</label>
-          <input id="editOrdDiscount" type="number" placeholder="0" min="0" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
-        </div>
-
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-          <div style="display: flex; justify-content: space-between; font-weight: 600;">
-            <span>Tổng thanh toán:</span>
-            <span id="editOrdTotal" style="color: #10b981; font-size: 16px;">0đ</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Buttons -->
-      <div style="display: flex; gap: 12px; margin-top: 20px;">
-        <button id="editOrdSaveBtn" style="flex: 1; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-          💾 Lưu thay đổi
-        </button>
-        <button onclick="closeEditOrderModal()" style="flex: 1; padding: 12px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'">
-          Hủy
-        </button>
-      </div>
-
-      <div id="editOrdError" style="display: none; margin-top: 12px; padding: 12px; background: #fee2e2; color: #991b1b; border-radius: 6px; font-size: 13px;"></div>
-    </div>
-
-    <div id="editOrderLoading" style="display: none; text-align: center; padding: 24px;">
-      <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f4f6; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="color: #6b7280; margin-top: 12px; margin-bottom: 0;">Đang xử lý...</p>
     </div>
   </div>
 </div>
@@ -386,23 +302,11 @@
   <div style="font-size: 14px; opacity: 0.9;">Vui lòng đợi trong giây lát</div>
 </div>
 
-<style>
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-</style>
-
 <!-- Scripts -->
 <script src="./orders-manager.js"></script>
 <script src="./waybill-creator.js"></script>
 
 <script>
-// ✅ Hàm đóng modal chỉnh sửa
-function closeEditOrderModal() {
-  document.getElementById('modal-edit-order').style.display = 'none';
-}
-
 // Initialize layout
 document.addEventListener('DOMContentLoaded', function() {
   console.log('[Orders] DOM loaded, initializing...');

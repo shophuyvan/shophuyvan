@@ -196,18 +196,10 @@ function normalizeOrderItems(items) {
       product_id: it.product_id ?? it.pid ?? it.productId ?? (it.product?.id || it.product?.key) ?? maybeProductId ?? null,
       sku: it.sku ?? variantSku ?? null,
       name: it.name ?? it.title ?? '',
-      variant: it.variant ?? '', // Đây là tên biến thể
+      variant: it.variant ?? '',
       qty: Number(it.qty ?? it.quantity ?? 1) || 1,
       price: Number(it.price || 0),
-      cost: Number(it.cost || 0),
-      // ===== ⭐️ FIX HÌNH ẢNH VÀ CÂN NẶNG ⭐️ =====
-      image: it.image || it.variantImage || null,
-      variant_image: it.variantImage || it.image || null,
-      // ✅ THÊM 3 DÒNG NÀY để lưu cân nặng
-      weight_gram: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0,
-      weight_grams: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0,
-      weight: Number(it.weight_gram ?? it.weight_grams ?? it.weight ?? 0) || 0
-      // ==========================================
+      cost: Number(it.cost || 0)
     };
   });
 }
@@ -468,21 +460,12 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-  // ✅ HANDLE CORS PREFLIGHT (OPTIONS)
-  if (method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(req)
-    });
-  }
-
   // PUBLIC
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
   if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);
-  if (path === '/orders/update' && method === 'POST') return updateOrderCustomer(req, env); // ✅ THÊM DÒNG NÃ Y
 
   // ADMIN
   if (path === '/api/orders' && method === 'GET') return listOrders(req, env);
@@ -491,10 +474,6 @@ export async function handle(req, env, ctx) {
   if (path === '/admin/orders/delete' && method === 'POST') return deleteOrder(req, env);
   if (path === '/admin/orders/print' && method === 'GET') return printOrder(req, env);
   if (path === '/admin/stats' && method === 'GET') return getStats(req, env);
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // Thêm route này
-  if (path === '/admin/orders/confirm' && method === 'POST') return confirmOrderAndCreateWaybill(req, env);
-  // ========================================
 
   // Shipping Waybill
   if (path === '/shipping/print' && method === 'POST') return printWaybill(req, env);
@@ -532,27 +511,12 @@ async function createOrder(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  // Normalize & enrich items (ĐÃ SỬA normalizeOrderItems để lưu ảnh)
+  // Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
-  
-  // ✅ FIX: Tính tổng weight từ items
-  const totalWeight = items.reduce((sum, item) => {
-    const w = Number(item.weight_gram || item.weight_grams || item.weight || 0);
-    const qty = Number(item.qty || 1);
-    return sum + w * qty;
-  }, 0);
-  
-  console.log('[ORDER] Total weight calculated:', totalWeight, 'g from', items.length, 'items');
-  console.log('[ORDER] Shipping info received:', {
-    provider: body.shipping_provider,
-    service: body.shipping_service,
-    name: body.shipping_name,
-    fee: shipping_fee
-  });
 
   // Calculate subtotal
-   const subtotal = items.reduce((sum, item) =>
+  const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
   );
 
@@ -628,7 +592,7 @@ async function createOrder(req, env) {
     finalCustomer.phone = normalizePhone(finalCustomer.phone);
   }
 
- // Create order object
+  // Create order object
   const order = {
     id,
     createdAt,
@@ -636,10 +600,6 @@ async function createOrder(req, env) {
     customer: finalCustomer,
     items,
     subtotal,
-    // ✅ FIX: Ưu tiên weight từ FE, fallback về tính toán backend
-    weight_gram: Number(body.total_weight_gram || totalWeight || 0),
-    weight_grams: Number(body.total_weight_gram || totalWeight || 0),
-    weight: Number(body.total_weight_gram || totalWeight || 0),
     shipping_fee,
     discount: final_discount,
     shipping_discount: final_ship_discount,
@@ -648,13 +608,9 @@ async function createOrder(req, env) {
     voucher_code: validated_voucher_code,
     note: body.note || '',
     source: body.source || 'website',
-    // ✅ THÊM CÁC TRƯỜNG MỚI
-    allow_inspection: body.allow_inspection ?? true,
-    cod_amount: body.cod_amount || 0,
-    payment_method: (body.allow_inspection || body.cod_amount > 0) ? 'cod' : 'bank_transfer',
-    // ✅ FIX: Map shipping info correctly - ƯU TIÊN BODY TRƯỚC
-    shipping_provider: body.shipping_provider || shipping.provider || null,
-    shipping_service: body.shipping_service || shipping.service_code || null,
+    // ✅ FIX: Map shipping info correctly
+    shipping_provider: shipping.provider || body.shipping_provider || null,
+    shipping_service: shipping.service_code || body.shipping_service || null,
     shipping_name: body.shipping_name || shipping.name || null,
     shipping_eta: body.shipping_eta || shipping.eta || null
   };
@@ -670,9 +626,6 @@ async function createOrder(req, env) {
     await adjustInventory(items, env, -1);
   }
 
-  // ===== ⭐️ LOGIC MỚI (PROBLEM 2) ⭐️ =====
-  // Xóa (chú thích) khối tự động tạo vận đơn ở đây
-  /*
   // Auto-create waybill
   if (order.shipping_provider) {
     try {
@@ -703,8 +656,6 @@ async function createOrder(req, env) {
       console.error('[ORDER] Waybill creation exception:', e.message);
     }
   }
-  */
-  // ========================================
 
   const response = json({ ok: true, id, status: order.status, tracking_code: order.tracking_code || null }, {}, req);
   await idemSet(idem.key, env, response);
@@ -734,7 +685,7 @@ async function createOrderPublic(req, env) {
   if (auth.customerId) finalCustomer.id = auth.customerId;
   if (finalCustomer.phone) finalCustomer.phone = normalizePhone(finalCustomer.phone);
 
-  // Normalize & enrich items (ĐÃ SỬA normalizeOrderItems để lưu ảnh)
+  // Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
@@ -756,7 +707,7 @@ async function createOrderPublic(req, env) {
     createdAt,
     status,
     customer: finalCustomer,
-    items, // items này đã có hình ảnh
+    items,
     shipping_fee,
     discount,
     shipping_discount,
@@ -800,7 +751,7 @@ async function createOrderLegacy(req, env) {
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  let items = normalizeOrderItems(body.items || []); // Đã sửa để lưu ảnh
+  let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
   const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
@@ -822,7 +773,7 @@ async function createOrderLegacy(req, env) {
     phone: normalizePhone(body.phone),
     address: body.address,
     note: body.note || body.notes,
-    items, // items này đã có hình ảnh
+    items,
     subtotal,
     shipping_fee,
     total: subtotal + shipping_fee,
@@ -1299,189 +1250,5 @@ async function cancelOrderCustomer(req, env) {
   } catch (e) {
     console.error('[CANCEL-ORDER] Error:', e);
     return json({ ok: false, error: e.message }, { status: 500 }, req);
-  }
-}
-
-// ===================================================================
-// PUBLIC: Update Order (Customer) - Chỉnh sửa thông tin nhận hàng
-// ===================================================================
-async function updateOrderCustomer(req, env) {
-  try {
-    const body = await readBody(req) || {};
-    const orderId = body.order_id;
-
-    if (!orderId) {
-      return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
-    }
-
-    // Lấy đơn hàng
-    const order = await getJSON(env, 'order:' + orderId, null);
-    if (!order) {
-      return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
-    }
-
-    // Kiểm tra status: chỉ cho phép chỉnh sửa khi "pending/confirmed"
-    const status = String(order.status || '').toLowerCase();
-    const canEdit = status.includes('pending') || status.includes('confirmed') || status.includes('cho');
-    
-    if (!canEdit) {
-      return json({ 
-        ok: false, 
-        error: 'Chỉ có thể chỉnh sửa đơn hàng ở trạng thái "Chờ xác nhận"' 
-      }, { status: 400 }, req);
-    }
-
-    // Validate & update customer info
-    const updatedCustomer = body.customer || {};
-    
-    if (updatedCustomer.name) {
-      order.customer.name = String(updatedCustomer.name).trim();
-    }
-    
-    if (updatedCustomer.phone) {
-      order.customer.phone = normalizePhone(updatedCustomer.phone);
-    }
-    
-    if (updatedCustomer.address) {
-      order.customer.address = String(updatedCustomer.address).trim();
-    }
-
-    // Cập nhật thời gian chỉnh sửa
-    order.updated_at = Date.now();
-    order.updated_by = 'customer';
-
-    // Lưu lại
-    await putJSON(env, 'order:' + orderId, order);
-
-    // Cập nhật trong list
-    const list = await getJSON(env, 'orders:list', []);
-    const index = list.findIndex(o => o.id === orderId);
-    if (index > -1) {
-      list[index] = order;
-      await putJSON(env, 'orders:list', list);
-    }
-
-    console.log('[UPDATE-ORDER] Customer info updated:', {
-      orderId,
-      name: order.customer.name,
-      phone: order.customer.phone,
-      address: order.customer.address
-    });
-
-    return json({ 
-      ok: true, 
-      success: true,
-      message: 'Cập nhật đơn hàng thành công',
-      data: order 
-    }, {}, req);
-
-  } catch (e) {
-    console.error('[UPDATE-ORDER] Error:', e);
-    return json({ ok: false, error: e.message }, { status: 500 }, req);
-  }
-}
-
-// ===================================================================
-// ADMIN: Confirm Order & Create Waybill (LOGIC MỚI)
-// ===================================================================
-async function confirmOrderAndCreateWaybill(req, env) {
-  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
-
-  const body = await readBody(req) || {};
-  const id = body.id;
-  if (!id) return errorResponse('ID đơn hàng là bắt buộc', 400, req);
-
-  const order = await getJSON(env, 'order:' + id, null);
-  if (!order) return errorResponse('Không tìm thấy đơn hàng', 404, req);
-
-  // Chuẩn hoá status: rỗng / "chờ xác nhận" -> pending
-const rawStatus = String(order.status || '').trim().toLowerCase();
-const status = (!rawStatus || rawStatus.includes('cho') || rawStatus.includes('xác') || rawStatus.includes('xac'))
-  ? ORDER_STATUS.PENDING
-  : rawStatus;
-
-// ✅ CHO PHÉP XÁC NHẬN LẠI nếu đã có mã vận đơn
-if (status !== ORDER_STATUS.PENDING && status !== 'shipping') {
-  return errorResponse(`Đơn hàng đã ở trạng thái "${status}", không thể xác nhận.`, 400, req);
-}
-
-  // ✅ KIỂM TRA ĐÃ CÓ MÃ VẬN ĐƠN CHƯA
-  if (order.tracking_code && order.tracking_code !== 'CANCELLED') {
-    console.log('[CONFIRM-ORDER] ✅ Order already has tracking:', order.tracking_code);
-    
-    if (status === ORDER_STATUS.PENDING) {
-      order.status = 'shipping';
-      order.confirmed_at = Date.now();
-      
-      await putJSON(env, 'order:' + id, order);
-      
-      const list = await getJSON(env, 'orders:list', []);
-      const index = list.findIndex(o => o.id === id);
-      if (index > -1) {
-        list[index] = order;
-        await putJSON(env, 'orders:list', list);
-      }
-    }
-    
-    return json({ 
-      ok: true, 
-      id, 
-      status: order.status, 
-      tracking_code: order.tracking_code,
-      message: 'Đơn hàng đã có mã vận đơn'
-    }, {}, req);
-  }
-
-  if (order.shipping_provider) {
-    try {
-      console.log(`[CONFIRM-ORDER] Creating waybill for ${id}`);
-      const waybillResult = await autoCreateWaybill(order, env);
-
-      if (waybillResult.ok && waybillResult.carrier_code) {
-        order.tracking_code = waybillResult.carrier_code;
-        order.shipping_tracking = waybillResult.carrier_code;
-        order.superai_code = waybillResult.superai_code;
-        order.carrier_id = waybillResult.carrier_id;
-        order.status = 'shipping';
-        order.waybill_data = waybillResult.raw;
-        order.confirmed_at = Date.now();
-
-        await putJSON(env, 'order:' + id, order);
-
-        const list = await getJSON(env, 'orders:list', []);
-        const index = list.findIndex(o => o.id === id);
-        if (index > -1) {
-          list[index] = order;
-          await putJSON(env, 'orders:list', list);
-        }
-
-        console.log('[CONFIRM-ORDER] ✅ Waybill created:', waybillResult.carrier_code);
-        return json({ 
-          ok: true, 
-          id, 
-          status: order.status, 
-          tracking_code: order.tracking_code,
-          message: waybillResult.message || 'Tạo vận đơn thành công'
-        }, {}, req);
-
-      } else {
-        console.warn('[CONFIRM-ORDER] ❌ Waybill failed:', waybillResult.message);
-        return json({
-          ok: false,
-          error: 'WAYBILL_FAILED',
-          message: waybillResult.message || 'Tạo vận đơn thất bại',
-          details: waybillResult.data
-        }, { status: 400 }, req);
-      }
-    } catch (e) {
-      console.error('[CONFIRM-ORDER] ❌ Exception:', e.message);
-      return json({
-        ok: false,
-        error: 'EXCEPTION',
-        message: `Lỗi: ${e.message}`
-      }, { status: 500 }, req);
-    }
-  } else {
-    return errorResponse('Đơn hàng không có nhà cung cấp vận chuyển.', 400, req);
   }
 }
