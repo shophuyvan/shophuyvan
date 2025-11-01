@@ -151,6 +151,62 @@ export async function resolveCarrierCode(env, raw) {
 // ===================================================================
 
 /**
+ * Tra cứu mã province từ SuperAI API (có cache)
+ */
+export async function lookupProvinceCode(env, provinceName) {
+  try {
+    if (!provinceName || !provinceName.trim()) return null;
+
+    const cacheKey = 'ship:provinces';
+    
+    // Thử lấy từ cache trước (TTL 7 ngày)
+    let provinces = await getJSON(env, cacheKey, null, { ns: 'VANCHUYEN' });
+    
+    // Nếu chưa có cache, gọi API
+    if (!Array.isArray(provinces) || provinces.length === 0) {
+      console.log('[Helpers] 🔄 Loading provinces from SuperAI...');
+      const data = await superFetch(env, '/v1/platform/areas/province', { method: 'GET' });
+      provinces = Array.isArray(data?.data) ? data.data : [];
+      
+      // Lưu cache 7 ngày
+      if (provinces.length > 0) {
+        await putJSON(env, cacheKey, provinces, { ns: 'VANCHUYEN', ttl: 604800 });
+        console.log('[Helpers] ✅ Cached', provinces.length, 'provinces');
+      }
+    }
+
+    // Chuẩn hóa tên để so sánh
+    const normalize = (s) => String(s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/^thành phố\s+/gi, '')
+      .replace(/^tỉnh\s+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const targetName = normalize(provinceName);
+    console.log('[Helpers] 🔍 Looking up province:', targetName);
+
+    // Tìm province khớp
+    const province = provinces.find(p => {
+      const pName = normalize(p.name || '');
+      return pName === targetName || pName.includes(targetName) || targetName.includes(pName);
+    });
+
+    if (province?.code) {
+      console.log('[Helpers] ✅ Found province code:', province.code, 'for', provinceName);
+      return String(province.code);
+    }
+
+    console.warn('[Helpers] ⚠️ Province not found:', provinceName);
+    return null;
+  } catch (error) {
+    console.error('[Helpers] ❌ lookupProvinceCode error:', error);
+    return null;
+  }
+}
+
+/**
  * Tra cứu mã district theo tỉnh + tên quận/huyện
  */
 export async function lookupDistrictCode(env, provinceCode, districtName) {
@@ -260,6 +316,7 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
 // ===================================================================
 // Cân nặng tính phí (gross/volumetric) - giữ nguyên logic hiện tại
 // ===================================================================
+export { lookupProvinceCode, lookupDistrictCode, lookupCommuneCode };
 
 export function chargeableWeightGrams(body = {}, order = {}) {
   // ✅ FIX: Ưu tiên order.weight_gram (đã tính sẵn) trước

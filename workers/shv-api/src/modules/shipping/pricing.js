@@ -48,13 +48,28 @@ async function getShippingPrice(req, env) {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
 
-    // ✅ ƯU TIÊN _code fields cho sender (vì settings có thể lưu tên)
-    const senderProvince = String(
+    // Import helper
+    const { lookupProvinceCode } = await import('./helpers.js');
+
+    // ✅ Lấy sender province code
+    let senderProvince = String(
       body.sender_province_code || 
       shipping.sender_province_code || 
-      shipping.sender_province || 
-      '79' // Default HCM
+      ''
     );
+
+    // ✅ Nếu chưa có mã, tra cứu từ tên
+    if (!senderProvince || !/^\d+$/.test(senderProvince)) {
+      const provinceName = String(shipping.sender_province || 'Thành phố Hồ Chí Minh');
+      const lookedUpCode = await lookupProvinceCode(env, provinceName);
+      if (lookedUpCode) {
+        senderProvince = lookedUpCode;
+        console.log('[ShippingPrice] ✅ Resolved sender_province:', provinceName, '→', senderProvince);
+      } else {
+        console.warn('[ShippingPrice] ⚠️ Could not resolve province:', provinceName);
+        senderProvince = '79'; // Fallback HCM
+      }
+    }
     
     const senderDistrict = String(
       body.sender_district_code || 
