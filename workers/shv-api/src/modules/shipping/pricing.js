@@ -76,9 +76,11 @@ async function getShippingPrice(req, env) {
       ''
     );
 
-    // ✅ Build payload - ƯU TIÊN warehouse_code
+    // ✅ Build payload - BẮT BUỘC có sender_province/district
     const payload = {
       warehouse_code: String(shipping.warehouse_code || ''),
+      sender_province: senderProvince,
+      sender_district: senderDistrict,
       receiver_province: String(body.receiver_province || body.to_province || ''),
       receiver_district: String(body.receiver_district || body.to_district || ''),
       receiver_commune: String(body.receiver_commune || body.to_ward || ''),
@@ -87,14 +89,10 @@ async function getShippingPrice(req, env) {
       option_id: String(body.option_id || shipping.option_id || '1')
     };
 
-    // ✅ CHỈ GỬI sender_province/district NẾU KHÔNG CÓ WAREHOUSE
-    if (!payload.warehouse_code) {
-      payload.sender_province = senderProvince;
-      payload.sender_district = senderDistrict;
-      console.log('[ShippingPrice] ⚠️ No warehouse_code, using sender address');
-    } else {
-      console.log('[ShippingPrice] ✅ Using warehouse_code:', payload.warehouse_code);
-    }
+    console.log('[ShippingPrice] ✅ Payload with warehouse + sender:', {
+      warehouse: payload.warehouse_code,
+      sender: `${senderProvince}/${senderDistrict}`
+    });
 
     console.log('[ShippingPrice] Payload to SuperAI:', payload);
     console.log('[ShippingPrice] 🔍 DEBUG - Settings shipping:', shipping);
