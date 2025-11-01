@@ -515,57 +515,122 @@ async function upsertProduct(req, env) {
   }
 
   try {
-    const product = await readBody(req) || {};
-    
-    // Generate ID if not exists
-    product.id = product.id || crypto.randomUUID().replace(/-/g, '');
-    
-    // Update timestamp
-    product.updatedAt = Date.now();
-    
-    // Auto-generate slug if not provided
-    if (!product.slug && (product.title || product.name)) {
-      product.slug = slugify(product.title || product.name);
+    const incoming = await readBody(req) || {};
+
+    // 1) Bảo đảm có id
+    const id = (incoming.id && String(incoming.id).trim()) || crypto.randomUUID().replace(/-/g, '');
+    incoming.id = id;
+
+    // 2) Load bản cũ (nếu có) để MERGE an toàn
+    const old = await getJSON(env, 'product:' + id, null) || null;
+
+    // 3) Chuẩn hoá slug/category_slug
+    if (!incoming.slug && (incoming.title || incoming.name)) {
+      incoming.slug = slugify(incoming.title || incoming.name);
+    }
+    if (!incoming.category_slug && incoming.category) {
+      incoming.category_slug = toSlug(incoming.category);
     }
 
-    // ✅ FIX: Đảm bảo category_slug được lưu
-    if (!product.category_slug && product.category) {
-      product.category_slug = toSlug(product.category);
+    // 4) Merge variants theo id (không reset nếu không gửi mới)
+    function mergeVariants(oldVars, newVars) {
+      const ov = Array.isArray(oldVars) ? oldVars : [];
+      const nv = Array.isArray(newVars) ? newVars : null; // nếu null → giữ nguyên ov
+
+      if (!nv) return ov.slice();
+
+      const byId = new Map();
+      for (const v of ov) {
+        const key = String(v?.id ?? v?.sku ?? '');
+        if (key) byId.set(key, v);
+      }
+
+      const out = [];
+      for (const v of nv) {
+        const key = String(v?.id ?? v?.sku ?? '');
+        if (key && byId.has(key)) {
+          // merge giữ số liệu cũ phía variant nếu FE không gửi
+          const prev = byId.get(key);
+          out.push({ ...prev, ...v });
+        } else {
+          out.push({ ...v });
+        }
+      }
+      return out;
     }
 
-    console.log('💾 Saving product:', {
-      id: product.id,
-      name: product.title || product.name,
-      category: product.category,
-      category_slug: product.category_slug
+    // 5) Danh sách TRƯỜNG THỐNG KÊ/ĐỌC-CHỈ cần bảo toàn nếu incoming không gửi
+    const readOnlyStats = [
+      'createdAt', 'created_by',
+      'sold', 'sold_count', 'sales',
+      'rating', 'rating_avg', 'rating_count',
+      'reviews', 'reviews_count'
+    ];
+
+    // Helper: xác định "rỗng"
+    const isEmptyLike = (val) => (
+      val === undefined || val === null ||
+      (Array.isArray(val) && val.length === 0) ||
+      (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)
+    );
+
+    // 6) Tạo merged
+    const base = old ? { ...old } : {};
+    const merged = { ...base, ...incoming };
+
+    // 6.1) Bảo toàn trường thống kê nếu incoming không có hoặc gửi rỗng
+    for (const k of readOnlyStats) {
+      if (old && !isEmptyLike(old[k]) && isEmptyLike(incoming[k])) {
+        merged[k] = old[k];
+      }
+    }
+
+    // 6.2) createdAt: luôn giữ mốc cũ nếu có; nếu chưa có thì tạo mới
+    merged.createdAt = old?.createdAt || merged.createdAt || Date.now();
+
+    // 6.3) updatedAt: luôn cập nhật
+    merged.updatedAt = Date.now();
+
+    // 6.4) variants: merge theo id/sku
+    merged.variants = mergeVariants(old?.variants, incoming?.variants);
+
+    // 6.5) Đảm bảo cân nặng ở variants không bị undefined
+    if (Array.isArray(merged.variants)) {
+      merged.variants = merged.variants.map(v => ({
+        ...v,
+        weight_gram: v.weight_gram || 0,
+        weight_grams: v.weight_grams || 0,
+        weight: v.weight || 0
+      }));
+    }
+
+    console.log('💾 Saving product (MERGE):', {
+      id: merged.id,
+      name: merged.title || merged.name,
+      category: merged.category,
+      category_slug: merged.category_slug
     });
 
-    // Get current products list
+    // 7) Cập nhật danh sách summary
     const list = await listProducts(env);
-    
-    // Create summary version
-    const summary = toSummary(product);
-    
-    // Update or add to list
-    const index = list.findIndex(p => p.id === product.id);
+    const summary = toSummary(merged);
+    const index = list.findIndex(p => p.id === id);
     if (index >= 0) {
       list[index] = summary;
     } else {
       list.unshift(summary);
     }
 
-    // Save to KV
+    // 8) Lưu KV (list + detail + legacy)
     await putJSON(env, 'products:list', list);
-    await putJSON(env, 'product:' + product.id, product);
-    
-    // Legacy compatibility
-    await putJSON(env, 'products:' + product.id, summary);
+    await putJSON(env, 'product:' + id, merged);
+    await putJSON(env, 'products:' + id, summary); // legacy
 
-    console.log('✅ Product saved');
+    console.log('✅ Product saved (merged)');
 
-    return json({ ok: true, data: product }, {}, req);
+    return json({ ok: true, data: merged }, {}, req);
   } catch (e) {
-    console.error('❌ Save error:', e);
+    console.error('❌ Save error (merged upsert):', e);
     return errorResponse(e, 500, req);
   }
 }
