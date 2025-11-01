@@ -153,6 +153,33 @@ const res = await fetch(finalUrl, { method: init.method||'GET', headers, body, c
 
 document.addEventListener('DOMContentLoaded', ()=>window.Admin && Admin.renderApiBase());
 
+// --- SHV patch: stop auto-search "admin@shophuyvan.com" on Customers page ---
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Áp dụng đúng trang Khách hàng
+  if (!(/customers\.html$/i.test(location.pathname) || /\/customers$/i.test(location.pathname))) return;
+
+  const si = document.getElementById('search-input');
+  if (!si) return;
+
+  // Tắt tự điền & reset giá trị ngay từ đầu
+  si.setAttribute('autocomplete','off');
+  si.setAttribute('autocapitalize','off');
+  si.setAttribute('autocorrect','off');
+  si.value = '';
+
+  // Nếu bất kỳ script nào khác gán lại email admin → xóa ngay
+  const clearIfAdmin = ()=>{ if (/^admin@shophuyvan\.com$/i.test(si.value)) si.value = ''; };
+  clearIfAdmin();
+  // chống race với code khác: kiểm tra nhiều nhịp đầu trang
+  setTimeout(clearIfAdmin, 50);
+  setTimeout(clearIfAdmin, 150);
+  setTimeout(clearIfAdmin, 400);
+
+  // Lần đầu focus vào ô search cũng đảm bảo không bị đổ giá trị admin
+  si.addEventListener('focus', clearIfAdmin, { once:true });
+});
+
+
 // v24: Ads page quick wire if not present
 document.addEventListener('DOMContentLoaded', ()=>{
   if(!/ads\.html/.test(location.pathname)) return;
