@@ -67,6 +67,10 @@ async function getShippingPrice(req, env) {
       // ✅ Dùng warehouse_code từ settings
       warehouse_code: String(shipping.warehouse_code || ''),
       
+      // ✅ Địa chỉ người gửi (MÃ) - BẮT BUỘC bởi SuperAI
+      sender_province: senderProvince,
+      sender_district: senderDistrict,
+      
       // Địa chỉ người nhận (MÃ)
       receiver_province: String(body.receiver_province || body.to_province || ''),
       receiver_district: String(body.receiver_district || body.to_district || ''),
