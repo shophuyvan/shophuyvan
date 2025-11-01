@@ -31,8 +31,12 @@ export async function handle(req, env, ctx) {
     return getMiniPrice(req, env);
   }
 
+  // POST /shipping/weight
+  if (path === '/shipping/weight' && req.method === 'POST') {
+    return getShippingWeight(req, env);
+  }
+
   return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
-}
 
 // Main pricing endpoint
 async function getShippingPrice(req, env) {
@@ -195,6 +199,78 @@ async function getMiniPrice(req, env) {
       ok: false, 
       error: String(e?.message || e) 
     }, { status: 500 }, req);
+  }
+}
+
+// NEW: compute total_gram từ biến thể x số lượng
+async function getShippingWeight(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const lines = Array.isArray(body.lines) ? body.lines : [];
+    if (!lines.length) return json({ ok: true, total_gram: 0 }, {}, req);
+
+    // Chuẩn hoá chuỗi: bỏ dấu + bỏ khoảng trắng + lower-case
+    const norm = (s) => String(s ?? '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/\s+/g, '').trim();
+
+    let total = 0;
+
+    for (const line of lines) {
+      const pid  = String(line.product_id ?? line.productId ?? line.id ?? '').trim();
+      const qty  = Number(line.qty ?? line.quantity ?? 1) || 1;
+      if (!pid) continue;
+
+      // 0) Nếu client đã gửi weight_gram hợp lệ → dùng luôn
+      const wClient = Number(line.weight_gram ?? line.weight ?? 0) || 0;
+      if (wClient > 0) { total += wClient * qty; continue; }
+
+      // 1) Lấy sản phẩm từ KV
+      const pidRaw = String(pid || '').trim();
+      const pidClean = pidRaw.includes(':') ? pidRaw.split(':')[0].trim() : pidRaw;
+
+      let product =
+        await getJSON(env, 'product:' + pidClean, null) ||
+        await getJSON(env, 'product:' + pidRaw,   null) ||
+        await getJSON(env, 'prd:'     + pidClean, null);
+
+      if (!product) continue;
+
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+
+      const vid   = String(line.variant_id  ?? line.variantId  ?? '').trim();
+      const vsku  = String(line.variant_sku ?? line.sku        ?? '').trim();
+      const vname = String(line.variant_name?? line.variantName?? '').trim();
+
+      // 2) Tìm biến thể: id → sku → tên (không dấu)
+      let match = null;
+
+      if (vid) {
+        match = variants.find(v => String(v.id ?? v._id ?? '').trim() === vid) || null;
+      }
+      if (!match && vsku) {
+        const S = vsku.toLowerCase();
+        match = variants.find(v => String(v.sku ?? v.SKU ?? '').toLowerCase() === S) || null;
+      }
+      if (!match && vname) {
+        const target = norm(vname);
+        match = variants.find(v => {
+          const names = [
+            v.name, v.title, v.option1, v.option2, v.option3
+          ].filter(Boolean).map(norm);
+          const opts = Array.isArray(v.options) ? v.options.map(norm) : [];
+          return [...names, ...opts].some(n => n === target || n.includes(target) || target.includes(n));
+        }) || null;
+      }
+      if (!match && variants.length === 1) match = variants[0];
+
+      const w = Number(match?.weight_gram ?? match?.weight ?? 0) || 0;
+      if (w > 0) total += w * qty;
+    }
+
+    return json({ ok: true, total_gram: Math.round(total) }, {}, req);
+  } catch (e) {
+    return errorResponse(e, 500, req);
   }
 }
 
