@@ -20,9 +20,11 @@ export async function handle(req, env, ctx) {
     return areas.handle(req, env, ctx);
   }
 
-    // Warehouses
-  if (path === '/shipping/warehouses') {
-    return warehouses.handle(req, env, ctx);
+    // Carriers list
+  if (path === '/shipping/carriers/list' && req.method === 'GET') {
+    const { getCarriersList } = await import('./helpers.js');
+    const list = await getCarriersList(env);
+    return json({ ok: true, data: list, items: list }, {}, req);
   }
 
   // Pricing/Quote

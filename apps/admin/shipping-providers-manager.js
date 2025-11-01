@@ -16,9 +16,11 @@ class ProvidersManager {
   }
 
   getToken() {
-    return localStorage.getItem('x-token') || 
-           localStorage.getItem('super_token') || 
-           localStorage.getItem('admin_token') || '';
+    // ✅ Ưu tiên super_token cho SuperAI API
+    return localStorage.getItem('super_token') || 
+           localStorage.getItem('x-token') || 
+           localStorage.getItem('admin_token') || 
+           'FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5'; // Fallback token
   }
 
   toast(msg, type = 'success') {
@@ -84,26 +86,9 @@ class ProvidersManager {
     try {
       this.showLoading();
 
-      // Load danh sách carriers từ SuperAI
-      const token = this.getToken();
-      if (!token) {
-        throw new Error('Vui lòng đăng nhập và lưu token trước');
-      }
-
-      const response = await fetch('https://api.superai.vn/v1/platform/carriers/list', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Token': token.trim()
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`SuperAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      this.providers = data?.data || [];
+      // ✅ GỌI QUA BACKEND API thay vì trực tiếp SuperAI
+      const data = await this.apiCall('/shipping/carriers/list');
+      this.providers = data?.data || data?.items || [];
 
       // Load cấu hình đã lưu
       await this.loadSavedConfig();

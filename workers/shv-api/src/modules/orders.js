@@ -544,6 +544,12 @@ async function createOrder(req, env) {
   }, 0);
   
   console.log('[ORDER] Total weight calculated:', totalWeight, 'g from', items.length, 'items');
+  console.log('[ORDER] Shipping info received:', {
+    provider: body.shipping_provider,
+    service: body.shipping_service,
+    name: body.shipping_name,
+    fee: shipping_fee
+  });
 
   // Calculate subtotal
    const subtotal = items.reduce((sum, item) =>
@@ -630,10 +636,10 @@ async function createOrder(req, env) {
     customer: finalCustomer,
     items,
     subtotal,
-    // ✅ FIX: Lưu weight vào order level
-    weight_gram: totalWeight || 0,
-    weight_grams: totalWeight || 0,
-    weight: totalWeight || 0,
+    // ✅ FIX: Ưu tiên weight từ FE, fallback về tính toán backend
+    weight_gram: Number(body.total_weight_gram || totalWeight || 0),
+    weight_grams: Number(body.total_weight_gram || totalWeight || 0),
+    weight: Number(body.total_weight_gram || totalWeight || 0),
     shipping_fee,
     discount: final_discount,
     shipping_discount: final_ship_discount,
@@ -646,9 +652,9 @@ async function createOrder(req, env) {
     allow_inspection: body.allow_inspection ?? true,
     cod_amount: body.cod_amount || 0,
     payment_method: (body.allow_inspection || body.cod_amount > 0) ? 'cod' : 'bank_transfer',
-    // ✅ FIX: Map shipping info correctly
-    shipping_provider: shipping.provider || body.shipping_provider || null,
-    shipping_service: shipping.service_code || body.shipping_service || null,
+    // ✅ FIX: Map shipping info correctly - ƯU TIÊN BODY TRƯỚC
+    shipping_provider: body.shipping_provider || shipping.provider || null,
+    shipping_service: body.shipping_service || shipping.service_code || null,
     shipping_name: body.shipping_name || shipping.name || null,
     shipping_eta: body.shipping_eta || shipping.eta || null
   };

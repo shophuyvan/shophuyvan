@@ -1,27 +1,13 @@
 // apps/fe/src/checkout.js
+// ====== IMPORT API ======
+import api from './lib/api.js';
+
 // ====== CẤU HÌNH & TIỆN ÍCH ======
-const API_BASE = 'https://api.shophuyvan.vn';
 const VN_PHONE_RE = /^(03|05|07|08|09)\d{8}$/;
 const $ = id => document.getElementById(id);
 const fmtVND = v => (Number(v)||0).toLocaleString('vi-VN') + '₫';
 const cloudify = (url, t='w_200,h_200,c_fill,q_auto,f_auto') =>
   (!url || !url.includes('res.cloudinary.com')) ? url : url.replace('/upload/','/upload/'+t+'/');
-
-async function api(path, opts = {}) {
-  const url = `${API_BASE}${path.startsWith('/')?'':'/'}${path}`;
-  const headers = { ...opts.headers };
-  let body = opts.body;
-  if (body && typeof body === 'object' && !(body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify(body);
-  }
-  const res = await fetch(url, { method: opts.method || 'GET', headers, body });
-  const ctype = res.headers.get('content-type')||'';
-  const data = ctype.includes('application/json') ? await res.json() : await res.text();
-  if (!res.ok) throw new Error((data && data.message) || 'Request failed');
-  return data;
-}
-
 const toHumanWeight = grams => {
   const g = Number(grams||0);
   if (g<=0) return '0 g';
@@ -510,6 +496,9 @@ $('place-order').addEventListener('click', async () => {
     // ✅ Lấy trạng thái cho xem hàng
     const allowInspection = document.getElementById('allow-inspection')?.checked ?? true;
     
+    // ✅ Tính tổng cân nặng thực tế từ cart
+    const totalWeightGram = await ensureWeight(cart);
+    
     const payload = {
       customer: {
         name, phone, address,
@@ -547,20 +536,34 @@ $('place-order').addEventListener('click', async () => {
         discount: prodDiscount,
         shipping_discount: bestShipDiscount
       },
+      total_weight_gram: totalWeightGram,
       source: 'website',
       status: 'placed'
     };
 
-    const res = await api('/api/orders', {
-      method:'POST',
-      headers: {
-        'Idempotency-Key': (
-          localStorage.getItem('idem_order') ||
-          (()=>{ const v='idem-'+Date.now()+'-'+Math.random().toString(36).slice(2); localStorage.setItem('idem_order', v); return v; })()
-        )
-      },
-      body: payload
+    const idemKey = localStorage.getItem('idem_order') || 
+                    (() => { 
+                      const v = 'idem-' + Date.now() + '-' + Math.random().toString(36).slice(2); 
+                      localStorage.setItem('idem_order', v); 
+                      return v; 
+                    })();
+
+    const res = await api.post('/api/orders', payload, {
+      headers: { 'Idempotency-Key': idemKey }
     });
+```
+
+---
+
+## 🔄 **TIẾP THEO - GỬI FILE BACKEND**
+
+Bây giờ tôi cần kiểm tra backend để xem logic lưu đơn hàng có ghi đè shipping_provider và weight không.
+
+**VUI LÒNG GỬI CÁC FILE SAU:**
+```
+1. workers/shv-api/src/modules/orders.js
+2. workers/shv-api/src/modules/shipping/index.js  
+3. workers/shv-api/src/modules/shipping/pricing.js
 
     if (res && (res.id || res.success || res.status==='ok')) {
   // Xoá giỏ hàng & idempotency
