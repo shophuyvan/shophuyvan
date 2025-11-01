@@ -89,12 +89,21 @@ export async function handle(req, env, ctx) {
  * Tính giá hiển thị từ variants để FE + Mini luôn có giá ở list (không phụ thuộc price cấp product).
  */
 function toSummary(product) {
-  // Tính theo tier 'retail' để hiển thị công khai
+  // Tinh theo tier 'retail' de hien thi cong khai
   const priced = computeDisplayPrice(product, 'retail'); // { price_display, compare_at_display }
 
-  // Map cho tương thích UI cũ (đang đọc price ở summary)
-  const legacyPrice   = Number(priced.price_display || 0);
-  const legacyCompare = Number(priced.compare_at_display || 0);
+  // FALLBACK: Neu variants khong co gia -> dung gia cap product (tuong thich cu)
+  let legacyPrice   = Number(priced.price_display || 0);
+  let legacyCompare = Number(priced.compare_at_display || 0);
+  
+  if (legacyPrice === 0 && priced.no_variant) {
+    // Khong co variant -> lay gia truc tiep tu product (neu co)
+    legacyPrice = Number(product.price || product.price_sale || 0);
+    if (product.price && product.price_sale && product.price_sale < product.price) {
+      legacyCompare = Number(product.price);
+      legacyPrice = Number(product.price_sale);
+    }
+  }
 
   return {
     id: product.id,
@@ -589,34 +598,67 @@ async function upsertProduct(req, env) {
       (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)
     );
 
-    // 6) Tạo merged
+    // 6) Tao merged - UU TIEN DU LIEU CU
     const base = old ? { ...old } : {};
     const merged = { ...base, ...incoming };
 
-    // 6.1) Bảo toàn trường thống kê nếu incoming không có hoặc gửi rỗng
-    for (const k of readOnlyStats) {
-      if (old && !isEmptyLike(old[k]) && isEmptyLike(incoming[k])) {
-        merged[k] = old[k];
+    // 6.1) BAO TOAN TRUONG THONG KE/DOC-CHI (CHAT CHE)
+    // Ket cung: Neu dang SUA (co old) thi GIU NGUYEN cac truong nay
+    if (old) {
+      for (const k of readOnlyStats) {
+        if (old[k] !== undefined && old[k] !== null) {
+          merged[k] = old[k]; // GHI DE gia tri cu, khong de incoming ghi de
+        }
       }
     }
 
-    // 6.2) createdAt: luôn giữ mốc cũ nếu có; nếu chưa có thì tạo mới
-    merged.createdAt = old?.createdAt || merged.createdAt || Date.now();
+    // 6.2) createdAt: CHI GIU GIA TRI CU (neu co old)
+    if (old && old.createdAt) {
+      merged.createdAt = old.createdAt; // Bao toan createdAt cu
+    } else {
+      // Neu la san pham moi (khong co old)
+      merged.createdAt = merged.createdAt || Date.now();
+    }
 
-    // 6.3) updatedAt: luôn cập nhật
+    // 6.3) updatedAt: Luon cap nhat khi save
     merged.updatedAt = Date.now();
+
+    // 6.4) THEM: Xac dinh "san pham moi" (trong 30 ngay)
+    if (merged.createdAt) {
+      const ageMs = Date.now() - merged.createdAt;
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      merged.isNewProduct = ageDays <= 1; // Tu dong danh dau "moi" neu < 1 ngay
+    }
 
     // 6.4) variants: merge theo id/sku
     merged.variants = mergeVariants(old?.variants, incoming?.variants);
 
-    // 6.5) Đảm bảo cân nặng ở variants không bị undefined
+    // 6.5) Dam bao can nang o variants (UU TIEN GIU GIA TRI CU)
     if (Array.isArray(merged.variants)) {
-      merged.variants = merged.variants.map(v => ({
-        ...v,
-        weight_gram: v.weight_gram || 0,
-        weight_grams: v.weight_grams || 0,
-        weight: v.weight || 0
-      }));
+      const oldVariantsMap = new Map();
+      if (old && Array.isArray(old.variants)) {
+        old.variants.forEach(v => {
+          const key = String(v?.id ?? v?.sku ?? '');
+          if (key) oldVariantsMap.set(key, v);
+        });
+      }
+
+      merged.variants = merged.variants.map(v => {
+        const key = String(v?.id ?? v?.sku ?? '');
+        const oldV = key ? oldVariantsMap.get(key) : null;
+
+        // Neu incoming khong co weight va old co weight -> giu weight cu
+        const w_gram = (v.weight_gram !== undefined && v.weight_gram !== null && v.weight_gram !== 0)
+          ? v.weight_gram
+          : (oldV?.weight_gram || oldV?.weight_grams || oldV?.weight || 0);
+
+        return {
+          ...v,
+          weight_gram: w_gram,
+          weight_grams: w_gram,
+          weight: w_gram
+        };
+      });
     }
 
     console.log('💾 Saving product (MERGE):', {

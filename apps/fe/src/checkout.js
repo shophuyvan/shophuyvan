@@ -93,13 +93,17 @@ function calcWeight(cart) {
 
 // API: nếu thiếu cân nặng → hỏi server để lấy total_gram thật
 async function ensureWeight(cart) {
-  // ❗ Không dùng cache local để quyết định có gọi API hay không
-  // Tính cân nặng "thật" chỉ từ từng dòng (weight_gram/weight_grams/weight)
+  // LUON GOI API DE LAY WEIGHT CHINH XAC (khong tin cache local)
+  // Tinh can nang tu cart truoc (de log)
   let g = cart.reduce((s, it) => {
     const per = Number(it.weight_gram || it.weight_grams || it.weight || 0);
     return s + per * Number(it.qty || 1);
   }, 0);
-  if (g > 0) return g;
+  
+  console.log('[ensureWeight] Local weight:', g, 'g');
+  
+  // Du local co > 0 van goi API de dam bao chuan
+  if (cart.length === 0) return 0;
 
   try {
     // chuẩn hoá payload gửi server: product_id + variant info + qty
