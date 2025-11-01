@@ -253,6 +253,7 @@ async function loadNew(){ if(!newWrap) return;
   let items = (data.items || data.products || data.data || []);
   const now = Date.now();
   items = items.filter(p=>{
+    // CHI DUNG created_at, KHONG DUNG updated_at (tranh san pham cu bi hien lai khi edit)
     const d=new Date(p.created_at||p.createdAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
     return d && (now-d) <= 24*60*60*1000;
   }).slice(0,8);
