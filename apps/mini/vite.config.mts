@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  plugins: [zmp(), react()],
+  plugins: [react(), zmp()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
