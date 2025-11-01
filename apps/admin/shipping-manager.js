@@ -16,7 +16,7 @@ class ShippingManager {
   }
 
   getToken() {
-    const token = this.$('super_token')?.value || 
+    const token = this.$('super_key')?.value || 
                   localStorage.getItem('x-token') || 
                   localStorage.getItem('super_token') || '';
     return token.trim();
@@ -351,8 +351,7 @@ if (token) {
       set('sender_province_code', get('shipping.sender_province_code'));
       set('sender_district_code', get('shipping.sender_district_code'));
       set('sender_commune_code', get('shipping.sender_commune_code'));
-      set('super_key', get('shipping.super_key'));
-      set('super_token', get('shipping.super_token') || localStorage.getItem('x-token'));
+      set('super_key', get('shipping.super_key') || localStorage.getItem('x-token'));
 
       // Load cascading selects
       const provCode = get('shipping.sender_province_code');
@@ -435,7 +434,7 @@ if (token) {
     }
 
     // Auto-save on input change
-    ['sender_phone', 'sender_address', 'sender_name', 'warehouse_code'].forEach(id => {
+    ['sender_phone', 'sender_address', 'sender_name'].forEach(id => {
       const el = this.$(id);
       if (el) {
         el.addEventListener('blur', () => this.autoSave());
@@ -446,26 +445,33 @@ if (token) {
     const tokenBtn = this.$('save_super');
     if (tokenBtn) {
       tokenBtn.onclick = async () => {
-        const key = this.$('super_key')?.value || '';
-        const token = this.$('super_token')?.value || '';
+        const key = this.$('super_key')?.value?.trim() || '';
         
-        if (key) {
+        if (!key) {
+          alert('⚠️ Vui lòng nhập API Super Key');
+          return;
+        }
+        
+        try {
+          // Lưu token
           await window.Admin.req('/admin/settings/upsert', {
             method: 'POST',
             body: { path: 'shipping.super_key', value: key }
           });
+          
+          // Lưu vào localStorage để API sử dụng
+          localStorage.setItem('x-token', key);
+          localStorage.setItem('super_token', key);
+          
+          this.toast('✅ Đã lưu token, đang đồng bộ warehouse...');
+          
+          // Tự động đồng bộ warehouse
+          await this.syncFromWarehouses();
+          
+        } catch (e) {
+          console.error('[Save Token Error]', e);
+          alert('❌ Lỗi khi lưu token: ' + e.message);
         }
-        
-        if (token) {
-          await window.Admin.req('/admin/settings/upsert', {
-            method: 'POST',
-            body: { path: 'shipping.super_token', value: token }
-          });
-          localStorage.setItem('x-token', token);
-          localStorage.setItem('super_token', token);
-        }
-        
-        this.toast('✅ Đã lưu Super token');
       };
     }
   }
