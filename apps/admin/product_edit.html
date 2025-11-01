@@ -151,7 +151,13 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 const qs = (k) => new URL(location.href).searchParams.get(k);
 
 Admin.ensureAuth();
-let state = { id: qs('id') || '', images: [], variants: [] };
+// Fallback Hướng 2: lấy id từ URL hoặc sessionStorage
+const __qs  = new URLSearchParams(location.search);
+const __qid = (__qs.get('id') || '').trim();
+let __sid = '';
+try { __sid = (sessionStorage.getItem('editProductId') || '').trim(); } catch {}
+let state = { id: __qid || __sid || '', images: [], variants: [] };
+
 
 function toast(msg) {
   if (window.Admin && window.Admin.toast) {
@@ -1399,7 +1405,7 @@ function renderPreview() {
     '/admin/product?id=' + encodeURIComponent(id)
   ]);
   
-  if (r && (r.item || r.data)) {
+    if (r && (r.item || r.data)) {
     const d = r.item || r.data;
     $('#title').value = d.title || d.name || '';
     $('#shortDesc').value = d.shortDesc || '';
@@ -1432,7 +1438,11 @@ function renderPreview() {
     }
     
     (d.variants || []).forEach(v => addVar(v));
+
+    // 🔓 Đã dùng xong id từ sessionStorage thì xóa để tránh “kẹt” lần sau
+    try { if (__sid) sessionStorage.removeItem('editProductId'); } catch {}
   }
+
 })();
 
 console.log('✅ Product edit script loaded - FAQ FIX + SIDEBAR APPLIED');
