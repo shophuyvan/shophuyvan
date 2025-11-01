@@ -177,29 +177,39 @@
     }
     .btn-shopping:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(238, 77, 45, 0.4); }
     @media (max-width: 768px) {
-      body { padding-bottom: 240px; }
-      .header-content { padding: 10px 12px; }
-      .logo { font-size: 14px; }
-      .logo img { width: 32px; height: 32px; }
-      .btn-checkout { padding: 8px 16px; font-size: 13px; }
-      .cart-header { display: none; }
-      .cart-item { flex-wrap: wrap; gap: 12px; padding: 16px 12px; }
-      .item-checkbox { order: 1; }
-      .item-info { order: 2; width: calc(100% - 38px); }
-      .item-image { width: 70px; height: 70px; }
-      .item-price, .item-quantity, .item-total, .item-actions { flex: none; width: auto; }
-      .item-price { order: 3; width: 100%; text-align: left; margin-left: 38px; }
-      .item-quantity { order: 4; margin-left: 38px; }
-      .item-total { order: 5; margin-left: auto; }
-      .item-actions { order: 6; width: 100%; text-align: left; margin-left: 38px; }
-      .qty-btn { width: 32px; height: 32px; }
-      .qty-input { width: 45px; height: 32px; }
-      .summary-section { padding: 16px 12px; }
-      .summary-actions { flex-direction: column-reverse; gap: 12px; }
-      .btn-checkout-main { width: 100%; padding: 14px 24px; }
-      .select-all-group { width: 100%; }
-      .summary-value.highlight { font-size: 20px; }
-    }
+  body { padding-bottom: 240px; }
+  .header-content { padding: 10px 12px; }
+  .logo { font-size: 14px; }
+  .logo img { width: 32px; height: 32px; }
+  .btn-checkout { padding: 8px 16px; font-size: 13px; }
+  .cart-header { display: none; }
+  .cart-item { flex-wrap: wrap; gap: 12px; padding: 16px 12px; }
+  .item-checkbox { order: 1; }
+  .item-info { order: 2; width: calc(100% - 38px); }
+  .item-image { width: 70px; height: 70px; }
+  .item-price, .item-quantity, .item-total, .item-actions { flex: none; width: auto; }
+  .item-price { order: 3; width: 100%; text-align: left; margin-left: 38px; }
+  .item-quantity { order: 4; margin-left: 38px; }
+  .item-total { order: 5; margin-left: auto; }
+  .item-actions { order: 6; width: 100%; text-align: left; margin-left: 38px; }
+  .qty-btn { width: 32px; height: 32px; }
+  .qty-input { width: 45px; height: 32px; }
+  .summary-section { padding: 16px 12px; }
+  /* ✅ Giữ checkbox & nút mua hàng nằm cùng một hàng như Hình 1 */
+  .summary-actions {
+    flex-direction: row;               /* trước đây là column-reverse */
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .btn-checkout-main {
+    width: auto;                       /* trước là 100% làm nút tràn hàng */
+    padding: 14px 24px;
+  }
+  .select-all-group { width: auto; }   /* để checkbox bám trái, không chiếm full width */
+  .summary-value.highlight { font-size: 20px; }
+}
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }
@@ -372,15 +382,21 @@
       document.getElementById('discountAmount').textContent = formatMoney(discount);
       document.getElementById('totalAmount').textContent = formatMoney(total);
 
-      const checkoutBtn = document.getElementById('checkoutBtn');
-      const headerCheckout = document.getElementById('headerCheckout');
-      if (selectedItems.size > 0) {
-        checkoutBtn.disabled = false;
-        if (headerCheckout) headerCheckout.style.opacity = '1';
-      } else {
-        checkoutBtn.disabled = true;
-        if (headerCheckout) headerCheckout.style.opacity = '0.5';
-      }
+        const checkoutBtn = document.getElementById('checkoutBtn');
+  const headerCheckout = document.getElementById('headerCheckout');
+
+  // ✅ Cập nhật nhãn "Mua hàng (x)" giống Hình 1
+  checkoutBtn.textContent = selectedItems.size > 0
+    ? `Mua hàng (${selectedItems.size})`
+    : 'Mua hàng';
+
+  if (selectedItems.size > 0) {
+    checkoutBtn.disabled = false;
+    if (headerCheckout) headerCheckout.style.opacity = '1';
+  } else {
+    checkoutBtn.disabled = true;
+    if (headerCheckout) headerCheckout.style.opacity = '0.5';
+  }
     }
 
     function render() {

@@ -219,16 +219,6 @@ if (token) {
         return;
       }
 
-      // ✅ FIX: Nếu thiếu province_code, tìm theo tên
-      if (!provinceCode && provinceName) {
-        console.log('[Sync] Province code missing, searching by name:', provinceName);
-      }
-      
-      // ✅ FIX: Nếu thiếu district_code, tìm theo tên
-      if (!districtCode && districtName) {
-        console.log('[Sync] District code missing, searching by name:', districtName);
-      }
-
       // Fill vào form
       if (this.$('sender_name')) this.$('sender_name').value = name;
       if (this.$('sender_phone')) this.$('sender_phone').value = phone;
@@ -255,11 +245,6 @@ if (token) {
       if (!provinceCode) {
         alert('❌ Không xác định được mã tỉnh/thành phố!');
         return;
-      }
-          console.log('[Sync] ✅ Found province code by name:', provinceName, '→', provinceCode);
-        } else {
-          console.warn('[Sync] ⚠️ Cannot find province code for:', provinceName);
-        }
       }
 
       if (provinceCode) {
