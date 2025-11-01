@@ -276,8 +276,23 @@ document.addEventListener('DOMContentLoaded', function(){
       consider(toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price));
     }
 
+    // Tinh gia goc (original) de hien thi gach ngang
+    let originalPrice = 0;
+    if (vars.length) {
+      for (const v of vars) {
+        const regularPrice = toNum(v.price ?? v.unit_price);
+        if (regularPrice > 0 && regularPrice > originalPrice) {
+          originalPrice = regularPrice;
+        }
+      }
+    } else {
+      originalPrice = toNum(p.price ?? p.unit_price);
+    }
+    
     const base = (min === Infinity) ? 0 : min;
-    return { base }; // frontend.js sẽ đọc priceInfo.base
+    const original = (originalPrice > base && originalPrice > 0) ? originalPrice : 0;
+    
+    return { base, original };
   }
   // Dùng toàn cục cho frontend.js
   window.pickLowestPrice = pickLowestPrice;
