@@ -5,7 +5,7 @@
 
 class ShippingManager {
   constructor() {
-    this.baseURL = 'https://shv-api.shophuyvan.workers.dev';
+    this.baseURL = 'https://api.shophuyvan.vn';
     this.saveTimer = null;
     this.lastSaved = {};
   }
