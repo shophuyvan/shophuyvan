@@ -20,6 +20,11 @@ export async function handle(req, env, ctx) {
     return areas.handle(req, env, ctx);
   }
 
+  // ✅ THÊM: Warehouses endpoint
+  if (path.startsWith('/shipping/warehouses')) {
+    return warehouses.handle(req, env, ctx);
+  }
+
     // Carriers list
   if (path === '/shipping/carriers/list' && req.method === 'GET') {
     const { getCarriersList } = await import('./helpers.js');
