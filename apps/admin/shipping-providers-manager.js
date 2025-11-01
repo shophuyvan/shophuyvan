@@ -216,7 +216,7 @@ class ProvidersManager {
       console.log('[Save] Saving enabled providers:', enabled);
 
       // Lưu vào settings
-      await window.Admin.req('/admin/settings/upsert', {
+      const result = await window.Admin.req('/admin/settings/upsert', {
         method: 'POST',
         body: {
           path: 'shipping.enabled_providers',
@@ -224,7 +224,17 @@ class ProvidersManager {
         }
       });
 
+      console.log('[Save] Result:', result);
+
+      if (!result || !result.ok) {
+        throw new Error(result?.error || 'Lưu thất bại');
+      }
+
       this.toast('✅ Đã lưu cấu hình đơn vị vận chuyển');
+      
+      // Reload để verify
+      await this.loadSavedConfig();
+      console.log('[Save] Verified enabled providers:', Array.from(this.enabledProviders));
     } catch (error) {
       console.error('[Save Error]', error);
       this.toast('❌ Lỗi lưu: ' + error.message, 'error');
