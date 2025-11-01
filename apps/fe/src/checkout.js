@@ -245,7 +245,6 @@ async function loadWards(districtCode) {
   } catch (e) { console.error('Load wards error', e); }
 }
 
-// ====== SHIPPING QUOTE ======
 async function fetchShipping() {
   const cart = getCart();
   if (!cart.length) return;
@@ -265,13 +264,22 @@ async function fetchShipping() {
   try {
     $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Đang tải phí vận chuyển...</div>`;
 
+    // ✅ LẤY TÊN thay vì MÃ để gửi SuperAI
+    const provinceName = textOfSelect('province');
+    const districtName = textOfSelect('district');
+    const wardName = textOfSelect('ward');
+
     const res = await api('/shipping/price', {
       method: 'POST',
       body: {
         weight_gram: weight,
-        receiver_province: provinceCode,
-        receiver_district: districtCode,
-        receiver_commune: wardCode || ''
+        weight: weight,
+        receiver_province: provinceName,
+        receiver_district: districtName,
+        receiver_commune: wardName || '',
+        value: calcSubtotal(cart),
+        cod: calcSubtotal(cart),
+        option_id: '1'
       }
     });
 
