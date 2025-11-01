@@ -202,6 +202,16 @@ if (token) {
       const districtName = warehouse.district_name || warehouse.district?.name || '';
       const wardName = warehouse.ward_name || warehouse.commune_name || warehouse.ward?.name || '';
 
+      // ✅ FIX: Nếu thiếu province_code, tìm theo tên
+      if (!provinceCode && provinceName) {
+        console.log('[Sync] Province code missing, searching by name:', provinceName);
+      }
+      
+      // ✅ FIX: Nếu thiếu district_code, tìm theo tên
+      if (!districtCode && districtName) {
+        console.log('[Sync] District code missing, searching by name:', districtName);
+      }
+
       // Fill vào form
       if (this.$('sender_name')) this.$('sender_name').value = name;
       if (this.$('sender_phone')) this.$('sender_phone').value = phone;
@@ -209,9 +219,16 @@ if (token) {
 
       // Load và select province
       const provinces = await this.loadProvinces();
+      
+      // ✅ FIX: Luôn tìm theo tên nếu thiếu mã
       if (!provinceCode && provinceName) {
         const match = this.findByName(provinces, provinceName);
-        if (match) provinceCode = match.code;
+        if (match) {
+          provinceCode = match.code;
+          console.log('[Sync] ✅ Found province code by name:', provinceName, '→', provinceCode);
+        } else {
+          console.warn('[Sync] ⚠️ Cannot find province code for:', provinceName);
+        }
       }
 
       if (provinceCode) {
