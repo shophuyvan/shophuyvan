@@ -467,25 +467,44 @@
     btnSubmit.textContent = 'Đang xử lý...';
 
     try {
-      const response = await fetch(`${API_BASE}/customers/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          full_name,
-          email,
-          phone,
-          password
-        })
-      });
+      async function __postRegister(base, payload) {
+  const doFetch = async (url) => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return res;
+  };
 
-      const data = await response.json();
+  // Thử 1: /customers/register
+  let res = await doFetch(`${base}/customers/register`);
+  // Nếu backend không có route này → 404/405 → fallback sang /api/customers/register
+  if (res.status === 404 || res.status === 405) {
+    res = await doFetch(`${base}/api/customers/register`);
+  }
+  return res;
+}
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || data.message || 'Đăng ký thất bại');
-      }
+const response = await __postRegister(API_BASE, {
+  full_name,
+  email,
+  phone,
+  password
+});
 
+// an toàn khi backend trả text/html
+let data = null;
+try { data = await response.clone().json(); } catch {}
+if (!response.ok) {
+  let msg = (data && (data.error || data.message)) || 'Đăng ký thất bại';
+  try {
+    const t = await response.text();
+    if (t && t.length < 500) msg = msg + ` (HTTP ${response.status}: ${t})`;
+    else msg = msg + ` (HTTP ${response.status})`;
+  } catch {}
+  throw new Error(msg);
+}
       // Save token
       if (data.token) {
         localStorage.setItem('customer_token', data.token);
