@@ -1,2 +1,3 @@
 @echo off
-node "%~dp0\..\node_modules\vite\bin\vite.js" %*
+REM Wrapper gọi Vite qua npx để tránh lỗi MODULE_NOT_FOUND khi gọi node trực tiếp
+npx vite %*

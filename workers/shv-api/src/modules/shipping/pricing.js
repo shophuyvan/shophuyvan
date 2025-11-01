@@ -1,4 +1,3 @@
-
 // ===================================================================
 // modules/shipping/pricing.js - Shipping Price/Quote
 // ===================================================================
@@ -7,7 +6,6 @@ import { json, errorResponse } from '../../lib/response.js';
 import { getJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { superFetch } from './helpers.js';
-import { filterEnabledProviders } from './providers.js';
 
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
@@ -28,14 +26,9 @@ export async function handle(req, env, ctx) {
     return getShippingQuoteAPI(req, env);
   }
 
-   // POST /v1/platform/orders/price (MINI proxy)
+  // POST /v1/platform/orders/price (MINI proxy)
   if (path === '/v1/platform/orders/price' && req.method === 'POST') {
     return getMiniPrice(req, env);
-  }
-
-  // NEW: POST /shipping/weight
-  if (path === '/shipping/weight' && req.method === 'POST') {
-    return getShippingWeight(req, env);
   }
 
   return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
@@ -48,55 +41,18 @@ async function getShippingPrice(req, env) {
     const settings = await getJSON(env, 'settings', {});
     const shipping = settings.shipping || {};
 
-    // Import helper
-    const { lookupProvinceCode } = await import('./helpers.js');
-
-    // ✅ LUÔN tra cứu mã từ tên để đảm bảo đúng format SuperAI
-    const provinceName = String(shipping.sender_province || 'Thành phố Hồ Chí Minh');
-    console.log('[ShippingPrice] 🔍 Resolving province:', provinceName);
-    
-    let senderProvince = await lookupProvinceCode(env, provinceName);
-    
-    // ✅ Nếu không tìm thấy, thử dùng mã có sẵn hoặc fallback
-    if (!senderProvince) {
-      senderProvince = String(
-        body.sender_province_code || 
-        shipping.sender_province_code || 
-        '79'
-      );
-      console.warn('[ShippingPrice] ⚠️ Lookup failed, using:', senderProvince);
-    } else {
-      console.log('[ShippingPrice] ✅ Resolved sender_province:', provinceName, '→', senderProvince);
-    }
-    
-    const senderDistrict = String(
-      body.sender_district_code || 
-      shipping.sender_district_code || 
-      shipping.sender_district || 
-      ''
-    );
-
-    // ✅ Build payload - BẮT BUỘC có sender_province/district
     const payload = {
-      warehouse_code: String(shipping.warehouse_code || ''),
-      sender_province: senderProvince,
-      sender_district: senderDistrict,
-      receiver_province: String(body.receiver_province || body.to_province || ''),
-      receiver_district: String(body.receiver_district || body.to_district || ''),
-      receiver_commune: String(body.receiver_commune || body.to_ward || ''),
+      // Tên (theo tài liệu SuperAI)
+      sender_province: body.sender_province || shipping.sender_province || '',
+      sender_district: body.sender_district || shipping.sender_district || '',
+      receiver_province: body.receiver_province || body.to_province || '',
+      receiver_district: body.receiver_district || body.to_district || '',
+      receiver_commune: body.receiver_commune || body.to_ward || '',
+      
+      // Gói hàng (theo tài liệu SuperAI)
       weight: Number(body.weight_gram || body.weight || 0) || 0,
-      value: Number(body.cod || body.value || 0) || 0,
-      option_id: String(body.option_id || shipping.option_id || '1')
+      value:  Number(body.cod || 0) || 0
     };
-
-    console.log('[ShippingPrice] ✅ Payload with warehouse + sender:', {
-      warehouse: payload.warehouse_code,
-      sender: `${senderProvince}/${senderDistrict}`
-    });
-
-    console.log('[ShippingPrice] Payload to SuperAI:', payload);
-    console.log('[ShippingPrice] 🔍 DEBUG - Settings shipping:', shipping);
-    console.log('[ShippingPrice] 🔍 DEBUG - Body received:', body);
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
@@ -104,11 +60,7 @@ async function getShippingPrice(req, env) {
       // headers: {} (ĐÃ XÓA)
     });
 
-    let items = normalizeShippingRates(data);
-    
-    // ✅ Lọc theo cấu hình enabled providers
-    items = await filterEnabledProviders(items, env);
-    
+    const items = normalizeShippingRates(data);
     return json({ ok: true, items, raw: data }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
@@ -190,10 +142,7 @@ async function getShippingQuoteAPI(req, env) {
       body: payload
     });
 
-    let items = normalizeShippingRates(data);
-    
-    // ✅ Lọc theo cấu hình enabled providers
-    items = await filterEnabledProviders(items, env);
+    const items = normalizeShippingRates(data);
 
     if (items.length) {
       return json({ ok: true, items, used: payload }, {}, req);
@@ -239,11 +188,7 @@ async function getMiniPrice(req, env) {
       body: payload
     });
 
-    let items = normalizeShippingRates(data);
-    
-    // ✅ Lọc theo cấu hình enabled providers
-    items = await filterEnabledProviders(items, env);
-    
+    const items = normalizeShippingRates(data);
     return json({ ok: true, data: items, used: payload }, {}, req);
   } catch (e) {
     return json({ 
@@ -253,84 +198,8 @@ async function getMiniPrice(req, env) {
   }
 }
 
-// NEW: compute total_gram từ biến thể x số lượng
-async function getShippingWeight(req, env) {
-  try {
-    const body = await readBody(req) || {};
-    const lines = Array.isArray(body.lines) ? body.lines : [];
-    if (!lines.length) return json({ ok: true, total_gram: 0 }, {}, req);
-
-    // Chuẩn hoá chuỗi: bỏ dấu + bỏ khoảng trắng + lower-case
-    const norm = (s) => String(s ?? '')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase().replace(/\s+/g, '').trim();
-
-    let total = 0;
-
-    for (const line of lines) {
-      const pid  = String(line.product_id ?? line.productId ?? line.id ?? '').trim();
-      const qty  = Number(line.qty ?? line.quantity ?? 1) || 1;
-      if (!pid) continue;
-
-      // 0) Nếu client đã gửi weight_gram hợp lệ → dùng luôn
-      const wClient = Number(line.weight_gram ?? line.weight ?? 0) || 0;
-      if (wClient > 0) { total += wClient * qty; continue; }
-
-      // 1) Lấy sản phẩm từ KV
-      // Một số client gửi product_id dạng "<id>:<text>" (ví dụ thêm tên biến thể sau dấu :)
-      const pidRaw = String(pid || '').trim();
-      const pidClean = pidRaw.includes(':') ? pidRaw.split(':')[0].trim() : pidRaw;
-
-      // Thử nhiều khóa KV để lấy product
-      let product =
-        await getJSON(env, 'product:' + pidClean, null) ||
-        await getJSON(env, 'product:' + pidRaw,   null) ||
-        await getJSON(env, 'prd:'     + pidClean, null);
-
-      if (!product) continue;
-
-      const variants = Array.isArray(product.variants) ? product.variants : [];
-
-      const vid   = String(line.variant_id  ?? line.variantId  ?? '').trim();
-      const vsku  = String(line.variant_sku ?? line.sku        ?? '').trim();
-      const vname = String(line.variant_name?? line.variantName?? '').trim();
-
-      // 2) Tìm biến thể: id → sku → tên (không dấu)
-      let match = null;
-
-      if (vid) {
-        match = variants.find(v => String(v.id ?? v._id ?? '').trim() === vid) || null;
-      }
-      if (!match && vsku) {
-        const S = vsku.toLowerCase();
-        match = variants.find(v => String(v.sku ?? v.SKU ?? '').toLowerCase() === S) || null;
-      }
-      if (!match && vname) {
-        const target = norm(vname);
-        match = variants.find(v => {
-          const names = [
-            v.name, v.title, v.option1, v.option2, v.option3
-          ].filter(Boolean).map(norm);
-          const opts = Array.isArray(v.options) ? v.options.map(norm) : [];
-          return [...names, ...opts].some(n => n === target || n.includes(target) || target.includes(n));
-        }) || null;
-      }
-      if (!match && variants.length === 1) match = variants[0];
-
-      const w = Number(match?.weight_gram ?? match?.weight ?? 0) || 0;
-      if (w > 0) total += w * qty;
-    }
-
-    return json({ ok: true, total_gram: Math.round(total) }, {}, req);
-  } catch (e) {
-    return errorResponse(e, 500, req);
-  }
-}
-
-
 // Normalize shipping rates from various API responses
 function normalizeShippingRates(data) {
-
   const arr = (data?.data && (data.data.services || data.data.items || data.data.rates)) ||
             data?.data || data || [];
   
