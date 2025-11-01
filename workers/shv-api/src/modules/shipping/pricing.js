@@ -1,3 +1,4 @@
+
 // ===================================================================
 // modules/shipping/pricing.js - Shipping Price/Quote
 // ===================================================================
@@ -6,6 +7,7 @@ import { json, errorResponse } from '../../lib/response.js';
 import { getJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { superFetch } from './helpers.js';
+import { filterEnabledProviders } from './providers.js';
 
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
@@ -65,7 +67,11 @@ async function getShippingPrice(req, env) {
       // headers: {} (ĐÃ XÓA)
     });
 
-    const items = normalizeShippingRates(data);
+    let items = normalizeShippingRates(data);
+    
+    // ✅ Lọc theo cấu hình enabled providers
+    items = await filterEnabledProviders(items, env);
+    
     return json({ ok: true, items, raw: data }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
@@ -147,7 +153,10 @@ async function getShippingQuoteAPI(req, env) {
       body: payload
     });
 
-    const items = normalizeShippingRates(data);
+    let items = normalizeShippingRates(data);
+    
+    // ✅ Lọc theo cấu hình enabled providers
+    items = await filterEnabledProviders(items, env);
 
     if (items.length) {
       return json({ ok: true, items, used: payload }, {}, req);
@@ -193,7 +202,11 @@ async function getMiniPrice(req, env) {
       body: payload
     });
 
-    const items = normalizeShippingRates(data);
+    let items = normalizeShippingRates(data);
+    
+    // ✅ Lọc theo cấu hình enabled providers
+    items = await filterEnabledProviders(items, env);
+    
     return json({ ok: true, data: items, used: payload }, {}, req);
   } catch (e) {
     return json({ 

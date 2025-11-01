@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width,initial-scale=1'/>
+  <title>Đơn Vị Vận Chuyển - Admin</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js"></script>
+  <script src="./sidebar-layout.js"></script>
+  
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-dark: #1e40af;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    .toolbar {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .alert {
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      color: #1e40af;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .providers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .provider-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .provider-card.active {
+      border-color: var(--success);
+      background: #f0fdf4;
+    }
+
+    .provider-card.inactive {
+      opacity: 0.6;
+      background: #f9fafb;
+    }
+
+    .provider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .provider-name {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .provider-code {
+      font-size: 0.75rem;
+      color: #6b7280;
+      background: #f3f4f6;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--success);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .provider-info {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 0.5rem 0;
+      font-size: 0.875rem;
+    }
+
+    .info-label {
+      color: #6b7280;
+    }
+
+    .info-value {
+      font-weight: 500;
+      color: #111827;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .status-active {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-inactive {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-success {
+      background: var(--success);
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    @media (max-width: 768px) {
+      .providers-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <h2 style="margin: 0; font-size: 18px;">🚚 Quản Lý Đơn Vị Vận Chuyển</h2>
+  <div style="display: flex; gap: 8px;">
+    <button id='refresh-providers' class='btn'>🔄 Làm mới</button>
+    <button id='save-providers' class='btn btn-success'>💾 Lưu cấu hình</button>
+  </div>
+</div>
+
+<!-- Alert -->
+<div class="alert">
+  <strong>💡 Hướng dẫn:</strong> Bật/tắt các đơn vị vận chuyển bạn muốn sử dụng. Khách hàng sẽ chỉ thấy các đơn vị được bật khi đặt hàng.
+</div>
+
+<!-- Loading State -->
+<div id="loading" style="text-align: center; padding: 2rem;">
+  <div style="font-size: 2rem;">⏳</div>
+  <div style="margin-top: 0.5rem; color: #6b7280;">Đang tải danh sách...</div>
+</div>
+
+<!-- Providers Grid -->
+<div id="providers-container" class="providers-grid" style="display: none;"></div>
+
+<!-- Empty State -->
+<div id="empty-state" style="display: none; text-align: center; padding: 3rem;">
+  <div style="font-size: 3rem; margin-bottom: 1rem;">📦</div>
+  <div style="color: #6b7280;">Không tìm thấy đơn vị vận chuyển nào</div>
+  <button onclick="window.providersManager.loadProviders()" style="margin-top: 1rem;" class="btn">Thử lại</button>
+</div>
+
+<!-- Load manager script -->
+<script src="./shipping-providers-manager.js"></script>
+
+<script>
+// Initialize layout
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Providers] DOM loaded, initializing...');
+
+  // Initialize sidebar layout
+  if (window.AdminLayout) {
+    AdminLayout.init('Đơn Vị Vận Chuyển');
+  }
+
+  // Initialize providers manager
+  if (window.providersManager) {
+    window.providersManager.init();
+  }
+});
+</script>
+
+</body>
+</html>

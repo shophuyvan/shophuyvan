@@ -488,6 +488,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const $ = (id) => document.getElementById(id);
 
+  // RESET search box để tránh filter rỗng bị kích khi click/focus (autofill trình duyệt)
+  const __search = $('search-input');
+  if (__search) {
+    __search.value = '';
+    __search.setAttribute('autocomplete','off');
+    __search.setAttribute('autocapitalize','off');
+    __search.setAttribute('autocorrect','off');
+  }
+
+
   let allCustomers = [];
   let filteredCustomers = [];
 
@@ -608,8 +618,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Filter customers
-  function filterCustomers() {
-  const searchTerm = $('search-input').value.trim().toLowerCase();
+    function filterCustomers() {
+  const __qRaw = $('search-input').value || '';
+  const __q = __qRaw.trim().toLowerCase();
+  const searchTerm = (__q.length >= 2) ? __q : ''; // < 2 ký tự coi như không lọc
+
   const typeFilter = $('filter-type').value;
   const statusFilter = $('filter-status').value;
   const tierFilter = $('filter-tier').value; // ✅ THÊM
@@ -620,7 +633,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCustomers();
     return;
   }
-
     
     filteredCustomers = allCustomers.filter(customer => {
       const matchSearch = !searchTerm || 
@@ -638,11 +650,16 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCustomers();
   }
 
-  // Event listeners for filters
-  $('search-input').addEventListener('input', filterCustomers);
+    // Event listeners for filters (debounce input)
+  let __findTimer = null;
+  $('search-input').addEventListener('input', () => {
+    clearTimeout(__findTimer);
+    __findTimer = setTimeout(filterCustomers, 150);
+  });
   $('filter-type').addEventListener('change', filterCustomers);
   $('filter-status').addEventListener('change', filterCustomers);
-  $('filter-tier').addEventListener('change', filterCustomers); // ✅ THÊM
+  $('filter-tier').addEventListener('change', filterCustomers); // giữ nguyên
+
 
   // Create customer
   $('btn-create-customer').onclick = () => {
