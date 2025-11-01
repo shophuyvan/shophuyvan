@@ -51,24 +51,22 @@ async function getShippingPrice(req, env) {
     // Import helper
     const { lookupProvinceCode } = await import('./helpers.js');
 
-    // ✅ Lấy sender province code
-    let senderProvince = String(
-      body.sender_province_code || 
-      shipping.sender_province_code || 
-      ''
-    );
-
-    // ✅ Nếu chưa có mã, tra cứu từ tên
-    if (!senderProvince || !/^\d+$/.test(senderProvince)) {
-      const provinceName = String(shipping.sender_province || 'Thành phố Hồ Chí Minh');
-      const lookedUpCode = await lookupProvinceCode(env, provinceName);
-      if (lookedUpCode) {
-        senderProvince = lookedUpCode;
-        console.log('[ShippingPrice] ✅ Resolved sender_province:', provinceName, '→', senderProvince);
-      } else {
-        console.warn('[ShippingPrice] ⚠️ Could not resolve province:', provinceName);
-        senderProvince = '79'; // Fallback HCM
-      }
+    // ✅ LUÔN tra cứu mã từ tên để đảm bảo đúng format SuperAI
+    const provinceName = String(shipping.sender_province || 'Thành phố Hồ Chí Minh');
+    console.log('[ShippingPrice] 🔍 Resolving province:', provinceName);
+    
+    let senderProvince = await lookupProvinceCode(env, provinceName);
+    
+    // ✅ Nếu không tìm thấy, thử dùng mã có sẵn hoặc fallback
+    if (!senderProvince) {
+      senderProvince = String(
+        body.sender_province_code || 
+        shipping.sender_province_code || 
+        '79'
+      );
+      console.warn('[ShippingPrice] ⚠️ Lookup failed, using:', senderProvince);
+    } else {
+      console.log('[ShippingPrice] ✅ Resolved sender_province:', provinceName, '→', senderProvince);
     }
     
     const senderDistrict = String(
