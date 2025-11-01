@@ -37,6 +37,7 @@ export async function handle(req, env, ctx) {
   }
 
   return json({ ok: false, error: 'Not found' }, { status: 404 }, req);
+}
 
 // Main pricing endpoint
 async function getShippingPrice(req, env) {
