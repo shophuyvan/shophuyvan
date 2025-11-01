@@ -86,17 +86,32 @@ export async function handle(req, env, ctx) {
 
 /**
  * ✅ Convert product to summary (lightweight version)
+ * Tính giá hiển thị từ variants để FE + Mini luôn có giá ở list (không phụ thuộc price cấp product).
  */
 function toSummary(product) {
+  // Tính theo tier 'retail' để hiển thị công khai
+  const priced = computeDisplayPrice(product, 'retail'); // { price_display, compare_at_display }
+
+  // Map cho tương thích UI cũ (đang đọc price ở summary)
+  const legacyPrice   = Number(priced.price_display || 0);
+  const legacyCompare = Number(priced.compare_at_display || 0);
+
   return {
     id: product.id,
     title: product.title || product.name || '',
     name: product.title || product.name || '',
     slug: product.slug || slugify(product.title || product.name || ''),
     sku: product.sku || '',
-    price: product.price || 0,
-    price_sale: product.price_sale || 0,
-    price_wholesale: product.price_wholesale || 0, // âœ… THÃŠM DÃ'NG NÃ€Y
+
+    // Giá chuẩn dùng cho UI mới
+    price_display: legacyPrice,
+    compare_at_display: legacyCompare > 0 ? legacyCompare : null,
+
+    // Tương thích UI cũ (card/list đang đọc product.price)
+    price: legacyPrice,
+    price_sale: 0, // bỏ dùng; để 0 để tránh nhầm
+    price_wholesale: product.price_wholesale || 0,
+
     stock: product.stock || 0,
     images: product.images || [],
     category: product.category || '',
