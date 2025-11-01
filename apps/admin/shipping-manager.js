@@ -298,6 +298,7 @@ if (token) {
         ['shipping.sender_province_code', provCode],
         ['shipping.sender_district_code', distCode],
         ['shipping.sender_commune_code', this.$('sender_commune_sel')?.value || ''],
+        ['shipping.warehouse_code', this.$('warehouse_code')?.value?.trim() || ''],
         ['shipping.option_id', this.$('option_id')?.value?.trim() || '1']
       ];
 
@@ -345,6 +346,7 @@ if (token) {
       set('sender_address', get('shipping.sender_address'));
       set('sender_province', get('shipping.sender_province'));
       set('sender_district', get('shipping.sender_district'));
+      set('warehouse_code', get('shipping.warehouse_code'));
       set('option_id', get('shipping.option_id', '1'));
       set('sender_province_code', get('shipping.sender_province_code'));
       set('sender_district_code', get('shipping.sender_district_code'));
@@ -433,7 +435,7 @@ if (token) {
     }
 
     // Auto-save on input change
-    ['sender_phone', 'sender_address', 'sender_name'].forEach(id => {
+    ['sender_phone', 'sender_address', 'sender_name', 'warehouse_code'].forEach(id => {
       const el = this.$(id);
       if (el) {
         el.addEventListener('blur', () => this.autoSave());

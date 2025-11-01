@@ -64,8 +64,8 @@ async function getShippingPrice(req, env) {
     );
 
     const payload = {
-      // ✅ Dùng warehouse_id thay vì sender address
-      warehouse_id: String(shipping.warehouse_id || '1'), // ID warehouse từ SuperAI
+      // ✅ Dùng warehouse_code từ settings
+      warehouse_code: String(shipping.warehouse_code || ''),
       
       // Địa chỉ người nhận (MÃ)
       receiver_province: String(body.receiver_province || body.to_province || ''),
