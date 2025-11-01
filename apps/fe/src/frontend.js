@@ -253,7 +253,7 @@ async function loadNew(){ if(!newWrap) return;
   let items = (data.items || data.products || data.data || []);
   const now = Date.now();
   items = items.filter(p=>{
-    const d=new Date(p.created_at||p.createdAt||p.updated_at||p.updatedAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
+    const d=new Date(p.created_at||p.createdAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
     return d && (now-d) <= 24*60*60*1000;
   }).slice(0,8);
   if (items.length === 0) {
@@ -451,12 +451,31 @@ function card(p){
   const id  = p.id || p.key || '';
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
   const u   = `/product.html?id=${encodeURIComponent(id)}`;
+  
+  // UU TIEN: Doc gia tu API (price_display da tinh san)
+  let priceHtml = '';
+  const priceDisplay = Number(p.price_display || 0);
+  const compareAt = Number(p.compare_at_display || 0);
+  
+  if (priceDisplay > 0) {
+    if (compareAt > priceDisplay) {
+      // Co gia gach ngang
+      priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}đ</b> <span class="line-through text-gray-400 text-sm">${compareAt.toLocaleString('vi-VN')}đ</span></div>`;
+    } else {
+      // Chi co gia ban
+      priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}đ</b></div>`;
+    }
+  } else {
+    // Fallback: se duoc hydrate sau
+    priceHtml = '<b class="text-rose-600">...</b>';
+  }
+  
   return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(id)}">
     <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
       <div class="mt-1 text-blue-600 price js-price" data-id="${id}">
-        <b class="text-rose-600">...</b>
+        ${priceHtml}
       </div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
