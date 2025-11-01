@@ -83,6 +83,8 @@ async function getShippingPrice(req, env) {
     };
 
     console.log('[ShippingPrice] Payload to SuperAI:', payload);
+    console.log('[ShippingPrice] 🔍 DEBUG - Settings shipping:', shipping);
+    console.log('[ShippingPrice] 🔍 DEBUG - Body received:', body);
 
     const data = await superFetch(env, '/v1/platform/orders/price', {
       method: 'POST',
