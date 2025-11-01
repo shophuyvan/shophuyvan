@@ -763,6 +763,15 @@ window.addEventListener('DOMContentLoaded', function() {
     const editorMode = $('#editorMode')?.value || 'markdown';
     const descToSave = editorMode === 'markdown' ? markdownToHTML(descRaw) : descRaw;
 
+     // Guard: nếu thiếu id và KHÔNG có ?create=1 thì chặn lưu (tránh “sửa” lạc sang “tạo mới”)
+    const urlParams = new URLSearchParams(location.search);
+    const isCreate = urlParams.get('create') === '1';
+    if (!isCreate && !state.id) {
+      alert('Thiếu ID sản phẩm. Vui lòng mở trang Sửa từ danh sách (có ?id=...) thay vì vào trực tiếp.');
+      return;
+    }
+   
+    // ... trước khi build payload
     const payload = {
       id: state.id || undefined,
       title: titleEl.value.trim(),
