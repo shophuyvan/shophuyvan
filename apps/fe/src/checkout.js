@@ -463,6 +463,10 @@ async function loadSavedAddresses() {
     
     renderAddressSection();
     toggleManualForm(); // ✅ Toggle form thủ công
+  } catch (e) {
+    console.error('Load addresses error:', e);
+    savedAddresses = [];
+    renderAddressSection();
   }
 }
 
