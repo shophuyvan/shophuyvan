@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chọn địa chỉ giao hàng</title>
+  <link rel="preconnect" href="https://api.shophuyvan.vn">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f6f7f9;margin:0}
+    .container{max-width:920px;margin:0 auto;padding:16px}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:10px 14px;font-weight:600;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
+    .btn-primary{background:#e11d48;border-color:#e11d48;color:#fff}
+    .btn-blue{background:#2563eb;border-color:#2563eb;color:#fff}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .muted{color:#6b7280}
+    .danger{color:#b91c1c}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h1 style="font-size:18px;margin:0">Chọn địa chỉ nhận hàng</h1>
+      <button class="btn" id="btn-back">Quay lại</button>
+    </div>
+
+    <!-- Dán & nhập nhanh -->
+    <div class="card" style="padding:12px;margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:8px">Dán & nhập nhanh</div>
+      <div class="row">
+        <button class="btn" id="btn-paste">Dán từ Clipboard</button>
+        <div class="muted" id="paste-help">Hệ thống sẽ tự tách Tên / SĐT / Địa chỉ</div>
+      </div>
+    </div>
+
+    <!-- Danh sách địa chỉ -->
+    <div class="card" style="padding:12px;margin-bottom:12px">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:600">Danh sách địa chỉ</div>
+        <button class="btn btn-primary" id="btn-add">+ Thêm địa chỉ</button>
+      </div>
+      <div id="addr-list" class="row" style="flex-direction:column;gap:10px"></div>
+      <div id="addr-empty" class="muted" style="display:none;padding:8px">Chưa có địa chỉ.</div>
+    </div>
+
+    <!-- Form Thêm/Sửa -->
+    <div id="form-wrap" class="card" style="padding:12px;display:none">
+      <div style="font-weight:600;margin-bottom:8px" id="form-title">Địa chỉ mới</div>
+      <div class="row" style="flex-direction:column">
+        <input id="f-name" placeholder="Họ và tên" class="input" />
+        <input id="f-phone" placeholder="Số điện thoại" class="input" />
+        <textarea id="f-address" rows="3" placeholder="Địa chỉ (đường, phường/xã, quận/huyện, tỉnh/thành)"></textarea>
+        <label class="row" style="align-items:center">
+          <input type="checkbox" id="f-default" /> <span class="muted">Đặt làm mặc định</span>
+        </label>
+        <div class="row">
+          <button class="btn btn-blue" id="btn-save">Hoàn thành</button>
+          <button class="btn" id="btn-cancel">Huỷ</button>
+          <button class="btn danger" id="btn-delete" style="margin-left:auto;display:none">Xoá</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/apps/fe/src/addresses.js" type="module"></script>
+</body>
+</html>

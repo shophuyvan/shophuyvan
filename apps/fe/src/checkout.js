@@ -485,18 +485,20 @@ async function loadSavedAddresses() {
     return;
   }
   
-  try {
+    try {
     const res = await api('/api/addresses', { method: 'GET' });
-    savedAddresses = res.addresses || [];
+    // Hỗ trợ nhiều kiểu trả về: {addresses} | {data} | {items}
+    savedAddresses = res.addresses || res.data || res.items || [];
     
     // Auto-chọn địa chỉ default
     const defaultAddr = savedAddresses.find(a => a.is_default);
+
     if (defaultAddr && !selectedAddress) {
       selectAddress(defaultAddr);
     }
     
-    renderAddressSection();
-    toggleManualForm(); // ✅ Toggle form thủ công
+        renderAddressSection();
+    // (ĐÃ BỎ form thủ công)
   } catch (e) {
     console.error('Load addresses error:', e);
     savedAddresses = [];
@@ -919,13 +921,29 @@ $('edit-district').addEventListener('change', async (e) => {
   }
 });
 
+const goAddressPage = () => { location.href = '/addresses.html?return=/checkout'; };
+
 // ====== KHỞI TẠO ======
 (async function init(){
+
   console.log('[Checkout] Init started');
   
-  renderCart();
-  
-    // ✅ GỌI API WEIGHT NGAY KHI LOAD
+    renderCart();
+
+    // ✅ Lấy selectedAddress từ localStorage nếu có (trả về từ /addresses.html)
+  try {
+    const raw = localStorage.getItem('address:selected');
+    const a = raw ? JSON.parse(raw) : null;
+    if (a) {
+      selectedAddress = a;
+      renderAddressSection();
+      // Gọi phí ship ngay khi đã có địa chỉ
+      try { await fetchShipping(); } catch {}
+    }
+  } catch {}
+
+
+  // ✅ GỌI API WEIGHT NGAY KHI LOAD
   const cart = getCart();
   console.log('[Checkout] Cart items:', cart.length, cart);
   
@@ -951,9 +969,9 @@ $('edit-district').addEventListener('change', async (e) => {
   // ✅ LOAD ĐỊA CHỈ ĐÃ LƯU
   await loadSavedAddresses();
  
-  // Event listeners cho các nút địa chỉ
-  $('btnChangeAddress')?.addEventListener('click', openAddressManager);
-  $('btnAddFirstAddress')?.addEventListener('click', openAddressManager);
+    // Event listeners cho các nút địa chỉ → chuyển sang trang /addresses.html
+  $('btnChangeAddress')?.addEventListener('click', goAddressPage);
+  $('btnAddFirstAddress')?.addEventListener('click', goAddressPage);
   
   console.log('[Checkout] Init completed');
 })();
