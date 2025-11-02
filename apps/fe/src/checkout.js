@@ -764,7 +764,44 @@ window.saveAddressInModal = async function() {
   if (!validateAddressFormInModal()) return;
   
   try {
-    const data = await api(`/api/addresses/${id}`, { method: 'DELETE' });
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') || 
+                  localStorage.getItem('x-token');
+    
+    if (!token) {
+      alert('⚠️ Vui lòng đăng nhập để lưu địa chỉ');
+      return;
+    }
+    
+    // Get province/district/ward names
+    const provinceCode = $('edit-province').value;
+    const districtCode = $('edit-district').value;
+    const wardCode = $('edit-ward').value;
+    
+    const provinceName = $('edit-province').selectedOptions[0]?.text || '';
+    const districtName = $('edit-district').selectedOptions[0]?.text || '';
+    const wardName = $('edit-ward').selectedOptions[0]?.text || '';
+    
+    const payload = {
+      name: $('edit-name').value.trim(),
+      phone: $('edit-phone').value.trim().replace(/\D/g, ''),
+      province_code: provinceCode,
+      province_name: provinceName,
+      district_code: districtCode,
+      district_name: districtName,
+      ward_code: wardCode,
+      ward_name: wardName,
+      address: $('edit-address').value.trim(),
+      note: $('edit-note').value.trim()
+    };
+    
+    const isEdit = !!editingAddressId;
+    const endpoint = isEdit ? `/api/addresses/${editingAddressId}` : '/api/addresses';
+    
+    const data = await api(endpoint, {
+      method: isEdit ? 'PUT' : 'POST',
+      body: payload
+    });
     
     if (data && data.ok) {
       alert(isEdit ? '✅ Cập nhật địa chỉ thành công!' : '✅ Thêm địa chỉ thành công!');
