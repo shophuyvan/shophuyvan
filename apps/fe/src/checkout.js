@@ -273,13 +273,11 @@ async function fetchShipping() {
   const cart = getCart();
   if (!cart.length) return;
   
-  const weight = await ensureWeight(cart);
-  const provinceCode = val('province');
-  const districtCode = val('district');
-  const wardCode = val('ward');
+    const weight = await ensureWeight(cart);
 
-  if (!provinceCode || !districtCode) {
-    $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Vui lòng chọn địa chỉ đầy đủ</div>`;
+  // ✅ Dùng địa chỉ đã chọn thay vì form thủ công
+  if (!selectedAddress) {
+    $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Vui lòng chọn địa chỉ giao hàng ở phần trên</div>`;
     selectedShipping = null;
     updateSummary();
     return;
@@ -288,10 +286,10 @@ async function fetchShipping() {
   try {
     $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Đang tải phí vận chuyển...</div>`;
 
-    // ✅ LẤY TÊN thay vì MÃ để gửi SuperAI
-    const provinceName = textOfSelect('province');
-    const districtName = textOfSelect('district');
-    const wardName = textOfSelect('ward');
+        // ✅ LẤY TÊN từ selectedAddress (không dùng select thủ công)
+    const provinceName = selectedAddress.province_name || '';
+    const districtName = selectedAddress.district_name || '';
+    const wardName     = selectedAddress.ward_name || '';
 
     const res = await api('/shipping/price', {
       method: 'POST',
@@ -509,10 +507,7 @@ async function loadSavedAddresses() {
 // Toggle form nhập thủ công
 function toggleManualForm() {
   const manualSection = $('manual-address-section');
-  if (!manualSection) {
-    console.warn('[toggleManualForm] Element #manual-address-section not found');
-    return;
-  }
+  if (!manualSection) return;
   
   if (selectedAddress) {
     // Đã chọn địa chỉ → ẩn form thủ công
