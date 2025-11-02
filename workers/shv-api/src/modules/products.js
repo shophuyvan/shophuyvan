@@ -88,49 +88,54 @@ export async function handle(req, env, ctx) {
  * ✅ Convert product to summary (lightweight version)
  * Tính giá hiển thị từ variants để FE + Mini luôn có giá ở list (không phụ thuộc price cấp product).
  */
-function toSummary(product) {
-  // Tinh theo tier 'retail' de hien thi cong khai
-  const priced = computeDisplayPrice(product, 'retail'); // { price_display, compare_at_display }
-
-  // FALLBACK: Neu variants khong co gia -> dung gia cap product (tuong thich cu)
-  let legacyPrice   = Number(priced.price_display || 0);
-  let legacyCompare = Number(priced.compare_at_display || 0);
-  
-  if (legacyPrice === 0 && priced.no_variant) {
-    // Khong co variant -> lay gia truc tiep tu product (neu co)
-    legacyPrice = Number(product.price || product.price_sale || 0);
-    if (product.price && product.price_sale && product.price_sale < product.price) {
-      legacyCompare = Number(product.price);
-      legacyPrice = Number(product.price_sale);
+    function toSummary(product) {
+      // Tinh theo tier 'retail' de hien thi cong khai
+      const priced = computeDisplayPrice(product, 'retail'); // { price_display, compare_at_display }
+    
+      // FALLBACK: Neu variants khong co gia -> dung gia cap product (tuong thich cu)
+      let legacyPrice   = Number(priced.price_display || 0);
+      let legacyCompare = Number(priced.compare_at_display || 0);
+      
+      if (legacyPrice === 0 && priced.no_variant) {
+        // Khong co variant -> lay gia truc tiep tu product (neu co)
+        legacyPrice = Number(product.price || product.price_sale || 0);
+        if (product.price && product.price_sale && product.price_sale < product.price) {
+          legacyCompare = Number(product.price);
+          legacyPrice = Number(product.price_sale);
+        }
+      }
+    
+      return {
+        id: product.id,
+        title: product.title || product.name || '',
+        name: product.title || product.name || '',
+        slug: product.slug || slugify(product.title || product.name || ''),
+        sku: product.sku || '',
+    
+        // Gia chuan dung cho UI moi
+        price_display: legacyPrice,
+        compare_at_display: legacyCompare > 0 ? legacyCompare : null,
+    
+        // Tuong thich UI cu (card/list dang doc product.price)
+        price: legacyPrice,
+        price_sale: 0, // bo dung; de 0 de tranh nham
+        price_wholesale: product.price_wholesale || 0,
+    
+        stock: product.stock || 0,
+        images: product.images || [],
+        category: product.category || '',
+        category_slug: product.category_slug || product.category || '',
+        status: (product.status === 0 ? 0 : 1),
+        weight_gram: product.weight_gram || 0,
+        weight_grams: product.weight_grams || 0,
+        weight: product.weight || 0,
+    
+        // THEM: Dong bo sold, rating, reviews
+        sold: Number(product.sold || product.sales || product.sold_count || 0),
+        rating: Number(product.rating || product.rating_avg || product.rating_average || 5.0),
+        rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0)
+      };
     }
-  }
-
-  return {
-    id: product.id,
-    title: product.title || product.name || '',
-    name: product.title || product.name || '',
-    slug: product.slug || slugify(product.title || product.name || ''),
-    sku: product.sku || '',
-
-    // Giá chuẩn dùng cho UI mới
-    price_display: legacyPrice,
-    compare_at_display: legacyCompare > 0 ? legacyCompare : null,
-
-    // Tương thích UI cũ (card/list đang đọc product.price)
-    price: legacyPrice,
-    price_sale: 0, // bỏ dùng; để 0 để tránh nhầm
-    price_wholesale: product.price_wholesale || 0,
-
-    stock: product.stock || 0,
-    images: product.images || [],
-    category: product.category || '',
-    category_slug: product.category_slug || product.category || '',
-    status: (product.status === 0 ? 0 : 1),
-    weight_gram: product.weight_gram || 0,
-    weight_grams: product.weight_grams || 0,
-    weight: product.weight || 0
-  };
-}
 
 /**
  * Build products list from KV
