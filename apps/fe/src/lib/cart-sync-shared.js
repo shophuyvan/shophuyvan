@@ -17,18 +17,32 @@ export function getSessionId() {
 
 // Chuẩn hoá item (giữ tối thiểu các field cần thiết)
 function normalizeCart(items) {
-  return (items || []).map(item => ({
-    id: item.id,
-    name: item.name,
-    image: item.image || item.variantImage,
-    variantName: item.variantName || item.variant,
-    variantImage: item.variantImage,
-    price: Number(item.price || 0),
-    original: item.original ?? null,
-    qty: Number(item.qty || 1)
-  }));
+  return (items || []).map(item => {
+    // ✅ Ưu tiên weight (field Admin) trước weight_gram
+    const weight_val = Number(
+      item.weight ?? 
+      item.weight_gram ?? 
+      item.weight_grams ?? 
+      0
+    );
+    
+    return {
+      id: item.id,
+      name: item.name,
+      image: item.image || item.variantImage,
+      variantName: item.variantName || item.variant,
+      variantImage: item.variantImage,
+      price: Number(item.price || 0),
+      original: item.original ?? null,
+      qty: Number(item.qty || 1),
+      // ✅ Bắt buộc: gắn đủ 3 alias để Checkout đọc đúng
+      weight: weight_val,
+      weight_gram: weight_val,
+      weight_grams: weight_val,
+      sku: item.sku || item.variant_sku || ''
+    };
+  });
 }
-
 export class CartSyncManager {
   constructor(cartKey = DEFAULT_CART_KEY) {
     this.sessionId = getSessionId();

@@ -22,18 +22,31 @@ export function getSessionId(): string {
  * Normalize cart format giữa FE và Mini
  */
 function normalizeCart(items: any[]): any[] {
-  return items.map(item => ({
-    id: item.id,
-    name: item.name,
-    image: item.image || item.variantImage,
-    variantName: item.variantName || item.variant,
-    variantImage: item.variantImage,
-    price: Number(item.price || 0),
-    original: item.original || null,
-    qty: Number(item.qty || 1),
-    weight_gram: Number(item.weight_gram || item.weight || 0),
-    sku: item.sku
-  }));
+  return items.map(item => {
+    // ✅ Ưu tiên weight (field Admin) trước weight_gram
+    const weight_val = Number(
+      item.weight ?? 
+      item.weight_gram ?? 
+      item.weight_grams ?? 
+      0
+    );
+    
+    return {
+      id: item.id,
+      name: item.name,
+      image: item.image || item.variantImage,
+      variantName: item.variantName || item.variant,
+      variantImage: item.variantImage,
+      price: Number(item.price || 0),
+      original: item.original || null,
+      qty: Number(item.qty || 1),
+      // ✅ Bắt buộc: gắn đủ 3 alias
+      weight: weight_val,
+      weight_gram: weight_val,
+      weight_grams: weight_val,
+      sku: item.sku || ''
+    };
+  });
 }
 
 /**
