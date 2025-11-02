@@ -459,6 +459,11 @@ async function loadSavedAddresses() {
 // Toggle form nhập thủ công
 function toggleManualForm() {
   const manualSection = $('manual-address-section');
+  if (!manualSection) {
+    console.warn('[toggleManualForm] Element #manual-address-section not found');
+    return;
+  }
+  
   if (selectedAddress) {
     // Đã chọn địa chỉ → ẩn form thủ công
     manualSection.style.display = 'none';
