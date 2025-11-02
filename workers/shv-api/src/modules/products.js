@@ -389,10 +389,16 @@ async function getProductById(req, env, productId) {
       }));
     }
 
-    const tier = getCustomerTier(req);
+    cconst tier = getCustomerTier(req);
     const priced = { ...product, ...computeDisplayPrice(product, tier) };
     console.log('[PRICE] getProductById', { id: productId, tier, price: priced.price_display, compare_at: priced.compare_at_display });
-    return json({ ok: true, item: priced }, {}, req);
+    
+    // ✅ FIX: Trả về cả item và data để tương thích frontend
+    return json({ 
+      ok: true, 
+      item: priced,   // Dùng cho orders-manager.js
+      data: priced    // Dùng cho các endpoint khác
+    }, {}, req);
   } catch (e) {
     return errorResponse(e, 500, req);
   }
