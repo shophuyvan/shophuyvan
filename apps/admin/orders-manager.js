@@ -897,6 +897,64 @@ class OrdersManager {
   }
 
 
+  }
+
+  // ==================== BULK CONFIRM ORDERS ====================
+
+  async confirmSelectedOrders() {
+    const selectedIds = Array.from(this.selectedOrders);
+    if (selectedIds.length === 0) {
+      alert('Vui lòng chọn ít nhất một đơn hàng để xác nhận.');
+      return;
+    }
+
+    // Chỉ xác nhận đơn PENDING
+    const pendingOrders = selectedIds.map(id => {
+      const order = this.orders.find(o => String(o.id || '') === id);
+      return order && String(order.status || '').toLowerCase() === 'pending' ? order : null;
+    }).filter(Boolean);
+
+    if (pendingOrders.length === 0) {
+      alert('Không có đơn hàng PENDING nào được chọn.');
+      return;
+    }
+
+    if (!confirm(`Xác nhận ${pendingOrders.length} đơn hàng? Hệ thống sẽ tự động tạo vận đơn.`)) {
+      return;
+    }
+
+    Admin.toast(`Đang xác nhận ${pendingOrders.length} đơn hàng...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const order of pendingOrders) {
+      try {
+        const res = await Admin.req('/admin/orders/upsert', {
+          method: 'POST',
+          body: {
+            id: order.id,
+            status: 'confirmed'
+          }
+        });
+
+        if (res.ok) {
+          successCount++;
+          this.selectedOrders.delete(String(order.id));
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        console.error('Confirm error:', e);
+        failCount++;
+      }
+    }
+
+    Admin.toast(`✅ Xác nhận thành công: ${successCount}, ❌ Thất bại: ${failCount}`);
+    await this.loadOrders();
+    this.updateBulkActionsToolbar();
+  }
+
   // ==================== STATUS TABS & FILTERING ====================
 
   renderStatusTabs() {
@@ -1010,6 +1068,12 @@ class OrdersManager {
     const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
     if (bulkCancelBtn) {
       bulkCancelBtn.addEventListener('click', () => this.cancelSelectedOrders());
+    }
+
+    // Nút Xác nhận hàng loạt
+    const bulkConfirmBtn = document.getElementById('bulk-confirm-btn');
+    if (bulkConfirmBtn) {
+      bulkConfirmBtn.addEventListener('click', () => this.confirmSelectedOrders());
     }
     // Reload button
     const reloadBtn = document.getElementById('reload-orders');
