@@ -13,6 +13,7 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
@@ -71,7 +72,9 @@ const api = async (path: string, options: RequestInit = {}) => {
 
 
 export default function Checkout() {
+  const navigate = useNavigate();
  // === GIỎ HÀNG ==============================================================
+
   const [st, setSt] = useState<any>(cart.get());
   const [serverWeight, setServerWeight] = useState<number | null>(null);
 
@@ -96,7 +99,8 @@ export default function Checkout() {
     return all.filter((l: any) => selectedIds.has(String(l?.id)));
   }, [st, selectedIds]);
 
-  // === FORM NHẬN HÀNG ========================================================
+    // === FORM NHẬN HÀNG ========================================================
+  const [selectedAddress, setSelectedAddress] = useState<any>(null);
 
   const [form, setForm] = useState<any>({
     name: '',
@@ -107,6 +111,37 @@ export default function Checkout() {
     address: '',
     note: '',
   });
+
+    // Đọc địa chỉ đã chọn từ localStorage và tự fill form (gọi lại khi trang được focus/quay lại)
+  const loadSelectedAddress = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('address:selected');
+      const a = raw ? JSON.parse(raw) : null;
+      setSelectedAddress(a);
+      if (a) {
+        setForm((f: any) => ({
+          ...f,
+          name: a.name || f.name,
+          phone: a.phone || f.phone,
+          province: a.province_code || f.province,
+          district: a.district_code || f.district,
+          ward: a.ward_code || f.ward,
+          address: a.address || f.address,
+        }));
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadSelectedAddress();
+    const onShow = () => loadSelectedAddress();
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('pageshow', onShow);
+    return () => {
+      document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('pageshow', onShow);
+    };
+  }, [loadSelectedAddress]);
 
   // === TRẠNG THÁI SUBMIT =====================================================
   const [done, setDone] = useState<any>(null);
@@ -219,14 +254,23 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
   }, []);
 
   // 2) LOAD địa lý
-  useEffect(() => {
+    useEffect(() => {
     let alive = true;
     setLoadingProvinces(true);
     (async () => {
       try {
         const data = await api('/shipping/provinces');
         if (!alive) return;
-        setProvinces(data.items || data.data || []);
+        const list = data.items || data.data || [];
+        setProvinces(list);
+
+        // Nếu thiếu province_code nhưng có province_name → tự map
+        if (selectedAddress && !form.province && selectedAddress.province_name) {
+          const p = list.find((x: any) =>
+            String(x.name || '').toLowerCase() === String(selectedAddress.province_name || '').toLowerCase()
+          );
+          if (p?.code) setForm((f: any) => ({ ...f, province: p.code }));
+        }
       } catch (e) {
         console.error('Load provinces error:', e);
       } finally {
@@ -234,9 +278,10 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [selectedAddress]);  // phụ thuộc selectedAddress để map lại khi quay về
 
-  useEffect(() => {
+
+    useEffect(() => {
     setDistricts([]); setWards([]);
     if (!form.province) return;
     let alive = true;
@@ -245,7 +290,16 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       try {
         const data = await api(`/shipping/districts?province_code=${encodeURIComponent(form.province)}`);
         if (!alive) return;
-        setDistricts(data.items || data.data || []);
+        const list = data.items || data.data || [];
+        setDistricts(list);
+
+        // Nếu thiếu district_code nhưng có district_name → tự map
+        if (selectedAddress && !form.district && selectedAddress.district_name) {
+          const d = list.find((x: any) =>
+            String(x.name || '').toLowerCase() === String(selectedAddress.district_name || '').toLowerCase()
+          );
+          if (d?.code) setForm((f: any) => ({ ...f, district: d.code }));
+        }
       } catch (e) {
         console.error('Load districts error:', e);
       } finally {
@@ -253,9 +307,9 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       }
     })();
     return () => { alive = false; };
-  }, [form.province]);
+  }, [form.province, selectedAddress]);
 
-  useEffect(() => {
+    useEffect(() => {
     setWards([]);
     if (!form.district) return;
     let alive = true;
@@ -264,7 +318,16 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       try {
         const data = await api(`/shipping/wards?district_code=${encodeURIComponent(form.district)}`);
         if (!alive) return;
-        setWards(data.items || data.data || []);
+        const list = data.items || data.data || [];
+        setWards(list);
+
+        // Nếu thiếu ward_code nhưng có ward_name → tự map
+        if (selectedAddress && !form.ward && selectedAddress.ward_name) {
+          const w = list.find((x: any) =>
+            String(x.name || '').toLowerCase() === String(selectedAddress.ward_name || '').toLowerCase()
+          );
+          if (w?.code) setForm((f: any) => ({ ...f, ward: w.code }));
+        }
       } catch (e) {
         console.error('Load wards error:', e);
       } finally {
@@ -272,7 +335,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       }
     })();
     return () => { alive = false; };
-  }, [form.district]);
+  }, [form.district, selectedAddress]);
 
     // 3) LẤY PHÍ SHIP — nếu thiếu cân nặng local → hỏi server trước
   useEffect(() => {
@@ -646,77 +709,43 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
               </div>
             </div>
 
-            {/* === ĐỊA CHỈ NHẬN HÀNG =========================================== */}
+                        {/* === ĐỊA CHỈ NHẬN HÀNG (TRANG RIÊNG) ============================ */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
-              <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
+                <button
+                  className="text-blue-600 text-sm font-medium"
+                  onClick={() => navigate(`/address?return=${encodeURIComponent('/checkout')}`)}
+                >
+                  Thay đổi
+                </button>
+              </div>
 
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Họ tên *"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                required
-              />
+              {selectedAddress ? (
+                <div className="rounded-xl border p-3 bg-gray-50">
+                  <div className="font-semibold">
+                    {selectedAddress.name} <span className="text-gray-500">| {selectedAddress.phone}</span>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">
+                    {selectedAddress.address}
+                    {selectedAddress.ward_name ? `, ${selectedAddress.ward_name}` : ''}
+                    {selectedAddress.district_name ? `, ${selectedAddress.district_name}` : ''}
+                    {selectedAddress.province_name ? `, ${selectedAddress.province_name}` : ''}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600">
+                  Chưa có địa chỉ giao hàng.{" "}
+                  <button
+                    className="text-blue-600 underline"
+                    onClick={() => navigate(`/address?return=${encodeURIComponent('/checkout')}`)}
+                  >
+                    Thêm địa chỉ
+                  </button>
+                </div>
+              )}
 
-              <input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="Số điện thoại *"
-                type="tel"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                required
-              />
-
-              <select
-                value={form.province}
-                onChange={(e) => setForm({ ...form, province: e.target.value, district: '', ward: '' })}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                disabled={loadingProvinces}
-              >
-                <option value="">-- Chọn Tỉnh/Thành phố *</option>
-                {provinces.map((p) => (
-                  <option key={p.code || p.id} value={p.code || p.id}>
-                    {p.name || p.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={form.district}
-                onChange={(e) => setForm({ ...form, district: e.target.value, ward: '' })}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                disabled={!form.province || loadingDistricts}
-              >
-                <option value="">{loadingDistricts ? 'Đang tải...' : '-- Chọn Quận/Huyện *'}</option>
-                {districts.map((d) => (
-                  <option key={d.code || d.id} value={d.code || d.id}>
-                    {d.name || d.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={form.ward}
-                onChange={(e) => setForm({ ...form, ward: e.target.value })}
-                className="w-full rounded-2xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                disabled={!form.district || loadingWards}
-              >
-                <option value="">{loadingWards ? 'Đang tải...' : '-- Chọn Phường/Xã *'}</option>
-                {wards.map((w) => (
-                  <option key={w.code || w.id} value={w.code || w.id}>
-                    {w.name || w.label}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Địa chỉ chi tiết (số nhà, tên đường) *"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                required
-              />
-
+              {/* vẫn giữ ô ghi chú nếu bạn muốn dùng */}
               <input
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
@@ -724,6 +753,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
               />
             </div>
+
 
             {/* === VẬN CHUYỂN (API thật, không fallback) ======================= */}
             <div className="bg-white rounded-2xl p-4 shadow space-y-3">
