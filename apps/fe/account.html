@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tài khoản của tôi - Shop Huy Vân</title>
+  <link rel="stylesheet" href="/public/styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Container */
+    .account-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Card */
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    /* Section Title */
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Customer Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+    }
+
+    .info-item {
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    /* Address Card */
+    .address-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .address-card:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    }
+
+    .address-card.default {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .default-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #10b981;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-error {
+      color: #dc2626;
+      font-size: 12px;
+      margin-top: 4px;
+      display: none;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #d1d5db;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #6b7280;
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .account-container {
+        padding: 16px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-content {
+        width: 95%;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <div class="bg-white shadow-sm mb-6">
+    <div class="account-container">
+      <div class="flex items-center justify-between py-4">
+        <h1 class="text-2xl font-bold text-gray-900">Tài khoản của tôi</h1>
+        <div class="flex gap-3">
+          <a href="/myorders.html" class="btn btn-secondary">📦 Đơn hàng</a>
+          <a href="/" class="btn btn-secondary">🏠 Trang chủ</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="account-container">
+    <!-- Loading State -->
+    <div id="loadingState" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p class="text-gray-600">Đang tải thông tin...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="empty-state" style="display: none;">
+      <div class="text-5xl mb-4">😕</div>
+      <h3 class="text-lg font-semibold mb-2" id="errorMessage">Có lỗi xảy ra</h3>
+      <p class="text-gray-600 mb-4">Vui lòng <a href="/login.html" class="text-blue-600 hover:underline">đăng nhập</a> để xem thông tin tài khoản</p>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" style="display: none;">
+      <!-- Customer Info Card -->
+      <div class="card">
+        <div class="section-title">
+          👤 Thông tin cá nhân
+        </div>
+        <div class="info-grid" id="customerInfo">
+          <!-- Will be populated by JS -->
+        </div>
+      </div>
+
+      <!-- Addresses Card -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <div class="section-title" style="margin-bottom: 0;">
+            📍 Sổ địa chỉ (<span id="addressCount">0</span>)
+          </div>
+          <button id="btnAddAddress" class="btn btn-primary">+ Thêm địa chỉ</button>
+        </div>
+
+        <div id="addressesList">
+          <!-- Will be populated by JS -->
+        </div>
+
+        <div id="emptyAddresses" class="empty-state" style="display: none;">
+          <div class="text-4xl mb-3">📭</div>
+          <p>Chưa có địa chỉ nào</p>
+        </div>
+      </div>
+
+      <!-- Logout Button -->
+      <div class="text-center">
+        <button id="btnLogout" class="btn btn-danger">
+          🚪 Đăng xuất
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Address Form Modal -->
+  <div id="addressModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Thêm địa chỉ mới</h3>
+        <button class="close-btn" onclick="closeAddressModal()">✕</button>
+      </div>
+
+      <div id="modalForm">
+        <input type="hidden" id="editingAddressId" />
+
+        <div class="form-group">
+          <label class="form-label">Tên người nhận *</label>
+          <input id="inputName" type="text" class="form-input" placeholder="Nhập họ và tên" />
+          <div id="errorName" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số điện thoại *</label>
+          <input id="inputPhone" type="tel" class="form-input" placeholder="Nhập số điện thoại (VD: 0912345678)" />
+          <div id="errorPhone" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tỉnh/Thành phố *</label>
+          <select id="inputProvince" class="form-input">
+            <option value="">Chọn Tỉnh/Thành phố</option>
+          </select>
+          <div id="errorProvince" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Quận/Huyện *</label>
+          <select id="inputDistrict" class="form-input">
+            <option value="">Chọn Quận/Huyện</option>
+          </select>
+          <div id="errorDistrict" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phường/Xã *</label>
+          <select id="inputWard" class="form-input">
+            <option value="">Chọn Phường/Xã</option>
+          </select>
+          <div id="errorWard" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Địa chỉ chi tiết *</label>
+          <textarea id="inputAddress" class="form-input" rows="2" placeholder="Số nhà, tên đường (tối thiểu 10 ký tự)"></textarea>
+          <div id="errorAddress" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Loại địa chỉ</label>
+          <select id="inputAddressType" class="form-input">
+            <option value="home">Nhà riêng</option>
+            <option value="office">Cơ quan</option>
+            <option value="other">Khác</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ghi chú</label>
+          <input id="inputNote" type="text" class="form-input" placeholder="VD: Giao lúc 9-11h sáng" />
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button id="btnSaveAddress" class="btn btn-success flex-1">
+            💾 Lưu địa chỉ
+          </button>
+          <button onclick="closeAddressModal()" class="btn btn-secondary flex-1">
+            ✕ Hủy
+          </button>
+        </div>
+      </div>
+
+      <div id="modalLoading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p class="text-gray-600">Đang xử lý...</p>
+      </div>
+
+      <div id="modalError" class="form-error" style="display: none; text-align: center; font-size: 14px; padding: 12px; background: #fee2e2; border-radius: 8px; margin-top: 12px;"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/account.js"></script>
+</body>
+</html>
