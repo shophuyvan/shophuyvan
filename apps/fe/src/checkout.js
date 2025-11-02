@@ -898,28 +898,29 @@ window.deleteAddressById = async function(id) {
   }
 };
 
-// Event listeners cho form edit trong modal
-$('edit-province').addEventListener('change', async (e) => {
-  const provinceCode = e.target.value;
-  $('edit-district').innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
-  $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
-  $('edit-district').disabled = true;
-  $('edit-ward').disabled = true;
-  
-  if (provinceCode) {
-    await loadDistrictsForForm(provinceCode);
-  }
-});
+    // Event listeners cho form edit trong modal
+    $('edit-province')?.addEventListener('change', async (e) => {
+      const provinceCode = e.target.value;
+      $('edit-district').innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
+      $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+      $('edit-district').disabled = true;
+      $('edit-ward').disabled = true;
+    
+      if (provinceCode) {
+        await loadDistrictsForForm(provinceCode);
+      }
+    });
+    
+    $('edit-district')?.addEventListener('change', async (e) => {
+      const districtCode = e.target.value;
+      $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+      $('edit-ward').disabled = true;
+    
+      if (districtCode) {
+        await loadWardsForForm(districtCode);
+      }
+    });
 
-$('edit-district').addEventListener('change', async (e) => {
-  const districtCode = e.target.value;
-  $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
-  $('edit-ward').disabled = true;
-  
-  if (districtCode) {
-    await loadWardsForForm(districtCode);
-  }
-});
 
 const goAddressPage = () => { location.href = '/addresses.html?return=/checkout'; };
 
