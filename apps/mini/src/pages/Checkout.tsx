@@ -322,18 +322,53 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         });
 
         const rawItems = data.data || data.items || [];
-        const items = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
-          provider: it.provider,
+        
+        // ✅ Cố định danh sách 4 providers: SPX, Lazada, J&T, Best
+        const PREFERRED_PROVIDERS = ['spx', 'lazada', 'jt', 'best'];
+        
+        const allItems = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
+          provider: String(it.provider || '').toLowerCase(),
+          originalProvider: it.provider, // Giữ nguyên để gửi lên backend
           name: it.name || it.provider,
           service_code: it.service_code,
           fee: Number(it.fee || 0),
           eta: it.eta || 'Giao hàng tiêu chuẩn',
-        })).sort((a: any, b: any) => a.fee - b.fee);
+        }));
+
+        // Lọc chỉ lấy 4 providers ưu tiên
+        const items = PREFERRED_PROVIDERS.map(prefProvider => {
+          return allItems.find(item => {
+            const p = item.provider;
+            // Match: spx, spx express, shopee express
+            if (prefProvider === 'spx') {
+              return p.includes('spx') || p.includes('shopee');
+            }
+            // Match: lazada, lazada express
+            if (prefProvider === 'lazada') {
+              return p.includes('lazada');
+            }
+            // Match: jt, j&t, j&t express
+            if (prefProvider === 'jt') {
+              return p.includes('jt') || p.includes('j&t');
+            }
+            // Match: best, best express
+            if (prefProvider === 'best') {
+              return p.includes('best');
+            }
+            return false;
+          });
+        }).filter(Boolean); // Loại bỏ null/undefined
 
         if (!alive) return;
 
         setShippingList(items);
-        setSelectedShipping(items[0] || null);
+        
+        // Ưu tiên chọn SPX nếu có, không thì chọn item đầu
+        const spxItem = items.find(it => {
+          const p = it.provider;
+          return p.includes('spx') || p.includes('shopee');
+        });
+        setSelectedShipping(spxItem || items[0] || null);
         if (items.length === 0) {
           setShippingError('Không có gói vận chuyển phù hợp. Vui lòng thử lại sau.');
         }
@@ -498,7 +533,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         shipping_discount: bestShippingDiscount,
         total: grandTotal,
       },
-      shipping_provider: selectedShipping.provider,
+      shipping_provider: selectedShipping.originalProvider || selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
       shipping_name: selectedShipping.name,
       shipping_eta: selectedShipping.eta,
