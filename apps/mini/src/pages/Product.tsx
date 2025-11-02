@@ -386,13 +386,14 @@ export default function Product() {
   const price = pickPrice(p, variant);
 
   // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
+  // ✅ TÍNH TRỌNG LƯỢNG THỰC - ƯU TIÊN weight (field Admin) TRƯỚC
   const w = Number(
+    variant?.weight ??
     variant?.weight_gram ??
     variant?.weight_grams ??
-    variant?.weight ??
+    p?.weight ??
     p?.weight_gram ??
     p?.weight_grams ??
-    p?.weight ??
     0
   );
 

@@ -120,16 +120,42 @@ export async function resolveCarrierCode(env, raw) {
   let hit = list.find(c => c.key === k);
   if (hit?.code) return String(hit.code);
 
-  // 2) alias thường gặp
+  // 2) alias thường gặp (bổ sung đầy đủ)
   const alias = {
+    // SPX / Shopee Express
     'spx': 'spx express',
+    'shopee': 'spx express',
     'shopee express': 'spx express',
+    
+    // J&T Express
+    'jt': 'j&t express',
+    'j&t': 'j&t express',
+    'jt express': 'j&t express',
+    'jandt': 'j&t express',
+    
+    // Best Express
     'best': 'best express',
+    
+    // Viettel Post
     'vtp': 'viettel post',
+    'viettel': 'viettel post',
     'viettelpost': 'viettel post',
+    
+    // GHN
     'ghn': 'ghn',
     'giao hang nhanh': 'ghn',
-    'ninjavan': 'ninja van'
+    
+    // Ninja Van
+    'ninjavan': 'ninja van',
+    'ninja': 'ninja van',
+    
+    // VietnamPost
+    'vnpost': 'vietnampost',
+    'vietnam post': 'vietnampost',
+    
+    // Lazada Express
+    'lazada': 'lazada express',
+    'lzd': 'lazada express'
   };
   const aliasName = alias[k];
   if (aliasName) {

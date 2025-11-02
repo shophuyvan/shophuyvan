@@ -512,6 +512,8 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       cod_amount: allowInspection ? grandTotal : 0,
       source: 'mini',
       status: 'placed',
+      total_weight_gram: Number(serverWeight || totalWeightGram || 0),
+      totalWeightGram: Number(serverWeight || totalWeightGram || 0),
     };
 
     try {
