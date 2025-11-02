@@ -80,7 +80,8 @@ export default {
       if (path.startsWith('/admin/customers') ||
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
-          path === '/api/customers/me') {
+          path === '/api/customers/me' ||
+          path.startsWith('/api/addresses')) {  // 👈 THÊM DÒNG NÀY
         return admin.handle(req, env, ctx);
       }
       // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
