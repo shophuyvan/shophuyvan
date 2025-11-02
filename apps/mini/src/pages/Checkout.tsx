@@ -13,7 +13,7 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// (bỏ react-router-dom vì app dùng router tự viết)
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
@@ -72,7 +72,6 @@ const api = async (path: string, options: RequestInit = {}) => {
 
 
 export default function Checkout() {
-  const navigate = useNavigate();
  // === GIỎ HÀNG ==============================================================
 
   const [st, setSt] = useState<any>(cart.get());
@@ -715,7 +714,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
                 <button
                   className="text-blue-600 text-sm font-medium"
-                  onClick={() => navigate(`/address?return=${encodeURIComponent('/checkout')}`)}
+                  onClick={() => (location.href = '/address?return=/checkout')}
                 >
                   Thay đổi
                 </button>
@@ -738,7 +737,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                   Chưa có địa chỉ giao hàng.{" "}
                   <button
                     className="text-blue-600 underline"
-                    onClick={() => navigate(`/address?return=${encodeURIComponent('/checkout')}`)}
+                    onClick={() => (location.href = '/address?return=/checkout')}
                   >
                     Thêm địa chỉ
                   </button>

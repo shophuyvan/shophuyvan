@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+// (bỏ react-router-dom – dùng location.*)
 
 type Address = {
   id: string;
@@ -18,9 +18,7 @@ type Address = {
 const LS_KEY_SELECTED = "address:selected";
 
 export default function AddressList() {
-  const nav = useNavigate();
-  const { search } = useLocation();
-  const params = new URLSearchParams(search);
+  const params = new URLSearchParams(location.search);
   const returnUrl = params.get("return") || "/checkout";
 
   const [items, setItems] = useState<Address[]>([]);
@@ -48,17 +46,18 @@ export default function AddressList() {
     };
   }, []);
 
-  const select = (addr: Address) => {
+    const select = (addr: Address) => {
     localStorage.setItem(LS_KEY_SELECTED, JSON.stringify(addr));
-    nav(returnUrl, { replace: true });
+    location.href = returnUrl;
   };
 
-  const edit = (addr?: Address) => {
+    const edit = (addr?: Address) => {
     const q = new URLSearchParams();
     if (addr?.id) q.set("id", addr.id);
     q.set("return", returnUrl);
-    nav(`/address/edit?${q.toString()}`);
+    location.href = `/address/edit?${q.toString()}`;
   };
+
 
   return (
     <div className="p-4">

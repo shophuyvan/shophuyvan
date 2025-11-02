@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+// (bỏ react-router-dom – dùng location.*)
 
 type AddressForm = {
   id?: string;
@@ -18,11 +18,10 @@ type AddressForm = {
 const phoneFrom = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
 
 export default function AddressEdit() {
-  const nav = useNavigate();
-  const { search } = useLocation();
-  const params = new URLSearchParams(search);
+  const params = new URLSearchParams(location.search);
   const id = params.get("id") || "";
   const returnUrl = params.get("return") || "/checkout";
+
 
   const [form, setForm] = useState<AddressForm>({
     name: "",
@@ -99,10 +98,8 @@ export default function AddressEdit() {
         body: JSON.stringify(form),
       });
       const data = await r.json();
-      if (data?.success) {
-        nav("/address?return=" + encodeURIComponent(returnUrl), {
-          replace: true,
-        });
+            if (data?.success) {
+        location.href = "/address?return=" + encodeURIComponent(returnUrl);
       } else {
         alert("Lưu địa chỉ thất bại");
       }
@@ -168,8 +165,8 @@ export default function AddressEdit() {
         <button
           className="w-full py-3 rounded-xl bg-gray-100 text-gray-800"
           onClick={() =>
-            nav("/address?return=" + encodeURIComponent(returnUrl))
-          }
+  (location.href = "/address?return=" + encodeURIComponent(returnUrl))
+        }
         >
           Huỷ
         </button>

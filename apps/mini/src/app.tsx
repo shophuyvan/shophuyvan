@@ -5,6 +5,10 @@ import Product from './pages/Product';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderHistory from './pages/OrderHistory';
+// thêm 2 trang địa chỉ
+import AddressList from './pages/AddressList';
+import AddressEdit from './pages/AddressEdit';
+
 
 // === SHV004: Inline Account page (white/blue) ===
 import Header from './components/Header';
@@ -91,7 +95,9 @@ export default function App() {
   else if (path.startsWith('/product') || path.startsWith('product')) Page = Product;
   else if (path.startsWith('/cart') || path.startsWith('cart')) Page = Cart;
   else if (path.startsWith('/checkout') || path.startsWith('checkout')) Page = Checkout;
-  else if (path.startsWith('/orders') || path.startsWith('orders')) Page = OrderHistory;  // ← THÊM DÒNG NÀY
+  else if (path.startsWith('/address/edit') || path.startsWith('address/edit')) Page = AddressEdit;
+  else if (path.startsWith('/address') || path.startsWith('address')) Page = AddressList;
+  else if (path.startsWith('/orders') || path.startsWith('orders')) Page = OrderHistory;
   else if (path.startsWith('/account') || path.startsWith('account')) Page = Account;
   else Page = Home;
 
