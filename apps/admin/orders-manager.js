@@ -10,6 +10,7 @@ class OrdersManager {
     this.currentOrder = null;
     this.selectedOrders = new Set();
     this.currentStatusFilter = 'all'; // Trạng thái lọc mặc định
+    this.productsCache = new Map(); // ✅ Cache sản phẩm để lấy ảnh variant
   }
 
   // ==================== UTILITIES ====================
@@ -55,6 +56,53 @@ class OrdersManager {
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   }
 
+  // ✅ THÊM: Load product để lấy ảnh variant
+  async getProductById(productId) {
+    if (!productId) return null;
+    
+    // Check cache
+    if (this.productsCache.has(productId)) {
+      return this.productsCache.get(productId);
+    }
+
+    try {
+      const response = await Admin.req(`/products?id=${productId}`, { method: 'GET' });
+      const product = response?.item || null;
+      if (product) {
+        this.productsCache.set(productId, product);
+      }
+      return product;
+    } catch (e) {
+      console.error('[OrdersManager] Load product error:', e);
+      return null;
+    }
+  }
+
+  // ✅ THÊM: Lấy ảnh variant từ product
+  async getVariantImage(item) {
+    // Ưu tiên ảnh từ item
+    if (item.image || item.img || item.thumbnail) {
+      return item.image || item.img || item.thumbnail;
+    }
+
+    // Lấy từ product
+    const productId = item.product_id || item.pid || item.productId;
+    if (!productId) return null;
+
+    const product = await this.getProductById(productId);
+    if (!product || !Array.isArray(product.variants)) return null;
+
+    // Tìm variant khớp
+    const variantId = item.id || item.variant_id || item.sku;
+    const variant = product.variants.find(v => 
+      String(v.id || v.sku || '') === String(variantId) ||
+      String(v.sku || '') === String(item.sku || '') ||
+      String(v.name || '').includes(String(item.variant || ''))
+    );
+
+    return variant?.image || variant?.img || product.images?.[0] || null;
+  }
+
   // ==================== LOAD ORDERS ====================
   
   async loadOrders() {
@@ -90,7 +138,7 @@ class OrdersManager {
 
   // ==================== RENDER ORDERS LIST ====================
   
-  renderOrdersList() {
+  async renderOrdersList() {
     const tbody = document.getElementById('list');
     if (!tbody) return;
 
@@ -105,13 +153,19 @@ class OrdersManager {
       return;
     }
 
-    tbody.innerHTML = this.orders.map(order => this.renderOrderRow(order)).join('');
+    // ✅ FIX: Render async để load ảnh variants
+    const rowsHTML = [];
+    for (const order of this.orders) {
+      const html = await this.renderOrderRow(order);
+      rowsHTML.push(html);
+    }
+    tbody.innerHTML = rowsHTML.join('');
 
     // Wire event listeners
     this.wireOrderRowEvents();
   }
 
- renderOrderRow(order) {
+ async renderOrderRow(order) {
     const items = Array.isArray(order.items) ? order.items : [];
     
     // Totals
@@ -121,6 +175,13 @@ class OrdersManager {
     const customer = order.customer || {};
     const custName = customer.name || order.customer_name || order.name || 'Khách';
     const custPhone = customer.phone || order.phone || '';
+    
+    // ✅ THÊM: Địa chỉ đầy đủ
+    const custAddress = customer.address || order.address || '';
+    const custProvince = customer.province || order.province || '';
+    const custDistrict = customer.district || order.district || '';
+    const custWard = customer.ward || customer.commune || order.ward || '';
+    const fullAddress = [custAddress, custWard, custDistrict, custProvince].filter(Boolean).join(', ');
 
     // Shipping info
     const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
@@ -131,10 +192,17 @@ class OrdersManager {
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
     const source = String(order.source || order.channel || order.platform || 'Web');
     const orderId = String(order.id || '');
+    const orderStatus = String(order.status || 'pending').toLowerCase();
+
+    // ✅ THÊM: Load ảnh variants
+    const itemsWithImages = await Promise.all(items.map(async (item) => {
+      const variantImg = await this.getVariantImage(item);
+      return { ...item, variantImage: variantImg };
+    }));
 
     // Render all items with images
-    const itemsHTML = items.map(item => {
-      let img = item.image || item.img || item.thumbnail || item.variant_image || '';
+    const itemsHTML = itemsWithImages.map(item => {
+      let img = item.variantImage || item.image || item.img || item.thumbnail || '';
       img = img ? this.cloudify(img, 'w_80,h_80,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
       
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
@@ -168,6 +236,7 @@ class OrdersManager {
             <div>
               <div class="customer-name">${custName}</div>
               ${custPhone ? `<div class="customer-phone">${custPhone}</div>` : ''}
+              ${fullAddress ? `<div class="customer-address" style="font-size: 12px; color: #6b7280; margin-top: 4px;">📍 ${fullAddress}</div>` : ''}
             </div>
           </div>
           <div class="order-meta">
@@ -202,6 +271,14 @@ class OrdersManager {
             </div>
           </div>
           <div class="order-actions-col">
+            ${orderStatus === 'pending' ? `
+              <button class="btn btn-success" data-confirm="${orderId}" style="background-color:#10b981; color:white; border-color:#10b981;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                ✅ Xác nhận đơn
+              </button>
+            ` : ''}
             <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -310,6 +387,14 @@ class OrdersManager {
   }
 
   wireOrderRowEvents() {
+    // ✅ THÊM: Nút "Xác nhận đơn"
+    document.querySelectorAll('[data-confirm]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute('data-confirm');
+        await this.confirmOrder(id);
+      };
+    });
+
     // Nút "In Vận Đơn" (thay cho "Xem")
     document.querySelectorAll('[data-print]').forEach(btn => {
       btn.onclick = () => {
@@ -349,6 +434,50 @@ class OrdersManager {
       };
     });
   } // <<< Kết thúc hàm wireOrderRowEvents
+
+  // ==================== CONFIRM ORDER (NEW) ====================
+  
+  async confirmOrder(orderId) {
+    const order = this.orders.find(o => String(o.id || '') === orderId);
+    if (!order) {
+      alert('Không tìm thấy đơn hàng!');
+      return;
+    }
+
+    if (String(order.status || '').toLowerCase() !== 'pending') {
+      alert('Chỉ có thể xác nhận đơn hàng đang chờ xử lý!');
+      return;
+    }
+
+    if (!confirm(`Xác nhận đơn hàng ${orderId}?\n\nSau khi xác nhận, hệ thống sẽ tự động tạo vận đơn.`)) {
+      return;
+    }
+
+    Admin.toast('⏳ Đang xác nhận đơn hàng...');
+
+    try {
+      const updatedOrder = {
+        ...order,
+        status: 'confirmed'
+      };
+
+      const res = await Admin.req('/admin/orders/upsert', {
+        method: 'POST',
+        body: updatedOrder
+      });
+
+      if (res.ok) {
+        Admin.toast('✅ Đã xác nhận đơn hàng! Vận đơn đang được tạo...');
+        setTimeout(() => {
+          this.loadOrders();
+        }, 2000);
+      } else {
+        alert('Lỗi khi xác nhận đơn hàng: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống khi xác nhận đơn: ' + e.message);
+    }
+  }
 
   // ==================== DELETE ORDER ====================
   

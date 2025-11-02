@@ -627,41 +627,14 @@ async function createOrder(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
-  // Adjust inventory
+  // ✅ FIX: Adjust inventory + sold_count NGAY KHI ĐẶT HÀNG
   if (shouldAdjustStock(order.status)) {
     await adjustInventory(items, env, -1);
+    console.log('[ORDER] ✅ Đã trừ stock + tăng sold_count');
   }
 
-  // Auto-create waybill
-  if (order.shipping_provider) {
-    try {
-      console.log('[ORDER] Auto-creating waybill');
-      const waybillResult = await autoCreateWaybill(order, env);
-
-      if (waybillResult.ok && waybillResult.carrier_code) {
-        order.tracking_code = waybillResult.carrier_code;
-        order.shipping_tracking = waybillResult.carrier_code;
-        order.superai_code = waybillResult.superai_code;
-        order.carrier_id = waybillResult.carrier_id;
-        order.status = ORDER_STATUS.SHIPPING;
-        order.waybill_data = waybillResult.raw;
-
-        await putJSON(env, 'order:' + id, order);
-
-        const index = list.findIndex(o => o.id === id);
-        if (index > -1) {
-          list[index] = order;
-          await putJSON(env, 'orders:list', list);
-        }
-
-        console.log('[ORDER] Waybill created:', waybillResult.carrier_code);
-      } else {
-        console.warn('[ORDER] Waybill creation failed:', waybillResult.message);
-      }
-    } catch (e) {
-      console.error('[ORDER] Waybill creation exception:', e.message);
-    }
-  }
+  // ✅ REMOVED: Không tự động tạo vận đơn, đợi admin xác nhận
+  console.log('[ORDER] ⏳ Đơn hàng đang chờ admin xác nhận');
 
   const response = json({ ok: true, id, status: order.status, tracking_code: order.tracking_code || null }, {}, req);
   await idemSet(idem.key, env, response);
@@ -861,6 +834,9 @@ async function upsertOrder(req, env) {
   const oldStatus = String(oldOrder?.status || '').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
 
+  // ✅ FIX: Khi admin chuyển PENDING → CONFIRMED, tự động tạo vận đơn
+  const isConfirming = (oldStatus === 'pending' && newStatus === 'confirmed');
+
   // Create/update order
   const order = {
     ...body,
@@ -886,6 +862,33 @@ async function upsertOrder(req, env) {
 
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
+
+  // ✅ FIX: Auto-create waybill when admin confirms order
+  if (isConfirming && order.shipping_provider) {
+    try {
+      console.log('[ORDER-UPSERT] Admin xác nhận đơn, đang tạo vận đơn...');
+      const waybillResult = await autoCreateWaybill(order, env);
+
+      if (waybillResult.ok && waybillResult.carrier_code) {
+        order.tracking_code = waybillResult.carrier_code;
+        order.shipping_tracking = waybillResult.carrier_code;
+        order.superai_code = waybillResult.superai_code;
+        order.carrier_id = waybillResult.carrier_id;
+        order.status = ORDER_STATUS.SHIPPING;
+        order.waybill_data = waybillResult.raw;
+
+        await putJSON(env, 'order:' + id, order);
+        list[index] = order;
+        await putJSON(env, 'orders:list', list);
+
+        console.log('[ORDER-UPSERT] ✅ Đã tạo vận đơn:', waybillResult.carrier_code);
+      } else {
+        console.warn('[ORDER-UPSERT] ⚠️ Tạo vận đơn thất bại:', waybillResult.message);
+      }
+    } catch (e) {
+      console.error('[ORDER-UPSERT] ❌ Lỗi tạo vận đơn:', e.message);
+    }
+  }
 
   // ✅ FIX: Handle voucher usage when order becomes completed
   if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
