@@ -222,9 +222,9 @@ async function getShippingWeight(req, env) {
       const qty  = Number(line.qty ?? line.quantity ?? 1) || 1;
       if (!pid) continue;
 
-      // 0) Nếu client đã gửi weight_gram hợp lệ → dùng luôn
-      const wClient = Number(line.weight_gram ?? line.weight ?? 0) || 0;
-      if (wClient > 0) { total += wClient * qty; continue; }
+      // ✅ Ưu tiên weight (field Admin) trước
+     const wClient = Number(line.weight ?? line.weight_gram ?? line.weight_grams ?? 0) || 0;
+     if (wClient > 0) { total += wClient * qty; continue; }
 
       // 1) Lấy sản phẩm từ KV
       const pidRaw = String(pid || '').trim();
@@ -265,7 +265,8 @@ async function getShippingWeight(req, env) {
       }
       if (!match && variants.length === 1) match = variants[0];
 
-      const w = Number(match?.weight_gram ?? match?.weight ?? 0) || 0;
+      // ✅ Ưu tiên weight (field Admin) trước
+      const w = Number(match?.weight ?? match?.weight_gram ?? match?.weight_grams ?? 0) || 0;
       if (w > 0) total += w * qty;
     }
 
