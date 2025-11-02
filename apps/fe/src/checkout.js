@@ -307,7 +307,44 @@ async function fetchShipping() {
       }
     });
 
-    const items = res?.items || [];
+const rawItems = res?.items || [];
+    
+    // ✅ Cố định danh sách 4 providers: SPX, Lazada, J&T, Best
+    const PREFERRED_PROVIDERS = ['spx', 'lazada', 'jt', 'best'];
+    
+    const allItems = rawItems.map(it => ({
+      provider: String(it.provider || '').toLowerCase(),
+      originalProvider: it.provider, // Giữ nguyên để gửi lên backend
+      name: it.name || it.provider,
+      service_code: it.service_code,
+      fee: Number(it.fee || 0),
+      eta: it.eta || 'Giao hàng tiêu chuẩn',
+    }));
+
+    // Lọc chỉ lấy 4 providers ưu tiên
+    const items = PREFERRED_PROVIDERS.map(prefProvider => {
+      return allItems.find(item => {
+        const p = item.provider;
+        // Match: spx, spx express, shopee express
+        if (prefProvider === 'spx') {
+          return p.includes('spx') || p.includes('shopee');
+        }
+        // Match: lazada, lazada express
+        if (prefProvider === 'lazada') {
+          return p.includes('lazada');
+        }
+        // Match: jt, j&t, j&t express
+        if (prefProvider === 'jt') {
+          return p.includes('jt') || p.includes('j&t');
+        }
+        // Match: best, best express
+        if (prefProvider === 'best') {
+          return p.includes('best');
+        }
+        return false;
+      });
+    }).filter(Boolean); // Loại bỏ null/undefined
+    
     if (!items.length) {
       $('shipping-list').innerHTML = `
         <div class="bg-yellow-50 border-2 border-yellow-200 p-4 rounded-xl text-center">
@@ -323,14 +360,14 @@ async function fetchShipping() {
     $('shipping-list').innerHTML = items.map(it => `
       <label class="shipping-option flex items-center justify-between p-4 cursor-pointer border-2 border-gray-200 rounded-xl hover:border-green-500 transition">
         <input type="radio" name="ship_opt" class="mr-3"
-               data-provider="${it.provider||''}"
+               data-provider="${it.originalProvider||''}"
                data-service="${it.service_code||''}"
                data-fee="${it.fee||0}"
                data-eta="${it.eta||''}"
                data-name="${it.name||''}">
         <div class="flex-1">
           <div class="flex items-center gap-2">
-            <span class="font-bold text-gray-800 uppercase text-sm">${it.provider||'DVVC'}</span>
+            <span class="font-bold text-gray-800 uppercase text-sm">${it.originalProvider||'DVVC'}</span>
             <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">${it.service_code||''}</span>
           </div>
           <div class="text-sm text-gray-700 mt-1 font-medium">${it.name || 'Dịch vụ vận chuyển'}</div>
@@ -360,16 +397,29 @@ async function fetchShipping() {
       });
     });
 
-    // Chọn mặc định rẻ nhất
-    const first = document.querySelector('input[name="ship_opt"]');
-    if (first) {
+    // Ưu tiên chọn SPX nếu có, không thì chọn item đầu
+    const allRadios = document.querySelectorAll('input[name="ship_opt"]');
+    let spxRadio = null;
+    
+    allRadios.forEach(r => {
+      const p = String(r.dataset.provider || '').toLowerCase();
+      if (p.includes('spx') || p.includes('shopee')) {
+        spxRadio = r;
+      }
+    });
+    
+    const defaultRadio = spxRadio || allRadios[0];
+    if (defaultRadio) {
       selectedShipping = {
-        provider: first.dataset.provider,
-        service_code: first.dataset.service,
-        fee: Number(first.dataset.fee||0),
-        eta: first.dataset.eta||'',
-        name: first.dataset.name||''
+        provider: defaultRadio.dataset.provider,
+        service_code: defaultRadio.dataset.service,
+        fee: Number(defaultRadio.dataset.fee||0),
+        eta: defaultRadio.dataset.eta||'',
+        name: defaultRadio.dataset.name||''
       };
+      defaultRadio.checked = true;
+      defaultRadio.closest('label')?.classList.add('border-rose-500', 'bg-rose-50');
+      defaultRadio.closest('label')?.classList.remove('border-gray-200');
       updateSummary();
     }
   } catch (e) {
