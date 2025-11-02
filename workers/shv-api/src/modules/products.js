@@ -389,7 +389,7 @@ async function getProductById(req, env, productId) {
       }));
     }
 
-    cconst tier = getCustomerTier(req);
+    const tier = getCustomerTier(req);
     const priced = { ...product, ...computeDisplayPrice(product, tier) };
     console.log('[PRICE] getProductById', { id: productId, tier, price: priced.price_display, compare_at: priced.compare_at_display });
     
