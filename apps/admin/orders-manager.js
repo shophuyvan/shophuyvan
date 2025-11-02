@@ -518,8 +518,90 @@ class OrdersManager {
     // Render detail
     body.innerHTML = this.renderOrderDetail(order);
 
-    // Show shipping actions
-    if (actions) actions.style.display = 'flex';
+    // Render nút actions theo trạng thái
+    if (actions) {
+      const status = String(order.status || 'pending').toLowerCase();
+      const orderId = String(order.id || '');
+      
+      if (status === 'pending') {
+        // Đơn hàng chờ xác nhận: Xác nhận + Chỉnh sửa + Xóa
+        actions.innerHTML = `
+          <button id="modal-btn-confirm" class="btn primary">
+            ✅ Xác nhận đơn
+          </button>
+          <button id="modal-btn-edit" class="btn secondary">
+            ✏️ Chỉnh sửa
+          </button>
+          <button id="modal-btn-delete" class="btn danger">
+            🗑️ Xóa đơn
+          </button>
+        `;
+        
+        // Wire events
+        document.getElementById('modal-btn-confirm')?.addEventListener('click', () => {
+          this.confirmOrder(orderId);
+          modal.style.display = 'none';
+        });
+        
+        document.getElementById('modal-btn-edit')?.addEventListener('click', () => {
+          alert('Chức năng chỉnh sửa đang phát triển');
+        });
+        
+        document.getElementById('modal-btn-delete')?.addEventListener('click', () => {
+          this.deleteOrder(orderId);
+          modal.style.display = 'none';
+        });
+        
+      } else {
+        // Đơn hàng đã xác nhận: In Vận Đơn + Hủy Vận Đơn + Xóa
+        actions.innerHTML = `
+          <button id="btn-print-waybill" class="btn secondary">
+            🖨️ In vận đơn
+          </button>
+          <button id="modal-btn-cancel-waybill" class="btn danger">
+            🚫 Hủy vận đơn
+          </button>
+          <button id="modal-btn-delete" class="btn danger">
+            🗑️ Xóa đơn
+          </button>
+        `;
+        
+        // Wire events (btn-print-waybill đã được wire trong orders.html)
+        
+        document.getElementById('modal-btn-cancel-waybill')?.addEventListener('click', async () => {
+          if (!order.superai_code) {
+            alert('Đơn hàng chưa có mã vận đơn để hủy.');
+            return;
+          }
+          
+          if (!confirm('Xác nhận hủy vận đơn?')) return;
+          
+          try {
+            const res = await Admin.req('/shipping/cancel', {
+              method: 'POST',
+              body: { superai_code: order.superai_code }
+            });
+            
+            if (res.ok) {
+              Admin.toast('✅ Đã hủy vận đơn');
+              this.loadOrders();
+              modal.style.display = 'none';
+            } else {
+              alert('Lỗi: ' + (res.message || 'Không rõ'));
+            }
+          } catch (e) {
+            alert('Lỗi hệ thống: ' + e.message);
+          }
+        });
+        
+        document.getElementById('modal-btn-delete')?.addEventListener('click', () => {
+          this.deleteOrder(orderId);
+          modal.style.display = 'none';
+        });
+      }
+      
+      actions.style.display = 'flex';
+    }
 
     // Show modal
     modal.style.display = 'flex';
