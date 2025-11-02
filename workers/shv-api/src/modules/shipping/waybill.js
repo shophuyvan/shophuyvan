@@ -153,9 +153,9 @@ export async function createWaybill(req, env) {
       provider: (order.shipping_provider || ship.provider || body.provider || 'vtp').toLowerCase(),
       service_code: order.shipping_service || ship.service_code || body.service_code || '',
       
-       // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
+// Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
       // ✅ Map allow_inspection: true -> '1', false -> '2'
-      config: String(body.config || (order.allow_inspection === false ? '2' : (order.allow_inspection === true ? '1' : '1')))
+      config: String(body.config || (order.allow_inspection === false ? '2' : (order.allow_inspection === true ? '1' : '1'))),
 
       // Product type (SuperAI)
       product_type: String(body.product_type || order.product_type || '2'),
@@ -590,7 +590,7 @@ export async function printWaybill(req, env) {
     // 2. Lấy settings để có logo
     const settings = await getJSON(env, 'settings', {}) || {};
     const store = settings.store || {};
-    const logo = store.logo || 'https://shophuyvan1.pages.dev/logo.png';
+    const logo = store.logo || 'https://shophuyvan.vn/logo.png';
 
     // 3. Tạo HTML template A5 dọc
     // ✅ Fallback: Nếu không có sender/receiver, dùng dữ liệu từ settings + hardcode
