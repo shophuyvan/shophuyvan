@@ -585,7 +585,7 @@ async function setupSuperAdmin(req, env) {
         password: 'Admin@123'
       },
       roles_created: roles.length,
-      login_url: 'https://adminshophuyvan.pages.dev/login.html'
+      login_url: 'https://admin.shophuyvan.vn/login.html'
     }, {}, req);
 
   } catch (e) {

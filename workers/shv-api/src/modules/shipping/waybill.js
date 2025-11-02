@@ -8,7 +8,7 @@ import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken } from './helpers.js';
+import { superFetch, chargeableWeightGrams, validateDistrictCode, lookupCommuneCode, superToken, resolveCarrierCode } from './helpers.js';
 import { getWaybillHTML } from './waybill-template.js';
 
 export async function createWaybill(req, env) {
@@ -494,9 +494,9 @@ export async function autoCreateWaybill(order, env) {
       soc: order.soc || order.id || '',
       
       payer: payer, // Sửa: '2' (Khách trả phí)
-      provider: (order.shipping_provider || 'vtp').toLowerCase(),
+      provider: await resolveCarrierCode(env, order.shipping_provider || 'vtp'), // ✅ Convert sang mã số
       service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
-      config: '1', // Cho xem hàng
+      config: String(order.allow_inspection === false ? '2' : '1'), // ✅ Map allow_inspection
       product_type: '2',
       option_id: shipping.option_id || '1',
       products: products,
