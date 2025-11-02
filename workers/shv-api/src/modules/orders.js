@@ -608,11 +608,17 @@ async function createOrder(req, env) {
     voucher_code: validated_voucher_code,
     note: body.note || '',
     source: body.source || 'website',
-    // ✅ FIX: Map shipping info correctly
-    shipping_provider: shipping.provider || body.shipping_provider || null,
-    shipping_service: shipping.service_code || body.shipping_service || null,
+    // ✅ FIX LỖI 1: Ưu tiên body (từ FE/Mini) trước
+    shipping_provider: body.shipping_provider || shipping.provider || null,
+    shipping_service: body.shipping_service || shipping.service_code || null,
     shipping_name: body.shipping_name || shipping.name || null,
-    shipping_eta: body.shipping_eta || shipping.eta || null
+    shipping_eta: body.shipping_eta || shipping.eta || null,
+    // ✅ FIX LỖI 2: Lưu cân nặng từ FE/Mini vào order
+    weight_gram: Number(body.total_weight_gram || body.totalWeightGram || 0),
+    total_weight_gram: Number(body.total_weight_gram || body.totalWeightGram || 0),
+    // ✅ Thêm allow_inspection và cod_amount
+    allow_inspection: body.allow_inspection !== undefined ? body.allow_inspection : true,
+    cod_amount: Number(body.cod_amount || 0)
   };
 
   // Save order

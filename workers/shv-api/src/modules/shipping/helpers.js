@@ -318,18 +318,24 @@ export async function lookupCommuneCode(env, districtCode, communeName) {
 // ===================================================================
 
 export function chargeableWeightGrams(body = {}, order = {}) {
-  // ✅ FIX: Ưu tiên order.weight_gram (đã tính sẵn) trước
+  // ✅ FIX LỖI 2: Ưu tiên total_weight_gram từ FE/Mini
   let weight = Number(
+    order.total_weight_gram ||
     order.weight_gram || 
     order.weight_grams || 
     order.weight || 
+    body.total_weight_gram ||
+    body.totalWeightGram ||
     body.weight_gram || 
     body.weight || 
     body.package?.weight_grams || 
     0
   ) || 0;
   
-  console.log('[chargeableWeight] Order level weight:', weight, 'g');
+  console.log('[chargeableWeight] Order level weight:', weight, 'g', {
+    from_total: order.total_weight_gram || body.total_weight_gram || body.totalWeightGram,
+    from_weight_gram: order.weight_gram || body.weight_gram
+  });
 
   const items = Array.isArray(body.items) ? body.items :
                (Array.isArray(order.items) ? order.items : []);

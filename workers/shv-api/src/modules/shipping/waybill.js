@@ -137,9 +137,10 @@ export async function createWaybill(req, env) {
       receiver_commune_code: body.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || body.commune_code || body.to_commune_code || body.ward_code || '',
 
       // Package (REQUIRED)
-      weight_gram: chargeableWeightGrams(body, order) || 500,
-      weight: chargeableWeightGrams(body, order) || 500,
-      cod: Number(order.cod || body.cod || 0),
+      // ✅ FIX LỖI 2: Ưu tiên cân nặng từ order trước, fallback mới dùng chargeableWeightGrams
+      weight_gram: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
+      weight: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
+      cod: Number(order.cod_amount || order.cod || body.cod_amount || body.cod || 0),
 	  // Aliases SuperAI
   value: Number(order.value || body.value || order.cod || body.cod || calculateOrderAmount(order, body) || 0),
   soc: body.soc || order.soc || '',
@@ -148,11 +149,13 @@ export async function createWaybill(req, env) {
       payer: String(body.payer || order.payer || '1'),
       
       // Service (REQUIRED)
-      provider: (ship.provider || body.provider || order.shipping_provider || 'vtp').toLowerCase(),
-      service_code: ship.service_code || body.service_code || order.shipping_service || '',
+     // ✅ FIX LỖI 1: Ưu tiên từ order (đã lưu từ FE/Mini)
+      provider: (order.shipping_provider || ship.provider || body.provider || 'vtp').toLowerCase(),
+      service_code: order.shipping_service || ship.service_code || body.service_code || '',
       
        // Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
-      config: String(body.config || order.config || '1'),
+      // ✅ Map allow_inspection: true -> '1', false -> '2'
+      config: String(body.config || (order.allow_inspection === false ? '2' : (order.allow_inspection === true ? '1' : '1')))
 
       // Product type (SuperAI)
       product_type: String(body.product_type || order.product_type || '2'),
