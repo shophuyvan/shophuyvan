@@ -930,7 +930,7 @@ $('edit-district').addEventListener('change', async (e) => {
   
   renderCart();
   
-  // ✅ GỌI API WEIGHT NGAY KHI LOAD
+    // ✅ GỌI API WEIGHT NGAY KHI LOAD
   const cart = getCart();
   console.log('[Checkout] Cart items:', cart.length, cart);
   
@@ -946,18 +946,16 @@ $('edit-district').addEventListener('change', async (e) => {
   } else {
     console.warn('[Checkout] Cart is empty, skipping weight API call');
   }
-  
-    // Các select thủ công có thể đã bị remove
+
+  // Các select thủ công có thể đã bị remove
   if (document.getElementById('province')) {
-      if (document.getElementById('province')) {
     initTomSelect();
     try { await loadProvinces(); } catch {}
   }
 
   // ✅ LOAD ĐỊA CHỈ ĐÃ LƯU
   await loadSavedAddresses();
-
-  
+ 
   // Event listeners cho các nút địa chỉ
   $('btnChangeAddress')?.addEventListener('click', openAddressManager);
   $('btnAddFirstAddress')?.addEventListener('click', openAddressManager);
