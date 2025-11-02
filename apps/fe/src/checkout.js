@@ -528,30 +528,17 @@ function toggleManualForm() {
 // Chọn địa chỉ
 function selectAddress(addr) {
   selectedAddress = addr;
-  
-  // Auto-fill vào form checkout hiện tại
-  if (addr.province_code && provinceTS) {
-    provinceTS.setValue(addr.province_code);
-    loadDistricts(addr.province_code).then(() => {
-      if (addr.district_code && districtTS) {
-        districtTS.setValue(addr.district_code);
-        loadWards(addr.district_code).then(() => {
-          if (addr.ward_code && wardTS) {
-            wardTS.setValue(addr.ward_code);
-          }
-          fetchShipping();
-        });
-      }
-    });
-  }
-  
-  $('name').value = addr.name || '';
-  $('phone').value = addr.phone || '';
-  $('address').value = addr.address || '';
-  
-  renderAddressSection();
-  toggleManualForm(); // ✅ Toggle form thủ công
+
+  // Không còn form thủ công → chỉ cần gọi lại shipping
+  try { fetchShipping(); } catch {}
+
+  // Render lại khối địa chỉ đã chọn
+  try { renderAddressSection(); } catch {}
+
+  // Không còn form để toggle; gọi có điều kiện cho an toàn
+  try { typeof toggleManualForm === 'function' && toggleManualForm(); } catch {}
 }
+
 
 // Mở modal quản lý địa chỉ
 window.openAddressManager = function() {
@@ -962,6 +949,7 @@ $('edit-district').addEventListener('change', async (e) => {
   
     // Các select thủ công có thể đã bị remove
   if (document.getElementById('province')) {
+      if (document.getElementById('province')) {
     initTomSelect();
     try { await loadProvinces(); } catch {}
   }
