@@ -438,22 +438,8 @@ async function loadSavedAddresses() {
   }
   
   try {
-    const token = localStorage.getItem('customer_token') || 
-                  localStorage.getItem('x-customer-token') || 
-                  localStorage.getItem('x-token');
-    
-    const res = await fetch(`${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'x-customer-token': token,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!res.ok) throw new Error('Không thể tải địa chỉ');
-    
-    const data = await res.json();
-    savedAddresses = data.addresses || [];
+    const res = await api('/api/addresses', { method: 'GET' });
+    savedAddresses = res.addresses || [];
     
     // Auto-chọn địa chỉ default
     const defaultAddr = savedAddresses.find(a => a.is_default);
@@ -773,55 +759,7 @@ window.saveAddressInModal = async function() {
   if (!validateAddressFormInModal()) return;
   
   try {
-    const token = localStorage.getItem('customer_token') || 
-                  localStorage.getItem('x-customer-token') || 
-                  localStorage.getItem('x-token');
-    
-    if (!token) {
-      alert('⚠️ Vui lòng đăng nhập để lưu địa chỉ');
-      return;
-    }
-    
-    // Get province/district/ward names
-    const provinceCode = $('edit-province').value;
-    const districtCode = $('edit-district').value;
-    const wardCode = $('edit-ward').value;
-    
-    const provinceName = $('edit-province').selectedOptions[0]?.text || '';
-    const districtName = $('edit-district').selectedOptions[0]?.text || '';
-    const wardName = $('edit-ward').selectedOptions[0]?.text || '';
-    
-    const payload = {
-      name: $('edit-name').value.trim(),
-      phone: $('edit-phone').value.trim().replace(/\D/g, ''),
-      province_code: provinceCode,
-      province_name: provinceName,
-      district_code: districtCode,
-      district_name: districtName,
-      ward_code: wardCode,
-      ward_name: wardName,
-      address: $('edit-address').value.trim(),
-      note: $('edit-note').value.trim()
-    };
-    
-    const isEdit = !!editingAddressId;
-    const url = isEdit 
-      ? `${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses/${editingAddressId}`
-      : `${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses`;
-    
-    const res = await fetch(url, {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'x-customer-token': token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!res.ok) throw new Error('Lưu địa chỉ thất bại');
-    
-    const data = await res.json();
+    const data = await api(`/api/addresses/${id}`, { method: 'DELETE' });
     
     if (data && data.ok) {
       alert(isEdit ? '✅ Cập nhật địa chỉ thành công!' : '✅ Thêm địa chỉ thành công!');
