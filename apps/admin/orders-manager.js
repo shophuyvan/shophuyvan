@@ -978,9 +978,6 @@ class OrdersManager {
     }
   }
 
-
-  }
-
   // ==================== BULK CONFIRM ORDERS ====================
 
   async confirmSelectedOrders() {
