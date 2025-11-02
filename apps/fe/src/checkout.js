@@ -138,6 +138,30 @@ let selectedShipping = null;      // { provider, service_code, fee, name, eta }
 let placing = false;
 let appliedVoucher = null;        // { code, discount, ship_discount }
 
+// ====== STATE ĐỊA CHỈ ======
+let savedAddresses = [];          // Danh sách địa chỉ đã lưu
+let selectedAddress = null;       // Địa chỉ được chọn
+let isLoggedIn = false;           // Trạng thái đăng nhập
+let editingAddressId = null;      // ID địa chỉ đang edit
+
+// Render section địa chỉ ở đầu trang
+function renderAddressSection() {
+  const selectedCard = $('selected-address-card');
+  const emptyCard = $('empty-address-card');
+  
+  if (selectedAddress) {
+    // Hiển thị địa chỉ đã chọn
+    $('addr-name-phone').textContent = `${selectedAddress.name} | ${selectedAddress.phone}`;
+    $('addr-full').textContent = `${selectedAddress.address}, ${selectedAddress.ward_name || ''}, ${selectedAddress.district_name || ''}, ${selectedAddress.province_name || ''}`;
+    selectedCard.classList.remove('hidden');
+    emptyCard.classList.add('hidden');
+  } else {
+    // Hiển thị empty state
+    selectedCard.classList.add('hidden');
+    emptyCard.classList.remove('hidden');
+  }
+}
+
 // ====== RENDER GIỎ HÀNG & SUMMARY ======
 function renderCart() {
   const cart = getCart();
@@ -394,6 +418,491 @@ async function applyVoucher() {
 }
 $('apply-voucher').addEventListener('click', applyVoucher);
 
+// ====== QUẢN LÝ ĐỊA CHỈ ======
+
+// Check login
+function checkLogin() {
+  const token = localStorage.getItem('customer_token') || 
+                localStorage.getItem('x-customer-token') || 
+                localStorage.getItem('x-token');
+  isLoggedIn = !!token;
+  return isLoggedIn;
+}
+
+// Load danh sách địa chỉ từ API
+async function loadSavedAddresses() {
+  if (!checkLogin()) {
+    savedAddresses = [];
+    renderAddressSection();
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') || 
+                  localStorage.getItem('x-token');
+    
+    const res = await fetch(`${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-customer-token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!res.ok) throw new Error('Không thể tải địa chỉ');
+    
+    const data = await res.json();
+    savedAddresses = data.addresses || [];
+    
+    // Auto-chọn địa chỉ default
+    const defaultAddr = savedAddresses.find(a => a.is_default);
+    if (defaultAddr && !selectedAddress) {
+      selectAddress(defaultAddr);
+    }
+    
+    renderAddressSection();
+    toggleManualForm(); // ✅ Toggle form thủ công
+  }
+}
+
+// Toggle form nhập thủ công
+function toggleManualForm() {
+  const manualSection = $('manual-address-section');
+  if (selectedAddress) {
+    // Đã chọn địa chỉ → ẩn form thủ công
+    manualSection.style.display = 'none';
+  } else {
+    // Chưa chọn → hiện form thủ công cho guest
+    if (!isLoggedIn) {
+      manualSection.style.display = 'block';
+    }
+  }
+}
+
+// Chọn địa chỉ
+function selectAddress(addr) {
+  selectedAddress = addr;
+  
+  // Auto-fill vào form checkout hiện tại
+  if (addr.province_code && provinceTS) {
+    provinceTS.setValue(addr.province_code);
+    loadDistricts(addr.province_code).then(() => {
+      if (addr.district_code && districtTS) {
+        districtTS.setValue(addr.district_code);
+        loadWards(addr.district_code).then(() => {
+          if (addr.ward_code && wardTS) {
+            wardTS.setValue(addr.ward_code);
+          }
+          fetchShipping();
+        });
+      }
+    });
+  }
+  
+  $('name').value = addr.name || '';
+  $('phone').value = addr.phone || '';
+  $('address').value = addr.address || '';
+  
+  renderAddressSection();
+  toggleManualForm(); // ✅ Toggle form thủ công
+}
+
+// Mở modal quản lý địa chỉ
+window.openAddressManager = function() {
+  const modal = $('addressManagerModal');
+  modal.style.display = 'flex';
+  
+  $('addr-modal-loading').classList.remove('hidden');
+  $('addr-list-container').innerHTML = '';
+  $('addr-form-container').classList.add('hidden');
+  $('addr-empty').classList.add('hidden');
+  
+  // Reload addresses
+  loadSavedAddresses().then(() => {
+    $('addr-modal-loading').classList.add('hidden');
+    renderAddressList();
+  });
+};
+
+// Đóng modal
+window.closeAddressManager = function() {
+  $('addressManagerModal').style.display = 'none';
+  cancelAddressForm();
+};
+
+// Render danh sách địa chỉ trong modal
+function renderAddressList() {
+  const container = $('addr-list-container');
+  const empty = $('addr-empty');
+  
+  if (savedAddresses.length === 0) {
+    container.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  
+  empty.classList.add('hidden');
+  
+  container.innerHTML = savedAddresses.map(addr => `
+    <label class="border-2 rounded-xl p-4 cursor-pointer transition-all hover:border-blue-500 hover:bg-blue-50 ${
+      selectedAddress?.id === addr.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200'
+    }">
+      <div class="flex items-start gap-3">
+        <input 
+          type="radio" 
+          name="addr_radio" 
+          value="${addr.id}"
+          ${selectedAddress?.id === addr.id ? 'checked' : ''}
+          onchange="selectAddressById('${addr.id}')"
+          class="mt-1 w-4 h-4 text-blue-600"
+        />
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-bold text-gray-900">${addr.name}</span>
+            <span class="text-gray-600">|</span>
+            <span class="text-gray-700">${addr.phone}</span>
+            ${addr.is_default ? '<span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold">Mặc định</span>' : ''}
+          </div>
+          <div class="text-sm text-gray-600 mb-2">
+            ${addr.address}, ${addr.ward_name || ''}, ${addr.district_name || ''}, ${addr.province_name || ''}
+          </div>
+          ${addr.note ? `<div class="text-xs text-gray-500 mb-2">📝 ${addr.note}</div>` : ''}
+          <div class="flex gap-2 mt-2">
+            <button onclick="event.stopPropagation(); editAddressById('${addr.id}')" class="text-blue-600 text-sm font-semibold hover:text-blue-800">
+              ✏️ Sửa
+            </button>
+            <button onclick="event.stopPropagation(); deleteAddressById('${addr.id}')" class="text-red-600 text-sm font-semibold hover:text-red-800">
+              🗑️ Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+    </label>
+  `).join('');
+}
+
+// Chọn địa chỉ theo ID
+window.selectAddressById = function(id) {
+  const addr = savedAddresses.find(a => a.id === id);
+  if (addr) selectAddress(addr);
+};
+
+// Hiển thị form thêm địa chỉ
+window.showAddressForm = function() {
+  editingAddressId = null;
+  $('addr-form-title').textContent = 'Thêm địa chỉ mới';
+  $('edit-address-id').value = '';
+  $('edit-name').value = '';
+  $('edit-phone').value = '';
+  $('edit-province').value = '';
+  $('edit-district').innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
+  $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+  $('edit-address').value = '';
+  $('edit-note').value = '';
+  
+  // Hide errors
+  ['err-edit-name', 'err-edit-phone', 'err-edit-province', 'err-edit-district', 'err-edit-ward', 'err-edit-address'].forEach(id => {
+    $(id).classList.add('hidden');
+  });
+  
+  $('addr-list-container').classList.add('hidden');
+  $('addr-empty').classList.add('hidden');
+  $('btnShowAddForm').classList.add('hidden');
+  $('addr-form-container').classList.remove('hidden');
+  
+  // Load provinces for form
+  loadProvincesForForm();
+};
+
+// Load provinces cho form edit
+async function loadProvincesForForm() {
+  try {
+    const res = await api('/shipping/provinces', { method: 'GET' });
+    const arr = res?.data || res?.items || res || [];
+    const sel = $('edit-province');
+    sel.innerHTML = '<option value="">-- Chọn Tỉnh/TP *</option>' + 
+      arr.map(p => `<option value="${p.code}">${p.name}</option>`).join('');
+  } catch (e) {
+    console.error('Load provinces for form error:', e);
+  }
+}
+
+// Edit địa chỉ theo ID
+window.editAddressById = async function(id) {
+  const addr = savedAddresses.find(a => a.id === id);
+  if (!addr) return;
+  
+  editingAddressId = id;
+  $('addr-form-title').textContent = 'Chỉnh sửa địa chỉ';
+  $('edit-address-id').value = id;
+  $('edit-name').value = addr.name || '';
+  $('edit-phone').value = addr.phone || '';
+  $('edit-address').value = addr.address || '';
+  $('edit-note').value = addr.note || '';
+  
+  await loadProvincesForForm();
+  
+  if (addr.province_code) {
+    $('edit-province').value = addr.province_code;
+    await loadDistrictsForForm(addr.province_code);
+    
+    if (addr.district_code) {
+      $('edit-district').value = addr.district_code;
+      await loadWardsForForm(addr.district_code);
+      
+      if (addr.ward_code) {
+        $('edit-ward').value = addr.ward_code;
+      }
+    }
+  }
+  
+  $('addr-list-container').classList.add('hidden');
+  $('addr-empty').classList.add('hidden');
+  $('btnShowAddForm').classList.add('hidden');
+  $('addr-form-container').classList.remove('hidden');
+};
+
+async function loadDistrictsForForm(provinceCode) {
+  try {
+    const res = await api('/shipping/districts?province_code=' + provinceCode, { method: 'GET' });
+    const arr = res?.data || res?.items || res || [];
+    const sel = $('edit-district');
+    sel.innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>' + 
+      arr.map(d => `<option value="${d.code}">${d.name}</option>`).join('');
+    sel.disabled = false;
+  } catch (e) {
+    console.error('Load districts for form error:', e);
+  }
+}
+
+async function loadWardsForForm(districtCode) {
+  try {
+    const res = await api('/shipping/wards?district_code=' + districtCode, { method: 'GET' });
+    const arr = res?.data || res?.items || res || [];
+    const sel = $('edit-ward');
+    sel.innerHTML = '<option value="">-- Chọn Phường/Xã *</option>' + 
+      arr.map(w => `<option value="${w.code}">${w.name}</option>`).join('');
+    sel.disabled = false;
+  } catch (e) {
+    console.error('Load wards for form error:', e);
+  }
+}
+
+// Hủy form
+window.cancelAddressForm = function() {
+  $('addr-form-container').classList.add('hidden');
+  $('addr-list-container').classList.remove('hidden');
+  $('btnShowAddForm').classList.remove('hidden');
+  
+  if (savedAddresses.length === 0) {
+    $('addr-empty').classList.remove('hidden');
+  }
+};
+
+// Validate form
+function validateAddressFormInModal() {
+  const name = $('edit-name').value.trim();
+  const phone = $('edit-phone').value.trim();
+  const province = $('edit-province').value;
+  const district = $('edit-district').value;
+  const ward = $('edit-ward').value;
+  const address = $('edit-address').value.trim();
+  
+  let hasError = false;
+  
+  // Reset errors
+  ['err-edit-name', 'err-edit-phone', 'err-edit-province', 'err-edit-district', 'err-edit-ward', 'err-edit-address'].forEach(id => {
+    $(id).classList.add('hidden');
+  });
+  
+  if (!name) {
+    $('err-edit-name').textContent = 'Vui lòng nhập họ và tên';
+    $('err-edit-name').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  const phoneRegex = /^(03|05|07|08|09)\d{8}$/;
+  if (!phone) {
+    $('err-edit-phone').textContent = 'Vui lòng nhập số điện thoại';
+    $('err-edit-phone').classList.remove('hidden');
+    hasError = true;
+  } else if (!phoneRegex.test(phone.replace(/\D/g, ''))) {
+    $('err-edit-phone').textContent = 'Số điện thoại không hợp lệ (VD: 0912345678)';
+    $('err-edit-phone').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  if (!province) {
+    $('err-edit-province').textContent = 'Vui lòng chọn Tỉnh/Thành phố';
+    $('err-edit-province').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  if (!district) {
+    $('err-edit-district').textContent = 'Vui lòng chọn Quận/Huyện';
+    $('err-edit-district').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  if (!ward) {
+    $('err-edit-ward').textContent = 'Vui lòng chọn Phường/Xã';
+    $('err-edit-ward').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  if (!address) {
+    $('err-edit-address').textContent = 'Vui lòng nhập địa chỉ chi tiết';
+    $('err-edit-address').classList.remove('hidden');
+    hasError = true;
+  } else if (address.length < 10) {
+    $('err-edit-address').textContent = 'Địa chỉ quá ngắn (tối thiểu 10 ký tự)';
+    $('err-edit-address').classList.remove('hidden');
+    hasError = true;
+  }
+  
+  return !hasError;
+}
+
+// Lưu địa chỉ
+window.saveAddressInModal = async function() {
+  if (!validateAddressFormInModal()) return;
+  
+  try {
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') || 
+                  localStorage.getItem('x-token');
+    
+    if (!token) {
+      alert('⚠️ Vui lòng đăng nhập để lưu địa chỉ');
+      return;
+    }
+    
+    // Get province/district/ward names
+    const provinceCode = $('edit-province').value;
+    const districtCode = $('edit-district').value;
+    const wardCode = $('edit-ward').value;
+    
+    const provinceName = $('edit-province').selectedOptions[0]?.text || '';
+    const districtName = $('edit-district').selectedOptions[0]?.text || '';
+    const wardName = $('edit-ward').selectedOptions[0]?.text || '';
+    
+    const payload = {
+      name: $('edit-name').value.trim(),
+      phone: $('edit-phone').value.trim().replace(/\D/g, ''),
+      province_code: provinceCode,
+      province_name: provinceName,
+      district_code: districtCode,
+      district_name: districtName,
+      ward_code: wardCode,
+      ward_name: wardName,
+      address: $('edit-address').value.trim(),
+      note: $('edit-note').value.trim()
+    };
+    
+    const isEdit = !!editingAddressId;
+    const url = isEdit 
+      ? `${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses/${editingAddressId}`
+      : `${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses`;
+    
+    const res = await fetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-customer-token': token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!res.ok) throw new Error('Lưu địa chỉ thất bại');
+    
+    const data = await res.json();
+    
+    if (data && data.ok) {
+      alert(isEdit ? '✅ Cập nhật địa chỉ thành công!' : '✅ Thêm địa chỉ thành công!');
+      cancelAddressForm();
+      await loadSavedAddresses();
+      renderAddressList();
+    } else {
+      throw new Error(data.message || 'Lưu địa chỉ thất bại');
+    }
+  } catch (e) {
+    console.error('Save address error:', e);
+    alert('❌ ' + (e.message || 'Có lỗi xảy ra. Vui lòng thử lại.'));
+  }
+};
+
+// Xóa địa chỉ
+window.deleteAddressById = async function(id) {
+  const addr = savedAddresses.find(a => a.id === id);
+  if (!addr) return;
+  
+  if (!confirm(`Bạn có chắc muốn xóa địa chỉ này?\n\n${addr.name} - ${addr.phone}\n${addr.address}`)) {
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('customer_token') || 
+                  localStorage.getItem('x-customer-token') || 
+                  localStorage.getItem('x-token');
+    
+    const res = await fetch(`${API_BASE || 'https://api.shophuyvan.vn'}/api/addresses/${id}`, {
+      method: 'DELETE',
+	  headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-customer-token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!res.ok) throw new Error('Xóa địa chỉ thất bại');
+    
+    const data = await res.json();
+    
+    if (data && data.ok) {
+      alert('✅ Đã xóa địa chỉ thành công');
+      
+      // Nếu đang chọn địa chỉ này thì clear
+      if (selectedAddress?.id === id) {
+        selectedAddress = null;
+        renderAddressSection();
+      }
+      
+      await loadSavedAddresses();
+      renderAddressList();
+    } else {
+      throw new Error('Xóa địa chỉ thất bại');
+    }
+  } catch (e) {
+    console.error('Delete address error:', e);
+    alert('❌ ' + (e.message || 'Có lỗi xảy ra. Vui lòng thử lại.'));
+  }
+};
+
+// Event listeners cho form edit trong modal
+$('edit-province').addEventListener('change', async (e) => {
+  const provinceCode = e.target.value;
+  $('edit-district').innerHTML = '<option value="">-- Chọn Quận/Huyện *</option>';
+  $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+  $('edit-district').disabled = true;
+  $('edit-ward').disabled = true;
+  
+  if (provinceCode) {
+    await loadDistrictsForForm(provinceCode);
+  }
+});
+
+$('edit-district').addEventListener('change', async (e) => {
+  const districtCode = e.target.value;
+  $('edit-ward').innerHTML = '<option value="">-- Chọn Phường/Xã *</option>';
+  $('edit-ward').disabled = true;
+  
+  if (districtCode) {
+    await loadWardsForForm(districtCode);
+  }
+});
+
 // ====== KHỞI TẠO ======
 (async function init(){
   console.log('[Checkout] Init started');
@@ -420,9 +929,15 @@ $('apply-voucher').addEventListener('click', applyVoucher);
   initTomSelect();
   try { await loadProvinces(); } catch {}
   
+  // ✅ LOAD ĐỊA CHỈ ĐÃ LƯU
+  await loadSavedAddresses();
+  
+  // Event listeners cho các nút địa chỉ
+  $('btnChangeAddress')?.addEventListener('click', openAddressManager);
+  $('btnAddFirstAddress')?.addEventListener('click', openAddressManager);
+  
   console.log('[Checkout] Init completed');
 })();
-
 // ====== ĐẶT HÀNG ======
 function showError(msg) {
   const box = $('error-message');
