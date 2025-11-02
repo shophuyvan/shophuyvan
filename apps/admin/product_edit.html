@@ -777,7 +777,7 @@ window.addEventListener('DOMContentLoaded', function() {
       return;
     }
    
-    // ... trước khi build payload
+    // ... truoc khi build payload
     const payload = {
       id: state.id || undefined,
       title: titleEl.value.trim(),
@@ -788,7 +788,8 @@ window.addEventListener('DOMContentLoaded', function() {
       seoDesc: seoDescEl?.value?.trim() || '',
       keywords: (keywordsEl?.value || '').split(',').map(s => s.trim()).filter(Boolean),
       faq: parseFaq(faqEl?.value || ''),
-      reviews: parseReviews(reviewsEl?.value || ''),
+      // KHONG GUI sold, rating, reviews (de backend tu bao toan)
+      // reviews: parseReviews(reviewsEl?.value || ''),
       weight: gramsOf(0),
       images: state.images || [],
       category: (categoryEl?.value || '').trim(),
