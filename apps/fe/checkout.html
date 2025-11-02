@@ -98,40 +98,20 @@
     </div>
   </section>
 
-  <!-- Thông tin khách -->
+    <!-- Tuỳ chọn khi nhận hàng (giữ nguyên checkbox) -->
   <section class="p-0">
-    <h2 class="font-bold mb-3">📍 Thông tin nhận hàng</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <input id="name" placeholder="Họ và tên *" class="border-2 rounded-xl px-4 py-2.5" />
-      <input id="phone" placeholder="Số điện thoại *" type="tel" class="border-2 rounded-xl px-4 py-2.5" />
-
-      <select id="province" class="border-2 rounded-xl px-4 py-2.5">
-        <option value="">-- Tỉnh/Thành phố *</option>
-      </select>
-      <select id="district" class="border-2 rounded-xl px-4 py-2.5" disabled>
-        <option value="">-- Quận/Huyện *</option>
-      </select>
-
-      <select id="ward" class="md:col-span-2 border-2 rounded-xl px-4 py-2.5" disabled>
-        <option value="">-- Phường/Xã *</option>
-      </select>
-
-      <input id="address" class="md:col-span-2 border-2 rounded-xl px-4 py-2.5"
-             placeholder="Số nhà, tên đường (tối thiểu 10 ký tự) *" />
-      <textarea id="note" rows="2" class="md:col-span-2 border-2 rounded-xl px-4 py-2.5" placeholder="Ghi chú (không bắt buộc)"></textarea>
-      
-      <!-- ✅ CHECKBOX CHO XEM HÀNG -->
-      <div class="md:col-span-2 bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" id="allow-inspection" checked class="w-5 h-5 mt-0.5 text-rose-600 focus:ring-2 focus:ring-rose-500 rounded" />
-          <div class="flex-1">
-            <div class="font-semibold text-gray-800 text-sm">✅ Cho xem hàng trước khi thanh toán</div>
-            <div class="text-xs text-gray-600 mt-1">Bạn có thể kiểm tra hàng trước khi nhận. Nếu không đúng mô tả, bạn có thể từ chối nhận hàng.</div>
-          </div>
-        </label>
-      </div>
+    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" id="allow-inspection" checked
+               class="w-5 h-5 mt-0.5 text-rose-600 focus:ring-2 focus:ring-rose-500 rounded" />
+        <div class="flex-1">
+          <div class="font-semibold text-gray-800 text-sm">✅ Cho xem hàng trước khi thanh toán</div>
+          <div class="text-xs text-gray-600 mt-1">Bạn có thể kiểm tra hàng trước khi nhận. Nếu không đúng mô tả, bạn có thể từ chối nhận hàng.</div>
+        </div>
+      </label>
     </div>
   </section>
+
 
   <!-- Vận chuyển -->
   <section class="p-0">

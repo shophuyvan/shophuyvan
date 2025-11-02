@@ -960,11 +960,15 @@ $('edit-district').addEventListener('change', async (e) => {
     console.warn('[Checkout] Cart is empty, skipping weight API call');
   }
   
-  initTomSelect();
-  try { await loadProvinces(); } catch {}
-  
+    // Các select thủ công có thể đã bị remove
+  if (document.getElementById('province')) {
+    initTomSelect();
+    try { await loadProvinces(); } catch {}
+  }
+
   // ✅ LOAD ĐỊA CHỈ ĐÃ LƯU
   await loadSavedAddresses();
+
   
   // Event listeners cho các nút địa chỉ
   $('btnChangeAddress')?.addEventListener('click', openAddressManager);
@@ -989,12 +993,14 @@ $('place-order').addEventListener('click', async () => {
     const cart = getCart();
     if (!cart.length) return showError('Giỏ hàng trống.');
 
-    const name = val('name').trim();
-    const phone = val('phone').trim();
-    const address = val('address').trim();
-    if (!name || !phone || !address) return showError('Vui lòng điền đủ Họ tên, SĐT, Địa chỉ.');
-    if (!VN_PHONE_RE.test(phone))   return showError('SĐT không hợp lệ (VD: 0912345678).');
+        if (!selectedAddress)           return showError('Vui lòng chọn địa chỉ giao hàng.');
     if (!selectedShipping)          return showError('Vui lòng chọn phương thức vận chuyển.');
+    const name    = selectedAddress.name || '';
+    const phone   = selectedAddress.phone || '';
+    const address = selectedAddress.address || '';
+    if (!VN_PHONE_RE.test((phone||'').replace(/\D/g,''))) {
+      return showError('SĐT không hợp lệ (VD: 0912345678).');
+    }
 
     const subtotal = calcSubtotal(cart);
     const shipOriginal = Number(selectedShipping.fee||0);
@@ -1011,14 +1017,14 @@ $('place-order').addEventListener('click', async () => {
     const totalWeightGram = await ensureWeight(cart);
     
     const payload = {
-      customer: {
+            customer: {
         name, phone, address,
-        province_code: val('province'),
-        district_code: val('district'),
-        commune_code: val('ward'),
-        province: textOfSelect('province'),
-        district: textOfSelect('district'),
-        commune: textOfSelect('ward')
+        province_code: selectedAddress?.province_code || '',
+        district_code: selectedAddress?.district_code || '',
+        commune_code:  selectedAddress?.ward_code     || '',
+        province:      selectedAddress?.province_name || '',
+        district:      selectedAddress?.district_name || '',
+        commune:       selectedAddress?.ward_name     || ''
       },
       items: cart.map(it => ({
         id: it.id||it.sku||'', 
