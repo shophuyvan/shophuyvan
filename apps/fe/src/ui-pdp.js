@@ -768,17 +768,17 @@ function openVariantModal(mode) {
     const src = CURRENT || PRODUCT;
     const pr = await pricePair(src);
 
-    // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
+    // ✅ FIX: Ưu tiên weight (field trong Admin) trước weight_gram
     const weight_grams_val = Number(
+      src.weight ??                    // ✅ ƯU TIÊN field Admin
       src.weight_gram ??
       src.weight_grams ??
-      src.weight ??
+      src.variant?.weight ??           // ✅ ƯU TIÊN variant.weight
       src.variant?.weight_gram ??
       src.variant?.weight_grams ??
-      src.variant?.weight ??
+      PRODUCT.weight ??                // ✅ ƯU TIÊN product.weight
       PRODUCT.weight_gram ??
       PRODUCT.weight_grams ??
-      PRODUCT.weight ??
       0
     );
 

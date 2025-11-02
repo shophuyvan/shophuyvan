@@ -15,7 +15,7 @@ function cloudify(u, t='w_800,q_auto,f_auto'){
 // Admin core (API base, auth token, robust fetch + fallbacks)
 window.Admin = (function(){
   const store = (k, v) => (v===undefined ? localStorage.getItem(k) : (localStorage.setItem(k, v), v));
-  let apiBase = store('apiBase') || 'https://shv-api.shophuyvan.workers.dev';
+  let apiBase = store('apiBase') || 'https://api.shophuyvan.vn';
 
   function setBase(v){
     if (!v) return apiBase;

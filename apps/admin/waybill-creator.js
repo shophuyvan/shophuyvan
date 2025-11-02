@@ -4,7 +4,7 @@
 
 class WaybillCreator {
   constructor() {
-    this.baseURL = window.Admin?.getApiBase() || 'https://shv-api.shophuyvan.workers.dev';
+    this.baseURL = window.Admin?.getApiBase() || 'https://api.shophuyvan.vn';
     
     // Hardcode mapping cho TP.HCM (mã 01/79)
     // Mapping từ mã nội bộ sang mã SuperAI/VTP chuẩn
