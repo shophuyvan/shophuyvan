@@ -434,15 +434,6 @@ async function loadNew() {
     let data = await api('/products/newest?limit=8');
     let items = (data.items || data.products || data.data || []);
 
-    // (tuỳ chọn) chỉ giữ sản phẩm tạo trong 24h gần nhất
-    const now = Date.now();
-    items = items.filter(p => {
-      const t = new Date(
-        p.created_at || p.createdAt || p.published_at || p.publishedAt || p.time || p.ts || 0
-      ).getTime();
-      return t && (now - t) <= 24 * 60 * 60 * 1000;
-    }).slice(0, 8);
-
     if (!items.length) {
       newWrap.parentElement?.classList?.add('hidden');
       return;
@@ -453,26 +444,35 @@ async function loadNew() {
     await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
     console.log('[NEWEST] Loaded:', items.length, 'products');
   } catch (e) {
-    console.error('[NEWEST] error', e);
+    console.error('[NEWEST] Error:', e);
     newWrap.parentElement?.classList?.add('hidden');
   }
 }
 
-
 // All products with pagination
-async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
+async function loadAll() {
+  if (!allWrap || !loadMoreBtn) return;
+
   const cat = new URL(location.href).searchParams.get('cat');
-  const catParam = cat ? '&category='+encodeURIComponent(cat) : '';
-  let data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + catParam);
-  if (!data || data.ok===false) {
-  data = await api('/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
+  const catParam = cat ? '&category=' + encodeURIComponent(cat) : '';
+
+  // gọi public trước
+  let data = await api('/public/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
+
+  // fallback khi public lỗi/không có
+  if (!data || data.ok === false) {
+    data = await api('/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
+  }
+
   const items = data.items || data.products || data.data || [];
   cursor = data.cursor || data.next || null;
+
   allCache.push(...items);
   renderAll();
-    loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
+
+  loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
 }
-} 
+
 
 async function renderAll(){ if(!allWrap) return; 
   const q = (searchInput?.value || '').toLowerCase();
