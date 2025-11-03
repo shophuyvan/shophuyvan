@@ -273,7 +273,7 @@ async function fetchShipping() {
   const cart = getCart();
   if (!cart.length) return;
   
-    const weight = await ensureWeight(cart);
+  const weight = await ensureWeight(cart);
 
   // ✅ Dùng địa chỉ đã chọn thay vì form thủ công
   if (!selectedAddress) {
@@ -282,6 +282,9 @@ async function fetchShipping() {
     updateSummary();
     return;
   }
+
+  // ✅ TỰ ĐỘNG KIỂM TRA VOUCHER MIỄN SHIP
+  await checkAutoFreeShipVoucher();
 
   try {
     $('shipping-list').innerHTML = `<div class="text-center py-8 text-gray-400">Đang tải phí vận chuyển...</div>`;
@@ -433,6 +436,49 @@ const rawItems = res?.items || [];
 }
 
 // ====== VOUCHER ======
+// ====== VOUCHER ======
+
+// ✅ TỰ ĐỘNG KIỂM TRA VÀ ÁP DỤNG VOUCHER MIỄN SHIP
+async function checkAutoFreeShipVoucher() {
+  try {
+    const subtotal = calcSubtotal(getCart());
+    
+    // Lấy danh sách vouchers công khai
+    const res = await api('/vouchers', { method: 'GET' });
+    const vouchers = res?.items || [];
+    
+    // Tìm voucher auto_freeship đang active và đủ điều kiện
+    const autoFreeShip = vouchers.find(v => 
+      v.voucher_type === 'auto_freeship' && 
+      v.min_purchase > 0 && 
+      subtotal >= v.min_purchase
+    );
+    
+    if (autoFreeShip) {
+      // Tự động áp dụng voucher miễn ship
+      appliedVoucher = { 
+        code: autoFreeShip.code, 
+        discount: 0, 
+        ship_discount: 999999 // Set giá trị cao để miễn 100% phí ship
+      };
+      
+      // Hiển thị thông báo
+      const result = $('voucher-result');
+      if (result) {
+        result.className = 'mt-3';
+        result.innerHTML = `<div class="ok p-3 rounded-xl text-green-800 flex items-center gap-2">
+          <span>🎉</span>
+          <span><strong>Miễn phí ship!</strong> Đơn hàng từ ${fmtVND(autoFreeShip.min_purchase)}</span>
+        </div>`;
+      }
+      
+      console.log('✅ Áp dụng tự động voucher miễn ship:', autoFreeShip.code);
+    }
+  } catch (e) {
+    console.error('Lỗi kiểm tra auto freeship:', e);
+  }
+}
+
 async function applyVoucher() {
   const result = $('voucher-result');
   const code = val('voucher-input').trim().toUpperCase();
