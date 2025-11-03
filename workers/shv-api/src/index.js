@@ -221,6 +221,21 @@ export default {
           path.startsWith('/admin/flash-sales')) {
         return flashSales.handle(req, env, ctx);
       }
+	  
+	   // ============================================
+      // MINI APP – HEALTH CHECK
+      // ============================================
+      if (path === '/mini/ping') {
+        return json(
+          {
+            ok: true,
+            source: 'mini-api',
+            msg: 'SHV API for Mini App is alive',
+          },
+          {},
+          req
+        );
+      }
 
       // ============================================
       // ROOT ENDPOINTS
@@ -244,6 +259,7 @@ export default {
           }
         }, {}, req);
       }
+
 
       if (path === '/me' && req.method === 'GET') {
         return json({
