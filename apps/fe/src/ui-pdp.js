@@ -84,7 +84,14 @@ async function pricePair(o, customerType = null) {
   
   // ✅ 2. GIÁ THEO HẠNG THÀNH VIÊN (tier discount)
   const basePrice = getBasePrice(o);
-  const tier = customer?.tier || customerType === 'wholesale' ? 'retail' : 'retail';
+  
+  // 🔧 SỬA LỖI: Lấy đúng tier từ customer, không hardcode 'retail'
+  let tier = 'retail';
+  if (customer?.tier) {
+    tier = customer.tier;
+  } else if (customerType !== 'wholesale' && customerType !== 'si') {
+    tier = 'retail';
+  }
   
   const tierMap = {
     'retail': 0,

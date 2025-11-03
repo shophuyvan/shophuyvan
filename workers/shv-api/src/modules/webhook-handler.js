@@ -104,3 +104,156 @@ export async function handleSuperAIWebhook(req, env) {
     return json({ ok: true, message: `Webhook processed with error: ${e.message}` }, {}, req);
   }
 }
+// ===================================================================
+// MINI APP WEBHOOK – Zalo Mini (kích hoạt tài khoản, sự kiện user...)
+// ===================================================================
+
+export async function handleMiniWebhook(req, env) {
+  // Cho GET trả về đơn giản để bạn test trên trình duyệt
+  if (req.method === 'GET') {
+    console.log('[MiniWebhook] Health check via GET');
+    return json(
+      {
+        ok: true,
+        source: 'mini-webhook',
+        msg: 'SHV Mini Webhook is alive'
+      },
+      {},
+      req
+    );
+  }
+
+  // Chỉ chấp nhận POST cho webhook "thật"
+  if (req.method !== 'POST') {
+    return errorResponse('Method Not Allowed', 405, req);
+  }
+
+  try {
+    const body = await readBody(req);
+    console.log('================ MINI WEBHOOK ================');
+    console.log('[MiniWebhook] body:', JSON.stringify(body, null, 2));
+
+    if (!body || typeof body !== 'object') {
+      return json(
+        { ok: true, message: 'No JSON payload, ignored' },
+        {},
+        req
+      );
+    }
+
+    // Trích event, user, order từ payload (tên field tuỳ Zalo, nên bắt nhiều kiểu)
+    const eventName = String(
+      body.event ||
+      body.event_name ||
+      body.type ||
+      body.action ||
+      ''
+    ).toLowerCase();
+
+    const userId =
+      body.user_id ||
+      body.userId ||
+      body.uid ||
+      null;
+
+    const orderId =
+      body.order_id ||
+      body.orderId ||
+      body.order_id_zalo ||
+      null;
+
+    console.log('[MiniWebhook] event :', eventName || '(unknown)');
+    console.log('[MiniWebhook] userId:', userId || '(none)');
+    console.log('[MiniWebhook] orderId:', orderId || '(none)');
+
+    // Xử lý nhóm sự kiện liên quan tài khoản (kích hoạt / liên kết...)
+    await handleMiniAccountEvent(body, env, { eventName, userId });
+
+    // Xử lý nhóm sự kiện có vẻ liên quan đơn / vận chuyển (tạm thời chỉ log)
+    await handleMiniShippingEvent(body, env, { eventName, orderId });
+
+    // Webhook luôn trả 200 cho Zalo
+    return json({ ok: true }, {}, req);
+
+  } catch (e) {
+    console.error('[MiniWebhook] Exception:', e);
+    return json({ ok: true, message: `Mini webhook processed with error: ${e.message}` }, {}, req);
+  }
+}
+
+// -------------------------------------------------------------------
+// Helper: xử lý sự kiện tài khoản (kích hoạt / liên kết / huỷ liên kết)
+// -------------------------------------------------------------------
+
+async function handleMiniAccountEvent(body, env, meta) {
+  const { eventName, userId } = meta;
+
+  if (!eventName) return;
+
+  // Đây là chỗ bạn sẽ map đúng tên event sau khi xem log thực tế
+  const looksLikeActivation =
+    eventName.includes('activate') ||
+    eventName.includes('activated') ||
+    eventName.includes('account') ||
+    eventName.includes('link') ||
+    eventName.includes('verify');
+
+  if (!looksLikeActivation) {
+    return;
+  }
+
+  console.log('[MiniWebhook][Account] Có vẻ là event kích hoạt/linked account');
+
+  if (!userId) {
+    console.warn('[MiniWebhook][Account] Không có userId trong payload, chỉ log.');
+    return;
+  }
+
+  try {
+    const key = `miniuser:${userId}`;
+    const now = new Date().toISOString();
+
+    // Lấy bản cũ nếu có, rồi merge thêm
+    const existing = await getJSON(env, key, null);
+    const record = {
+      ...(existing || {}),
+      activated: true,
+      user_id: userId,
+      last_event: eventName,
+      last_payload: body,
+      updated_at: now
+    };
+
+    await putJSON(env, key, record);
+    console.log('[MiniWebhook][Account] ✅ Đã lưu trạng thái kích hoạt cho user', userId);
+  } catch (e) {
+    console.error('[MiniWebhook][Account] Lỗi khi lưu KV:', e);
+  }
+}
+
+// -------------------------------------------------------------------
+// Helper: xử lý sự kiện liên quan đơn / vận chuyển từ Mini (nếu có)
+// -------------------------------------------------------------------
+
+async function handleMiniShippingEvent(body, env, meta) {
+  const { eventName, orderId } = meta;
+
+  if (!eventName && !orderId) return;
+
+  const looksLikeShipping =
+    eventName.includes('ship') ||
+    eventName.includes('delivery') ||
+    eventName.includes('transport') ||
+    body.shipping_status ||
+    body.order_status;
+
+  if (!looksLikeShipping) {
+    return;
+  }
+
+  console.log('[MiniWebhook][Shipping] Nhận event liên quan vận chuyển từ Mini App');
+  console.log('[MiniWebhook][Shipping] Payload:', JSON.stringify(body, null, 2));
+
+  // Hiện tại CHỈ LOG, không update đơn,
+  // vì vận chuyển đã được SuperAI cập nhật qua handleSuperAIWebhook.
+}

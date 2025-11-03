@@ -138,6 +138,18 @@ let selectedShipping = null;      // { provider, service_code, fee, name, eta }
 let placing = false;
 let appliedVoucher = null;        // { code, discount, ship_discount }
 
+// ====== HÀM LẤY THÔNG TIN KHÁCH HÀNG ======
+function getCustomerInfo() {
+  try {
+    if (window.currentCustomer) return window.currentCustomer;
+    const raw = localStorage.getItem('customer_info');
+    if (!raw) return { tier: 'retail', customer_type: 'retail' };
+    return JSON.parse(raw);
+  } catch {
+    return { tier: 'retail', customer_type: 'retail' };
+  }
+}
+
 // ====== STATE ĐỊA CHỈ ======
 let savedAddresses = [];          // Danh sách địa chỉ đã lưu
 let selectedAddress = null;       // Địa chỉ được chọn
@@ -203,14 +215,38 @@ function renderCart() {
 function updateSummary() {
   const cart = getCart();
   const subtotal = calcSubtotal(cart);
+  
+  // ✅ KIỂM TRA KHÁCH SỈ
+  const customer = getCustomerInfo();
+  const isWholesale = customer.customer_type === 'wholesale' || customer.customer_type === 'si';
+  const MIN_WHOLESALE_ORDER = 1000000; // 1 triệu đồng
+  
+  // ✅ KHÔNG GIẢM GIÁ SHIP CHO KHÁCH SỈ
   const shipOriginal = selectedShipping ? Number(selectedShipping.fee||0) : 0;
-  const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
+  const shipDiscount = (isWholesale ? 0 : (appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0));
   const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
   const bestShipDiscount = Math.max(shipDiscount, 0);
   const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
   const total = Math.max(0, subtotal - prodDiscount + shipFee);
 
   $('summary-subtotal').textContent = fmtVND(subtotal);
+  
+  // ✅ HIỂN THỊ CẢNH BÁO NẾU KHÁCH SỈ CHƯA ĐỦ ĐƠN TỐI THIỂU
+  const warningBox = $('wholesale-warning');
+  if (warningBox) {
+    if (isWholesale && subtotal < MIN_WHOLESALE_ORDER) {
+      const remaining = MIN_WHOLESALE_ORDER - subtotal;
+      warningBox.innerHTML = `
+        <div class="p-3 bg-amber-50 border-2 border-amber-300 rounded-xl text-amber-800 text-sm">
+          <strong>⚠️ Đơn hàng tối thiểu:</strong> Khách sỉ cần đặt tối thiểu <strong>${fmtVND(MIN_WHOLESALE_ORDER)}</strong>. 
+          Bạn cần thêm <strong>${fmtVND(remaining)}</strong> nữa.
+        </div>
+      `;
+      warningBox.classList.remove('hidden');
+    } else {
+      warningBox.classList.add('hidden');
+    }
+  }
   
   // ✅ Hiển thị giá gạch ngang khi có giảm ship
   if (bestShipDiscount > 0) {
@@ -986,19 +1022,31 @@ $('place-order').addEventListener('click', async () => {
     const cart = getCart();
     if (!cart.length) return showError('Giỏ hàng trống.');
 
-        if (!selectedAddress)           return showError('Vui lòng chọn địa chỉ giao hàng.');
+    if (!selectedAddress)           return showError('Vui lòng chọn địa chỉ giao hàng.');
     if (!selectedShipping)          return showError('Vui lòng chọn phương thức vận chuyển.');
+    
+    // ✅ KIỂM TRA ĐƠN TỐI THIỂU CHO KHÁCH SỈ
+    const customer = getCustomerInfo();
+    const isWholesale = customer.customer_type === 'wholesale' || customer.customer_type === 'si';
+    const MIN_WHOLESALE_ORDER = 1000000;
+    const subtotal = calcSubtotal(cart);
+    
+    if (isWholesale && subtotal < MIN_WHOLESALE_ORDER) {
+      const remaining = MIN_WHOLESALE_ORDER - subtotal;
+      return showError(`Khách sỉ cần đặt tối thiểu ${fmtVND(MIN_WHOLESALE_ORDER)}. Bạn cần thêm ${fmtVND(remaining)} nữa.`);
+    }
+    
     const name    = selectedAddress.name || '';
     const phone   = selectedAddress.phone || '';
     const address = selectedAddress.address || '';
     if (!VN_PHONE_RE.test((phone||'').replace(/\D/g,''))) {
       return showError('SĐT không hợp lệ (VD: 0912345678).');
     }
-
-    const subtotal = calcSubtotal(cart);
     const shipOriginal = Number(selectedShipping.fee||0);
     const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
-    const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
+    
+    // ✅ KHÔNG GIẢM PHÍ SHIP CHO KHÁCH SỈ
+    const shipDiscount = (isWholesale ? 0 : (appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0));
     const bestShipDiscount = Math.max(shipDiscount, 0);
     const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
     const grandTotal = Math.max(0, subtotal - prodDiscount + shipFee);

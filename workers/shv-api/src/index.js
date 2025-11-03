@@ -237,7 +237,7 @@ export default {
         );
       }
 
-      // ============================================
+       // ============================================
       // ROOT ENDPOINTS
       // ============================================
       if (path === '/' || path === '') {
@@ -260,6 +260,7 @@ export default {
         }, {}, req);
       }
 
+      // Health check đơn giản
       if (path === '/me' && req.method === 'GET') {
         return json({
           ok: true,
@@ -268,23 +269,21 @@ export default {
         }, {}, req);
       }
 
-      // [SHV] Webhook cho Mini App – tạm thời cho phép cả GET & POST để test
+      // [SHV] Webhook Mini App – tất cả event từ Zalo Mini đổ về đây
       if (path === '/mini/webhook' && (req.method === 'GET' || req.method === 'POST')) {
-        const rawBody = await req.text();
-
-        console.log('[MiniWebhook] method:', req.method);
-        console.log('[MiniWebhook] headers:', Object.fromEntries(req.headers));
-        console.log('[MiniWebhook] body:', rawBody || '(empty)');
-
-        // Trả về ok để Zalo / trình duyệt biết endpoint sống
-        return json({ ok: true }, {}, req);
+        return WebhookHandler.handleMiniWebhook(req, env);
       }
 
-      // Webhook SuperAI cũ
+      // Webhook SuperAI (vận chuyển)
       if (path === '/webhook/superai' && req.method === 'POST') {
         return WebhookHandler.handleSuperAIWebhook(req, env);
       }
 
+      // Route không khớp gì ở trên → trả 404
+      return json({
+        ok: false,
+        error: 'Route not found'
+      }, { status: 404 }, req);
 
     } catch (e) {
       console.error('Worker error:', e);
