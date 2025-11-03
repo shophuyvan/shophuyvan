@@ -152,8 +152,27 @@ function getCustomerToken() {
 
 async function getCustomerInfo() {
   try {
+    // ✅ 1. Ưu tiên thông tin từ window.currentCustomer (đã load sẵn)
+    if (window.currentCustomer) {
+      return window.currentCustomer;
+    }
+    
+    // ✅ 2. Kiểm tra localStorage trước khi gọi API
+    const customerInfo = localStorage.getItem('customer_info');
+    if (customerInfo) {
+      try {
+        const parsed = JSON.parse(customerInfo);
+        // Lưu vào window để dùng lại
+        window.currentCustomer = parsed;
+        return parsed;
+      } catch {}
+    }
+    
+    // ✅ 3. Gọi API nếu có token
     const token = getCustomerToken();
-    if (!token) return null;
+    if (!token) {
+      return { tier: 'retail', customer_type: 'retail' }; // Khách vãng lai
+    }
     
     const API_BASE = window.API_BASE || 'https://api.shophuyvan.vn';
     const res = await fetch(`${API_BASE}/api/customers/me`, {
@@ -163,14 +182,22 @@ async function getCustomerInfo() {
     if (!res.ok) {
       localStorage.removeItem('customer_token');
       localStorage.removeItem('x-customer-token');
-      return null;
+      return { tier: 'retail', customer_type: 'retail' };
     }
     
     const data = await res.json();
-    return data.customer || null;
+    const customer = data.customer || null;
+    
+    // ✅ Lưu vào localStorage và window
+    if (customer) {
+      localStorage.setItem('customer_info', JSON.stringify(customer));
+      window.currentCustomer = customer;
+    }
+    
+    return customer || { tier: 'retail', customer_type: 'retail' };
   } catch(e) {
     console.error('[Customer] Get info error:', e);
-    return null;
+    return { tier: 'retail', customer_type: 'retail' };
   }
 }
 
