@@ -1069,7 +1069,23 @@ $('place-order').addEventListener('click', async () => {
       headers: { 'Idempotency-Key': idemKey }
     });
 
-    if (res && res.ok && res.id) {
+    // 🔍 DEBUG: Log response để kiểm tra
+    console.log('[CHECKOUT-DEBUG] Raw response:', res);
+    console.log('[CHECKOUT-DEBUG] Type:', typeof res);
+    console.log('[CHECKOUT-DEBUG] Is string?', typeof res === 'string');
+    
+    // 🔧 FIX: Nếu response là string JSON, parse lại
+    let parsedRes = res;
+    if (typeof res === 'string') {
+      try {
+        parsedRes = JSON.parse(res);
+        console.log('[CHECKOUT-DEBUG] Parsed response:', parsedRes);
+      } catch (e) {
+        console.error('[CHECKOUT-DEBUG] JSON parse failed:', e);
+      }
+    }
+
+    if (parsedRes && parsedRes.ok && parsedRes.id) {
       // Xoá giỏ hàng & idempotency
       clearCart();
       localStorage.removeItem('idem_order');
@@ -1081,7 +1097,7 @@ $('place-order').addEventListener('click', async () => {
       const sec  = document.getElementById('success-countdown');
 
       if (ov) {
-        if (oid) oid.textContent = String(res.id || '');
+        if (oid) oid.textContent = String(parsedRes.id || '');
         ov.classList.remove('hidden');
 
         // Button chuyển đến trang quản lý đơn
@@ -1098,13 +1114,18 @@ $('place-order').addEventListener('click', async () => {
       } else {
         // Fallback: nếu không có overlay, vẫn báo thành công ngắn gọn
         $('order-result').innerHTML =
-          `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${res.id||''}</b></div>`;
+          `<div class="ok p-3 rounded-xl text-green-800">Đặt hàng thành công! Mã đơn: <b>${parsedRes.id||''}</b></div>`;
       }
 
       // Cập nhật UI giỏ hàng phía dưới (không bắt buộc, nhưng an toàn)
       renderCart();
     } else {
-      showError(res?.message || 'Đặt hàng thất bại');
+      console.error('[CHECKOUT-DEBUG] Condition failed:', { 
+        parsedRes, 
+        hasOk: parsedRes?.ok, 
+        hasId: parsedRes?.id 
+      });
+      showError(parsedRes?.message || res?.message || 'Đặt hàng thất bại');
     }
   } catch (e) {
     showError(e.message || 'Có lỗi xảy ra khi đặt hàng');
