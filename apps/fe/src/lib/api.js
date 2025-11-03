@@ -48,7 +48,14 @@ if (!/^\/(shipping|areas|orders\/(price|optimize|create))/.test(path)) {
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     body = JSON.stringify(body);
   }
-  const req = fetch(url, { method: init.method || 'GET', headers, body, credentials: 'include' });
+  const req = fetch(url, {
+  method: init.method || 'GET',
+  headers,
+  body,
+  credentials: 'omit',   // bỏ cookie để không bị CORS chặn
+  mode: 'cors'
+});
+
   const res = await withTimeout(req, init.timeout || 10000);
   if (res.status >= 500 && (init._retried!==true)) {
     return await core(path, { ...init, _retried:true });
