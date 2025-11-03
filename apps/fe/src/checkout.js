@@ -1048,16 +1048,8 @@ $('place-order').addEventListener('click', async () => {
       return showError('SĐT không hợp lệ (VD: 0912345678).');
     }
 
-    const subtotal = calcSubtotal(cart);
-    const shipOriginal = Number(selectedShipping.fee||0);
-    const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
-    const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
-    const bestShipDiscount = Math.max(shipDiscount, 0);
-    const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
-    const grandTotal = Math.max(0, subtotal - prodDiscount + shipFee);
-
-    // ✅ Lấy trạng thái cho xem hàng
-    const allowInspection = document.getElementById('allow-inspection')?.checked ?? true;
+    allow_inspection: allowInspection,
+      cod_amount: allowInspection ? grandTotal : 0, // Nếu cho xem hàng → COD = tổng tiền
     
     // ✅ Tính tổng cân nặng thực tế từ cart
     const totalWeightGram = await ensureWeight(cart);
@@ -1089,7 +1081,7 @@ $('place-order').addEventListener('click', async () => {
       note: val('note') || '',
       // ✅ THÊM TRƯỜNG NÀY
       allow_inspection: allowInspection,
-      cod_amount: allowInspection ? grandTotal : 0, // Nếu cho xem hàng → COD = tổng tiền
+      cod_amount: codAmount,
       shipping_provider: selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
       shipping_name: selectedShipping.name || '',

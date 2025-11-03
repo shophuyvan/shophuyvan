@@ -575,7 +575,11 @@ async function createOrder(req, env) {
   // Calculate final totals
   const final_discount = validated_discount;
   const final_ship_discount = validated_ship_discount;
-  const revenue = Math.max(0, subtotal + shipping_fee - (final_discount + final_ship_discount));
+  
+  // ✅ FIX: Khi miễn ship (shipping_discount >= shipping_fee), revenue = subtotal - discount
+  const actualShippingFee = Math.max(0, shipping_fee - final_ship_discount);
+  const revenue = Math.max(0, subtotal - final_discount + actualShippingFee);
+  
   const profit = items.reduce((sum, item) =>
     sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
   ) - final_discount;
@@ -618,7 +622,8 @@ async function createOrder(req, env) {
     total_weight_gram: Number(body.total_weight_gram || body.totalWeightGram || 0),
     // ✅ Thêm allow_inspection và cod_amount
     allow_inspection: body.allow_inspection !== undefined ? body.allow_inspection : true,
-    cod_amount: Number(body.cod_amount || 0)
+    // ✅ FIX: cod_amount phải bằng revenue (tổng thực tế khách phải trả)
+    cod_amount: revenue
   };
 
   // Save order
