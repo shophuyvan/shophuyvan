@@ -430,49 +430,42 @@ async function loadCategories(){
 // New arrivals (newest products)
 async function loadNew() {
   if (!newWrap) return;
-  
   try {
     let data = await api('/products/newest?limit=8');
     let items = (data.items || data.products || data.data || []);
-    
-    if (items.length === 0) {
+
+    // (tuỳ chọn) chỉ giữ sản phẩm tạo trong 24h gần nhất
+    const now = Date.now();
+    items = items.filter(p => {
+      const t = new Date(
+        p.created_at || p.createdAt || p.published_at || p.publishedAt || p.time || p.ts || 0
+      ).getTime();
+      return t && (now - t) <= 24 * 60 * 60 * 1000;
+    }).slice(0, 8);
+
+    if (!items.length) {
       newWrap.parentElement?.classList?.add('hidden');
       return;
     }
-    
+
     newWrap.parentElement?.classList?.remove('hidden');
     newWrap.innerHTML = items.map(card).join('');
     await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
     console.log('[NEWEST] Loaded:', items.length, 'products');
   } catch (e) {
-    console.error('[NEWEST] Error:', e);
+    console.error('[NEWEST] error', e);
     newWrap.parentElement?.classList?.add('hidden');
   }
 }
-  if (!data || data.ok===false) data = await api('/products?limit=8');
-  let items = (data.items || data.products || data.data || []);
-  const now = Date.now();
-  items = items.filter(p=>{
-    // CHI DUNG created_at, KHONG DUNG updated_at (tranh san pham cu bi hien lai khi edit)
-    const d=new Date(p.created_at||p.createdAt||p.published_at||p.publishedAt||p.time||p.ts||0).getTime();
-    return d && (now-d) <= 24*60*60*1000;
-  }).slice(0,8);
-  if (items.length === 0) {
-  newWrap.parentElement?.classList?.add('hidden');
-} else {
-  newWrap.parentElement?.classList?.remove('hidden');
-  newWrap.innerHTML = items.map(card).join('');
-  await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
-  console.log('[PRICE] FE new', { tier: items?.[0]?.price_tier, price: items?.[0]?.price_display });
-}
-}
+
 
 // All products with pagination
 async function loadAll(){ if(!allWrap||!loadMoreBtn) return; 
   const cat = new URL(location.href).searchParams.get('cat');
   const catParam = cat ? '&category='+encodeURIComponent(cat) : '';
   let data = await api('/public/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + catParam);
-  if (!data || data.ok===false) data = await api('/products?limit=24' + (cursor ? '&cursor='+encodeURIComponent(cursor) : '') + catParam);
+  if (!data || data.ok===false) {
+  data = await api('/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
   const items = data.items || data.products || data.data || [];
   cursor = data.cursor || data.next || null;
   allCache.push(...items);
