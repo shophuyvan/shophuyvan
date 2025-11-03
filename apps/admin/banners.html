@@ -44,53 +44,7 @@
       display: block;
     }
     
-    /* Crop Modal */
-    .crop-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.8);
-      z-index: 9999;
-      padding: 20px;
-    }
-    .crop-modal.active {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .crop-container {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      max-width: 95vw;
-      max-height: 95vh;
-      overflow: auto;
-    }
-    .crop-area {
-      max-width: 100%;
-      max-height: 60vh;
-    }
-    .crop-preview-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-top: 20px;
-    }
-    .preview-box {
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 10px;
-      text-align: center;
-    }
-    .preview-box h4 {
-      margin: 0 0 10px 0;
-      font-size: 14px;
-      color: #374151;
-    }
-    .preview-box img {
-      max-width: 100%;
-      border-radius: 4px;
-    }
+    /* Đã xóa Crop Modal CSS */
     
     .form-group {
       margin-bottom: 15px;
@@ -148,36 +102,6 @@
 </head>
 <body>
 
-<!-- Crop Modal -->
-<div id="crop-modal" class="crop-modal">
-  <div class="crop-container">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-      <h3 id="crop-title">Crop Banner</h3>
-      <button id="crop-close" class="btn" style="background:#ef4444;color:white;">✕ Đóng</button>
-    </div>
-    
-    <div>
-      <img id="crop-image" class="crop-area" src="" alt="Crop">
-    </div>
-    
-    <div class="crop-preview-grid">
-      <div class="preview-box">
-        <h4>🖥️ Preview Desktop</h4>
-        <div id="preview-desktop" style="width:100%;aspect-ratio:16/5;background:#f3f4f6;border-radius:4px;overflow:hidden;"></div>
-      </div>
-      <div class="preview-box">
-        <h4>📱 Preview Mobile</h4>
-        <div id="preview-mobile" style="width:100%;aspect-ratio:3/2;background:#f3f4f6;border-radius:4px;overflow:hidden;"></div>
-      </div>
-    </div>
-    
-    <div style="margin-top:20px;display:flex;gap:10px;">
-      <button id="crop-save" class="btn primary" style="flex:1;">💾 Lưu & Upload</button>
-      <button id="crop-cancel" class="btn">Hủy</button>
-    </div>
-  </div>
-</div>
-
 <!-- Platform Tabs -->
 <div class="banner-tabs">
   <button class="banner-tab active" data-platform="fe">
@@ -194,19 +118,22 @@
     <h3>Thêm Banner Trang Web</h3>
     
     <div class="form-group">
-      <label>📁 Upload ảnh gốc (sẽ crop thành Desktop + Mobile)</label>
-      <input id="fe-file" type="file" accept="image/*" class="input"/>
-      <small style="color:#6b7280;">Khuyến nghị: Ảnh tỉ lệ ngang, kích thước tối thiểu 1920x1080px</small>
+      <label>🖥️ Upload Banner Desktop (1920x600)</label>
+      <input id="fe-desktop-file" type="file" accept="image/*" class="input"/>
+      <small style="color:#6b7280;">Khuyến nghị: Kích thước 1920x600px</small>
+      <div id="fe-desktop-preview" style="margin-top:10px;display:none;">
+        <img style="max-width:300px;border:1px solid #e5e7eb;border-radius:4px;" id="fe-desktop-preview-img"/>
+        <input id="fe-desktop-url" class="input" readonly style="margin-top:5px;"/>
+      </div>
     </div>
 
-    <div id="fe-images" style="display:none;">
-      <div class="form-group">
-        <label>🖥️ Desktop URL (1920x600)</label>
-        <input id="fe-desktop-url" class="input" readonly/>
-      </div>
-      <div class="form-group">
-        <label>📱 Mobile URL (1080x720)</label>
-        <input id="fe-mobile-url" class="input" readonly/>
+    <div class="form-group">
+      <label>📱 Upload Banner Mobile (1080x720)</label>
+      <input id="fe-mobile-file" type="file" accept="image/*" class="input"/>
+      <small style="color:#6b7280;">Khuyến nghị: Kích thước 1080x720px</small>
+      <div id="fe-mobile-preview" style="margin-top:10px;display:none;">
+        <img style="max-width:200px;border:1px solid #e5e7eb;border-radius:4px;" id="fe-mobile-preview-img"/>
+        <input id="fe-mobile-url" class="input" readonly style="margin-top:5px;"/>
       </div>
     </div>
 
@@ -315,10 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const UPLOAD_PRESET = 'shophuyvan';
   const FOLDER = 'shv';
 
-  let currentCropper = null;
   let currentPlatform = 'fe';
-  let croppedDesktopBlob = null;
-  let croppedMobileBlob = null;
 
   // Platform tabs
   document.querySelectorAll('.banner-tab').forEach(tab => {
@@ -335,184 +259,96 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // FE File Upload
-  document.getElementById('fe-file')?.addEventListener('change', function(e) {
+  // ============================================
+  // Mini Platform: Direct Upload Logic
+  // ============================================
+  
+  // Upload Mini Mobile
+  document.getElementById('mini-file')?.addEventListener('change', async function(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      openCropModal(event.target.result, 'fe');
-    };
-    reader.readAsDataURL(file);
-  });
 
-  // Mini File Upload
-  document.getElementById('mini-file')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      openCropModal(event.target.result, 'mini');
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function openCropModal(imageSrc, platform) {
-    const modal = document.getElementById('crop-modal');
-    const img = document.getElementById('crop-image');
-    const title = document.getElementById('crop-title');
-    
-    if (platform === 'fe') {
-      title.textContent = 'Crop Banner Desktop & Mobile';
-    } else {
-      title.textContent = 'Crop Banner Mobile (Mini App)';
-    }
-    
-    img.src = imageSrc;
-    modal.classList.add('active');
-    
-    if (currentCropper) {
-      currentCropper.destroy();
-    }
-    
-    // Khởi tạo cropper với aspect ratio phù hợp
-    const aspectRatio = platform === 'fe' ? 16 / 5 : 3 / 2;
-    
-    currentCropper = new Cropper(img, {
-      aspectRatio: aspectRatio,
-      viewMode: 1,
-      dragMode: 'move',
-      autoCropArea: 1,
-      restore: false,
-      guides: true,
-      center: true,
-      highlight: true,
-      cropBoxMovable: true,
-      cropBoxResizable: true,
-      toggleDragModeOnDblclick: false,
-      crop: function() {
-        updatePreviews(platform);
-      }
-    });
-  }
-
-  function updatePreviews(platform) {
-    if (!currentCropper) return;
-    
-    const previewDesktop = document.getElementById('preview-desktop');
-    const previewMobile = document.getElementById('preview-mobile');
-    
-    if (platform === 'fe') {
-      // Desktop preview (16:5)
-      const desktopCanvas = currentCropper.getCroppedCanvas({
-        width: 1920,
-        height: 600
-      });
-      previewDesktop.innerHTML = `<img src="${desktopCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
-      
-      // Mobile preview (3:2)
-      const mobileCanvas = currentCropper.getCroppedCanvas({
-        width: 1080,
-        height: 720
-      });
-      previewMobile.innerHTML = `<img src="${mobileCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
-      
-      // Lưu blob
-      desktopCanvas.toBlob(blob => { croppedDesktopBlob = blob; }, 'image/jpeg', 0.9);
-      mobileCanvas.toBlob(blob => { croppedMobileBlob = blob; }, 'image/jpeg', 0.9);
-      
-    } else {
-      // Mini: Chỉ mobile
-      previewDesktop.innerHTML = '<p style="color:#9ca3af;padding:20px;">Không cần Desktop cho Mini App</p>';
-      
-      const mobileCanvas = currentCropper.getCroppedCanvas({
-        width: 1080,
-        height: 720
-      });
-      previewMobile.innerHTML = `<img src="${mobileCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
-      
-      mobileCanvas.toBlob(blob => { croppedMobileBlob = blob; }, 'image/jpeg', 0.9);
-    }
-  }
-
-  document.getElementById('crop-close')?.addEventListener('click', closeCropModal);
-  document.getElementById('crop-cancel')?.addEventListener('click', closeCropModal);
-
-  function closeCropModal() {
-    const modal = document.getElementById('crop-modal');
-    modal.classList.remove('active');
-    if (currentCropper) {
-      currentCropper.destroy();
-      currentCropper = null;
-    }
-    croppedDesktopBlob = null;
-    croppedMobileBlob = null;
-  }
-
-  document.getElementById('crop-save')?.addEventListener('click', async function() {
-    const platform = currentPlatform;
-    
     try {
-      if (platform === 'fe') {
-        if (!croppedDesktopBlob || !croppedMobileBlob) {
-          alert('Vui lòng crop ảnh trước');
-          return;
-        }
-        
-        // Upload Desktop
-        const desktopUrl = await uploadToCloudinary(croppedDesktopBlob, 'desktop');
-        document.getElementById('fe-desktop-url').value = desktopUrl;
-        
-        // Upload Mobile
-        const mobileUrl = await uploadToCloudinary(croppedMobileBlob, 'mobile');
-        document.getElementById('fe-mobile-url').value = mobileUrl;
-        
-        document.getElementById('fe-images').style.display = 'block';
-        
-        Admin.toast('✅ Upload thành công cả 2 ảnh!');
-        
-      } else {
-        if (!croppedMobileBlob) {
-          alert('Vui lòng crop ảnh trước');
-          return;
-        }
-        
-        const mobileUrl = await uploadToCloudinary(croppedMobileBlob, 'mobile');
-        document.getElementById('mini-mobile-url').value = mobileUrl;
-        
-        document.getElementById('mini-images').style.display = 'block';
-        
-        Admin.toast('✅ Upload thành công!');
-      }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', FOLDER + '/banners/mini');
       
-      closeCropModal();
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
       
+      const result = await response.json();
+      
+      document.getElementById('mini-mobile-url').value = result.secure_url;
+      document.getElementById('mini-images').style.display = 'block';
+      
+      Admin.toast('✅ Upload thành công!');
     } catch (e) {
-      console.error('Upload error:', e);
-      alert('Lỗi khi upload: ' + e.message);
+      alert('Lỗi upload: ' + e.message);
     }
   });
 
-  async function uploadToCloudinary(blob, type) {
-    const formData = new FormData();
-    formData.append('file', blob, `banner_${type}_${Date.now()}.jpg`);
-    formData.append('upload_preset', UPLOAD_PRESET);
-    formData.append('folder', FOLDER + '/banners');
-    
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error('Upload failed: ' + response.status);
+  // ============================================
+  // FE Platform: Direct Upload Logic
+  // ============================================
+
+  // Upload Desktop
+  document.getElementById('fe-desktop-file')?.addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', FOLDER + '/banners/desktop');
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      document.getElementById('fe-desktop-url').value = result.secure_url;
+      document.getElementById('fe-desktop-preview-img').src = result.secure_url;
+      document.getElementById('fe-desktop-preview').style.display = 'block';
+      
+      Admin.toast('✅ Upload Desktop thành công!');
+    } catch (e) {
+      alert('Lỗi upload Desktop: ' + e.message);
     }
-    
-    const result = await response.json();
-    return result.secure_url;
-  }
+  });
+
+  // Upload Mobile
+  document.getElementById('fe-mobile-file')?.addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', FOLDER + '/banners/mobile');
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      document.getElementById('fe-mobile-url').value = result.secure_url;
+      document.getElementById('fe-mobile-preview-img').src = result.secure_url;
+      document.getElementById('fe-mobile-preview').style.display = 'block';
+      
+      Admin.toast('✅ Upload Mobile thành công!');
+    } catch (e) {
+      alert('Lỗi upload Mobile: ' + e.message);
+    }
+  });
 
   // Save FE Banner
   document.getElementById('fe-save')?.addEventListener('click', async function() {
@@ -544,10 +380,12 @@ document.addEventListener('DOMContentLoaded', function() {
         loadBanners('fe');
         
         // Reset form
-        document.getElementById('fe-file').value = '';
+        document.getElementById('fe-desktop-file').value = '';
+        document.getElementById('fe-mobile-file').value = '';
         document.getElementById('fe-desktop-url').value = '';
         document.getElementById('fe-mobile-url').value = '';
-        document.getElementById('fe-images').style.display = 'none';
+        document.getElementById('fe-desktop-preview').style.display = 'none';
+        document.getElementById('fe-mobile-preview').style.display = 'none';
         document.getElementById('fe-alt').value = '';
         document.getElementById('fe-link').value = '';
         document.getElementById('fe-order').value = '0';
