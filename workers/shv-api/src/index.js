@@ -15,6 +15,7 @@ import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
+import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js'; // SỬA: THÊM HỦY & IN HÀNG LOẠT
 
@@ -100,6 +101,12 @@ export default {
       if (path.startsWith('/admin/categories') ||
           path.startsWith('/public/categories')) {
         return categories.handle(req, env, ctx);
+      }
+	  
+	  // Top & New products (shared for FE & Mini) — bắt EXACT trước khi rơi vào Products.handle
+      if (path === '/products/bestsellers' || path === '/products/newest') {
+        const handled = await TopNew.handle(req, env, ctx);
+        if (handled) return handled;
       }
 
       // Products module

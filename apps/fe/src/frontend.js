@@ -470,8 +470,9 @@ async function loadAll(){ if(!allWrap||!loadMoreBtn) return;
   cursor = data.cursor || data.next || null;
   allCache.push(...items);
   renderAll();
-  loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
+    loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
 }
+} 
 
 async function renderAll(){ if(!allWrap) return; 
   const q = (searchInput?.value || '').toLowerCase();
