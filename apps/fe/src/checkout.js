@@ -310,41 +310,27 @@ async function fetchShipping() {
 
 const rawItems = res?.items || [];
     
-    // ✅ Cố định danh sách 4 providers: SPX, Lazada, J&T, Best
-    const PREFERRED_PROVIDERS = ['spx', 'lazada', 'jt', 'best'];
-    
+    // ✅ TÌM ĐƠN VỊ VẬN CHUYỂN GIÁ RẺ NHẤT
     const allItems = rawItems.map(it => ({
       provider: String(it.provider || '').toLowerCase(),
-      originalProvider: it.provider, // Giữ nguyên để gửi lên backend
+      originalProvider: it.provider,
       name: it.name || it.provider,
       service_code: it.service_code,
       fee: Number(it.fee || 0),
       eta: it.eta || 'Giao hàng tiêu chuẩn',
     }));
 
-    // Lọc chỉ lấy 4 providers ưu tiên
-    const items = PREFERRED_PROVIDERS.map(prefProvider => {
-      return allItems.find(item => {
-        const p = item.provider;
-        // Match: spx, spx express, shopee express
-        if (prefProvider === 'spx') {
-          return p.includes('spx') || p.includes('shopee');
-        }
-        // Match: lazada, lazada express
-        if (prefProvider === 'lazada') {
-          return p.includes('lazada');
-        }
-        // Match: jt, j&t, j&t express
-        if (prefProvider === 'jt') {
-          return p.includes('jt') || p.includes('j&t');
-        }
-        // Match: best, best express
-        if (prefProvider === 'best') {
-          return p.includes('best');
-        }
-        return false;
-      });
-    }).filter(Boolean); // Loại bỏ null/undefined
+    // Tìm item có phí thấp nhất
+    const cheapestItem = allItems.reduce((min, item) => 
+      (item.fee > 0 && item.fee < min.fee) ? item : min
+    , allItems[0] || { fee: Infinity });
+    
+    // Tạo 1 option duy nhất: "Vận chuyển nhanh" = giá rẻ nhất
+    const items = cheapestItem && cheapestItem.fee !== Infinity ? [{
+      ...cheapestItem,
+      name: 'Vận chuyển nhanh',
+      eta: 'HCM: 1-2 ngày | Miền Tây: 1-3 ngày | Miền Trung: 2-4 ngày | Miền Bắc: 3-5 ngày'
+    }] : [];
     
     if (!items.length) {
       $('shipping-list').innerHTML = `
@@ -357,72 +343,33 @@ const rawItems = res?.items || [];
       return;
     }
 
-    // Render options
-    $('shipping-list').innerHTML = items.map(it => `
-      <label class="shipping-option flex items-center justify-between p-4 cursor-pointer border-2 border-gray-200 rounded-xl hover:border-green-500 transition">
-        <input type="radio" name="ship_opt" class="mr-3"
-               data-provider="${it.originalProvider||''}"
-               data-service="${it.service_code||''}"
-               data-fee="${it.fee||0}"
-               data-eta="${it.eta||''}"
-               data-name="${it.name||''}">
-        <div class="flex-1">
-          <div class="flex items-center gap-2">
-            <span class="font-bold text-gray-800 uppercase text-sm">${it.originalProvider||'DVVC'}</span>
-            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">${it.service_code||''}</span>
+    // Render 1 option duy nhất (không cần radio vì chỉ có 1 lựa chọn)
+    const it = items[0];
+    $('shipping-list').innerHTML = `
+      <div class="border-2 border-rose-500 bg-rose-50 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xl">🚚</span>
+              <span class="font-bold text-gray-800 text-base">${it.name}</span>
+            </div>
+            <div class="text-sm text-gray-600">${it.eta}</div>
+            <div class="text-xs text-gray-500 mt-1">Được tối ưu từ ${it.originalProvider || 'đơn vị vận chuyển'}</div>
           </div>
-          <div class="text-sm text-gray-700 mt-1 font-medium">${it.name || 'Dịch vụ vận chuyển'}</div>
-          <div class="text-xs text-gray-600 mt-1">${it.eta || 'Giao tiêu chuẩn'}</div>
+          <div class="font-bold text-rose-600 text-xl ml-3">${fmtVND(it.fee)}</div>
         </div>
-        <div class="font-bold text-rose-600 text-lg ml-3">${fmtVND(it.fee)}</div>
-      </label>
-    `).join('');
+      </div>
+    `;
 
-    document.querySelectorAll('input[name="ship_opt"]').forEach(r => {
-      r.addEventListener('change', () => {
-        document.querySelectorAll('label:has(input[name="ship_opt"])').forEach(el => {
-          el.classList.remove('border-rose-500', 'bg-rose-50');
-          el.classList.add('border-gray-200');
-        });
-        r.closest('label')?.classList.add('border-rose-500', 'bg-rose-50');
-        r.closest('label')?.classList.remove('border-gray-200');
-        
-        selectedShipping = {
-          provider: r.dataset.provider,
-          service_code: r.dataset.service,
-          fee: Number(r.dataset.fee||0),
-          eta: r.dataset.eta||'',
-          name: r.dataset.name||''
-        };
-        updateSummary();
-      });
-    });
-
-    // Ưu tiên chọn SPX nếu có, không thì chọn item đầu
-    const allRadios = document.querySelectorAll('input[name="ship_opt"]');
-    let spxRadio = null;
-    
-    allRadios.forEach(r => {
-      const p = String(r.dataset.provider || '').toLowerCase();
-      if (p.includes('spx') || p.includes('shopee')) {
-        spxRadio = r;
-      }
-    });
-    
-    const defaultRadio = spxRadio || allRadios[0];
-    if (defaultRadio) {
-      selectedShipping = {
-        provider: defaultRadio.dataset.provider,
-        service_code: defaultRadio.dataset.service,
-        fee: Number(defaultRadio.dataset.fee||0),
-        eta: defaultRadio.dataset.eta||'',
-        name: defaultRadio.dataset.name||''
-      };
-      defaultRadio.checked = true;
-      defaultRadio.closest('label')?.classList.add('border-rose-500', 'bg-rose-50');
-      defaultRadio.closest('label')?.classList.remove('border-gray-200');
-      updateSummary();
-    }
+    // Tự động chọn option duy nhất
+    selectedShipping = {
+      provider: it.originalProvider,
+      service_code: it.service_code,
+      fee: it.fee,
+      eta: it.eta,
+      name: it.name
+    };
+    updateSummary();
   } catch (e) {
     console.error('Get quote error:', e);
     $('shipping-list').innerHTML = `

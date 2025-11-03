@@ -27,6 +27,16 @@ export async function handle(req, env, ctx) {
     return listPublicProducts(req, env);
   }
 
+  // ✅ THÊM: Public API - Sản phẩm bán chạy (bestsellers)
+  if (path === '/products/bestsellers' && method === 'GET') {
+    return getBestsellers(req, env);
+  }
+
+  // ✅ THÊM: Public API - Sản phẩm mới (newest)
+  if (path === '/products/newest' && method === 'GET') {
+    return getNewest(req, env);
+  }
+
   // Public: Get product by ID (path param)
   if (path.startsWith('/products/') && method === 'GET') {
     const id = decodeURIComponent(path.split('/')[2] || '').trim();
@@ -747,6 +757,109 @@ async function deleteProduct(req, env) {
     return errorResponse(e, 500, req);
   }
 } // <<< THÊM DẤU } NÀY ĐỂ ĐÓNG HÀM deleteProduct
+// ===================================================================
+// PUBLIC: Get Bestsellers (sắp xếp theo số lượng bán)
+// ===================================================================
+async function getBestsellers(req, env) {
+  try {
+    const url = new URL(req.url);
+    const limit = Number(url.searchParams.get('limit') || '12');
+
+    // Lấy danh sách summary
+    let data = await listProducts(env);
+    let items = Array.isArray(data?.items) ? data.items.slice()
+               : Array.isArray(data) ? data.slice() : [];
+
+    // Chỉ lấy sản phẩm active
+    items = items.filter(p => p.status !== 0);
+
+    // 🔥 Nạp FULL từ KV để có sold
+    const full = [];
+    for (const s of items) {
+      const id = String(s.id || s.key || '');
+      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
+      full.push(p || s);
+    }
+
+    // Sắp xếp theo sold (cao nhất trước)
+    full.sort((a, b) => {
+      const soldA = Number(a.sold || a.sales || a.sold_count || 0);
+      const soldB = Number(b.sold || b.sales || b.sold_count || 0);
+      return soldB - soldA;
+    });
+
+    // Lấy top N
+    const limited = full.slice(0, limit);
+
+    // Tính giá từ variants
+    const tier = getCustomerTier(req);
+    const out  = limited.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+
+    console.log('[BESTSELLERS] Returned:', out.length, 'products');
+    return json({ ok: true, items: out }, {}, req);
+  } catch (e) {
+    console.error('❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// PUBLIC: Get Newest (sản phẩm mới trong 14 ngày)
+// ===================================================================
+async function getNewest(req, env) {
+  try {
+    const url = new URL(req.url);
+    const limit = Number(url.searchParams.get('limit') || '12');
+
+    // Lấy danh sách summary
+    let data = await listProducts(env);
+    let items = Array.isArray(data?.items) ? data.items.slice()
+               : Array.isArray(data) ? data.slice() : [];
+
+    // Chỉ lấy sản phẩm active
+    items = items.filter(p => p.status !== 0);
+
+    // 🔥 Nạp FULL từ KV để có createdAt
+    const full = [];
+    for (const s of items) {
+      const id = String(s.id || s.key || '');
+      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
+      full.push(p || s);
+    }
+
+    const now = Date.now();
+    const DAYS = 14; // Lấy sản phẩm trong 14 ngày gần đây
+
+    // Lọc sản phẩm mới (dựa vào createdAt)
+    const newest = full.filter(p => {
+      const created = new Date(p.createdAt || p.created_at || 0).getTime();
+      if (!created) return false;
+      const ageMs = now - created;
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      return ageDays <= DAYS;
+    });
+
+    // Sắp xếp theo createdAt (mới nhất trước)
+    newest.sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Lấy top N
+    const limited = newest.slice(0, limit);
+
+    // Tính giá từ variants
+    const tier = getCustomerTier(req);
+    const out  = limited.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+
+    console.log('[NEWEST] Returned:', out.length, 'products (in last', DAYS, 'days)');
+    return json({ ok: true, items: out }, {}, req);
+  } catch (e) {
+    console.error('❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
 
 console.log('✅ products.js loaded - CATEGORY FILTER FIXED');
 // <<< Cuối file >>>

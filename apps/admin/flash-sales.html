@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Quản lý Flash Sale - Shop Huy Vân</title>
+<link rel="stylesheet" href="./styles.css"/>
+<script src="./admin_real.js"></script>
+<script src="./sidebar-layout.js"></script>
+<style>
+.toolbar {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: #333;
+  display: inline-block;
+}
+
+.btn:hover { background: #f5f5f5; }
+
+.btn.primary {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.btn.primary:hover { background: #1565c0; }
+
+.btn.danger { 
+  background: #d32f2f; 
+  color: white; 
+  border-color: #d32f2f; 
+}
+
+.btn.danger:hover { background: #c62828; }
+
+.flash-sale-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flash-sale-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.flash-sale-meta {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.badge.active {
+  background: #4caf50;
+  color: white;
+}
+
+.badge.inactive {
+  background: #f44336;
+  color: white;
+}
+
+.badge.scheduled {
+  background: #ff9800;
+  color: white;
+}
+
+.badge.ended {
+  background: #9e9e9e;
+  color: white;
+}
+
+.flash-sale-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.show { display: flex; }
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.product-search {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.product-search input {
+  width: 100%;
+  padding: 10px 40px 10px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.search-results.show { display: block; }
+
+.search-result-item {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-result-item:hover {
+  background: #f5f5f5;
+}
+
+.search-result-img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.selected-products {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+  min-height: 100px;
+}
+
+.selected-product {
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selected-product-img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.selected-product-info {
+  flex: 1;
+}
+
+.selected-product-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.selected-product-controls select,
+.selected-product-controls input {
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.remove-product {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <h2 style="margin:0;">Quản lý Flash Sale</h2>
+  <button class="btn primary" id="btn-create">+ Tạo Flash Sale mới</button>
+</div>
+
+<div id="list" class="list">
+  <div class="loading">Đang tải...</div>
+</div>
+
+<!-- Modal tạo/sửa Flash Sale -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Tạo Flash Sale mới</h3>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+
+    <form id="form">
+      <div class="form-group">
+        <label>Tên chương trình *</label>
+        <input type="text" id="fs-name" required placeholder="VD: Flash Sale Cuối Tuần">
+      </div>
+
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea id="fs-description" placeholder="Mô tả ngắn về chương trình"></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label>Thời gian bắt đầu *</label>
+          <input type="datetime-local" id="fs-start" required>
+        </div>
+
+        <div class="form-group">
+          <label>Thời gian kết thúc *</label>
+          <input type="datetime-local" id="fs-end" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Trạng thái</label>
+        <select id="fs-status">
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Tạm dừng</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Chọn sản phẩm Flash Sale *</label>
+        <div class="product-search">
+          <input type="text" id="product-search" placeholder="🔍 Tìm sản phẩm theo tên...">
+          <div id="search-results" class="search-results"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Sản phẩm đã chọn (<span id="selected-count">0</span>)</label>
+        <div id="selected-products" class="selected-products">
+          <div style="text-align:center;color:#999;padding:20px;">Chưa có sản phẩm nào được chọn</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+        <button type="button" class="btn" id="btn-cancel">Hủy</button>
+        <button type="submit" class="btn primary">💾 Lưu Flash Sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.AdminLayout) {
+    AdminLayout.init('Flash Sale');
+  }
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+  let allProducts = [];
+  let selectedProducts = [];
+  let editingId = null;
+
+  // Load danh sách Flash Sale
+  async function loadList() {
+    try {
+      const res = await Admin.req('/admin/flash-sales');
+      const items = res.items || [];
+      
+      if (items.length === 0) {
+        $('#list').innerHTML = '<div class="loading">Chưa có Flash Sale nào</div>';
+        return;
+      }
+
+      $('#list').innerHTML = items.map(fs => {
+        const now = Date.now();
+        const start = new Date(fs.start_time).getTime();
+        const end = new Date(fs.end_time).getTime();
+        
+        let statusBadge = '';
+        if (fs.status !== 'active') {
+          statusBadge = '<span class="badge inactive">Đã tắt</span>';
+        } else if (now < start) {
+          statusBadge = '<span class="badge scheduled">Chưa bắt đầu</span>';
+        } else if (now > end) {
+          statusBadge = '<span class="badge ended">Đã kết thúc</span>';
+        } else {
+          statusBadge = '<span class="badge active">Đang chạy</span>';
+        }
+
+        return `
+          <div class="flash-sale-card">
+            <div class="flash-sale-info">
+              <h3>${fs.name} ${statusBadge}</h3>
+              <div class="flash-sale-meta">
+                📅 ${new Date(fs.start_time).toLocaleString('vi-VN')} → ${new Date(fs.end_time).toLocaleString('vi-VN')}
+              </div>
+              <div class="flash-sale-meta">
+                🛍️ ${fs.products.length} sản phẩm
+              </div>
+              ${fs.description ? `<div class="flash-sale-meta">💬 ${fs.description}</div>` : ''}
+            </div>
+            <div class="flash-sale-actions">
+              <button class="btn" onclick="window.editFlashSale('${fs.id}')">✏️ Sửa</button>
+              <button class="btn danger" onclick="window.deleteFlashSale('${fs.id}')">🗑️ Xóa</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error('Load error:', e);
+      $('#list').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+    }
+  }
+
+  // Load danh sách sản phẩm (để search)
+  async function loadProducts() {
+    try {
+      const res = await Admin.req('/admin/products');
+      allProducts = res.items || [];
+      console.log('Loaded products:', allProducts.length);
+    } catch (e) {
+      console.error('Load products error:', e);
+    }
+  }
+
+  // Tìm kiếm sản phẩm
+  $('#product-search')?.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const results = $('#search-results');
+    
+    if (!q) {
+      results.classList.remove('show');
+      return;
+    }
+
+    const filtered = allProducts.filter(p => {
+      const name = (p.title || p.name || '').toLowerCase();
+      const sku = (p.sku || '').toLowerCase();
+      return name.includes(q) || sku.includes(q);
+    }).slice(0, 10);
+
+    if (filtered.length === 0) {
+      results.innerHTML = '<div style="padding:10px;text-align:center;color:#999;">Không tìm thấy</div>';
+      results.classList.add('show');
+      return;
+    }
+
+    results.innerHTML = filtered.map(p => `
+      <div class="search-result-item" data-id="${p.id}">
+        <img src="${p.images?.[0] || '/assets/no-image.svg'}" class="search-result-img" alt="">
+        <div style="flex:1;">
+          <div style="font-weight:500;font-size:14px;">${p.title || p.name}</div>
+          <div style="font-size:12px;color:#666;">SKU: ${p.sku || 'N/A'}</div>
+        </div>
+      </div>
+    `).join('');
+
+    results.classList.add('show');
+
+    // Xử lý click chọn sản phẩm
+    results.querySelectorAll('.search-result-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const id = item.getAttribute('data-id');
+        const product = allProducts.find(p => p.id === id);
+        if (product && !selectedProducts.find(p => p.product_id === id)) {
+          selectedProducts.push({
+            product_id: id,
+            product_name: product.title || product.name,
+            product_image: product.images?.[0],
+            discount_type: 'percent',
+            discount_value: 10,
+            stock_limit: 0
+          });
+          renderSelectedProducts();
+          $('#product-search').value = '';
+          results.classList.remove('show');
+        }
+      });
+    });
+  });
+
+  // Render danh sách sản phẩm đã chọn
+  function renderSelectedProducts() {
+    const container = $('#selected-products');
+    $('#selected-count').textContent = selectedProducts.length;
+
+    if (selectedProducts.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">Chưa có sản phẩm nào được chọn</div>';
+      return;
+    }
+
+    container.innerHTML = selectedProducts.map((p, idx) => `
+      <div class="selected-product">
+        <img src="${p.product_image || '/assets/no-image.svg'}" class="selected-product-img" alt="">
+        <div class="selected-product-info">
+          <div style="font-weight:500;">${p.product_name}</div>
+          <div class="selected-product-controls">
+            <select data-idx="${idx}" data-field="discount_type">
+              <option value="percent" ${p.discount_type === 'percent' ? 'selected' : ''}>Giảm %</option>
+              <option value="fixed" ${p.discount_type === 'fixed' ? 'selected' : ''}>Giảm cố định</option>
+            </select>
+            <input type="number" placeholder="Giá trị" value="${p.discount_value}" data-idx="${idx}" data-field="discount_value" min="0">
+            <input type="number" placeholder="Giới hạn SL (0=∞)" value="${p.stock_limit}" data-idx="${idx}" data-field="stock_limit" min="0">
+          </div>
+        </div>
+        <button class="remove-product" data-idx="${idx}">✕</button>
+      </div>
+    `).join('');
+
+    // Event listeners cho controls
+    container.querySelectorAll('select, input').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.getAttribute('data-idx'));
+        const field = e.target.getAttribute('data-field');
+        selectedProducts[idx][field] = field === 'discount_type' ? e.target.value : Number(e.target.value);
+      });
+    });
+
+    container.querySelectorAll('.remove-product').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'));
+        selectedProducts.splice(idx, 1);
+        renderSelectedProducts();
+      });
+    });
+  }
+
+  // Mở modal tạo mới
+  $('#btn-create')?.addEventListener('click', () => {
+    editingId = null;
+    selectedProducts = [];
+    $('#modal-title').textContent = 'Tạo Flash Sale mới';
+    $('#form').reset();
+    renderSelectedProducts();
+    $('#modal').classList.add('show');
+  });
+
+  // Đóng modal
+  function closeModal() {
+    $('#modal').classList.remove('show');
+    $('#form').reset();
+    selectedProducts = [];
+    editingId = null;
+  }
+
+  $('#modal-close')?.addEventListener('click', closeModal);
+  $('#btn-cancel')?.addEventListener('click', closeModal);
+
+  // Submit form
+  $('#form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (selectedProducts.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 sản phẩm!');
+      return;
+    }
+
+    const data = {
+      id: editingId,
+      name: $('#fs-name').value,
+      description: $('#fs-description').value,
+      start_time: $('#fs-start').value,
+      end_time: $('#fs-end').value,
+      status: $('#fs-status').value,
+      products: selectedProducts.map(p => ({
+        product_id: p.product_id,
+        discount_type: p.discount_type,
+        discount_value: p.discount_value,
+        stock_limit: p.stock_limit
+      }))
+    };
+
+    try {
+      const res = await Admin.req('/admin/flash-sales', {
+        method: 'POST',
+        body: data
+      });
+
+      if (res.ok) {
+        Admin.toast('✅ Đã lưu Flash Sale');
+        closeModal();
+        loadList();
+      } else {
+        alert('Lỗi: ' + (res.error || 'Unknown'));
+      }
+    } catch (e) {
+      alert('Lỗi: ' + e.message);
+    }
+  });
+
+  // Edit Flash Sale
+  window.editFlashSale = async (id) => {
+    try {
+      const res = await Admin.req(`/admin/flash-sales/get?id=${encodeURIComponent(id)}`);
+      const fs = res.data;
+
+      editingId = id;
+      $('#modal-title').textContent = 'Chỉnh sửa Flash Sale';
+      $('#fs-name').value = fs.name;
+      $('#fs-description').value = fs.description || '';
+      $('#fs-start').value = fs.start_time.slice(0, 16);
+      $('#fs-end').value = fs.end_time.slice(0, 16);
+      $('#fs-status').value = fs.status;
+
+      // Load selected products
+      selectedProducts = fs.products.map(p => {
+        const product = allProducts.find(pr => pr.id === p.product_id);
+        return {
+          product_id: p.product_id,
+          product_name: product?.title || product?.name || p.product_id,
+          product_image: product?.images?.[0],
+          discount_type: p.discount_type,
+          discount_value: p.discount_value,
+          stock_limit: p.stock_limit
+        };
+      });
+
+      renderSelectedProducts();
+      $('#modal').classList.add('show');
+    } catch (e) {
+      alert('Lỗi tải dữ liệu: ' + e.message);
+    }
+  };
+
+  // Delete Flash Sale
+  window.deleteFlashSale = async (id) => {
+    if (!confirm('Xác nhận xóa Flash Sale này?')) return;
+
+    try {
+      const res = await Admin.req('/admin/flash-sales/delete', {
+        method: 'POST',
+        body: { id }
+      });
+
+      if (res.ok) {
+        Admin.toast('✅ Đã xóa Flash Sale');
+        loadList();
+      } else {
+        alert('Lỗi xóa');
+      }
+    } catch (e) {
+      alert('Lỗi: ' + e.message);
+    }
+  };
+
+  // Click outside to close search results
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.product-search')) {
+      $('#search-results')?.classList.remove('show');
+    }
+  });
+
+  // Initial load
+  loadProducts();
+  loadList();
+});
+</script>
+</body>
+</html>

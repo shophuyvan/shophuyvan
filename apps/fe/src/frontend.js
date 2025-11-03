@@ -54,6 +54,8 @@ import { formatPriceByCustomer, pickPriceByCustomer } from './lib/price.js';
 import api from './lib/api.js';
 
 const bannerWrap  = document.getElementById('banner-wrap');
+const flashWrap   = document.getElementById('flash-products'); // ✅ THÊM
+const bestWrap    = document.getElementById('best-products'); // ✅ THÊM
 const newWrap     = document.getElementById('new-products');
 const allWrap     = document.getElementById('all-products');
 const loadMoreBtn = document.getElementById('load-more');
@@ -63,6 +65,166 @@ const filterInput = document.getElementById('quick-filter');
 let cursor = null;
 let allCache = [];
 
+// ===================================================================
+// FLASH SALE - Load từ API
+// ===================================================================
+async function loadFlashSale() {
+  if (!flashWrap) return;
+  
+  try {
+    const data = await api('/flash-sales/active');
+    const fs = data?.flash_sale;
+    
+    if (!fs || !fs.products || fs.products.length === 0) {
+      flashWrap.parentElement?.classList?.add('hidden');
+      return;
+    }
+
+    // Kiểm tra thời gian
+    const now = Date.now();
+    const start = new Date(fs.start_time).getTime();
+    const end = new Date(fs.end_time).getTime();
+    
+    if (now < start || now > end || fs.status !== 'active') {
+      flashWrap.parentElement?.classList?.add('hidden');
+      return;
+    }
+
+    // Lấy thông tin sản phẩm
+    const products = [];
+    for (const item of fs.products) {
+      try {
+        const p = await api(`/products/${encodeURIComponent(item.product_id)}`);
+        const product = p?.item || p?.data;
+        if (product) {
+          // Tính giá sau giảm
+          const originalPrice = product.price_display || 0;
+          let flashPrice = originalPrice;
+          
+          if (item.discount_type === 'percent') {
+            flashPrice = originalPrice * (1 - item.discount_value / 100);
+          } else {
+            flashPrice = originalPrice - item.discount_value;
+          }
+          
+          products.push({
+            ...product,
+            flash_price: Math.max(0, Math.floor(flashPrice)),
+            flash_original: originalPrice,
+            flash_discount: item.discount_value,
+            flash_type: item.discount_type,
+            flash_stock: item.stock_limit
+          });
+        }
+      } catch (e) {
+        console.warn('Load flash product error:', item.product_id);
+      }
+    }
+
+    if (products.length === 0) {
+      flashWrap.parentElement?.classList?.add('hidden');
+      return;
+    }
+
+    // Hiển thị
+    flashWrap.parentElement?.classList?.remove('hidden');
+    
+    // Render header với countdown
+    const headerEl = flashWrap.previousElementSibling;
+    if (headerEl && headerEl.classList.contains('section-head')) {
+      headerEl.innerHTML = `
+        <div>
+          <h2 class="text-lg font-bold inline-flex items-center gap-2">
+            ⚡ Flash Sale
+            <span class="text-sm font-normal text-gray-600" id="flash-countdown"></span>
+          </h2>
+        </div>
+        <a href="#all" class="section-more text-sm text-blue-600">Xem tất cả →</a>
+      `;
+      
+      // Countdown timer
+      updateCountdown(end);
+      setInterval(() => updateCountdown(end), 1000);
+    }
+
+    flashWrap.innerHTML = products.map(cardFlash).join('');
+    console.log('[FLASH SALE] Loaded:', products.length, 'products');
+  } catch (e) {
+    console.error('[FLASH SALE] Error:', e);
+    flashWrap.parentElement?.classList?.add('hidden');
+  }
+}
+
+// Hàm countdown
+function updateCountdown(endTime) {
+  const el = document.getElementById('flash-countdown');
+  if (!el) return;
+  
+  const now = Date.now();
+  const diff = endTime - now;
+  
+  if (diff <= 0) {
+    el.textContent = 'Đã kết thúc';
+    return;
+  }
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const secs = Math.floor((diff % (1000 * 60)) / 1000);
+  
+  el.textContent = `Kết thúc sau: ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Card Flash Sale
+function cardFlash(p) {
+  const id = p.id || p.key || '';
+  const img = (p.images && p.images[0]) || '/assets/no-image.svg';
+  const u = `/product.html?id=${encodeURIComponent(id)}`;
+  
+  const discountPercent = Math.round((1 - p.flash_price / p.flash_original) * 100);
+  
+  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-gradient-to-br from-red-50 to-orange-50 border-red-200" data-card-id="${encodeURIComponent(id)}">
+    <div class="relative">
+      <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
+      <div class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold">
+        -${discountPercent}%
+      </div>
+    </div>
+    <div class="p-3">
+      <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
+      <div class="mt-1">
+        <div class="text-red-600 font-bold text-lg">${p.flash_price.toLocaleString('vi-VN')}₫</div>
+        <div class="text-gray-400 line-through text-sm">${p.flash_original.toLocaleString('vi-VN')}₫</div>
+      </div>
+      ${p.flash_stock > 0 ? `<div class="mt-2 text-xs text-orange-600">⚡ Chỉ còn ${p.flash_stock} sản phẩm</div>` : ''}
+    </div>
+  </a>`;
+}
+
+// ===================================================================
+// BESTSELLERS - Sản phẩm bán chạy
+// ===================================================================
+async function loadBestsellers() {
+  if (!bestWrap) return;
+  
+  try {
+    let data = await api('/products/bestsellers?limit=8');
+    let items = (data.items || data.products || data.data || []);
+    
+    if (items.length === 0) {
+      bestWrap.parentElement?.classList?.add('hidden');
+      return;
+    }
+    
+    bestWrap.parentElement?.classList?.remove('hidden');
+    bestWrap.innerHTML = items.map(card).join('');
+    await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
+    console.log('[BESTSELLERS] Loaded:', items.length, 'products');
+  } catch (e) {
+    console.error('[BESTSELLERS] Error:', e);
+    bestWrap.parentElement?.classList?.add('hidden');
+  }
+}
 // Banners (public) - ✅ FIXED RESPONSIVE
 async function loadBanners() { 
   if(!bannerWrap) return;
@@ -265,9 +427,28 @@ async function loadCategories(){
   window.__CATS = cats;
 }
 
-// New arrivals (last 8)
-async function loadNew(){ if(!newWrap) return; 
-  let data = await api('/public/products?limit=8');
+// New arrivals (newest products)
+async function loadNew() {
+  if (!newWrap) return;
+  
+  try {
+    let data = await api('/products/newest?limit=8');
+    let items = (data.items || data.products || data.data || []);
+    
+    if (items.length === 0) {
+      newWrap.parentElement?.classList?.add('hidden');
+      return;
+    }
+    
+    newWrap.parentElement?.classList?.remove('hidden');
+    newWrap.innerHTML = items.map(card).join('');
+    await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
+    console.log('[NEWEST] Loaded:', items.length, 'products');
+  } catch (e) {
+    console.error('[NEWEST] Error:', e);
+    newWrap.parentElement?.classList?.add('hidden');
+  }
+}
   if (!data || data.ok===false) data = await api('/products?limit=8');
   let items = (data.items || data.products || data.data || []);
   const now = Date.now();
@@ -512,7 +693,10 @@ filterInput?.addEventListener('input', renderAll);
 
 (async () => {
   try {
-    await loadBanners(); await loadCategories();
+    await loadBanners(); 
+    await loadCategories();
+    await loadFlashSale(); // ✅ THÊM
+    await loadBestsellers(); // ✅ THÊM
     await loadNew();
     await loadAll();
 

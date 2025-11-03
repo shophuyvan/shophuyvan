@@ -385,59 +385,43 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
 
         const rawItems = data.data || data.items || [];
         
-        // ✅ Cố định danh sách 4 providers: SPX, Lazada, J&T, Best
-        const PREFERRED_PROVIDERS = ['spx', 'lazada', 'jt', 'best'];
-        
+        // ✅ TÌM ĐƠN VỊ VẬN CHUYỂN GIÁ RẺ NHẤT
         const allItems = (Array.isArray(rawItems) ? rawItems : []).map((it: any) => ({
           provider: String(it.provider || '').toLowerCase(),
-          originalProvider: it.provider, // Giữ nguyên để gửi lên backend
+          originalProvider: it.provider,
           name: it.name || it.provider,
           service_code: it.service_code,
           fee: Number(it.fee || 0),
           eta: it.eta || 'Giao hàng tiêu chuẩn',
         }));
 
-        // Lọc chỉ lấy 4 providers ưu tiên
-        const items = PREFERRED_PROVIDERS.map(prefProvider => {
-          return allItems.find(item => {
-            const p = item.provider;
-            // Match: spx, spx express, shopee express
-            if (prefProvider === 'spx') {
-              return p.includes('spx') || p.includes('shopee');
-            }
-            // Match: lazada, lazada express
-            if (prefProvider === 'lazada') {
-              return p.includes('lazada');
-            }
-            // Match: jt, j&t, j&t express
-            if (prefProvider === 'jt') {
-              return p.includes('jt') || p.includes('j&t');
-            }
-            // Match: best, best express
-            if (prefProvider === 'best') {
-              return p.includes('best');
-            }
-            return false;
-          });
-        }).filter(Boolean); // Loại bỏ null/undefined
+        // Tìm item có phí thấp nhất
+        const cheapestItem = allItems.reduce((min, item) => 
+          (item.fee > 0 && item.fee < min.fee) ? item : min
+        , allItems[0] || { fee: Infinity });
+        
+        // Tạo 1 option duy nhất: "Vận chuyển nhanh" = giá rẻ nhất
+        const items = cheapestItem && cheapestItem.fee !== Infinity ? [{
+          ...cheapestItem,
+          name: 'Vận chuyển nhanh',
+          eta: 'HCM: 1-2 ngày | Miền Tây: 1-3 ngày | Miền Trung: 2-4 ngày | Miền Bắc: 3-5 ngày'
+        }] : [];
 
         if (!alive) return;
 
         setShippingList(items);
         
-        // Ưu tiên chọn SPX nếu có, không thì chọn item đầu
-        const spxItem = items.find(it => {
-          const p = it.provider;
-          return p.includes('spx') || p.includes('shopee');
-        });
-        setSelectedShipping(spxItem || items[0] || null);
+        // Tự động chọn option duy nhất
+        setSelectedShipping(items[0] || null);
+        
         if (items.length === 0) {
           setShippingError('Không có gói vận chuyển phù hợp. Vui lòng thử lại sau.');
         }
       } catch (e: any) {
         if (!alive) return;
         console.error('Get shipping quote error:', e);
-        setShippingList([]); setSelectedShipping(null);
+        setShippingList([]);
+        setSelectedShipping(null);
         setShippingError(e.message || 'Không lấy được phí vận chuyển. Vui lòng thử lại sau.');
       } finally {
         if (alive) setShippingLoading(false);
@@ -776,35 +760,26 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
               ) : shippingError ? (
                 <div className="text-sm text-red-600 py-4 text-center">{shippingError}</div>
               ) : shippingList.length > 0 ? (
-                <div className="space-y-2">
+                <div>
                   {shippingList.map((item, idx) => (
-                    <label
+                    <div
                       key={idx}
-                      className={`flex items-center justify-between border rounded-xl p-4 cursor-pointer transition-all ${
-                        selectedShipping?.provider === item.provider &&
-                        selectedShipping?.service_code === item.service_code
-                          ? 'border-rose-500 bg-rose-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
+                      className="border-2 border-rose-500 bg-rose-50 rounded-xl p-4"
                     >
-                      <div className="flex items-center gap-3 flex-1">
-                        <input
-                          type="radio"
-                          name="ship_opt"
-                          checked={
-                            selectedShipping?.provider === item.provider &&
-                            selectedShipping?.service_code === item.service_code
-                          }
-                          onChange={() => setSelectedShipping(item)}
-                          className="w-4 h-4 text-rose-600"
-                        />
-                        <div>
-                          <div className="font-semibold">{item.name}</div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl">🚚</span>
+                            <span className="font-bold text-gray-800 text-base">{item.name}</span>
+                          </div>
                           <div className="text-sm text-gray-600">{item.eta}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Được tối ưu từ {item.originalProvider || 'đơn vị vận chuyển'}
+                          </div>
                         </div>
+                        <div className="font-bold text-rose-600 text-xl ml-3">{fmtVND(item.fee)}</div>
                       </div>
-                      <div className="font-bold text-rose-600 text-lg">{fmtVND(item.fee)}</div>
-                    </label>
+                    </div>
                   ))}
                 </div>
               ) : (

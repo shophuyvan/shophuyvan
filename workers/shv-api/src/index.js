@@ -14,6 +14,7 @@ import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
 import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
+import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js'; // SỬA: THÊM HỦY & IN HÀNG LOẠT
 
@@ -208,10 +209,15 @@ export default {
         return costs.handle(req, env, ctx);
       }
 
+      // THÊM: Routes cho Flash Sale
+      if (path.startsWith('/flash-sales') ||
+          path.startsWith('/admin/flash-sales')) {
+        return flashSales.handle(req, env, ctx);
+      }
+
       // ============================================
       // ROOT ENDPOINTS
       // ============================================
-
       if (path === '/' || path === '') {
         return json({
           ok: true,
