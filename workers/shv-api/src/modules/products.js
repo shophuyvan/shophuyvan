@@ -658,10 +658,19 @@ async function upsertProduct(req, env) {
         const key = String(v?.id ?? v?.sku ?? '');
         const oldV = key ? oldVariantsMap.get(key) : null;
 
-        // Neu incoming khong co weight va old co weight -> giu weight cu
-        const w_gram = (v.weight_gram !== undefined && v.weight_gram !== null && v.weight_gram !== 0)
-          ? v.weight_gram
-          : (oldV?.weight_gram || oldV?.weight_grams || oldV?.weight || 0);
+        // FIX: Nhan ca weight va weight_gram tu frontend
+        // Uu tien: weight_gram > weight > gia tri cu
+        let w_gram = 0;
+        
+        // Buoc 1: Lay gia tri moi tu incoming (uu tien weight_gram, roi moi den weight)
+        if (v.weight_gram !== undefined && v.weight_gram !== null && v.weight_gram !== 0) {
+          w_gram = v.weight_gram;
+        } else if (v.weight !== undefined && v.weight !== null && v.weight !== 0) {
+          w_gram = v.weight;
+        } else if (oldV) {
+          // Buoc 2: Neu khong co gia tri moi thi giu gia tri cu
+          w_gram = oldV.weight_gram || oldV.weight_grams || oldV.weight || 0;
+        }
 
         return {
           ...v,
