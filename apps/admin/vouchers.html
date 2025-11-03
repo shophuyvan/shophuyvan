@@ -196,11 +196,13 @@ h3 {
 <div id="form-freeship" class="card" style="display: none;">
   <h3 style="margin: 0 0 16px 0; color: #059669; font-size: 16px;">🚚 Tạo Voucher Miễn Ship Tự Động</h3>
   
+  <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+    <p style="margin: 0; font-size: 13px; color: #065f46;">
+      ℹ️ <strong>Chương trình miễn ship tự động:</strong> Không cần nhập mã voucher. Khi khách hàng đặt đơn đủ điều kiện (đơn tối thiểu + trong thời gian) sẽ tự động được miễn phí ship.
+    </p>
+  </div>
+  
   <div class="row">
-    <div class="col" style="flex: 1; min-width: 200px;">
-      <label>Mã voucher <span style="color: red;">*</span></label>
-      <input id="code-freeship" class="input" placeholder="VD: FREESHIP150"/>
-    </div>
     <div class="col" style="flex: 1; min-width: 150px;">
       <label>Đơn tối thiểu (đ) <span style="color: red;">*</span></label>
       <input id="min-purchase-freeship" class="input" type="number" min="0" placeholder="150000"/>
@@ -362,7 +364,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Save Freeship Voucher
   $('#save-freeship').onclick = async () => {
-    const code = $('#code-freeship').value.trim();
     const min_purchase = Number($('#min-purchase-freeship').value || 0);
     const on = $('#on-freeship').value === 'true';
     const usage_limit_per_user = parseInt($('#usage-per-user-freeship').value || '1');
@@ -370,10 +371,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const starts_at_input = $('#starts-freeship').value;
     const expires_at_input = $('#expires-freeship').value;
 
-    if (!code) {
-      alert('Vui lòng nhập mã voucher');
-      return;
-    }
     if (min_purchase <= 0) {
       alert('Vui lòng nhập số tiền điều kiện miễn ship hợp lệ (lớn hơn 0)');
       return;
@@ -387,8 +384,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    // Tự động tạo mã voucher dựa trên điều kiện
+    const autoCode = `FREESHIP${Math.floor(min_purchase / 1000)}K_${Date.now()}`;
+
     const body = {
-      code,
+      code: autoCode,
       on,
       voucher_type: 'auto_freeship',
       off: 0,
@@ -407,8 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       if (r && r.ok) {
-        Admin.toast('✅ Đã lưu voucher miễn ship');
-        $('#code-freeship').value = '';
+        Admin.toast('✅ Đã tạo chương trình miễn ship tự động');
         $('#min-purchase-freeship').value = '';
         $('#starts-freeship').value = '';
         $('#expires-freeship').value = '';
