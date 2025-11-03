@@ -91,6 +91,20 @@ const ProductSkeleton = () => (
     <div className="h-4 bg-gray-200 rounded w-2/3"></div>
   </div>
 );
+// [SHV] Test API Mini App → gọi https://api.shophuyvan.vn/mini/ping
+const testMiniApi = async () => {
+  try {
+    console.log("[TestMiniAPI] Gọi https://api.shophuyvan.vn/mini/ping ...");
+    const res = await fetch("https://api.shophuyvan.vn/mini/ping");
+    const data = await res.json();
+    console.log("[TestMiniAPI] Kết quả:", data);
+    alert("API OK: " + JSON.stringify(data));
+  } catch (err) {
+    console.error("[TestMiniAPI] Lỗi:", err);
+    alert("API lỗi, mở console để xem chi tiết");
+  }
+};
+
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]);
@@ -257,6 +271,15 @@ export default function Home() {
     </div>
   )}
 </section>
+     {/* [SHV] Nút test API Mini */}
+      <section className="safe-x mt-3">
+        <button
+          className="w-full px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium shadow"
+          onClick={testMiniApi}
+        >
+          Test API Mini (api.shophuyvan.vn/mini/ping)
+        </button>
+      </section>
 
       {/* Card kích hoạt */}
 <section className="safe-x mt-3">
