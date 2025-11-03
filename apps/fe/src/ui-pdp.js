@@ -45,32 +45,83 @@ function num(x) {
 }
 
 async function pricePair(o, customerType = null) {
-  // ✅ Nếu chưa truyền customerType, tự động lấy
+  // ✅ Lấy thông tin customer nếu chưa có
+  let customer = null;
   if (!customerType) {
-    const customer = await getCustomerInfo();
+    customer = await getCustomerInfo();
     customerType = customer?.customer_type || 'retail';
   }
   
-  // ✅ Ưu tiên giá sỉ nếu là khách sỉ
-  if (customerType === 'wholesale') {
-    const wholesale = num(o?.price_wholesale ?? 0);
-    if (wholesale > 0) {
-      return { base: wholesale, original: null, isWholesale: true };
+  // ✅ HÀM PHỤ: Lấy giá base từ object
+  function getBasePrice(obj) {
+    const sale = num(obj?.sale_price ?? obj?.price_sale ?? obj?.sale ?? 0);
+    const price = num(obj?.price ?? obj?.regular_price ?? obj?.base_price ?? 0);
+    
+    if (sale > 0) {
+      return { base: sale, original: price > sale ? price : null };
+    }
+    if (price > 0) {
+      return { base: price, original: null };
+    }
+    return { base: 0, original: null };
+  }
+  
+  // ✅ 1. ƯU TIÊN: GIÁ SỈ (wholesale)
+  if (customerType === 'wholesale' || customerType === 'si') {
+    const wholesalePrice = num(o?.wholesale_price ?? o?.price_wholesale ?? 0);
+    
+    if (wholesalePrice > 0) {
+      const basePrice = getBasePrice(o);
+      return {
+        base: wholesalePrice,
+        original: basePrice.base > wholesalePrice ? basePrice.base : null,
+        isWholesale: true,
+        tier: customer?.tier || 'retail',
+        customer_type: customerType
+      };
     }
   }
   
-  // ✅ Giá bán lẻ (mặc định)
-  const sale = num(o?.sale_price ?? o?.price_sale ?? o?.sale ?? 0);
-  const reg = num(o?.price ?? o?.regular_price ?? o?.base_price ?? 0);
+  // ✅ 2. GIÁ THEO HẠNG THÀNH VIÊN (tier discount)
+  const basePrice = getBasePrice(o);
+  const tier = customer?.tier || customerType === 'wholesale' ? 'retail' : 'retail';
   
-  if (sale > 0) {
-    return { base: sale, original: reg > 0 ? reg : null, isWholesale: false };
+  const tierMap = {
+    'retail': 0,
+    'silver': 3,
+    'gold': 5,
+    'diamond': 8
+  };
+  
+  const discountPercent = tierMap[tier] || 0;
+  
+  if (discountPercent > 0 && basePrice.base > 0) {
+    const discountAmount = basePrice.base * (discountPercent / 100);
+    const discountedBase = Math.floor(basePrice.base - discountAmount);
+    
+    let original = basePrice.original;
+    if (!original && discountedBase < basePrice.base) {
+      original = basePrice.base;
+    }
+    
+    return {
+      base: discountedBase,
+      original: original,
+      isWholesale: false,
+      tier: tier,
+      customer_type: customerType,
+      discount: discountPercent
+    };
   }
-  if (reg > 0) {
-    return { base: reg, original: null, isWholesale: false };
-  }
-  const any = num(o?.base ?? o?.min_price ?? 0);
-  return { base: any, original: null, isWholesale: false };
+  
+  // ✅ 3. FALLBACK: GIÁ BÁN LẺ (không giảm)
+  return {
+    base: basePrice.base,
+    original: basePrice.original,
+    isWholesale: false,
+    tier: tier,
+    customer_type: customerType
+  };
 }
 
 function cloudify(u, t = 'w_1200,dpr_auto,q_auto,f_auto') {
@@ -359,10 +410,17 @@ async function renderPriceStock() {
         ? formatPrice(minBase) 
         : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
       
-      // ✅ Thêm badge nếu là giá sỉ
-      const badge = (customerType === 'wholesale' && pairs.some(p => p.isWholesale))
-        ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
-        : '';
+      // ✅ Thêm badge theo loại giá
+      let badge = '';
+      const firstPair = pairs[0] || {};
+      
+      if (firstPair.isWholesale && firstPair.original) {
+        badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
+      } else if (firstPair.discount > 0) {
+        const tierIcons = { 'silver': '🥈', 'gold': '🥇', 'diamond': '💎' };
+        const icon = tierIcons[firstPair.tier] || '';
+        badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${firstPair.discount}%</span>`;
+      }
       
       priceSaleEl.innerHTML = baseText + badge;
       
@@ -388,10 +446,16 @@ async function renderPriceStock() {
     const priceData = await pricePair(src || {}, customerType);
     const { base, original, isWholesale } = priceData;
     
-    // ✅ Thêm badge nếu là giá sỉ
-    const badge = (isWholesale)
-      ? '<span style="background:#fbbf24;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">GIÁ SỈ</span>'
-      : '';
+    // ✅ Thêm badge theo loại giá
+    let badge = '';
+    
+    if (isWholesale && original) {
+      badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
+    } else if (priceData.discount > 0) {
+      const tierIcons = { 'silver': '🥈', 'gold': '🥇', 'diamond': '💎' };
+      const icon = tierIcons[priceData.tier] || '';
+      badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${priceData.discount}%</span>`;
+    }
     
     priceSaleEl.innerHTML = formatPrice(+base || 0) + badge;
     
