@@ -183,9 +183,9 @@ function cardFlash(p) {
   
   const discountPercent = Math.round((1 - p.flash_price / p.flash_original) * 100);
   
-  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-gradient-to-br from-red-50 to-orange-50 border-red-200" data-card-id="${encodeURIComponent(id)}">
-    <div class="relative">
-      <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
+  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-gradient-to-br from-red-50 to-orange-50 border-red-200 hover:shadow-lg transition-shadow" data-card-id="${encodeURIComponent(id)}">
+    <div class="relative w-full" style="padding-bottom:100%;overflow:hidden;">
+      <img src="${img}" class="absolute top-0 left-0 w-full h-full object-cover object-center" alt="${p.title||p.name||''}" loading="lazy"/>
       <div class="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold">
         -${discountPercent}%
       </div>
@@ -665,17 +665,19 @@ function card(p){
     priceHtml = '<b class="text-rose-600">...</b>';
   }
   
-  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white" data-card-id="${encodeURIComponent(id)}">
-    <img src="${img}" class="w-full h-48 object-cover" alt="${p.title||p.name||''}"/>
+  return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white hover:shadow-lg transition-shadow" data-card-id="${encodeURIComponent(id)}">
+    <div class="relative w-full" style="padding-bottom:100%;overflow:hidden;">
+      <img src="${img}" class="absolute top-0 left-0 w-full h-full object-cover object-center" alt="${p.title||p.name||''}" loading="lazy"/>
+    </div>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
       <div class="mt-1 text-blue-600 price js-price" data-id="${id}">
         ${priceHtml}
       </div>
-    </div>
-    <div class="mt-1 flex items-center gap-3 text-sm text-gray-600">
-	<span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
-    <span class="js-sold"   data-id="${id}">Đã bán 0</span>
+      <div class="mt-1 flex items-center gap-3 text-xs text-gray-600">
+        <span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
+        <span class="js-sold"   data-id="${id}">Đã bán 0</span>
+      </div>
     </div>
   </a>`;
 }
