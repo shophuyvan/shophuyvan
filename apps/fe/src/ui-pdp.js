@@ -45,10 +45,9 @@ function num(x) {
 }
 
 async function pricePair(o, customerType = null) {
-  // ✅ Lấy thông tin customer nếu chưa có
-  let customer = null;
+  // ✅ LUÔN lấy thông tin customer để đọc tier
+  const customer = await getCustomerInfo();
   if (!customerType) {
-    customer = await getCustomerInfo();
     customerType = customer?.customer_type || 'retail';
   }
   
@@ -85,13 +84,8 @@ async function pricePair(o, customerType = null) {
   // ✅ 2. GIÁ THEO HẠNG THÀNH VIÊN (tier discount)
   const basePrice = getBasePrice(o);
   
-  // 🔧 SỬA LỖI: Lấy đúng tier từ customer, không hardcode 'retail'
-  let tier = 'retail';
-  if (customer?.tier) {
-    tier = customer.tier;
-  } else if (customerType !== 'wholesale' && customerType !== 'si') {
-    tier = 'retail';
-  }
+  // 🔧 SỬA LỖI: Đọc tier từ customer đã load ở trên
+  const tier = customer?.tier || 'retail';
   
   const tierMap = {
     'retail': 0,
