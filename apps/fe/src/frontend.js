@@ -89,7 +89,7 @@ async function loadBanners() {
   
   feItems.forEach(b => {
     const d = document.createElement('div');
-    d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
+    d.style.cssText = 'position:relative;min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
     
     // ✅ Sử dụng cloudifyBanner thay vì cloudify
     // ✅ Chọn ảnh theo device
@@ -103,9 +103,10 @@ async function loadBanners() {
     const imgHtml = `<img 
       src="${optimizedUrl}" 
       alt="${b.alt||'banner'}" 
-      data-original-src="${b.image||b.url}"
-      style="width:100%;height:100%;object-fit:cover;object-position:center;"
-      loading="${items.indexOf(b)===0?'eager':'lazy'}"
+      data-original-src="${imageUrl}"
+      data-banner-id="${b.id || ''}"
+      style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center;"
+      loading="${feItems.indexOf(b)===0?'eager':'lazy'}"
     />`;
     
     d.innerHTML = b.link 
@@ -122,7 +123,7 @@ async function loadBanners() {
     dotsContainer = document.createElement('div');
     dotsContainer.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;';
     
-    feItems.forEach(b => {
+feItems.forEach((b, i) => {
       const dot = document.createElement('div');
       dot.className = 'banner-dot';
       dot.dataset.index = i;
@@ -192,20 +193,20 @@ async function loadBanners() {
     // Click vào nút prev/next
     if (window._bannerNavBtns) {
       window._bannerNavBtns.prevBtn.onclick = () => {
-        goToSlide((idx - 1 + items.length) % items.length);
+        goToSlide((idx - 1 + feItems.length) % feItems.length);
       };
       window._bannerNavBtns.nextBtn.onclick = () => {
-        goToSlide((idx + 1) % items.length);
+        goToSlide((idx + 1) % feItems.length);
       };
     }
     
     // Auto slide mỗi 3.5s
     setInterval(() => {
-      goToSlide((idx + 1) % items.length);
+      goToSlide((idx + 1) % feItems.length);
     }, 3500);
   }
   
-  // ✅ Resize handler - tự động cập nhật kích thước
+// ✅ Resize handler - tự động cập nhật kích thước VÀ reload ảnh theo device
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -213,13 +214,22 @@ async function loadBanners() {
       const size = getOptimalBannerSize();
       bannerWrap.style.paddingBottom = size.paddingBottom;
       
-      // Reload ảnh banner
-      const img = bannerWrap.querySelector('img');
-      if (img) {
-        const originalSrc = img.getAttribute('data-original-src');
-        if (originalSrc) {
-          img.src = cloudifyBanner(originalSrc);
-        }
+      // Reload TẤT CẢ ảnh banner theo device mới
+      const track = document.getElementById('banner-track');
+      if (track && feItems) {
+        const allImages = track.querySelectorAll('img');
+        const isMobile = window.innerWidth < 768;
+        
+        allImages.forEach((img, idx) => {
+          if (feItems[idx]) {
+            const banner = feItems[idx];
+            const imageUrl = isMobile 
+              ? (banner.image_mobile || banner.image || banner.url)
+              : (banner.image_desktop || banner.image || banner.url);
+            img.src = cloudifyBanner(imageUrl);
+            img.setAttribute('data-original-src', imageUrl);
+          }
+        });
       }
     }, 200);
   });
@@ -631,7 +641,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const wrap = document.getElementById('banner-wrap') || banner?.querySelector('.grid');
     if(!banner) return;
     banner.style.overflow='hidden';
-    let ratio = 9/16;
+    
+    // ✅ Tách ratio theo device
+    function getDeviceRatio() {
+      const isMobile = window.innerWidth < 768;
+      return isMobile ? 2/3 : 5/16; // Mobile: 720/1080, Desktop: 600/1920
+    }
+    
+    let ratio = getDeviceRatio();
     function reflow(){
       const w = banner.clientWidth || window.innerWidth;
       const h = Math.max(180, Math.min(520, Math.round(w*ratio)));
@@ -646,7 +663,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     }
     reflow(); fitMedia();
-    window.addEventListener('resize', ()=>{ reflow(); fitMedia(); });
+    window.addEventListener('resize', ()=>{ 
+      ratio = getDeviceRatio(); // ✅ Cập nhật ratio khi resize
+      reflow(); 
+      fitMedia(); 
+    });
   })();
 
   (function(){
