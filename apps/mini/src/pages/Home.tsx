@@ -110,10 +110,10 @@ export default function Home() {
   useEffect(() => {
     const loadBanners = async () => {
       try {
-        const res = await api.get('/banners'); // hoặc api.banners.list() nếu có sẵn
+        const res = await api.get('/banners?platform=mini');
         const data = res?.items || res?.data || [];
         const activeMini = data.filter(
-          (b: any) => b.platform === 'mini' && b.on !== false
+          (b: any) => (!b.platform || b.platform === 'mini') && b.on !== false
         );
         setBanners(activeMini);
         console.log('✅ Loaded Mini Banners:', activeMini.length);
@@ -210,9 +210,9 @@ export default function Home() {
 
       {/* Banner */}
       {/* Banner Slide động từ API */}
-<section className="safe-x pt-3">
-  {banners && banners.length > 0 ? (
-    <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/9]">
+       <section className="safe-x pt-3">
+      {banners && banners.length > 0 ? (
+      <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[3/2]">
       <div
         className="flex transition-transform duration-700 ease-in-out"
         style={{

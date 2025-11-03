@@ -93,6 +93,16 @@ async function upsertBanner(req, env) {
   try {
     const banner = await readBody(req) || {};
     banner.id = banner.id || crypto.randomUUID().replace(/-/g, '');
+    
+    // ✅ Xử lý banner FE (có cả desktop & mobile)
+    if (banner.platform === 'fe' && banner.image_desktop && banner.image_mobile) {
+      banner.image = banner.image_mobile; // Default image
+    }
+    
+    // ✅ Xử lý banner Mini (chỉ mobile)
+    if (banner.platform === 'mini' && banner.image) {
+      // Đã có image, không cần xử lý gì thêm
+    }
 
     const list = await getJSON(env, 'banners:list', []);
     const index = list.findIndex(b => b.id === banner.id);

@@ -9,17 +9,17 @@ function getOptimalBannerSize() {
   
   if (isMobile) {
     return {
-      width: 800,
-      height: 600,
-      aspectRatio: '4:3',
-      paddingBottom: '75%'
+      width: 1080,
+      height: 720,
+      aspectRatio: '3:2',
+      paddingBottom: '66.67%' // 720/1080 = 0.6667
     };
   } else {
     return {
-      width: 1600,
-      height: 900,
-      aspectRatio: '16:9',
-      paddingBottom: '42.5%'
+      width: 1920,
+      height: 600,
+      aspectRatio: '16:5',
+      paddingBottom: '31.25%' // 600/1920 = 0.3125
     };
   }
 }
@@ -67,9 +67,12 @@ let allCache = [];
 async function loadBanners() { 
   if(!bannerWrap) return;
   
-  let data = await api('/banners');
-  if (!data || data.ok===false) data = await api('/public/banners');
+  let data = await api('/banners?platform=fe');
+  if (!data || data.ok===false) data = await api('/public/banners?platform=fe');
   const items = (data && (data.items || data.banners || data.data)) || [];
+  
+  // ✅ Lọc chỉ banner FE
+  const feItems = items.filter(b => !b.platform || b.platform === 'fe');
   
   // ✅ Tạo container với aspect ratio cố định
   bannerWrap.style.overflow='hidden';
@@ -84,12 +87,18 @@ async function loadBanners() {
   
   const track = document.getElementById('banner-track');
   
-  items.forEach(b => {
+  feItems.forEach(b => {
     const d = document.createElement('div');
     d.style.cssText = 'min-width:100%;width:100%;height:100%;overflow:hidden;border-radius:12px;';
     
     // ✅ Sử dụng cloudifyBanner thay vì cloudify
-    const optimizedUrl = cloudifyBanner(b.image || b.url);
+    // ✅ Chọn ảnh theo device
+    const isMobile = window.innerWidth < 768;
+    const imageUrl = isMobile 
+      ? (b.image_mobile || b.image || b.url)
+      : (b.image_desktop || b.image || b.url);
+    
+    const optimizedUrl = cloudifyBanner(imageUrl);
     
     const imgHtml = `<img 
       src="${optimizedUrl}" 
@@ -113,7 +122,7 @@ async function loadBanners() {
     dotsContainer = document.createElement('div');
     dotsContainer.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;';
     
-    items.forEach((_, i) => {
+    feItems.forEach(b => {
       const dot = document.createElement('div');
       dot.className = 'banner-dot';
       dot.dataset.index = i;

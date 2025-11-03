@@ -7,8 +7,11 @@
   <link rel="stylesheet" href="./styles.css"/>
   <script src="./admin_real.js?v=26"></script>
   <script src="./sidebar-layout.js"></script>
-  <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
-  <link rel="dns-prefetch" href="//res.cloudinary.com">
+  
+  <!-- Cropper.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  
   <style>
     .banner-tabs {
       display: flex;
@@ -40,68 +43,55 @@
     .banner-section.active {
       display: block;
     }
-    .size-guide {
-      background: #f0f9ff;
-      border: 1px solid #0ea5e9;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-    }
-    .size-guide h4 {
-      margin: 0 0 8px 0;
-      color: #0369a1;
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .size-guide p {
-      margin: 4px 0;
-      font-size: 13px;
-      color: #075985;
-    }
-    .size-guide strong {
-      color: #0c4a6e;
-    }
-    .device-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 15px;
-    }
-    .device-tab {
-      padding: 8px 16px;
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-    .device-tab:hover {
-      background: #e5e7eb;
-    }
-    .device-tab.active {
-      background: #059669;
-      color: white;
-      border-color: #059669;
-    }
-    .device-content {
+    
+    /* Crop Modal */
+    .crop-modal {
       display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      padding: 20px;
     }
-    .device-content.active {
-      display: block;
+    .crop-modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .preview-container {
-      margin-top: 15px;
-      padding: 15px;
-      background: #f9fafb;
-      border-radius: 8px;
+    .crop-container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 95vw;
+      max-height: 95vh;
+      overflow: auto;
     }
-    .preview-container img {
+    .crop-area {
       max-width: 100%;
-      height: auto;
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-height: 60vh;
     }
+    .crop-preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .preview-box {
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .preview-box h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #374151;
+    }
+    .preview-box img {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+    
     .form-group {
       margin-bottom: 15px;
     }
@@ -139,18 +129,6 @@
       gap: 15px;
       align-items: start;
     }
-    .banner-details {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .banner-meta {
-      font-size: 13px;
-      color: #6b7280;
-    }
-    .banner-meta strong {
-      color: #374151;
-    }
     .status-badge {
       display: inline-block;
       padding: 4px 10px;
@@ -169,7 +147,38 @@
   </style>
 </head>
 <body>
-<!-- Tab chọn platform -->
+
+<!-- Crop Modal -->
+<div id="crop-modal" class="crop-modal">
+  <div class="crop-container">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+      <h3 id="crop-title">Crop Banner</h3>
+      <button id="crop-close" class="btn" style="background:#ef4444;color:white;">✕ Đóng</button>
+    </div>
+    
+    <div>
+      <img id="crop-image" class="crop-area" src="" alt="Crop">
+    </div>
+    
+    <div class="crop-preview-grid">
+      <div class="preview-box">
+        <h4>🖥️ Preview Desktop</h4>
+        <div id="preview-desktop" style="width:100%;aspect-ratio:16/5;background:#f3f4f6;border-radius:4px;overflow:hidden;"></div>
+      </div>
+      <div class="preview-box">
+        <h4>📱 Preview Mobile</h4>
+        <div id="preview-mobile" style="width:100%;aspect-ratio:3/2;background:#f3f4f6;border-radius:4px;overflow:hidden;"></div>
+      </div>
+    </div>
+    
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button id="crop-save" class="btn primary" style="flex:1;">💾 Lưu & Upload</button>
+      <button id="crop-cancel" class="btn">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Platform Tabs -->
 <div class="banner-tabs">
   <button class="banner-tab active" data-platform="fe">
     🌐 Banner Trang Web (FE)
@@ -184,138 +193,60 @@
   <div class="card">
     <h3>Thêm Banner Trang Web</h3>
     
-    <div class="device-tabs">
-      <button class="device-tab active" data-device="pc">💻 Desktop</button>
-      <button class="device-tab" data-device="mobile">📱 Mobile</button>
+    <div class="form-group">
+      <label>📁 Upload ảnh gốc (sẽ crop thành Desktop + Mobile)</label>
+      <input id="fe-file" type="file" accept="image/*" class="input"/>
+      <small style="color:#6b7280;">Khuyến nghị: Ảnh tỉ lệ ngang, kích thước tối thiểu 1920x1080px</small>
     </div>
 
-    <!-- PC Form -->
-    <div class="device-content active" id="fe-pc">
-      <div class="size-guide">
-        <h4>📏 Kích thước chuẩn cho Desktop</h4>
-        <p><strong>Khuyến nghị:</strong> 1920x600 px (tỷ lệ 16:5)</p>
-        <p><strong>Tối thiểu:</strong> 1200x400 px</p>
-        <p><strong>Định dạng:</strong> JPG, PNG, WebP</p>
-      </div>
-
+    <div id="fe-images" style="display:none;">
       <div class="form-group">
-        <label>Ảnh Banner (URL)</label>
-        <input id="fe-pc-img" class="input" placeholder="https://..."/>
+        <label>🖥️ Desktop URL (1920x600)</label>
+        <input id="fe-desktop-url" class="input" readonly/>
       </div>
-
       <div class="form-group">
-        <label>Hoặc Upload ảnh</label>
-        <input id="fe-pc-file" type="file" accept="image/*"/>
-        <button class="btn" data-upload="fe-pc">Upload</button>
+        <label>📱 Mobile URL (1080x720)</label>
+        <input id="fe-mobile-url" class="input" readonly/>
       </div>
-
-      <div class="form-group">
-        <label>Thứ tự hiển thị</label>
-        <input id="fe-pc-order" type="number" value="0" class="input"/>
-      </div>
-      
-      <div class="form-group">
-        <label>Loại banner</label>
-        <select id="fe-pc-type" class="input">
-          <option value="fe_banner" selected>Banner thường (FE)</option>
-          <option value="category_hero">Category Hero</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
-        <label>Category Slug (dùng khi chọn Category Hero)</label>
-        <input id="fe-pc-cat" class="input" placeholder="ví dụ: thiet-bi-dien-nuoc"/>
-      </div>
-
-      <div class="form-group">
-        <label>Mô tả ảnh (ALT)</label>
-        <input id="fe-pc-alt" class="input" placeholder="Banner khuyến mãi..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Liên kết (URL đích khi click)</label>
-        <input id="fe-pc-link" class="input" placeholder="https://..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Trạng thái</label>
-        <select id="fe-pc-on" class="input">
-          <option value="true">ON - Hiển thị</option>
-          <option value="false">OFF - Ẩn</option>
-        </select>
-      </div>
-
-      <div id="fe-pc-preview" class="preview-container" style="display:none">
-        <h4>Preview:</h4>
-        <img src="" alt="Preview">
-      </div>
-
-      <button class="btn primary" data-save="fe-pc">💾 Lưu Banner PC</button>
     </div>
 
-    <!-- Mobile Form -->
-    <div class="device-content" id="fe-mobile">
-      <div class="size-guide">
-        <h4>📏 Kích thước chuẩn cho Mobile</h4>
-        <p><strong>Khuyến nghị:</strong> 750x400 px (tỷ lệ 15:8)</p>
-        <p><strong>Tối thiểu:</strong> 600x320 px</p>
-        <p><strong>Định dạng:</strong> JPG, PNG, WebP</p>
-      </div>
-
-      <div class="form-group">
-        <label>Ảnh Banner (URL)</label>
-        <input id="fe-mobile-img" class="input" placeholder="https://..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Hoặc Upload ảnh</label>
-        <input id="fe-mobile-file" type="file" accept="image/*"/>
-        <button class="btn" data-upload="fe-mobile">Upload</button>
-      </div>
-
-      <div class="form-group">
-        <label>Thứ tự hiển thị</label>
-        <input id="fe-mobile-order" type="number" value="0" class="input"/>
-      </div>
-      
-      <div class="form-group">
-        <label>Loại banner</label>
-        <select id="fe-mobile-type" class="input">
-          <option value="fe_banner" selected>Banner thường (FE)</option>
-          <option value="category_hero">Category Hero</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
-        <label>Category Slug (dùng khi chọn Category Hero)</label>
-        <input id="fe-mobile-cat" class="input" placeholder="ví dụ: thiet-bi-dien-nuoc"/>
-      </div>
-
-      <div class="form-group">
-        <label>Mô tả ảnh (ALT)</label>
-        <input id="fe-mobile-alt" class="input" placeholder="Banner khuyến mãi..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Liên kết (URL đích khi click)</label>
-        <input id="fe-mobile-link" class="input" placeholder="https://..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Trạng thái</label>
-        <select id="fe-mobile-on" class="input">
-          <option value="true">ON - Hiển thị</option>
-          <option value="false">OFF - Ẩn</option>
-        </select>
-      </div>
-
-      <div id="fe-mobile-preview" class="preview-container" style="display:none">
-        <h4>Preview:</h4>
-        <img src="" alt="Preview">
-      </div>
-
-      <button class="btn primary" data-save="fe-mobile">💾 Lưu Banner Mobile</button>
+    <div class="form-group">
+      <label>Thứ tự hiển thị</label>
+      <input id="fe-order" type="number" value="0" class="input"/>
     </div>
+    
+    <div class="form-group">
+      <label>Loại banner</label>
+      <select id="fe-type" class="input">
+        <option value="fe_banner" selected>Banner thường (FE)</option>
+        <option value="category_hero">Category Hero</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label>Category Slug (dùng khi chọn Category Hero)</label>
+      <input id="fe-cat" class="input" placeholder="ví dụ: thiet-bi-dien-nuoc"/>
+    </div>
+
+    <div class="form-group">
+      <label>Mô tả ảnh (ALT)</label>
+      <input id="fe-alt" class="input" placeholder="Banner khuyến mãi..."/>
+    </div>
+
+    <div class="form-group">
+      <label>Liên kết (URL đích khi click)</label>
+      <input id="fe-link" class="input" placeholder="https://..."/>
+    </div>
+
+    <div class="form-group">
+      <label>Trạng thái</label>
+      <select id="fe-on" class="input">
+        <option value="true">ON - Hiển thị</option>
+        <option value="false">OFF - Ẩn</option>
+      </select>
+    </div>
+
+    <button class="btn primary" id="fe-save">💾 Lưu Banner FE</button>
   </div>
 
   <h3>Danh sách Banner Trang Web</h3>
@@ -327,114 +258,45 @@
 <!-- Banner Mini Section -->
 <div class="banner-section" id="section-mini">
   <div class="card">
-    <h3>Thêm Banner Mini App</h3>
+    <h3>Thêm Banner Mini App (Mobile Only)</h3>
     
-    <div class="device-tabs">
-      <button class="device-tab active" data-device="mini-pc">💻 Desktop</button>
-      <button class="device-tab" data-device="mini-mobile">📱 Mobile</button>
+    <div class="form-group">
+      <label>📁 Upload ảnh Mobile (1080x720)</label>
+      <input id="mini-file" type="file" accept="image/*" class="input"/>
+      <small style="color:#6b7280;">Khuyến nghị: Ảnh tỉ lệ 3:2, kích thước tối thiểu 1080x720px</small>
     </div>
 
-    <!-- Mini PC Form -->
-    <div class="device-content active" id="mini-pc">
-      <div class="size-guide">
-        <h4>📏 Kích thước chuẩn cho Mini App Desktop</h4>
-        <p><strong>Khuyến nghị:</strong> 1200x400 px (tỷ lệ 3:1)</p>
-        <p><strong>Tối thiểu:</strong> 900x300 px</p>
-        <p><strong>Định dạng:</strong> JPG, PNG, WebP</p>
-      </div>
-
+    <div id="mini-images" style="display:none;">
       <div class="form-group">
-        <label>Ảnh Banner (URL)</label>
-        <input id="mini-pc-img" class="input" placeholder="https://..."/>
+        <label>📱 Mobile URL</label>
+        <input id="mini-mobile-url" class="input" readonly/>
       </div>
-
-      <div class="form-group">
-        <label>Hoặc Upload ảnh</label>
-        <input id="mini-pc-file" type="file" accept="image/*"/>
-        <button class="btn" data-upload="mini-pc">Upload</button>
-      </div>
-
-      <div class="form-group">
-        <label>Thứ tự hiển thị</label>
-        <input id="mini-pc-order" type="number" value="0" class="input"/>
-      </div>
-
-      <div class="form-group">
-        <label>Mô tả ảnh (ALT)</label>
-        <input id="mini-pc-alt" class="input" placeholder="Banner khuyến mãi..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Liên kết (URL đích khi click)</label>
-        <input id="mini-pc-link" class="input" placeholder="/product/..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Trạng thái</label>
-        <select id="mini-pc-on" class="input">
-          <option value="true">ON - Hiển thị</option>
-          <option value="false">OFF - Ẩn</option>
-        </select>
-      </div>
-
-      <div id="mini-pc-preview" class="preview-container" style="display:none">
-        <h4>Preview:</h4>
-        <img src="" alt="Preview">
-      </div>
-
-      <button class="btn primary" data-save="mini-pc">💾 Lưu Banner PC</button>
     </div>
 
-    <!-- Mini Mobile Form -->
-    <div class="device-content" id="mini-mobile">
-      <div class="size-guide">
-        <h4>📏 Kích thước chuẩn cho Mini App Mobile</h4>
-        <p><strong>Khuyến nghị:</strong> 750x300 px (tỷ lệ 5:2)</p>
-        <p><strong>Tối thiểu:</strong> 600x240 px</p>
-        <p><strong>Định dạng:</strong> JPG, PNG, WebP</p>
-      </div>
-
-      <div class="form-group">
-        <label>Ảnh Banner (URL)</label>
-        <input id="mini-mobile-img" class="input" placeholder="https://..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Hoặc Upload ảnh</label>
-        <input id="mini-mobile-file" type="file" accept="image/*"/>
-        <button class="btn" data-upload="mini-mobile">Upload</button>
-      </div>
-
-      <div class="form-group">
-        <label>Thứ tự hiển thị</label>
-        <input id="mini-mobile-order" type="number" value="0" class="input"/>
-      </div>
-
-      <div class="form-group">
-        <label>Mô tả ảnh (ALT)</label>
-        <input id="mini-mobile-alt" class="input" placeholder="Banner khuyến mãi..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Liên kết (URL đích khi click)</label>
-        <input id="mini-mobile-link" class="input" placeholder="/product/..."/>
-      </div>
-
-      <div class="form-group">
-        <label>Trạng thái</label>
-        <select id="mini-mobile-on" class="input">
-          <option value="true">ON - Hiển thị</option>
-          <option value="false">OFF - Ẩn</option>
-        </select>
-      </div>
-
-      <div id="mini-mobile-preview" class="preview-container" style="display:none">
-        <h4>Preview:</h4>
-        <img src="" alt="Preview">
-      </div>
-
-      <button class="btn primary" data-save="mini-mobile">💾 Lưu Banner Mobile</button>
+    <div class="form-group">
+      <label>Thứ tự hiển thị</label>
+      <input id="mini-order" type="number" value="0" class="input"/>
     </div>
+
+    <div class="form-group">
+      <label>Mô tả ảnh (ALT)</label>
+      <input id="mini-alt" class="input" placeholder="Banner khuyến mãi..."/>
+    </div>
+
+    <div class="form-group">
+      <label>Liên kết (URL đích khi click)</label>
+      <input id="mini-link" class="input" placeholder="/product/..."/>
+    </div>
+
+    <div class="form-group">
+      <label>Trạng thái</label>
+      <select id="mini-on" class="input">
+        <option value="true">ON - Hiển thị</option>
+        <option value="false">OFF - Ẩn</option>
+      </select>
+    </div>
+
+    <button class="btn primary" id="mini-save">💾 Lưu Banner Mini</button>
   </div>
 
   <h3>Danh sách Banner Mini App</h3>
@@ -445,16 +307,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('[Banners] Initializing...');
-
   if (window.AdminLayout) {
     AdminLayout.init('Quản lý Banner');
   }
 
-  // Cloudinary config
   const CLOUD_NAME = 'dtemskptf';
   const UPLOAD_PRESET = 'shophuyvan';
   const FOLDER = 'shv';
+
+  let currentCropper = null;
+  let currentPlatform = 'fe';
+  let croppedDesktopBlob = null;
+  let croppedMobileBlob = null;
 
   // Platform tabs
   document.querySelectorAll('.banner-tab').forEach(tab => {
@@ -463,6 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
       this.classList.add('active');
       
       const platform = this.getAttribute('data-platform');
+      currentPlatform = platform;
       document.querySelectorAll('.banner-section').forEach(s => s.classList.remove('active'));
       document.getElementById('section-' + platform).classList.add('active');
       
@@ -470,202 +335,295 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Device tabs
-  document.querySelectorAll('.device-tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-      const section = this.closest('.banner-section');
-      section.querySelectorAll('.device-tab').forEach(t => t.classList.remove('active'));
-      this.classList.add('active');
-      
-      const device = this.getAttribute('data-device');
-      section.querySelectorAll('.device-content').forEach(c => c.classList.remove('active'));
-      const targetContent = section.querySelector('#' + device);
-      if (targetContent) targetContent.classList.add('active');
-    });
+  // FE File Upload
+  document.getElementById('fe-file')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      openCropModal(event.target.result, 'fe');
+    };
+    reader.readAsDataURL(file);
   });
 
-  // Preview setup
-  ['fe-pc', 'fe-mobile', 'mini-pc', 'mini-mobile'].forEach(prefix => {
-    const imgInput = document.getElementById(prefix + '-img');
-    const preview = document.getElementById(prefix + '-preview');
+  // Mini File Upload
+  document.getElementById('mini-file')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     
-    if (imgInput && preview) {
-      const previewImg = preview.querySelector('img');
-      imgInput.addEventListener('input', function() {
-        if (this.value.trim()) {
-          previewImg.src = this.value.trim();
-          preview.style.display = 'block';
-        } else {
-          preview.style.display = 'none';
-        }
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      openCropModal(event.target.result, 'mini');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function openCropModal(imageSrc, platform) {
+    const modal = document.getElementById('crop-modal');
+    const img = document.getElementById('crop-image');
+    const title = document.getElementById('crop-title');
+    
+    if (platform === 'fe') {
+      title.textContent = 'Crop Banner Desktop & Mobile';
+    } else {
+      title.textContent = 'Crop Banner Mobile (Mini App)';
+    }
+    
+    img.src = imageSrc;
+    modal.classList.add('active');
+    
+    if (currentCropper) {
+      currentCropper.destroy();
+    }
+    
+    // Khởi tạo cropper với aspect ratio phù hợp
+    const aspectRatio = platform === 'fe' ? 16 / 5 : 3 / 2;
+    
+    currentCropper = new Cropper(img, {
+      aspectRatio: aspectRatio,
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      restore: false,
+      guides: true,
+      center: true,
+      highlight: true,
+      cropBoxMovable: true,
+      cropBoxResizable: true,
+      toggleDragModeOnDblclick: false,
+      crop: function() {
+        updatePreviews(platform);
+      }
+    });
+  }
+
+  function updatePreviews(platform) {
+    if (!currentCropper) return;
+    
+    const previewDesktop = document.getElementById('preview-desktop');
+    const previewMobile = document.getElementById('preview-mobile');
+    
+    if (platform === 'fe') {
+      // Desktop preview (16:5)
+      const desktopCanvas = currentCropper.getCroppedCanvas({
+        width: 1920,
+        height: 600
       });
+      previewDesktop.innerHTML = `<img src="${desktopCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
+      
+      // Mobile preview (3:2)
+      const mobileCanvas = currentCropper.getCroppedCanvas({
+        width: 1080,
+        height: 720
+      });
+      previewMobile.innerHTML = `<img src="${mobileCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
+      
+      // Lưu blob
+      desktopCanvas.toBlob(blob => { croppedDesktopBlob = blob; }, 'image/jpeg', 0.9);
+      mobileCanvas.toBlob(blob => { croppedMobileBlob = blob; }, 'image/jpeg', 0.9);
+      
+    } else {
+      // Mini: Chỉ mobile
+      previewDesktop.innerHTML = '<p style="color:#9ca3af;padding:20px;">Không cần Desktop cho Mini App</p>';
+      
+      const mobileCanvas = currentCropper.getCroppedCanvas({
+        width: 1080,
+        height: 720
+      });
+      previewMobile.innerHTML = `<img src="${mobileCanvas.toDataURL()}" style="width:100%;height:100%;object-fit:cover;">`;
+      
+      mobileCanvas.toBlob(blob => { croppedMobileBlob = blob; }, 'image/jpeg', 0.9);
+    }
+  }
+
+  document.getElementById('crop-close')?.addEventListener('click', closeCropModal);
+  document.getElementById('crop-cancel')?.addEventListener('click', closeCropModal);
+
+  function closeCropModal() {
+    const modal = document.getElementById('crop-modal');
+    modal.classList.remove('active');
+    if (currentCropper) {
+      currentCropper.destroy();
+      currentCropper = null;
+    }
+    croppedDesktopBlob = null;
+    croppedMobileBlob = null;
+  }
+
+  document.getElementById('crop-save')?.addEventListener('click', async function() {
+    const platform = currentPlatform;
+    
+    try {
+      if (platform === 'fe') {
+        if (!croppedDesktopBlob || !croppedMobileBlob) {
+          alert('Vui lòng crop ảnh trước');
+          return;
+        }
+        
+        // Upload Desktop
+        const desktopUrl = await uploadToCloudinary(croppedDesktopBlob, 'desktop');
+        document.getElementById('fe-desktop-url').value = desktopUrl;
+        
+        // Upload Mobile
+        const mobileUrl = await uploadToCloudinary(croppedMobileBlob, 'mobile');
+        document.getElementById('fe-mobile-url').value = mobileUrl;
+        
+        document.getElementById('fe-images').style.display = 'block';
+        
+        Admin.toast('✅ Upload thành công cả 2 ảnh!');
+        
+      } else {
+        if (!croppedMobileBlob) {
+          alert('Vui lòng crop ảnh trước');
+          return;
+        }
+        
+        const mobileUrl = await uploadToCloudinary(croppedMobileBlob, 'mobile');
+        document.getElementById('mini-mobile-url').value = mobileUrl;
+        
+        document.getElementById('mini-images').style.display = 'block';
+        
+        Admin.toast('✅ Upload thành công!');
+      }
+      
+      closeCropModal();
+      
+    } catch (e) {
+      console.error('Upload error:', e);
+      alert('Lỗi khi upload: ' + e.message);
     }
   });
 
-  // Upload buttons
-  setTimeout(function() {
-    console.log('[Banners] Setting up upload listeners...');
-    document.querySelectorAll('button[data-upload]').forEach(btn => {
-      btn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        const prefix = this.getAttribute('data-upload');
-        console.log('[Banners] Upload clicked:', prefix);
-        
-        const fileInput = document.getElementById(prefix + '-file');
-        const file = fileInput ? fileInput.files[0] : null;
-        
-        if (!file) {
-          alert('Vui lòng chọn ảnh');
-          return;
-        }
-        
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('upload_preset', UPLOAD_PRESET);
-          formData.append('folder', FOLDER);
-          
-          const uploadUrl = 'https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/image/upload';
-          
-          console.log('[Banners] Uploading to Cloudinary...');
-          const response = await fetch(uploadUrl, {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!response.ok) {
-            throw new Error('Upload failed: ' + response.status);
-          }
-          
-          const result = await response.json();
-          console.log('[Banners] Upload success:', result.secure_url);
-          
-          const imgInput = document.getElementById(prefix + '-img');
-          if (imgInput) {
-            imgInput.value = result.secure_url;
-            imgInput.dispatchEvent(new Event('input'));
-          }
-          
-          Admin.toast('Upload thành công!');
-        } catch (e) {
-          console.error('[Banners] Upload error:', e);
-          alert('Lỗi khi upload: ' + e.message);
-        }
-      });
-    });
-  }, 200);
-
-  // Save buttons
-  setTimeout(function() {
-    console.log('[Banners] Setting up save listeners...');
-    document.querySelectorAll('button[data-save]').forEach(btn => {
-      btn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        const prefix = this.getAttribute('data-save');
-        console.log('[Banners] Save clicked:', prefix);
-        
-        const parts = prefix.split('-');
-        const platform = parts[0];
-        const device = parts[1];
-        
-        const image = document.getElementById(prefix + '-img').value.trim();
-        const order = parseInt(document.getElementById(prefix + '-order').value) || 0;
-        const alt = document.getElementById(prefix + '-alt').value.trim();
-        const link = document.getElementById(prefix + '-link').value.trim();
-        const on = document.getElementById(prefix + '-on').value === 'true';
-        
-        if (!image) {
-          alert('Vui lòng nhập URL ảnh hoặc upload ảnh');
-          return;
-        }
-        
-        const type = (document.getElementById(prefix + '-type')?.value || 'fe_banner');
-        const cat  = (document.getElementById(prefix + '-cat')?.value || '').trim();
-        
-        const body = {
-          image: image,
-          pos: platform + '_' + device,
-          platform: platform,
-          device: device,
-          order: order,
-          alt: alt,
-          link: link,
-          on: on,
-          type: type,
-          category_slug: (type === 'category_hero' ? cat : '')
-        };
-        
-        try {
-          let r = await Admin.req('/admin/banners/upsert', { method: 'POST', body: body });
-          if (!(r && r.ok)) {
-            r = await Admin.req('/admin/banner', { method: 'POST', body: body });
-          }
-          
-          if (r && r.ok) {
-            Admin.toast('Đã lưu banner');
-            loadBanners(platform);
-            
-            document.getElementById(prefix + '-img').value = '';
-            document.getElementById(prefix + '-alt').value = '';
-            document.getElementById(prefix + '-link').value = '';
-            document.getElementById(prefix + '-order').value = '0';
-            document.getElementById(prefix + '-preview').style.display = 'none';
-          } else {
-            alert('Lưu thất bại');
-          }
-        } catch (e) {
-          console.error('[Banners] Save error:', e);
-          alert('Lỗi khi lưu: ' + e.message);
-        }
-      });
-    });
-  }, 200);
-
-  // Load banners
-  async function loadBanners(platform) {
-    console.log('[Banners] Loading banners for:', platform);
+  async function uploadToCloudinary(blob, type) {
+    const formData = new FormData();
+    formData.append('file', blob, `banner_${type}_${Date.now()}.jpg`);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('folder', FOLDER + '/banners');
     
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Upload failed: ' + response.status);
+    }
+    
+    const result = await response.json();
+    return result.secure_url;
+  }
+
+  // Save FE Banner
+  document.getElementById('fe-save')?.addEventListener('click', async function() {
+    const desktopUrl = document.getElementById('fe-desktop-url').value.trim();
+    const mobileUrl = document.getElementById('fe-mobile-url').value.trim();
+    
+    if (!desktopUrl || !mobileUrl) {
+      alert('Vui lòng upload ảnh trước');
+      return;
+    }
+    
+    const body = {
+      image_desktop: desktopUrl,
+      image_mobile: mobileUrl,
+      platform: 'fe',
+      order: parseInt(document.getElementById('fe-order').value) || 0,
+      type: document.getElementById('fe-type').value || 'fe_banner',
+      category_slug: document.getElementById('fe-cat').value.trim(),
+      alt: document.getElementById('fe-alt').value.trim(),
+      link: document.getElementById('fe-link').value.trim(),
+      on: document.getElementById('fe-on').value === 'true'
+    };
+    
+    try {
+      const r = await Admin.req('/admin/banners', { method: 'POST', body: body });
+      
+      if (r && r.ok) {
+        Admin.toast('✅ Đã lưu banner');
+        loadBanners('fe');
+        
+        // Reset form
+        document.getElementById('fe-file').value = '';
+        document.getElementById('fe-desktop-url').value = '';
+        document.getElementById('fe-mobile-url').value = '';
+        document.getElementById('fe-images').style.display = 'none';
+        document.getElementById('fe-alt').value = '';
+        document.getElementById('fe-link').value = '';
+        document.getElementById('fe-order').value = '0';
+      } else {
+        alert('Lưu thất bại');
+      }
+    } catch (e) {
+      console.error('Save error:', e);
+      alert('Lỗi khi lưu: ' + e.message);
+    }
+  });
+
+  // Save Mini Banner
+  document.getElementById('mini-save')?.addEventListener('click', async function() {
+    const mobileUrl = document.getElementById('mini-mobile-url').value.trim();
+    
+    if (!mobileUrl) {
+      alert('Vui lòng upload ảnh trước');
+      return;
+    }
+    
+    const body = {
+      image: mobileUrl,
+      platform: 'mini',
+      device: 'mobile',
+      order: parseInt(document.getElementById('mini-order').value) || 0,
+      alt: document.getElementById('mini-alt').value.trim(),
+      link: document.getElementById('mini-link').value.trim(),
+      on: document.getElementById('mini-on').value === 'true'
+    };
+    
+    try {
+      const r = await Admin.req('/admin/banners', { method: 'POST', body: body });
+      
+      if (r && r.ok) {
+        Admin.toast('✅ Đã lưu banner');
+        loadBanners('mini');
+        
+        // Reset form
+        document.getElementById('mini-file').value = '';
+        document.getElementById('mini-mobile-url').value = '';
+        document.getElementById('mini-images').style.display = 'none';
+        document.getElementById('mini-alt').value = '';
+        document.getElementById('mini-link').value = '';
+        document.getElementById('mini-order').value = '0';
+      } else {
+        alert('Lưu thất bại');
+      }
+    } catch (e) {
+      console.error('Save error:', e);
+      alert('Lỗi khi lưu: ' + e.message);
+    }
+  });
+
+  async function loadBanners(platform) {
     try {
       const r = await Admin.tryPaths(['/banners', '/admin/banners/list', '/admin/banners']);
       const items = r.items || r.banners || r.data || [];
       
-      const filtered = items.filter(b => {
-        const pos = b.pos || 'home';
-        return pos.startsWith(platform + '_');
-      });
-      
-      const pc = filtered.filter(b => (b.pos || '').includes('_pc'));
-      const mobile = filtered.filter(b => (b.pos || '').includes('_mobile'));
+      const filtered = items.filter(b => b.platform === platform);
       
       const listEl = document.getElementById(platform + '-banner-list');
       if (!listEl) return;
       
       listEl.innerHTML = '';
       
-      if (pc.length === 0 && mobile.length === 0) {
+      if (filtered.length === 0) {
         listEl.innerHTML = '<p style="text-align:center;color:#6b7280;padding:30px">Chưa có banner nào</p>';
         return;
       }
       
-      if (pc.length > 0) {
-        const pcSection = document.createElement('div');
-        pcSection.innerHTML = '<h4 style="margin:20px 0 10px 0">💻 Banner Desktop</h4>';
-        pc.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(b => {
-          pcSection.appendChild(createBannerCard(b, platform));
-        });
-        listEl.appendChild(pcSection);
-      }
-      
-      if (mobile.length > 0) {
-        const mobileSection = document.createElement('div');
-        mobileSection.innerHTML = '<h4 style="margin:20px 0 10px 0">📱 Banner Mobile</h4>';
-        mobile.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(b => {
-          mobileSection.appendChild(createBannerCard(b, platform));
-        });
-        listEl.appendChild(mobileSection);
-      }
+      filtered.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(b => {
+        listEl.appendChild(createBannerCard(b, platform));
+      });
     } catch (e) {
-      console.error('[Banners] Load error:', e);
+      console.error('Load error:', e);
     }
   }
 
@@ -678,7 +636,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusText = isOn ? 'ON' : 'OFF';
     const bannerId = banner.id || banner._id || '';
     
-    card.innerHTML = '<div class="banner-info"><img src="' + (banner.image || banner.url || '') + '" alt="' + (banner.alt || '') + '" class="thumbnail-preview" onerror="this.src=\'./no-image.svg\'"><div class="banner-details"><div><span class="status-badge ' + statusClass + '">' + statusText + '</span><span style="margin-left:10px;font-size:13px;color:#6b7280">Thứ tự: ' + (banner.order || 0) + '</span></div><div class="banner-meta"><strong>Vị trí:</strong> ' + (banner.pos || 'home') + '</div><div class="banner-meta"><strong>ALT:</strong> ' + (banner.alt || '(không có)') + '</div><div class="banner-meta"><strong>Link:</strong> ' + (banner.link ? '<a href="' + banner.link + '" target="_blank" style="color:#2563eb">' + banner.link + '</a>' : '(không có)') + '</div><div style="margin-top:10px"><button class="btn danger" onclick="deleteBanner(\'' + bannerId + '\', \'' + platform + '\')">🗑️ Xóa</button></div></div></div>';
+    const imgSrc = banner.image_mobile || banner.image || banner.url || '';
+    
+    card.innerHTML = `
+      <div class="banner-info">
+        <img src="${imgSrc}" alt="${banner.alt || ''}" class="thumbnail-preview" onerror="this.src='./no-image.svg'">
+        <div class="banner-details">
+          <div>
+            <span class="status-badge ${statusClass}">${statusText}</span>
+            <span style="margin-left:10px;font-size:13px;color:#6b7280">Thứ tự: ${banner.order || 0}</span>
+          </div>
+          <div class="banner-meta"><strong>Platform:</strong> ${banner.platform || 'fe'}</div>
+          <div class="banner-meta"><strong>ALT:</strong> ${banner.alt || '(không có)'}</div>
+          <div class="banner-meta"><strong>Link:</strong> ${banner.link ? `<a href="${banner.link}" target="_blank" style="color:#2563eb">${banner.link}</a>` : '(không có)'}</div>
+          <div style="margin-top:10px">
+            <button class="btn danger" onclick="deleteBanner('${bannerId}', '${platform}')">🗑️ Xóa</button>
+          </div>
+        </div>
+      </div>
+    `;
     
     return card;
   }
@@ -687,19 +663,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!confirm('Xác nhận xóa banner này?')) return;
     
     try {
-      let r = await Admin.req('/admin/banners/delete', { method: 'POST', body: { id: id } });
-      if (!(r && r.ok)) {
-        r = await Admin.req('/admin/banner/delete', { method: 'POST', body: { id: id } });
-      }
+      const r = await Admin.req('/admin/banners/delete', { method: 'POST', body: { id: id } });
       
       if (r && r.ok) {
-        Admin.toast('Đã xóa');
+        Admin.toast('✅ Đã xóa');
         loadBanners(platform);
       } else {
         alert('Xóa thất bại');
       }
     } catch (e) {
-      console.error('[Banners] Delete error:', e);
+      console.error('Delete error:', e);
       alert('Lỗi khi xóa: ' + e.message);
     }
   };
