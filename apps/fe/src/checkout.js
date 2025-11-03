@@ -1048,8 +1048,19 @@ $('place-order').addEventListener('click', async () => {
       return showError('SĐT không hợp lệ (VD: 0912345678).');
     }
 
-    allow_inspection: allowInspection,
-      cod_amount: allowInspection ? grandTotal : 0, // Nếu cho xem hàng → COD = tổng tiền
+    const subtotal = calcSubtotal(cart);
+    const shipOriginal = Number(selectedShipping.fee||0);
+    const prodDiscount = appliedVoucher ? Number(appliedVoucher.discount||0) : 0;
+    const shipDiscount = appliedVoucher ? Number(appliedVoucher.ship_discount||0) : 0;
+    const bestShipDiscount = Math.max(shipDiscount, 0);
+    const shipFee = Math.max(0, shipOriginal - bestShipDiscount);
+    const grandTotal = Math.max(0, subtotal - prodDiscount + shipFee);
+
+    // ✅ Lấy trạng thái cho xem hàng
+    const allowInspection = document.getElementById('allow-inspection')?.checked ?? true;
+    
+    // ✅ FIX: COD amount = tổng thực tế khách phải trả
+    const codAmount = allowInspection ? grandTotal : 0;
     
     // ✅ Tính tổng cân nặng thực tế từ cart
     const totalWeightGram = await ensureWeight(cart);
