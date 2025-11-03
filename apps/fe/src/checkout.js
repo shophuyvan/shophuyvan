@@ -1069,7 +1069,7 @@ $('place-order').addEventListener('click', async () => {
       headers: { 'Idempotency-Key': idemKey }
     });
 
-    if (res && (res.id || res.success || res.status==='ok')) {
+    if (res && res.ok && res.id) {
       // Xoá giỏ hàng & idempotency
       clearCart();
       localStorage.removeItem('idem_order');
