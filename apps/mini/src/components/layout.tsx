@@ -5,10 +5,10 @@ import "zmp-ui/zaui.css";// Import CSS của zmp-ui
 
 // --- Import Pages (Sử dụng alias @/) ---
 import HomePage from '@/pages/index';
-import CategoryPage from '@/pages/category';
-import ProductPage from '@/pages/product';
-import CartPage from '@/pages/cart';
-import CheckoutPage from '@/pages/checkout';
+import CategoryPage from '@/pages/Category';
+import ProductPage from '@/pages/Product';
+import CartPage from '@/pages/Cart';
+import CheckoutPage from '@/pages/Checkout';
 
 // --- Lấy theme an toàn ---
 // const theme = (getSystemInfo()?.zaloTheme ?? getSystemInfo()?.theme ?? "light") as "light" | "dark"; // Tạm comment
@@ -21,10 +21,10 @@ const Layout = () => {
         <ZMPRouter>
           <AnimationRoutes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/category" element={<CategoryPage />} />
-            <Route path="/product" element={<ProductPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/Category" element={<CategoryPage />} />
+            <Route path="/Product" element={<ProductPage />} />
+            <Route path="/Cart" element={<CartPage />} />
+            <Route path="/Checkout" element={<CheckoutPage />} />
           </AnimationRoutes>
         </ZMPRouter>
       {/* </SnackbarProvider> */} {/* Tạm comment */}

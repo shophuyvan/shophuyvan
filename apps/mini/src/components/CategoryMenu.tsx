@@ -77,18 +77,28 @@ const CategoryNode: React.FC<{
   depth?: number; 
   onSelect?: () => void;
 }> = ({ category, depth = 0, onSelect }) => {
+  // ✅ Giới hạn độ sâu tối đa để tránh infinite loop
+  if (depth > 10) {
+    console.warn('⚠️ Category tree quá sâu, dừng render tại depth:', depth);
+    return null;
+  }
+  
   const [expanded, setExpanded] = useState(depth === 0); // Root mở mặc định
   
-  const hasChildren = category.children && category.children.length > 0;
+  const hasChildren = Array.isArray(category.children) && category.children.length > 0;
   const icon = hasChildren ? (expanded ? '📂' : '📁') : '📄';
   
   const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (hasChildren) {
-      e.preventDefault();
       setExpanded(!expanded);
     } else {
       // Navigate
       if (onSelect) onSelect();
+      // Delay navigation để onSelect có thể thực thi
+      setTimeout(() => {
+        window.location.href = `/category?c=${encodeURIComponent(category.slug)}`;
+      }, 100);
     }
   };
   
@@ -113,9 +123,9 @@ const CategoryNode: React.FC<{
       
       {hasChildren && expanded && (
         <div className="ml-2 border-l-2 border-gray-200">
-          {category.children!.map(child => (
+          {category.children!.map((child, idx) => (
             <CategoryNode 
-              key={child.id || child.slug} 
+              key={`${child.id || child.slug}-${idx}`} 
               category={child} 
               depth={depth + 1}
               onSelect={onSelect}
@@ -260,9 +270,9 @@ export default function CategoryMenu() {
           
           {!loading && !error && categories.length > 0 && (
             <div className="py-2">
-              {categories.map(category => (
+              {(categories || []).map((category, idx) => (
                 <CategoryNode 
-                  key={category.id || category.slug} 
+                  key={`${category.id || category.slug}-root-${idx}`} 
                   category={category}
                   onSelect={handleClose}
                 />

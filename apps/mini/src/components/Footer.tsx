@@ -14,18 +14,24 @@ const tabs = [
 
 export default function Footer() {
   const [path, setPath] = useState('/');
+  
   useEffect(() => {
     const get = () => (location.hash?.startsWith('#') ? location.hash.slice(1) : location.pathname) || '/';
     const onChange = () => setPath(get());
     setPath(get());
     window.addEventListener('popstate', onChange);
     window.addEventListener('hashchange', onChange);
-    return () => { window.removeEventListener('popstate', onChange); window.removeEventListener('hashchange', onChange); };
+    return () => { 
+      window.removeEventListener('popstate', onChange); 
+      window.removeEventListener('hashchange', onChange); 
+    };
   }, []);
 
   // === SHV005: Ẩn Footer khi ở trang chi tiết sản phẩm ===
-  // Trang chi tiết sản phẩm có đường dẫn bắt đầu bằng '/product'
-  if (path.startsWith('/product')) {
+  // ✅ Di chuyển logic này xuống sau tất cả hooks
+  const shouldHide = path.startsWith('/product');
+  
+  if (shouldHide) {
     return null;
   }
   // =======================================================

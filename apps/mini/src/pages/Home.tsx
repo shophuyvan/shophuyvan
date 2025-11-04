@@ -1,5 +1,6 @@
 // Home.tsx - Mini App với danh mục động từ API
 // Đường dẫn: apps/mini/src/pages/Home.tsx
+// ✅ PATCHED: Thêm debug logs để trace React error #299
 
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import Header from '../components/Header';
@@ -72,15 +73,10 @@ const ICON_MAP: Record<string, string> = {
 };
 
 function getIcon(slug: string): string {
-  // Tìm icon theo slug
   if (ICON_MAP[slug]) return ICON_MAP[slug];
-  
-  // Tìm theo keyword trong slug
   for (const [key, icon] of Object.entries(ICON_MAP)) {
     if (slug.includes(key)) return icon;
   }
-  
-  // Default icon
   return '📦';
 }
 
@@ -91,36 +87,93 @@ const ProductSkeleton = () => (
     <div className="h-4 bg-gray-200 rounded w-2/3"></div>
   </div>
 );
-// [SHV] Test API Mini App → gọi https://api.shophuyvan.vn/mini/ping
-const testMiniApi = async () => {
+
+// ✅ PATCHED: Thêm debug parameter
+const testMiniApi = async (e?: any) => {
+  console.log('🔵 [DEBUG] testMiniApi called, event:', typeof e, e);
   try {
     console.log("[TestMiniAPI] Gọi https://api.shophuyvan.vn/mini/ping ...");
     const res = await fetch("https://api.shophuyvan.vn/mini/ping");
     const data = await res.json();
     console.log("[TestMiniAPI] Kết quả:", data);
+    console.log('🔵 [DEBUG] data type:', typeof data, Object.prototype.toString.call(data));
     alert("API OK: " + JSON.stringify(data));
   } catch (err) {
     console.error("[TestMiniAPI] Lỗi:", err);
+    console.error('🔴 [DEBUG] Error type:', typeof err, err);
     alert("API lỗi, mở console để xem chi tiết");
   }
 };
 
+const handleActivateAccount = async () => {
+  try {
+    const zmp = (window as any).zmp;
+    if (!zmp) {
+      console.warn('⚠️ SDK Zalo Mini App chưa sẵn sàng');
+      window.location.href = '/account';
+      return;
+    }
+
+    zmp.getUserInfo({
+      success: async (userInfo: any) => {
+        console.log('✅ Zalo User Info:', userInfo);
+        console.log('🟢 [DEBUG] userInfo type:', typeof userInfo, Object.keys(userInfo));
+        
+        try {
+          const response = await fetch('https://api.shophuyvan.vn/api/users/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              zalo_id: userInfo.id,
+              zalo_name: userInfo.name,
+              zalo_avatar: userInfo.avatar,
+              phone: userInfo.phone || '',
+              source: 'mini'
+            })
+          });
+
+          const data = await response.json();
+          console.log('✅ Activate response:', data);
+          console.log('🟢 [DEBUG] response data type:', typeof data);
+          
+          if (data.ok || data.id) {
+            alert('Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân');
+            setTimeout(() => {
+              window.location.href = '/member';
+            }, 800);
+          } else {
+            alert(data.message || 'Kích hoạt thất bại, vui lòng thử lại');
+            console.error('❌ Activate failed:', data);
+          }
+        } catch (err) {
+          console.error('❌ Lỗi gửi dữ liệu:', err);
+          console.error('🔴 [DEBUG] Fetch error type:', typeof err);
+          alert('Lỗi kích hoạt. Vui lòng thử lại.');
+        }
+      },
+      fail: (err: any) => {
+        console.error('❌ Lỗi lấy thông tin Zalo:', err);
+        console.error('🔴 [DEBUG] Zalo error type:', typeof err);
+        alert('Không thể lấy thông tin Zalo. Vui lòng thử lại.');
+      }
+    });
+  } catch (e) {
+    console.error('⚠️ Lỗi kích hoạt:', e);
+    console.error('🔴 [DEBUG] Outer catch error type:', typeof e);
+    window.location.href = '/account';
+  }
+};
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // ✅ State cho danh mục động
   const [categories, setCategories] = useState<any[]>([]);
   const [catsLoading, setCatsLoading] = useState(true);
-    // ✅ Banner từ API (kết nối với trang admin)
   const [banners, setBanners] = useState<any[]>([]);
-
-  // ✅ Slide tự động cho banner
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // ✅ Load banner từ API
   useEffect(() => {
     const loadBanners = async () => {
       try {
@@ -139,19 +192,14 @@ export default function Home() {
     loadBanners();
   }, []);
 
-  // ✅ Slide tự động cho banner
   useEffect(() => {
     if (!banners || banners.length <= 1) return;
-
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
-    }, 3500); // thời gian chuyển 3.5 giây
-
+    }, 3500);
     return () => clearInterval(interval);
   }, [banners]);
 
-
-  // ✅ Load danh mục từ API
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -159,16 +207,14 @@ export default function Home() {
         const response = await api.categories.list();
         
         if (Array.isArray(response) && response.length > 0) {
-          // Chỉ lấy danh mục gốc (không có parent)
           const roots = response
             .filter((cat: any) => !cat.parent)
             .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-            .slice(0, 4); // Chỉ hiển thị 4 danh mục
+            .slice(0, 4);
           
           setCategories(roots);
           console.log('✅ Loaded categories for Home:', roots.length);
         } else {
-          // Fallback
           setCategories(FALLBACK_CATS);
         }
       } catch (err) {
@@ -182,7 +228,6 @@ export default function Home() {
     loadCategories();
   }, []);
 
-  // Load sản phẩm
   useEffect(() => {
     const prefetchData = async () => {
       try {
@@ -191,7 +236,6 @@ export default function Home() {
         
         setItems(arr);
         setLoading(false);
-        // Không cần enrichPrices: server đã trả price_display/compare_at_display
         console.log('[PRICE] MINI list', { tier: arr?.[0]?.price_tier, price: arr?.[0]?.price_display, n: arr.length });
       } catch (e: any) {
         console.error(e);
@@ -222,60 +266,63 @@ export default function Home() {
     <div className="pb-24">
       <Header />
 
-      {/* Banner */}
       {/* Banner Slide động từ API */}
-       <section className="safe-x pt-3">
-      {banners && banners.length > 0 ? (
-      <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[3/2]">
-      <div
-        className="flex transition-transform duration-700 ease-in-out"
-        style={{
-          width: `${banners.length * 100}%`,
-          transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
-        }}
-      >
-        {banners.map((b, i) => (
-          <a
-            key={b.id || i}
-            href={b.link || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full flex-shrink-0"
-            style={{ width: `${100 / banners.length}%` }}
-          >
-            <img
-              src={b.image}
-              alt={b.title || 'Banner'}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </a>
-        ))}
-      </div>
+      <section className="safe-x pt-3">
+        {Array.isArray(banners) && banners.length > 0 ? (
+          <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[3/2]">
+            <div
+              className="flex transition-transform duration-700 ease-in-out"
+              style={{
+                width: `${banners.length * 100}%`,
+                transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
+              }}
+            >
+              {banners.map((b, i) => (
+                <a
+                  key={b.id || i}
+                  href={b.link || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full flex-shrink-0"
+                  style={{ width: `${100 / banners.length}%` }}
+                >
+                  <img
+                    src={b.image}
+                    alt={b.title || 'Banner'}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              ))}
+            </div>
 
-      {/* Nút chấm trượt */}
-      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
-        {banners.map((_, i) => (
-          <span
-            key={i}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              i === currentIndex ? 'bg-white' : 'bg-white/50'
-            }`}
-          ></span>
-        ))}
-      </div>
-    </div>
-  ) : (
-    <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 aspect-[16/9] flex items-center justify-center">
-      <span className="text-gray-400 text-sm">Banner</span>
-    </div>
-  )}
-</section>
-     {/* [SHV] Nút test API Mini */}
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+              {banners.map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    i === currentIndex ? 'bg-white' : 'bg-white/50'
+                  }`}
+                ></span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 aspect-[16/9] flex items-center justify-center">
+            <span className="text-gray-400 text-sm">Banner</span>
+          </div>
+        )}
+      </section>
+
+      {/* ✅ PATCHED: Debug button click */}
       <section className="safe-x mt-3">
         <button
           className="w-full px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium shadow"
-          onClick={testMiniApi}
+          onClick={(e) => {
+            e.preventDefault();
+            console.log('🔵 [DEBUG] Test API button clicked, event:', typeof e);
+            testMiniApi();
+          }}
         >
           Test API Mini (api.shophuyvan.vn/mini/ping)
         </button>
@@ -286,69 +333,111 @@ export default function Home() {
   <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white shadow-lg">
     <div className="text-sm opacity-90">Đặc biệt</div>
     <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
-    <div className="text-sm opacity-90 mt-1">Nhận nhiều ưu đãi đến từ Shop Huy Vân</div>
+    <div className="text-sm opacity-90 mt-1">
+      Nhận nhiều ưu đãi đến từ Shop Huy Vân
+    </div>
+
     <button
       onClick={async () => {
         try {
-          const zmp = (window as any).zmp;
-          if (!zmp) {
-            console.warn('⚠️ SDK Zalo Mini App chưa sẵn sàng');
-            window.location.href = '/account';
-            return;
-          }
+          // 👉 ĐỢI SDK ZALO MINI APP SẴN SÀNG
+          const getZmp = () =>
+            new Promise<any>((resolve, reject) => {
+              const w: any = window;
+
+              // SDK đã có sẵn
+              if (w.zmp) {
+                if (typeof w.zmp.ready === "function") {
+                  w.zmp.ready(() => resolve(w.zmp));
+                } else {
+                  resolve(w.zmp);
+                }
+                return;
+              }
+
+              // Chờ tối đa ~2s cho SDK inject
+              let tries = 0;
+              const maxTries = 40; // 40 * 50ms = 2s
+              const timer = window.setInterval(() => {
+                tries += 1;
+                if (w.zmp) {
+                  window.clearInterval(timer);
+                  if (typeof w.zmp.ready === "function") {
+                    w.zmp.ready(() => resolve(w.zmp));
+                  } else {
+                    resolve(w.zmp);
+                  }
+                } else if (tries >= maxTries) {
+                  window.clearInterval(timer);
+                  reject(new Error("SDK Zalo Mini App chưa sẵn sàng"));
+                }
+              }, 50);
+            });
+
+          const zmp = await getZmp();
 
           zmp.getUserInfo({
             success: async (userInfo: any) => {
-              console.log('✅ Zalo User Info:', userInfo);
-              
+              console.log("✅ Zalo User Info:", userInfo);
+
               try {
-                const response = await fetch('https://api.shophuyvan.vn/api/users/activate', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    zalo_id: userInfo.id,
-                    zalo_name: userInfo.name,
-                    zalo_avatar: userInfo.avatar,
-                    phone: userInfo.phone || '',
-                    source: 'mini'
-                  })
-                });
+                const response = await fetch(
+                  "https://api.shophuyvan.vn/api/users/activate",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      zalo_id: userInfo.id,
+                      zalo_name: userInfo.name,
+                      zalo_avatar: userInfo.avatar,
+                      phone: userInfo.phone || "",
+                      source: "mini",
+                    }),
+                  }
+                );
 
                 const data = await response.json();
-                console.log('✅ Activate response:', data);
-                
+                console.log("✅ Activate response:", data);
+
                 if (data.ok || data.id) {
-                  alert('Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân');
+                  alert(
+                    "Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân"
+                  );
                   setTimeout(() => {
-                    window.location.href = '/member';
+                    window.location.href = "/member";
                   }, 800);
                 } else {
-                  alert(data.message || 'Kích hoạt thất bại, vui lòng thử lại');
-                  console.error('❌ Activate failed:', data);
+                  alert(
+                    data.message || "Kích hoạt thất bại, vui lòng thử lại"
+                  );
+                  console.error("❌ Activate failed:", data);
                 }
               } catch (err) {
-                console.error('❌ Lỗi gửi dữ liệu:', err);
-                alert('Lỗi kích hoạt. Vui lòng thử lại.');
+                console.error("❌ Lỗi gửi dữ liệu:", err);
+                alert("Lỗi kích hoạt. Vui lòng thử lại.");
               }
             },
             fail: (err: any) => {
-              console.error('❌ Lỗi lấy thông tin Zalo:', err);
-              alert('Không thể lấy thông tin Zalo. Vui lòng thử lại.');
-            }
+              console.error("❌ Lỗi lấy thông tin Zalo:", err);
+              alert("Không thể lấy thông tin Zalo. Vui lòng thử lại.");
+            },
           });
         } catch (e) {
-          console.error('⚠️ Lỗi kích hoạt:', e);
-          window.location.href = '/account';
+          console.error("⚠️ Lỗi kích hoạt / SDK chưa sẵn sàng:", e);
+          alert(
+            "Không thể kết nối Zalo. Vui lòng đóng Mini App và mở lại rồi thử kích hoạt lại."
+          );
         }
       }}
-      className="mt-3 inline-flex items-center gap-2 bg-white/90 text-gray-800 text-sm font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
+      className="mt-3 inline-flex items-center gap-2 bg-white/90 text-sky-600 font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
     >
       <span>🎁 Kích hoạt ngay</span>
     </button>
   </div>
 </section>
 
-      {/* ✅ Menu Drawer + Grid danh mục */}
+
+      {/* Menu Drawer + Grid danh mục */}
       <section className="safe-x mt-4">
         <div className="flex items-center gap-3 mb-3">
           <CategoryMenu />
@@ -412,8 +501,8 @@ export default function Home() {
             </div>
           }>
             <div className="grid grid-cols-2 gap-3">
-              {items.map((p) => (
-                <ProductCard key={String(p.id)} p={p} />
+              {(items || []).map((p) => (
+                <ProductCard key={p.id || p.slug || `product-${Math.random()}`} p={p} />
               ))}
               {items.length === 0 && (
                 <div className="col-span-2 text-center text-gray-500 py-8">
@@ -430,4 +519,4 @@ export default function Home() {
   );
 }
 
-console.log('✅ Home.tsx loaded with dynamic categories');
+console.log('✅ Home.tsx loaded with dynamic categories (DEBUG PATCHED)');

@@ -1,11 +1,7 @@
 /**
  * FILE PATH: shophuyvan-main/apps/mini/src/components/VariantModal.tsx
  *
- * CHANGES:
- * - ✅ Loại bỏ code trùng lặp currentPrice/currentImage.
- * - ✅ Auto-select variant rẻ nhất khi open = true.
- * - ✅ Header modal hiển thị theo biến thể hiệu lực (selected || cheapest).
- * - ✅ Actions: 01 nút đỏ full-width (giống FE).
+ * FIXED: ✅ Sửa lỗi thiếu } ở dòng 253 gây React error #299
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -18,7 +14,6 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-// NOTE: pickPrice ưu tiên giá variant; fallback product
 function pickPrice(product: any, variant?: any) {
   if (variant) {
     const sale = Number(variant.sale_price ?? variant.price_sale ?? 0);
@@ -48,7 +43,7 @@ interface VariantModalProps {
   product: any;
   variants?: any[];
   onConfirm?: (variant: any, qty: number, mode: string) => void;
-  mode?: string; // 'cart' | 'buy'
+  mode?: string;
 }
 
 // ---------------- Component ----------------
@@ -63,7 +58,6 @@ export default function VariantModal({
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
 
-  // ✅ CHỌN BIẾN THỂ RẺ NHẤT (còn hàng) ĐỂ RENDER NGAY
   const defaultVariant = useMemo(() => {
     if (!Array.isArray(variants) || variants.length === 0) return null;
     let best = variants[0],
@@ -79,17 +73,14 @@ export default function VariantModal({
     return best;
   }, [variants, product]);
 
-  // ✅ Biến thể hiệu lực
   const effectiveVariant = selectedVariant || defaultVariant;
 
-  // ✅ Khi modal mở → sync state để tránh 0đ
   useEffect(() => {
     if (open && defaultVariant && !selectedVariant) {
       setSelectedVariant(defaultVariant);
     }
   }, [open, defaultVariant, selectedVariant]);
 
-  // ✅ Giá/Ảnh theo biến thể hiệu lực
   const currentPrice = useMemo(() => {
     if (Array.isArray(variants) && variants.length > 0) {
       return pickPrice(product, effectiveVariant);
@@ -103,38 +94,35 @@ export default function VariantModal({
     return variantImages[0] || productImages[0] || '/icon.png';
   }, [effectiveVariant, product]);
 
-  // STEP: Quantity change
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, prev + delta));
   };
 
-  // STEP: Confirm action
-const handleConfirm = () => {
-  if (!effectiveVariant && variants.length > 0) {
-    alert('Vui lòng chọn phân loại sản phẩm');
-    return;
-  }
+  const handleConfirm = () => {
+    if (!effectiveVariant && variants.length > 0) {
+      alert('Vui lòng chọn phân loại sản phẩm');
+      return;
+    }
 
-  // ✅ BỔ SUNG TRỌNG LƯỢNG THỰC (GRAM) TRƯỚC KHI ĐẨY RA NGOÀI
-  const chosen = effectiveVariant || product;
-  const w = Number(
-    chosen?.weight_gram ??
-    chosen?.weight_grams ??
-    chosen?.weight ??
-    chosen?.variant?.weight_gram ??
-    0
-  );
+    const chosen = effectiveVariant || product;
+    const w = Number(
+      chosen?.weight_gram ??
+      chosen?.weight_grams ??
+      chosen?.weight ??
+      chosen?.variant?.weight_gram ??
+      0
+    );
 
-  const chosenWithWeight = {
-    ...chosen,
-    weight_gram: w,
-    weight_grams: w,
-    weight: w,
+    const chosenWithWeight = {
+      ...chosen,
+      weight_gram: w,
+      weight_grams: w,
+      weight: w,
+    };
+
+    onConfirm?.(chosenWithWeight, quantity, mode);
+    onClose?.();
   };
-
-  onConfirm?.(chosenWithWeight, quantity, mode);
-  onClose?.();
-};
 
   if (!open) return null;
 
@@ -180,7 +168,6 @@ const handleConfirm = () => {
               {product?.name || 'Sản phẩm'}
             </h3>
 
-            {/* ✅ Giá theo biến thể hiệu lực */}
             <div className="flex items-baseline gap-2">
               <span className="text-rose-600 font-bold text-xl">
                 {formatPrice(currentPrice.base)}
@@ -194,7 +181,6 @@ const handleConfirm = () => {
                 )}
             </div>
 
-            {/* ✅ Thông tin đã chọn / kho */}
             {effectiveVariant && (
               <p className="text-xs text-gray-500 mt-1">
                 Đã chọn:{' '}
@@ -232,10 +218,81 @@ const handleConfirm = () => {
                     key={index}
                     onClick={() => !outOfStock && setSelectedVariant(variant)}
                     disabled={outOfStock}
-                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all
-                      ${
-                        isSelected
-                          ? 'border-rose-500 bg-rose-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                      ${outOfStock ? 'opacity-50 cursor-not-allowed' : ''
+                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-rose-500 bg-rose-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    } ${outOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {image && (
+                      <img
+                        src={image}
+                        alt={variant.name || 'Variant'}
+                        className="w-full aspect-square object-cover rounded-lg"
+                      />
+                    )}
+                    
+                    <div className="text-center w-full">
+                      <p className="text-xs font-medium line-clamp-1">
+                        {variant.name || variant.sku || `#${index + 1}`}
+                      </p>
+                      <p className="text-xs text-rose-600 font-semibold mt-1">
+                        {formatPrice(price.base)}
+                      </p>
+                      {outOfStock && (
+                        <p className="text-[10px] text-red-500 mt-1">Hết hàng</p>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Quantity */}
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Số lượng</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleQuantityChange(-1)}
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                disabled={quantity <= 1}
+              >
+                -
+              </button>
+              <span className="text-base font-semibold min-w-[30px] text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={() => handleQuantityChange(1)}
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="p-4 flex gap-3">
+          <button
+            onClick={handleConfirm}
+            className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-semibold hover:bg-rose-700 transition-colors"
+          >
+            {mode === 'buy' ? 'Mua ngay' : 'Thêm vào giỏ'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

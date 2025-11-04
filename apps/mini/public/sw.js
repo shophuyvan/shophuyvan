@@ -3,7 +3,7 @@
 // apps/mini/public/sw.js
 // ================================================
 
-const CACHE_VERSION = 'shv-v1.0.2'; // Tăng version
+const CACHE_VERSION = 'shv-v1.0.3'; // Tăng version
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;

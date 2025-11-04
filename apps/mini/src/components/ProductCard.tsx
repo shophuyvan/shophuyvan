@@ -64,10 +64,19 @@ export default function ProductCard({ p }: { p: Product }) {
 
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
-    cart.add(p, 1);
+    e.stopPropagation();
     
-    window.dispatchEvent(new Event('shv:cart-changed'));
-try { alert('Đã thêm vào giỏ'); } catch {}
+    try {
+      cart.add(p, 1);
+      window.dispatchEvent(new Event('shv:cart-changed'));
+      
+      // ✅ Sử dụng setTimeout để không block render
+      setTimeout(() => {
+        alert('Đã thêm vào giỏ');
+      }, 50);
+    } catch (err) {
+      console.error('❌ Error adding to cart:', err);
+    }
   };
 
   return (
@@ -75,7 +84,7 @@ try { alert('Đã thêm vào giỏ'); } catch {}
       <a href={href} className="block relative">
         <img
           src={p.image || '/public/icon.png'}
-          alt={p.name}
+          alt={p.name || 'Product image'}
           className="w-full aspect-square object-cover rounded-xl bg-gray-100"
           loading="lazy"
         />
@@ -88,16 +97,16 @@ try { alert('Đã thêm vào giỏ'); } catch {}
 
       <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
         <div className="flex items-center gap-1">
-          <span className="inline-block">⭐</span>
+          <span className="inline-block" aria-label="Rating">⭐</span>
           <span>{rating > 0 ? rating.toFixed(1) : '—'}</span>
         </div>
-        <div>Đã bán {sold || 0}</div>
+        <div>Đã bán {sold > 0 ? sold : 0}</div>
       </div>
 
       <div className="mt-1 flex items-baseline gap-2">
         {base <= 0 ? (
-          <span>Liên hệ</span>
-        ) : hasOriginal ? (
+          <span className="text-gray-600 text-sm">Liên hệ</span>
+        ) : hasOriginal && original > 0 ? (
           <>
             <span className="price-sale">{fmtVND(base)}</span>
             <span className="price-original">{fmtVND(original)}</span>

@@ -4,8 +4,69 @@ import 'zmp-ui/zaui.css';
 import './styles/tailwind.css';
 import App from './app';
 
-const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+// ================================================
+// INIT REACT ROOT – FIX LỖI #299
+// ================================================
+// Một số môi trường (như Zalo Mini) có thể không có sẵn <div id="root">
+// nên nếu không tìm thấy thì mình tự tạo, tránh lỗi "Target container is not a DOM element".
+function getRootContainer(): HTMLElement {
+  let container = document.getElementById('root');
+
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'root';
+
+    // === PHẦN SỬA LỖI ===
+    // Vì logic ở dưới cùng của file này đảm bảo initReactApp()
+    // CHỈ chạy sau khi DOMContentLoaded, chúng ta có thể
+    // tự tin rằng document.body luôn luôn tồn tại ở thời điểm này.
+    // Không cần logic fallback 'else' phức tạp nữa.
+    document.body.appendChild(container);
+    // === KẾT THÚC SỬA LỖI ===
+
+    console.warn('[SHV] Không tìm thấy #root, đã tự tạo div#root và gắn vào <body>.');
+  }
+
+  return container as HTMLElement;
+}
+
+// Hàm khởi tạo React root, tách riêng để dễ debug & gọi lại
+function initReactApp() {
+  const container = getRootContainer();
+  console.log('[SHV] Khởi tạo React root với container:', container, {
+    nodeType: (container as any)?.nodeType,
+    tagName: (container as any)?.tagName,
+  });
+
+  // ✅ CHỐT CHẶN: container phải là node thật, nếu không thì dừng
+  if (!container || !(container as any).nodeType) {
+    console.error('[SHV] Container KHÔNG HỢP LỆ cho createRoot, bỏ qua init React:', container);
+    return;
+  }
+
+  try {
+    const root = createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+    console.log('[SHV] React root đã render xong.');
+  } catch (err) {
+    console.error('[SHV] LỖI khi createRoot/render:', err);
+  }
+}
+
+// Đảm bảo chỉ init sau khi DOM sẵn sàng (Logic này đã đúng)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[SHV] DOMContentLoaded – gọi initReactApp()');
+    initReactApp();
+  });
+} else {
+  console.log('[SHV] DOM đã sẵn – gọi initReactApp() ngay');
+  initReactApp();
+}
 
 // ================================================
 // SERVICE WORKER REGISTRATION

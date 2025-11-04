@@ -278,6 +278,89 @@ export default {
       if (path === '/webhook/superai' && req.method === 'POST') {
         return WebhookHandler.handleSuperAIWebhook(req, env);
       }
+	        // ============================================
+      // MINI APP – USER ACTIVATE (ZALO)
+      // ============================================
+      if (path === '/api/users/activate' && req.method === 'POST') {
+        try {
+          const body = await req.json().catch(() => null);
+
+          if (!body) {
+            return json(
+              { ok: false, error: 'Invalid JSON body' },
+              { status: 400 },
+              req
+            );
+          }
+
+          const {
+            zalo_id,
+            zalo_name,
+            zalo_avatar = '',
+            phone = '',
+            source = 'mini',
+          } = body;
+
+          if (!zalo_id || !zalo_name) {
+            return json(
+              { ok: false, error: 'zalo_id và zalo_name là bắt buộc' },
+              { status: 400 },
+              req
+            );
+          }
+
+          const now = new Date().toISOString();
+          const kvKey = `mini:user:zalo:${zalo_id}`;
+
+          // Lấy user cũ nếu có
+          const existing = await env.SHV.get(kvKey);
+          let user;
+
+          if (existing) {
+            user = JSON.parse(existing);
+            user.zalo_name = zalo_name;
+            user.zalo_avatar = zalo_avatar;
+            user.phone = phone || user.phone || '';
+            user.source = source || user.source || 'mini';
+            user.updated_at = now;
+          } else {
+            // Tạo mới
+            const id = 'mini_' + zalo_id;
+            user = {
+              id,
+              zalo_id,
+              zalo_name,
+              zalo_avatar,
+              phone,
+              source,
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+            };
+          }
+
+          // Lưu vào KV
+          await env.SHV.put(kvKey, JSON.stringify(user));
+
+          return json(
+            {
+              ok: true,
+              id: user.id,
+              user,
+              message: 'Mini user activated',
+            },
+            {},
+            req
+          );
+        } catch (e) {
+          console.error('[MiniActivate] error:', e);
+          return json(
+            { ok: false, error: 'Internal error' },
+            { status: 500 },
+            req
+          );
+        }
+      }
 
       // Route không khớp gì ở trên → trả 404
       return json({
