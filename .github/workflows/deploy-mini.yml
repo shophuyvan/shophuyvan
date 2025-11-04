@@ -53,7 +53,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Wrangler v4: dùng 'pages deploy' thay cho 'pages publish'
           command: >
-            pages deploy ./apps/mini/dist
+            pages deploy ./apps/mini/www
             --project-name=shv-mini
             --branch=main
             --commit-dirty=true
