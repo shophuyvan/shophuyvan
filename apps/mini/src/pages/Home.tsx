@@ -178,6 +178,19 @@ export default function Home() {
   const [banners, setBanners] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // 🔧 Tắt eruda overlay của Zalo Test để không chặn click
+  useEffect(() => {
+    try {
+      const w: any = window;
+      if (w.eruda && typeof w.eruda.destroy === 'function') {
+        console.log('[SHV] Destroy eruda debug overlay');
+        w.eruda.destroy();
+      }
+    } catch (e) {
+      console.warn('[SHV] Không thể destroy eruda:', e);
+    }
+  }, []);
+
   useEffect(() => {
     const loadBanners = async () => {
       try {
