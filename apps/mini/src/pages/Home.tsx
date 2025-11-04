@@ -9,6 +9,7 @@ import CategoryMenu from '../components/CategoryMenu';
 import { api } from '@shared/api';
 import { numLike } from '@shared/utils/price';
 import { cldFetch, preloadImage } from '@shared/utils/cloudinary';
+import { getUserInfo } from 'zmp-sdk/apis';
 
 const ProductCard = lazy(() => import('../components/ProductCard'));
 
@@ -107,62 +108,65 @@ const testMiniApi = async (e?: any) => {
 
 const handleActivateAccount = async () => {
   try {
-    const zmp = (window as any).zmp;
-    if (!zmp) {
-      console.warn('⚠️ SDK Zalo Mini App chưa sẵn sàng');
-      window.location.href = '/account';
+    console.log('🔵 [Activate] Bắt đầu kích hoạt tài khoản từ Mini App');
+
+    // Gọi SDK chính thức – tự xử lý ready + permission
+    const result: any = await getUserInfo({
+      autoRequestPermission: true,
+      avatarType: 'normal',
+    });
+
+    const userInfo = result?.userInfo || result;
+    console.log('✅ Zalo User Info:', userInfo);
+
+    if (!userInfo || !userInfo.id) {
+      alert('Không lấy được thông tin Zalo. Vui lòng thử lại.');
       return;
     }
 
-    zmp.getUserInfo({
-      success: async (userInfo: any) => {
-        console.log('✅ Zalo User Info:', userInfo);
-        console.log('🟢 [DEBUG] userInfo type:', typeof userInfo, Object.keys(userInfo));
-        
-        try {
-          const response = await fetch('https://api.shophuyvan.vn/api/users/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              zalo_id: userInfo.id,
-              zalo_name: userInfo.name,
-              zalo_avatar: userInfo.avatar,
-              phone: userInfo.phone || '',
-              source: 'mini'
-            })
-          });
+    try {
+      const response = await fetch('https://api.shophuyvan.vn/api/users/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zalo_id: userInfo.id,
+          zalo_name: userInfo.name,
+          zalo_avatar: userInfo.avatar,
+          phone: (userInfo as any).phone || '',
+          source: 'mini',
+        }),
+      });
 
-          const data = await response.json();
-          console.log('✅ Activate response:', data);
-          console.log('🟢 [DEBUG] response data type:', typeof data);
-          
-          if (data.ok || data.id) {
-            alert('Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân');
-            setTimeout(() => {
-              window.location.href = '/member';
-            }, 800);
-          } else {
-            alert(data.message || 'Kích hoạt thất bại, vui lòng thử lại');
-            console.error('❌ Activate failed:', data);
-          }
-        } catch (err) {
-          console.error('❌ Lỗi gửi dữ liệu:', err);
-          console.error('🔴 [DEBUG] Fetch error type:', typeof err);
-          alert('Lỗi kích hoạt. Vui lòng thử lại.');
-        }
-      },
-      fail: (err: any) => {
-        console.error('❌ Lỗi lấy thông tin Zalo:', err);
-        console.error('🔴 [DEBUG] Zalo error type:', typeof err);
-        alert('Không thể lấy thông tin Zalo. Vui lòng thử lại.');
+      const data = await response.json();
+      console.log('✅ Activate response:', data);
+
+      if (data.ok || data.id) {
+        alert('Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân');
+        setTimeout(() => {
+          window.location.href = '/member';
+        }, 800);
+      } else {
+        alert(data.message || 'Kích hoạt thất bại, vui lòng thử lại');
+        console.error('❌ Activate failed:', data);
       }
-    });
-  } catch (e) {
-    console.error('⚠️ Lỗi kích hoạt:', e);
-    console.error('🔴 [DEBUG] Outer catch error type:', typeof e);
-    window.location.href = '/account';
+    } catch (err) {
+      console.error('❌ Lỗi gửi dữ liệu:', err);
+      alert('Lỗi kích hoạt. Vui lòng thử lại.');
+    }
+  } catch (e: any) {
+    console.error('⚠️ Lỗi kích hoạt / SDK:', e);
+
+    // Trường hợp user từ chối cấp quyền, hoặc SDK lỗi
+    if (e && typeof e === 'object' && 'code' in e) {
+      console.warn('SDK error code:', (e as any).code);
+    }
+
+    alert(
+      'Không thể kết nối Zalo hoặc người dùng chưa cấp quyền. Vui lòng thử lại trong Mini App.'
+    );
   }
 };
+
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]);
@@ -328,113 +332,27 @@ export default function Home() {
         </button>
       </section>
 
-      {/* Card kích hoạt */}
-<section className="safe-x mt-3">
-  <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white shadow-lg">
-    <div className="text-sm opacity-90">Đặc biệt</div>
-    <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
-    <div className="text-sm opacity-90 mt-1">
-      Nhận nhiều ưu đãi đến từ Shop Huy Vân
-    </div>
+            {/* Card kích hoạt */}
+      <section className="safe-x mt-3">
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-4 rounded-2xl text-white shadow-lg">
+          <div className="text-sm opacity-90">Đặc biệt</div>
+          <div className="text-lg font-semibold">Kích hoạt tài khoản</div>
+          <div className="text-sm opacity-90 mt-1">
+            Nhận nhiều ưu đãi đến từ Shop Huy Vân
+          </div>
 
-    <button
-      onClick={async () => {
-        try {
-          // 👉 ĐỢI SDK ZALO MINI APP SẴN SÀNG
-          const getZmp = () =>
-            new Promise<any>((resolve, reject) => {
-              const w: any = window;
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              handleActivateAccount();
+            }}
+            className="mt-3 inline-flex items-center gap-2 bg-white/90 text-sky-600 font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
+          >
+            <span>🎁 Kích hoạt ngay</span>
+          </button>
+        </div>
+      </section>
 
-              // SDK đã có sẵn
-              if (w.zmp) {
-                if (typeof w.zmp.ready === "function") {
-                  w.zmp.ready(() => resolve(w.zmp));
-                } else {
-                  resolve(w.zmp);
-                }
-                return;
-              }
-
-              // Chờ tối đa ~2s cho SDK inject
-              let tries = 0;
-              const maxTries = 40; // 40 * 50ms = 2s
-              const timer = window.setInterval(() => {
-                tries += 1;
-                if (w.zmp) {
-                  window.clearInterval(timer);
-                  if (typeof w.zmp.ready === "function") {
-                    w.zmp.ready(() => resolve(w.zmp));
-                  } else {
-                    resolve(w.zmp);
-                  }
-                } else if (tries >= maxTries) {
-                  window.clearInterval(timer);
-                  reject(new Error("SDK Zalo Mini App chưa sẵn sàng"));
-                }
-              }, 50);
-            });
-
-          const zmp = await getZmp();
-
-          zmp.getUserInfo({
-            success: async (userInfo: any) => {
-              console.log("✅ Zalo User Info:", userInfo);
-
-              try {
-                const response = await fetch(
-                  "https://api.shophuyvan.vn/api/users/activate",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      zalo_id: userInfo.id,
-                      zalo_name: userInfo.name,
-                      zalo_avatar: userInfo.avatar,
-                      phone: userInfo.phone || "",
-                      source: "mini",
-                    }),
-                  }
-                );
-
-                const data = await response.json();
-                console.log("✅ Activate response:", data);
-
-                if (data.ok || data.id) {
-                  alert(
-                    "Kích hoạt thành công! Chào mừng bạn đến với Shop Huy Vân"
-                  );
-                  setTimeout(() => {
-                    window.location.href = "/member";
-                  }, 800);
-                } else {
-                  alert(
-                    data.message || "Kích hoạt thất bại, vui lòng thử lại"
-                  );
-                  console.error("❌ Activate failed:", data);
-                }
-              } catch (err) {
-                console.error("❌ Lỗi gửi dữ liệu:", err);
-                alert("Lỗi kích hoạt. Vui lòng thử lại.");
-              }
-            },
-            fail: (err: any) => {
-              console.error("❌ Lỗi lấy thông tin Zalo:", err);
-              alert("Không thể lấy thông tin Zalo. Vui lòng thử lại.");
-            },
-          });
-        } catch (e) {
-          console.error("⚠️ Lỗi kích hoạt / SDK chưa sẵn sàng:", e);
-          alert(
-            "Không thể kết nối Zalo. Vui lòng đóng Mini App và mở lại rồi thử kích hoạt lại."
-          );
-        }
-      }}
-      className="mt-3 inline-flex items-center gap-2 bg-white/90 text-sky-600 font-medium px-3 py-2 rounded-xl hover:bg-white transition-colors"
-    >
-      <span>🎁 Kích hoạt ngay</span>
-    </button>
-  </div>
-</section>
 
 
       {/* Menu Drawer + Grid danh mục */}
