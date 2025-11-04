@@ -178,18 +178,60 @@ export default function Home() {
   const [banners, setBanners] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // 🔧 Tắt eruda overlay của Zalo Test để không chặn click
+    // 🔧 Tắt eruda overlay của Zalo Test để không chặn click
   useEffect(() => {
     try {
-      const w: any = window;
-      if (w.eruda && typeof w.eruda.destroy === 'function') {
-        console.log('[SHV] Destroy eruda debug overlay');
-        w.eruda.destroy();
-      }
+      const killErudaOverlay = () => {
+        try {
+          const w: any = window;
+
+          // Thử destroy instance eruda nếu có
+          if (w.eruda && typeof w.eruda.destroy === "function") {
+            console.log("[SHV] Destroy eruda debug overlay");
+            try {
+              w.eruda.destroy();
+            } catch (e) {
+              console.warn("[SHV] Không thể destroy eruda:", e);
+            }
+          }
+
+          // Tắt luôn mọi DOM nghi là overlay của eruda
+          const selectors = ['#eruda', '.eruda', '[class*="eruda"]', '[id*="eruda"]'];
+          selectors.forEach((sel) => {
+            const nodes = document.querySelectorAll(sel);
+            nodes.forEach((node) => {
+              const el = node as HTMLElement;
+              el.style.display = "none";
+              el.style.pointerEvents = "none";
+            });
+          });
+        } catch (inner) {
+          console.warn("[SHV] Lỗi khi xử lý eruda overlay:", inner);
+        }
+      };
+
+      // Gọi ngay 1 lần
+      killErudaOverlay();
+
+      // Poll thêm một thời gian ngắn vì script eruda có thể inject trễ
+      let tries = 0;
+      const maxTries = 60; // 60 * 100ms = ~6s
+      const timer = window.setInterval(() => {
+        tries += 1;
+        killErudaOverlay();
+        if (tries >= maxTries) {
+          window.clearInterval(timer);
+        }
+      }, 100);
+
+      return () => {
+        window.clearInterval(timer);
+      };
     } catch (e) {
-      console.warn('[SHV] Không thể destroy eruda:', e);
+      console.warn("[SHV] Lỗi khi setup auto-kill eruda:", e);
     }
   }, []);
+
 
   useEffect(() => {
     const loadBanners = async () => {
