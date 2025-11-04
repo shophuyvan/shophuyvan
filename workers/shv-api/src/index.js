@@ -237,9 +237,24 @@ export default {
         );
       }
 
-       // ============================================
+      // ============================================
       // ROOT ENDPOINTS
       // ============================================
+
+      // 🔹 FEED SẢN PHẨM CHO FACEBOOK (CSV)
+      // URL: https://api.shophuyvan.vn/meta/facebook-feed.csv
+      if (path === '/meta/facebook-feed.csv' && req.method === 'GET') {
+        // Dùng API chung cho FE + Mini: lấy từ module Products
+        if (typeof Products.exportFacebookFeedCsv === 'function') {
+          return Products.exportFacebookFeedCsv(req, env);
+        }
+        return json(
+          { ok: false, error: 'Feed generator not available' },
+          { status: 500 },
+          req
+        );
+      }
+
       if (path === '/' || path === '') {
         return json({
           ok: true,

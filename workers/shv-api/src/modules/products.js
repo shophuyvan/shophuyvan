@@ -861,5 +861,149 @@ async function getNewest(req, env) {
   }
 }
 
+/**
+ * 🔹 EXPORT FEED SẢN PHẨM CHO FACEBOOK (CSV)
+ * - 1 dòng / 1 variant
+ * - Giá, cân nặng, SKU đều lấy từ variants
+ * - Dùng chung data cho FE + Mini
+ */
+export async function exportFacebookFeedCsv(req, env) {
+  try {
+    const BASE_URL = 'https://shophuyvan.vn';
+
+    // Lấy danh sách summary
+    let data = await listProducts(env);
+    let items = Array.isArray(data?.items) ? data.items.slice()
+               : Array.isArray(data) ? data.slice() : [];
+
+    // Chỉ lấy sản phẩm đang active
+    items = items.filter(p => p.status !== 0);
+
+    // Nạp FULL product (để có variants)
+    const fullProducts = [];
+    for (const s of items) {
+      const id = String(s.id || s.key || '');
+      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
+      fullProducts.push(p || s);
+    }
+
+    // Helper escape CSV
+    const esc = (val) => {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+
+    // Header CSV theo chuẩn đơn giản của Facebook
+    const rows = [];
+    rows.push([
+      'id',
+      'item_group_id',
+      'title',
+      'description',
+      'availability',
+      'condition',
+      'price',
+      'link',
+      'image_link',
+      'brand',
+      'sku',
+    ]);
+
+    const toNum = (x) =>
+      typeof x === 'string'
+        ? Number(x.replace(/[^\d.-]/g, '')) || 0
+        : Number(x || 0);
+
+    for (const product of fullProducts) {
+      const title = product.title || product.name || '';
+      const desc =
+        product.description ||
+        product.short_description ||
+        product.summary ||
+        '';
+      const slug = product.slug || slugify(title || String(product.id || ''));
+      const productUrl = `${BASE_URL}/product/${slug}`;
+      const defaultImage = Array.isArray(product.images) && product.images.length
+        ? product.images[0]
+        : '';
+
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+
+      if (variants.length === 0) {
+        // Không có variant: fallback 1 dòng / sản phẩm
+        const basePrice = toNum(product.price || product.price_sale || 0);
+        if (!basePrice) continue;
+
+        const priceStr = `${basePrice.toFixed(0)} VND`;
+        rows.push([
+          product.id,
+          product.id,
+          title,
+          desc,
+          'in stock',
+          'new',
+          priceStr,
+          productUrl,
+          defaultImage,
+          product.brand || 'Shop Huy Vân',
+          product.sku || '',
+        ]);
+        continue;
+      }
+
+      // Có variants: 1 dòng / 1 variant
+      variants.forEach((v, idx) => {
+        const vid = String(v.id || v.sku || idx + 1);
+        if (!vid) return;
+
+        const sale = toNum(v.sale_price ?? v.price_sale);
+        const reg = toNum(v.price);
+        const priceNum = sale > 0 && sale < reg ? sale : reg;
+
+        if (!priceNum) return;
+
+        const priceStr = `${priceNum.toFixed(0)} VND`;
+        const avail =
+          toNum(v.stock ?? v.qty ?? product.stock) > 0
+            ? 'in stock'
+            : 'out of stock';
+
+        const img =
+          v.image ||
+          (Array.isArray(v.images) && v.images.length ? v.images[0] : null) ||
+          defaultImage;
+
+        rows.push([
+          `${product.id}_${vid}`, // id duy nhất cho variant
+          product.id,             // item_group_id = id product
+          title,
+          desc,
+          avail,
+          'new',
+          priceStr,
+          productUrl,
+          img || '',
+          product.brand || 'Shop Huy Vân',
+          v.sku || '',
+        ]);
+      });
+    }
+
+    const csv = rows.map((r) => r.map(esc).join(',')).join('\n');
+
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Cache-Control': 'public, max-age=600',
+      },
+    });
+  } catch (e) {
+    console.error('[FacebookFeed] error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
 console.log('✅ products.js loaded - CATEGORY FILTER FIXED');
 // <<< Cuối file >>>
