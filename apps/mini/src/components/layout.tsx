@@ -21,11 +21,13 @@ const Layout = () => {
         <ZMPRouter>
           <AnimationRoutes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/Category" element={<CategoryPage />} />
-            <Route path="/Product" element={<ProductPage />} />
-            <Route path="/Cart" element={<CartPage />} />
-            <Route path="/Checkout" element={<CheckoutPage />} />
+            {/* Dùng path chữ thường để khớp với href & window.location.href */}
+            <Route path="/category" element={<CategoryPage />} />
+            <Route path="/product" element={<ProductPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
           </AnimationRoutes>
+
         </ZMPRouter>
       {/* </SnackbarProvider> */} {/* Tạm comment */}
     </App>
