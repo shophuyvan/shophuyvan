@@ -1,6 +1,7 @@
 // addresses.js – Trang riêng quản lý/chọn địa chỉ cho FE
 const API = 'https://api.shophuyvan.vn/api/addresses';
 const LS_SELECTED = 'address:selected';
+const PROVINCE_API = 'https://provinces.open-api.vn/api';
 
 const $ = (id) => document.getElementById(id);
 const qs = (s, p = document) => p.querySelector(s);
@@ -8,8 +9,11 @@ const ce = (t, props = {}) => Object.assign(document.createElement(t), props);
 
 const state = {
   list: [],
-  editing: null,   // object địa chỉ đang sửa, hoặc null khi thêm mới
+  editing: null,
   returnUrl: new URLSearchParams(location.search).get('return') || '/checkout',
+  provinces: [],
+  districts: [],
+  wards: [],
 };
 
 init().catch(console.error);
@@ -29,10 +33,95 @@ async function init() {
   $('btn-save').onclick = saveForm;
   $('btn-delete').onclick = removeCurrent;
 
+  // địa chỉ dropdowns
+  $('f-province').onchange = handleProvinceChange;
+  $('f-district').onchange = handleDistrictChange;
+
+  // load tỉnh/thành phố
+  await loadProvinces();
   await loadList();
   renderList();
 }
 
+// === API Địa chỉ Việt Nam ===
+async function loadProvinces() {
+  try {
+    const r = await fetch(`${PROVINCE_API}/p/`);
+    state.provinces = await r.json();
+    renderProvinceOptions();
+  } catch (e) {
+    console.error('Load provinces failed', e);
+  }
+}
+
+async function handleProvinceChange() {
+  const code = $('f-province').value;
+  state.districts = [];
+  state.wards = [];
+  
+  $('f-district').disabled = true;
+  $('f-ward').disabled = true;
+  $('f-district').innerHTML = '<option value="">Chọn Quận/Huyện *</option>';
+  $('f-ward').innerHTML = '<option value="">Chọn Phường/Xã *</option>';
+  
+  if (!code) return;
+  
+  try {
+    const r = await fetch(`${PROVINCE_API}/p/${code}?depth=2`);
+    const data = await r.json();
+    state.districts = data.districts || [];
+    renderDistrictOptions();
+    $('f-district').disabled = false;
+  } catch (e) {
+    console.error('Load districts failed', e);
+  }
+}
+
+async function handleDistrictChange() {
+  const code = $('f-district').value;
+  state.wards = [];
+  
+  $('f-ward').disabled = true;
+  $('f-ward').innerHTML = '<option value="">Chọn Phường/Xã *</option>';
+  
+  if (!code) return;
+  
+  try {
+    const r = await fetch(`${PROVINCE_API}/d/${code}?depth=2`);
+    const data = await r.json();
+    state.wards = data.wards || [];
+    renderWardOptions();
+    $('f-ward').disabled = false;
+  } catch (e) {
+    console.error('Load wards failed', e);
+  }
+}
+
+function renderProvinceOptions() {
+  const sel = $('f-province');
+  sel.innerHTML = '<option value="">Chọn Tỉnh/Thành phố *</option>';
+  state.provinces.forEach(p => {
+    sel.appendChild(ce('option', { value: p.code, innerText: p.name }));
+  });
+}
+
+function renderDistrictOptions() {
+  const sel = $('f-district');
+  sel.innerHTML = '<option value="">Chọn Quận/Huyện *</option>';
+  state.districts.forEach(d => {
+    sel.appendChild(ce('option', { value: d.code, innerText: d.name }));
+  });
+}
+
+function renderWardOptions() {
+  const sel = $('f-ward');
+  sel.innerHTML = '<option value="">Chọn Phường/Xã *</option>';
+  state.wards.forEach(w => {
+    sel.appendChild(ce('option', { value: w.code, innerText: w.name }));
+  });
+}
+
+// === Quản lý danh sách địa chỉ ===
 async function loadList() {
   try {
     const r = await fetch(API, { credentials: 'include' });
@@ -84,8 +173,17 @@ function selectAddress(a) {
   location.href = state.returnUrl;
 }
 
-function openForm(a) {
-  state.editing = a ? { ...a } : { name: '', phone: '', address: '', is_default: false };
+async function openForm(a) {
+  state.editing = a ? { ...a } : { 
+    name: '', 
+    phone: '', 
+    address: '', 
+    province_code: '',
+    district_code: '',
+    ward_code: '',
+    is_default: false 
+  };
+  
   $('form-title').innerText = a ? 'Sửa địa chỉ' : 'Địa chỉ mới';
   $('f-name').value = state.editing.name || '';
   $('f-phone').value = state.editing.phone || '';
@@ -93,8 +191,29 @@ function openForm(a) {
   $('f-default').checked = !!state.editing.is_default;
   $('btn-delete').style.display = a?.id ? '' : 'none';
 
+  // Reset dropdowns
+  $('f-province').value = '';
+  $('f-district').innerHTML = '<option value="">Chọn Quận/Huyện *</option>';
+  $('f-ward').innerHTML = '<option value="">Chọn Phường/Xã *</option>';
+  $('f-district').disabled = true;
+  $('f-ward').disabled = true;
+
+  // Nếu đang sửa và có sẵn mã tỉnh/quận/phường
+  if (a?.province_code) {
+    $('f-province').value = a.province_code;
+    await handleProvinceChange();
+    
+    if (a?.district_code) {
+      $('f-district').value = a.district_code;
+      await handleDistrictChange();
+      
+      if (a?.ward_code) {
+        $('f-ward').value = a.ward_code;
+      }
+    }
+  }
+
   $('form-wrap').style.display = '';
-  // focus
   setTimeout(() => $('f-name').focus(), 0);
 }
 
@@ -104,15 +223,26 @@ function closeForm() {
 }
 
 async function saveForm() {
+  const provinceCode = $('f-province').value;
+  const districtCode = $('f-district').value;
+  const wardCode = $('f-ward').value;
+  
   const body = {
     id: state.editing?.id,
     name: $('f-name').value.trim(),
     phone: $('f-phone').value.trim(),
     address: $('f-address').value.trim(),
+    province_code: provinceCode,
+    district_code: districtCode,
+    ward_code: wardCode,
+    province_name: state.provinces.find(p => p.code == provinceCode)?.name || '',
+    district_name: state.districts.find(d => d.code == districtCode)?.name || '',
+    ward_name: state.wards.find(w => w.code == wardCode)?.name || '',
     is_default: $('f-default').checked,
   };
-  if (!body.name || !body.phone || !body.address) {
-    alert('Vui lòng nhập đủ Họ tên / SĐT / Địa chỉ');
+  
+  if (!body.name || !body.phone || !body.address || !provinceCode || !districtCode || !wardCode) {
+    alert('Vui lòng nhập đủ thông tin (Họ tên, SĐT, Tỉnh/Quận/Phường, Địa chỉ cụ thể)');
     return;
   }
 
@@ -166,7 +296,7 @@ async function pasteSmart() {
     const after = (parts[1] || text).trim();
 
     // nếu đang sửa thì điền vào form; nếu chưa mở form → tạo mới
-    if (!state.editing) openForm(null);
+    if (!state.editing) await openForm(null);
     $('f-name').value = $('f-name').value || maybeName;
     $('f-phone').value = $('f-phone').value || phone;
     $('f-address').value = $('f-address').value || after;

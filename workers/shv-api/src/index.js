@@ -222,6 +222,107 @@ export default {
         return flashSales.handle(req, env, ctx);
       }
 	  
+            // ============================================
+      // FACEBOOK LOGIN (WEB + MINI)
+      // ============================================
+      if (path === '/auth/facebook/start') {
+        const url = new URL(req.url);
+
+        // redirect: FE / MINI gửi lên, ví dụ /account hoặc /mini/account
+        const redirect = url.searchParams.get('redirect') || '/';
+        const state = encodeURIComponent(redirect);
+
+        const fbAuthUrl = new URL('https://www.facebook.com/v19.0/dialog/oauth');
+        fbAuthUrl.searchParams.set('client_id', env.FB_APP_ID);
+        fbAuthUrl.searchParams.set(
+          'redirect_uri',
+          'https://api.shophuyvan.vn/auth/facebook/callback'
+        );
+        fbAuthUrl.searchParams.set('response_type', 'code');
+        fbAuthUrl.searchParams.set('scope', 'email,public_profile');
+        fbAuthUrl.searchParams.set('state', state);
+
+        // Đẩy user sang màn hình đăng nhập Facebook
+        return Response.redirect(fbAuthUrl.toString(), 302);
+      }
+
+      if (path === '/auth/facebook/callback') {
+        const url = new URL(req.url);
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state') || '/';
+        const redirect = decodeURIComponent(state || '/');
+
+        if (!code) {
+          return json(
+            { ok: false, error: 'missing_code' },
+            { status: 400 },
+            req
+          );
+        }
+
+        try {
+          const redirectUri = 'https://api.shophuyvan.vn/auth/facebook/callback';
+
+          // 1) Lấy access_token từ Facebook
+          const tokenRes = await fetch(
+            'https://graph.facebook.com/v19.0/oauth/access_token' +
+              `?client_id=${encodeURIComponent(env.FB_APP_ID)}` +
+              `&client_secret=${encodeURIComponent(env.FB_APP_SECRET)}` +
+              `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+              `&code=${encodeURIComponent(code)}`
+          );
+          const tokenData = await tokenRes.json();
+
+          if (!tokenRes.ok || !tokenData.access_token) {
+            console.error('[FB OAuth] token error', tokenData);
+            return json(
+              { ok: false, error: 'facebook_token_error', detail: tokenData },
+              { status: 400 },
+              req
+            );
+          }
+
+          // 2) Lấy thông tin user Facebook
+          const meRes = await fetch(
+            'https://graph.facebook.com/me' +
+              '?fields=id,name,email,picture' +
+              `&access_token=${encodeURIComponent(tokenData.access_token)}`
+          );
+          const fbUser = await meRes.json();
+
+          if (!meRes.ok || !fbUser.id) {
+            console.error('[FB OAuth] profile error', fbUser);
+            return json(
+              { ok: false, error: 'facebook_profile_error', detail: fbUser },
+              { status: 400 },
+              req
+            );
+          }
+
+          // 3) Trả JSON cho FE/Mini xử lý tiếp (tự lưu user, token...)
+          return json(
+            {
+              ok: true,
+              redirect: redirect || '/',
+              facebook_user: fbUser,
+            },
+            {},
+            req
+          );
+        } catch (e) {
+          console.error('[FB OAuth] callback error', e);
+          return json(
+            {
+              ok: false,
+              error: 'facebook_callback_error',
+              detail: String(e?.message || e),
+            },
+            { status: 500 },
+            req
+          );
+        }
+      }
+
       // ============================================
       // MINI APP – HEALTH CHECK
       // ============================================

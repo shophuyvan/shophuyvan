@@ -82,7 +82,7 @@ export async function handle(req, env, ctx) {
       if (method === 'DELETE') return await deleteCustomer(req, env, customerId);
     }
 
-    // PUBLIC API - Customer
+        // PUBLIC API - Customer
     if (path === '/api/customers/register' && method === 'POST') {
       return await customerRegister(req, env);
     }
@@ -93,10 +93,16 @@ export async function handle(req, env, ctx) {
       return await customerMe(req, env);
     }
 
+    // PUBLIC API - Facebook Login (FE + Mini)
+    if (path === '/auth/facebook/login' && method === 'POST') {
+      return await facebookLogin(req, env);
+    }
+
     // PUBLIC API - Zalo activate
     if (path === '/api/users/activate' && method === 'POST') {
       return await userActivate(req, env);
     }
+
 
     // PUBLIC API - Addresses
     const addressMatch = path.match(/^\/api\/addresses(?:\/([^\/]+))?$/);
@@ -401,6 +407,131 @@ async function setDefaultAddress(req, env, addressId) {
 }
 
 /**
+ * Facebook Login (PUBLIC API)
+ * Nhận accessToken từ FE, map vào hệ customer hiện tại
+ */
+async function facebookLogin(req, env) {
+  try {
+    const body = await req.json();
+    const accessToken = body.accessToken || body.access_token;
+
+    if (!accessToken) {
+      return json({ ok: false, error: 'Thiếu accessToken' }, { status: 400 }, req);
+    }
+
+    // 1) Lấy thông tin user từ Facebook
+    const meRes = await fetch(
+      'https://graph.facebook.com/v19.0/me' +
+        '?fields=id,name,email,picture' +
+        `&access_token=${encodeURIComponent(accessToken)}`
+    );
+    const fbUser = await meRes.json();
+
+    if (!meRes.ok || !fbUser.id) {
+      console.error('[FB Login] profile error:', fbUser);
+      return json(
+        { ok: false, error: 'facebook_profile_error', detail: fbUser },
+        { status: 400 },
+        req
+      );
+    }
+
+    const fbId = fbUser.id;
+    const fbName = fbUser.name || '';
+    const fbEmail = (fbUser.email || '').trim().toLowerCase() || null;
+    const fbAvatar =
+      fbUser.picture &&
+      fbUser.picture.data &&
+      fbUser.picture.data.url
+        ? fbUser.picture.data.url
+        : '';
+
+    // 2) Xác định email để map customer
+    const email = fbEmail || `facebook_${fbId}@shophuyvan.local`;
+    const emailKey = `customer:email:${email.toLowerCase()}`;
+
+    // 3) Kiểm tra customer đã tồn tại chưa
+    let customerData = await env.SHV.get(emailKey);
+    let customer = null;
+
+    if (customerData) {
+      // Cập nhật thông tin Facebook
+      customer = JSON.parse(customerData);
+      customer.facebook_id = fbId;
+      customer.facebook_name = fbName;
+      customer.facebook_avatar = fbAvatar;
+      customer.updated_at = new Date().toISOString();
+      customer.last_login = new Date().toISOString();
+
+      await env.SHV.put(`customer:${customer.id}`, JSON.stringify(customer));
+      await env.SHV.put(emailKey, JSON.stringify(customer));
+
+      console.log('[FB Login] Updated existing customer:', customer.id);
+    } else {
+      // 4) Tạo customer mới
+      const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      const now = new Date().toISOString();
+
+      // Password random (không dùng cho login thực tế, chỉ để đủ field)
+      const randomPassword = Math.random().toString(36).slice(2, 15);
+      const password_hash = '$2a$10$' + btoa(randomPassword).slice(0, 53);
+
+      customer = {
+        id: customerId,
+        email: email,
+        password_hash,
+        full_name: fbName || email,
+        phone: '',
+        facebook_id: fbId,
+        facebook_name: fbName,
+        facebook_avatar: fbAvatar,
+        customer_type: 'retail',
+        points: 0,
+        tier: 'retail',
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        last_login: now,
+        created_by: 'facebook_login',
+        source: 'fe'
+      };
+
+      await env.SHV.put(`customer:${customerId}`, JSON.stringify(customer));
+      await env.SHV.put(emailKey, JSON.stringify(customer));
+
+      const listData = await env.SHV.get('customer:list');
+      const list = listData ? JSON.parse(listData) : [];
+      list.push(customerId);
+      await env.SHV.put('customer:list', JSON.stringify(list));
+
+      console.log('[FB Login] Created new customer:', customerId);
+    }
+
+    // 5) Auto login - sinh token giống login thường
+    const token = btoa(`${customer.id}:${Date.now()}`);
+    const { password_hash, ...safeCustomer } = customer;
+
+    return json(
+      {
+        ok: true,
+        message: 'Đăng nhập bằng Facebook thành công!',
+        token,
+        customer: safeCustomer
+      },
+      {},
+      req
+    );
+  } catch (e) {
+    console.error('[FB Login] Error:', e);
+    return json(
+      { ok: false, error: 'Lỗi đăng nhập Facebook: ' + e.message },
+      { status: 500 },
+      req
+    );
+  }
+}
+
+/**
  * Zalo Mini App - Activate Account (PUBLIC API)
  * Lấy user info từ Zalo, tạo/link tài khoản customer
  */
@@ -492,6 +623,7 @@ async function userActivate(req, env) {
     return json({ ok: false, error: 'Lỗi kích hoạt: ' + e.message }, { status: 500 }, req);
   }
 }
+
 
 /**
  * Setup Super Admin (run once)

@@ -16,6 +16,10 @@
     .muted{color:#6b7280}
     .danger{color:#b91c1c}
     .row{display:flex;gap:12px;flex-wrap:wrap}
+    .input, select, textarea{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box}
+    .input:focus, select:focus, textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    select:disabled{background:#f3f4f6;cursor:not-allowed}
+    label{display:flex;align-items:center;gap:6px;cursor:pointer}
   </style>
 </head>
 <body>
@@ -46,14 +50,30 @@
 
     <!-- Form Thêm/Sửa -->
     <div id="form-wrap" class="card" style="padding:12px;display:none">
-      <div style="font-weight:600;margin-bottom:8px" id="form-title">Địa chỉ mới</div>
-      <div class="row" style="flex-direction:column">
-        <input id="f-name" placeholder="Họ và tên" class="input" />
-        <input id="f-phone" placeholder="Số điện thoại" class="input" />
-        <textarea id="f-address" rows="3" placeholder="Địa chỉ (đường, phường/xã, quận/huyện, tỉnh/thành)"></textarea>
-        <label class="row" style="align-items:center">
-          <input type="checkbox" id="f-default" /> <span class="muted">Đặt làm mặc định</span>
+      <div style="font-weight:600;margin-bottom:12px" id="form-title">Địa chỉ mới</div>
+      <div class="row" style="flex-direction:column;gap:12px">
+        <input id="f-name" placeholder="Họ và tên *" class="input" />
+        <input id="f-phone" placeholder="Số điện thoại *" class="input" />
+        
+        <select id="f-province" class="input">
+          <option value="">Chọn Tỉnh/Thành phố *</option>
+        </select>
+        
+        <select id="f-district" class="input" disabled>
+          <option value="">Chọn Quận/Huyện *</option>
+        </select>
+        
+        <select id="f-ward" class="input" disabled>
+          <option value="">Chọn Phường/Xã *</option>
+        </select>
+        
+        <textarea id="f-address" rows="3" placeholder="Địa chỉ cụ thể (số nhà, tên đường) *"></textarea>
+        
+        <label>
+          <input type="checkbox" id="f-default" />
+          <span class="muted">Đặt làm mặc định</span>
         </label>
+        
         <div class="row">
           <button class="btn btn-blue" id="btn-save">Hoàn thành</button>
           <button class="btn" id="btn-cancel">Huỷ</button>
