@@ -3,6 +3,7 @@
 // ✅ PATCHED: Thêm debug logs để trace React error #299
 
 import React, { useEffect, useState, lazy, Suspense } from 'react';
+import { useNavigate } from 'zmp-ui';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CategoryMenu from '../components/CategoryMenu';
@@ -169,6 +170,7 @@ const handleActivateAccount = async () => {
 
 
 export default function Home() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -336,13 +338,18 @@ export default function Home() {
                 transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
               }}
             >
-                            {banners.map((b, i) => (
-                <button
+                                          {banners.map((b, i) => (
+                <a
                   key={b.id || i}
-                  type="button"
-                  onClick={() => {
-                    if (b.link) {
-                      window.location.href = b.link;
+                  href={b.link || '#'}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const link = b.link || '#';
+                    if (!link || link === '#') return;
+                    if (link.startsWith('http')) {
+                      window.location.href = link;
+                    } else {
+                      navigate(link);
                     }
                   }}
                   className="block w-full flex-shrink-0"
@@ -354,7 +361,7 @@ export default function Home() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                </button>
+                </a>
               ))}
             </div>
 
@@ -419,15 +426,14 @@ export default function Home() {
             ))}
           </div>
         ) : (
-                    <div className="grid grid-cols-4 gap-3 text-center">
+                              <div className="grid grid-cols-4 gap-3 text-center">
             {categories.map(c => (
-              <button
-                key={c.slug || c.id}
-                type="button"
+              <a 
+                key={c.slug || c.id} 
+                href={`/category?c=${encodeURIComponent(c.slug)}`}
                 onClick={(e) => {
                   e.preventDefault();
-                  const slug = encodeURIComponent(c.slug);
-                  window.location.href = `/category?c=${slug}`;
+                  navigate(`/category?c=${encodeURIComponent(c.slug)}`);
                 }}
                 className="cat-item hover:opacity-80 transition-opacity"
               >
@@ -437,7 +443,7 @@ export default function Home() {
                 <div className="cat-label whitespace-pre-line text-xs mt-1 line-clamp-2">
                   {c.name}
                 </div>
-              </button>
+              </a>
             ))}
           </div>
         )}
@@ -447,16 +453,16 @@ export default function Home() {
       <section className="safe-x mt-5">
           <div className="section-head flex justify-between items-center mb-3">
           <h2 className="text-lg font-bold">Sản phẩm bán chạy</h2>
-          <button
-            type="button"
-            className="section-more text-sm text-sky-600"
+          <a
+            href="/category"
             onClick={(e) => {
               e.preventDefault();
-              window.location.href = '/category';
+              navigate('/category');
             }}
+            className="section-more text-sm text-sky-600"
           >
             Xem thêm →
-          </button>
+          </a>
         </div>
 
         {loading && (

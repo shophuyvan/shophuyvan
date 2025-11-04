@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'zmp-ui';
 import { routes } from '../routes';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
@@ -16,6 +17,7 @@ export type Product = {
 };
 
 export default function ProductCard({ p }: { p: Product }) {
+  const navigate = useNavigate();
   const href = `${routes.product}?id=${p.id}`;
 
   let base = 0, original = 0;
@@ -79,9 +81,16 @@ export default function ProductCard({ p }: { p: Product }) {
     }
   };
 
-  return (
+    return (
     <div className="card p-2">
-      <a href={href} className="block relative">
+      <a
+        href={href}
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(href);
+        }}
+        className="block relative"
+      >
         <img
           src={p.image || '/public/icon.png'}
           alt={p.name || 'Product image'}
@@ -92,6 +101,7 @@ export default function ProductCard({ p }: { p: Product }) {
           <span className="badge-discount">-{discount}%</span>
         )}
       </a>
+
 
       <div className="mt-2 line-clamp-2 min-h-[40px]">{p.name}</div>
 

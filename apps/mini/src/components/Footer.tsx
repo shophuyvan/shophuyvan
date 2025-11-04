@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'zmp-ui';
 
 /**
  * Tabbar 5 mục như screenshot: Trang chủ / Ưu đãi / Sản phẩm / Giỏ hàng / Tài khoản
@@ -14,6 +15,8 @@ const tabs = [
 
 export default function Footer() {
   const [path, setPath] = useState('/');
+  const navigate = useNavigate();
+
   
   useEffect(() => {
     const get = () => (location.hash?.startsWith('#') ? location.hash.slice(1) : location.pathname) || '/';
