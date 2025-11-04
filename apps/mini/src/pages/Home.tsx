@@ -336,12 +336,15 @@ export default function Home() {
                 transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
               }}
             >
-              {banners.map((b, i) => (
-                <a
+                            {banners.map((b, i) => (
+                <button
                   key={b.id || i}
-                  href={b.link || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => {
+                    if (b.link) {
+                      window.location.href = b.link;
+                    }
+                  }}
                   className="block w-full flex-shrink-0"
                   style={{ width: `${100 / banners.length}%` }}
                 >
@@ -351,7 +354,7 @@ export default function Home() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                </a>
+                </button>
               ))}
             </div>
 
@@ -374,18 +377,7 @@ export default function Home() {
       </section>
 
       {/* ✅ PATCHED: Debug button click */}
-      <section className="safe-x mt-3">
-        <button
-          className="w-full px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium shadow"
-          onClick={(e) => {
-            e.preventDefault();
-            console.log('🔵 [DEBUG] Test API button clicked, event:', typeof e);
-            testMiniApi();
-          }}
-        >
-          Test API Mini (api.shophuyvan.vn/mini/ping)
-        </button>
-      </section>
+      {/* Đã bỏ nút Test API Mini để giao diện gọn hơn */}
 
             {/* Card kích hoạt */}
       <section className="safe-x mt-3">
@@ -427,11 +419,16 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="grid grid-cols-4 gap-3 text-center">
             {categories.map(c => (
-              <a 
-                key={c.slug || c.id} 
-                href={`/category?c=${encodeURIComponent(c.slug)}`}
+              <button
+                key={c.slug || c.id}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const slug = encodeURIComponent(c.slug);
+                  window.location.href = `/category?c=${slug}`;
+                }}
                 className="cat-item hover:opacity-80 transition-opacity"
               >
                 <div className="cat-icon text-3xl">
@@ -440,7 +437,7 @@ export default function Home() {
                 <div className="cat-label whitespace-pre-line text-xs mt-1 line-clamp-2">
                   {c.name}
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -448,11 +445,18 @@ export default function Home() {
 
       {/* Sản phẩm bán chạy */}
       <section className="safe-x mt-5">
-        <div className="section-head flex justify-between items-center mb-3">
+          <div className="section-head flex justify-between items-center mb-3">
           <h2 className="text-lg font-bold">Sản phẩm bán chạy</h2>
-          <a href="/category" className="section-more text-sm text-sky-600">
+          <button
+            type="button"
+            className="section-more text-sm text-sky-600"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/category';
+            }}
+          >
             Xem thêm →
-          </a>
+          </button>
         </div>
 
         {loading && (
