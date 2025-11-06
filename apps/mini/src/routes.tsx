@@ -10,6 +10,9 @@ import CartPage from '@/pages/Cart';
 import CheckoutPage from '@/pages/Checkout';
 import AccountPage from '@/pages/Account';
 import OrderHistoryPage from '@/pages/OrderHistory';
+import AddressListPage from '@/pages/AddressList';
+import AddressEditPage from '@/pages/AddressEdit';
+
 
 export const routes = {
   home: '/',
@@ -19,7 +22,10 @@ export const routes = {
   checkout: '/checkout',
   account: '/account',
   orders: '/orders',
+  addressList: '/address',
+  addressEdit: '/address/edit',
 } as const;
+
 
 // Wrap component với PageLayout
 const withLayout = (Component: React.ComponentType<any>) => {
@@ -41,4 +47,6 @@ export const appRoutes = [
   { path: routes.checkout, component: withLayout(CheckoutPage) },
   { path: routes.account, component: withLayout(AccountPage) },
   { path: routes.orders, component: withLayout(OrderHistoryPage) },
+  { path: routes.addressList, component: withLayout(AddressListPage) },
+  { path: routes.addressEdit, component: withLayout(AddressEditPage) },
 ];
