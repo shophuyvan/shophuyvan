@@ -8,11 +8,14 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'zmp-ui';
 import { api } from '@shared/api';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, priceRange } from '@shared/utils/price';
 import cart from '@shared/cart';
 import { routes } from '../routes';
+import { navigate as openLink } from '@/lib/navigation';
+
 
 // ==========================================
 // CART COUNT HOOK (Realtime)
@@ -329,7 +332,9 @@ export default function Product() {
   const [modalMode, setModalMode] = useState<'cart' | 'buy'>('cart');
   const [shareOpen, setShareOpen] = useState(false);
 
+  const navigate = useNavigate();
   const cartCount = useCartCount();
+
 
   useEffect(() => {
     let isMounted = true;
@@ -366,62 +371,66 @@ export default function Product() {
     } catch {}
   };
 
-  const handleShare = (type: 'zalo' | 'facebook') => {
+    const handleShare = (type: 'zalo' | 'facebook') => {
     const url = encodeURIComponent(window.location.href);
     const title = encodeURIComponent(p?.name || '');
 
     if (type === 'zalo') {
-      window.open(`https://zalo.me/share?url=${url}&title=${title}`, '_blank');
+      openLink(`https://zalo.me/share?url=${url}&title=${title}`);
     } else {
-      window.open(
-        `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-        '_blank'
-      );
+      openLink(`https://www.facebook.com/sharer/sharer.php?u=${url}`);
     }
+
     setShareOpen(false);
   };
 
-  // NOTE: onConfirm của modal sẽ gọi hàm này
+   // NOTE: onConfirm của modal sẽ gọi hàm này
   const addLine = (variant: any, qty: number, mode: 'cart' | 'buy') => {
-  const price = pickPrice(p, variant);
+    const price = pickPrice(p, variant);
 
-  // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
-  // ✅ TÍNH TRỌNG LƯỢNG THỰC - ƯU TIÊN weight (field Admin) TRƯỚC
-  const w = Number(
-    variant?.weight ??
-    variant?.weight_gram ??
-    variant?.weight_grams ??
-    p?.weight ??
-    p?.weight_gram ??
-    p?.weight_grams ??
-    0
-  );
+    // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
+    // ✅ ƯU TIÊN weight trên variant trước
+    const w = Number(
+      variant?.weight ??
+        variant?.weight_gram ??
+        variant?.weight_grams ??
+        p?.weight ??
+        p?.weight_gram ??
+        p?.weight_grams ??
+        0,
+    );
 
-  const line = {
-    ...p,
-    price,
-    variantName: variant?.name || variant?.sku || '',
-    variantImage:
-      variant?.image ||
-      (Array.isArray(variant?.images) ? variant.images[0] : undefined),
+    const line = {
+      ...p,
+      price,
+      variantName: variant?.name || variant?.sku || '',
+      variantImage:
+        variant?.image ||
+        (Array.isArray(variant?.images) ? variant.images[0] : undefined),
 
-    // 🔽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
-    weight_gram: w,
-    weight_grams: w,
-    weight: w,
+      // 🔽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
+      weight_gram: w,
+      weight_grams: w,
+      weight: w,
+    };
+
+    cart.add(line, qty);
+    window.dispatchEvent(new Event('shv:cart-changed'));
+
+    if (mode === 'buy') {
+      setTimeout(() => {
+        try {
+          // Điều hướng SPA trong mini
+          navigate(routes.checkout);
+        } catch {
+          // fallback khi chạy ngoài mini
+          try {
+            location.href = routes.checkout;
+          } catch {}
+        }
+      }, 300);
+    }
   };
-
-  cart.add(line, qty);
-  window.dispatchEvent(new Event('shv:cart-changed'));
-
-  if (mode === 'buy') {
-    setTimeout(() => {
-      try {
-        location.href = routes.checkout;
-      } catch {}
-    }, 300);
-  }
-};
 
   const soldCount = p?.sold || p?.sold_count || 0;
   const rating = p?.rating || 5;
@@ -449,7 +458,7 @@ export default function Product() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-100 pb-28">
       {/* Floating Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/50 via-black/20 to-transparent p-3">
         <div className="flex items-center justify-between">
@@ -517,8 +526,9 @@ export default function Product() {
               )}
             </div>
 
-            <a
-              href={routes.cart}
+            <button
+               type="button"
+               onClick={() => navigate(routes.cart)}
               className="w-10 h-10 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center relative"
             >
               <svg
@@ -534,7 +544,7 @@ export default function Product() {
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
-            </a>
+            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
+import { Page, Header } from 'zmp-ui';
 
 interface OrderItem {
   id: string;
@@ -129,8 +128,8 @@ const OrderHistory: React.FC = () => {
   });
 
   return (
-    <div className="pb-24 bg-gray-50 min-h-screen">
-      <Header />
+    <Page className="pb-24 bg-gray-50">
+      <Header title="Đơn hàng của tôi" showBackIcon={true} />
       
       <div className="safe-x my-4">
         <div className="flex items-center justify-between mb-4">
@@ -276,9 +275,7 @@ const OrderHistory: React.FC = () => {
           </div>
         )}
       </div>
-
-      <Footer />
-    </div>
+    </Page>
   );
 };
 

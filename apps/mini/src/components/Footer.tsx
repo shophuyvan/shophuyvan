@@ -1,59 +1,52 @@
-import React, { useEffect, useState } from 'react';
+// apps/mini/src/components/Footer.tsx
+import React, { FC, useMemo } from 'react';
+import { BottomNavigation, Icon, useLocation, useNavigate } from 'zmp-ui';
 
-/**
- * Tabbar: Trang chủ / Ưu đãi / Sản phẩm / Giỏ hàng / Tài khoản
- */
 const tabs = [
-  { href: '/', label: 'Trang chủ', icon: '🏠' },
-  { href: '/category?tag=deal', label: 'Ưu đãi', icon: '🎁' },
-  { href: '/category', label: 'Sản phẩm', icon: '🧺' },
-  { href: '/cart', label: 'Giỏ hàng', icon: '🛒' },
-  { href: '/account', label: 'Tài khoản', icon: '👤' },
+  { path: '/', label: 'Trang chủ', icon: <Icon icon="zi-home" /> },
+  { path: '/category', label: 'Sản phẩm', icon: <Icon icon="zi-list-1" /> },
+  { path: '/cart', label: 'Giỏ hàng', icon: <Icon icon="zi-cart" /> },
+  { path: '/account', label: 'Tài khoản', icon: <Icon icon="zi-user" /> },
 ];
 
-export default function Footer() {
-  const [path, setPath] = useState('/');
+const Footer: FC = () => {
+  const location = useLocation();
+  const zmpNavigate = useNavigate();
 
-  useEffect(() => {
-    const getPath = () => {
-      const { hash, pathname } = window.location;
-      if (hash && hash.startsWith('#')) {
-        return hash.slice(1) || '/';
-      }
-      return pathname || '/';
-    };
+  const pathname = location.pathname || '/';
 
-    const handleChange = () => setPath(getPath());
+  // Ẩn footer ở trang chi tiết sản phẩm, giỏ hàng, thanh toán
+  const shouldHide = useMemo(
+    () => ['/product', '/cart', '/checkout'].some((p) => pathname.startsWith(p)),
+    [pathname],
+  );
 
-    handleChange();
-    window.addEventListener('hashchange', handleChange);
-    window.addEventListener('popstate', handleChange);
+  // Lấy activeTab từ location.pathname (thuần zmp-ui)
+  const activeTab = useMemo(() => {
+    if (shouldHide) {
+      // Footer đang ẩn, trả về '/' để tránh lỗi
+      return '/';
+    }
+    const matched = tabs.find((t) => pathname.startsWith(t.path));
+    return matched ? matched.path : '/';
+  }, [pathname, shouldHide]);
 
-    return () => {
-      window.removeEventListener('hashchange', handleChange);
-      window.removeEventListener('popstate', handleChange);
-    };
-  }, []);
+  const handleChange = (key: string) => {
+    zmpNavigate(key);
+  };
+
+  if (shouldHide) {
+    return null;
+  }
 
   return (
-    <nav className="tabbar">
-      {tabs.map((t) => {
-        const active =
-          path === t.href ||
-          path.startsWith(`${t.href}?`) ||
-          (t.href !== '/' && path.startsWith(`${t.href}/`));
-
-        return (
-          <a
-            key={t.href}
-            href={t.href}
-            className={`tabbar-item ${active ? 'is-active' : ''}`}
-          >
-            <span className="text-lg leading-none">{t.icon}</span>
-            <span className="text-[11px]">{t.label}</span>
-          </a>
-        );
-      })}
-    </nav>
+    <BottomNavigation fixed activeKey={activeTab} onChange={handleChange}>
+      {tabs.map(({ path, label, icon }) => (
+        <BottomNavigation.Item key={path} label={label} icon={icon} />
+      ))}
+    </BottomNavigation>
   );
-}
+};
+
+
+export default Footer;

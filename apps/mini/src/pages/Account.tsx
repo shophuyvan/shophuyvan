@@ -1,6 +1,26 @@
 // apps/mini/src/pages/Account.tsx
 
 import React, { useEffect, useState } from 'react';
+import { Page, Header, useNavigate } from 'zmp-ui';
+import { zmp } from '@/lib/zmp';
+
+
+// Helper functions for toast and alert
+const toast = (message: string) => {
+  try {
+    zmp.toast.show({ content: message, duration: 2000 });
+  } catch (e) {
+    console.log(message);
+  }
+};
+
+const alert = (message: string, title = 'Thông báo') => {
+  try {
+    zmp.dialog.alert({ title, message });
+  } catch (e) {
+    window.alert(message);
+  }
+};
 
 const API_BASE = 'https://api.shophuyvan.vn';
 
@@ -34,6 +54,7 @@ interface Customer {
 }
 
 export default function Account() {
+  const navigate = useNavigate();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,11 +83,11 @@ export default function Account() {
                localStorage.getItem('x-token') || '';
 
   useEffect(() => {
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
-    loadCustomerData();
+if (!token) {
+  navigate('/login'); // ✅ Chuẩn Mini App
+  return;
+}
+loadCustomerData();
     loadAddresses();
     loadProvinces();
   }, [token]);
@@ -188,17 +209,17 @@ export default function Account() {
     try {
       if (editingAddress) {
         await api(`/api/addresses/${editingAddress.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(formData)
-        });
-        alert('Cập nhật địa chỉ thành công');
-      } else {
-        await api('/api/addresses', {
-          method: 'POST',
-          body: JSON.stringify(formData)
-        });
-        alert('Thêm địa chỉ thành công');
-      }
+      method: 'PUT',
+      body: JSON.stringify(formData)
+    });
+    toast('Cập nhật địa chỉ thành công'); // ✅ Chuẩn Mini App
+  } else {
+    await api('/api/addresses', {
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+    toast('Thêm địa chỉ thành công'); // ✅ Chuẩn Mini App
+  }
       setShowAddressForm(false);
       setEditingAddress(null);
       setFormData({
@@ -245,15 +266,21 @@ export default function Account() {
   };
 
   const handleDeleteAddress = async (id: string) => {
-    if (!confirm('Xóa địa chỉ này?')) return;
+// ✅ Chuẩn Mini App: Dùng zmp.dialog.confirm
+zmp.dialog.confirm({
+  title: 'Xác nhận',
+  message: 'Bạn có chắc muốn xóa địa chỉ này?',
+  onConfirm: async () => {
     try {
       await api(`/api/addresses/${id}`, { method: 'DELETE' });
-      alert('Xóa địa chỉ thành công');
+      toast('Xóa địa chỉ thành công'); // ✅ Dùng toast
       loadAddresses();
     } catch (e: any) {
-      alert('Lỗi: ' + e.message);
+      alert('Lỗi: ' + e.message, 'Lỗi'); // ✅ Dùng alert hook
     }
-  };
+  },
+});
+};
 
   const handleSetDefault = async (id: string) => {
     try {
@@ -268,9 +295,9 @@ export default function Account() {
     localStorage.removeItem('customer_token');
     localStorage.removeItem('x-customer-token');
     localStorage.removeItem('x-token');
-    localStorage.removeItem('customer_info');
-    window.location.href = '/';
-  };
+localStorage.removeItem('customer_info');
+navigate('/'); // ✅ Chuẩn Mini App
+};
 
   if (loading) {
     return (
@@ -284,20 +311,13 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 mt-4">
-          <h1 className="text-2xl font-bold">Tài khoản của tôi</h1>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="text-gray-600 text-2xl hover:text-gray-800"
-          >
-            ←
-          </button>
-        </div>
+// ✅ Chuẩn Mini App: Bọc trong Page
+<Page className="bg-gray-50">
+  {/* ✅ Chuẩn Mini App: Dùng Header chuẩn, tự có nút back */}
+  <Header title="Tài khoản của tôi" showBackIcon={true} />
 
-        {/* Customer Info */}
+  <div className="max-w-2xl mx-auto p-4 space-y-4">
+    {/* Customer Info */}
         {customer && (
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="mb-4 pb-4 border-b">
@@ -506,8 +526,8 @@ export default function Account() {
           className="w-full bg-red-100 text-red-600 py-3 rounded-xl font-semibold mt-6 hover:bg-red-200"
         >
           Đăng xuất
-        </button>
-      </div>
-    </div>
-  );
+       </button>
+  </div>
+</Page> // ✅ Chuẩn Mini App: Đóng thẻ Page
+);
 }

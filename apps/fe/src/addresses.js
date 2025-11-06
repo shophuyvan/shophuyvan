@@ -1,7 +1,7 @@
 // addresses.js – Trang riêng quản lý/chọn địa chỉ cho FE
 const API = 'https://api.shophuyvan.vn/api/addresses';
 const LS_SELECTED = 'address:selected';
-const PROVINCE_API = 'https://provinces.open-api.vn/api';
+const PROVINCE_API = 'https://vapi.vnappmob.com/api/province';
 
 const $ = (id) => document.getElementById(id);
 const qs = (s, p = document) => p.querySelector(s);
@@ -43,14 +43,16 @@ async function init() {
   renderList();
 }
 
-// === API Địa chỉ Việt Nam ===
+// === API Địa chỉ Việt Nam (vnappmob - không bị CORS) ===
 async function loadProvinces() {
   try {
-    const r = await fetch(`${PROVINCE_API}/p/`);
-    state.provinces = await r.json();
+    const r = await fetch(`${PROVINCE_API}/`);
+    const data = await r.json();
+    state.provinces = data.results || [];
     renderProvinceOptions();
   } catch (e) {
     console.error('Load provinces failed', e);
+    alert('Không thể tải danh sách Tỉnh/Thành phố. Vui lòng thử lại.');
   }
 }
 
@@ -67,13 +69,14 @@ async function handleProvinceChange() {
   if (!code) return;
   
   try {
-    const r = await fetch(`${PROVINCE_API}/p/${code}?depth=2`);
+    const r = await fetch(`${PROVINCE_API}/district/${code}`);
     const data = await r.json();
-    state.districts = data.districts || [];
+    state.districts = data.results || [];
     renderDistrictOptions();
     $('f-district').disabled = false;
   } catch (e) {
     console.error('Load districts failed', e);
+    alert('Không thể tải danh sách Quận/Huyện.');
   }
 }
 
@@ -87,13 +90,14 @@ async function handleDistrictChange() {
   if (!code) return;
   
   try {
-    const r = await fetch(`${PROVINCE_API}/d/${code}?depth=2`);
+    const r = await fetch(`${PROVINCE_API}/ward/${code}`);
     const data = await r.json();
-    state.wards = data.wards || [];
+    state.wards = data.results || [];
     renderWardOptions();
     $('f-ward').disabled = false;
   } catch (e) {
     console.error('Load wards failed', e);
+    alert('Không thể tải danh sách Phường/Xã.');
   }
 }
 
@@ -101,7 +105,10 @@ function renderProvinceOptions() {
   const sel = $('f-province');
   sel.innerHTML = '<option value="">Chọn Tỉnh/Thành phố *</option>';
   state.provinces.forEach(p => {
-    sel.appendChild(ce('option', { value: p.code, innerText: p.name }));
+    sel.appendChild(ce('option', { 
+      value: p.province_id, 
+      innerText: p.province_name 
+    }));
   });
 }
 
@@ -109,7 +116,10 @@ function renderDistrictOptions() {
   const sel = $('f-district');
   sel.innerHTML = '<option value="">Chọn Quận/Huyện *</option>';
   state.districts.forEach(d => {
-    sel.appendChild(ce('option', { value: d.code, innerText: d.name }));
+    sel.appendChild(ce('option', { 
+      value: d.district_id, 
+      innerText: d.district_name 
+    }));
   });
 }
 
@@ -117,7 +127,10 @@ function renderWardOptions() {
   const sel = $('f-ward');
   sel.innerHTML = '<option value="">Chọn Phường/Xã *</option>';
   state.wards.forEach(w => {
-    sel.appendChild(ce('option', { value: w.code, innerText: w.name }));
+    sel.appendChild(ce('option', { 
+      value: w.ward_id, 
+      innerText: w.ward_name 
+    }));
   });
 }
 
@@ -125,6 +138,14 @@ function renderWardOptions() {
 async function loadList() {
   try {
     const r = await fetch(API, { credentials: 'include' });
+    
+    // Nếu 401, có thể user chưa đăng nhập
+    if (r.status === 401) {
+      console.warn('User chưa đăng nhập');
+      state.list = [];
+      return;
+    }
+    
     const j = await r.json();
     state.list = Array.isArray(j?.data) ? j.data : (j?.items || []);
   } catch (e) {
@@ -227,6 +248,11 @@ async function saveForm() {
   const districtCode = $('f-district').value;
   const wardCode = $('f-ward').value;
   
+  // Lấy tên từ dropdowns
+  const provinceName = state.provinces.find(p => p.province_id == provinceCode)?.province_name || '';
+  const districtName = state.districts.find(d => d.district_id == districtCode)?.district_name || '';
+  const wardName = state.wards.find(w => w.ward_id == wardCode)?.ward_name || '';
+  
   const body = {
     id: state.editing?.id,
     name: $('f-name').value.trim(),
@@ -235,9 +261,9 @@ async function saveForm() {
     province_code: provinceCode,
     district_code: districtCode,
     ward_code: wardCode,
-    province_name: state.provinces.find(p => p.code == provinceCode)?.name || '',
-    district_name: state.districts.find(d => d.code == districtCode)?.name || '',
-    ward_name: state.wards.find(w => w.code == wardCode)?.name || '',
+    province_name: provinceName,
+    district_name: districtName,
+    ward_name: wardName,
     is_default: $('f-default').checked,
   };
   
@@ -254,14 +280,21 @@ async function saveForm() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    
+    if (r.status === 401) {
+      alert('Bạn cần đăng nhập để lưu địa chỉ');
+      return;
+    }
+    
     const j = await r.json();
     if (!j?.success && !j?.data) throw new Error('save failed');
+    
     await loadList();
     renderList();
     closeForm();
   } catch (e) {
     console.error('[addresses] saveForm failed', e);
-    alert('Lưu địa chỉ thất bại');
+    alert('Lưu địa chỉ thất bại. Vui lòng thử lại.');
   }
 }
 
@@ -273,8 +306,15 @@ async function removeCurrent() {
       method: 'DELETE',
       credentials: 'include',
     });
+    
+    if (r.status === 401) {
+      alert('Bạn cần đăng nhập');
+      return;
+    }
+    
     const j = await r.json();
     if (!j?.success) throw new Error('delete failed');
+    
     await loadList();
     renderList();
     closeForm();

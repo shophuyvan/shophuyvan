@@ -13,8 +13,9 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-// (bỏ react-router-dom vì app dùng router tự viết)
+import { Page, Header } from 'zmp-ui';
 import cart from '@shared/cart';
+import { navigate } from '@/lib/navigation';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
 
@@ -628,9 +629,9 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
 
   // === UI ====================================================================
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Page className="bg-gray-50">
+      <Header title="Thanh toán" showBackIcon={true} />
       <main className="max-w-4xl mx-auto p-3 pb-20">
-        <h1 className="text-xl font-bold mb-3">Thanh toán</h1>
 
         {st.lines.length === 0 && !done && (
           <div className="text-center text-gray-500 py-8">Giỏ hàng trống.</div>
@@ -698,7 +699,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
                 <button
                   className="text-blue-600 text-sm font-medium"
-                  onClick={() => (location.href = '/address?return=/checkout')}
+                  onClick={() => navigate('/address?return=/checkout')}
                 >
                   Thay đổi
                 </button>
@@ -721,7 +722,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                   Chưa có địa chỉ giao hàng.{" "}
                   <button
                     className="text-blue-600 underline"
-                    onClick={() => (location.href = '/address?return=/checkout')}
+                    onClick={() => navigate('/address?return=/checkout')}
                   >
                     Thêm địa chỉ
                   </button>
@@ -876,7 +877,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
           </div>
         )}
       </main>
-    </div>
+    </Page>
   );
 }
 

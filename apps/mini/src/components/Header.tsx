@@ -105,7 +105,7 @@ export default function Header() {
             loading="eager"
           />
           {/* Tên thương hiệu được đặt cạnh logo */}
-          <span className="text-sm font-bold text-brand">Shop Huy Vân test</span>
+          <span className="text-sm font-bold text-brand">Shop Huy Vân Ver 0.4</span>
         </a>
 
         {/* Ô tìm kiếm kéo dài */}

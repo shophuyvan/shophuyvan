@@ -1,0 +1,8 @@
+{
+  "appId": "574448931033929374",
+  "appType": "mini",
+  "cli": {
+    "distDir": "www",
+    "devServerPort": 3000
+  }
+}

@@ -1,9 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'zmp-ui';
 import { routes } from '../routes';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
 import cart from '@shared/cart';
 import { cloudify } from '@shared/utils/cloudinary';
+import { zmp } from '@/lib/zmp';
+
 
 export type Product = {
   id: string | number;
@@ -16,12 +19,24 @@ export type Product = {
 };
 
 export default function ProductCard({ p }: { p: Product }) {
+  const navigate = useNavigate();
   const href = `${routes.product}?id=${p.id}`;
 
-  let base = 0, original = 0;
+
+  const handleClick = () => {
+    console.log('[PRODUCT CLICK]', p.id, href);
+    try {
+  navigate(href); // ✅ Chuẩn Mini App
+} catch (e) {
+      console.error('[PRODUCT CLICK ERROR]', e);
+    }
+  };
+
+  let base = 0,
+    original = 0;
 
   // 1) ƯU TIÊN GIÁ DO SERVER TÍNH TỪ VARIANTS
-  const pd  = numLike((p as any)?.price_display);
+  const pd = numLike((p as any)?.price_display);
   const cad = numLike((p as any)?.compare_at_display);
   if (pd > 0) {
     base = pd;
@@ -33,8 +48,16 @@ export default function ProductCard({ p }: { p: Product }) {
     if (typeof (p as any)?.price === 'number') {
       base = numLike((p as any).price);
     } else {
-      base = numLike((p as any)?.price?.base ?? (p as any)?.price?.min ?? (p as any)?.price?.from);
-      original = numLike((p as any)?.price?.original ?? (p as any)?.price?.max ?? (p as any)?.price?.to);
+      base = numLike(
+        (p as any)?.price?.base ??
+          (p as any)?.price?.min ??
+          (p as any)?.price?.from,
+      );
+      original = numLike(
+        (p as any)?.price?.original ??
+          (p as any)?.price?.max ??
+          (p as any)?.price?.to,
+      );
     }
   }
 
@@ -51,28 +74,80 @@ export default function ProductCard({ p }: { p: Product }) {
   }
   if (base <= 0) {
     const r = (p as any)?.raw || p;
-    const baseCand = [r?.min_price, r?.price_min, r?.minPrice, r?.priceFrom, r?.price_from, r?.lowest_price, r?.sale_price, r?.price_sale, r?.deal_price, r?.special_price, r?.price, r?.regular_price, r?.base_price, r?.priceText, r?.price?.min, r?.price?.from, r?.price?.base];
-    for (const v of baseCand) { const n = numLike(v); if (n > 0) { base = n; break; } }
-    const origCand = [r?.max_price, r?.price_max, r?.original_price, r?.list_price, r?.price?.max, r?.price?.to];
-    for (const v of origCand) { const n = numLike(v); if (n > base) { original = n; break; } }
+    const baseCand = [
+      r?.min_price,
+      r?.price_min,
+      r?.minPrice,
+      r?.priceFrom,
+      r?.price_from,
+      r?.lowest_price,
+      r?.sale_price,
+      r?.price_sale,
+      r?.deal_price,
+      r?.special_price,
+      r?.price,
+      r?.regular_price,
+      r?.base_price,
+      r?.priceText,
+      r?.price?.min,
+      r?.price?.from,
+      r?.price?.base,
+    ];
+    for (const v of baseCand) {
+      const n = numLike(v);
+      if (n > 0) {
+        base = n;
+        break;
+      }
+    }
+    const origCand = [
+      r?.max_price,
+      r?.price_max,
+      r?.original_price,
+      r?.list_price,
+      r?.price?.max,
+      r?.price?.to,
+    ];
+    for (const v of origCand) {
+      const n = numLike(v);
+      if (n > base) {
+        original = n;
+        break;
+      }
+    }
   }
   const hasOriginal = original > base && original > 0;
-  const discount = hasOriginal ? Math.max(1, Math.round((1 - base / original) * 100)) : 0; // e.g. 31%
+  const discount = hasOriginal
+    ? Math.max(1, Math.round((1 - base / original) * 100))
+    : 0;
 
-  const rating = Number((p as any)?.rating ?? (p as any)?.raw?.rating ?? 0) || 0;
+  const rating =
+    Number((p as any)?.rating ?? (p as any)?.raw?.rating ?? 0) || 0;
   const sold = Number((p as any)?.sold ?? (p as any)?.raw?.sold ?? 0) || 0;
 
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     cart.add(p, 1);
-    
+
     window.dispatchEvent(new Event('shv:cart-changed'));
-try { alert('Đã thêm vào giỏ'); } catch {}
+try {
+  // ✅ Chuẩn Mini App: Dùng toast (thông báo) thay vì alert
+  zmp.toast.show({
+    content: 'Đã thêm vào giỏ',
+    duration: 1500,
+  });
+} catch (e) {
+  console.warn('Lỗi zmp.toast.show:', e);
+}
   };
 
   return (
     <div className="card p-2">
-      <a href={href} className="block relative">
+      <button
+        type="button"
+        onClick={handleClick}
+        className="block relative w-full text-left"
+      >
         <img
           src={p.image || '/public/icon.png'}
           alt={p.name}
@@ -82,7 +157,7 @@ try { alert('Đã thêm vào giỏ'); } catch {}
         {discount > 0 && (
           <span className="badge-discount">-{discount}%</span>
         )}
-      </a>
+      </button>
 
       <div className="mt-2 line-clamp-2 min-h-[40px]">{p.name}</div>
 
@@ -103,7 +178,9 @@ try { alert('Đã thêm vào giỏ'); } catch {}
             <span className="price-original">{fmtVND(original)}</span>
           </>
         ) : (
-          <span className="text-sky-600 font-semibold">{fmtVND(base)}</span>
+          <span className="text-sky-600 font-semibold">
+            {fmtVND(base)}
+          </span>
         )}
       </div>
 

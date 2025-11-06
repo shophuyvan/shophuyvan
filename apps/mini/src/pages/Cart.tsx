@@ -10,6 +10,7 @@
 // =============================================================================
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { Page, Header, useNavigate } from 'zmp-ui';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
@@ -32,8 +33,12 @@ export default function CartPage() {
   // ==== STATE CHÍNH CỦA GIỎ ====
   const [state, setState] = useState(cart.get());
 
-  // ==== DANH SÁCH ĐÃ CHỌN (dưới dạng Set<string>) ====
+  // ==== DANH SÁCH ĐÃ CHỌN...
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Điều hướng nội bộ bằng ZMPRouter
+  const navigate = useNavigate();
+
 
   // (đã bỏ voucher)
 
@@ -162,27 +167,28 @@ export default function CartPage() {
     // -----------------------------------------------------------------------------
   // CHECKOUT: lưu items (và set sẵn cân nặng tổng) rồi điều hướng
   // -----------------------------------------------------------------------------
-  const handleCheckout = useCallback(() => {
+    const handleCheckout = useCallback(() => {
     if (selectedItems.size === 0) {
-      alert('Vui lòng chọn ít nhất 1 sản phẩm');
+      alert('Vui lòng chọn ít nhất 1 sản phẩm để mua');
       return;
     }
 
-    const selectedCartItems = state.lines.filter(l => selectedItems.has(String(l.id)));
-    localStorage.setItem('checkout_items', JSON.stringify(selectedCartItems));
+        const selectedLines = state.lines.filter((line) =>
+      selectedItems.has(String(line.id)),
+    );
 
-    // ✅ set sẵn tổng cân nặng theo mục đã chọn (gram)
+    localStorage.setItem('shv_checkout_lines', JSON.stringify(selectedLines));
+
+    // Điều hướng bằng ZMPRouter + fallback location.href
     try {
-      const totalWeight = selectedCartItems.reduce((s, it: any) => {
-        const w = Number((it as any).weight_gram || (it as any).weight_grams || (it as any).weight || 0);
-        return s + w * Number((it as any).qty || 1);
-      }, 0);
-      localStorage.setItem('cart_weight_gram', String(totalWeight));
-    } catch {}
+      navigate(routes.checkout);
+    } catch {
+      try {
+        location.href = routes.checkout;
+      } catch {}
+    }
+  }, [selectedItems, state.lines, navigate]);
 
-    // điều hướng
-    window.location.href = routes.checkout;
-  }, [selectedItems, state.lines]);
 
 
   // -----------------------------------------------------------------------------
@@ -322,21 +328,23 @@ export default function CartPage() {
   // UI CHÍNH
   // -----------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <Page className="bg-gray-50 pb-32">
+      <Header title="Giỏ hàng" showBackIcon={true} />
       <main className="max-w-4xl mx-auto p-3">
-        <h1 className="text-xl font-bold mb-3">Giỏ hàng</h1>
 
         {isEmpty ? (
           // ==== EMPTY STATE ====
           <div className="bg-white rounded-2xl p-8 shadow text-center">
             <div className="text-6xl mb-3">🛒</div>
             <div className="text-gray-500 mb-4">Giỏ hàng trống.</div>
-            <a
-              href="/"
+            <button
+              type="button"
+              onClick={() => navigate('/')}
               className="inline-block px-6 py-2 bg-sky-500 text-white rounded-xl hover:bg-sky-600 transition-colors"
             >
               Tiếp tục mua sắm
-            </a>
+            </button>
+
           </div>
         ) : (
           <>
@@ -389,6 +397,6 @@ export default function CartPage() {
           </>
         )}
       </main>
-    </div>
+    </Page>
   );
 }

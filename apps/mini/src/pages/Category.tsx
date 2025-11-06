@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
+import { Page, Header } from 'zmp-ui';
 import ProductCard from '../components/ProductCard';
 import { api } from '@shared/api';
 
@@ -106,8 +105,8 @@ export default function Category() {
   const title = LABELS[slug] || 'Danh mục';
 
   return (
-    <div>
-      <Header />
+    <Page className="bg-gray-50">
+      <Header title={title} showBackIcon={true} />
       <main className="max-w-4xl mx-auto p-3">
         <h1 className="text-xl font-bold mb-3">{title}</h1>
         {loading && <div>Đang tải…</div>}
@@ -119,14 +118,7 @@ export default function Category() {
           </div>
         )}
       </main>
-      <Footer />
-    </div>
+    </Page>
   );
 }
-
-    // R2 storage logic added for Cloudinary images
-    const r2Url = (cloudinaryUrl) => {
-        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-    };
     
