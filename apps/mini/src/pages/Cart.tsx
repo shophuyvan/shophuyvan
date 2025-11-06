@@ -173,11 +173,21 @@ export default function CartPage() {
       return;
     }
 
-        const selectedLines = state.lines.filter((line) =>
+            const selectedLines = state.lines.filter((line) =>
       selectedItems.has(String(line.id)),
     );
 
-    localStorage.setItem('shv_checkout_lines', JSON.stringify(selectedLines));
+    // Lưu thống nhất dữ liệu checkout để FE & Mini cùng dùng
+    try {
+      const json = JSON.stringify(selectedLines);
+      localStorage.setItem('shv_checkout_lines', json);        // key riêng cho Mini
+      localStorage.setItem('checkout_items', json);            // key dùng chung với FE
+      localStorage.setItem(
+        'cart_selected_ids',
+        JSON.stringify(selectedLines.map((l) => String(l.id))), // set id đã chọn
+      );
+    } catch {}
+
 
     // Điều hướng bằng ZMPRouter + fallback location.href
     try {

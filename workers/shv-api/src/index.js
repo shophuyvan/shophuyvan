@@ -401,7 +401,7 @@ export default {
         try {
           const body = await req.json().catch(() => null);
 
-          if (!body) {
+          if (!body || typeof body !== 'object') {
             return json(
               { ok: false, error: 'Invalid JSON body' },
               { status: 400 },
@@ -409,20 +409,38 @@ export default {
             );
           }
 
-          const {
+          let {
             zalo_id,
             zalo_name,
             zalo_avatar = '',
             phone = '',
             source = 'mini',
+            profile = null,
           } = body;
 
+          // Log để debug payload gửi từ Mini
+          console.log('[MiniActivate] incoming body:', {
+            zalo_id,
+            zalo_name,
+            has_profile: !!profile,
+            source,
+          });
+
+          // Nếu thiếu zalo_id / zalo_name:
+          // - KHÔNG trả lỗi 400 nữa để tránh vỡ flow Mini
+          // - Sinh ID tạm & tên mặc định, đồng thời log cảnh báo
           if (!zalo_id || !zalo_name) {
-            return json(
-              { ok: false, error: 'zalo_id và zalo_name là bắt buộc' },
-              { status: 400 },
-              req
-            );
+            const rand = Math.random().toString(36).slice(2, 10);
+            if (!zalo_id) {
+              zalo_id = `guest_${rand}`;
+            }
+            if (!zalo_name) {
+              zalo_name = 'Guest';
+            }
+            console.warn('[MiniActivate] missing zalo fields, using fallback', {
+              zalo_id,
+              zalo_name,
+            });
           }
 
           const now = new Date().toISOString();
@@ -477,6 +495,7 @@ export default {
           );
         }
       }
+
 
       // Route không khớp gì ở trên → trả 404
       return json({

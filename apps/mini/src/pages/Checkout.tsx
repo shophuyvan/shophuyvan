@@ -79,7 +79,7 @@ export default function Checkout() {
   const [serverWeight, setServerWeight] = useState<number | null>(null);
 
   // Lọc các dòng đã CHỌN: ưu tiên checkout_items; sau đó cart_selected_ids; fallback = tất cả
-  const selectedIds = useMemo(() => {
+    const selectedIds = useMemo(() => {
     try {
       const raw = localStorage.getItem('cart_selected_ids');
       if (!raw) return new Set<string>();
@@ -90,14 +90,27 @@ export default function Checkout() {
   }, [st]);
 
   const selectedLines = useMemo(() => {
+    // ƯU TIÊN key riêng của Mini: shv_checkout_lines
+    try {
+      const rawMini = localStorage.getItem('shv_checkout_lines');
+      if (rawMini) {
+        const arr = JSON.parse(rawMini);
+        if (Array.isArray(arr) && arr.length) return arr;
+      }
+    } catch {}
+
+    // Fallback: key cũ dùng chung với FE
     try {
       const ck = JSON.parse(localStorage.getItem('checkout_items') || '[]');
       if (Array.isArray(ck) && ck.length) return ck;
     } catch {}
+
+    // Fallback cuối: lọc theo cart_selected_ids hoặc lấy toàn bộ giỏ
     const all = Array.isArray(st?.lines) ? st.lines : [];
     if (selectedIds.size === 0) return all;
     return all.filter((l: any) => selectedIds.has(String(l?.id)));
   }, [st, selectedIds]);
+
 
     // === FORM NHẬN HÀNG ========================================================
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -235,9 +248,11 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
   const [voucherError, setVoucherError] = useState<string | null>(null);
 
   // === CHO XEM HÀNG ==========================================================
-  const [allowInspection, setAllowInspection] = useState(true); // ✅ MẶC ĐỊNH = TRUE
+    const [allowInspection, setAllowInspection] = useState(true); // ✅ MẶC ĐỊNH = TRUE
 
-  const disabled = st.lines.length === 0 || submitting;
+  const disabled =
+    !Array.isArray(selectedLines) || selectedLines.length === 0 || submitting;
+
 
   // 1) LOAD auto freeship
   useEffect(() => {
@@ -543,6 +558,12 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
       appliedVoucherCode,
     } = calculatedTotals;
 
+    // Chỉ gửi những dòng đang được chọn; nếu vì lý do nào đó không có selectedLines thì fallback toàn bộ giỏ
+    const linesForOrder =
+      Array.isArray(selectedLines) && selectedLines.length
+        ? selectedLines
+        : (st.lines || []);
+
     const payload = {
       customer: {
         name: form.name,
@@ -556,7 +577,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         district: districts.find((d) => d.code === form.district)?.name || '',
         commune: wards.find((w) => w.code === form.ward)?.name || '',
       },
-      items: st.lines.map((item: any) => ({
+      items: (linesForOrder || []).map((item: any) => ({
         id: item.id,
         sku: item.sku || item.id,
         name: item.name,
@@ -580,6 +601,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         shipping_discount: bestShippingDiscount,
         total: grandTotal,
       },
+
       shipping_provider: selectedShipping.originalProvider || selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
       shipping_name: selectedShipping.name,
@@ -619,7 +641,8 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
     } finally {
       setSubmitting(false);
     }
-  }, [form, selectedShipping, st, subtotal, totalWeightGram, serverWeight, provinces, districts, wards, calculatedTotals]);
+    }, [form, selectedShipping, st, selectedLines, subtotal, totalWeightGram, serverWeight, provinces, districts, wards, calculatedTotals]);
+
 
   // === ẢNH SẢN PHẨM ==========================================================
   const getItemImage = useCallback((item: any) => {
@@ -828,7 +851,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
               )}
             </div>
 
-            {/* === CHI TIẾT THANH TOÁN ======================================== */}
+                        {/* === CHI TIẾT THANH TOÁN ======================================== */}
             <div className="bg-white rounded-2xl p-4 shadow">
               <div className="font-semibold mb-3 text-lg">Chi tiết thanh toán</div>
 
@@ -848,10 +871,50 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 </div>
               </label>
 
+              {/* ✅ BẢNG CHI TIẾT TIỀN */}
+              <div className="mt-1 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Tiền hàng</span>
+                  <span className="font-medium">
+                    {fmtVND(calculatedTotals.subtotal)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Phí vận chuyển</span>
+                  <span className="font-medium">
+                    {fmtVND(calculatedTotals.finalShippingFee)}
+                  </span>
+                </div>
+
+                {(calculatedTotals.manualProductDiscount > 0 ||
+                  calculatedTotals.bestShippingDiscount > 0) && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>
+                      Giảm giá
+                      {calculatedTotals.appliedVoucherCode
+                        ? ` (${calculatedTotals.appliedVoucherCode})`
+                        : ''}
+                    </span>
+                    <span className="font-medium">
+                      -
+                      {fmtVND(
+                        (calculatedTotals.manualProductDiscount || 0) +
+                          (calculatedTotals.bestShippingDiscount || 0),
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ TỔNG THANH TOÁN CUỐI CÙNG */}
               <div className="flex justify-between py-3 border-t mt-3 text-lg font-bold">
                 <span>Tổng thanh toán:</span>
-                <span className="text-rose-600 text-xl">{fmtVND(calculatedTotals.grandTotal)}</span>
+                <span className="text-rose-600 text-xl">
+                  {fmtVND(calculatedTotals.grandTotal)}
+                </span>
               </div>
+
 
               {/* ✅ HIỂN THỊ TRẠNG THÁI COD */}
               {allowInspection && (
