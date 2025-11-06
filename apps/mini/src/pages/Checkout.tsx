@@ -13,10 +13,9 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Page } from 'zmp-ui';
+import { Page, useNavigate } from 'zmp-ui';
 import Header from '../components/Header';
 import cart from '@shared/cart';
-import { navigate } from '@/lib/navigation';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
 
@@ -74,7 +73,10 @@ const api = async (path: string, options: RequestInit = {}) => {
 
 
 export default function Checkout() {
+  const navigate = useNavigate();
+
  // === GIỎ HÀNG ==============================================================
+
 
   const [st, setSt] = useState<any>(cart.get());
   const [serverWeight, setServerWeight] = useState<number | null>(null);

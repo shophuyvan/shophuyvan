@@ -78,25 +78,32 @@ export default function Account() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
 
-  const token = localStorage.getItem('customer_token') || 
-               localStorage.getItem('x-customer-token') || 
-               localStorage.getItem('x-token') || '';
+    const token =
+    localStorage.getItem('customer_token') ||
+    localStorage.getItem('x-customer-token') ||
+    localStorage.getItem('x-token') ||
+    '';
 
+  // Mini app: có thể chưa có token -> không redirect sang /login
+  // Nếu chưa có token thì chỉ tắt loading và hiển thị thông tin cơ bản
   useEffect(() => {
-if (!token) {
-  navigate('/login'); // ✅ Chuẩn Mini App
-  return;
-}
-loadCustomerData();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    loadCustomerData();
     loadAddresses();
     loadProvinces();
   }, [token]);
 
+
+    // Helper gọi API trong trang Tài khoản
   const api = async (path: string, options: any = {}) => {
-    const headers = {
+    const headers: any = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers,
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
     const response = await fetch(`${API_BASE}${path}`, {
@@ -111,6 +118,7 @@ loadCustomerData();
 
     return response.json();
   };
+
 
   const loadCustomerData = async () => {
     try {
@@ -325,13 +333,15 @@ navigate('/'); // ✅ Chuẩn Mini App
               <p className="font-semibold text-lg">{customer.full_name}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b">
-              <div>
+                            <div>
                 <p className="text-sm text-gray-600">Email</p>
                 <p className="font-medium text-sm">{customer.email}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Điểm</p>
-                <p className="font-semibold">{customer.points.toLocaleString('vi-VN')}</p>
+                <p className="font-semibold">
+                  {(customer.points ?? 0).toLocaleString('vi-VN')}
+                </p>
               </div>
             </div>
             <div>
