@@ -2,7 +2,8 @@
 // Đường dẫn: apps/mini/src/pages/Home.tsx
 
 import React, { useEffect, useState, lazy, Suspense } from 'react';
-import { Page, Header, useNavigate } from 'zmp-ui';
+import { Page, useNavigate } from 'zmp-ui';
+import Header from '../components/Header';
 import CategoryMenu from '../components/CategoryMenu';
 import { api } from '@shared/api';
 import { cldFetch, preloadImage } from '@shared/utils/cloudinary';
@@ -235,16 +236,16 @@ const Home: React.FC = () => {
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  return (
+    return (
     <Page className="bg-gray-100">
-      <Header title="Shop Huy Vân" />
+      <Header forceShow variant="mini" />
 
-            {/* Banner */}
+      {/* Banner */}
       <section className="safe-x pt-3">
         {banners && banners.length > 0 ? (
           <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[3/2]">
             <div
-              className="flex transition-transform duration-700 ease-in-out"
+              className="flex h-full transition-transform duration-700 ease-in-out"
               style={{
                 width: `${banners.length * 100}%`,
                 transform: `translateX(-${
@@ -257,7 +258,8 @@ const Home: React.FC = () => {
                   key={b.id || idx}
                   src={b.image}
                   alt={b.title || ''}
-                  className="w-full object-cover"
+                  className="h-full object-cover flex-shrink-0"
+                  style={{ width: `${100 / banners.length}%` }}
                   loading={idx === 0 ? 'eager' : 'lazy'}
                 />
               ))}
@@ -267,6 +269,7 @@ const Home: React.FC = () => {
           <div className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 h-32 shadow-lg" />
         )}
       </section>
+
 
       {/* Kích hoạt tài khoản */}
       <section className="safe-x mt-3">
@@ -342,7 +345,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Sản phẩm bán chạy */}
-      <section className="safe-x mt-5 pb-24">
+      <section className="safe-x mt-5 pb-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-lg font-bold">Sản phẩm bán chạy</h2>
           <button

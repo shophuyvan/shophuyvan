@@ -13,7 +13,8 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Page, Header } from 'zmp-ui';
+import { Page } from 'zmp-ui';
+import Header from '../components/Header';
 import cart from '@shared/cart';
 import { navigate } from '@/lib/navigation';
 import { fmtVND } from '@shared/utils/fmtVND';
@@ -651,10 +652,17 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
   }, []);
 
   // === UI ====================================================================
-  return (
-    <Page className="bg-gray-50">
-      <Header title="Thanh toán" showBackIcon={true} />
-      <main className="max-w-4xl mx-auto p-3 pb-20">
+    return (
+        <Page className="bg-gray-50">
+      <Header
+        forceShow
+        variant="mini"
+        showBack
+        onBack={() => navigate('/cart')}
+      />
+
+      <main className="max-w-4xl mx-auto p-3 pb-3">
+
 
         {st.lines.length === 0 && !done && (
           <div className="text-center text-gray-500 py-8">Giỏ hàng trống.</div>

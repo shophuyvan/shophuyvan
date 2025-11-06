@@ -24,19 +24,46 @@ function cloudify(u?: string, t: string = "w_800,q_auto,f_auto"): string | undef
  * Header với logo thật (ảnh) ở góc trái, chữ "Shop Huy Vân" nhỏ nằm dưới logo,
  * màu chữ đồng bộ màu logo. Thanh tìm kiếm kéo dài chiếm phần còn lại.
  */
-export default function Header() {
+type HeaderProps = {
+  // Mini App truyền forceShow = true để luôn hiển thị header
+  forceShow?: boolean;
+  // variant = 'mini' dùng cho Zalo Mini (không dùng link FE)
+  variant?: 'default' | 'mini';
+  // Hiển thị nút back (dùng ở Mini)
+  showBack?: boolean;
+  // Handler khi bấm back (Mini truyền vào để dùng useNavigate)
+  onBack?: () => void;
+};
+
+
+/**
+ * Header với logo thật (ảnh) ở góc trái, chữ "Shop Huy Vân" nhỏ nằm dưới logo,
+ * màu chữ đồng bộ màu logo. Thanh tìm kiếm kéo dài chiếm phần còn lại.
+ */
+export default function Header({
+  forceShow,
+  variant = 'default',
+  showBack,
+  onBack,
+}: HeaderProps) {
   const [count, setCount] = useState(cart.count());
   const [shouldHide, setShouldHide] = useState(false);
 
-  // Ẩn header ở trang product/cart/checkout
+  // Ẩn header ở trang product/cart/checkout (FE),
+  // nhưng nếu forceShow = true (Mini) thì luôn hiển thị
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (forceShow) {
+      setShouldHide(false);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
       try {
         const path = window.location.pathname;
         if (
-          path.includes("/product") ||
-          path.includes("/cart") ||
-          path.includes("/checkout")
+          path.includes('/product') ||
+          path.includes('/cart') ||
+          path.includes('/checkout')
         ) {
           setShouldHide(true);
         } else {
@@ -46,7 +73,8 @@ export default function Header() {
         setShouldHide(false);
       }
     }
-  }, []);
+  }, [forceShow]);
+
 
   // Đồng bộ số lượng giỏ hàng theo storage + custom event + polling
   useEffect(() => {
@@ -87,11 +115,71 @@ export default function Header() {
     };
   }, []);
 
-  // Nếu đang ở trang cần ẩn header thì không render gì
+     // Nếu đang ở trang cần ẩn header thì không render gì
   if (shouldHide) {
     return null;
   }
 
+  // Header đơn giản cho Zalo Mini App: không dùng link FE để tránh nhảy khỏi Mini
+  if (variant === 'mini') {
+    return (
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
+        <div className="safe-x mx-auto flex items-center justify-between py-2 px-3">
+          <div className="flex items-center gap-2">
+            {showBack && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onBack) {
+                    onBack();
+                  } else if (typeof window !== 'undefined') {
+                    // Fallback cho web dev: lùi lại 1 trang
+                    window.history.back();
+                  }
+                }}
+                className="mr-1 p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 focus:outline-none"
+                aria-label="Quay lại"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M12.707 4.293a1 1 0 010 1.414L9.414 9H16a1 1 0 110 2H9.414l3.293 3.293a1 1 0 01-1.414 1.414l-4.707-4.707a1 1 0 010-1.414l4.707-4.707a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            )}
+
+            <img
+              src="/logo-hv.png"
+              alt="Shop Huy Vân"
+              className="w-8 h-8 object-contain rounded-md"
+              loading="eager"
+            />
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold text-brand">Shop Huy Vân</span>
+              <span className="text-[11px] text-gray-500">
+                Mua sắm trên Zalo Mini
+              </span>
+            </div>
+          </div>
+
+          {count > 0 && (
+            <div className="text-xs text-rose-600 font-semibold">
+              {count} sản phẩm
+            </div>
+          )}
+        </div>
+      </header>
+    );
+  }
+
+  // Mặc định: header đầy đủ cho FE
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
       {/* Giảm padding-y (p-3 -> py-2) và giảm gap (gap-2 -> gap-3) */}
@@ -142,7 +230,8 @@ export default function Header() {
           >
             <path
               d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 
-              0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.24-5.88
+              0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.4
+              1.75-1.03l3.24-5.88
               a1 1 0 00-.88-1.47H6.21L5.27 2H2v2h2l3.6 7.59-1.35 2.44C5.52 14.37 6.24 15 7.16 15H19v-2H7.42l.74-1.34z"
             />
           </svg>
@@ -156,3 +245,4 @@ export default function Header() {
     </header>
   );
 }
+

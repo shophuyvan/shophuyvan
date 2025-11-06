@@ -10,7 +10,8 @@
 // =============================================================================
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Page, Header, useNavigate } from 'zmp-ui';
+import { Page, useNavigate } from 'zmp-ui';
+import Header from '../components/Header';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { cloudify } from '@shared/utils/cloudinary';
@@ -337,10 +338,18 @@ export default function CartPage() {
   // -----------------------------------------------------------------------------
   // UI CHÍNH
   // -----------------------------------------------------------------------------
-  return (
-    <Page className="bg-gray-50 pb-32">
-      <Header title="Giỏ hàng" showBackIcon={true} />
+  
+    return (
+        <Page className="bg-gray-50 pb-32">
+      <Header
+        forceShow
+        variant="mini"
+        showBack
+        onBack={() => navigate('/')}
+      />
       <main className="max-w-4xl mx-auto p-3">
+
+
 
         {isEmpty ? (
           // ==== EMPTY STATE ====
