@@ -19,6 +19,21 @@ type AddressForm = {
 const phoneFrom = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
 const LS_KEY_SELECTED = "address:selected";
 
+const API_BASE = "https://api.shophuyvan.vn";
+
+const token =
+  localStorage.getItem("customer_token") ||
+  localStorage.getItem("x-customer-token") ||
+  localStorage.getItem("x-token") ||
+  "";
+
+const authHeaders =
+  token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+
 export default function AddressEdit() {
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
@@ -46,11 +61,13 @@ export default function AddressEdit() {
       setLoading(true);
       try {
         const r = await fetch(
-          `https://api.shophuyvan.vn/api/addresses?id=${encodeURIComponent(
-            id
-          )}`,
-          { credentials: "include" }
-        );
+           `${API_BASE}/api/addresses?id=${encodeURIComponent(id)}`,
+           {
+             credentials: "include",
+             headers: authHeaders,
+           }
+         );
+
         const data = await r.json();
         const a = Array.isArray(data?.data) ? data.data[0] : data?.data;
         if (!abort && a) {
@@ -110,17 +127,19 @@ export default function AddressEdit() {
     try {
       const method = id ? "PUT" : "POST";
       const url =
-        "https://api.shophuyvan.vn/api/addresses" +
-        (id ? `/${encodeURIComponent(id)}` : "");
+      `${API_BASE}/api/addresses` +
+      (id ? `/${encodeURIComponent(id)}` : "");
+    
+    const res = await fetch(url, {
+      method,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+      },
+      body: JSON.stringify(form),
+    });
 
-      const res = await fetch(url, {
-        method,
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
 
       const data = await res.json();
 

@@ -24,21 +24,7 @@ const alert = (message: string, title = 'Thông báo') => {
 
 const API_BASE = 'https://api.shophuyvan.vn';
 
-interface Address {
-  id: string;
-  name: string;
-  phone: string;
-  province_code: string;
-  province_name: string;
-  district_code: string;
-  district_name: string;
-  ward_code: string;
-  ward_name: string;
-  address: string;
-  address_type: string;
-  is_default: boolean;
-  note: string;
-}
+// Đã xóa interface Address vì đã tách sang AddressList.tsx
 
 interface Customer {
   id: string;
@@ -56,27 +42,10 @@ interface Customer {
 export default function Account() {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  // Đã xóa state addresses vì không hiển thị trên trang này nữa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddressForm, setShowAddressForm] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    province_code: '',
-    province_name: '',
-    district_code: '',
-    district_name: '',
-    ward_code: '',
-    ward_name: '',
-    address: '',
-    address_type: 'home',
-    note: ''
-  });
-  const [provinces, setProvinces] = useState<any[]>([]);
-  const [districts, setDistricts] = useState<any[]>([]);
-  const [wards, setWards] = useState<any[]>([]);
+  // Đã xóa các state quản lý form addresses vì đã tách ra AddressList.tsx và AddressEdit.tsx
 
     const token =
     localStorage.getItem('customer_token') ||
@@ -93,8 +62,7 @@ export default function Account() {
     }
 
     loadCustomerData();
-    loadAddresses();
-    loadProvinces();
+    // Không cần load addresses và provinces nữa vì đã tách sang trang riêng
   }, [token]);
 
 
@@ -136,174 +104,8 @@ export default function Account() {
     } catch (e: any) {
       console.error('Load customer error:', e);
       setError(e.message);
-    }
-  };
-
-
-  const loadAddresses = async () => {
-    try {
-      const data = await api('/api/addresses');
-      setAddresses(data.addresses || []);
-    } catch (e: any) {
-      console.error('Load addresses error:', e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadProvinces = async () => {
-    try {
-      const data = await api('/shipping/provinces');
-      setProvinces(data.items || []);
-    } catch (e) {
-      console.error('Load provinces error:', e);
-    }
-  };
-
-  const loadDistricts = async (provinceCode: string) => {
-    try {
-      const data = await api(`/shipping/districts?province_code=${encodeURIComponent(provinceCode)}`);
-      setDistricts(data.items || []);
-    } catch (e) {
-      console.error('Load districts error:', e);
-    }
-  };
-
-  const loadWards = async (districtCode: string) => {
-    try {
-      const data = await api(`/shipping/wards?district_code=${encodeURIComponent(districtCode)}`);
-      setWards(data.items || []);
-    } catch (e) {
-      console.error('Load wards error:', e);
-    }
-  };
-
-  const handleProvinceChange = (code: string) => {
-    const province = provinces.find(p => p.code === code);
-    setFormData({
-      ...formData,
-      province_code: code,
-      province_name: province?.name || '',
-      district_code: '',
-      district_name: '',
-      ward_code: '',
-      ward_name: ''
-    });
-    setDistricts([]);
-    setWards([]);
-    if (code) loadDistricts(code);
-  };
-
-  const handleDistrictChange = (code: string) => {
-    const district = districts.find(d => d.code === code);
-    setFormData({
-      ...formData,
-      district_code: code,
-      district_name: district?.name || '',
-      ward_code: '',
-      ward_name: ''
-    });
-    setWards([]);
-    if (code) loadWards(code);
-  };
-
-  const handleWardChange = (code: string) => {
-    const ward = wards.find(w => w.code === code);
-    setFormData({
-      ...formData,
-      ward_code: code,
-      ward_name: ward?.name || ''
-    });
-  };
-
-  const handleSaveAddress = async () => {
-    if (!formData.name || !formData.phone || !formData.province_code || !formData.address) {
-      alert('Vui lòng điền đầy đủ thông tin');
-      return;
-    }
-
-    try {
-      if (editingAddress) {
-        await api(`/api/addresses/${editingAddress.id}`, {
-      method: 'PUT',
-      body: JSON.stringify(formData)
-    });
-    toast('Cập nhật địa chỉ thành công'); // ✅ Chuẩn Mini App
-  } else {
-    await api('/api/addresses', {
-      method: 'POST',
-      body: JSON.stringify(formData)
-    });
-    toast('Thêm địa chỉ thành công'); // ✅ Chuẩn Mini App
-  }
-      setShowAddressForm(false);
-      setEditingAddress(null);
-      setFormData({
-        name: '',
-        phone: '',
-        province_code: '',
-        province_name: '',
-        district_code: '',
-        district_name: '',
-        ward_code: '',
-        ward_name: '',
-        address: '',
-        address_type: 'home',
-        note: ''
-      });
-      loadAddresses();
-    } catch (e: any) {
-      alert('Lỗi: ' + e.message);
-    }
-  };
-
-  const handleEditAddress = (address: Address) => {
-    setEditingAddress(address);
-    setFormData({
-      name: address.name,
-      phone: address.phone,
-      province_code: address.province_code,
-      province_name: address.province_name,
-      district_code: address.district_code,
-      district_name: address.district_name,
-      ward_code: address.ward_code,
-      ward_name: address.ward_name,
-      address: address.address,
-      address_type: address.address_type,
-      note: address.note
-    });
-    setShowAddressForm(true);
-    if (address.province_code) {
-      loadDistricts(address.province_code);
-      if (address.district_code) {
-        loadWards(address.district_code);
-      }
-    }
-  };
-
-  const handleDeleteAddress = async (id: string) => {
-// ✅ Chuẩn Mini App: Dùng zmp.dialog.confirm
-zmp.dialog.confirm({
-  title: 'Xác nhận',
-  message: 'Bạn có chắc muốn xóa địa chỉ này?',
-  onConfirm: async () => {
-    try {
-      await api(`/api/addresses/${id}`, { method: 'DELETE' });
-      toast('Xóa địa chỉ thành công'); // ✅ Dùng toast
-      loadAddresses();
-    } catch (e: any) {
-      alert('Lỗi: ' + e.message, 'Lỗi'); // ✅ Dùng alert hook
-    }
-  },
-});
-};
-
-  const handleSetDefault = async (id: string) => {
-    try {
-      await api(`/api/addresses/${id}/default`, { method: 'PUT' });
-      loadAddresses();
-    } catch (e: any) {
-      alert('Lỗi: ' + e.message);
     }
   };
 
@@ -327,11 +129,7 @@ navigate('/'); // ✅ Chuẩn Mini App
   }
 
   return (
-// ✅ Chuẩn Mini App: Bọc trong Page
 <Page className="bg-gray-50">
-  {/* ✅ Chuẩn Mini App: Dùng Header chuẩn, tự có nút back */}
-  <Header title="Tài khoản của tôi" showBackIcon={true} />
-
   <div className="max-w-2xl mx-auto p-4 space-y-4">
     {/* Customer Info */}
                 {customer && (
@@ -400,184 +198,164 @@ navigate('/'); // ✅ Chuẩn Mini App
           </div>
         </div>
 
-        {/* Addresses */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">📍 Số địa chỉ ({addresses.length})</h2>
-            <button
-              onClick={() => {
-                setEditingAddress(null);
-                setFormData({
-                  name: '',
-                  phone: '',
-                  province_code: '',
-                  province_name: '',
-                  district_code: '',
-                  district_name: '',
-                  ward_code: '',
-                  ward_name: '',
-                  address: '',
-                  address_type: 'home',
-                  note: ''
-                });
-                setShowAddressForm(true);
-              }}
-              className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700"
-            >
-              + Thêm
-            </button>
-          </div>
-
-          {addresses.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Chưa có địa chỉ nào</p>
-          ) : (
-            <div className="space-y-2">
-              {addresses.map(addr => (
-                <div key={addr.id} className="border rounded-lg p-3 relative">
-                  {addr.is_default && (
-                    <span className="absolute top-2 right-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                      Mặc định
-                    </span>
-                  )}
-                  <p className="font-semibold">{addr.name} - {addr.phone}</p>
-                  <p className="text-sm text-gray-600">
-                    {addr.address}, {addr.ward_name}, {addr.district_name}, {addr.province_name}
-                  </p>
-                  {addr.note && <p className="text-xs text-gray-500 mt-1">Ghi chú: {addr.note}</p>}
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => handleEditAddress(addr)}
-                      className="flex-1 bg-blue-100 text-blue-600 py-1 rounded text-sm font-medium hover:bg-blue-200"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAddress(addr.id)}
-                      className="flex-1 bg-red-100 text-red-600 py-1 rounded text-sm font-medium hover:bg-red-200"
-                    >
-                      Xóa
-                    </button>
-                    {!addr.is_default && (
-                      <button
-                        onClick={() => handleSetDefault(addr.id)}
-                        className="flex-1 bg-gray-100 text-gray-600 py-1 rounded text-sm font-medium hover:bg-gray-200"
-                      >
-                        Đặt mặc định
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Address Form Modal */}
-        {showAddressForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-            <div className="w-full bg-white rounded-t-2xl p-4 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-bold mb-4">
-                {editingAddress ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
-              </h3>
-
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Tên người nhận *"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-
-                <input
-                  type="tel"
-                  placeholder="Số điện thoại *"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-
-                <select
-                  value={formData.province_code}
-                  onChange={(e) => handleProvinceChange(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">Chọn Tỉnh/Thành phố *</option>
-                  {provinces.map(p => (
-                    <option key={p.code} value={p.code}>{p.name}</option>
-                  ))}
-                </select>
-
-                {formData.province_code && (
-                  <select
-                    value={formData.district_code}
-                    onChange={(e) => handleDistrictChange(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Chọn Quận/Huyện *</option>
-                    {districts.map(d => (
-                      <option key={d.code} value={d.code}>{d.name}</option>
-                    ))}
-                  </select>
-                )}
-
-                {formData.district_code && (
-                  <select
-                    value={formData.ward_code}
-                    onChange={(e) => handleWardChange(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Chọn Phường/Xã *</option>
-                    {wards.map(w => (
-                      <option key={w.code} value={w.code}>{w.name}</option>
-                    ))}
-                  </select>
-                )}
-
-                <input
-                  type="text"
-                  placeholder="Địa chỉ chi tiết (số nhà, tên đường) *"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-
-                <select
-                  value={formData.address_type}
-                  onChange={(e) => setFormData({ ...formData, address_type: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="home">Nhà riêng</option>
-                  <option value="office">Cơ quan</option>
-                  <option value="other">Khác</option>
-                </select>
-
-                <input
-                  type="text"
-                  placeholder="Ghi chú (VD: giao lúc 9-11h sáng)"
-                  value={formData.note}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-
-                <div className="flex gap-2 pt-4">
-                  <button
-                    onClick={() => setShowAddressForm(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    onClick={handleSaveAddress}
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
-                  >
-                    Lưu
-                  </button>
-                </div>
+        {/* Menu List */}
+        <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+          {/* Sổ địa chỉ */}
+          <button
+            onClick={() => navigate('/address/list')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-xl">📍</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Sổ địa chỉ</p>
+                <p className="text-xs text-gray-500">Địa chỉ nhận hàng</p>
               </div>
             </div>
-          </div>
-        )}
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Kho Voucher */}
+          <button
+            onClick={() => navigate('/vouchers')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                <span className="text-xl">🎟️</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Kho Voucher</p>
+                <p className="text-xs text-gray-500">Các voucher khuyến mãi</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Tích điểm */}
+          <button
+            onClick={() => navigate('/points')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <span className="text-xl">⭐</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Tích điểm</p>
+                <p className="text-xs text-blue-600 font-medium">
+                  {customer ? `${customer.points?.toLocaleString() || 0} điểm` : 'Chưa có điểm'}
+                </p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Hạng thành viên */}
+          <button
+            onClick={() => navigate('/membership')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <span className="text-xl">👑</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Hạng thành viên</p>
+                <p className="text-xs text-purple-600 font-medium capitalize">
+                  {customer?.tier || 'Chưa có hạng'}
+                </p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Thông tin tài khoản */}
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <span className="text-xl">⚙️</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Thông tin tài khoản</p>
+                <p className="text-xs text-gray-500">Cập nhật thông tin định danh</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Danh sách cửa hàng */}
+          <button
+            onClick={() => navigate('/stores')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <span className="text-xl">🏪</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Danh sách cửa hàng</p>
+                <p className="text-xs text-gray-500">Vị trí và thông tin cửa hàng</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Về chúng tôi */}
+          <button
+            onClick={() => navigate('/about')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-xl">📄</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Về chúng tôi</p>
+                <p className="text-xs text-gray-500">Cập nhật chính sách, điều khoản và giới thiệu về chúng tôi</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Hỗ trợ và hỏi đáp */}
+          <button
+            onClick={() => navigate('/support')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <span className="text-xl">❓</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-gray-900">Hỗ trợ và hỏi đáp</p>
+                <p className="text-xs text-gray-500">Gặp trực tiếp đội ngũ tư vấn viên</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
 
         {/* Logout */}
         <button
