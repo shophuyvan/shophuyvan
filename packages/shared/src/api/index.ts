@@ -247,6 +247,40 @@ return filtered;
       const data = r.data;
       return toArr(data);
     },
+  },
+  addresses: {
+    async getAreas() {
+      const r = await _fetch('/public/shipping/areas');
+      if (!r.ok) throw new Error('Cannot load areas');
+      return r.data?.areas || r.data?.data || [];
+    },
+    async list() {
+      const r = await _fetch('/api/addresses');
+      if (!r.ok) return [];
+      return toArr(r.data);
+    },
+    async save(data: any, id?: string) {
+      const method = id ? 'PUT' : 'POST';
+      const path = id ? `/api/addresses/${id}` : '/api/addresses';
+      const r = await _fetch(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error(r.data?.message || 'Save failed');
+      return r.data;
+    },
+  },
+  auth: {
+    async activate(userData: any) {
+      const r = await _fetch('/api/users/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+      if (!r.ok) throw new Error(r.data?.message || 'Activation failed');
+      return r.data;
+    },
   }
 };
 

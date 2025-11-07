@@ -40,20 +40,58 @@ const stubZmp: ZaloMini = {
 
     console.log("[zmp.getSystemInfo.stub]", info);
 
-    // Cách gọi: zmp.getSystemInfo({ success })
     if (opts && typeof opts.success === "function") {
       opts.success(info);
       return;
     }
 
-    // Cách gọi: zmp.getSystemInfo(callback)
     if (typeof opts === "function") {
       opts(info);
       return;
     }
 
-    // Cách gọi: await zmp.getSystemInfo()
     return Promise.resolve(info);
+  },
+
+  // ---------------------------------------------------------------------------
+  // USER INFO
+  // ---------------------------------------------------------------------------
+  getUserInfo: (opts?: any) => {
+    const userInfo = {
+      id: "guest_" + Date.now(),
+      name: "Guest User",
+      avatar: "",
+    };
+
+    console.log("[zmp.getUserInfo.stub]", userInfo);
+
+    if (opts && typeof opts.success === "function") {
+      opts.success({ userInfo });
+      return;
+    }
+
+    if (typeof opts === "function") {
+      opts({ userInfo });
+      return;
+    }
+
+    return Promise.resolve({ userInfo });
+  },
+
+  getPhoneNumber: (opts?: any) => {
+    console.log("[zmp.getPhoneNumber.stub] - requires user permission");
+    
+    const response = {
+      token: "",
+      error: "Not available in web mode"
+    };
+
+    if (opts && typeof opts.fail === "function") {
+      opts.fail(response);
+      return;
+    }
+
+    return Promise.reject(response);
   },
 
     // ---------------------------------------------------------------------------

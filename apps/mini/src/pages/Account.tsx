@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Page, Header, useNavigate } from 'zmp-ui';
 import { zmp } from '@/lib/zmp';
 import { storage } from '@/lib/storage';
+import api from '@/../packages/shared/src/api';
 
 
 // Helper functions for toast and alert
@@ -49,9 +50,39 @@ export default function Account() {
   // Đã xóa các state quản lý form addresses vì đã tách ra AddressList.tsx và AddressEdit.tsx
 
   const [token, setToken] = useState<string>('');
+  const [zaloInfo, setZaloInfo] = useState<any>(null);
+  const [activating, setActivating] = useState(false);
 
-  // Mini app: có thể chưa có token -> không redirect sang /login
-  // Nếu chưa có token thì chỉ tắt loading và hiển thị thông tin cơ bản
+  // Load Zalo info khi vào app
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadZaloInfo = async () => {
+      try {
+        const userInfo = await new Promise<any>((resolve) => {
+          zmp.getUserInfo({
+            success: (res: any) => resolve(res.userInfo),
+            fail: () => resolve(null),
+          });
+        });
+
+        if (!cancelled && userInfo) {
+          setZaloInfo(userInfo);
+          console.log('[Account] Zalo info loaded:', userInfo);
+        }
+      } catch (e) {
+        console.error('[Account] Load Zalo info failed:', e);
+      }
+    };
+
+    loadZaloInfo();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Mini app: có thể chưa có token -> thử activation
   useEffect(() => {
     let cancelled = false;
 
@@ -64,8 +95,14 @@ export default function Account() {
       if (cancelled) return;
 
       if (!storedToken) {
-        // Không có token: chỉ tắt loading và để customer = null
-        setLoading(false);
+        // Không có token: kiểm tra có Zalo info không
+        // Nếu có thì tự động activate
+        if (zaloInfo?.id) {
+          console.log('[Account] No token, auto-activating with Zalo info...');
+          await handleActivation();
+        } else {
+          setLoading(false);
+        }
         return;
       }
 
@@ -77,7 +114,7 @@ export default function Account() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [zaloInfo]);
 
   useEffect(() => {
     if (!token) return;
@@ -108,6 +145,67 @@ export default function Account() {
     return response.json();
   };
 
+
+  const handleActivation = async () => {
+    if (!zaloInfo?.id || activating) return;
+
+    setActivating(true);
+    try {
+      // Check localStorage xem đã activate chưa
+      const storedUserId = await storage.get<string>('user_id');
+      
+      if (storedUserId) {
+        console.log('[Account] Already activated with user_id:', storedUserId);
+        // Load lại token
+        const storedToken =
+          (await storage.get<string>('customer_token')) ||
+          (await storage.get<string>('x-customer-token')) ||
+          (await storage.get<string>('x-token'));
+        
+        if (storedToken) {
+          setToken(storedToken);
+          setActivating(false);
+          return;
+        }
+      }
+
+      // Gọi API activation
+      console.log('[Account] Calling activation API with Zalo info:', zaloInfo);
+      
+      const response = await api.auth.activate({
+        zalo_id: zaloInfo.id,
+        zalo_name: zaloInfo.name || 'Zalo User',
+        zalo_avatar: zaloInfo.avatar || '',
+        full_name: zaloInfo.name || 'Zalo User',
+        phone: '', // Có thể request sau bằng getPhoneNumber
+      });
+
+      console.log('[Account] Activation response:', response);
+
+      // Lưu token và user_id
+      const newToken = response?.token || response?.data?.token;
+      const userId = response?.user?.id || response?.data?.id;
+
+      if (newToken) {
+        await storage.set('x-token', newToken);
+        await storage.set('customer_token', newToken);
+        if (userId) {
+          await storage.set('user_id', userId);
+        }
+        setToken(newToken);
+        toast('Kích hoạt tài khoản thành công!');
+      } else {
+        console.warn('[Account] No token in activation response');
+        alert('Kích hoạt tài khoản không thành công');
+      }
+    } catch (e: any) {
+      console.error('[Account] Activation failed:', e);
+      alert('Kích hoạt tài khoản thất bại: ' + (e.message || 'Lỗi không xác định'));
+    } finally {
+      setActivating(false);
+      setLoading(false);
+    }
+  };
 
   const loadCustomerData = async () => {
     try {
@@ -161,8 +259,33 @@ export default function Account() {
   return (
 <Page className="bg-gray-50">
   <div className="max-w-2xl mx-auto p-4 space-y-4">
+    {/* Guest/Activation Box */}
+    {!customer && !loading && (
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-6 shadow-sm border-2 border-blue-200">
+        <div className="text-center mb-4">
+          <div className="text-4xl mb-2">👋</div>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            Chào {zaloInfo?.name || 'bạn'}!
+          </h3>
+          <p className="text-sm text-gray-600">
+            Kích hoạt tài khoản để tích điểm và nhận ưu đãi
+          </p>
+        </div>
+        
+        {zaloInfo?.id && (
+          <button
+            onClick={handleActivation}
+            disabled={activating}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {activating ? '⏳ Đang kích hoạt...' : '✨ Kích hoạt tài khoản'}
+          </button>
+        )}
+      </div>
+    )}
+
     {/* Customer Info */}
-                {customer && (
+    {customer && (
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="mb-4 pb-4 border-b">
               <p className="text-sm text-gray-600">Tên</p>
@@ -280,7 +403,7 @@ export default function Account() {
               <div className="text-left">
                 <p className="font-semibold text-gray-900">Tích điểm</p>
                 <p className="text-xs text-blue-600 font-medium">
-                  {customer ? `${customer.points?.toLocaleString() || 0} điểm` : 'Chưa có điểm'}
+                  {customer ? `${customer.points?.toLocaleString() || 0} điểm` : 'Kích hoạt để tích điểm'}
                 </p>
               </div>
             </div>

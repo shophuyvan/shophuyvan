@@ -488,13 +488,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const $ = (id) => document.getElementById(id);
 
-  // RESET search box để tránh filter rỗng bị kích khi click/focus (autofill trình duyệt)
+ // RESET search box để tránh filter rỗng bị kích khi click/focus (autofill trình duyệt)
   const __search = $('search-input');
   if (__search) {
     __search.value = '';
     __search.setAttribute('autocomplete','off');
     __search.setAttribute('autocapitalize','off');
     __search.setAttribute('autocorrect','off');
+    // Force clear lại sau 100ms để chắc chắn xóa autofill
+    setTimeout(() => {
+      __search.value = '';
+    }, 100);
   }
 
 

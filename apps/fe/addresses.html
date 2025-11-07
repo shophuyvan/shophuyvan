@@ -29,12 +29,18 @@
       <button class="btn" id="btn-back">Quay lại</button>
     </div>
 
-    <!-- Dán & nhập nhanh -->
-    <div class="card" style="padding:12px;margin-bottom:12px">
-      <div style="font-weight:600;margin-bottom:8px">Dán & nhập nhanh</div>
-      <div class="row">
-        <button class="btn" id="btn-paste">Dán từ Clipboard</button>
-        <div class="muted" id="paste-help">Hệ thống sẽ tự tách Tên / SĐT / Địa chỉ</div>
+    <!-- Nhập nhanh địa chỉ -->
+    <div class="card" style="padding:12px;margin-bottom:12px;background:#f0f9ff;border:2px solid #3b82f6">
+      <div style="font-weight:600;margin-bottom:8px;color:#1e40af">📝 Nhập nhanh địa chỉ</div>
+      <div class="row" style="flex-direction:column;gap:8px">
+        <input id="quick-name" placeholder="Họ và tên" class="input" />
+        <input id="quick-phone" placeholder="Số điện thoại" class="input" />
+        <textarea id="quick-address" placeholder="Địa chỉ đầy đủ (VD: 91/6 Liên Khu 5-11-12 Quận Bình Tân)" rows="2" class="input"></textarea>
+        <div class="row">
+          <button class="btn btn-blue" id="btn-quick-input">Nhập nhanh</button>
+          <button class="btn" id="btn-paste">Dán từ Clipboard</button>
+        </div>
+        <div class="muted" style="font-size:12px">Hệ thống sẽ tự động phân tích và điền vào form bên dưới</div>
       </div>
     </div>
 
