@@ -17,7 +17,39 @@ import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
 import { handleCartSync } from './modules/cart-sync-handler.js';
-import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js'; // SỬA: THÊM HỦY & IN HÀNG LOẠT
+import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
+
+/**
+ * Tạo customer token đơn giản (base64 encoded)
+ * Format: customerId:timestamp:random
+ */
+function createCustomerToken(customerId) {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2);
+  const payload = `${customerId}:${timestamp}:${random}`;
+  return btoa(payload);
+}
+
+/**
+ * Verify customer token
+ */
+async function verifyCustomerToken(token, env) {
+  try {
+    const decoded = atob(token);
+    const [customerId] = decoded.split(':');
+    
+    // Check if customer exists
+    const kvKey = `mini:user:zalo:${customerId.replace('mini_', '')}`;
+    const userData = await env.SHV.get(kvKey);
+    
+    if (!userData) return null;
+    
+    const user = JSON.parse(userData);
+    return user.status === 'active' ? user : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 console.log('[Index] ✅ Module Products đã import:', typeof Products, Products ? Object.keys(Products) : 'undefined'); // LOG KIỂM TRA IMPORT
 
@@ -83,6 +115,7 @@ export default {
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
           path === '/api/customers/me' ||
+          path === '/api/users/activate' || // 👈 Zalo Mini Activate -> admin.userActivate
           path.startsWith('/api/addresses')) {  // 👈 THÊM DÒNG NÀY
         return admin.handle(req, env, ctx);
       }
@@ -394,109 +427,7 @@ export default {
       if (path === '/webhook/superai' && req.method === 'POST') {
         return WebhookHandler.handleSuperAIWebhook(req, env);
       }
-	        // ============================================
-      // MINI APP – USER ACTIVATE (ZALO)
-      // ============================================
-      if (path === '/api/users/activate' && req.method === 'POST') {
-        try {
-          const body = await req.json().catch(() => null);
-
-          if (!body || typeof body !== 'object') {
-            return json(
-              { ok: false, error: 'Invalid JSON body' },
-              { status: 400 },
-              req
-            );
-          }
-
-          let {
-            zalo_id,
-            zalo_name,
-            zalo_avatar = '',
-            phone = '',
-            source = 'mini',
-            profile = null,
-          } = body;
-
-          // Log để debug payload gửi từ Mini
-          console.log('[MiniActivate] incoming body:', {
-            zalo_id,
-            zalo_name,
-            has_profile: !!profile,
-            source,
-          });
-
-          // Nếu thiếu zalo_id / zalo_name:
-          // - KHÔNG trả lỗi 400 nữa để tránh vỡ flow Mini
-          // - Sinh ID tạm & tên mặc định, đồng thời log cảnh báo
-          if (!zalo_id || !zalo_name) {
-            const rand = Math.random().toString(36).slice(2, 10);
-            if (!zalo_id) {
-              zalo_id = `guest_${rand}`;
-            }
-            if (!zalo_name) {
-              zalo_name = 'Guest';
-            }
-            console.warn('[MiniActivate] missing zalo fields, using fallback', {
-              zalo_id,
-              zalo_name,
-            });
-          }
-
-          const now = new Date().toISOString();
-          const kvKey = `mini:user:zalo:${zalo_id}`;
-
-          // Lấy user cũ nếu có
-          const existing = await env.SHV.get(kvKey);
-          let user;
-
-          if (existing) {
-            user = JSON.parse(existing);
-            user.zalo_name = zalo_name;
-            user.zalo_avatar = zalo_avatar;
-            user.phone = phone || user.phone || '';
-            user.source = source || user.source || 'mini';
-            user.updated_at = now;
-          } else {
-            // Tạo mới
-            const id = 'mini_' + zalo_id;
-            user = {
-              id,
-              zalo_id,
-              zalo_name,
-              zalo_avatar,
-              phone,
-              source,
-              status: 'active',
-              created_at: now,
-              updated_at: now,
-            };
-          }
-
-          // Lưu vào KV
-          await env.SHV.put(kvKey, JSON.stringify(user));
-
-          return json(
-            {
-              ok: true,
-              id: user.id,
-              user,
-              message: 'Mini user activated',
-            },
-            {},
-            req
-          );
-        } catch (e) {
-          console.error('[MiniActivate] error:', e);
-          return json(
-            { ok: false, error: 'Internal error' },
-            { status: 500 },
-            req
-          );
-        }
-      }
-
-
+	    
       // Route không khớp gì ở trên → trả 404
       return json({
         ok: false,

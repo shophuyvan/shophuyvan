@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Page, Header, useNavigate } from 'zmp-ui';
 import { zmp } from '@/lib/zmp';
+import { storage } from '@/lib/storage';
 
 
 // Helper functions for toast and alert
@@ -43,23 +44,43 @@ export default function Account() {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<Customer | null>(null);
   // Đã xóa state addresses vì không hiển thị trên trang này nữa
-  const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Đã xóa các state quản lý form addresses vì đã tách ra AddressList.tsx và AddressEdit.tsx
 
-    const token =
-    localStorage.getItem('customer_token') ||
-    localStorage.getItem('x-customer-token') ||
-    localStorage.getItem('x-token') ||
-    '';
+  const [token, setToken] = useState<string>('');
 
   // Mini app: có thể chưa có token -> không redirect sang /login
   // Nếu chưa có token thì chỉ tắt loading và hiển thị thông tin cơ bản
   useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
+
+    const init = async () => {
+      const storedToken =
+        (await storage.get<string>('customer_token')) ||
+        (await storage.get<string>('x-customer-token')) ||
+        (await storage.get<string>('x-token'));
+
+      if (cancelled) return;
+
+      if (!storedToken) {
+        // Không có token: chỉ tắt loading và để customer = null
+        setLoading(false);
+        return;
+      }
+
+      setToken(storedToken);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
 
     loadCustomerData();
     // Không cần load addresses và provinces nữa vì đã tách sang trang riêng
@@ -109,13 +130,22 @@ export default function Account() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('customer_token');
-    localStorage.removeItem('x-customer-token');
-    localStorage.removeItem('x-token');
-localStorage.removeItem('customer_info');
-navigate('/'); // ✅ Chuẩn Mini App
-};
+    const handleLogout = async () => {
+    await Promise.all([
+      storage.remove('customer_token'),
+      storage.remove('x-customer-token'),
+      storage.remove('x-token'),
+    ]);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('customer_info');
+      }
+    } catch (e) {
+      console.warn('Không thể xóa customer_info khỏi localStorage:', e);
+    }
+    navigate('/'); // ✅ Chuẩn Mini App
+  };
+
 
   if (loading) {
     return (

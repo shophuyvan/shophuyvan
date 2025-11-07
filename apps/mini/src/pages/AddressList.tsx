@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "zmp-ui";
-
+import { storage } from "@/lib/storage";
 
 type Address = {
   id: string;
@@ -30,16 +30,38 @@ export default function AddressList() {
   const [items, setItems] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+    useEffect(() => {
     let abort = false;
     (async () => {
       try {
         setLoading(true);
+
+        // Lấy token từ storage (thuần Mini)
+        const token =
+          (await storage.get<string>("customer_token")) ||
+          (await storage.get<string>("x-customer-token")) ||
+          (await storage.get<string>("x-token"));
+
+        if (!token) {
+          if (!abort) {
+            setItems([]);
+            setLoading(false);
+          }
+          return;
+        }
+
         const r = await fetch("https://api.shophuyvan.vn/api/addresses", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           credentials: "include",
         });
+
         const data = await r.json();
-        if (!abort) setItems(Array.isArray(data?.data) ? data.data : []);
+        const rawList = data?.addresses || data?.data;
+        if (!abort) setItems(Array.isArray(rawList) ? rawList : []);
       } catch (e) {
         console.error("[AddressList] load failed", e);
         if (!abort) setItems([]);
@@ -51,6 +73,7 @@ export default function AddressList() {
       abort = true;
     };
   }, []);
+
 
       const select = (addr: Address) => {
     localStorage.setItem(LS_KEY_SELECTED, JSON.stringify(addr));

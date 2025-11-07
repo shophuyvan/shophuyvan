@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "zmp-ui";
+import { storage } from "../lib/storage";
 
 // Form địa chỉ đơn giản – có thể mở rộng thêm nếu cần
 type AddressForm = {
@@ -21,25 +22,13 @@ const LS_KEY_SELECTED = "address:selected";
 
 const API_BASE = "https://api.shophuyvan.vn";
 
-const token =
-  localStorage.getItem("customer_token") ||
-  localStorage.getItem("x-customer-token") ||
-  localStorage.getItem("x-token") ||
-  "";
-
-const authHeaders =
-  token
-    ? {
-        Authorization: `Bearer ${token}`,
-      }
-    : {};
-
 export default function AddressEdit() {
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const id = params.get("id") || "";
   const returnUrl = params.get("return") || "/checkout";
 
+  const [token, setToken] = useState<string>("");
   const [form, setForm] = useState<AddressForm>({
     name: "",
     phone: "",
@@ -53,18 +42,37 @@ export default function AddressEdit() {
     [form]
   );
 
+  // ===== LOAD TOKEN =============================================================
+  useEffect(() => {
+    (async () => {
+      try {
+        const tokens = await Promise.all([
+          storage.get("customer_token"),
+          storage.get("x-customer-token"),
+          storage.get("x-token"),
+        ]);
+        const t = tokens.find(Boolean) || "";
+        setToken(t);
+      } catch (e) {
+        console.error("[AddressEdit] load token failed", e);
+      }
+    })();
+  }, []);
+
   // ===== LOAD ĐỊA CHỈ KHI SỬA ====================================================
   useEffect(() => {
     let abort = false;
     (async () => {
-      if (!id) return;
+      if (!id || !token) return;
       setLoading(true);
       try {
         const r = await fetch(
            `${API_BASE}/api/addresses?id=${encodeURIComponent(id)}`,
            {
              credentials: "include",
-             headers: authHeaders,
+             headers: {
+               Authorization: `Bearer ${token}`,
+             },
            }
          );
 
@@ -87,8 +95,7 @@ export default function AddressEdit() {
     return () => {
       abort = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, token]);
 
   // ===== DÁN THÔNG MINH TỪ CLIPBOARD ============================================
   const pasteSmart = async () => {
@@ -122,6 +129,11 @@ export default function AddressEdit() {
   // ===== LƯU ĐỊA CHỈ ============================================================
   const save = async () => {
     if (!canSubmit || saving) return;
+    
+    if (!token) {
+      alert("Vui lòng đăng nhập để lưu địa chỉ.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -135,11 +147,10 @@ export default function AddressEdit() {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...authHeaders,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(form),
     });
-
 
       const data = await res.json();
 

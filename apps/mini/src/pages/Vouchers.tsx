@@ -1,6 +1,6 @@
 // apps/mini/src/pages/Vouchers.tsx
 import React, { useEffect, useState } from 'react';
-import { Page, Header } from 'zmp-ui';
+import { Page } from 'zmp-ui';
 import { api } from '@shared/api';
 
 interface Voucher {
@@ -87,10 +87,9 @@ export default function Vouchers() {
     }
   };
 
-  if (loading) {
+    if (loading) {
     return (
       <Page className="bg-gray-50">
-        <Header title="Kho Voucher" showBackIcon={true} />
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -100,6 +99,7 @@ export default function Vouchers() {
       </Page>
     );
   }
+
 
   return (
     <Page className="bg-gray-50">

@@ -1,10 +1,9 @@
 import React from 'react';
-import { Page, Header } from 'zmp-ui';
+import { Page } from 'zmp-ui';
 
 export default function Stores() {
   return (
-    <Page className="bg-gray-50">
-      <Header title="Danh sách cửa hàng" showBackIcon={true} />
+        <Page className="bg-gray-50">
       <div className="p-4 pt-2">
         <div className="bg-white rounded-lg p-6 text-center">
           <div className="text-5xl mb-4">🏪</div>

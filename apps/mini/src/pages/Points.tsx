@@ -1,6 +1,7 @@
 // apps/mini/src/pages/Points.tsx
 import React, { useEffect, useState } from 'react';
-import { Page, Header } from 'zmp-ui';
+import { Page } from 'zmp-ui';
+import { storage } from '@/lib/storage';
 
 const API_BASE = 'https://api.shophuyvan.vn';
 
@@ -18,27 +19,43 @@ export default function Points() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const token =
-    localStorage.getItem('customer_token') ||
-    localStorage.getItem('x-customer-token') ||
-    localStorage.getItem('x-token') ||
-    '';
+    const [token, setToken] = useState<string>('');
 
   useEffect(() => {
-    if (!token) {
-      setError('Vui lòng đăng nhập để xem điểm');
-      setLoading(false);
-      return;
-    }
-    loadCustomerData();
-  }, [token]);
+    let cancelled = false;
 
-  const loadCustomerData = async () => {
+    const init = async () => {
+      const storedToken =
+        (await storage.get<string>('customer_token')) ||
+        (await storage.get<string>('x-customer-token')) ||
+        (await storage.get<string>('x-token'));
+
+      if (cancelled) return;
+
+      if (!storedToken) {
+        setError('Vui lòng đăng nhập để xem điểm');
+        setLoading(false);
+        return;
+      }
+
+      setToken(storedToken);
+      loadCustomerData(storedToken);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
+  const loadCustomerData = async (authToken?: string) => {
     try {
       const response = await fetch(`${API_BASE}/api/customers/me`, {
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken || token}`,
         },
       });
 
@@ -62,10 +79,9 @@ export default function Points() {
     }
   };
 
-  if (loading) {
+    if (loading) {
     return (
       <Page className="bg-gray-50">
-        <Header title="Tích điểm" showBackIcon={true} />
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -76,10 +92,9 @@ export default function Points() {
     );
   }
 
-  if (error) {
+    if (error) {
     return (
       <Page className="bg-gray-50">
-        <Header title="Tích điểm" showBackIcon={true} />
         <div className="max-w-2xl mx-auto p-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600 text-sm">{error}</p>
@@ -88,6 +103,7 @@ export default function Points() {
       </Page>
     );
   }
+
 
   const points = customer?.points || 0;
 

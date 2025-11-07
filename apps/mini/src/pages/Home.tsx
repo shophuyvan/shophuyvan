@@ -8,6 +8,7 @@ import CategoryMenu from '../components/CategoryMenu';
 import { api } from '@shared/api';
 import { cldFetch, preloadImage } from '@shared/utils/cloudinary';
 import { zmp } from '@/lib/zmp';
+import { storage } from '@/lib/storage';
 
 const ProductCard = lazy(() => import('../components/ProductCard'));
 
@@ -117,7 +118,23 @@ const Home: React.FC = () => {
         );
       }
 
-      console.log('[ACCOUNT ACTIVATE] Thành công:', data);
+            console.log('[ACCOUNT ACTIVATE] Thành công:', data);
+
+      // Lưu token trả về để các trang Account / Points / Membership dùng
+      const token = data && data.token;
+      if (token) {
+        try {
+          await Promise.all([
+            storage.set('customer_token', token),
+            storage.set('x-customer-token', token),
+            storage.set('x-token', token),
+          ]);
+        } catch (e) {
+          console.warn('[ACCOUNT ACTIVATE] Không lưu được token:', e);
+        }
+      } else {
+        console.warn('[ACCOUNT ACTIVATE] Backend không trả token, luồng auto login có thể không hoạt động.');
+      }
 
       try {
         (zmp as any)?.toast?.show?.({
@@ -130,6 +147,7 @@ const Home: React.FC = () => {
 
       // Sau khi kích hoạt xong thì sang trang Tài khoản
       navigate('/account');
+
     } catch (err: any) {
       console.error('[ACCOUNT ACTIVATE] Lỗi:', err);
       const message =
