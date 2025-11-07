@@ -67,14 +67,15 @@ export default function AddressEdit() {
       setLoading(true);
       try {
         const r = await fetch(
-           `${API_BASE}/api/addresses?id=${encodeURIComponent(id)}`,
-           {
-             credentials: "include",
-             headers: {
-               Authorization: `Bearer ${token}`,
-             },
-           }
-         );
+         `${API_BASE}/api/addresses/${encodeURIComponent(id)}`,
+         {
+           credentials: "include",
+           headers: {
+             Authorization: `Bearer ${token}`,
+           },
+         }
+       );
+
 
         const data = await r.json();
         const a = Array.isArray(data?.data) ? data.data[0] : data?.data;

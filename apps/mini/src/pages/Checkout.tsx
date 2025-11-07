@@ -14,6 +14,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Page, useNavigate } from 'zmp-ui';
+import { routes } from '@/routes';
 import Header from '../components/Header';
 import cart from '@shared/cart';
 import { fmtVND } from '@shared/utils/fmtVND';
@@ -732,7 +733,7 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 <div className="font-semibold text-lg">Địa chỉ nhận hàng</div>
                 <button
                   className="text-blue-600 text-sm font-medium"
-                  onClick={() => navigate('/address?return=/checkout')}
+                  onClick={() => navigate(`${routes.addressList}?return=/checkout`)}
                 >
                   Thay đổi
                 </button>
@@ -753,9 +754,9 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
               ) : (
                 <div className="text-sm text-gray-600">
                   Chưa có địa chỉ giao hàng.{" "}
-                  <button
+                   <button
                     className="text-blue-600 underline"
-                    onClick={() => navigate('/address?return=/checkout')}
+                    onClick={() => navigate(`${routes.addressList}?return=/checkout`)}
                   >
                     Thêm địa chỉ
                   </button>

@@ -537,11 +537,22 @@ async function facebookLogin(req, env) {
  */
 async function userActivate(req, env) {
   try {
-    const body = await req.json();
-    const { zalo_id, zalo_name, zalo_avatar, phone, source } = body;
+        const body = await req.json();
+    let { zalo_id, zalo_name, zalo_avatar, phone, source } = body;
 
+    // Nếu thiếu thông tin từ Zalo thì tự sinh fallback để không chặn luồng kích hoạt
     if (!zalo_id || !zalo_name) {
-      return json({ ok: false, error: 'Thiếu thông tin Zalo' }, { status: 400 }, req);
+      const rand = Math.random().toString(36).slice(2, 10);
+      if (!zalo_id) {
+        zalo_id = `guest_${rand}`;
+      }
+      if (!zalo_name) {
+        zalo_name = 'Guest';
+      }
+      console.warn('[MiniActivate] missing zalo fields, using fallback', {
+        zalo_id,
+        zalo_name,
+      });
     }
 
     // Tạo email từ zalo_id (vì Zalo không cung cấp email)
