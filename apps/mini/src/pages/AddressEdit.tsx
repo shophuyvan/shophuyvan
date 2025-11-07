@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "zmp-ui";
 
 // Form địa chỉ đơn giản – có thể mở rộng thêm nếu cần
 type AddressForm = {
@@ -19,6 +20,7 @@ const phoneFrom = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
 const LS_KEY_SELECTED = "address:selected";
 
 export default function AddressEdit() {
+  const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const id = params.get("id") || "";
   const returnUrl = params.get("return") || "/checkout";
@@ -141,8 +143,12 @@ export default function AddressEdit() {
         console.warn("Không set được address:selected", e);
       }
 
-      // Quay về trang trước (mặc định: /checkout)
-      location.href = returnUrl;
+            // Quay về trang trước (mặc định: /checkout)
+      if (returnUrl) {
+        navigate(returnUrl);
+      } else {
+        navigate("/checkout");
+      }
     } catch (e) {
       console.error("[AddressEdit] save error", e);
       alert("Có lỗi khi lưu địa chỉ.");
@@ -215,7 +221,7 @@ export default function AddressEdit() {
             <button
               type="button"
               className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800"
-              onClick={() => (location.href = returnUrl)}
+              onClick={() => navigate(returnUrl || "/checkout")}
             >
               Hủy
             </button>

@@ -123,14 +123,22 @@ export default function Account() {
   const loadCustomerData = async () => {
     try {
       const data = await api('/api/customers/me');
-      if (data.customer) {
-        setCustomer(data.customer);
+
+      // Backend có thể trả { customer }, { data } hoặc object thẳng
+      const c =
+        (data && (data.customer || data.data || data)) as Customer | undefined;
+
+      if (c) {
+        setCustomer(c);
+      } else {
+        console.warn('Load customer: response không có customer', data);
       }
     } catch (e: any) {
       console.error('Load customer error:', e);
       setError(e.message);
     }
   };
+
 
   const loadAddresses = async () => {
     try {
@@ -326,14 +334,14 @@ navigate('/'); // ✅ Chuẩn Mini App
 
   <div className="max-w-2xl mx-auto p-4 space-y-4">
     {/* Customer Info */}
-        {customer && (
+                {customer && (
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="mb-4 pb-4 border-b">
               <p className="text-sm text-gray-600">Tên</p>
               <p className="font-semibold text-lg">{customer.full_name}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b">
-                            <div>
+              <div>
                 <p className="text-sm text-gray-600">Email</p>
                 <p className="font-medium text-sm">{customer.email}</p>
               </div>
@@ -346,10 +354,51 @@ navigate('/'); // ✅ Chuẩn Mini App
             </div>
             <div>
               <p className="text-sm text-gray-600">Hạng thành viên</p>
-              <p className="font-semibold text-blue-600 capitalize">{customer.tier}</p>
+              <p className="font-semibold text-blue-600 capitalize">
+                {customer.tier}
+              </p>
             </div>
           </div>
         )}
+
+        {/* Đơn hàng của tôi */}
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold">Đơn hàng của tôi</h2>
+            <button
+              onClick={() => navigate('/orders')}
+              className="text-sm text-blue-600 font-medium"
+            >
+              Xem lịch sử mua hàng &gt;
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-xs text-center text-gray-700">
+            <button
+              className="flex flex-col items-center justify-center py-2"
+              onClick={() => navigate('/orders?status=pending')}
+            >
+              <span>Chờ xác nhận</span>
+            </button>
+            <button
+              className="flex flex-col items-center justify-center py-2"
+              onClick={() => navigate('/orders?status=shipping')}
+            >
+              <span>Chờ giao hàng</span>
+            </button>
+            <button
+              className="flex flex-col items-center justify-center py-2"
+              onClick={() => navigate('/orders?status=delivering')}
+            >
+              <span>Đang giao hàng</span>
+            </button>
+            <button
+              className="flex flex-col items-center justify-center py-2"
+              onClick={() => navigate('/orders?status=completed')}
+            >
+              <span>Đánh giá</span>
+            </button>
+          </div>
+        </div>
 
         {/* Addresses */}
         <div className="bg-white rounded-xl p-4 shadow-sm">
