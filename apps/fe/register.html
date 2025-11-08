@@ -286,16 +286,41 @@
       >
     </div>
 
-    <div class="form-group">
-      <label for="phone">Số điện thoại</label>
+        <div class="form-group">
+      <label for="phone">Số điện thoại *</label>
+      <div style="display: flex; gap: 8px;">
+        <input 
+          type="tel" 
+          id="phone" 
+          name="phone" 
+          placeholder="0901234567" 
+          autocomplete="tel"
+          required
+          style="flex:1;"
+        >
+        <button 
+          type="button" 
+          id="btn-send-otp-register" 
+          class="btn-register" 
+          style="width:auto; padding-inline:12px; font-size:13px; background:#10b981;"
+        >
+          Gửi OTP
+        </button>
+      </div>
+      <small id="otp-help" style="display:block; margin-top:4px; color:#6b7280; font-size:12px;"></small>
+    </div>
+
+    <div class="form-group" id="otp-register-code-group" style="display:none;">
+      <label for="otp_code">Mã OTP *</label>
       <input 
-        type="tel" 
-        id="phone" 
-        name="phone" 
-        placeholder="0901234567" 
-        autocomplete="tel"
+        type="text" 
+        id="otp_code" 
+        name="otp_code" 
+        placeholder="Nhập mã OTP được gửi qua Zalo/SMS" 
+        autocomplete="one-time-code"
       >
     </div>
+
 
     <div class="form-group">
       <label for="password">Mật khẩu *</label>
@@ -434,9 +459,53 @@
   // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
 
-  const form = document.getElementById('register-form');
+    const form = document.getElementById('register-form');
   const btnSubmit = document.getElementById('btn-submit');
+  const btnSendOtp = document.getElementById('btn-send-otp-register');
+  const otpGroup = document.getElementById('otp-register-code-group');
+  const otpHelp = document.getElementById('otp-help');
 
+  // Gửi OTP kích hoạt theo SĐT
+  if (btnSendOtp) {
+    btnSendOtp.addEventListener('click', async () => {
+      const phone = document.getElementById('phone').value.trim();
+
+      if (!phone) {
+        showToast('Vui lòng nhập số điện thoại', 'error');
+        return;
+      }
+
+      btnSendOtp.disabled = true;
+      btnSendOtp.textContent = 'Đang gửi...';
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, purpose: 'register' })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || data.message || 'Không gửi được OTP');
+        }
+
+        showToast('Đã gửi mã OTP. Vui lòng kiểm tra Zalo/SMS.', 'success');
+        if (otpGroup) otpGroup.style.display = 'block';
+        if (otpHelp) otpHelp.textContent = 'Mã OTP có hiệu lực trong 30 phút.';
+
+      } catch (e) {
+        console.error('[Register] sendOtp error:', e);
+        showToast(e.message || 'Lỗi gửi OTP', 'error');
+      } finally {
+        btnSendOtp.disabled = false;
+        btnSendOtp.textContent = 'Gửi OTP';
+      }
+    });
+  }
+
+  // Submit: verify OTP + đặt mật khẩu
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -445,10 +514,15 @@
     const phone = document.getElementById('phone').value.trim();
     const password = document.getElementById('password').value;
     const confirm_password = document.getElementById('confirm_password').value;
+    const otp_code = (document.getElementById('otp_code') as HTMLInputElement | null)?.value?.trim?.() || '';
 
-    // Validation
-    if (!full_name || !email || !password) {
-      showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+    if (!full_name || !phone || !password) {
+      showToast('Vui lòng nhập họ tên, SĐT và mật khẩu', 'error');
+      return;
+    }
+
+    if (!otp_code) {
+      showToast('Vui lòng nhập mã OTP đã gửi', 'error');
       return;
     }
 
@@ -462,63 +536,63 @@
       return;
     }
 
-    // Submit
     btnSubmit.disabled = true;
     btnSubmit.textContent = 'Đang xử lý...';
 
     try {
-      async function __postRegister(base, payload) {
-  const doFetch = async (url) => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    return res;
-  };
+      // 1. Verify OTP (tạo customer + token)
+      const verifyRes = await fetch(`${API_BASE}/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          code: otp_code,
+          purpose: 'register',
+          full_name,
+          email,
+        }),
+      });
 
-  // Thử 1: /customers/register
-  let res = await doFetch(`${base}/customers/register`);
-  // Nếu backend không có route này → 404/405 → fallback sang /api/customers/register
-  if (res.status === 404 || res.status === 405) {
-    res = await doFetch(`${base}/api/customers/register`);
-  }
-  return res;
-}
+      const verifyData = await verifyRes.json();
 
-const response = await __postRegister(API_BASE, {
-  full_name,
-  email,
-  phone,
-  password
-});
-
-// an toàn khi backend trả text/html
-let data = null;
-try { data = await response.clone().json(); } catch {}
-if (!response.ok) {
-  let msg = (data && (data.error || data.message)) || 'Đăng ký thất bại';
-  try {
-    const t = await response.text();
-    if (t && t.length < 500) msg = msg + ` (HTTP ${response.status}: ${t})`;
-    else msg = msg + ` (HTTP ${response.status})`;
-  } catch {}
-  throw new Error(msg);
-}
-      // Save token
-      if (data.token) {
-        localStorage.setItem('customer_token', data.token);
-        localStorage.setItem('x-customer-token', data.token);
+      if (!verifyRes.ok || verifyData.ok === false || !verifyData.token) {
+        throw new Error(verifyData.error || verifyData.message || 'Xác thực OTP thất bại');
       }
 
-      // Save customer info
-      if (data.customer) {
-        localStorage.setItem('customer_info', JSON.stringify(data.customer));
+      const token = verifyData.token;
+
+      // 2. Đặt mật khẩu cho tài khoản vừa kích hoạt
+      const setRes = await fetch(`${API_BASE}/auth/password/set`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          password,
+          full_name,
+          email,
+        }),
+      });
+
+      const setData = await setRes.json().catch(() => ({}));
+
+      if (!setRes.ok || setData.ok === false) {
+        throw new Error(setData.error || setData.message || 'Thiết lập mật khẩu thất bại');
       }
 
-      showToast('✅ Đăng ký thành công!', 'success');
+      // Lưu token & customer
+      localStorage.setItem('customer_token', token);
+      localStorage.setItem('x-customer-token', token);
+      localStorage.setItem('x-token', token);
 
-      // Redirect after 1.5s
+      const customer = setData.customer || verifyData.customer;
+      if (customer) {
+        localStorage.setItem('customer_info', JSON.stringify(customer));
+      }
+
+      showToast('✅ Đăng ký & kích hoạt thành công!', 'success');
+
       setTimeout(() => {
         window.location.href = '/index.html';
       }, 1500);

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { Page, Header, useNavigate } from 'zmp-ui';
 import { zmp } from '@/lib/zmp';
 import { storage } from '@/lib/storage';
-import api from '@/../packages/shared/src/api';
 
 
 // Helper functions for toast and alert
@@ -124,7 +123,7 @@ export default function Account() {
   }, [token]);
 
 
-    // Helper gọi API trong trang Tài khoản
+      // Helper gọi API trong trang Tài khoản
   const api = async (path: string, options: any = {}) => {
     const headers: any = {
       'Content-Type': 'application/json',
@@ -145,7 +144,7 @@ export default function Account() {
     return response.json();
   };
 
-
+  // Kích hoạt tài khoản qua Zalo (không OTP, cố gắng lấy SĐT nếu có)
   const handleActivation = async () => {
     if (!zaloInfo?.id || activating) return;
 
@@ -153,7 +152,7 @@ export default function Account() {
     try {
       // Check localStorage xem đã activate chưa
       const storedUserId = await storage.get<string>('user_id');
-      
+
       if (storedUserId) {
         console.log('[Account] Already activated with user_id:', storedUserId);
         // Load lại token
@@ -161,7 +160,7 @@ export default function Account() {
           (await storage.get<string>('customer_token')) ||
           (await storage.get<string>('x-customer-token')) ||
           (await storage.get<string>('x-token'));
-        
+
         if (storedToken) {
           setToken(storedToken);
           setActivating(false);
@@ -169,22 +168,70 @@ export default function Account() {
         }
       }
 
-      // Gọi API activation
-      console.log('[Account] Calling activation API with Zalo info:', zaloInfo);
-      
-      const response = await api.auth.activate({
+      // Lấy SĐT từ Zalo (nếu user cho phép)
+      let phone: string | undefined = undefined;
+      try {
+        const phoneRes: any = await new Promise((resolve) => {
+          (zmp as any).getPhoneNumber({
+            success: (res: any) => resolve(res),
+            fail: (err: any) => {
+              console.warn('[Account] getPhoneNumber fail:', err);
+              resolve(null);
+            },
+          });
+        });
+
+        if (phoneRes) {
+          phone =
+            phoneRes.phoneNumber ||
+            phoneRes.phone ||
+            phoneRes.number ||
+            undefined;
+        }
+      } catch (e) {
+        console.warn('[Account] getPhoneNumber error:', e);
+      }
+
+      // Gọi API activation Zalo -> tạo / gắn customer + token dài ngày
+      console.log('[Account] Calling /auth/zalo/activate-phone with:', {
         zalo_id: zaloInfo.id,
-        zalo_name: zaloInfo.name || 'Zalo User',
-        zalo_avatar: zaloInfo.avatar || '',
-        full_name: zaloInfo.name || 'Zalo User',
-        phone: '', // Có thể request sau bằng getPhoneNumber
+        zalo_name: zaloInfo.name,
+        phone,
       });
 
-      console.log('[Account] Activation response:', response);
+      const response = await fetch(`${API_BASE}/auth/zalo/activate-phone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          zalo_id: zaloInfo.id,
+          zalo_name: zaloInfo.name || 'Zalo User',
+          zalo_avatar: zaloInfo.avatar || '',
+          full_name: zaloInfo.name || 'Zalo User',
+          // phone optional – nếu không lấy được thì backend vẫn tạo khách
+          phone,
+        }),
+      });
 
-      // Lưu token và user_id
-      const newToken = response?.token || response?.data?.token;
-      const userId = response?.user?.id || response?.data?.id;
+      const data = await response.json().catch(() => ({} as any));
+
+      if (!response.ok || !data) {
+        throw new Error(
+          data?.message || data?.error || 'Kích hoạt tài khoản không thành công',
+        );
+      }
+
+      const newToken =
+        data.token ||
+        data.customer_token ||
+        data.data?.token ||
+        data.data?.customer_token;
+      const userId =
+        data.customer?.id ||
+        data.user?.id ||
+        data.data?.id ||
+        data.data?.customer?.id;
 
       if (newToken) {
         await storage.set('x-token', newToken);
@@ -195,12 +242,15 @@ export default function Account() {
         setToken(newToken);
         toast('Kích hoạt tài khoản thành công!');
       } else {
-        console.warn('[Account] No token in activation response');
+        console.warn('[Account] No token in activation response', data);
         alert('Kích hoạt tài khoản không thành công');
       }
     } catch (e: any) {
       console.error('[Account] Activation failed:', e);
-      alert('Kích hoạt tài khoản thất bại: ' + (e.message || 'Lỗi không xác định'));
+      alert(
+        'Kích hoạt tài khoản thất bại: ' +
+          (e?.message || 'Lỗi không xác định'),
+      );
     } finally {
       setActivating(false);
       setLoading(false);

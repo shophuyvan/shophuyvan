@@ -495,10 +495,25 @@ document.addEventListener('DOMContentLoaded', function() {
     __search.setAttribute('autocomplete','off');
     __search.setAttribute('autocapitalize','off');
     __search.setAttribute('autocorrect','off');
+    __search.setAttribute('name','search-fake-' + Date.now()); // Tên random để tránh autofill
+    
+    // Chặn autofill bằng readonly ban đầu
+    __search.setAttribute('readonly','readonly');
+    
+    // Bỏ readonly khi user click/focus thật sự
+    __search.addEventListener('focus', function() {
+      this.removeAttribute('readonly');
+    }, { once: true });
+    
     // Force clear lại sau 100ms để chắc chắn xóa autofill
     setTimeout(() => {
       __search.value = '';
     }, 100);
+    
+    // Clear thêm lần nữa sau 300ms (cho chắc)
+    setTimeout(() => {
+      __search.value = '';
+    }, 300);
   }
 
 

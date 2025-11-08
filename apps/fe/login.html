@@ -209,17 +209,18 @@
   </div>
 
   <form id="login-form">
-    <div class="form-group">
-      <label for="email">Email</label>
+        <div class="form-group">
+      <label for="phone">Số điện thoại</label>
       <input 
-        type="email" 
-        id="email" 
-        name="email" 
-        placeholder="email@example.com" 
+        type="tel" 
+        id="phone" 
+        name="phone" 
+        placeholder="0901234567" 
         required 
-        autocomplete="email"
+        autocomplete="tel"
       >
     </div>
+
 
     <div class="form-group">
       <label for="password">Mật khẩu</label>
@@ -236,6 +237,10 @@
     <button type="submit" class="btn-login" id="btn-submit">
       Đăng nhập
     </button>
+
+    <button type="button" class="btn-login" id="btn-otp-login" style="margin-top: 12px; background:#10b981;">
+      Đăng nhập bằng OTP
+    </button>
   </form>
 
   <div class="divider">
@@ -249,7 +254,7 @@
 
 <script>
 (function() {
-  const API_BASE = window.API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+    const API_BASE = (window.API_BASE || 'https://api.shophuyvan.vn').replace(/\/+$/, '');
 
   function showToast(message, type = 'success') {
     const toast = document.createElement('div');
@@ -263,17 +268,19 @@
     }, 3000);
   }
 
-  const form = document.getElementById('login-form');
+    const form = document.getElementById('login-form');
   const btnSubmit = document.getElementById('btn-submit');
+  const btnOtpLogin = document.getElementById('btn-otp-login');
 
+  // Login chính: SĐT + mật khẩu
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
     const password = document.getElementById('password').value;
 
-    if (!email || !password) {
-      showToast('Vui lòng nhập email và mật khẩu', 'error');
+    if (!phone || !password) {
+      showToast('Vui lòng nhập số điện thoại và mật khẩu', 'error');
       return;
     }
 
@@ -281,34 +288,32 @@
     btnSubmit.textContent = 'Đang xử lý...';
 
     try {
-      const response = await fetch(`${API_BASE}/api/customers/login`, {
+      const response = await fetch(`${API_BASE}/auth/password/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ phone, password })
       });
 
       const data = await response.json();
 
-      if (!response.ok || !data.ok) {
+      if (!response.ok || data.ok === false) {
         throw new Error(data.error || data.message || 'Đăng nhập thất bại');
       }
 
-      // Save token
       if (data.token) {
         localStorage.setItem('customer_token', data.token);
         localStorage.setItem('x-customer-token', data.token);
+        localStorage.setItem('x-token', data.token);
       }
 
-      // Save customer info
       if (data.customer) {
         localStorage.setItem('customer_info', JSON.stringify(data.customer));
       }
 
       showToast('✅ Đăng nhập thành công!', 'success');
 
-      // Redirect after 1.5s
       setTimeout(() => {
         const redirect = new URLSearchParams(window.location.search).get('redirect') || '/index.html';
         window.location.href = redirect;
@@ -321,6 +326,77 @@
       btnSubmit.textContent = 'Đăng nhập';
     }
   });
+
+  // Tuỳ chọn: Đăng nhập bằng OTP
+  if (btnOtpLogin) {
+    btnOtpLogin.addEventListener('click', async () => {
+      const phone = document.getElementById('phone').value.trim();
+      if (!phone) {
+        showToast('Vui lòng nhập số điện thoại trước', 'error');
+        return;
+      }
+
+      btnOtpLogin.disabled = true;
+      btnOtpLogin.textContent = 'Đang gửi OTP...';
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, purpose: 'web_login' })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || data.message || 'Không gửi được OTP');
+        }
+
+        showToast('Đã gửi mã OTP. Vui lòng kiểm tra Zalo/SMS.', 'success');
+
+        const code = window.prompt('Nhập mã OTP bạn nhận được:');
+        if (!code) {
+          showToast('Bạn chưa nhập mã OTP', 'error');
+          return;
+        }
+
+        const verifyRes = await fetch(`${API_BASE}/auth/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code, purpose: 'web_login' })
+        });
+
+        const verifyData = await verifyRes.json();
+
+        if (!verifyRes.ok || verifyData.ok === false || !verifyData.token) {
+          throw new Error(verifyData.error || verifyData.message || 'Xác thực OTP thất bại');
+        }
+
+        const token = verifyData.token;
+        localStorage.setItem('customer_token', token);
+        localStorage.setItem('x-customer-token', token);
+        localStorage.setItem('x-token', token);
+
+        if (verifyData.customer) {
+          localStorage.setItem('customer_info', JSON.stringify(verifyData.customer));
+        }
+
+        showToast('✅ Đăng nhập bằng OTP thành công!', 'success');
+
+        setTimeout(() => {
+          const redirect = new URLSearchParams(window.location.search).get('redirect') || '/index.html';
+          window.location.href = redirect;
+        }, 1500);
+
+      } catch (e) {
+        console.error('[OTP Login] Error:', e);
+        showToast(e.message || 'Lỗi đăng nhập bằng OTP', 'error');
+      } finally {
+        btnOtpLogin.disabled = false;
+        btnOtpLogin.textContent = 'Đăng nhập bằng OTP';
+      }
+    });
+  }
 })();
 </script>
 

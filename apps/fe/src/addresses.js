@@ -422,6 +422,16 @@ async function quickAddressInput() {
   $('quick-phone').value = '';
   $('quick-address').value = '';
   
-  // Focus vào nút lưu
-  $('btn-save').focus();
+  // ✅ TỰ ĐỘNG LƯU địa chỉ sau khi parse xong
+  // Đợi 500ms để đảm bảo tất cả dropdown đã load xong
+  setTimeout(async () => {
+    try {
+      await saveForm();
+      console.log('[Quick Input] Đã tự động lưu địa chỉ');
+    } catch (e) {
+      console.error('[Quick Input] Lỗi tự động lưu:', e);
+      // Nếu lỗi, vẫn giữ form mở để user có thể sửa và bấm Lưu thủ công
+      alert('Đã điền thông tin vào form. Vui lòng kiểm tra và bấm "Lưu" để hoàn tất.');
+    }
+  }, 500);
 }
