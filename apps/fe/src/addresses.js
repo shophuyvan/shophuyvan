@@ -373,10 +373,64 @@ async function quickAddressInput() {
   let foundProvince = false;
   let provinceName = '';
   
-  // Parse tên tỉnh/thành từ input
-  const provinceKeywords = [
-    'ho chi minh', 'hcm', 'sai gon', 'tp hcm', 'thanh pho ho chi minh',
-    'ha noi', 'hn', 'thanh pho ha noi',
+  // Map từ khóa viết tắt → tên đầy đủ để tìm trong dropdown
+  const provinceMapping = {
+    'hcm': ['ho chi minh', 'thanh pho ho chi minh', 'tp ho chi minh', 'sai gon'],
+    'hn': ['ha noi', 'thanh pho ha noi'],
+    'dn': ['da nang', 'thanh pho da nang'],
+    'hp': ['hai phong', 'thanh pho hai phong'],
+    'ct': ['can tho', 'thanh pho can tho']
+  };
+  
+  // Tìm từ khóa viết tắt trước
+  let searchTerms = [];
+  for (const [abbr, fullNames] of Object.entries(provinceMapping)) {
+    if (addressNorm.includes(abbr)) {
+      searchTerms = fullNames;
+      break;
+    }
+  }
+  
+  // Nếu không có viết tắt, thử tìm trực tiếp tên đầy đủ
+  if (searchTerms.length === 0) {
+    const allProvinces = [
+      'ho chi minh', 'ha noi', 'da nang', 'hai phong', 'can tho', 'bien hoa', 'vung tau', 'nha trang',
+      'bac giang', 'bac kan', 'bac lieu', 'bac ninh', 'ba ria', 'ben tre',
+      'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan', 'ca mau',
+      'cao bang', 'dak lak', 'dak nong', 'dien bien', 'dong nai', 'dong thap',
+      'gia lai', 'ha giang', 'ha nam', 'ha tinh', 'hai duong', 'hau giang',
+      'hoa binh', 'hung yen', 'khanh hoa', 'kien giang', 'kon tum',
+      'lai chau', 'lam dong', 'lang son', 'lao cai', 'long an',
+      'nam dinh', 'nghe an', 'ninh binh', 'ninh thuan', 'phu tho', 'phu yen',
+      'quang binh', 'quang nam', 'quang ngai', 'quang ninh', 'quang tri',
+      'soc trang', 'son la', 'tay ninh', 'thai binh', 'thai nguyen',
+      'thanh hoa', 'thua thien hue', 'tien giang', 'tra vinh', 'tuyen quang',
+      'vinh long', 'vinh phuc', 'yen bai'
+    ];
+    
+    for (const prov of allProvinces) {
+      if (addressNorm.includes(prov)) {
+        searchTerms = [prov];
+        break;
+      }
+    }
+  }
+  
+  // Tìm trong dropdown
+  if (searchTerms.length > 0) {
+    for (const term of searchTerms) {
+      const provinceOption = Array.from($('f-province').options).find(opt => 
+        normalize(opt.text).includes(term)
+      );
+      if (provinceOption) {
+        $('f-province').value = provinceOption.value;
+        provinceName = provinceOption.text;
+        foundProvince = true;
+        await handleProvinceChange();
+        break;
+      }
+    }
+  }
     'da nang', 'hai phong', 'can tho', 'bien hoa', 'vung tau', 'nha trang',
     'bac giang', 'bac kan', 'bac lieu', 'bac ninh', 'ba ria', 'ben tre',
     'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan', 'ca mau',
