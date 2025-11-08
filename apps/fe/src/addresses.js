@@ -1,7 +1,7 @@
 // addresses.js – Trang riêng quản lý/chọn địa chỉ cho FE
 const API = 'https://api.shophuyvan.vn/api/addresses';
 const LS_SELECTED = 'address:selected';
-const PROVINCE_API = 'https://vapi.vnappmob.com/api/province';
+const PROVINCE_API = 'https://api.shophuyvan.vn/shipping';
 
 const $ = (id) => document.getElementById(id);
 const qs = (s, p = document) => p.querySelector(s);
@@ -44,12 +44,12 @@ async function init() {
   renderList();
 }
 
-// === API Địa chỉ Việt Nam (vnappmob - không bị CORS) ===
+// === API Địa chỉ Việt Nam (SuperAI) ===
 async function loadProvinces() {
   try {
-    const r = await fetch(`${PROVINCE_API}/`);
+    const r = await fetch(`${PROVINCE_API}/provinces`);
     const data = await r.json();
-    state.provinces = data.results || [];
+    state.provinces = data.items || data.data || [];
     renderProvinceOptions();
   } catch (e) {
     console.error('Load provinces failed', e);
@@ -70,9 +70,9 @@ async function handleProvinceChange() {
   if (!code) return;
   
   try {
-    const r = await fetch(`${PROVINCE_API}/district/${code}`);
+    const r = await fetch(`${PROVINCE_API}/districts?province_code=${encodeURIComponent(code)}`);
     const data = await r.json();
-    state.districts = data.results || [];
+    state.districts = data.items || data.data || [];
     renderDistrictOptions();
     $('f-district').disabled = false;
   } catch (e) {
@@ -91,9 +91,9 @@ async function handleDistrictChange() {
   if (!code) return;
   
   try {
-    const r = await fetch(`${PROVINCE_API}/ward/${code}`);
+    const r = await fetch(`${PROVINCE_API}/wards?district_code=${encodeURIComponent(code)}`);
     const data = await r.json();
-    state.wards = data.results || [];
+    state.wards = data.items || data.data || [];
     renderWardOptions();
     $('f-ward').disabled = false;
   } catch (e) {

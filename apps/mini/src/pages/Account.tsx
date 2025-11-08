@@ -334,33 +334,81 @@ export default function Account() {
       </div>
     )}
 
-    {/* Customer Info */}
+        {/* Customer Info */}
     {customer && (
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="mb-4 pb-4 border-b">
-              <p className="text-sm text-gray-600">Tên</p>
-              <p className="font-semibold text-lg">{customer.full_name}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b">
-              <div>
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium text-sm">{customer.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Điểm</p>
-                <p className="font-semibold">
-                  {(customer.points ?? 0).toLocaleString('vi-VN')}
-                </p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Hạng thành viên</p>
-              <p className="font-semibold text-blue-600 capitalize">
-                {customer.tier}
-              </p>
-            </div>
+      <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
+        {/* Header: avatar + tên + trạng thái Zalo */}
+        <div className="flex items-center gap-3 pb-4 border-b">
+          <div className="w-14 h-14 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-2xl font-semibold text-blue-700">
+            {customer.zalo_avatar ? (
+              // Avatar Zalo nếu có
+              <img
+                src={customer.zalo_avatar}
+                alt={customer.full_name || customer.zalo_name || 'Avatar'}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (customer.full_name?.charAt(0) ||
+                customer.zalo_name?.charAt(0) ||
+                'U'
+              ).toUpperCase()
+            )}
           </div>
-        )}
+          <div className="flex-1">
+            <p className="text-xs text-gray-400 mb-1 truncate">
+              ID: {customer.id}
+            </p>
+            <p className="font-semibold text-lg">
+              {customer.full_name || customer.zalo_name || 'Khách hàng'}
+            </p>
+            <p className="text-xs mt-1">
+              {customer.zalo_id ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700">
+                  Đã liên kết Zalo
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
+                  Chưa liên kết Zalo
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Thông tin liên lạc */}
+        <div className="grid grid-cols-2 gap-4 pb-4 border-b">
+          <div>
+            <p className="text-sm text-gray-600">Số điện thoại</p>
+            <p className="font-medium text-sm">
+              {customer.phone || 'Chưa cập nhật'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Email</p>
+            <p className="font-medium text-sm">
+              {customer.email || 'Chưa cập nhật'}
+            </p>
+          </div>
+        </div>
+
+        {/* Điểm & hạng */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">Điểm tích lũy</p>
+            <p className="font-semibold">
+              {(customer.points ?? 0).toLocaleString('vi-VN')} điểm
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Hạng thành viên</p>
+            <p className="font-semibold text-blue-600 capitalize">
+              {customer.tier || 'dong'}
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
 
         {/* Đơn hàng của tôi */}
         <div className="bg-white rounded-xl p-4 shadow-sm">

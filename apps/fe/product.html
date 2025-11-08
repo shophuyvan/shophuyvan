@@ -19,8 +19,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sản phẩm • Shop Huy Vân</title>
-  <meta name="description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <title id="page-title">Sản phẩm • Shop Huy Vân</title>
+  <meta name="description" id="page-description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <meta name="keywords" id="page-keywords" content="shop huy vân, điện gia dụng, phụ kiện thông minh" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="product" />
+  <meta property="og:site_name" content="Shop Huy Vân" />
+  <meta property="og:title" id="og-title" content="Sản phẩm • Shop Huy Vân" />
+  <meta property="og:description" id="og-description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <meta property="og:image" id="og-image" content="/public/logo.png" />
+  <meta property="og:url" id="og-url" content="" />
+  <meta property="product:price:amount" id="og-price" content="" />
+  <meta property="product:price:currency" content="VND" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" id="twitter-title" content="Sản phẩm • Shop Huy Vân" />
+  <meta name="twitter:description" id="twitter-description" content="Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh." />
+  <meta name="twitter:image" id="twitter-image" content="/public/logo.png" />
+  
+  <!-- Canonical -->
+  <link rel="canonical" id="page-canonical" href="" />
+  
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
@@ -428,6 +449,15 @@
     "
   ></article>
 </section>
+
+    <!-- Sản phẩm liên quan -->
+    <section id="related-products-section" class="mt-8 bg-white rounded-lg p-4 border border-gray-200" style="display:none;">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-lg text-gray-900">🔥 Sản phẩm cùng danh mục</h2>
+        <a id="related-category-link" href="#" class="text-sm text-blue-600 hover:text-blue-700">Xem tất cả →</a>
+      </div>
+      <div id="related-products-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+    </section>
   </main>
 
   <!-- ==========================================

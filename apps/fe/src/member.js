@@ -105,6 +105,59 @@ function formatNumber(n) {
   return new Intl.NumberFormat('vi-VN').format(n);
 }
 
+// Hiển thị thông tin tài khoản (SĐT + Zalo) phía trên thẻ hạng
+function renderCustomerProfile(customer) {
+  try {
+    if (!customer) return;
+
+    // Tìm hoặc tạo container
+    let container = document.getElementById('customerProfile');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'customerProfile';
+      container.style.marginBottom = '16px';
+
+      if (mainContent && mainContent.firstChild) {
+        mainContent.insertBefore(container, mainContent.firstChild);
+      } else if (mainContent) {
+        mainContent.appendChild(container);
+      }
+    }
+
+    const phone = customer.phone || customer.phonenumber || '';
+    const zaloName = customer.zalo_name || '';
+    const zaloId = customer.zalo_id || '';
+
+    const zaloText = zaloName
+      ? `${zaloName} (đã liên kết Zalo)`
+      : zaloId
+      ? 'Đã liên kết Zalo'
+      : 'Chưa liên kết Zalo';
+
+    container.innerHTML = `
+      <div class="member-profile-card" style="
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 12px 14px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        border: 1px solid #e5e7eb;
+        font-size: 13px;
+        color: #111827;
+      ">
+        <div style="font-weight: 600; margin-bottom: 6px;">Thông tin tài khoản</div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div><span style="color:#6b7280;">Họ tên:</span> ${customer.full_name || 'Khách hàng'}</div>
+          <div><span style="color:#6b7280;">Số điện thoại:</span> ${phone || 'Chưa cập nhật'}</div>
+          <div><span style="color:#6b7280;">Zalo:</span> ${zaloText}</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    console.warn('[Member] renderCustomerProfile error:', e);
+  }
+}
+
+
 function getCurrentTier(points) {
   const p = Number(points || 0);
   if (p >= TIER_INFO.diamond.minPoints) return 'diamond';
@@ -367,19 +420,21 @@ async function init() {
     // Chúng ta dùng /orders/my vì nó trả về cả 'customer' object (sẽ được cấu hình ở bước 2)
     const data = await api('/orders/my');
     
-    if (!data.customer || !data.customer.id) {
+        if (!data.customer || !data.customer.id) {
       // Fallback nếu API /orders/my chưa có customer
       const customerInfo = JSON.parse(localStorage.getItem('customer_info') || '{}');
       if (customerInfo.id) {
         console.warn('[Member] Using stale data from localStorage');
         const points = customerInfo.points || 0;
         const tier = customerInfo.tier || getCurrentTier(points);
+        // Hiển thị thông tin tài khoản (SĐT + Zalo)
+        renderCustomerProfile(customerInfo);
         renderTierCard(tier, points);
         renderProgress(tier, points);
       } else {
         throw new Error('Không thể lấy thông tin khách hàng');
       }
-    } else {
+        } else {
       // Sử dụng dữ liệu mới nhất từ API
       const customerInfo = data.customer;
       const points = customerInfo.points || 0;
@@ -388,6 +443,8 @@ async function init() {
       // Cập nhật lại localStorage
       localStorage.setItem('customer_info', JSON.stringify(customerInfo));
       
+      // Hiển thị thông tin tài khoản (SĐT + Zalo)
+      renderCustomerProfile(customerInfo);
       renderTierCard(tier, points);
       renderProgress(tier, points);
     }

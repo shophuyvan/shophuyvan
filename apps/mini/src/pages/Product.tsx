@@ -15,7 +15,7 @@ import { pickPrice, priceRange } from '@shared/utils/price';
 import cart from '@shared/cart';
 import { routes } from '../routes';
 import { navigate as openLink } from '@/lib/navigation';
-
+import ProductCard from '@/components/ProductCard';
 
 // ==========================================
 // CART COUNT HOOK (Realtime)
@@ -324,17 +324,18 @@ function useQuery() {
 }
 
 export default function Product() {
-  const { id } = useQuery() as { id?: string };
-  const [p, setP] = useState<any>(null);
+  const navigate = useNavigate();
+  const query = useQuery();
+  const id = query.id || '';
+  
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [p, setP] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'cart' | 'buy'>('cart');
   const [shareOpen, setShareOpen] = useState(false);
-
-  const navigate = useNavigate();
+  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const cartCount = useCartCount();
-
 
   useEffect(() => {
     let isMounted = true;
@@ -347,6 +348,27 @@ export default function Product() {
         // NOTE: debug/compat với backend trả { ok, item }
         const fullProduct = (d && (d as any).item) ? (d as any).item : d;
         if (isMounted) setP(fullProduct);
+        
+        // ✅ FETCH RELATED PRODUCTS
+        if (fullProduct?.category) {
+          try {
+            const listRes = await api.get('/public/products');
+            const items = listRes?.items || listRes?.products || [];
+            
+            const related = items.filter((item: any) => {
+              const sameCategory = String(item.category || '').toLowerCase() === String(fullProduct.category || '').toLowerCase();
+              const differentId = String(item.id || item._id || '') !== String(fullProduct.id || fullProduct._id || '');
+              const isActive = item.is_active !== false;
+              return sameCategory && differentId && isActive;
+            });
+            
+            // Shuffle và lấy 8 sản phẩm
+            const shuffled = related.sort(() => Math.random() - 0.5);
+            if (isMounted) setRelatedProducts(shuffled.slice(0, 8));
+          } catch (err) {
+            console.error('[Related] Fetch error:', err);
+          }
+        }
       } catch (e: any) {
         if (isMounted) setError(e?.message || 'Lỗi tải sản phẩm');
       } finally {
@@ -752,6 +774,35 @@ export default function Product() {
                   className="text-[15px] leading-relaxed text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:mb-3 [&_p]:text-gray-700 [&_p]:leading-relaxed [&_strong]:text-gray-900 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3 [&_img]:block"
                   dangerouslySetInnerHTML={{ __html: p.desc || p.description }}
                 />
+              </div>
+            )}
+
+            {/* Related Products */}
+            {relatedProducts.length > 0 && (
+              <div className="mt-6 pt-4 border-t">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-base text-gray-900">
+                    🔥 Sản phẩm cùng danh mục
+                  </h2>
+                  <button
+                    onClick={() => {
+                      try {
+                        navigate(`${routes.category}?cat=${encodeURIComponent(p?.category || '')}`);
+                      } catch {
+                        console.error('Navigate error');
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Xem tất cả →
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {relatedProducts.map((item: any) => (
+                    <ProductCard key={item.id || item._id} product={item} />
+                  ))}
+                </div>
               </div>
             )}
           </div>

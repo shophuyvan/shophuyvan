@@ -952,6 +952,84 @@ async function fetchProduct(id) {
   return null;
 }
 
+// === FETCH RELATED PRODUCTS ===
+async function fetchRelatedProducts(category, currentId, limit = 8) {
+  try {
+    const list = await api.get('/public/products');
+    const items = list?.items || list?.products || [];
+    
+    // Lọc sản phẩm cùng category, khác ID hiện tại, đang active
+    const related = items.filter(p => {
+      const sameCategory = String(p.category || '').toLowerCase() === String(category || '').toLowerCase();
+      const differentId = String(p.id || p._id || '') !== String(currentId);
+      const isActive = p.is_active !== false;
+      return sameCategory && differentId && isActive;
+    });
+    
+    // Shuffle và lấy limit sản phẩm
+    const shuffled = related.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, limit);
+  } catch (e) {
+    console.error('[Related] Fetch error:', e);
+    return [];
+  }
+}
+
+// === UPDATE SEO META TAGS ===
+async function updateSEOTags() {
+  try {
+    if (!PRODUCT) return;
+    
+    const productName = PRODUCT.title || PRODUCT.name || 'Sản phẩm';
+    const productDesc = PRODUCT.description || PRODUCT.desc || 'Shop Huy Vân - Điện gia dụng, đồ lắp đặt, phụ kiện thông minh.';
+    const productImage = imagesOf(PRODUCT)[0] || '/public/logo.png';
+    const productURL = location.href;
+    const price = await pricePair(PRODUCT);
+    const keywords = [
+      productName,
+      PRODUCT.category || '',
+      PRODUCT.brand || '',
+      'shop huy vân',
+      'điện gia dụng',
+      'phụ kiện thông minh'
+    ].filter(Boolean).join(', ');
+    
+    // Title & Description
+    const pageTitle = `${productName} - Shop Huy Vân`;
+    const pageDesc = productDesc.substring(0, 160);
+    
+    document.title = pageTitle;
+    
+    const setMeta = (id, content) => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('content', content);
+    };
+    
+    setMeta('page-description', pageDesc);
+    setMeta('page-keywords', keywords);
+    
+    // Open Graph
+    setMeta('og-title', pageTitle);
+    setMeta('og-description', pageDesc);
+    setMeta('og-image', productImage);
+    setMeta('og-url', productURL);
+    setMeta('og-price', String(price.base || 0));
+    
+    // Twitter
+    setMeta('twitter-title', pageTitle);
+    setMeta('twitter-description', pageDesc);
+    setMeta('twitter-image', productImage);
+    
+    // Canonical
+    const canonical = document.getElementById('page-canonical');
+    if (canonical) canonical.setAttribute('href', productURL);
+    
+    console.log('[SEO] Meta tags updated');
+  } catch (e) {
+    console.error('[SEO] Update error:', e);
+  }
+}
+
 // === INIT ===
 (async function init() {
   try {
@@ -976,32 +1054,104 @@ async function fetchProduct(id) {
     renderDesc();
     injectFloatingCart();
     injectStickyCTA();
+    
+    // ✅ UPDATE SEO TAGS
+    await updateSEOTags();
+    
+    // ✅ RENDER RELATED PRODUCTS
+    await renderRelatedProducts();
 
-    document.title = `${PRODUCT.title || PRODUCT.name || 'Sản phẩm'} - Shop Huy Vân`;
-
+    // Schema.org Product
+    const price = await pricePair(PRODUCT);
     const structuredData = {
       "@context": "https://schema.org/",
       "@type": "Product",
       "name": PRODUCT.title || PRODUCT.name,
       "image": imagesOf(PRODUCT),
       "description": PRODUCT.description || PRODUCT.desc || '',
+      "brand": PRODUCT.brand ? { "@type": "Brand", "name": PRODUCT.brand } : undefined,
+      "category": PRODUCT.category || undefined,
+      "sku": PRODUCT.sku || PRODUCT.id || undefined,
       "offers": {
         "@type": "Offer",
-        "price": pricePair(PRODUCT).base,
+        "price": price.base,
         "priceCurrency": "VND",
-        "availability": "https://schema.org/InStock"
-      }
+        "availability": (PRODUCT.stock || 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        "priceValidUntil": new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+        "url": location.href
+      },
+      "aggregateRating": PRODUCT.reviews?.length > 0 ? {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "reviewCount": PRODUCT.reviews.length
+      } : undefined
     };
 
     const script = document.createElement('script');
     script.type = 'application/ld+json';
-    script.text = JSON.stringify(structuredData);
+    script.text = JSON.stringify(structuredData, null, 2);
     document.head.appendChild(script);
 
   } catch(e) {
     console.error('[PDP] Init error:', e);
   }
 })();
+
+// === RENDER RELATED PRODUCTS ===
+async function renderRelatedProducts() {
+  try {
+    if (!PRODUCT?.category || !PRODUCT?.id) return;
+    
+    const related = await fetchRelatedProducts(PRODUCT.category, PRODUCT.id, 8);
+    if (!related || related.length === 0) return;
+    
+    const section = $('#related-products-section');
+    const grid = $('#related-products-grid');
+    const categoryLink = $('#related-category-link');
+    
+    if (!section || !grid) return;
+    
+    // Set category link
+    if (categoryLink) {
+      categoryLink.href = `/category.html?cat=${encodeURIComponent(PRODUCT.category)}`;
+    }
+    
+    // Render products
+    grid.innerHTML = related.map(p => {
+      const imgs = imagesOf(p);
+      const img = cloudify(imgs[0] || '/assets/no-image.svg', 'w_400,dpr_auto,q_auto,f_auto');
+      const price = pickPrice ? pickPrice(p) : { base: p.price || 0, original: p.sale_price };
+      
+      return `
+        <a href="/product.html?id=${encodeURIComponent(p.id || p._id || '')}" 
+           class="product-card"
+           title="${htmlEscape(p.name || p.title || '')}">
+          <img 
+            src="${img}" 
+            alt="${htmlEscape(p.name || p.title || '')}"
+            class="product-card-image"
+            loading="lazy"
+            decoding="async"
+          />
+          <div class="product-card-body">
+            <h3 class="product-card-title">${htmlEscape(p.name || p.title || '')}</h3>
+            <div class="product-card-price">
+              <span class="product-card-price-sale">${formatPrice(price.base || 0)}</span>
+              ${price.original && price.original > price.base 
+                ? `<span class="product-card-price-original">${formatPrice(price.original)}</span>` 
+                : ''}
+            </div>
+          </div>
+        </a>
+      `;
+    }).join('');
+    
+    section.style.display = 'block';
+    console.log('[PDP] Related products rendered:', related.length);
+  } catch (e) {
+    console.error('[Related] Render error:', e);
+  }
+}
 
 // === IMAGE OPTIMIZATION ===
 (function optimizeImages() {

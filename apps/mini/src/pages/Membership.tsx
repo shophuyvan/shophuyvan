@@ -12,7 +12,10 @@ interface Customer {
   email: string;
   points: number;
   tier: string;
+  zalo_id?: string;
+  zalo_name?: string;
 }
+
 
 // Định nghĩa các hạng thành viên
 const TIERS = [
@@ -183,7 +186,7 @@ export default function Membership() {
     pointsNeeded = nextTier.minPoints - currentPoints;
   }
 
-  return (
+    return (
     <Page className="bg-gray-50">
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
         <button
@@ -198,7 +201,33 @@ export default function Membership() {
       </div>
       
       <div className="max-w-2xl mx-auto px-4 pt-2 pb-4 space-y-4">
+        {/* Thông tin tài khoản (tên, SĐT, Zalo) */}
+        {customer && (
+          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                Tài khoản
+              </p>
+              <p className="font-semibold text-sm">
+                {customer.full_name || 'Khách hàng'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                SĐT: {customer.phone || 'Chưa cập nhật'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Zalo:{' '}
+                {customer.zalo_id || customer.zalo_name
+                  ? (customer.zalo_name
+                      ? `${customer.zalo_name} (đã liên kết)`
+                      : 'Đã liên kết Zalo')
+                  : 'Chưa liên kết Zalo'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Card hạng hiện tại */}
+
         <div className={`bg-gradient-to-br ${currentTier.color} rounded-2xl p-6 text-white shadow-lg`}>
           <div className="text-center">
             <div className="text-6xl mb-3">{currentTier.icon}</div>
