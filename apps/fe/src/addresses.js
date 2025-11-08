@@ -107,8 +107,8 @@ function renderProvinceOptions() {
   sel.innerHTML = '<option value="">Chọn Tỉnh/Thành phố *</option>';
   state.provinces.forEach(p => {
     sel.appendChild(ce('option', { 
-      value: p.province_id, 
-      innerText: p.province_name 
+      value: p.code || p.province_id, 
+      innerText: p.name || p.province_name 
     }));
   });
 }
@@ -118,8 +118,8 @@ function renderDistrictOptions() {
   sel.innerHTML = '<option value="">Chọn Quận/Huyện *</option>';
   state.districts.forEach(d => {
     sel.appendChild(ce('option', { 
-      value: d.district_id, 
-      innerText: d.district_name 
+      value: d.code || d.district_id, 
+      innerText: d.name || d.district_name 
     }));
   });
 }
@@ -129,8 +129,8 @@ function renderWardOptions() {
   sel.innerHTML = '<option value="">Chọn Phường/Xã *</option>';
   state.wards.forEach(w => {
     sel.appendChild(ce('option', { 
-      value: w.ward_id, 
-      innerText: w.ward_name 
+      value: w.code || w.ward_id, 
+      innerText: w.name || w.ward_name 
     }));
   });
 }
