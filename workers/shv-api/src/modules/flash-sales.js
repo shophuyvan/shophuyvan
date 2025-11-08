@@ -60,23 +60,47 @@ async function getActiveFlashSale(req, env) {
     const list = await getJSON(env, 'flash-sales:list', []);
     const now = Date.now();
 
+    console.log('[Flash Sale] 🔍 Checking active sale');
+    console.log('[Flash Sale] Current time:', new Date(now).toISOString());
+    console.log('[Flash Sale] Total sales:', list.length);
+
     // Tìm Flash Sale đang active
     for (const id of list) {
       const fs = await getJSON(env, `flash-sale:${id}`, null);
-      if (!fs) continue;
+      if (!fs) {
+        console.log('[Flash Sale] ⚠️ Skip - not found:', id);
+        continue;
+      }
 
       const start = new Date(fs.start_time).getTime();
       const end = new Date(fs.end_time).getTime();
 
+      console.log('[Flash Sale] 📊 Checking:', {
+        id: fs.id,
+        name: fs.name,
+        status: fs.status,
+        start_time: fs.start_time,
+        end_time: fs.end_time,
+        start_parsed: new Date(start).toISOString(),
+        end_parsed: new Date(end).toISOString(),
+        now_vs_start: now - start,
+        now_vs_end: end - now,
+        isInTimeRange: start <= now && now <= end,
+        statusMatch: fs.status === 'active'
+      });
+
       // Kiểm tra: đang trong thời gian + status active
       if (fs.status === 'active' && start <= now && now <= end) {
+        console.log('[Flash Sale] ✅ Found active sale:', fs.name);
         return json({ ok: true, flash_sale: fs }, {}, req);
       }
     }
 
+    console.log('[Flash Sale] ⚠️ No active sale found');
     // Không có Flash Sale nào đang chạy
     return json({ ok: true, flash_sale: null }, {}, req);
   } catch (e) {
+    console.error('[Flash Sale] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }

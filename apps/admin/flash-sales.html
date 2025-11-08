@@ -563,12 +563,19 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    // ✅ Chuyển datetime-local sang ISO-8601 đầy đủ (VN timezone)
+    const startLocal = $('#fs-start').value; // "2025-11-08T14:26"
+    const endLocal = $('#fs-end').value;
+    
+    const startISO = startLocal ? new Date(startLocal).toISOString() : '';
+    const endISO = endLocal ? new Date(endLocal).toISOString() : '';
+    
     const data = {
       id: editingId,
       name: $('#fs-name').value,
       description: $('#fs-description').value,
-      start_time: $('#fs-start').value,
-      end_time: $('#fs-end').value,
+      start_time: startISO,  // ✅ ISO-8601: "2025-11-08T07:26:00.000Z"
+      end_time: endISO,      // ✅ ISO-8601
       status: $('#fs-status').value,
       products: selectedProducts.map(p => ({
         product_id: p.product_id,

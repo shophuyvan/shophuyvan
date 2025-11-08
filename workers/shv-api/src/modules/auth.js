@@ -43,19 +43,31 @@ export async function handle(req, env, ctx) {
     return verifyOtp(req, env);
   }
 
-  // PASSWORD LOGIN / SETUP (WEB)
+    // PASSWORD LOGIN / SETUP (WEB)
   if (path === '/auth/password/set' && method === 'POST') {
     return passwordSet(req, env);
   }
 
+  // Đăng nhập bằng email hoặc SĐT + mật khẩu
   if (path === '/auth/password/login' && method === 'POST') {
     return passwordLogin(req, env);
+  }
+
+  // Quên mật khẩu: gửi mail/ZNS
+  if (path === '/auth/password/forgot' && method === 'POST') {
+    return passwordForgot(req, env);
+  }
+
+  // Đặt lại mật khẩu: dùng token (email) hoặc phone + OTP (ZNS)
+  if (path === '/auth/password/reset' && method === 'POST') {
+    return passwordReset(req, env);
   }
 
   // ZALO MINIAPP: ACTIVATE PHONE
   if (path === '/auth/zalo/activate-phone' && method === 'POST') {
     return zaloActivatePhone(req, env);
   }
+
 
   // ZALO WEB: CALLBACK (TODO - cần Zalo App ID)
   if (path === '/auth/zalo/callback' && method === 'GET') {
@@ -171,7 +183,7 @@ async function createCustomerToken(env, customerId) {
 }
 
 const OTP_TTL_SECONDS = 60 * 30; // 30 phút
-
+const PASSWORD_RESET_TTL_SECONDS = 60 * 30; // 30 phút cho link/OTP reset mật khẩu
 
 function normalizePhoneVN(rawPhone) {
   if (!rawPhone) return '';
@@ -306,6 +318,18 @@ async function sendSmsOtp(env, phone, otpCode) {
   return false;
 }
 
+// Gửi mail reset mật khẩu – sẽ gắn SMTP (Zoho, SendGrid, ...) sau
+async function sendResetEmail(env, email, resetUrl) {
+  try {
+    console.log('[sendResetEmail] to', email, 'resetUrl=', resetUrl);
+    // TODO: dùng SMTP từ mail domain (matkhau@shophuyvan.vn) hoặc dịch vụ email bên ngoài.
+    return true;
+  } catch (e) {
+    console.error('[sendResetEmail Error]', e);
+    return false;
+  }
+}
+
 // Xác thực OTP: tạo / tìm customer theo SĐT + bind Zalo nếu có
 async function verifyOtp(req, env) {
   try {
@@ -376,9 +400,12 @@ async function verifyOtp(req, env) {
       }
     }
 
-    // Lưu customer & index
+        // Lưu customer & index
     await putJSON(env, `customer:${customer.id}`, customer);
     await putJSON(env, `customer:phone:${phone}`, customer.id);
+    if (customer.email) {
+      await putJSON(env, `customer:email:${customer.email.toLowerCase()}`, customer);
+    }
     if (customer.zalo_id) {
       await putJSON(env, `customer:zalo:${customer.zalo_id}`, customer.id);
     }
@@ -445,8 +472,8 @@ async function passwordSet(req, env) {
     }
     if (email) {
       customer.email = email;
+      await putJSON(env, `customer:email:${email}`, customer);
     }
-
     await putJSON(env, `customer:${customer.id}`, customer);
 
     return json({
@@ -462,23 +489,53 @@ async function passwordSet(req, env) {
 async function passwordLogin(req, env) {
   try {
     const body = await readBody(req) || {};
-    const rawPhone = body.phone || body.phonenumber || '';
+    const identifierRaw =
+      body.identifier ||
+      body.username ||
+      body.email ||
+      body.phone ||
+      body.phonenumber ||
+      '';
+    const identifier = String(identifierRaw || '').trim();
     const password = String(body.password || '').trim();
 
-    const phone = normalizePhoneVN(rawPhone);
-
-    if (!phone || !password) {
-      return errorResponse('Thiếu số điện thoại hoặc mật khẩu', 400, req);
+    if (!identifier || !password) {
+      return errorResponse('Thiếu tài khoản hoặc mật khẩu', 400, req);
     }
 
-    const customerId = await getJSON(env, `customer:phone:${phone}`, null);
-    if (!customerId) {
+    let customer = null;
+    let customerId = null;
+
+    // Nếu có @ => email
+    if (identifier.includes('@')) {
+      const email = identifier.toLowerCase();
+      const emailKey = `customer:email:${email}`;
+      const emailVal = await getJSON(env, emailKey, null);
+
+      if (emailVal) {
+        if (emailVal.id) {
+          customer = emailVal;
+          customerId = customer.id;
+        } else if (typeof emailVal === 'string') {
+          customerId = emailVal;
+          customer = await getJSON(env, `customer:${customerId}`, null);
+        }
+      }
+    } else {
+      // Ngược lại => phone
+      const phone = normalizePhoneVN(identifier);
+      if (!phone) {
+        return errorResponse('Sai định dạng số điện thoại hoặc email', 400, req);
+      }
+
+      customerId = await getJSON(env, `customer:phone:${phone}`, null);
+      if (customerId) {
+        customer = await getJSON(env, `customer:${customerId}`, null);
+      }
+    }
+
+    if (!customer || !customer.id) {
       return errorResponse('Tài khoản không tồn tại', 404, req);
-    }
-
-    const customer = await getJSON(env, `customer:${customerId}`, null);
-    if (!customer) {
-      return errorResponse('Không tìm thấy tài khoản', 404, req);
     }
 
     if (!customer.password_hash) {
@@ -499,6 +556,226 @@ async function passwordLogin(req, env) {
     }, {}, req);
   } catch (e) {
     console.error('[passwordLogin Error]', e);
+    return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
+  }
+}
+
+// Quên mật khẩu: /auth/password/forgot
+async function passwordForgot(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const identifierRaw =
+      body.identifier ||
+      body.username ||
+      body.email ||
+      body.phone ||
+      body.phonenumber ||
+      '';
+    const identifier = String(identifierRaw || '').trim();
+
+    if (!identifier) {
+      return errorResponse('Thiếu email hoặc số điện thoại', 400, req);
+    }
+
+    let customer = null;
+    let customerId = null;
+    let phoneNormalized = null;
+
+    if (identifier.includes('@')) {
+      const email = identifier.toLowerCase();
+      const emailKey = `customer:email:${email}`;
+      const emailVal = await getJSON(env, emailKey, null);
+      if (emailVal) {
+        if (emailVal.id) {
+          customer = emailVal;
+          customerId = customer.id;
+        } else if (typeof emailVal === 'string') {
+          customerId = emailVal;
+          customer = await getJSON(env, `customer:${customerId}`, null);
+        }
+      }
+    } else {
+      phoneNormalized = normalizePhoneVN(identifier);
+      if (phoneNormalized) {
+        customerId = await getJSON(env, `customer:phone:${phoneNormalized}`, null);
+        if (customerId) {
+          customer = await getJSON(env, `customer:${customerId}`, null);
+        }
+      }
+    }
+
+    if (!customer || !customer.id) {
+      return errorResponse('Tài khoản không tồn tại', 404, req);
+    }
+
+    let channel = 'none';
+
+    // ƯU TIÊN: EMAIL → gửi link reset
+    if (customer.email) {
+      const token = crypto.randomUUID().replace(/-/g, '');
+      const key = `password_reset:token:${token}`;
+
+      const record = {
+        customer_id: customer.id,
+        token,
+        channel: 'email',
+        created_at: Date.now(),
+      };
+
+      await putJSON(env, key, record, {
+        expirationTtl: PASSWORD_RESET_TTL_SECONDS,
+      });
+
+      const baseUrl = env.WEB_URL || 'https://shophuyvan.vn';
+      const resetUrlBase = baseUrl.replace(/\/$/, '');
+      const resetUrl = `${resetUrlBase}/password-reset.html?token=${token}`;
+
+      const emailOk = await sendResetEmail(env, customer.email, resetUrl);
+      if (emailOk) {
+        channel = 'email';
+      }
+    } else if (customer.phone) {
+      // Không có email -> dùng OTP qua ZNS theo SĐT
+      phoneNormalized = normalizePhoneVN(customer.phone);
+      const phoneKey = phoneNormalized
+        ? `password_reset:phone:${phoneNormalized}`
+        : null;
+
+      const otpCode = String(
+        Math.floor(100000 + Math.random() * 900000)
+      );
+
+      const record = {
+        customer_id: customer.id,
+        phone: phoneNormalized,
+        otp: otpCode,
+        channel: 'zns',
+        created_at: Date.now(),
+      };
+
+      if (phoneKey) {
+        await putJSON(env, phoneKey, record, {
+          expirationTtl: PASSWORD_RESET_TTL_SECONDS,
+        });
+
+        const e164 = toE164VN(phoneNormalized);
+        if (e164 && env.ZALO_ZNS_ACCESS_TOKEN) {
+          const ok = await sendZnsOtp(env, e164, otpCode);
+          if (ok) {
+            channel = 'zns';
+          }
+        }
+      }
+    }
+
+    return json(
+      {
+        ok: true,
+        channel,
+        ttl: PASSWORD_RESET_TTL_SECONDS,
+      },
+      {},
+      req
+    );
+  } catch (e) {
+    console.error('[passwordForgot Error]', e);
+    return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
+  }
+}
+
+// Đặt lại mật khẩu: /auth/password/reset
+async function passwordReset(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const password = String(body.password || '').trim();
+
+    if (!password || password.length < 6) {
+      return errorResponse('Mật khẩu phải có ít nhất 6 ký tự', 400, req);
+    }
+
+    let customerId = null;
+
+    const token = body.token ? String(body.token).trim() : '';
+
+    if (token) {
+      // Flow email: reset bằng link có token
+      const key = `password_reset:token:${token}`;
+      const record = await getJSON(env, key, null);
+
+      if (!record || !record.customer_id) {
+        return errorResponse(
+          'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn',
+          400,
+          req
+        );
+      }
+
+      customerId = record.customer_id;
+
+      // Đánh dấu token đã dùng, rút TTL xuống ngắn
+      await putJSON(
+        env,
+        key,
+        { ...record, used: true },
+        { expirationTtl: 10 }
+      );
+    } else {
+      // Flow ZNS: phone + OTP
+      const rawPhone = body.phone || body.phonenumber || '';
+      const code = String(body.code || body.otp || '').trim();
+      const phone = normalizePhoneVN(rawPhone);
+
+      if (!phone || !code) {
+        return errorResponse('Thiếu số điện thoại hoặc mã OTP', 400, req);
+      }
+
+      const key = `password_reset:phone:${phone}`;
+      const record = await getJSON(env, key, null);
+
+      if (!record || !record.customer_id || record.otp !== code) {
+        return errorResponse('Mã OTP không đúng hoặc đã hết hạn', 400, req);
+      }
+
+      customerId = record.customer_id;
+
+      await putJSON(
+        env,
+        key,
+        { ...record, used: true },
+        { expirationTtl: 10 }
+      );
+    }
+
+    const customer = await getJSON(env, `customer:${customerId}`, null);
+    if (!customer) {
+      return errorResponse('Không tìm thấy tài khoản', 404, req);
+    }
+
+    const hash = await sha256Hex(password);
+    customer.password_hash = hash;
+
+    await putJSON(env, `customer:${customer.id}`, customer);
+    if (customer.email) {
+      await putJSON(
+        env,
+        `customer:email:${customer.email.toLowerCase()}`,
+        customer
+      );
+    }
+
+    const customerToken = await createCustomerToken(env, customer.id);
+
+    return json(
+      {
+        ok: true,
+        token: customerToken,
+        customer,
+      },
+      {},
+      req
+    );
+  } catch (e) {
+    console.error('[passwordReset Error]', e);
     return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
   }
 }
@@ -574,7 +851,10 @@ async function zaloActivatePhone(req, env) {
       }
     }
 
-    await putJSON(env, `customer:${customer.id}`, customer);
+        await putJSON(env, `customer:${customer.id}`, customer);
+    if (customer.email) {
+      await putJSON(env, `customer:email:${customer.email.toLowerCase()}`, customer);
+    }
     if (phone) {
       await putJSON(env, `customer:phone:${phone}`, customer.id);
     }
