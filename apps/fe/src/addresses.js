@@ -365,54 +365,147 @@ async function quickAddressInput() {
   $('f-name').value = name;
   $('f-phone').value = phone;
   
-  // Parse địa chỉ để tìm quận, phường
-  const addressLower = fullAddress.toLowerCase();
+  // Chuẩn hóa text (bỏ dấu, lower)
+  const normalize = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const addressNorm = normalize(fullAddress);
   
-  // Tìm và chọn Tỉnh/TP
+  // ===== BƯỚC 1: TÌM TỈNH/THÀNH PHỐ =====
   let foundProvince = false;
-  if (addressLower.includes('hồ chí minh') || addressLower.includes('hcm') || addressLower.includes('sài gòn')) {
-    const hcmOption = Array.from($('f-province').options).find(opt => 
-      opt.text.includes('Hồ Chí Minh') || opt.text.includes('HCM')
-    );
-    if (hcmOption) {
-      $('f-province').value = hcmOption.value;
-      foundProvince = true;
-      await handleProvinceChange();
+  let provinceName = '';
+  
+  // Parse tên tỉnh/thành từ input
+  const provinceKeywords = [
+    'ho chi minh', 'hcm', 'sai gon', 'tp hcm', 'thanh pho ho chi minh',
+    'ha noi', 'hn', 'thanh pho ha noi',
+    'da nang', 'hai phong', 'can tho', 'bien hoa', 'vung tau', 'nha trang',
+    'bac giang', 'bac kan', 'bac lieu', 'bac ninh', 'ba ria', 'ben tre',
+    'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan', 'ca mau',
+    'cao bang', 'dak lak', 'dak nong', 'dien bien', 'dong nai', 'dong thap',
+    'gia lai', 'ha giang', 'ha nam', 'ha tinh', 'hai duong', 'hau giang',
+    'hoa binh', 'hung yen', 'khanh hoa', 'kien giang', 'kon tum',
+    'lai chau', 'lam dong', 'lang son', 'lao cai', 'long an',
+    'nam dinh', 'nghe an', 'ninh binh', 'ninh thuan', 'phu tho', 'phu yen',
+    'quang binh', 'quang nam', 'quang ngai', 'quang ninh', 'quang tri',
+    'soc trang', 'son la', 'tay ninh', 'thai binh', 'thai nguyen',
+    'thanh hoa', 'thua thien hue', 'tien giang', 'tra vinh', 'tuyen quang',
+    'vinh long', 'vinh phuc', 'yen bai'
+  ];
+  
+  for (const kw of provinceKeywords) {
+    if (addressNorm.includes(kw)) {
+      // Tìm trong dropdown
+      const provinceOption = Array.from($('f-province').options).find(opt => 
+        normalize(opt.text).includes(kw) || kw.includes(normalize(opt.text).replace(/^(thanh pho|tinh)\s+/i, ''))
+      );
+      if (provinceOption) {
+        $('f-province').value = provinceOption.value;
+        provinceName = provinceOption.text;
+        foundProvince = true;
+        await handleProvinceChange();
+        break;
+      }
     }
   }
   
-  // Tìm Quận/Huyện (ví dụ: "Quận Bình Tân", "Q.Bình Tân", "Bình Tân")
-  const districtMatch = fullAddress.match(/(?:quận|q\.|huyện|h\.)\s*([^,]+)/i) || 
-                        fullAddress.match(/([^,]+)\s*(?:quận|huyện)/i);
-  if (districtMatch && foundProvince) {
-    await new Promise(r => setTimeout(r, 200)); // Đợi load quận
-    const districtName = districtMatch[1].trim();
+  if (!foundProvince) {
+    alert('Không tìm thấy Tỉnh/Thành phố. Vui lòng chọn thủ công.');
+    $('f-address').value = fullAddress;
+    return;
+  }
+  
+  // Đợi load xong districts
+  await new Promise(r => setTimeout(r, 300));
+  
+  // ===== BƯỚC 2: TÌM QUẬN/HUYỆN =====
+  let foundDistrict = false;
+  let districtName = '';
+  
+  // Thử parse với từ khóa "quận", "huyện"
+  let districtMatch = fullAddress.match(/(?:quan|q\.|huyen|h\.)\s*([a-zA-ZÀ-ỹ\s]+?)(?:\s|,|$)/i);
+  
+  if (!districtMatch) {
+    // Không có từ khóa → thử match trực tiếp với danh sách quận
+    const districtOptions = Array.from($('f-district').options).slice(1); // Bỏ option đầu
+    for (const opt of districtOptions) {
+      const optNorm = normalize(opt.text.replace(/^(quan|huyen|thi xa|thanh pho)\s+/i, ''));
+      if (optNorm && addressNorm.includes(optNorm)) {
+        $('f-district').value = opt.value;
+        districtName = opt.text;
+        foundDistrict = true;
+        await handleDistrictChange();
+        break;
+      }
+    }
+  } else {
+    const parsedDistrictName = normalize(districtMatch[1]);
     const districtOption = Array.from($('f-district').options).find(opt => 
-      opt.text.toLowerCase().includes(districtName.toLowerCase())
+      normalize(opt.text).includes(parsedDistrictName) || parsedDistrictName.includes(normalize(opt.text).replace(/^(quan|huyen)\s+/i, ''))
     );
     if (districtOption) {
       $('f-district').value = districtOption.value;
+      districtName = districtOption.text;
+      foundDistrict = true;
       await handleDistrictChange();
     }
   }
   
-  // Tìm Phường/Xã
-  const wardMatch = fullAddress.match(/(?:phường|p\.|xã|x\.)\s*([^,]+)/i);
-  if (wardMatch) {
-    await new Promise(r => setTimeout(r, 200)); // Đợi load phường
-    const wardName = wardMatch[1].trim();
+  if (!foundDistrict) {
+    alert('Không tìm thấy Quận/Huyện. Vui lòng chọn thủ công.');
+    $('f-address').value = fullAddress;
+    return;
+  }
+  
+  // Đợi load xong wards
+  await new Promise(r => setTimeout(r, 300));
+  
+  // ===== BƯỚC 3: TÌM PHƯỜNG/XÃ =====
+  let foundWard = false;
+  let wardName = '';
+  
+  // Thử parse với từ khóa "phường", "xã"
+  let wardMatch = fullAddress.match(/(?:phuong|p\.|xa|x\.|thi tran|tt\.)\s*([a-zA-ZÀ-ỹ\s0-9]+?)(?:\s|,|$)/i);
+  
+  if (!wardMatch) {
+    // Không có từ khóa → thử match trực tiếp với danh sách phường
+    const wardOptions = Array.from($('f-ward').options).slice(1);
+    for (const opt of wardOptions) {
+      const optNorm = normalize(opt.text.replace(/^(phuong|xa|thi tran)\s+/i, ''));
+      if (optNorm && addressNorm.includes(optNorm)) {
+        $('f-ward').value = opt.value;
+        wardName = opt.text;
+        foundWard = true;
+        break;
+      }
+    }
+  } else {
+    const parsedWardName = normalize(wardMatch[1]);
     const wardOption = Array.from($('f-ward').options).find(opt => 
-      opt.text.toLowerCase().includes(wardName.toLowerCase())
+      normalize(opt.text).includes(parsedWardName) || parsedWardName.includes(normalize(opt.text).replace(/^(phuong|xa)\s+/i, ''))
     );
     if (wardOption) {
       $('f-ward').value = wardOption.value;
+      wardName = wardOption.text;
+      foundWard = true;
     }
   }
   
-  // Điền địa chỉ chi tiết (số nhà, đường)
+  // ===== BƯỚC 4: TRÍCH XUẤT ĐỊA CHỈ CHI TIẾT =====
   let detailAddress = fullAddress;
-  // Loại bỏ tên quận, phường, TP đã parse
-  detailAddress = detailAddress.replace(/(?:quận|q\.|phường|p\.|tp\.|thành phố|hồ chí minh|hcm|sài gòn)[^,]*/gi, '');
+  
+  // Loại bỏ tên tỉnh, quận, phường đã parse
+  if (provinceName) {
+    detailAddress = detailAddress.replace(new RegExp(provinceName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '');
+    detailAddress = detailAddress.replace(/(?:tp\.|thanh pho|tinh)\s*hcm|ho chi minh|sai gon/gi, '');
+  }
+  if (districtName) {
+    detailAddress = detailAddress.replace(new RegExp(districtName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '');
+  }
+  if (wardName) {
+    detailAddress = detailAddress.replace(new RegExp(wardName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '');
+  }
+  
+  // Loại bỏ các từ khóa thừa
+  detailAddress = detailAddress.replace(/(?:quan|q\.|huyen|h\.|phuong|p\.|xa|x\.|thi tran|tt\.)/gi, '');
   detailAddress = detailAddress.replace(/,+/g, ',').replace(/^,|,$/g, '').trim();
   
   $('f-address').value = detailAddress || fullAddress;
@@ -423,15 +516,13 @@ async function quickAddressInput() {
   $('quick-address').value = '';
   
   // ✅ TỰ ĐỘNG LƯU địa chỉ sau khi parse xong
-  // Đợi 500ms để đảm bảo tất cả dropdown đã load xong
   setTimeout(async () => {
     try {
       await saveForm();
       console.log('[Quick Input] Đã tự động lưu địa chỉ');
     } catch (e) {
       console.error('[Quick Input] Lỗi tự động lưu:', e);
-      // Nếu lỗi, vẫn giữ form mở để user có thể sửa và bấm Lưu thủ công
-      alert('Đã điền thông tin vào form. Vui lòng kiểm tra và bấm "Lưu" để hoàn tất.');
+      alert('Đã điền thông tin vào form. Vui lòng kiểm tra và bấm "Hoàn thành" để lưu.');
     }
   }, 500);
 }
