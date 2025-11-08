@@ -1116,13 +1116,21 @@ async function renderRelatedProducts() {
       categoryLink.href = `/category.html?cat=${encodeURIComponent(PRODUCT.category)}`;
     }
     
-    // Render products
-    grid.innerHTML = related.map(p => {
+        // Render products
+    let html = '';
+    for (const p of related) {
       const imgs = imagesOf(p);
-      const img = cloudify(imgs[0] || '/assets/no-image.svg', 'w_400,dpr_auto,q_auto,f_auto');
-      const price = pickPrice ? pickPrice(p) : { base: p.price || 0, original: p.sale_price };
+      const img = cloudify(
+        imgs[0] || '/assets/no-image.svg',
+        'w_400,dpr_auto,q_auto,f_auto'
+      );
       
-      return `
+      // Dùng chung logic giá với PDP
+      const price = await pricePair(p);
+      const base = price.base || p.price || 0;
+      const original = price.original || p.sale_price || 0;
+
+      html += `
         <a href="/product.html?id=${encodeURIComponent(p.id || p._id || '')}" 
            class="product-card"
            title="${htmlEscape(p.name || p.title || '')}">
@@ -1136,17 +1144,19 @@ async function renderRelatedProducts() {
           <div class="product-card-body">
             <h3 class="product-card-title">${htmlEscape(p.name || p.title || '')}</h3>
             <div class="product-card-price">
-              <span class="product-card-price-sale">${formatPrice(price.base || 0)}</span>
-              ${price.original && price.original > price.base 
-                ? `<span class="product-card-price-original">${formatPrice(price.original)}</span>` 
+              <span class="product-card-price-sale">${formatPrice(base || 0)}</span>
+              ${original && original > base 
+                ? `<span class="product-card-price-original">${formatPrice(original)}</span>` 
                 : ''}
             </div>
           </div>
         </a>
       `;
-    }).join('');
+    }
+    grid.innerHTML = html;
     
     section.style.display = 'block';
+
     console.log('[PDP] Related products rendered:', related.length);
   } catch (e) {
     console.error('[Related] Render error:', e);

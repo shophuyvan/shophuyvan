@@ -433,22 +433,6 @@ async function quickAddressInput() {
   }
   
   if (!foundProvince) {
-    if (addressNorm.includes(kw)) {
-      // Tìm trong dropdown
-      const provinceOption = Array.from($('f-province').options).find(opt => 
-        normalize(opt.text).includes(kw) || kw.includes(normalize(opt.text).replace(/^(thanh pho|tinh)\s+/i, ''))
-      );
-      if (provinceOption) {
-        $('f-province').value = provinceOption.value;
-        provinceName = provinceOption.text;
-        foundProvince = true;
-        await handleProvinceChange();
-        break;
-      }
-    }
-  }
-  
-  if (!foundProvince) {
     alert('Không tìm thấy Tỉnh/Thành phố. Vui lòng chọn thủ công.');
     $('f-address').value = fullAddress;
     return;
