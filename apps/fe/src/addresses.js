@@ -250,9 +250,9 @@ async function saveForm() {
   const wardCode = $('f-ward').value;
   
   // Lấy tên từ dropdowns
-  const provinceName = state.provinces.find(p => p.province_id == provinceCode)?.province_name || '';
-  const districtName = state.districts.find(d => d.district_id == districtCode)?.district_name || '';
-  const wardName = state.wards.find(w => w.ward_id == wardCode)?.ward_name || '';
+  const provinceName = state.provinces.find(p => (p.code || p.province_id) == provinceCode)?.name || state.provinces.find(p => (p.code || p.province_id) == provinceCode)?.province_name || '';
+  const districtName = state.districts.find(d => (d.code || d.district_id) == districtCode)?.name || state.districts.find(d => (d.code || d.district_id) == districtCode)?.district_name || '';
+  const wardName = state.wards.find(w => (w.code || w.ward_id) == wardCode)?.name || state.wards.find(w => (w.code || w.ward_id) == wardCode)?.ward_name || '';
   
   const body = {
     id: state.editing?.id,
