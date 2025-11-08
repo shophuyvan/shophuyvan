@@ -37,6 +37,12 @@ const btnAddAddress = document.getElementById('btnAddAddress');
 const btnSaveAddress = document.getElementById('btnSaveAddress');
 const btnLogout = document.getElementById('btnLogout');
 
+// Email modal elements
+const emailModal = document.getElementById('emailModal');
+const inputEmail = document.getElementById('inputEmail');
+const errorEmail = document.getElementById('errorEmail');
+const btnSaveEmail = document.getElementById('btnSaveEmail');
+
 // API Helper
 async function api(endpoint, options = {}) {
   const token = localStorage.getItem('customer_token') || 
@@ -108,10 +114,20 @@ function renderCustomerInfo() {
       <div class="info-label">Họ và tên</div>
       <div class="info-value">${state.customer.full_name || 'N/A'}</div>
     </div>
-    <div class="info-item">
+	
+        <div class="info-item">
       <div class="info-label">Email</div>
-      <div class="info-value">${state.customer.email || 'N/A'}</div>
+      <div class="info-value">
+        ${state.customer.email || 'Chưa cập nhật'}
+        <button type="button"
+          class="btn btn-secondary"
+          style="margin-left: 8px; padding: 4px 10px; font-size: 12px;"
+          onclick="openEmailModal()">
+          Cập nhật
+        </button>
+      </div>
     </div>
+
     <div class="info-item">
       <div class="info-label">Số điện thoại</div>
       <div class="info-value">${state.customer.phone || 'Chưa cập nhật'}</div>
@@ -245,8 +261,69 @@ async function loadWards(districtCode) {
   }
 }
 
+// Email modal
+window.openEmailModal = function() {
+  if (!emailModal) return;
+  if (inputEmail) {
+    inputEmail.value = (state.customer && state.customer.email) || '';
+  }
+  if (errorEmail) {
+    errorEmail.textContent = '';
+    errorEmail.style.display = 'none';
+  }
+  emailModal.style.display = 'flex';
+};
+
+window.closeEmailModal = function() {
+  if (!emailModal) return;
+  emailModal.style.display = 'none';
+};
+
+async function saveEmail() {
+  if (!inputEmail || !errorEmail) return;
+
+  const email = inputEmail.value.trim();
+  errorEmail.style.display = 'none';
+  errorEmail.textContent = '';
+
+  if (!email) {
+    errorEmail.textContent = 'Vui lòng nhập email';
+    errorEmail.style.display = 'block';
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    errorEmail.textContent = 'Email không hợp lệ';
+    errorEmail.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await api('/api/customers/me', {
+      method: 'PUT',
+      body: JSON.stringify({ email })
+    });
+
+    if (res && res.ok) {
+      const customer = res.customer || state.customer || {};
+      state.customer = { ...customer, email };
+      renderCustomerInfo();
+      window.closeEmailModal();
+      alert('✅ Cập nhật email thành công!');
+    } else {
+      throw new Error(res && res.message ? res.message : 'Cập nhật thất bại');
+    }
+  } catch (e) {
+    console.error('Update email error:', e);
+    errorEmail.textContent = e.message || 'Có lỗi xảy ra, vui lòng thử lại';
+    errorEmail.style.display = 'block';
+  }
+}
+
 // Open add address modal
 window.openAddAddressModal = function() {
+
   state.editingAddressId = null;
   modalTitle.textContent = 'Thêm địa chỉ mới';
   
@@ -539,6 +616,19 @@ async function init() {
 btnAddAddress.addEventListener('click', openAddAddressModal);
 btnSaveAddress.addEventListener('click', saveAddress);
 btnLogout.addEventListener('click', handleLogout);
+
+if (btnSaveEmail) {
+  btnSaveEmail.addEventListener('click', saveEmail);
+}
+
+if (emailModal) {
+  emailModal.addEventListener('click', (e) => {
+    if (e.target === emailModal) {
+      window.closeEmailModal();
+    }
+  });
+}
+
 
 // Province change
 document.getElementById('inputProvince').addEventListener('change', async (e) => {

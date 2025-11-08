@@ -304,13 +304,13 @@
         </div>
       </div>
 
-      <!-- Addresses Card -->
+            <!-- Addresses Card -->
       <div class="card">
         <div class="flex items-center justify-between mb-4">
           <div class="section-title" style="margin-bottom: 0;">
             📍 Sổ địa chỉ (<span id="addressCount">0</span>)
           </div>
-          <a href="/addresses.html?return=/account.html" class="btn btn-primary" style="display: inline-block; text-decoration: none;">
+          <a href="/addresses.html?return=/account.html" class="...-primary" style="display: inline-block; text-decoration: none;">
             + Thêm địa chỉ
           </a>
         </div>
@@ -322,6 +322,27 @@
         <div id="emptyAddresses" class="empty-state" style="display: none;">
           <div class="text-4xl mb-3">📭</div>
           <p>Chưa có địa chỉ nào</p>
+        </div>
+      </div>
+
+      <!-- Email Modal -->
+      <div id="emailModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title">Cập nhật email</div>
+            <button type="button" class="close-btn" onclick="closeEmailModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label" for="inputEmail">Email mới</label>
+              <input id="inputEmail" type="email" class="form-input" placeholder="nhap@email.com">
+              <div id="errorEmail" class="form-error" style="display: none;"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+              <button type="button" class="btn btn-secondary" onclick="closeEmailModal()">Hủy</button>
+              <button type="button" class="btn btn-primary" id="btnSaveEmail">Lưu lại</button>
+            </div>
+          </div>
         </div>
       </div>
 

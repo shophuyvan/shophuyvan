@@ -227,7 +227,6 @@ export default function Membership() {
         )}
 
         {/* Card hạng hiện tại */}
-
         <div className={`bg-gradient-to-br ${currentTier.color} rounded-2xl p-6 text-white shadow-lg`}>
           <div className="text-center">
             <div className="text-6xl mb-3">{currentTier.icon}</div>
