@@ -125,8 +125,8 @@ export default {
       // EXISTING ROUTES
       // ============================================
 
-      // Auth module (OLD - để tương thích backward)
-      if (path === '/admin/me') {
+            // Auth module (login/password/otp/zalo)
+      if (path === '/admin/me' || path.startsWith('/auth/')) {
         return auth.handle(req, env, ctx);
       }
 
@@ -136,11 +136,7 @@ export default {
         return categories.handle(req, env, ctx);
       }
 	  
-	  // Top & New products (shared for FE & Mini) — bắt EXACT trước khi rơi vào Products.handle
-      if (path === '/products/bestsellers' || path === '/products/newest') {
-        const handled = await TopNew.handle(req, env, ctx);
-        if (handled) return handled;
-      }
+	  // REMOVED - Dùng Products.handle thay vì TopNew
 
       // Products module
       if (path.startsWith('/products') ||
