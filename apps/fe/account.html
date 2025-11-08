@@ -310,12 +310,9 @@
           <div class="section-title" style="margin-bottom: 0;">
             📍 Sổ địa chỉ (<span id="addressCount">0</span>)
           </div>
-          <div class="flex gap-2">
-            <a href="/addresses.html?return=/account.html" class="btn btn-success" style="display: inline-block; text-decoration: none;">
-              🎯 Quản lý địa chỉ
-            </a>
-            <button id="btnAddAddress" class="btn btn-primary">+ Thêm nhanh</button>
-          </div>
+          <a href="/addresses.html?return=/account.html" class="btn btn-primary" style="display: inline-block; text-decoration: none;">
+            + Thêm địa chỉ
+          </a>
         </div>
 
         <div id="addressesList">
@@ -334,92 +331,6 @@
           🚪 Đăng xuất
         </button>
       </div>
-    </div>
-  </div>
-
-  <!-- Address Form Modal -->
-  <div id="addressModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modalTitle">Thêm địa chỉ mới</h3>
-        <button class="close-btn" onclick="closeAddressModal()">✕</button>
-      </div>
-
-      <div id="modalForm">
-        <input type="hidden" id="editingAddressId" />
-
-        <div class="form-group">
-          <label class="form-label">Tên người nhận *</label>
-          <input id="inputName" type="text" class="form-input" placeholder="Nhập họ và tên" />
-          <div id="errorName" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Số điện thoại *</label>
-          <input id="inputPhone" type="tel" class="form-input" placeholder="Nhập số điện thoại (VD: 0912345678)" />
-          <div id="errorPhone" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Tỉnh/Thành phố *</label>
-          <select id="inputProvince" class="form-input">
-            <option value="">Chọn Tỉnh/Thành phố</option>
-          </select>
-          <div id="errorProvince" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Quận/Huyện *</label>
-          <select id="inputDistrict" class="form-input">
-            <option value="">Chọn Quận/Huyện</option>
-          </select>
-          <div id="errorDistrict" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Phường/Xã *</label>
-          <select id="inputWard" class="form-input">
-            <option value="">Chọn Phường/Xã</option>
-          </select>
-          <div id="errorWard" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Địa chỉ chi tiết *</label>
-          <textarea id="inputAddress" class="form-input" rows="2" placeholder="Số nhà, tên đường (tối thiểu 10 ký tự)"></textarea>
-          <div id="errorAddress" class="form-error"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Loại địa chỉ</label>
-          <select id="inputAddressType" class="form-input">
-            <option value="home">Nhà riêng</option>
-            <option value="office">Cơ quan</option>
-            <option value="other">Khác</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Ghi chú</label>
-          <input id="inputNote" type="text" class="form-input" placeholder="VD: Giao lúc 9-11h sáng" />
-        </div>
-
-        <div class="flex gap-3 mt-6">
-          <button id="btnSaveAddress" class="btn btn-success flex-1">
-            💾 Lưu địa chỉ
-          </button>
-          <button onclick="closeAddressModal()" class="btn btn-secondary flex-1">
-            ✕ Hủy
-          </button>
-        </div>
-      </div>
-
-      <div id="modalLoading" class="loading" style="display: none;">
-        <div class="spinner"></div>
-        <p class="text-gray-600">Đang xử lý...</p>
-      </div>
-
-      <div id="modalError" class="form-error" style="display: none; text-align: center; font-size: 14px; padding: 12px; background: #fee2e2; border-radius: 8px; margin-top: 12px;"></div>
     </div>
   </div>
 

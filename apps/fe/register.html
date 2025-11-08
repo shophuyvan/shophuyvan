@@ -275,18 +275,6 @@
     </div>
 
     <div class="form-group">
-      <label for="email">Email *</label>
-      <input 
-        type="email" 
-        id="email" 
-        name="email" 
-        placeholder="email@example.com" 
-        required 
-        autocomplete="email"
-      >
-    </div>
-
-        <div class="form-group">
       <label for="phone">Số điện thoại *</label>
       <div style="display: flex; gap: 8px;">
         <input 
@@ -398,15 +386,19 @@
 
   // Zalo Login
   document.getElementById('btn-zalo-register').addEventListener('click', () => {
-    showToast('Tính năng đăng nhập Zalo đang phát triển', 'error');
+    showToast('Đang chuyển đến trang đăng nhập Zalo...', 'success');
     
-    // ⚠️ TODO: Khi có Zalo App ID, uncomment và config:
-    /*
-    const ZALO_APP_ID = 'YOUR_ZALO_APP_ID';
-    const REDIRECT_URI = encodeURIComponent(window.location.origin + '/auth/zalo/callback');
-    const zaloAuthUrl = `https://oauth.zaloapp.com/v4/permission?app_id=${ZALO_APP_ID}&redirect_uri=${REDIRECT_URI}&state=register`;
-    window.location.href = zaloAuthUrl;
-    */
+    // Zalo OAuth URL
+    const ZALO_APP_ID = '4294492579288845521';
+    const REDIRECT_URI = encodeURIComponent('https://api.shophuyvan.vn/auth/zalo/callback');
+    const STATE = encodeURIComponent('register'); // Để phân biệt register vs login
+    
+    const zaloAuthUrl = `https://oauth.zaloapp.com/v4/permission?app_id=${ZALO_APP_ID}&redirect_uri=${REDIRECT_URI}&state=${STATE}`;
+    
+    // Chuyển hướng đến Zalo OAuth
+    setTimeout(() => {
+      window.location.href = zaloAuthUrl;
+    }, 500);
   });
 
 // Facebook Login
@@ -422,7 +414,7 @@
         showToast('Đang xác thực với máy chủ...', 'success');
         
         // Gửi access token về backend
-        fetch(`${API_BASE}/auth/facebook/login`, { // Sử dụng API_BASE
+        fetch(`${API_BASE}/auth/facebook/login`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ accessToken: response.authResponse.accessToken })
@@ -458,8 +450,41 @@
   });
   // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
 
+  // ===========================================
+  // XỬ LÝ ZALO CALLBACK
+  // ===========================================
+  
+  // Kiểm tra nếu có token từ Zalo callback
+  const urlParams = new URLSearchParams(window.location.search);
+  const zaloToken = urlParams.get('zalo_token');
+  const zaloSuccess = urlParams.get('zalo_success');
+  
+  if (zaloToken && zaloSuccess === '1') {
+    // Lưu token vào localStorage
+    localStorage.setItem('customer_token', zaloToken);
+    localStorage.setItem('x-customer-token', zaloToken);
+    localStorage.setItem('x-token', zaloToken);
+    
+    showToast('✅ Đăng nhập Zalo thành công!', 'success');
+    
+    // Xóa params khỏi URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Chuyển về trang chủ
+    setTimeout(() => {
+      window.location.href = '/index.html';
+    }, 1500);
+  }
 
     const form = document.getElementById('register-form');
+
+
+
+
+
+    //**Bước 1: Truy cập trang đăng ký**
+
+  https://shophuyvan.vn/register.html
   const btnSubmit = document.getElementById('btn-submit');
   const btnSendOtp = document.getElementById('btn-send-otp-register');
   const otpGroup = document.getElementById('otp-register-code-group');
@@ -510,7 +535,6 @@
     e.preventDefault();
 
     const full_name = document.getElementById('full_name').value.trim();
-    const email = document.getElementById('email').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const password = document.getElementById('password').value;
     const confirm_password = document.getElementById('confirm_password').value;
@@ -549,7 +573,6 @@
           code: otp_code,
           purpose: 'register',
           full_name,
-          email,
         }),
       });
 
@@ -561,7 +584,7 @@
 
       const token = verifyData.token;
 
-      // 2. Đặt mật khẩu cho tài khoản vừa kích hoạt
+// 2. Đặt mật khẩu cho tài khoản vừa kích hoạt
       const setRes = await fetch(`${API_BASE}/auth/password/set`, {
         method: 'POST',
         headers: {
@@ -571,7 +594,6 @@
         body: JSON.stringify({
           password,
           full_name,
-          email,
         }),
       });
 

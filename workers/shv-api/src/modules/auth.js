@@ -57,6 +57,11 @@ export async function handle(req, env, ctx) {
     return zaloActivatePhone(req, env);
   }
 
+  // ZALO WEB: CALLBACK (TODO - cần Zalo App ID)
+  if (path === '/auth/zalo/callback' && method === 'GET') {
+    return zaloWebCallback(req, env);
+  }
+
   return errorResponse('Route not found', 404, req);
 }
 
@@ -590,6 +595,108 @@ async function zaloActivatePhone(req, env) {
   }
 }
 
+// ===========================================
+// ZALO WEB: CALLBACK HANDLER (TODO)
+// ===========================================
+async function zaloWebCallback(req, env) {
+  try {
+    const url = new URL(req.url);
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state') || 'register';
+
+    if (!code) {
+      return errorResponse('Thiếu authorization code từ Zalo', 400, req);
+    }
+
+    // TODO: Cần có ZALO_APP_ID và ZALO_APP_SECRET trong env
+    if (!env.ZALO_APP_ID || !env.ZALO_APP_SECRET) {
+      console.error('[Zalo Callback] Thiếu cấu hình Zalo App');
+      return json({
+        ok: false,
+        error: 'Tính năng đăng nhập Zalo chưa được cấu hình. Vui lòng liên hệ quản trị viên.'
+      }, { status: 503 }, req);
+    }
+
+    // 1. Đổi code lấy access_token
+    const tokenUrl = 'https://oauth.zaloapp.com/v4/access_token';
+    const tokenParams = new URLSearchParams({
+      app_id: env.ZALO_APP_ID,
+      app_secret: env.ZALO_APP_SECRET,
+      code: code,
+      grant_type: 'authorization_code'
+    });
+
+    const tokenRes = await fetch(`${tokenUrl}?${tokenParams.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const tokenData = await tokenRes.json();
+
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.error('[Zalo Callback] Token error:', tokenData);
+      return errorResponse('Không lấy được access token từ Zalo', 400, req);
+    }
+
+    // 2. Lấy thông tin user từ Zalo
+    const userRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+      headers: {
+        'access_token': tokenData.access_token
+      }
+    });
+
+    const userData = await userRes.json();
+
+    if (!userRes.ok || !userData.id) {
+      console.error('[Zalo Callback] User info error:', userData);
+      return errorResponse('Không lấy được thông tin user từ Zalo', 400, req);
+    }
+
+    // 3. Tìm hoặc tạo customer
+    const zaloId = userData.id;
+    let customerId = await getJSON(env, `customer:zalo:${zaloId}`, null);
+    let customer = null;
+
+    if (customerId) {
+      customer = await getJSON(env, `customer:${customerId}`, null);
+    }
+
+    if (!customer) {
+      customerId = `cust_${crypto.randomUUID().replace(/-/g, '')}`;
+      customer = {
+        id: customerId,
+        zalo_id: zaloId,
+        full_name: userData.name || null,
+        zalo_name: userData.name || null,
+        zalo_avatar: userData.picture?.data?.url || null,
+        phone: null,
+        email: null,
+        addresses: [],
+        tier: 'dong',
+        points: 0,
+        created_at: Date.now()
+      };
+
+      await putJSON(env, `customer:${customerId}`, customer);
+      await putJSON(env, `customer:zalo:${zaloId}`, customerId);
+    }
+
+    // 4. Tạo token
+    const customerToken = await createCustomerToken(env, customer.id);
+
+    // 5. Redirect về trang web với token
+    const redirectUrl = new URL(env.WEB_URL || 'https://shophuyvan.vn');
+    redirectUrl.pathname = '/register.html';
+    redirectUrl.searchParams.set('zalo_token', customerToken);
+    redirectUrl.searchParams.set('zalo_success', '1');
+
+    return Response.redirect(redirectUrl.toString(), 302);
+
+  } catch (e) {
+    console.error('[zaloWebCallback Error]', e);
+    return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
+  }
+}
 
 /**
  * Admin login - Generate session token

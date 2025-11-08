@@ -429,23 +429,10 @@ async function quickAddressInput() {
         await handleProvinceChange();
         break;
       }
-    }
+ }
   }
-    'da nang', 'hai phong', 'can tho', 'bien hoa', 'vung tau', 'nha trang',
-    'bac giang', 'bac kan', 'bac lieu', 'bac ninh', 'ba ria', 'ben tre',
-    'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan', 'ca mau',
-    'cao bang', 'dak lak', 'dak nong', 'dien bien', 'dong nai', 'dong thap',
-    'gia lai', 'ha giang', 'ha nam', 'ha tinh', 'hai duong', 'hau giang',
-    'hoa binh', 'hung yen', 'khanh hoa', 'kien giang', 'kon tum',
-    'lai chau', 'lam dong', 'lang son', 'lao cai', 'long an',
-    'nam dinh', 'nghe an', 'ninh binh', 'ninh thuan', 'phu tho', 'phu yen',
-    'quang binh', 'quang nam', 'quang ngai', 'quang ninh', 'quang tri',
-    'soc trang', 'son la', 'tay ninh', 'thai binh', 'thai nguyen',
-    'thanh hoa', 'thua thien hue', 'tien giang', 'tra vinh', 'tuyen quang',
-    'vinh long', 'vinh phuc', 'yen bai'
-  ];
   
-  for (const kw of provinceKeywords) {
+  if (!foundProvince) {
     if (addressNorm.includes(kw)) {
       // Tìm trong dropdown
       const provinceOption = Array.from($('f-province').options).find(opt => 
