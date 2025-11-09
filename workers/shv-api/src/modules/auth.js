@@ -58,15 +58,21 @@ export async function handle(req, env, ctx) {
     return passwordForgot(req, env);
   }
 
-  // Đặt lại mật khẩu: dùng token (email) hoặc phone + OTP (ZNS)
+    // Đặt lại mật khẩu: dùng token (email) hoặc phone + OTP (ZNS)
   if (path === '/auth/password/reset' && method === 'POST') {
     return passwordReset(req, env);
+  }
+
+  // Thông tin tài khoản khách hàng (WEB + MINI – dùng token customer_token)
+  if (path === '/api/customers/me') {
+    return customerMe(req, env);
   }
 
   // ZALO MINIAPP: ACTIVATE PHONE
   if (path === '/auth/zalo/activate-phone' && method === 'POST') {
     return zaloActivatePhone(req, env);
   }
+
 
 
   // ZALO WEB: CALLBACK (TODO - cần Zalo App ID)
@@ -814,6 +820,89 @@ async function passwordReset(req, env) {
     return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
   }
 }
+
+// Lấy / cập nhật thông tin tài khoản khách hàng theo customer_token
+async function customerMe(req, env) {
+  try {
+    const method = req.method;
+
+    const authHeader = req.headers.get('Authorization') || '';
+    const headerToken =
+      req.headers.get('x-customer-token') ||
+      req.headers.get('x-token') ||
+      '';
+
+    let token = '';
+
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7).trim();
+    } else if (headerToken) {
+      token = String(headerToken).trim();
+    }
+
+    if (!token) {
+      return errorResponse('unauthorized', 401, req);
+    }
+
+    const customerId = await getJSON(env, `customer_token:${token}`, null);
+    if (!customerId) {
+      return errorResponse('invalid token', 401, req);
+    }
+
+    const customerKey = `customer:${customerId}`;
+    const customer = await getJSON(env, customerKey, null);
+    if (!customer) {
+      return errorResponse('Không tìm thấy tài khoản', 404, req);
+    }
+
+    if (method === 'GET') {
+      return json({ ok: true, customer }, {}, req);
+    }
+
+    if (method === 'PUT' || method === 'PATCH') {
+      const body = await readBody(req) || {};
+      let changed = false;
+
+      if (typeof body.full_name === 'string') {
+        const fullName = body.full_name.trim();
+        if (fullName && fullName !== customer.full_name) {
+          customer.full_name = fullName;
+          changed = true;
+        }
+      }
+
+      if (typeof body.email === 'string') {
+        const email = body.email.trim().toLowerCase();
+        if (email && email !== customer.email) {
+          customer.email = email;
+          changed = true;
+          await putJSON(env, `customer:email:${email}`, customer);
+        }
+      }
+
+      if (typeof body.phone === 'string') {
+        const phoneNorm = normalizePhoneVN(body.phone);
+        if (phoneNorm && phoneNorm !== customer.phone) {
+          customer.phone = phoneNorm;
+          changed = true;
+          await putJSON(env, `customer:phone:${phoneNorm}`, customer.id);
+        }
+      }
+
+      if (changed) {
+        await putJSON(env, customerKey, customer);
+      }
+
+      return json({ ok: true, customer }, {}, req);
+    }
+
+    return errorResponse('Method not allowed', 405, req);
+  } catch (e) {
+    console.error('[customerMe Error]', e);
+    return errorResponse(e.message || 'Lỗi máy chủ nội bộ', 500, req);
+  }
+}
+
 
 // ===========================================
 // ZALO MINIAPP: ACTIVATE BY PHONE + ZALO

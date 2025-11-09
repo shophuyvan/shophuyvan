@@ -109,24 +109,23 @@ export default {
       }
 	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
       // ============================================
-      // CUSTOMER API ROUTES (PUBLIC)
+            // CUSTOMER API ROUTES (PUBLIC)
       // ============================================
       if (path.startsWith('/admin/customers') ||
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
-          path === '/api/customers/me' ||
-          path === '/api/users/activate' || // 👈 Zalo Mini Activate -> admin.userActivate
-          path.startsWith('/api/addresses')) {  // 👈 THÊM DÒNG NÀY
+          path === '/api/users/activate') { // 👈 Zalo Mini Activate -> admin.userActivate
         return admin.handle(req, env, ctx);
       }
       // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
+
 
       // ============================================
       // EXISTING ROUTES
       // ============================================
 
-            // Auth module (login/password/otp/zalo)
-      if (path === '/admin/me' || path.startsWith('/auth/')) {
+      // Auth module (login/password/otp/zalo + customer me)
+      if (path === '/admin/me' || path.startsWith('/auth/') || path === '/api/customers/me') {
         return auth.handle(req, env, ctx);
       }
 
