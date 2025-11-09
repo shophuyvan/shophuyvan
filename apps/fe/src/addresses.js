@@ -3,6 +3,23 @@ const API = 'https://api.shophuyvan.vn/api/addresses';
 const LS_SELECTED = 'address:selected';
 const PROVINCE_API = 'https://api.shophuyvan.vn/shipping';
 
+// Helper: thêm header Authorization từ token đăng nhập
+function buildAuthHeaders(extra = {}) {
+  const token =
+    localStorage.getItem('customer_token') ||
+    localStorage.getItem('x-customer-token') ||
+    localStorage.getItem('x-token');
+
+  if (!token) return extra;
+
+  return {
+    ...extra,
+    Authorization: `Bearer ${token}`,
+    'x-customer-token': token,
+  };
+}
+
+
 const $ = (id) => document.getElementById(id);
 const qs = (s, p = document) => p.querySelector(s);
 const ce = (t, props = {}) => Object.assign(document.createElement(t), props);
@@ -138,14 +155,20 @@ function renderWardOptions() {
 // === Quản lý danh sách địa chỉ ===
 async function loadList() {
   try {
-    const r = await fetch(API, { credentials: 'include' });
+    const r = await fetch(API, {
+      credentials: 'include',
+      headers: buildAuthHeaders(),
+    });
     
     // Nếu 401, có thể user chưa đăng nhập
     if (r.status === 401) {
       console.warn('User chưa đăng nhập');
+      alert('Bạn cần đăng nhập để quản lý địa chỉ');
+      location.href = '/login.html?return=' + encodeURIComponent(state.returnUrl || '/checkout');
       state.list = [];
       return;
     }
+
     
     const j = await r.json();
     state.list = Array.isArray(j?.data) ? j.data : (j?.items || []);
@@ -273,19 +296,21 @@ async function saveForm() {
     return;
   }
 
-  try {
+    try {
     const method = body.id ? 'PUT' : 'POST';
     const r = await fetch(API, {
       method,
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
     
     if (r.status === 401) {
       alert('Bạn cần đăng nhập để lưu địa chỉ');
+      location.href = '/login.html?return=' + encodeURIComponent(state.returnUrl || '/checkout');
       return;
     }
+
     
     const j = await r.json();
     if (!j?.success && !j?.data) throw new Error('save failed');
@@ -302,16 +327,19 @@ async function saveForm() {
 async function removeCurrent() {
   if (!state.editing?.id) return;
   if (!confirm('Xoá địa chỉ này?')) return;
-  try {
+    try {
     const r = await fetch(API + '?id=' + encodeURIComponent(state.editing.id), {
       method: 'DELETE',
       credentials: 'include',
+      headers: buildAuthHeaders(),
     });
     
     if (r.status === 401) {
       alert('Bạn cần đăng nhập');
+      location.href = '/login.html?return=' + encodeURIComponent(state.returnUrl || '/checkout');
       return;
     }
+
     
     const j = await r.json();
     if (!j?.success) throw new Error('delete failed');

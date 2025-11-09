@@ -612,10 +612,16 @@ async function init() {
   }
 }
 
-// Event listeners
-btnAddAddress.addEventListener('click', openAddAddressModal);
-btnSaveAddress.addEventListener('click', saveAddress);
-btnLogout.addEventListener('click', handleLogout);
+// Event listeners (check tồn tại để tránh lỗi ở trang không có modal địa chỉ)
+if (btnAddAddress) {
+  btnAddAddress.addEventListener('click', openAddAddressModal);
+}
+if (btnSaveAddress) {
+  btnSaveAddress.addEventListener('click', saveAddress);
+}
+if (btnLogout) {
+  btnLogout.addEventListener('click', handleLogout);
+}
 
 if (btnSaveEmail) {
   btnSaveEmail.addEventListener('click', saveEmail);
@@ -630,33 +636,53 @@ if (emailModal) {
 }
 
 
+
 // Province change
-document.getElementById('inputProvince').addEventListener('change', async (e) => {
-  const provinceCode = e.target.value;
-  document.getElementById('inputDistrict').innerHTML = '<option value="">Chọn Quận/Huyện</option>';
-  document.getElementById('inputWard').innerHTML = '<option value="">Chọn Phường/Xã</option>';
-  
-  if (provinceCode) {
-    await loadDistricts(provinceCode);
-  }
-});
+const provinceSelect = document.getElementById('inputProvince');
+if (provinceSelect) {
+  provinceSelect.addEventListener('change', async (e) => {
+    const provinceCode = e.target.value;
+    const districtSelect = document.getElementById('inputDistrict');
+    const wardSelect = document.getElementById('inputWard');
+
+    if (districtSelect) {
+      districtSelect.innerHTML = '<option value="">Chọn Quận/Huyện</option>';
+    }
+    if (wardSelect) {
+      wardSelect.innerHTML = '<option value="">Chọn Phường/Xã</option>';
+    }
+
+    if (provinceCode) {
+      await loadDistricts(provinceCode);
+    }
+  });
+}
 
 // District change
-document.getElementById('inputDistrict').addEventListener('change', async (e) => {
-  const districtCode = e.target.value;
-  document.getElementById('inputWard').innerHTML = '<option value="">Chọn Phường/Xã</option>';
-  
-  if (districtCode) {
-    await loadWards(districtCode);
-  }
-});
+const districtSelect = document.getElementById('inputDistrict');
+if (districtSelect) {
+  districtSelect.addEventListener('change', async (e) => {
+    const districtCode = e.target.value;
+    const wardSelect = document.getElementById('inputWard');
+    
+    if (wardSelect) {
+      wardSelect.innerHTML = '<option value="">Chọn Phường/Xã</option>';
+    }
+    
+    if (districtCode) {
+      await loadWards(districtCode);
+    }
+  });
+}
 
 // Close modal on background click
-addressModal.addEventListener('click', (e) => {
-  if (e.target.id === 'addressModal') {
-    closeAddressModal();
-  }
-});
+if (addressModal) {
+  addressModal.addEventListener('click', (e) => {
+    if (e.target.id === 'addressModal') {
+      closeAddressModal();
+    }
+  });
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', init);
