@@ -453,7 +453,7 @@ export default function Account() {
         <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
           {/* Sổ địa chỉ */}
           <button
-            onClick={() => navigate('/address/list')}
+            onClick={() => navigate('/address/list?return=/account')}
             className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-3">

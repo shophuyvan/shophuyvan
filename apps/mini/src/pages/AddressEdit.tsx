@@ -27,13 +27,17 @@ export default function AddressEdit() {
   const params = new URLSearchParams(location.search);
   const id = params.get("id") || "";
   const returnUrl = params.get("return") || "/checkout";
+  const quickName = params.get("name") || "";
+  const quickPhone = params.get("phone") || "";
+  const quickAddress = params.get("address") || "";
 
   const [token, setToken] = useState<string>("");
   const [form, setForm] = useState<AddressForm>({
-    name: "",
-    phone: "",
-    address: "",
+    name: quickName,
+    phone: quickPhone,
+    address: quickAddress,
   });
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<any[]>([]);
