@@ -270,10 +270,42 @@
   }
 
         const form = document.getElementById('login-form');
-  const btnSubmit = document.getElementById('btn-submit');
+    const btnSubmit = document.getElementById('btn-submit');
+
+  // Helper: cố gắng tìm token trong mọi cấu trúc trả về
+  function extractToken(data) {
+    if (!data || typeof data !== 'object') return null;
+
+    // Ưu tiên các field chuẩn
+    if (typeof data.token === 'string') return data.token;
+    if (typeof data.access_token === 'string') return data.access_token;
+    if (typeof data.jwt === 'string') return data.jwt;
+
+    if (data.data && typeof data.data === 'object') {
+      const nested = extractToken(data.data);
+      if (nested) return nested;
+    }
+
+    // Quét tất cả key có chữ "token"
+    for (const key of Object.keys(data)) {
+      const value = data[key];
+
+      if (key.toLowerCase().includes('token') && typeof value === 'string') {
+        return value;
+      }
+
+      if (value && typeof value === 'object') {
+        const nested = extractToken(value);
+        if (nested) return nested;
+      }
+    }
+
+    return null;
+  }
 
   // Login: email hoặc SĐT + mật khẩu
   form.addEventListener('submit', async (e) => {
+
     e.preventDefault();
 
     const identifier = document.getElementById('identifier').value.trim();
@@ -296,22 +328,21 @@
         body: JSON.stringify({ identifier, password })
       });
 
-      const data = await response.json().catch(() => ({}));
+            const data = await response.json().catch(() => ({}));
+      console.log('[Login] response:', data);
 
       if (!response.ok || data.ok === false) {
         throw new Error(data.error || data.message || 'Đăng nhập thất bại');
       }
 
-      // Lấy token từ nhiều field khác nhau để tránh lệch format response
-      const token =
-        data.token ||
-        data.access_token ||
-        (data.data && (data.data.token || data.data.access_token));
+      // Dùng helper để bắt token ở mọi dạng
+      const token = extractToken(data);
 
       const customer =
         data.customer ||
         (data.data && data.data.customer) ||
         null;
+
 
       if (!token) {
         throw new Error('Máy chủ không trả về token đăng nhập');
