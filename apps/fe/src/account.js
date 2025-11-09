@@ -223,11 +223,21 @@ async function loadAddresses() {
     state.addresses = data.addresses || [];
     renderAddresses();
   } catch (e) {
+    const msg = (e && e.message ? e.message : '').toLowerCase();
+
+    // Nếu token invalid / unauthorized thì coi như chưa đăng nhập, không log lỗi thêm
+    if (msg.includes('invalid token') || msg.includes('unauthorized')) {
+      state.addresses = [];
+      renderAddresses();
+      return;
+    }
+
     console.error('Load addresses error:', e);
     state.addresses = [];
     renderAddresses();
   }
 }
+
 
 // Load provinces
 async function loadProvinces() {
@@ -613,17 +623,19 @@ async function init() {
       showError('Vui lòng đăng nhập để xem thông tin tài khoản');
       return;
     }
-    
-    // Load all data
+
+    // Bước 1: kiểm tra khách hàng trước
+    await loadCustomerData(); // nếu token invalid → throw, nhảy xuống catch, KHÔNG gọi các API khác
+
+    // Bước 2: chỉ khi load customer OK mới load địa chỉ + tỉnh
     await Promise.all([
-      loadCustomerData(),
       loadAddresses(),
       loadProvinces()
     ]);
     
     showContent();
     
-    } catch (error) {
+  } catch (error) {
     console.error('Init error:', error);
     const msg = (error && error.message ? error.message : '').toLowerCase();
 
