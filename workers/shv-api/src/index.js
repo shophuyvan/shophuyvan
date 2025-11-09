@@ -112,13 +112,12 @@ export default {
             // CUSTOMER API ROUTES (PUBLIC)
       // ============================================
       if (path.startsWith('/admin/customers') ||
+          path.startsWith('/api/addresses') || // 👈 thêm dòng này để map /api/addresses vào admin
           path === '/api/customers/register' ||
           path === '/api/customers/login' ||
           path === '/api/users/activate') { // 👈 Zalo Mini Activate -> admin.userActivate
         return admin.handle(req, env, ctx);
       }
-      // ✅ THÊM ĐOẠN NÀY - KẾT THÚC
-
 
       // ============================================
       // EXISTING ROUTES
