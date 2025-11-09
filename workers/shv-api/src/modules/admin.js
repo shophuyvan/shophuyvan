@@ -1522,8 +1522,14 @@ async function customerMe(req, env) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
     }
 
-    const decoded = atob(token);
-    const customerId = decoded.split(':')[0];
+    // ✅ FIX: Tra cứu token từ KV store (auth.js lưu ở customer_token:xxx)
+    const tokenData = await env.SHV.get(`customer_token:${token}`);
+    if (!tokenData) {
+      return json({ ok: false, error: 'Invalid or expired token' }, { status: 401 }, req);
+    }
+
+    // tokenData chứa customerId (string)
+    const customerId = JSON.parse(tokenData);
 
     const customerData = await env.SHV.get(`customer:${customerId}`);
     if (!customerData) {
