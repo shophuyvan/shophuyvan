@@ -405,16 +405,18 @@
         return;
       }
 
-      // ✅ TẠM TẮT redirect để test
-/*
-setTimeout(() => {
-  const redirect =
-    new URLSearchParams(window.location.search).get('redirect') ||
-    '/account.html';
-  console.log('[Login] Redirecting to:', redirect);
-  window.location.href = redirect;
-}, 1000);
-*/
+           // ✅ Redirect sau khi login
+      // Ưu tiên ?return=, sau đó ?redirect=, mặc định về TRANG CHỦ '/'
+      setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        const redirect =
+          params.get('return') ||
+          params.get('redirect') ||
+          '/';
+
+        console.log('[Login] Redirecting to:', redirect);
+        window.location.href = redirect;
+      }, 500);
 
     } catch (error) {
       console.error('[Login] Error:', error);

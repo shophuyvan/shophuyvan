@@ -154,9 +154,30 @@ function getCustomerToken(req) {
 
 /**
  * Get customer ID from token
+ * - Hỗ trợ cả token mới (shv_tok_..., lưu trong KV customer_token:...)
+ *   và token base64 cũ (btoa("customerId:timestamp"))
  */
-function getCustomerIdFromToken(token) {
+async function getCustomerIdFromToken(token, env) {
   if (!token) return null;
+
+  // Ưu tiên: token kiểu mới lưu trong KV
+  try {
+    const kvVal = await env.SHV.get(`customer_token:${token}`);
+    if (kvVal) {
+      try {
+        const parsed = JSON.parse(kvVal);
+        if (typeof parsed === 'string') return parsed;
+        if (parsed && typeof parsed === 'object' && parsed.id) return parsed.id;
+      } catch {
+        // Nếu lưu plain string
+        return kvVal;
+      }
+    }
+  } catch (e) {
+    // Bỏ qua, fallback xuống token kiểu cũ
+  }
+
+  // Fallback: token base64 cũ
   try {
     const decoded = atob(token);
     return decoded.split(':')[0];
@@ -171,7 +192,7 @@ function getCustomerIdFromToken(token) {
 async function createAddress(req, env) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
@@ -230,7 +251,7 @@ async function createAddress(req, env) {
 async function listAddresses(req, env) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
@@ -262,7 +283,7 @@ async function listAddresses(req, env) {
 async function getAddress(req, env, addressId) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
@@ -292,7 +313,7 @@ async function getAddress(req, env, addressId) {
 async function updateAddress(req, env, addressId) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
@@ -339,7 +360,7 @@ async function updateAddress(req, env, addressId) {
 async function deleteAddress(req, env, addressId) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
@@ -377,7 +398,7 @@ async function deleteAddress(req, env, addressId) {
 async function setDefaultAddress(req, env, addressId) {
   try {
     const token = getCustomerToken(req);
-    const customerId = getCustomerIdFromToken(token);
+    const customerId = await getCustomerIdFromToken(token, env);
     
     if (!customerId) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
