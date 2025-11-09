@@ -2,6 +2,7 @@
 // Admin management module - FIXED
 
 import { json, corsHeaders } from '../lib/response.js';
+import { sha256Hex } from '../lib/auth.js';
 
 /**
  * Main admin handler
@@ -1260,7 +1261,7 @@ async function createCustomer(req, env) {
     const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
     const now = new Date().toISOString();
 
-    const password_hash = '$2a$10$' + btoa(password).slice(0, 53);
+     const password_hash = await sha256Hex(password);
 
     const newCustomer = {
       id: customerId,
@@ -1341,8 +1342,8 @@ async function updateCustomer(req, env, customerId) {
     }
     if (body.status) customer.status = body.status;
 
-    if (body.password) {
-      customer.password_hash = '$2a$10$' + btoa(body.password).slice(0, 53);
+     if (body.password) {
+   customer.password_hash = await sha256Hex(body.password);
     }
 
     customer.updated_at = new Date().toISOString();
@@ -1410,7 +1411,7 @@ async function customerRegister(req, env) {
     const customerId = 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
     const now = new Date().toISOString();
 
-    const password_hash = '$2a$10$' + btoa(password).slice(0, 53);
+     const password_hash = await sha256Hex(password);
 
     const newCustomer = {
       id: customerId,

@@ -542,12 +542,47 @@ async function passwordLogin(req, env) {
       return errorResponse('Tài khoản chưa thiết lập mật khẩu', 400, req);
     }
 
-    const hash = await sha256Hex(password);
-    if (customer.password_hash !== hash) {
+        const hash = await sha256Hex(password);
+
+    // Mặc định: so sánh theo chuẩn sha256 mới
+    let ok = customer.password_hash === hash;
+
+    // Backward-compat: tài khoản cũ lưu password kiểu "$2a$10$" + btoa(password).slice(0, 53)
+    if (
+      !ok &&
+      typeof customer.password_hash === 'string' &&
+      customer.password_hash.startsWith('$2a$10$')
+    ) {
+      const legacyHash = '$2a$10$' + btoa(password).slice(0, 53);
+
+      if (customer.password_hash === legacyHash) {
+        ok = true;
+
+        // NÂNG CẤP: lưu lại theo chuẩn sha256 mới
+        customer.password_hash = hash;
+        await putJSON(env, `customer:${customer.id}`, customer);
+        if (customer.email) {
+          await putJSON(
+            env,
+            `customer:email:${customer.email.toLowerCase()}`,
+            customer
+          );
+        }
+        if (customer.phone) {
+          const phoneIdx = normalizePhoneVN(customer.phone);
+          if (phoneIdx) {
+            await putJSON(env, `customer:phone:${phoneIdx}`, customer.id);
+          }
+        }
+      }
+    }
+
+    if (!ok) {
       return errorResponse('Mật khẩu không đúng', 401, req);
     }
 
     const customerToken = await createCustomerToken(env, customer.id);
+
 
     return json({
       ok: true,
