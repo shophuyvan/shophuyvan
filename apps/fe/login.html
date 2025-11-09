@@ -287,7 +287,7 @@
     btnSubmit.disabled = true;
     btnSubmit.textContent = 'Đang xử lý...';
 
-    try {
+        try {
       const response = await fetch(`${API_BASE}/auth/password/login`, {
         method: 'POST',
         headers: {
@@ -296,26 +296,42 @@
         body: JSON.stringify({ identifier, password })
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok || data.ok === false) {
         throw new Error(data.error || data.message || 'Đăng nhập thất bại');
       }
 
-      if (data.token) {
-        localStorage.setItem('customer_token', data.token);
-        localStorage.setItem('x-customer-token', data.token);
-        localStorage.setItem('x-token', data.token);
+      // Lấy token từ nhiều field khác nhau để tránh lệch format response
+      const token =
+        data.token ||
+        data.access_token ||
+        (data.data && (data.data.token || data.data.access_token));
+
+      const customer =
+        data.customer ||
+        (data.data && data.data.customer) ||
+        null;
+
+      if (!token) {
+        throw new Error('Máy chủ không trả về token đăng nhập');
       }
 
-      if (data.customer) {
-        localStorage.setItem('customer_info', JSON.stringify(data.customer));
+      // Lưu token cho các trang account / addresses dùng chung
+      localStorage.setItem('customer_token', token);
+      localStorage.setItem('x-customer-token', token);
+      localStorage.setItem('x-token', token);
+
+      if (customer) {
+        localStorage.setItem('customer_info', JSON.stringify(customer));
       }
 
       showToast('✅ Đăng nhập thành công!', 'success');
 
       setTimeout(() => {
-        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/index.html';
+        const redirect =
+          new URLSearchParams(window.location.search).get('redirect') ||
+          '/index.html';
         window.location.href = redirect;
       }, 1500);
 
