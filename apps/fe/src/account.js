@@ -209,12 +209,23 @@ async function loadCustomerData() {
     if (data.customer) {
       state.customer = data.customer;
       renderCustomerInfo();
+    } else {
+      state.customer = null;
     }
   } catch (e) {
+    const msg = (e && e.message ? e.message : '').toLowerCase();
+
+    // Token invalid / unauthorized → coi như chưa đăng nhập, KHÔNG log lỗi đỏ, KHÔNG throw
+    if (msg.includes('invalid token') || msg.includes('unauthorized')) {
+      state.customer = null;
+      return;
+    }
+
     console.error('Load customer error:', e);
     throw e;
   }
 }
+
 
 // Load addresses
 async function loadAddresses() {
@@ -614,18 +625,24 @@ function handleLogout() {
 async function init() {
   showLoading();
   
+  const token = localStorage.getItem('customer_token') || 
+                localStorage.getItem('x-customer-token') || 
+                localStorage.getItem('x-token');
+  
+  if (!token) {
+    showError('Vui lòng đăng nhập để xem thông tin tài khoản');
+    return;
+  }
+
   try {
-    const token = localStorage.getItem('customer_token') || 
-                  localStorage.getItem('x-customer-token') || 
-                  localStorage.getItem('x-token');
-    
-    if (!token) {
+    // Bước 1: kiểm tra khách hàng
+    await loadCustomerData();
+
+    // Nếu không có customer (token invalid / hết hạn) → yêu cầu đăng nhập lại
+    if (!state.customer) {
       showError('Vui lòng đăng nhập để xem thông tin tài khoản');
       return;
     }
-
-    // Bước 1: kiểm tra khách hàng trước
-    await loadCustomerData(); // nếu token invalid → throw, nhảy xuống catch, KHÔNG gọi các API khác
 
     // Bước 2: chỉ khi load customer OK mới load địa chỉ + tỉnh
     await Promise.all([
@@ -634,18 +651,12 @@ async function init() {
     ]);
     
     showContent();
-    
   } catch (error) {
     console.error('Init error:', error);
-    const msg = (error && error.message ? error.message : '').toLowerCase();
-
-    if (msg.includes('invalid token') || msg.includes('unauthorized')) {
-      showError('Vui lòng đăng nhập để xem thông tin tài khoản');
-    } else {
-      showError('Lỗi khi tải thông tin: ' + (error.message || 'Không xác định'));
-    }
+    showError('Lỗi khi tải thông tin: ' + (error.message || 'Không xác định'));
   }
 }
+
 
 
 // Event listeners (check tồn tại để tránh lỗi ở trang không có modal địa chỉ)
