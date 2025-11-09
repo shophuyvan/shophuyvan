@@ -328,43 +328,90 @@
         body: JSON.stringify({ identifier, password })
       });
 
-            const data = await response.json().catch(() => ({}));
-      console.log('[Login] response:', data);
+       const data = await response.json().catch(() => ({}));
+      
+      // === DEBUG: Log chi tiết response ===
+      console.log('[Login] Full response:', JSON.stringify(data, null, 2));
+      console.log('[Login] response.ok:', response.ok);
+      console.log('[Login] data.ok:', data.ok);
 
       if (!response.ok || data.ok === false) {
         throw new Error(data.error || data.message || 'Đăng nhập thất bại');
       }
 
-      // Dùng helper để bắt token ở mọi dạng
+      // === DEBUG: Extract token ===
       const token = extractToken(data);
+      console.log('[Login] Extracted token:', token);
+      console.log('[Login] Token length:', token ? token.length : 0);
 
       const customer =
         data.customer ||
         (data.data && data.data.customer) ||
         null;
-
+      
+      console.log('[Login] Customer:', customer ? customer.id : 'null');
 
       if (!token) {
+        console.error('[Login] KHÔNG CÓ TOKEN trong response!');
+        console.error('[Login] Response keys:', Object.keys(data));
         throw new Error('Máy chủ không trả về token đăng nhập');
       }
 
-      // Lưu token cho các trang account / addresses dùng chung
-      localStorage.setItem('customer_token', token);
-      localStorage.setItem('x-customer-token', token);
-      localStorage.setItem('x-token', token);
+      // === FORCE SAVE TOKEN với nhiều cách ===
+      try {
+        localStorage.setItem('customer_token', token);
+        localStorage.setItem('x-customer-token', token);
+        localStorage.setItem('x-token', token);
+        
+        // Verify ngay
+        const verify1 = localStorage.getItem('customer_token');
+        const verify2 = localStorage.getItem('x-customer-token');
+        const verify3 = localStorage.getItem('x-token');
+        
+        console.log('[Login] Token đã lưu - Verify:', {
+          customer_token: verify1 ? verify1.substring(0, 20) + '...' : 'null',
+          x_customer_token: verify2 ? verify2.substring(0, 20) + '...' : 'null',
+          x_token: verify3 ? verify3.substring(0, 20) + '...' : 'null'
+        });
+        
+        if (!verify1 || !verify2 || !verify3) {
+          throw new Error('localStorage.setItem không hoạt động!');
+        }
 
-      if (customer) {
-        localStorage.setItem('customer_info', JSON.stringify(customer));
+        if (customer) {
+          localStorage.setItem('customer_info', JSON.stringify(customer));
+          console.log('[Login] Customer info đã lưu');
+        }
+      } catch (storageError) {
+        console.error('[Login] LỖI KHI LƯU TOKEN:', storageError);
+        alert('⚠️ Không thể lưu thông tin đăng nhập. Vui lòng kiểm tra cài đặt trình duyệt.');
+        throw storageError;
       }
 
       showToast('✅ Đăng nhập thành công!', 'success');
 
+      // === CHỜ THÊM 1 chút để đảm bảo localStorage persist ===
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verify lại lần cuối trước khi redirect
+      const finalVerify = localStorage.getItem('customer_token');
+      console.log('[Login] Final verify trước redirect:', finalVerify ? 'OK' : 'FAILED');
+      
+      if (!finalVerify) {
+        console.error('[Login] TOKEN MẤT SAU KHI LƯU!');
+        alert('⚠️ Lỗi: Token không được lưu. Vui lòng thử lại.');
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Đăng nhập';
+        return;
+      }
+
       setTimeout(() => {
         const redirect =
           new URLSearchParams(window.location.search).get('redirect') ||
-          '/index.html';
+          '/account.html';
+        console.log('[Login] Redirecting to:', redirect);
         window.location.href = redirect;
-      }, 1500);
+      }, 1000);
 
     } catch (error) {
       console.error('[Login] Error:', error);
