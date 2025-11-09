@@ -183,17 +183,18 @@ export default {
        return cancelWaybillsBulk(req, env);
      }
 
-      // Shipping module (ensure Token header for SuperAI v1 routes)
-     if (path.startsWith('/shipping') ||
-         path.startsWith('/admin/shipping') ||
-         path.startsWith('/api/addresses') ||
-         path.startsWith('/v1/platform/areas') ||
-         path.startsWith('/v1/platform/orders/price') ||
-         path.startsWith('/v1/platform/orders/optimize') ||
-         path.startsWith('/v1/platform/orders/label') ||
-         path.startsWith('/v1/platform/orders/token') ||
-         path.startsWith('/v1/platform/carriers') ||
-         path.startsWith('/v1/platform/warehouses')) {
+            // Shipping module (ensure Token header for SuperAI v1 routes)
+      if (path.startsWith('/shipping') ||
+          path.startsWith('/public/shipping') || // ✅ cho Mini: /public/shipping/areas
+          path.startsWith('/admin/shipping') ||
+          path.startsWith('/api/addresses') ||
+          path.startsWith('/v1/platform/areas') ||
+          path.startsWith('/v1/platform/orders/price') ||
+          path.startsWith('/v1/platform/orders/optimize') ||
+          path.startsWith('/v1/platform/orders/label') ||
+          path.startsWith('/v1/platform/orders/token') ||
+          path.startsWith('/v1/platform/carriers') ||
+          path.startsWith('/v1/platform/warehouses')) {
      
        let r = req;
      

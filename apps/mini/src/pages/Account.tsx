@@ -123,7 +123,7 @@ export default function Account() {
   }, [token]);
 
 
-      // Helper gọi API trong trang Tài khoản
+        // Helper gọi API trong trang Tài khoản
   const api = async (path: string, options: any = {}) => {
     const headers: any = {
       'Content-Type': 'application/json',
@@ -138,7 +138,27 @@ export default function Account() {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: 'Lỗi' }));
-      throw new Error(err.message || err.error || 'Lỗi');
+      const message = err.message || err.error || 'Lỗi';
+
+      // Token không hợp lệ -> xoá token, chuyển về guest
+      if (
+        response.status === 401 &&
+        typeof message === 'string' &&
+        message.toLowerCase().includes('invalid token')
+      ) {
+        console.warn('[Account] Invalid token, clearing state');
+        await Promise.all([
+          storage.remove('customer_token'),
+          storage.remove('x-customer-token'),
+          storage.remove('x-token'),
+        ]);
+        setToken('');
+        setCustomer(null);
+        setError(null);
+        throw new Error('INVALID_TOKEN_INTERNAL');
+      }
+
+      throw new Error(message);
     }
 
     return response.json();
@@ -257,7 +277,7 @@ export default function Account() {
     }
   };
 
-  const loadCustomerData = async () => {
+    const loadCustomerData = async () => {
     try {
       const data = await api('/api/customers/me');
 
@@ -271,12 +291,18 @@ export default function Account() {
         console.warn('Load customer: response không có customer', data);
       }
     } catch (e: any) {
-      console.error('Load customer error:', e);
-      setError(e.message);
+      if (e?.message === 'INVALID_TOKEN_INTERNAL') {
+        console.warn('[Account] Customer token invalid, switched to guest');
+        // giữ trạng thái guest, không hiện lỗi
+      } else {
+        console.error('Load customer error:', e);
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
     const handleLogout = async () => {
     await Promise.all([
