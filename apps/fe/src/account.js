@@ -59,18 +59,28 @@ async function api(endpoint, options = {}) {
     headers['x-customer-token'] = token;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
 
   if (!response.ok) {
+    // Nếu token không hợp lệ / hết hạn → xoá token, bắt đăng nhập lại
+    if (response.status === 401) {
+      localStorage.removeItem('customer_token');
+      localStorage.removeItem('x-customer-token');
+      localStorage.removeItem('x-token');
+      localStorage.removeItem('customer_info');
+    }
+
     const err = await response.json().catch(() => ({ error: 'Lỗi mạng' }));
-    throw new Error(err.message || err.error || 'Lỗi không xác định');
+    const message = err.message || err.error || 'Lỗi không xác định';
+    throw new Error(message);
   }
-  
+
   return response.json();
 }
+
 
 // Format số
 function formatNumber(n) {
@@ -224,14 +234,21 @@ async function loadProvinces() {
   try {
     const data = await api('/shipping/provinces');
     state.provinces = data.items || [];
-    
+
     const select = document.getElementById('inputProvince');
-    select.innerHTML = '<option value="">Chọn Tỉnh/Thành phố</option>' +
-      state.provinces.map(p => `<option value="${p.code}">${p.name}</option>`).join('');
+    // Trang /account có thể không có select này → bỏ qua
+    if (!select) return;
+
+    select.innerHTML =
+      '<option value="">Chọn Tỉnh/Thành phố</option>' +
+      state.provinces
+        .map((p) => `<option value="${p.code}">${p.name}</option>`)
+        .join('');
   } catch (e) {
     console.error('Load provinces error:', e);
   }
 }
+
 
 // Load districts
 async function loadDistricts(provinceCode) {
@@ -606,11 +623,18 @@ async function init() {
     
     showContent();
     
-  } catch (error) {
+    } catch (error) {
     console.error('Init error:', error);
-    showError('Lỗi khi tải thông tin: ' + error.message);
+    const msg = (error && error.message ? error.message : '').toLowerCase();
+
+    if (msg.includes('invalid token') || msg.includes('unauthorized')) {
+      showError('Vui lòng đăng nhập để xem thông tin tài khoản');
+    } else {
+      showError('Lỗi khi tải thông tin: ' + (error.message || 'Không xác định'));
+    }
   }
 }
+
 
 // Event listeners (check tồn tại để tránh lỗi ở trang không có modal địa chỉ)
 if (btnAddAddress) {
