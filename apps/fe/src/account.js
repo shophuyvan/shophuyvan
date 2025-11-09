@@ -236,8 +236,13 @@ async function loadAddresses() {
   } catch (e) {
     const msg = (e && e.message ? e.message : '').toLowerCase();
 
-    // Nếu token invalid / unauthorized thì coi như chưa đăng nhập, không log lỗi thêm
-    if (msg.includes('invalid token') || msg.includes('unauthorized')) {
+    // Nếu token invalid / unauthorized HOẶC API /api/addresses chưa có
+    if (
+      msg.includes('invalid token') ||
+      msg.includes('unauthorized') ||
+      msg.includes('route not found') ||
+      msg.includes('not found')
+    ) {
       state.addresses = [];
       renderAddresses();
       return;
@@ -248,6 +253,7 @@ async function loadAddresses() {
     renderAddresses();
   }
 }
+
 
 
 // Load provinces

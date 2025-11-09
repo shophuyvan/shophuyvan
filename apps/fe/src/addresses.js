@@ -170,13 +170,35 @@ async function loadList() {
     }
 
     
-    const j = await r.json();
-    state.list = Array.isArray(j?.data) ? j.data : (j?.items || []);
+       const j = await r.json();
+
+    // Nếu API chưa có (404 / Route not found) → coi như chưa có địa chỉ
+    if (!r.ok) {
+      const msg = String(j?.error || j?.message || '').toLowerCase();
+      if (
+        r.status === 404 ||
+        msg.includes('route not found') ||
+        msg.includes('not found')
+      ) {
+        state.list = [];
+        return;
+      }
+
+      console.error('[addresses] loadList failed', j);
+      state.list = [];
+      return;
+    }
+
+    // Chuẩn hoá kiểu dữ liệu trả về từ backend
+    state.list = Array.isArray(j?.data)
+      ? j.data
+      : (j?.items || j?.addresses || []);
   } catch (e) {
     console.error('[addresses] loadList failed', e);
     state.list = [];
   }
 }
+
 
 function renderList() {
   const wrap = $('addr-list');
@@ -312,12 +334,15 @@ async function saveForm() {
     }
 
     
-    const j = await r.json();
-    if (!j?.success && !j?.data) throw new Error('save failed');
-    
+        const j = await r.json();
+    if (!j?.ok && !j?.success && !j?.address && !j?.data) {
+      throw new Error(j?.error || j?.message || 'save failed');
+    }
+
     await loadList();
     renderList();
     closeForm();
+
   } catch (e) {
     console.error('[addresses] saveForm failed', e);
     alert('Lưu địa chỉ thất bại. Vui lòng thử lại.');
@@ -328,7 +353,7 @@ async function removeCurrent() {
   if (!state.editing?.id) return;
   if (!confirm('Xoá địa chỉ này?')) return;
     try {
-    const r = await fetch(API + '?id=' + encodeURIComponent(state.editing.id), {
+        const r = await fetch(`${API}/${encodeURIComponent(state.editing.id)}`, {
       method: 'DELETE',
       credentials: 'include',
       headers: buildAuthHeaders(),
@@ -340,13 +365,15 @@ async function removeCurrent() {
       return;
     }
 
-    
     const j = await r.json();
-    if (!j?.success) throw new Error('delete failed');
+    if (!j?.ok && !j?.success) {
+      throw new Error(j?.error || j?.message || 'delete failed');
+    }
     
     await loadList();
     renderList();
     closeForm();
+
   } catch (e) {
     console.error('[addresses] removeCurrent failed', e);
     alert('Xoá địa chỉ thất bại');
