@@ -456,7 +456,7 @@ footer iframe {
 
 .horizontal-scroll-container {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
@@ -472,21 +472,32 @@ footer iframe {
 
 .horizontal-scroll-container > * {
   flex: 0 0 auto;
-  width: 160px;
+  width: 110px;
   scroll-snap-align: start;
 }
 
-/* Tablet: Card rộng hơn */
-@media (min-width: 640px) {
+/* Small Mobile: wider cards */
+@media (min-width: 375px) {
   .horizontal-scroll-container > * {
-    width: 180px;
+    width: 115px;
   }
 }
 
-/* Desktop: Card rộng nhất */
+/* Tablet: 4-5 items visible */
+@media (min-width: 640px) {
+  .horizontal-scroll-container > * {
+    width: 160px;
+  }
+  
+  .horizontal-scroll-container {
+    gap: 12px;
+  }
+}
+
+/* Desktop: Larger cards */
 @media (min-width: 1024px) {
   .horizontal-scroll-container > * {
-    width: 220px;
+    width: 200px;
   }
   
   .horizontal-scroll-wrapper {
