@@ -62,8 +62,8 @@ function productCard(p) {
     ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`
     : '';
 
-  return `
-  <a class="product-card-horizontal shv-card-scroll" href="/product?id=${encodeURIComponent(p.id)}" style="display:block !important;flex:0 0 auto !important;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;position:relative;">
+return `
+  <a class="shv-product-card" href="/product?id=${encodeURIComponent(p.id)}">
     ${soldBadge}
     <div class="aspect-square bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="${p.name || 'Sản phẩm'}">

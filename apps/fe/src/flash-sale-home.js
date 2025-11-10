@@ -96,7 +96,7 @@ function flashCard(p, discountType, discountValue) {
     : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
 
   return `
-  <a class="product-card-horizontal shv-card-scroll" href="/product?id=${encodeURIComponent(p.id)}" style="display:block !important;flex:0 0 auto !important;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;position:relative;">
+  <a class="shv-product-card" href="/product?id=${encodeURIComponent(p.id)}">
     <!-- Flash Sale Badge -->
     <div class="absolute top-2 left-2 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-lg">
       ⚡ FLASH SALE
