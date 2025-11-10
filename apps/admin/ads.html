@@ -1,36 +1,139 @@
-<!doctype html><html lang='vi'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Quảng cáo</title><link rel="stylesheet" href="./styles.css"/><script src="./admin_real.js?v=25"></script><!-- build:21 -->
-</head><body><div class='container'><div class='header'><div class='title'>Quảng cáo</div><div class='nav'><a href='./products.html' class='badge'>Sản phẩm</a><a href='./banners.html' class='badge'>Banner</a><a href='./vouchers.html' class='badge'>Voucher</a><a href='./orders.html' class='badge'>Đơn hàng</a><a href='./stats.html' class='badge'>Thống kê</a><a href='./shipping.html' class='badge'>Vận chuyển</a><a href='./ads.html' class='badge'>Quảng cáo</a><span class='badge'>API: <span data-api-base></span></span></div></div>
-<div class="grid">
-  <div class="card"><div class="title">Facebook Pixel</div><input id="fb_pixel" class="input" placeholder="FB-XXXXXX"/><button id="save_fb" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Google Tag (G-)</div><input id="ga_tag" class="input" placeholder="G-XXXXXX"/><button id="save_ga" class="btn">Lưu</button></div>
-  <div class="card"><div class="title">Zalo Pixel</div><input id="zalo_pixel" class="input" placeholder="ZP-XXXXXX"/><button id="save_zl" class="btn">Lưu</button></div>
+<!doctype html>
+<html lang='vi'>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width,initial-scale=1'/>
+  <title>Quảng cáo Facebook</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js?v=25"></script>
+  <script src="./ads_real.js?v=1"></script>
+  <style>
+    .tabs { display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--border); }
+    .tab { padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; font-weight:500; }
+    .tab.active { border-bottom-color:var(--accent); color:var(--accent); }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+    .campaign-card { border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; background:#fff; }
+    .campaign-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .campaign-name { font-size:16px; font-weight:600; }
+    .campaign-status { padding:4px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+    .campaign-status.active { background:#d1fae5; color:#065f46; }
+    .campaign-status.paused { background:#fed7aa; color:#92400e; }
+    .campaign-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:12px; margin-top:12px; }
+    .stat-box { background:#f9fafb; padding:12px; border-radius:8px; text-align:center; }
+    .stat-value { font-size:20px; font-weight:700; color:var(--accent); }
+    .stat-label { font-size:12px; color:var(--muted); margin-top:4px; }
+    .product-selector { max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:12px; }
+    .product-item { display:flex; align-items:center; gap:12px; padding:8px; border-bottom:1px solid var(--border); }
+    .product-item:last-child { border-bottom:none; }
+    .product-item input[type="checkbox"] { width:20px; height:20px; cursor:pointer; }
+    .product-thumb { width:50px; height:50px; object-fit:cover; border-radius:6px; }
+    .loading { text-align:center; padding:40px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<div class='container'>
+  <div class='header'>
+    <div class='title'>🎯 Quảng cáo Facebook</div>
+    <div class='nav'>
+      <a href='./products.html' class='badge'>Sản phẩm</a>
+      <a href='./banners.html' class='badge'>Banner</a>
+      <a href='./orders.html' class='badge'>Đơn hàng</a>
+      <a href='./stats.html' class='badge'>Thống kê</a>
+      <a href='./ads.html' class='badge'>Quảng cáo</a>
+      <span class='badge'>API: <span data-api-base></span></span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="campaigns">📊 Campaigns</div>
+    <div class="tab" data-tab="create">➕ Tạo mới</div>
+    <div class="tab" data-tab="settings">⚙️ Cài đặt</div>
+  </div>
+
+  <!-- Tab: Campaigns List -->
+  <div id="tab-campaigns" class="tab-content active">
+    <div class="toolbar">
+      <button id="btnRefreshCampaigns" class="btn primary">🔄 Làm mới</button>
+      <button id="btnTestConnection" class="btn">🔗 Test kết nối</button>
+    </div>
+    <div id="campaignsList" class="loading">Đang tải...</div>
+  </div>
+
+  <!-- Tab: Create Campaign -->
+  <div id="tab-create" class="tab-content">
+    <div class="card">
+      <h3>Tạo Campaign mới</h3>
+      <label>Tên Campaign *</label>
+      <input id="campaignName" class="input" placeholder="VD: Black Friday Sale 2025"/>
+      
+      <label>Ngân sách hàng ngày (VNĐ) *</label>
+      <input id="campaignBudget" type="number" class="input" placeholder="100000" value="100000"/>
+      
+      <label>Mục tiêu</label>
+      <select id="campaignObjective" class="input">
+        <option value="OUTCOME_SALES">Bán hàng</option>
+        <option value="OUTCOME_TRAFFIC">Lưu lượng truy cập</option>
+        <option value="OUTCOME_ENGAGEMENT">Tương tác</option>
+      </select>
+
+      <hr/>
+      <h4>Chọn sản phẩm (tối đa 10)</h4>
+      <div id="productSelector" class="product-selector">
+        <div class="loading">Đang tải sản phẩm...</div>
+      </div>
+
+      <hr/>
+      <h4>Targeting (tùy chọn)</h4>
+      <div class="row">
+        <div class="col">
+          <label>Độ tuổi từ</label>
+          <input id="targetAgeMin" type="number" class="input" value="18" min="18" max="65"/>
+        </div>
+        <div class="col">
+          <label>Độ tuổi đến</label>
+          <input id="targetAgeMax" type="number" class="input" value="65" min="18" max="65"/>
+        </div>
+      </div>
+
+      <button id="btnCreateCampaign" class="btn green" style="margin-top:16px; width:100%;">🚀 Tạo Campaign</button>
+    </div>
+  </div>
+
+  <!-- Tab: Settings -->
+  <div id="tab-settings" class="tab-content">
+    <div class="card">
+      <h3>Cấu hình Facebook Pixel & Credentials</h3>
+      <p class="hint">Nhập thông tin từ Facebook Business Manager</p>
+      
+      <label>Facebook App ID</label>
+      <input id="fbAppId" class="input" placeholder="123456789012345"/>
+      
+      <label>Facebook App Secret</label>
+      <input id="fbAppSecret" class="input" type="password" placeholder="abcdef..."/>
+      
+      <label>Access Token (Long-lived)</label>
+      <input id="fbAccessToken" class="input" type="password" placeholder="EAAxxxx..."/>
+      
+      <label>Ad Account ID</label>
+      <input id="fbAdAccountId" class="input" placeholder="act_123456789"/>
+      
+      <label>Facebook Page ID</label>
+      <input id="fbPageId" class="input" placeholder="123456789012345"/>
+      
+      <hr/>
+      
+      <label>Facebook Pixel ID</label>
+      <input id="fbPixel" class="input" placeholder="123456789012345"/>
+      
+      <button id="btnSaveSettings" class="btn primary" style="margin-top:16px; width:100%;">💾 Lưu cấu hình</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
-(function(){
-  const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || (document.querySelector('[data-api-base]')?.textContent || '');
-  function fill(){
-    fetch(API + '/public/settings').then(r=>r.json()).then(s => {
-      const ads = (s && s.ads) || {};
-      (['fb','ga','zl']).forEach(key => {
-        const id = {fb:'fb_pixel', ga:'ga_tag', zl:'zalo_pixel'}[key];
-        const v = (ads && ads[key]) || '';
-        const inp = document.getElementById(id);
-        if(inp) inp.value = v || '';
-      });
-    }).catch(()=>{});
-  }
-  function save(key, id){
-    const val = document.getElementById(id)?.value?.trim() || '';
-    fetch(API + '/admin/settings/upsert', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({path:'ads.'+key, value: val})})
-      .then(()=> (window.Admin && Admin.toast)? Admin.toast('Đã lưu') : alert('Đã lưu'))
-      .catch(()=>{});
-  }
-  document.getElementById('save_fb')?.addEventListener('click',()=>save('fb','fb_pixel'));
-  document.getElementById('save_ga')?.addEventListener('click',()=>save('ga','ga_tag'));
-  document.getElementById('save_zl')?.addEventListener('click',()=>save('zl','zalo_pixel'));
-  fill();
-})();
+// Logic đã được chuyển sang ads_real.js
+// File này chỉ còn phục vụ mục đích tham khảo cấu trúc HTML
 </script>
-
-</div><script>document.addEventListener('DOMContentLoaded',()=>Admin&&Admin.renderApiBase());</script></body></html>

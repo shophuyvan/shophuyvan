@@ -16,6 +16,7 @@ import * as admin from './modules/admin.js'; // NEW
 import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
+import * as FacebookAds from './modules/facebook-ads.js'; // ✅ THÊM: Facebook Marketing API
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
 
@@ -248,6 +249,11 @@ export default {
       if (path.startsWith('/flash-sales') ||
           path.startsWith('/admin/flash-sales')) {
         return flashSales.handle(req, env, ctx);
+      }
+
+      // ✅ THÊM: Routes cho Facebook Ads
+      if (path.startsWith('/admin/facebook')) {
+        return FacebookAds.handle(req, env, ctx);
       }
 	  
             // ============================================

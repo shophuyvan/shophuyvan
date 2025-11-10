@@ -108,7 +108,8 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 // RENDER PRODUCT CARD
 // ==========================================
 function productCard(p) {
-  const thumb = cloudify(p?.image || p?.images?.[0]);
+  const id = p?.id || p?.key || '';
+  const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
   // Ưu tiên giá từ API (price_display đã tính sẵn)
   let base = 0;
@@ -123,29 +124,53 @@ function productCard(p) {
     original = Number(p.compare_at || 0);
   }
 
-  const priceHtml = original > base && original > 0
-    ? `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(original)}</span></div>`
-    : base > 0
-      ? `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`
-      : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
+  let priceHtml = '';
 
-  // Sold badge cho bestsellers
+  if (base > 0) {
+    if (original > base) {
+      // Có giá gạch ngang
+      priceHtml = `
+        <div class="product-card-price">
+          <span class="product-card-price-sale">${formatPrice(base)}</span>
+          <span class="product-card-price-original">${formatPrice(original)}</span>
+        </div>
+      `;
+    } else {
+      priceHtml = `
+        <div class="product-card-price">
+          <span class="product-card-price-sale">${formatPrice(base)}</span>
+        </div>
+      `;
+    }
+  } else {
+    priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
+  }
+
+  // Sold badge cho bestsellers (hiển thị nhỏ ở góc)
   const soldBadge = p.sold && p.sold > 0
-    ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`
+    ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`
     : '';
 
-return `
-  <a class="shv-product-card" href="/product?id=${encodeURIComponent(p.id)}">
-    ${soldBadge}
-    <div class="aspect-square bg-gray-50 overflow-hidden">
-      <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
-    </div>
-    <div class="p-2">
-      <div class="text-xs h-8 line-clamp-2 mb-1" style="font-size:11px;line-height:1.3;">${p.name || 'Sản phẩm'}</div>
-      ${priceHtml}
-    </div>
-  </a>`;
+  return `
+    <a class="shv-product-card" href="/product.html?id=${encodeURIComponent(id)}" data-id="${encodeURIComponent(id)}">
+      ${soldBadge}
+      <div class="relative w-full aspect-square overflow-hidden bg-gray-50">
+        <img loading="lazy" class="absolute inset-0 w-full h-full object-cover object-center" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
+      </div>
+      <div class="p-2">
+        <div class="font-semibold text-xs line-clamp-2 min-h-[32px]">${p.title || p.name || 'Sản phẩm'}</div>
+        <div class="mt-1 text-blue-600 text-xs js-price" data-id="${id}">
+          ${priceHtml}
+        </div>
+        <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-600">
+          <span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
+          <span class="js-sold" data-id="${id}">Đã bán 0</span>
+        </div>
+      </div>
+    </a>
+  `;
 }
+
 
 // ==========================================
 // LOAD BESTSELLERS
@@ -178,13 +203,18 @@ async function loadBestsellers() {
     }
 
     // Chỉ hiển thị 3 sản phẩm đầu tiên
-    const items = data.items.slice(0, 3);
+        const items = data.items || [];
 
     // Render sản phẩm
     bestProductsEl.innerHTML = items.map(productCard).join('');
 
-    console.log(`✅ Đã render ${items.length} sản phẩm bán chạy`);
+    // Hydrate sao & đã bán nếu có hàm global
+    if (typeof hydrateSoldAndRating === 'function') {
+      try { hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean)); }
+      catch (err) { console.warn('hydrateSoldAndRating(bestsellers) error', err); }
+    }
 
+    console.log(`✅ Đã render ${items.length} sản phẩm bán chạy`);
 
   } catch (error) {
     console.error('❌ Lỗi load bestsellers:', error);
@@ -222,13 +252,19 @@ async function loadNewest() {
       return;
     }
 
-    // Chỉ hiển thị 3 sản phẩm đầu tiên
-    const items = data.items.slice(0, 3);
+        const items = data.items || [];
 
     // Render sản phẩm
     newProductsEl.innerHTML = items.map(productCard).join('');
 
+    // Hydrate sao & đã bán
+    if (typeof hydrateSoldAndRating === 'function') {
+      try { hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean)); }
+      catch (err) { console.warn('hydrateSoldAndRating(newest) error', err); }
+    }
+
     console.log(`✅ Đã render ${items.length} sản phẩm mới`);
+
 
 
   } catch (error) {

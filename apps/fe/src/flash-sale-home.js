@@ -33,9 +33,28 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 }
 
 // ==========================================
+// STYLE CHO FLASH CARD (đồng bộ với top-products)
+// ==========================================
+(function ensureFlashStyles() {
+  if (document.getElementById('shv-scroll-fix-fs')) return;
+  const css = `
+    .shv-product-card{
+      display:block!important; width:130px!important; min-width:130px!important; max-width:130px!important;
+      flex:0 0 130px!important; flex-shrink:0!important; background:#fff!important; border:1px solid #e5e7eb!important;
+      border-radius:8px!important; overflow:hidden!important; text-decoration:none!important; color:inherit!important; position:relative!important;
+    }
+    @media (min-width:375px){ .shv-product-card{ width:140px!important; min-width:140px!important; max-width:140px!important; flex-basis:140px!important; } }
+    @media (min-width:640px){ .shv-product-card{ width:180px!important; min-width:180px!important; max-width:180px!important; flex-basis:180px!important; } }
+    @media (min-width:1024px){ .shv-product-card{ width:220px!important; min-width:220px!important; max-width:220px!important; flex-basis:220px!important; } }
+  `;
+  const s = document.createElement('style'); s.id='shv-scroll-fix-fs'; s.textContent = css; document.head.appendChild(s);
+})();
+
+// ==========================================
 // TÍNH GIÁ FLASH SALE
 // ==========================================
 function calculateFlashPrice(product, discountType, discountValue) {
+
   // Lấy giá gốc từ product
   let basePrice = 0;
   
@@ -77,41 +96,47 @@ function calculateFlashPrice(product, discountType, discountValue) {
 // RENDER PRODUCT CARD
 // ==========================================
 function flashCard(p, discountType, discountValue) {
-  const thumb = cloudify(p?.images?.[0]);
+  const id = p?.id || p?.key || '';
+  const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
   const { flashPrice, originalPrice } = calculateFlashPrice(p, discountType, discountValue);
 
-  // Tính % giảm giá
-  const discountPercent = originalPrice > 0 
+  const discountPercent = (originalPrice > 0)
     ? Math.round(((originalPrice - flashPrice) / originalPrice) * 100)
     : 0;
 
   const priceHtml = flashPrice > 0
     ? `
-      <div class="flex items-center gap-2">
-        <span class="text-rose-600 font-bold text-lg">${formatPrice(flashPrice)}</span>
-        ${originalPrice > flashPrice ? `<span class="line-through text-gray-400 text-sm">${formatPrice(originalPrice)}</span>` : ''}
+      <div class="product-card-price">
+        <span class="product-card-price-sale">${formatPrice(flashPrice)}</span>
+        ${originalPrice > flashPrice ? `<span class="product-card-price-original">${formatPrice(originalPrice)}</span>` : ''}
       </div>
-      ${discountPercent > 0 ? `<div class="inline-block bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded mt-1">-${discountPercent}%</div>` : ''}
+      ${discountPercent > 0 ? `<div class="inline-block bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded mt-1">-${discountPercent}%</div>` : ''}
     `
-    : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
+    : `<div class="text-gray-400 text-xs">Liên hệ</div>`;
+
+  const soldBadge = p.sold && p.sold > 0
+    ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`
+    : '';
 
   return `
-  <a class="shv-product-card" href="/product?id=${encodeURIComponent(p.id)}">
-    <!-- Flash Sale Badge -->
-    <div class="absolute top-2 left-2 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-lg">
-      ⚡ FLASH SALE
+  <a class="shv-product-card" href="/product.html?id=${encodeURIComponent(id)}" data-id="${encodeURIComponent(id)}">
+    ${soldBadge}
+    <div class="relative w-full aspect-square overflow-hidden bg-gray-50">
+      <img loading="lazy" class="absolute inset-0 w-full h-full object-cover object-center hover:scale-110 transition-transform duration-300" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
-    
-    <div class="aspect-square bg-gray-50 overflow-hidden">
-      <img loading="lazy" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
-    </div>
-    
-<div class="p-2">
-      <div class="text-xs h-8 line-clamp-2 mb-1" style="font-size:11px;line-height:1.3;">${p.name || 'Sản phẩm'}</div>
-      ${priceHtml}
+    <div class="p-2">
+      <div class="font-semibold text-xs line-clamp-2 min-h-[32px]">${p.title || p.name || 'Sản phẩm'}</div>
+      <div class="mt-1 text-blue-600 text-xs js-price" data-id="${id}">
+        ${priceHtml}
+      </div>
+      <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-600">
+        <span class="js-rating" data-id="${id}">★ 5.0 (0)</span>
+        <span class="js-sold" data-id="${id}">Đã bán 0</span>
+      </div>
     </div>
   </a>`;
 }
+
 
 // ==========================================
 // COUNTDOWN TIMER
@@ -238,12 +263,22 @@ function showFlashSaleSection() {
       return;
     }
 
-    // Render sản phẩm
+        // Render sản phẩm
     flashProductsEl.innerHTML = products
-      .map(({ product, discountType, discountValue }) => 
+      .map(({ product, discountType, discountValue }) =>
         flashCard(product, discountType, discountValue)
       )
       .join('');
+
+    // Hydrate sao & đã bán
+    if (typeof hydrateSoldAndRating === 'function') {
+      try {
+        const ids = products.map(x => (x.product?.id || x.product?.key || '')).filter(Boolean);
+        hydrateSoldAndRating(ids);
+      } catch (e) {
+        console.warn('hydrateSoldAndRating(flash) error', e);
+      }
+    }
 
     console.log(`✅ Đã render ${products.length} sản phẩm Flash Sale`);
 
