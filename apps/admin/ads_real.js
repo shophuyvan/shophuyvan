@@ -702,6 +702,12 @@
           FacebookAdsDashboard.init();
         }
         if (tab.dataset.tab === 'campaigns') loadCampaigns();
+        if (tab.dataset.tab === 'automation' && window.FacebookAdsAutomation) {
+          FacebookAdsAutomation.init();
+        }
+        if (tab.dataset.tab === 'creative' && window.FacebookAdsCreative) {
+          FacebookAdsCreative.init();
+        }
         // Cập nhật: loadProducts khi mở tab create, autopost, hoặc abtest
         if (tab.dataset.tab === 'create' || tab.dataset.tab === 'autopost' || tab.dataset.tab === 'abtest') {
           if(productsCache.length === 0) loadProducts();

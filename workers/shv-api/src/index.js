@@ -16,7 +16,9 @@ import * as admin from './modules/admin.js'; // NEW
 import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
-import * as FacebookAds from './modules/facebook-ads.js'; // ✅ THÊM: Facebook Marketing API
+import * as FacebookAds from './modules/facebook-ads.js';
+import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
+import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
 
@@ -251,6 +253,17 @@ export default {
         return flashSales.handle(req, env, ctx);
       }
 
+      // ✅ THÊM: Routes cho Facebook Ads Automation (phải đặt trước /admin/facebook)
+      if (path.startsWith('/admin/facebook/automation')) {
+        return FacebookAdsAutomation.handle(req, env, ctx);
+      }
+
+      // ✅ THÊM: Routes cho Facebook Ads Creative (phải đặt trước /admin/facebook)
+      if (path.startsWith('/admin/facebook/creatives') || 
+          path.startsWith('/admin/facebook/ads/bulk-create')) {
+        return FacebookAdsCreative.handle(req, env, ctx);
+      }
+
       // ✅ THÊM: Routes cho Facebook Ads
       if (path.startsWith('/admin/facebook')) {
         return FacebookAds.handle(req, env, ctx);
@@ -442,5 +455,10 @@ export default {
         error: String(e?.message || e)
       }, { status: 500 }, req);
     }
+  },
+
+  async scheduled(event, env, ctx) {
+    console.log('[Cron] Scheduled trigger fired');
+    await FacebookAdsAutomation.scheduledHandler(event, env, ctx);
   }
 };
