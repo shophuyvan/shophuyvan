@@ -654,6 +654,16 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
     return cloudify(rawImg, 'w_200,h_200,c_fill,q_auto,f_auto');
   }, []);
 
+    // === TỰ ĐỘNG CHUYỂN VỀ ACCOUNT SAU 5S KHI ĐẶT HÀNG THÀNH CÔNG ============
+  useEffect(() => {
+    if (done) {
+      const timer = setTimeout(() => {
+        navigate('/account');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [done, navigate]);
+
   // === UI ====================================================================
     return (
         <Page className="bg-gray-50">
@@ -684,12 +694,12 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
                 </div>
               )}
               <div className="text-gray-700 mb-6">Cảm ơn bạn đã mua hàng.</div>
-              <a
-                href="/"
+                            <button
+                onClick={() => navigate('/account')}
                 className="inline-block px-8 py-3 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-colors font-semibold"
               >
-                Về trang chủ
-              </a>
+                Quản lý đơn hàng
+              </button>
             </div>
           </div>
         ) : (

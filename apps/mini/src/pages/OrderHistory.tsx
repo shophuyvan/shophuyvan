@@ -27,6 +27,13 @@ const OrderHistory: React.FC = () => {
   const [filter, setFilter] = useState<string>('all'); // all, pending, shipping, completed
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get('status');
+      if (status === 'pending' || status === 'shipping' || status === 'completed') {
+        setFilter(status);
+      }
+    } catch {}
     loadOrders();
   }, []);
 

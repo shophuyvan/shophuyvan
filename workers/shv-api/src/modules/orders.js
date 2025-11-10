@@ -179,6 +179,7 @@ async function authenticateCustomer(req, env) {
 
 /**
  * Normalize order items to consistent format
+ * ✅ GIỮ LUÔN ẢNH BIẾN THỂ/PRODUCT TỪ FE/MINI (đưa về field image)
  */
 function normalizeOrderItems(items) {
   const tryExtractSku = (txt) => {
@@ -191,6 +192,19 @@ function normalizeOrderItems(items) {
     const variantSku = tryExtractSku(it.variant || it.name || '');
     const maybeProductId = String(it.id || '').length > 12 ? it.id : null;
 
+    // ƯU TIÊN ảnh gửi từ FE/Mini
+    const rawImage =
+      it.image ??
+      it.img ??
+      it.thumbnail ??
+      it.variant_image ??
+      it.product_image ??
+      (Array.isArray(it.images) && it.images.length ? it.images[0] : null) ??
+      (it.product && Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0] : null) ??
+      it.product?.image ??
+      it.product?.img ??
+      null;
+
     return {
       id: it.variant_id ?? it.id ?? it.sku ?? variantSku ?? null,
       product_id: it.product_id ?? it.pid ?? it.productId ?? (it.product?.id || it.product?.key) ?? maybeProductId ?? null,
@@ -199,10 +213,13 @@ function normalizeOrderItems(items) {
       variant: it.variant ?? '',
       qty: Number(it.qty ?? it.quantity ?? 1) || 1,
       price: Number(it.price || 0),
-      cost: Number(it.cost || 0)
+      cost: Number(it.cost || 0),
+      // ✅ Chuẩn hóa về 1 field image để admin + mini xài chung
+      image: rawImage || null,
     };
   });
 }
+
 
 /**
  * Adjust inventory (stock) by items
@@ -336,10 +353,10 @@ async function adjustInventory(items, env, direction = -1) {
 // ===================================================================
 // Cost Enrichment Helper (REFACTORED - DRY)
 // ===================================================================
-
 /**
  * Enrich items with cost & price from product variants
  * Modifies items array in-place
+ * ✅ Đồng thời map luôn ảnh biến thể → item.image (nếu chưa có)
  */
 async function enrichItemsWithCostAndPrice(items, env) {
   const allProducts = await getJSON(env, 'products:list', []);
@@ -349,6 +366,7 @@ async function enrichItemsWithCostAndPrice(items, env) {
     if (!variantId) continue;
 
     let variantFound = null;
+    let productFound = null;
 
     // Search all products for matching variant
     for (const summary of allProducts) {
@@ -362,6 +380,7 @@ async function enrichItemsWithCostAndPrice(items, env) {
 
       if (variant) {
         variantFound = variant;
+        productFound = product;
         break;
       }
     }
@@ -387,6 +406,31 @@ async function enrichItemsWithCostAndPrice(items, env) {
           console.log('[ENRICH] ✅ Set cost from variant:', { id: variantId, cost: item.cost });
           break;
         }
+      }
+    }
+
+    // ✅ NEW: map ảnh từ variant/product → item.image nếu chưa có
+    if (!item.image && !item.img && !item.thumbnail) {
+      const variantImage =
+        variantFound.image ||
+        variantFound.img ||
+        variantFound.thumbnail ||
+        (Array.isArray(variantFound.images) && variantFound.images.length
+          ? variantFound.images[0]
+          : null);
+
+      const productImage =
+        (productFound && Array.isArray(productFound.images) && productFound.images.length
+          ? productFound.images[0]
+          : null) ||
+        productFound?.image ||
+        productFound?.img ||
+        null;
+
+      const finalImage = variantImage || productImage || null;
+      if (finalImage) {
+        item.image = finalImage;
+        console.log('[ENRICH] ✅ Set image from variant/product:', { id: variantId });
       }
     }
   }
