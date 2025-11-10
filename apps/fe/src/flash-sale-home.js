@@ -106,8 +106,8 @@ function flashCard(p, discountType, discountValue) {
       <img loading="lazy" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
     
-    <div class="p-2.5">
-      <div class="text-xs sm:text-sm h-9 line-clamp-2 mb-1.5">${p.name || 'Sản phẩm'}</div>
+<div class="p-2">
+      <div class="text-xs h-8 line-clamp-2 mb-1" style="font-size:11px;line-height:1.3;">${p.name || 'Sản phẩm'}</div>
       ${priceHtml}
     </div>
   </a>`;

@@ -46,27 +46,33 @@
   </script>
   <link rel="stylesheet" href="/assets/header-shop.css">
   <style>
+    <style>
     .product-card-horizontal {
       display: block !important;
-      width: 110px !important;
-      min-width: 110px !important;
+      width: 130px !important;
+      min-width: 130px !important;
       flex: 0 0 auto !important;
       background: #fff;
       border: 1px solid #e5e7eb;
-      border-radius: 12px;
+      border-radius: 8px;
       overflow: hidden;
       text-decoration: none;
       color: inherit;
       position: relative;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .product-card-horizontal:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     @media (min-width: 375px) {
-      .product-card-horizontal { width: 115px !important; min-width: 115px !important; }
+      .product-card-horizontal { width: 140px !important; min-width: 140px !important; }
     }
     @media (min-width: 640px) {
-      .product-card-horizontal { width: 160px !important; min-width: 160px !important; }
+      .product-card-horizontal { width: 180px !important; min-width: 180px !important; }
     }
     @media (min-width: 1024px) {
-      .product-card-horizontal { width: 200px !important; min-width: 200px !important; }
+      .product-card-horizontal { width: 220px !important; min-width: 220px !important; }
     }
     #flash-products::-webkit-scrollbar,
     #best-products::-webkit-scrollbar,
