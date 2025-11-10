@@ -45,6 +45,36 @@
   }
   </script>
   <link rel="stylesheet" href="/assets/header-shop.css">
+  <style>
+    .product-card-horizontal {
+      display: block !important;
+      width: 110px !important;
+      min-width: 110px !important;
+      flex: 0 0 auto !important;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+    }
+    @media (min-width: 375px) {
+      .product-card-horizontal { width: 115px !important; min-width: 115px !important; }
+    }
+    @media (min-width: 640px) {
+      .product-card-horizontal { width: 160px !important; min-width: 160px !important; }
+    }
+    @media (min-width: 1024px) {
+      .product-card-horizontal { width: 200px !important; min-width: 200px !important; }
+    }
+    #flash-products::-webkit-scrollbar,
+    #best-products::-webkit-scrollbar,
+    #new-products::-webkit-scrollbar {
+      display: none !important;
+    }
+  </style>
+</head>
 </head>
 <body class="bg-slate-50 text-gray-900">
   
@@ -161,7 +191,7 @@
     </div>
   </section>
 
-  <!-- FLASH SALE -->
+ <!-- FLASH SALE -->
 <section class="section mt-6 max-w-7xl mx-auto px-3 md:px-4">
   <div class="section-head flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold inline-flex items-center gap-2">⚡ Flash Sale
@@ -169,8 +199,8 @@
     </h2>
     <a href="#all" class="section-more text-sm text-blue-600 hover:underline">Xem tất cả →</a>
   </div>
-  <div class="horizontal-scroll-wrapper">
-    <div id="flash-products" class="horizontal-scroll-container"></div>
+  <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
+    <div id="flash-products" style="display:flex !important;gap:8px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:8px;flex-wrap:nowrap !important;"></div>
   </div>
 </section>
 
@@ -180,8 +210,8 @@
     <h2 class="text-lg font-bold">🔥 Bán chạy</h2>
     <a href="/collections/bestsellers" class="section-more text-sm text-blue-600 hover:underline">Xem thêm →</a>
   </div>
-  <div class="horizontal-scroll-wrapper">
-    <div id="best-products" class="horizontal-scroll-container"></div>
+  <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
+    <div id="best-products" style="display:flex !important;gap:8px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:8px;flex-wrap:nowrap !important;"></div>
   </div>
 </section>
 
@@ -191,11 +221,10 @@
     <h2 class="text-lg font-bold">🆕 Hàng mới ra mắt</h2>
     <a href="/collections/new" class="section-more text-sm text-blue-600 hover:underline">Xem thêm →</a>
   </div>
-  <div class="horizontal-scroll-wrapper">
-    <div id="new-products" class="horizontal-scroll-container"></div>
+  <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
+    <div id="new-products" style="display:flex !important;gap:8px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:8px;flex-wrap:nowrap !important;"></div>
   </div>
 </section>
-
 <!-- TẤT CẢ SẢN PHẨM (đang có sẵn) -->
 <section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
   <div class="section-head flex items-center justify-between">
