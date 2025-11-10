@@ -451,41 +451,101 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
     return () => { alive = false; };
     }, [form.province, form.district, form.ward, totalWeightGram, weightOverride, subtotal, st.lines, provinces, districts, selectedLines]);
 
-  // 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
+  // 4.a) SERVER PRICING STATE + HELPER
+const [serverTotals, setServerTotals] = useState<any>(null);
+
+const reprice = useCallback(async () => {
+  try {
+    const linesForOrder =
+      Array.isArray(selectedLines) && selectedLines.length ? selectedLines : (st.lines || []);
+    const payload = {
+      items: (linesForOrder || []).map((item: any) => ({
+        id: item.id,
+        sku: item.sku || item.id,
+        qty: Number(item.qty || 1),
+        price: Number(item.price || 0),
+        cost: Number(item.cost || 0),
+      })),
+      shipping_fee: Number(selectedShipping?.fee || 0),
+      voucher_code: appliedVoucher?.code || null,
+      totals: {
+        subtotal: Number(subtotal || 0),
+        shipping_fee: Number(selectedShipping?.fee || 0),
+        voucher_code: appliedVoucher?.code || null,
+      }
+    };
+    const data = await api('/orders/price', { method: 'POST', body: JSON.stringify(payload) });
+    const t = data?.totals || data || {};
+    setServerTotals({
+      subtotal: Number(t.subtotal || 0),
+      shipping_fee: Number(t.shipping_fee || 0),
+      discount: Number(t.discount || 0),
+      shipping_discount: Number(t.shipping_discount || 0),
+      voucher_code: t.voucher_code || null,
+    });
+  } catch (e) {
+    console.error('orders/price error:', e);
+    setServerTotals(null);
+  }
+}, [selectedLines, st.lines, selectedShipping, appliedVoucher, subtotal]);
+
+// 4.b) TRIGGER REPRICE KHI LINES/SHIP/VOUCHER ĐỔI
+useEffect(() => {
+  if (selectedShipping) reprice();
+}, [selectedShipping, appliedVoucher, st.lines, selectedLines, subtotal, reprice]);
+
+// 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
+
   const calculatedTotals = useMemo(() => {
+  // ✅ ƯU TIÊN TỔNG TỪ SERVER (orders/price)
+  if (serverTotals) {
     const originalShippingFee = selectedShipping?.fee || 0;
-
-    const manualProductDiscount = appliedVoucher?.discount || 0;
-    const manualShippingDiscount = appliedVoucher?.ship_discount || 0;
-
-    // auto freeship
-    let autoShippingDiscount = 0;
-    let autoVoucherCode: string | null = null;
-    const eligibleAuto = autoVouchers.find((v: any) => subtotal >= (v.min_purchase || 0));
-    if (eligibleAuto) {
-      autoShippingDiscount = originalShippingFee;
-      autoVoucherCode = eligibleAuto.code;
-    }
-
-    const bestShippingDiscount = Math.max(autoShippingDiscount, manualShippingDiscount);
-    const isAutoFreeshipApplied = bestShippingDiscount > 0 && autoShippingDiscount >= manualShippingDiscount;
-    const isManualShipApplied = bestShippingDiscount > 0 && manualShippingDiscount > autoShippingDiscount;
-
-    const finalShippingFee = Math.max(0, originalShippingFee - bestShippingDiscount);
-    const grandTotal = Math.max(0, subtotal - manualProductDiscount + finalShippingFee);
-
+    const finalShippingFee = Math.max(0, (serverTotals.shipping_fee || 0) - (serverTotals.shipping_discount || 0));
+    const grandTotal = Math.max(0, (serverTotals.subtotal || 0) + finalShippingFee - (serverTotals.discount || 0));
     return {
-      subtotal,
       originalShippingFee,
       finalShippingFee,
-      manualProductDiscount,
-      bestShippingDiscount,
+      manualProductDiscount: serverTotals.discount || 0,
+      bestShippingDiscount: serverTotals.shipping_discount || 0,
       grandTotal,
-      isAutoFreeshipApplied,
-      isManualShipApplied,
-      appliedVoucherCode: isAutoFreeshipApplied ? autoVoucherCode : appliedVoucher?.code,
+      isAutoFreeshipApplied: (serverTotals.shipping_discount || 0) >= originalShippingFee,
+      isManualShipApplied: (serverTotals.shipping_discount || 0) > 0,
+      appliedVoucherCode: serverTotals.voucher_code || appliedVoucher?.code || null,
     };
-  }, [subtotal, selectedShipping, appliedVoucher, autoVouchers]);
+  }
+
+  // Fallback: logic cũ của bạn
+  const originalShippingFee = selectedShipping?.fee || 0;
+  const manualProductDiscount = appliedVoucher?.discount || 0;
+  const manualShippingDiscount = appliedVoucher?.ship_discount || 0;
+
+  let autoShippingDiscount = 0;
+  let autoVoucherCode: string | null = null;
+  const eligibleAuto = autoVouchers.find((v: any) => subtotal >= (v.min_purchase || 0));
+  if (eligibleAuto) {
+    autoShippingDiscount = originalShippingFee;
+    autoVoucherCode = eligibleAuto.code;
+  }
+
+  const bestShippingDiscount = Math.max(manualShippingDiscount, autoShippingDiscount);
+  const isAutoFreeshipApplied = autoShippingDiscount >= manualShippingDiscount && autoShippingDiscount > 0;
+  const isManualShipApplied = manualShippingDiscount > autoShippingDiscount && manualShippingDiscount > 0;
+
+  const finalShippingFee = Math.max(0, originalShippingFee - bestShippingDiscount);
+  const grandTotal = Math.max(0, subtotal - manualProductDiscount + finalShippingFee);
+
+  return {
+    originalShippingFee,
+    finalShippingFee,
+    manualProductDiscount,
+    bestShippingDiscount,
+    grandTotal,
+    isAutoFreeshipApplied,
+    isManualShipApplied,
+    appliedVoucherCode: isAutoFreeshipApplied ? autoVoucherCode : appliedVoucher?.code,
+  };
+}, [serverTotals, subtotal, selectedShipping, appliedVoucher, autoVouchers]);
+
 
   // 5) ÁP MÃ VOUCHER TAY (API thật)
   const handleApplyVoucher = useCallback(async () => {
@@ -505,11 +565,13 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
           customer_id: null,
         }),
       });
-      if (res.ok && res.valid) {
+            if (res.ok && res.valid) {
         setAppliedVoucher(res);
+        await reprice(); // ✅ cập nhật tổng theo server
       } else {
         throw new Error(res.message || 'Mã voucher không hợp lệ');
       }
+
     } catch (e: any) {
       setVoucherError(e.message || 'Mã voucher không hợp lệ');
       setAppliedVoucher(null);
@@ -598,22 +660,27 @@ const effectiveWeightGram = (weightOverride ?? totalWeightGram);
         variant: item.variantName || '',
         image: item.variantImage || item.image || '',
       })),
-      totals: {
-        subtotal: sub,
-        shipping_fee: originalShippingFee,
-        discount: manualProductDiscount,
-        shipping_discount: bestShippingDiscount,
-        total: grandTotal,
+            totals: {
+        subtotal: serverTotals?.subtotal ?? sub,
+        shipping_fee: serverTotals?.shipping_fee ?? originalShippingFee,
+        discount: serverTotals?.discount ?? manualProductDiscount,
+        shipping_discount: serverTotals?.shipping_discount ?? bestShippingDiscount,
+        total: serverTotals
+          ? Math.max(0, (serverTotals.subtotal||0) + Math.max(0,(serverTotals.shipping_fee||0)-(serverTotals.shipping_discount||0)) - (serverTotals.discount||0))
+          : grandTotal,
+        voucher_code: (serverTotals?.voucher_code ?? appliedVoucherCode) || '',
       },
+
 
       shipping_provider: selectedShipping.originalProvider || selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
       shipping_name: selectedShipping.name,
       shipping_eta: selectedShipping.eta,
-      shipping_fee: originalShippingFee,
-      discount: manualProductDiscount,
-      shipping_discount: bestShippingDiscount,
-      voucher_code: appliedVoucherCode || '',
+      shipping_fee: serverTotals?.shipping_fee ?? originalShippingFee,
+      discount: serverTotals?.discount ?? manualProductDiscount,
+      shipping_discount: serverTotals?.shipping_discount ?? bestShippingDiscount,
+      voucher_code: (serverTotals?.voucher_code ?? appliedVoucherCode) || '',
+
       note: form.note || '',
       // ✅ THÊM CHO XEM HÀNG
       allow_inspection: allowInspection,

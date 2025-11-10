@@ -505,11 +505,13 @@ export async function handle(req, env, ctx) {
   const method = req.method;
 
   // PUBLIC
+  // PUBLIC
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
   if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);
+  if (path === '/orders/price' && method === 'POST') return priceOrderPreview(req, env); // ✅ PREVIEW TỔNG GIÁ
 
   // ADMIN
   if (path === '/api/orders' && method === 'GET') return listOrders(req, env);
@@ -532,7 +534,107 @@ export async function handle(req, env, ctx) {
 // PUBLIC: Create Order (Main Endpoint)
 // ===================================================================
 
+// ✅ TÍNH GIÁ SERVER-SIDE (voucher + freeship) KHÔNG TẠO ĐƠN
+async function priceOrderPreview(req, env) {
+  // (Optional) auth để lấy customerId nếu có
+  const auth = await authenticateCustomer(req, env).catch(() => ({ customerId: null }));
+
+  const body = await readBody(req) || {};
+  let items = normalizeOrderItems(body.items || []);
+  items = await enrichItemsWithCostAndPrice(items, env);
+
+  const subtotal = items.reduce((sum, it) =>
+    sum + Number(it.price || 0) * Number(it.qty || it.quantity || 1), 0
+  );
+
+  // Lấy phí ship & voucher từ body (giống createOrder)
+  const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
+  const voucher_code_input = body.voucher_code || body?.totals?.voucher_code || null;
+
+  let validated_voucher_code = null;
+  let validated_discount = 0;
+  let validated_ship_discount = 0;
+
+  // Re-validate voucher (dùng module vouchers.js)
+  if (voucher_code_input) {
+    try {
+      const finalCustomer = {
+        id: auth?.customerId || body.customer?.id || null,
+        phone: body.customer?.phone || ''
+      };
+      const fakeReq = new Request(req.url, {
+        method: 'POST',
+        headers: req.headers,
+        body: JSON.stringify({
+          code: voucher_code_input,
+          customer_id: finalCustomer.id || null,
+          subtotal: subtotal
+        })
+      });
+      const applyRes = await applyVoucher(fakeReq, env);
+      const applyData = await applyRes.json();
+      if (applyRes.status === 200 && applyData.ok && applyData.valid) {
+        validated_voucher_code = applyData.code;
+        validated_discount = Number(applyData.discount || 0);
+        validated_ship_discount = Number(applyData.ship_discount || 0);
+      }
+    } catch (e) {
+      // im lặng, không chặn preview
+    }
+  }
+
+    // === AUTO FREESHIP + BEST-OF (server-side) ================================
+  let autoShippingDiscount = 0;
+  let autoVoucherCode = null;
+  try {
+    const now = Date.now();
+    const list = await getJSON(env, 'vouchers', []);
+    const activeAuto = (Array.isArray(list) ? list : [])
+      .filter(v => v && v.on === true && v.voucher_type === 'auto_freeship')
+      .filter(v => {
+        const s = Number(v.starts_at || 0);
+        const e = Number(v.expires_at || 0);
+        if (s && now < s) return false;
+        if (e && now > e) return false;
+        return true;
+      })
+      .sort((a, b) => (Number(b.min_purchase || 0) - Number(a.min_purchase || 0))); // ưu tiên ngưỡng cao hơn
+    const eligible = activeAuto.find(v => Number(subtotal) >= Number(v.min_purchase || 0));
+    if (eligible) {
+      autoShippingDiscount = Math.max(0, shipping_fee); // freeship 100%
+      autoVoucherCode = eligible.code || null;
+    }
+  } catch (e) {
+    // bỏ qua lỗi auto freeship, giữ kết quả mã tay
+  }
+
+  // BEST-OF ship discount
+  const best_shipping_discount = Math.max(0, Math.max(validated_ship_discount, autoShippingDiscount));
+  const final_shipping_fee = Math.max(0, shipping_fee - best_shipping_discount);
+  const total = Math.max(0, subtotal - validated_discount + final_shipping_fee);
+
+  const final_voucher_code =
+    (autoShippingDiscount >= validated_ship_discount && autoVoucherCode)
+      ? autoVoucherCode
+      : validated_voucher_code;
+
+  return json({
+    ok: true,
+    totals: {
+      subtotal,
+      shipping_fee,
+      discount: validated_discount,
+      shipping_discount: best_shipping_discount,
+      total,
+      voucher_code: final_voucher_code
+    },
+    items
+  }, req);
+}
+
+
 async function createOrder(req, env) {
+
   // Check idempotency
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
