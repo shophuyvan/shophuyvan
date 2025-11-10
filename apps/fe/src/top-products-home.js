@@ -167,7 +167,7 @@ async function loadBestsellers() {
       </div>
     `;
 
-    const data = await api('/products/bestsellers?limit=8');
+        const data = await api('/products/bestsellers?limit=8');
 
     if (!data || !data.ok || !data.items || data.items.length === 0) {
       console.log('ℹ️ Không có sản phẩm bán chạy');
@@ -177,10 +177,14 @@ async function loadBestsellers() {
       return;
     }
 
-    // Render sản phẩm
-    bestProductsEl.innerHTML = data.items.map(productCard).join('');
+    // Chỉ hiển thị 3 sản phẩm đầu tiên
+    const items = data.items.slice(0, 3);
 
-    console.log(`✅ Đã render ${data.items.length} sản phẩm bán chạy`);
+    // Render sản phẩm
+    bestProductsEl.innerHTML = items.map(productCard).join('');
+
+    console.log(`✅ Đã render ${items.length} sản phẩm bán chạy`);
+
 
   } catch (error) {
     console.error('❌ Lỗi load bestsellers:', error);
@@ -208,7 +212,7 @@ async function loadNewest() {
       </div>
     `;
 
-    const data = await api('/products/newest?limit=8');
+        const data = await api('/products/newest?limit=8');
 
     if (!data || !data.ok || !data.items || data.items.length === 0) {
       console.log('ℹ️ Không có sản phẩm mới');
@@ -218,10 +222,14 @@ async function loadNewest() {
       return;
     }
 
-    // Render sản phẩm
-    newProductsEl.innerHTML = data.items.map(productCard).join('');
+    // Chỉ hiển thị 3 sản phẩm đầu tiên
+    const items = data.items.slice(0, 3);
 
-    console.log(`✅ Đã render ${data.items.length} sản phẩm mới`);
+    // Render sản phẩm
+    newProductsEl.innerHTML = items.map(productCard).join('');
+
+    console.log(`✅ Đã render ${items.length} sản phẩm mới`);
+
 
   } catch (error) {
     console.error('❌ Lỗi load newest products:', error);
