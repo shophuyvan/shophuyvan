@@ -206,6 +206,12 @@ function cardFlash(p) {
 // ===================================================================
 async function loadBestsellers() {
   if (!bestWrap) return;
+
+  // ✅ Nếu đã có .shv-product-card (render bởi top-products-home.js) thì bỏ qua
+  if (bestWrap.querySelector('.shv-product-card')) {
+    console.log('[BESTSELLERS] Skip: already rendered by top-products-home.js');
+    return;
+  }
   
   try {
     let data = await api('/products/bestsellers?limit=8');
@@ -430,6 +436,13 @@ async function loadCategories(){
 // New arrivals (newest products)
 async function loadNew() {
   if (!newWrap) return;
+
+  // ✅ Nếu đã có .shv-product-card (render bởi top-products-home.js) thì bỏ qua
+  if (newWrap.querySelector('.shv-product-card')) {
+    console.log('[NEWEST] Skip: already rendered by top-products-home.js');
+    return;
+  }
+
   try {
     let data = await api('/products/newest?limit=8');
     let items = (data.items || data.products || data.data || []);
