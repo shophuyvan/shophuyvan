@@ -427,6 +427,8 @@ footer iframe {
   text-decoration: none;
   color: inherit;
   position: relative;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .product-card-horizontal:hover {

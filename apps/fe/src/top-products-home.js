@@ -65,7 +65,7 @@ function productCard(p) {
   return `
   <a class="product-card-horizontal" href="/product?id=${encodeURIComponent(p.id)}">
     ${soldBadge}
-    <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
+    <div class="aspect-square bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
     <div class="p-2.5">

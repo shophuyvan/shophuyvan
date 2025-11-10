@@ -102,7 +102,7 @@ function flashCard(p, discountType, discountValue) {
       ⚡ FLASH SALE
     </div>
     
-    <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
+    <div class="aspect-square bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
     
