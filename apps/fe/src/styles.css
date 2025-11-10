@@ -416,6 +416,89 @@ footer iframe {
   }
 }
 
+/* ===== PRODUCT CARD HORIZONTAL ===== */
+.product-card-horizontal {
+  display: block;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+
+.product-card-horizontal:hover {
+  border-color: #0ea5e9;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+}
+
+.product-card-horizontal img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: #f9fafb;
+  transition: transform 0.3s ease;
+}
+
+.product-card-horizontal:hover img {
+  transform: scale(1.05);
+}
+
+/* ===== HORIZONTAL SCROLL SECTIONS ===== */
+.horizontal-scroll-wrapper {
+  position: relative;
+  margin: 0 -12px;
+  padding: 0 12px;
+}
+
+.horizontal-scroll-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 8px;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-scroll-container > * {
+  flex: 0 0 auto;
+  width: 160px;
+  scroll-snap-align: start;
+}
+
+/* Tablet: Card rộng hơn */
+@media (min-width: 640px) {
+  .horizontal-scroll-container > * {
+    width: 180px;
+  }
+}
+
+/* Desktop: Card rộng nhất */
+@media (min-width: 1024px) {
+  .horizontal-scroll-container > * {
+    width: 220px;
+  }
+  
+  .horizontal-scroll-wrapper {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  
+  .horizontal-scroll-container {
+    gap: 16px;
+  }
+}
+
 /* ===== UTILITIES ===== */
 .line-clamp-2 {
   display: -webkit-box;

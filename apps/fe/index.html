@@ -163,31 +163,37 @@
 
   <!-- FLASH SALE -->
 <section class="section mt-6 max-w-7xl mx-auto px-3 md:px-4">
-  <div class="section-head flex items-center justify-between">
+  <div class="section-head flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold inline-flex items-center gap-2">⚡ Flash Sale
       <span id="flash-countdown" class="text-sm font-normal text-gray-600"></span>
     </h2>
-    <a href="#all" class="section-more text-sm text-blue-600">Xem tất cả →</a>
+    <a href="#all" class="section-more text-sm text-blue-600 hover:underline">Xem tất cả →</a>
   </div>
-  <div id="flash-products" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"></div>
+  <div class="horizontal-scroll-wrapper">
+    <div id="flash-products" class="horizontal-scroll-container"></div>
+  </div>
 </section>
 
 <!-- SẢN PHẨM BÁN CHẠY -->
 <section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
-  <div class="section-head flex items-center justify-between">
+  <div class="section-head flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold">🔥 Bán chạy</h2>
-    <a href="/collections/bestsellers" class="section-more text-sm text-blue-600">Xem thêm →</a>
+    <a href="/collections/bestsellers" class="section-more text-sm text-blue-600 hover:underline">Xem thêm →</a>
   </div>
-  <div id="best-products" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"></div>
+  <div class="horizontal-scroll-wrapper">
+    <div id="best-products" class="horizontal-scroll-container"></div>
+  </div>
 </section>
 
 <!-- HÀNG MỚI RA MẮT -->
 <section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
-  <div class="section-head flex items-center justify-between">
+  <div class="section-head flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold">🆕 Hàng mới ra mắt</h2>
-    <a href="/collections/new" class="section-more text-sm text-blue-600">Xem thêm →</a>
+    <a href="/collections/new" class="section-more text-sm text-blue-600 hover:underline">Xem thêm →</a>
   </div>
-  <div id="new-products" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"></div>
+  <div class="horizontal-scroll-wrapper">
+    <div id="new-products" class="horizontal-scroll-container"></div>
+  </div>
 </section>
 
 <!-- TẤT CẢ SẢN PHẨM (đang có sẵn) -->

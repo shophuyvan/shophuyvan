@@ -63,13 +63,13 @@ function productCard(p) {
     : '';
 
   return `
-  <a class="block rounded-lg border hover:shadow transition bg-white relative" href="/product?id=${encodeURIComponent(p.id)}">
+  <a class="product-card-horizontal" href="/product?id=${encodeURIComponent(p.id)}">
     ${soldBadge}
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
-    <div class="p-3">
-      <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
+    <div class="p-2.5">
+      <div class="text-xs sm:text-sm h-9 line-clamp-2">${p.name || 'Sản phẩm'}</div>
       ${priceHtml}
     </div>
   </a>`;

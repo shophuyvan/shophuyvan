@@ -173,20 +173,32 @@ export default function Checkout() {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
 
-  // subtotal = Σ (price * qty) — chỉ theo dòng đã chọn
+    // subtotal = Σ (price * qty)
+  // ✅ ƯU TIÊN các dòng được chọn, nếu không có thì fallback toàn bộ giỏ (st.lines)
   const subtotal = useMemo(
-    () => (Array.isArray(selectedLines) ? selectedLines : []).reduce(
-      (s: number, it: any) => s + Number(it.price || 0) * Number(it.qty || 1),
-      0
-    ),
-    [selectedLines]
+    () => {
+      const src = Array.isArray(selectedLines) && selectedLines.length > 0
+        ? selectedLines
+        : (st.lines || []);
+
+      return (Array.isArray(src) ? src : []).reduce(
+        (s: number, it: any) => s + Number(it.price || 0) * Number(it.qty || 1),
+        0
+      );
+    },
+    [selectedLines, st.lines]
   );
+
 
 // totalWeightGram = Σ ( (weight_gram || weight_grams || weight || variant.weight_gram) * qty )
 // Nếu item không có cân nặng => tính 0 cho item đó (đúng yêu cầu "không fallback").
+// ✅ ƯU TIÊN dòng được chọn, fallback toàn bộ giỏ khi chưa có selectedLines
 const totalWeightGram = useMemo(() => {
-  const src = Array.isArray(selectedLines) ? selectedLines : [];
-  return src.reduce((sum: number, it: any) => {
+  const src = Array.isArray(selectedLines) && selectedLines.length > 0
+    ? selectedLines
+    : (st.lines || []);
+
+  return (Array.isArray(src) ? src : []).reduce((sum: number, it: any) => {
     const w = Number(
       it.weight_gram ??
       it.weight_grams ??
@@ -197,7 +209,8 @@ const totalWeightGram = useMemo(() => {
     const q = Number(it.qty || 1);
     return sum + (w > 0 ? w * q : 0);
   }, 0);
-}, [selectedLines]);
+}, [selectedLines, st.lines]);
+
 
 // Nếu thiếu cân nặng ở cart → hỏi server để lấy total_gram thật
 const [weightOverride, setWeightOverride] = useState<number | null>(null);

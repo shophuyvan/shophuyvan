@@ -96,7 +96,7 @@ function flashCard(p, discountType, discountValue) {
     : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
 
   return `
-  <a class="block rounded-lg border hover:shadow-lg transition bg-white relative overflow-hidden" href="/product?id=${encodeURIComponent(p.id)}">
+  <a class="product-card-horizontal" href="/product?id=${encodeURIComponent(p.id)}">
     <!-- Flash Sale Badge -->
     <div class="absolute top-2 left-2 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-lg">
       ⚡ FLASH SALE
@@ -106,8 +106,8 @@ function flashCard(p, discountType, discountValue) {
       <img loading="lazy" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
     </div>
     
-    <div class="p-3">
-      <div class="text-sm h-10 line-clamp-2 mb-2">${p.name || 'Sản phẩm'}</div>
+    <div class="p-2.5">
+      <div class="text-xs sm:text-sm h-9 line-clamp-2 mb-1.5">${p.name || 'Sản phẩm'}</div>
       ${priceHtml}
     </div>
   </a>`;
