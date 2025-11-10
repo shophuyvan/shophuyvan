@@ -4,9 +4,15 @@
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+// Đánh dấu đã dùng component Top Products v2
+if (typeof window !== 'undefined') {
+  window.__SHV_TOP_PRODUCTS_V2__ = true;
+}
+
 // ==========================================
 // STYLE INJECTOR CHO CAROUSEL TOP PRODUCTS
 // ==========================================
+
 (function ensureTopProductsStyles() {
   if (document.getElementById('shv-scroll-fix')) return;
 

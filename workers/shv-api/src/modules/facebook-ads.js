@@ -16,6 +16,38 @@ export async function handle(req, env, ctx) {
 
   // ===== ADMIN ROUTES =====
   
+  // THÊM MỚI: Dashboard Analytics
+  if (path === '/admin/facebook/dashboard/analytics' && method === 'GET') {
+    return getDashboardAnalytics(req, env);
+  }
+
+  // THÊM MỚI: Export PDF
+  if (path === '/admin/facebook/dashboard/export/pdf' && method === 'POST') {
+    return exportDashboardPDF(req, env);
+  }
+
+  // THÊM MỚI: Auto Post to Fanpage
+  if (path === '/admin/facebook/posts' && method === 'POST') {
+    return createFanpagePost(req, env);
+  }
+
+  // THÊM MỚI: Create A/B Test Campaign
+  if (path === '/admin/facebook/campaigns/ab-test' && method === 'POST') {
+    return createABTest(req, env);
+  }
+
+  // THÊM MỚI: Get A/B Test Results (Dashboard)
+  if (path.match(/^\/admin\/facebook\/ab-test\/([^\/]+)\/results$/) && method === 'GET') {
+    const adSetId = path.match(/^\/admin\/facebook\/ab-test\/([^\/]+)\/results$/)[1];
+    return getABTestResults(req, env, adSetId);
+  }
+
+  // THÊM MỚI: Optimize A/B Test (Cron Job)
+  if (path.match(/^\/admin\/facebook\/ab-test\/([^\/]+)\/optimize$/) && method === 'POST') {
+    const adSetId = path.match(/^\/admin\/facebook\/ab-test\/([^\/]+)\/optimize$/)[1];
+    return optimizeABTest(req, env, adSetId);
+  }
+
   // Test connection
   if (path === '/admin/facebook/test' && method === 'GET') {
     return testFacebookConnection(req, env);
@@ -92,9 +124,9 @@ async function getFBCredentials(env) {
 }
 
 /**
- * Call Facebook Graph API
+ * Call Facebook Graph API with retry logic
  */
-async function callFacebookAPI(endpoint, method = 'GET', body = null, accessToken) {
+async function callFacebookAPI(endpoint, method = 'GET', body = null, accessToken, retries = 3) {
   const url = `https://graph.facebook.com/v19.0/${endpoint}`;
   
   const options = {
@@ -108,15 +140,48 @@ async function callFacebookAPI(endpoint, method = 'GET', body = null, accessToke
     if (method === 'GET') {
       const params = new URLSearchParams(body);
       const fullUrl = `${url}?${params.toString()}`;
-      const response = await fetch(fullUrl, options);
-      return await response.json();
+      
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(fullUrl, options);
+          const data = await response.json();
+          
+          // Kiểm tra rate limit error
+          if (data.error && data.error.code === 80004) {
+            console.warn(`[FB API] Rate limit hit, retry ${i + 1}/${retries}`);
+            await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000)); // Exponential backoff
+            continue;
+          }
+          
+          return data;
+        } catch (e) {
+          if (i === retries - 1) throw e;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     } else {
       options.body = JSON.stringify(body);
     }
   }
 
-  const response = await fetch(url, options);
-  return await response.json();
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      
+      // Kiểm tra rate limit error
+      if (data.error && data.error.code === 80004) {
+        console.warn(`[FB API] Rate limit hit, retry ${i + 1}/${retries}`);
+        await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
+        continue;
+      }
+      
+      return data;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
 }
 
 // ===================================================================
@@ -210,6 +275,411 @@ async function listCampaigns(req, env) {
 }
 
 // ===================================================================
+// THÊM MỚI: TÍNH NĂNG 1: AUTO POST TO FANPAGE
+
+async function createFanpagePost(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await req.json();
+    const {
+      product_id,
+      caption,
+      post_type = 'single_image',
+      cta = 'SHOP_NOW'
+    } = body;
+
+    if (!product_id || !caption) {
+      return errorResponse('Thiếu product_id hoặc caption', 400, req);
+    }
+
+    const creds = await getFBCredentials(env);
+    if (!creds || !creds.page_id) {
+      return errorResponse('Chưa cấu hình Page ID', 400, req);
+    }
+
+    const product = await getJSON(env, `product:${product_id}`, null);
+    if (!product) {
+      return errorResponse('Không tìm thấy sản phẩm', 404, req);
+    }
+
+    const productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
+    let apiBody = {
+      message: caption,
+      call_to_action: {
+        type: cta,
+        value: { link: productUrl }
+      },
+      published: false, // <-- Quan trọng: Tạo Dark Post
+      access_token: creds.access_token
+    };
+
+    if (post_type === 'carousel' && product.images && product.images.length > 1) {
+      // Để làm đúng, bạn cần:
+      // 1. Upload từng ảnh (POST /{page-id}/photos, published=false) để lấy ID
+      // 2. Gắn các ID đó vào attached_media
+      
+      // Ví dụ đơn giản hóa dùng child_attachments:
+      apiBody.child_attachments = product.images.slice(0, 5).map(imgUrl => ({
+        link: productUrl,
+        image_url: imgUrl,
+        name: product.name,
+        call_to_action: {
+          type: cta,
+          value: { link: productUrl }
+        }
+      }));
+      // Xóa link đính kèm chính
+      delete apiBody.call_to_action;
+      apiBody.link = productUrl; // Link chính cho carousel
+
+    } else {
+      // Single Image
+      apiBody.link = productUrl;
+      // Lấy ảnh đầu tiên, nếu không có thì dùng ảnh rỗng
+      const imageUrl = (product.images && product.images.length > 0) ? product.images[0] : 'https://shophuyvan.vn/placeholder.jpg';
+      apiBody.image_url = imageUrl;
+    }
+
+    const result = await callFacebookAPI(
+      `${creds.page_id}/feed`, // Dùng /feed
+      'POST',
+      apiBody,
+      creds.access_token
+    );
+
+    if (result.error) {
+      return errorResponse(result.error, 400, req);
+    }
+
+    return json({
+      ok: true,
+      message: 'Tạo dark post thành công!',
+      post_id: result.id // Đây là post_id bạn cần
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Ads] Create post error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// THÊM MỚI: TÍNH NĂNG 2: A/B TESTING
+// ===================================================================
+
+async function createABTest(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await req.json();
+    const {
+      name,
+      daily_budget,
+      product_id,
+      variants = [] // [{ image_url, caption }, { image_url, caption }]
+    } = body;
+
+    if (!name || !daily_budget || !product_id || variants.length === 0) {
+      return errorResponse('Thiếu thông tin A/B Test', 400, req);
+    }
+    
+    const creds = await getFBCredentials(env);
+    if (!creds) return errorResponse('Chưa cấu hình credentials', 400, req);
+    
+    const product = await getJSON(env, `product:${product_id}`, null);
+    if (!product) return errorResponse('Không tìm thấy sản phẩm', 404, req);
+
+    // 1. Tạo Campaign
+    const campaignResult = await callFacebookAPI(
+      `${creds.ad_account_id}/campaigns`, 'POST', {
+        name: name,
+        objective: 'OUTCOME_SALES',
+        status: 'PAUSED',
+        special_ad_categories: [],
+        daily_budget: Math.round(daily_budget * 100),
+        access_token: creds.access_token
+      }, creds.access_token);
+    if (campaignResult.error) return errorResponse(campaignResult.error, 400, req);
+    const campaignId = campaignResult.id;
+
+    // 2. Tạo Ad Set
+    const adSetResult = await callFacebookAPI(
+      `${creds.ad_account_id}/adsets`, 'POST', {
+        name: `${name} - A/B Test Ad Set`,
+        campaign_id: campaignId,
+        daily_budget: Math.round(daily_budget * 100),
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        status: 'PAUSED',
+        targeting: {
+          geo_locations: { countries: ['VN'] },
+          age_min: 18,
+          age_max: 65,
+        },
+        access_token: creds.access_token
+      }, creds.access_token);
+    if (adSetResult.error) return errorResponse(adSetResult.error, 400, req);
+    const adSetId = adSetResult.id;
+
+    // 3. Tạo Ad Creatives & Ads cho từng Variant
+    const productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
+    const adsCreated = [];
+
+    for (const [index, variant] of variants.entries()) {
+      try {
+        const creativeName = `${name} - Creative ${String.fromCharCode(65 + index)}`; // A, B, C...
+        
+        // 3a. Tạo Ad Creative
+        const creativeResult = await callFacebookAPI(
+          `${creds.ad_account_id}/adcreatives`, 'POST', {
+            name: creativeName,
+            object_story_spec: {
+              page_id: creds.page_id,
+              link_data: {
+                link: productUrl,
+                message: variant.caption,
+                name: product.name,
+                image_url: variant.image_url,
+                call_to_action: { type: 'SHOP_NOW' }
+              }
+            },
+            access_token: creds.access_token
+          }, creds.access_token);
+        if (creativeResult.error) throw new Error(JSON.stringify(creativeResult.error));
+        
+        // 3b. Tạo Ad
+        const adResult = await callFacebookAPI(
+          `${creds.ad_account_id}/ads`, 'POST', {
+            name: `Ad ${String.fromCharCode(65 + index)}`,
+            adset_id: adSetId,
+            creative: { creative_id: creativeResult.id },
+            status: 'ACTIVE', // Bật Ad
+            access_token: creds.access_token
+          }, creds.access_token);
+        if (adResult.error) throw new Error(JSON.stringify(adResult.error));
+        
+        adsCreated.push({ id: adResult.id, name: creativeName });
+      } catch (e) {
+        console.error(`[FB Ads] Lỗi tạo Variant ${index}:`, e.message);
+      }
+    }
+
+    // 4. Bật Ad Set và Campaign
+    await callFacebookAPI(adSetId, 'POST', { status: 'ACTIVE', access_token: creds.access_token }, creds.access_token);
+    await callFacebookAPI(campaignId, 'POST', { status: 'ACTIVE', access_token: creds.access_token }, creds.access_token);
+
+    return json({
+      ok: true,
+      message: `Đã tạo A/B test với ${adsCreated.length} variants.`,
+      campaign_id: campaignId,
+      ad_set_id: adSetId,
+      ads: adsCreated
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Ads] Create A/B test error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// THÊM MỚI: TÍNH NĂNG 3: PERFORMANCE DASHBOARD
+// ===================================================================
+
+async function getABTestResults(req, env, adSetId) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const creds = await getFBCredentials(env);
+    if (!creds) return errorResponse('Chưa cấu hình credentials', 400, req);
+
+    // Lấy insights, chia nhỏ theo ad_id
+    const result = await callFacebookAPI(
+      `${adSetId}/insights`,
+      'GET',
+      {
+        fields: 'ad_id,ad_name,impressions,clicks,spend,ctr,cpc',
+        breakdowns: 'ad_id', // <-- Quan trọng
+        date_preset: 'last_7d',
+        access_token: creds.access_token
+      },
+      creds.access_token
+    );
+
+    if (result.error) {
+      return errorResponse(result.error, 400, req);
+    }
+    
+    // Lấy status của từng Ad
+    const adsResult = await callFacebookAPI(
+      `${adSetId}/ads`,
+      'GET',
+      {
+        fields: 'id,status',
+        access_token: creds.access_token
+      },
+      creds.access_token
+    );
+    
+    const adStatuses = {};
+    if (adsResult.data) {
+      for (const ad of adsResult.data) {
+        adStatuses[ad.id] = ad.status;
+      }
+    }
+
+    const stats = (result.data || []).map(adStat => ({
+      creative: adStat.ad_name,
+      ad_id: adStat.ad_id,
+      impressions: parseInt(adStat.impressions || 0),
+      clicks: parseInt(adStat.clicks || 0),
+      ctr: parseFloat(adStat.ctr || 0).toFixed(2),
+      cpc: parseFloat(adStat.cpc || 0).toFixed(2),
+      status: adStatuses[adStat.ad_id] || 'N/A'
+    }));
+
+    return json({
+      ok: true,
+      results: stats
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Ads] Get A/B results error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// THÊM MỚI: TỐI ƯU A/B TEST (LOGIC CHO CRON)
+// ===================================================================
+
+async function optimizeABTest(req, env, adSetId) {
+  // (Đây là hàm logic, bạn cần một Cron Job để gọi nó)
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+  
+  try {
+    const creds = await getFBCredentials(env);
+    if (!creds) return errorResponse('Chưa cấu hình credentials', 400, req);
+
+    // 1. Lấy kết quả
+    const resultsResponse = await getABTestResults(req, env, adSetId);
+    if (!resultsResponse.ok) {
+        // Nếu getABTestResults trả về Response object, cần đọc JSON
+        const errorData = await resultsResponse.json();
+        return errorResponse(errorData.error || 'Failed to get results', resultsResponse.status, req);
+    }
+    
+    // Nếu getABTestResults trả về JSON (do dùng hàm json()), thì data nằm trong .results
+    // Giả sử getABTestResults trả về Response, ta cần parse nó
+    // --> Sửa: Hàm getABTestResults dùng `json()` nên nó trả về Response.
+    // --> Ta cần gọi nội bộ hàm logic thay vì gọi qua fetch.
+    
+    // Gọi hàm nội bộ để lấy data, không phải response
+    const resultsData = await getABTestResultsInternal(req, env, adSetId);
+    if (!resultsData.ok) {
+        return errorResponse(resultsData.error, 400, req);
+    }
+
+    const stats = resultsData.results;
+    if (stats.length === 0) {
+      return errorResponse('Không có dữ liệu stats', 404, req);
+    }
+
+    // 2. Tìm variant tốt nhất (ví dụ: CTR cao nhất)
+    let winner = stats[0];
+    for (const adStat of stats) {
+      if (parseFloat(adStat.ctr) > parseFloat(winner.ctr)) {
+        winner = adStat;
+      }
+    }
+    
+    // 3. Tắt các variant kém
+    const actions = [];
+    for (const adStat of stats) {
+      if (adStat.ad_id !== winner.ad_id && adStat.status === 'ACTIVE') {
+        // Tắt Ad này
+        const pauseResult = await callFacebookAPI(
+          adStat.ad_id, 'POST',
+          { status: 'PAUSED', access_token: creds.access_token },
+          creds.access_token
+        );
+        actions.push({ ad: adStat.creative, action: 'PAUSED', ok: pauseResult.success });
+      } else if (adStat.ad_id === winner.ad_id) {
+         actions.push({ ad: adStat.creative, action: 'KEEP', ok: true });
+      } else {
+         actions.push({ ad: adStat.creative, action: 'IGNORED', ok: true, status: adStat.status });
+      }
+    }
+    
+    return json({
+      ok: true,
+      message: `Đã tối ưu A/B test. Winner: ${winner.creative}`,
+      winner_ad_id: winner.ad_id,
+      actions: actions
+    }, {}, req);
+    
+  } catch (e) {
+    console.error('[FB Ads] Optimize A/B test error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// Hàm nội bộ để optimizeABTest gọi, tránh lỗi response
+async function getABTestResultsInternal(req, env, adSetId) {
+  try {
+    const creds = await getFBCredentials(env);
+    if (!creds) return { ok: false, error: 'Chưa cấu hình credentials' };
+    
+    const result = await callFacebookAPI(`${adSetId}/insights`, 'GET', {
+        fields: 'ad_id,ad_name,impressions,clicks,spend,ctr,cpc',
+        breakdowns: 'ad_id',
+        date_preset: 'last_7d',
+        access_token: creds.access_token
+    }, creds.access_token);
+    if (result.error) return { ok: false, error: result.error };
+
+    const adsResult = await callFacebookAPI(`${adSetId}/ads`, 'GET', {
+        fields: 'id,status',
+        access_token: creds.access_token
+    }, creds.access_token);
+    
+    const adStatuses = {};
+    if (adsResult.data) {
+      for (const ad of adsResult.data) {
+        adStatuses[ad.id] = ad.status;
+      }
+    }
+    
+    const stats = (result.data || []).map(adStat => ({
+      creative: adStat.ad_name,
+      ad_id: adStat.ad_id,
+      impressions: parseInt(adStat.impressions || 0),
+      clicks: parseInt(adStat.clicks || 0),
+      ctr: parseFloat(adStat.ctr || 0).toFixed(2),
+      cpc: parseFloat(adStat.cpc || 0).toFixed(2),
+      status: adStatuses[adStat.ad_id] || 'N/A'
+    }));
+    
+    return { ok: true, results: stats };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ===================================================================
+// CREATE CAMPAIGN (Hàm cũ của bạn)
+// ===================================================================
+
+// ===================================================================
 // CREATE CAMPAIGN
 // ===================================================================
 
@@ -228,10 +698,32 @@ async function createCampaign(req, env) {
       targeting = {}
     } = body;
 
-    if (!name || !daily_budget) {
+    // Validation đầy đủ
+    if (!name || name.length < 3) {
       return json({
         ok: false,
-        error: 'Thiếu tên campaign hoặc ngân sách'
+        error: 'Tên campaign phải có ít nhất 3 ký tự'
+      }, { status: 400 }, req);
+    }
+
+    if (!daily_budget || daily_budget < 50000) {
+      return json({
+        ok: false,
+        error: 'Ngân sách tối thiểu 50,000 VNĐ'
+      }, { status: 400 }, req);
+    }
+
+    if (product_ids.length === 0) {
+      return json({
+        ok: false,
+        error: 'Vui lòng chọn ít nhất 1 sản phẩm'
+      }, { status: 400 }, req);
+    }
+
+    if (product_ids.length > 10) {
+      return json({
+        ok: false,
+        error: 'Chỉ được chọn tối đa 10 sản phẩm'
       }, { status: 400 }, req);
     }
 
@@ -367,8 +859,8 @@ async function createAdForProduct(env, creds, adSetId, product) {
     const image = (product.images && product.images[0]) || '';
     const productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
 
-    // Format price
-    const price = product.price || product.price_sale || 0;
+    // Format price - LƯU Ý: Giá chỉ có trong variants, không có ở product
+    const price = (product.variants && product.variants[0] && product.variants[0].price) || 0;
     const priceStr = new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND'
@@ -582,6 +1074,159 @@ async function deleteCampaign(req, env, campaignId) {
 
   } catch (e) {
     console.error('[FB Ads] Delete campaign error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// DASHBOARD ANALYTICS
+// ===================================================================
+
+async function getDashboardAnalytics(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const creds = await getFBCredentials(env);
+    if (!creds || !creds.access_token) {
+      return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
+    }
+
+    // Get all campaigns
+    const campaignsResult = await callFacebookAPI(
+      `${creds.ad_account_id}/campaigns`,
+      'GET',
+      {
+        fields: 'id,name,status,objective,daily_budget',
+        access_token: creds.access_token
+      },
+      creds.access_token
+    );
+
+    if (campaignsResult.error) {
+      return json({ ok: false, error: campaignsResult.error }, { status: 400 }, req);
+    }
+
+    const campaigns = campaignsResult.data || [];
+    
+    // Get insights for each campaign
+    const enrichedCampaigns = [];
+    let totalSpend = 0;
+    let totalImpressions = 0;
+    let totalClicks = 0;
+    let totalConversions = 0;
+
+    for (const campaign of campaigns) {
+      try {
+        const insightsResult = await callFacebookAPI(
+          `${campaign.id}/insights`,
+          'GET',
+          {
+            fields: 'impressions,clicks,spend,ctr,cpc,actions',
+            date_preset: 'last_7d',
+            access_token: creds.access_token
+          },
+          creds.access_token
+        );
+
+        const insights = insightsResult.data && insightsResult.data[0] ? insightsResult.data[0] : {};
+        
+        const spend = parseFloat(insights.spend || 0);
+        const impressions = parseInt(insights.impressions || 0);
+        const clicks = parseInt(insights.clicks || 0);
+        const ctr = parseFloat(insights.ctr || 0);
+        const cpc = parseFloat(insights.cpc || 0);
+        const conversions = insights.actions 
+          ? (insights.actions.find(a => a.action_type === 'offsite_conversion')?.value || 0)
+          : 0;
+
+        enrichedCampaigns.push({
+          id: campaign.id,
+          name: campaign.name,
+          status: campaign.status,
+          spend,
+          impressions,
+          clicks,
+          ctr,
+          cpc,
+          conversions: parseInt(conversions)
+        });
+
+        totalSpend += spend;
+        totalImpressions += impressions;
+        totalClicks += clicks;
+        totalConversions += parseInt(conversions);
+      } catch (e) {
+        console.error(`[Dashboard] Error getting insights for campaign ${campaign.id}:`, e);
+      }
+    }
+
+    // Calculate totals
+    const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
+    const avgCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
+
+    // Generate alerts
+    const alerts = [];
+    enrichedCampaigns.forEach(c => {
+      if (c.cpc > 50000 && c.clicks > 10) {
+        alerts.push({
+          type: 'warning',
+          message: `Campaign "${c.name}" có CPC cao: ${c.cpc.toLocaleString('vi-VN')} VNĐ`,
+          timestamp: new Date().toISOString(),
+          campaign_id: c.id
+        });
+      }
+      if (c.ctr < 1.0 && c.impressions > 1000) {
+        alerts.push({
+          type: 'danger',
+          message: `Campaign "${c.name}" có CTR thấp: ${c.ctr.toFixed(2)}%`,
+          timestamp: new Date().toISOString(),
+          campaign_id: c.id
+        });
+      }
+    });
+
+    return json({
+      ok: true,
+      data: {
+        campaigns: enrichedCampaigns,
+        totals: {
+          spend: totalSpend,
+          impressions: totalImpressions,
+          clicks: totalClicks,
+          ctr: avgCtr,
+          cpc: avgCpc,
+          conversions: totalConversions
+        },
+        alerts: alerts,
+        generated_at: new Date().toISOString()
+      }
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Dashboard] Get analytics error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+async function exportDashboardPDF(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    // TODO: Implement PDF generation (use jsPDF or server-side library)
+    // For now, return a placeholder response
+    
+    return json({
+      ok: true,
+      message: 'PDF export chưa được triển khai',
+      url: null
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[Dashboard] Export PDF error:', e);
     return errorResponse(e, 500, req);
   }
 }

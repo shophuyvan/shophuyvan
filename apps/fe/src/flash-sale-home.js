@@ -4,9 +4,15 @@
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
+// Đánh dấu đã dùng phiên bản Flash Sale v2 (để frontend.js bỏ qua loader cũ)
+if (typeof window !== 'undefined') {
+  window.__SHV_FLASH_SALE_V2__ = true;
+}
+
 // ==========================================
 // CLOUDIFY HELPER (giống ui-home.js)
 // ==========================================
+
 const noImage = encodeURI(`
   data:image/svg+xml;utf8,
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 380'>

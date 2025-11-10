@@ -70,9 +70,16 @@ let allCache = [];
 // ===================================================================
 async function loadFlashSale() {
   if (!flashWrap) return;
+
+  // Nếu đã có module flash-sale-home.js thì bỏ qua loader cũ
+  if (window.__SHV_FLASH_SALE_V2__) {
+    console.log('[FLASH SALE] Skip: handled by flash-sale-home.js');
+    return;
+  }
   
   try {
     const data = await api('/flash-sales/active');
+
     const fs = data?.flash_sale;
     
     if (!fs || !fs.products || fs.products.length === 0) {
@@ -207,11 +214,18 @@ function cardFlash(p) {
 async function loadBestsellers() {
   if (!bestWrap) return;
 
+  // Nếu top-products-home.js đã đăng ký thì bỏ qua hoàn toàn
+  if (window.__SHV_TOP_PRODUCTS_V2__) {
+    console.log('[BESTSELLERS] Skip: handled by top-products-home.js');
+    return;
+  }
+
   // ✅ Nếu đã có .shv-product-card (render bởi top-products-home.js) thì bỏ qua
   if (bestWrap.querySelector('.shv-product-card')) {
     console.log('[BESTSELLERS] Skip: already rendered by top-products-home.js');
     return;
   }
+
   
   try {
     let data = await api('/products/bestsellers?limit=8');
@@ -437,11 +451,18 @@ async function loadCategories(){
 async function loadNew() {
   if (!newWrap) return;
 
+  // Nếu top-products-home.js đã đăng ký thì bỏ qua hoàn toàn
+  if (window.__SHV_TOP_PRODUCTS_V2__) {
+    console.log('[NEWEST] Skip: handled by top-products-home.js');
+    return;
+  }
+
   // ✅ Nếu đã có .shv-product-card (render bởi top-products-home.js) thì bỏ qua
   if (newWrap.querySelector('.shv-product-card')) {
     console.log('[NEWEST] Skip: already rendered by top-products-home.js');
     return;
   }
+
 
   try {
     let data = await api('/products/newest?limit=8');

@@ -5,8 +5,10 @@
   <meta name='viewport' content='width=device-width,initial-scale=1'/>
   <title>Quảng cáo Facebook</title>
   <link rel="stylesheet" href="./styles.css"/>
+  <link rel="stylesheet" href="./ads-analytics-ui.css?v=1"/>
   <script src="./admin_real.js?v=25"></script>
   <script src="./ads_real.js?v=1"></script>
+  <script src="./ads-dashboard.js?v=1"></script>
   <style>
     .tabs { display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--border); }
     .tab { padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent; font-weight:500; }
@@ -47,13 +49,23 @@
 
   <!-- Tabs -->
   <div class="tabs">
-    <div class="tab active" data-tab="campaigns">📊 Campaigns</div>
+    <div class="tab active" data-tab="dashboard">📈 Dashboard</div>
+    <div class="tab" data-tab="campaigns">📊 Campaigns</div>
     <div class="tab" data-tab="create">➕ Tạo mới</div>
+    <div class="tab" data-tab="autopost">📝 Đăng bài Fanpage</div>
+    <div class="tab" data-tab="abtest">🧪 A/B Testing</div>
     <div class="tab" data-tab="settings">⚙️ Cài đặt</div>
   </div>
 
+  <!-- Tab: Dashboard Analytics -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div id="dashboardContainer" class="dashboard-loading">
+      Đang tải dashboard...
+    </div>
+  </div>
+
   <!-- Tab: Campaigns List -->
-  <div id="tab-campaigns" class="tab-content active">
+  <div id="tab-campaigns" class="tab-content">
     <div class="toolbar">
       <button id="btnRefreshCampaigns" class="btn primary">🔄 Làm mới</button>
       <button id="btnTestConnection" class="btn">🔗 Test kết nối</button>
@@ -63,6 +75,95 @@
 
   <!-- Tab: Create Campaign -->
   <div id="tab-create" class="tab-content">
+    </div>
+
+  <div id="tab-autopost" class="tab-content">
+    <div class="card">
+      <h3>Tạo bài đăng Fanpage (Dark Post)</h3>
+      <p class="hint">Tạo một bài đăng ẩn để dùng cho quảng cáo.</p>
+      
+      <label>Chọn 1 sản phẩm để lấy thông tin</label>
+      <div id="postProductSelector" class="product-selector" style="max-height: 200px;">
+        <div class="loading">Đang tải sản phẩm...</div>
+      </div>
+      
+      <label>Nội dung Caption (AI sẽ tự động điền vào đây)</label>
+      <textarea id="postCaption" class="input" rows="5" placeholder="Nội dung bài đăng..."></textarea>
+      
+      <label>Loại bài đăng</label>
+      <select id="postType" class="input">
+        <option value="single_image">1 ảnh (lấy ảnh đầu tiên của SP)</option>
+        <option value="carousel">Carousel (lấy 3 ảnh đầu của SP)</option>
+      </select>
+      
+      <label>Call-to-Action</label>
+      <select id="postCTA" class="input">
+        <option value="SHOP_NOW">Mua ngay</option>
+        <option value="LEARN_MORE">Tìm hiểu thêm</option>
+        <option value="MESSAGE_PAGE">Gửi tin nhắn</option>
+      </select>
+      
+      <button id="btnCreatePost" class="btn primary" style="margin-top:16px; width:100%;">🚀 Đăng (Dark Post)</button>
+      
+      <div id="postResult" style="margin-top: 16px; display: none;">
+        <label>Post ID (dùng để tạo Ads):</label>
+        <input id="postResultId" class="input" readonly/>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-abtest" class="tab-content">
+    <div class="row">
+      <div class="col" style="flex: 1.5;">
+        <div class="card">
+          <h3>Tạo A/B Test mới</h3>
+          <label>Tên A/B Test Campaign *</label>
+          <input id="abTestName" class="input" placeholder="VD: Test Ke Góc Tam Giác"/>
+          
+          <label>Ngân sách hàng ngày (VNĐ) *</label>
+          <input id="abTestBudget" type="number" class="input" value="100000"/>
+          
+          <label>Chọn 1 sản phẩm để test</label>
+          <div id="abTestProductSelector" class="product-selector" style="max-height: 200px;">
+            <div class="loading">Đang tải sản phẩm...</div>
+          </div>
+          
+          <hr/>
+          <h4>Các biến thể (Creatives)</h4>
+          
+          <div class="variant-card" style="border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:12px;">
+            <label><strong>Creative A (Ảnh 1 + Caption ngắn)</strong></label>
+            <input id="abTestImageA" class="input" placeholder="Tự động lấy ảnh 1 của SP" disabled/>
+            <textarea id="abTestCaptionA" class="input" rows="2" placeholder="Caption ngắn..."></textarea>
+          </div>
+          
+          <div class="variant-card" style="border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:12px;">
+            <label><strong>Creative B (Ảnh 2 + Caption dài)</strong></label>
+            <input id="abTestImageB" class="input" placeholder="Tự động lấy ảnh 2 của SP" disabled/>
+            <textarea id="abTestCaptionB" class="input" rows="4" placeholder="Caption dài hơn..."></textarea>
+          </div>
+          
+          <button id="btnCreateABTest" class="btn green" style="margin-top:16px; width:100%;">🧪 Bắt đầu A/B Test</button>
+        </div>
+      </div>
+      
+      <div class="col" style="flex: 2;">
+        <div class="card">
+          <h3>Performance Dashboard</h3>
+          <p class="hint">Kết quả A/B test (đang chạy hoặc đã hoàn tất)</p>
+          <label>Nhập Ad Set ID để xem kết quả:</label>
+          <div style="display: flex; gap: 8px;">
+            <input id="abTestAdSetIdInput" class="input" placeholder="Ad Set ID..."/>
+            <button id="btnFetchABTestResults" class="btn primary">Xem</button>
+          </div>
+          
+          <div id="abTestResultsContainer" style="margin-top: 16px;">
+            <div class="loading">Chưa có dữ liệu</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
     <div class="card">
       <h3>Tạo Campaign mới</h3>
       <label>Tên Campaign *</label>
