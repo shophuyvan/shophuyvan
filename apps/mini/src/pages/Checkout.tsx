@@ -509,13 +509,14 @@ useEffect(() => {
 
 // 4) TÍNH TỔNG (bám FE, dùng subtotal thực)
 
-  const calculatedTotals = useMemo(() => {
+    const calculatedTotals = useMemo(() => {
   // ✅ ƯU TIÊN TỔNG TỪ SERVER (orders/price)
   if (serverTotals) {
     const originalShippingFee = selectedShipping?.fee || 0;
     const finalShippingFee = Math.max(0, (serverTotals.shipping_fee || 0) - (serverTotals.shipping_discount || 0));
     const grandTotal = Math.max(0, (serverTotals.subtotal || 0) + finalShippingFee - (serverTotals.discount || 0));
     return {
+      subtotal: serverTotals.subtotal ?? subtotal ?? 0,
       originalShippingFee,
       finalShippingFee,
       manualProductDiscount: serverTotals.discount || 0,
@@ -527,8 +528,9 @@ useEffect(() => {
     };
   }
 
+
   // Fallback: logic cũ của bạn
-  const originalShippingFee = selectedShipping?.fee || 0;
+    const originalShippingFee = selectedShipping?.fee || 0;
   const manualProductDiscount = appliedVoucher?.discount || 0;
   const manualShippingDiscount = appliedVoucher?.ship_discount || 0;
 
@@ -548,6 +550,7 @@ useEffect(() => {
   const grandTotal = Math.max(0, subtotal - manualProductDiscount + finalShippingFee);
 
   return {
+    subtotal,
     originalShippingFee,
     finalShippingFee,
     manualProductDiscount,
