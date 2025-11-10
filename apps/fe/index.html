@@ -47,10 +47,22 @@
   <link rel="stylesheet" href="/assets/header-shop.css">
   <style>
     <style>
-    .product-card-horizontal {
-      display: block !important;
+    .shv-card-scroll {
       width: 130px !important;
       min-width: 130px !important;
+    }
+    @media (min-width: 375px) {
+      .shv-card-scroll { width: 140px !important; min-width: 140px !important; }
+    }
+    @media (min-width: 640px) {
+      .shv-card-scroll { width: 180px !important; min-width: 180px !important; }
+    }
+    @media (min-width: 1024px) {
+      .shv-card-scroll { width: 220px !important; min-width: 220px !important; }
+    }
+    
+    .product-card-horizontal {
+      display: block !important;
       flex: 0 0 auto !important;
       background: #fff;
       border: 1px solid #e5e7eb;

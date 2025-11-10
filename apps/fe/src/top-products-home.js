@@ -63,7 +63,7 @@ function productCard(p) {
     : '';
 
   return `
-  <a class="product-card-horizontal" href="/product?id=${encodeURIComponent(p.id)}">
+  <a class="product-card-horizontal shv-card-scroll" href="/product?id=${encodeURIComponent(p.id)}" style="display:block !important;flex:0 0 auto !important;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;position:relative;">
     ${soldBadge}
     <div class="aspect-square bg-gray-50 overflow-hidden">
       <img loading="lazy" class="w-full h-full object-cover" src="${thumb}" alt="${p.name || 'Sản phẩm'}">
