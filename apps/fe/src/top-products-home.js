@@ -5,9 +5,81 @@ import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
 
 // ==========================================
+// STYLE INJECTOR CHO CAROUSEL TOP PRODUCTS
+// ==========================================
+(function ensureTopProductsStyles() {
+  if (document.getElementById('shv-scroll-fix')) return;
+
+  const css = `
+  .shv-scroll-section {
+    display: flex !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding-bottom: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+  .shv-scroll-section::-webkit-scrollbar { display: none !important; }
+
+  .shv-product-card {
+    display: block !important;
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+    flex: 0 0 130px !important;
+    flex-shrink: 0 !important;
+    background: #fff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    text-decoration: none !important;
+    color: inherit !important;
+    position: relative !important;
+  }
+
+  @media (min-width: 375px) {
+    .shv-product-card {
+      width: 140px !important;
+      min-width: 140px !important;
+      max-width: 140px !important;
+      flex: 0 0 140px !important;
+    }
+  }
+  @media (min-width: 640px) {
+    .shv-product-card {
+      width: 180px !important;
+      min-width: 180px !important;
+      max-width: 180px !important;
+      flex: 0 0 180px !important;
+    }
+    .shv-scroll-section { gap: 12px !important; }
+  }
+  @media (min-width: 1024px) {
+    .shv-product-card {
+      width: 220px !important;
+      min-width: 220px !important;
+      max-width: 220px !important;
+      flex: 0 0 220px !important;
+    }
+    .shv-scroll-section { gap: 16px !important; }
+  }
+  `;
+
+  const style = document.createElement('style');
+  style.id = 'shv-scroll-fix';
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+// ==========================================
 // CLOUDIFY HELPER (giống ui-home.js)
 // ==========================================
 const noImage = encodeURI(`
+
   data:image/svg+xml;utf8,
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 380'>
     <rect width='100%' height='100%' fill='%23f3f4f6'/>
