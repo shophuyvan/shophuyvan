@@ -142,9 +142,15 @@ function renderCustomerInfo() {
       <div class="info-label">Số điện thoại</div>
       <div class="info-value">${state.customer.phone || 'Chưa cập nhật'}</div>
     </div>
-    <div class="info-item" style="background: linear-gradient(135deg, ${tierInfo.color}20 0%, ${tierInfo.color}10 100%);">
+        <div 
+      class="info-item" 
+      style="background: linear-gradient(135deg, ${tierInfo.color}20 0%, ${tierInfo.color}10 100%); cursor: pointer;"
+      onclick="window.location.href='/member.html'"
+    >
       <div class="info-label">Hạng thành viên</div>
       <div class="info-value" style="color: ${tierInfo.color};">${tierInfo.icon} ${tierInfo.name}</div>
+    </div>
+
     </div>
     <div class="info-item">
       <div class="info-label">Điểm tích lũy</div>
