@@ -129,7 +129,43 @@
 
   <!-- Tab: Create Campaign -->
   <div id="tab-create" class="tab-content">
+    <div class="card">
+      <h3>Tạo Campaign mới</h3>
+      <label>Tên Campaign *</label>
+      <input id="campaignName" class="input" placeholder="VD: Black Friday Sale 2025"/>
+      
+      <label>Ngân sách hàng ngày (VNĐ) *</label>
+      <input id="campaignBudget" type="number" class="input" placeholder="100000" value="100000"/>
+      
+      <label>Mục tiêu</label>
+      <select id="campaignObjective" class="input">
+        <option value="OUTCOME_SALES">Bán hàng</option>
+        <option value="OUTCOME_TRAFFIC">Lưu lượng truy cập</option>
+        <option value="OUTCOME_ENGAGEMENT">Tương tác</option>
+      </select>
+
+      <hr/>
+      <h4>Chọn sản phẩm (tối đa 10)</h4>
+      <div id="productSelector" class="product-selector">
+        <div class="loading">Đang tải sản phẩm...</div>
+      </div>
+
+      <hr/>
+      <h4>Targeting (tùy chọn)</h4>
+      <div class="row">
+        <div class="col">
+          <label>Độ tuổi từ</label>
+          <input id="targetAgeMin" type="number" class="input" value="18" min="18" max="65"/>
+        </div>
+        <div class="col">
+          <label>Độ tuổi đến</label>
+          <input id="targetAgeMax" type="number" class="input" value="65" min="18" max="65"/>
+        </div>
+      </div>
+
+      <button id="btnCreateCampaign" class="btn green" style="margin-top:16px; width:100%;">🚀 Tạo Campaign</button>
     </div>
+  </div>
 
   <div id="tab-autopost" class="tab-content">
     <div class="card">
@@ -270,43 +306,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-    <div class="card">
-      <h3>Tạo Campaign mới</h3>
-      <label>Tên Campaign *</label>
-      <input id="campaignName" class="input" placeholder="VD: Black Friday Sale 2025"/>
-      
-      <label>Ngân sách hàng ngày (VNĐ) *</label>
-      <input id="campaignBudget" type="number" class="input" placeholder="100000" value="100000"/>
-      
-      <label>Mục tiêu</label>
-      <select id="campaignObjective" class="input">
-        <option value="OUTCOME_SALES">Bán hàng</option>
-        <option value="OUTCOME_TRAFFIC">Lưu lượng truy cập</option>
-        <option value="OUTCOME_ENGAGEMENT">Tương tác</option>
-      </select>
-
-      <hr/>
-      <h4>Chọn sản phẩm (tối đa 10)</h4>
-      <div id="productSelector" class="product-selector">
-        <div class="loading">Đang tải sản phẩm...</div>
-      </div>
-
-      <hr/>
-      <h4>Targeting (tùy chọn)</h4>
-      <div class="row">
-        <div class="col">
-          <label>Độ tuổi từ</label>
-          <input id="targetAgeMin" type="number" class="input" value="18" min="18" max="65"/>
-        </div>
-        <div class="col">
-          <label>Độ tuổi đến</label>
-          <input id="targetAgeMax" type="number" class="input" value="65" min="18" max="65"/>
-        </div>
-      </div>
-
-      <button id="btnCreateCampaign" class="btn green" style="margin-top:16px; width:100%;">🚀 Tạo Campaign</button>
     </div>
   </div>
 
