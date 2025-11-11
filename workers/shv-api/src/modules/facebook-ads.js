@@ -267,7 +267,14 @@ async function listCampaigns(req, env) {
   }
 
   try {
+    console.log('[FB Ads] listCampaigns called');
     const creds = await getFBCredentials(env);
+    console.log('[FB Ads] Credentials check:', { 
+      hasCreds: !!creds, 
+      hasToken: !!(creds?.access_token),
+      hasAdAccount: !!(creds?.ad_account_id)
+    });
+    
     if (!creds || !creds.access_token) {
       return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
     }

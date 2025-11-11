@@ -20,6 +20,12 @@ export async function handle(req, env, ctx) {
     return getPublicSettings(req, env);
   }
 
+  // Admin: Get specific setting by path
+  if (path.startsWith('/admin/settings/') && method === 'GET') {
+    const settingKey = path.replace('/admin/settings/', '');
+    return getSettingByKey(req, env, settingKey);
+  }
+
   // Admin: Upsert settings
   if (path === '/admin/settings/upsert' && method === 'POST') {
     return upsertSettings(req, env);
@@ -64,6 +70,30 @@ async function upsertSettings(req, env) {
     await putJSON(env, 'settings', current);
     return json({ ok: true, settings: current }, {}, req);
   } catch (e) {
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Admin: Get setting by key (support deep path)
+ */
+async function getSettingByKey(req, env, key) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    // Lấy từ KV với key pattern: settings:facebook_ads
+    const kvKey = `settings:${key}`;
+    const value = await getJSON(env, kvKey, null);
+
+    return json({
+      ok: true,
+      key: key,
+      value: value
+    }, {}, req);
+  } catch (e) {
+    console.error('[Settings] Get by key error:', e);
     return errorResponse(e, 500, req);
   }
 }
