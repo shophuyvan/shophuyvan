@@ -92,25 +92,11 @@ function calculateFlashPrice(product, discountType, discountValue) {
   // Đảm bảo giá Flash Sale không âm
   flashPrice = Math.max(0, flashPrice);
 
-  const result = {
+  return {
     flashPrice: Math.round(flashPrice),
     originalPrice: basePrice
   };
-
-  // LƯU MAP GIÁ FLASH DÙNG CHUNG CHO HOME
-  if (product && product.id) {
-    if (!window.__FLASH_PRICE_MAP) {
-      window.__FLASH_PRICE_MAP = {};
-    }
-    window.__FLASH_PRICE_MAP[product.id] = {
-      base: result.flashPrice,
-      original: result.originalPrice,
-    };
-  }
-
-  return result;
 }
-
 
 
 // ==========================================

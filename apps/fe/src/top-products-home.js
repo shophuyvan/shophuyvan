@@ -117,25 +117,12 @@ function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
-      // ƯU TIÊN GIÁ FLASH (nếu có), Fallback: pickLowestPrice từ variants
-  const flashMap = window.__FLASH_PRICE_MAP || {};
-  const flashInfo = flashMap[p.id];
-
-  let base = 0;
-  let original = 0;
-
-  if (flashInfo && flashInfo.original > flashInfo.base) {
-    base = flashInfo.base;
-    original = flashInfo.original;
-  } else {
-    const info = pickLowestPrice(p) || {};
-    base = info.base || 0;
-    original = info.original || 0;
-  }
+        // TÍNH GIÁ TỪ VARIANTS = pickLowestPrice (đơn giản, đồng nhất)
+  const info = pickLowestPrice(p) || {};
+  const base = info.base || 0;
+  const original = info.original || 0;
 
   let priceHtml = '';
-
-
 
   if (base > 0) {
     if (original > base) {

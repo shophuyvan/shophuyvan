@@ -50,17 +50,10 @@ function card(p){
   const thumb = cloudify(p?.images?.[0]);
   
   // UU TIEN: Doc gia tu API tra ve (price_display da tinh san)
-    const flashMap = window.__FLASH_PRICE_MAP || {};
-  const flashInfo = flashMap[p.id];
-
-  let base = 0;
+      let base = 0;
   let original = 0;
 
-  if (flashInfo && flashInfo.original > flashInfo.base) {
-    // Sản phẩm đang Flash Sale: dùng đúng cặp giá flash
-    base = flashInfo.base;
-    original = flashInfo.original;
-  } else if (p.price_display && p.price_display > 0) {
+  if (p.price_display && p.price_display > 0) {
     base = Number(p.price_display || 0);
     original = Number(p.compare_at_display || 0);
   } else {
@@ -74,6 +67,7 @@ function card(p){
     : base > 0 
       ? `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`
       : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
+
 
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
