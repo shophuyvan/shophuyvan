@@ -233,15 +233,15 @@ async function testFacebookConnection(req, env) {
   try {
     const creds = await getFBCredentials(env);
     if (!creds || !creds.access_token) {
-      return json({
-        ok: false,
-        error: 'Chưa cấu hình Facebook credentials'
-      }, { status: 400 }, req);
+      // Auto-fix Ad Account ID
+    let adAccountId = creds.ad_account_id;
+    if (adAccountId && !adAccountId.startsWith('act_')) {
+      adAccountId = `act_${adAccountId}`;
     }
 
     // Test by getting ad account info
     const result = await callFacebookAPI(
-      `${creds.ad_account_id}`,
+      `${adAccountId}`,
       'GET',
       { 
         fields: 'name,account_status,currency,timezone_name',
@@ -282,10 +282,18 @@ async function listCampaigns(req, env) {
   try {
     console.log('[FB Ads] listCampaigns called');
     const creds = await getFBCredentials(env);
+// Auto-fix Ad Account ID format
+    let adAccountId = creds.ad_account_id;
+    if (adAccountId && !adAccountId.startsWith('act_')) {
+      adAccountId = `act_${adAccountId}`;
+      console.log('[FB Ads] Auto-fixed Ad Account ID:', adAccountId);
+    }
+    
     console.log('[FB Ads] Credentials check:', { 
       hasCreds: !!creds, 
       hasToken: !!(creds?.access_token),
-      hasAdAccount: !!(creds?.ad_account_id)
+      hasAdAccount: !!adAccountId,
+      adAccountId: adAccountId
     });
     
     if (!creds || !creds.access_token) {
@@ -293,7 +301,7 @@ async function listCampaigns(req, env) {
     }
 
     const result = await callFacebookAPI(
-      `${creds.ad_account_id}/campaigns`,
+      `${adAccountId}/campaigns`,
       'GET',
       {
         fields: 'id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time,created_time,updated_time',
@@ -306,11 +314,22 @@ async function listCampaigns(req, env) {
 
     if (result.error) {
       console.error('[FB Ads] Facebook API error:', result.error);
+      
+      let userMessage = result.error.message || 'Unknown error';
+      
+      // Friendly error messages
+      if (result.error.code === 100 && result.error.error_subcode === 33) {
+        userMessage = '❌ Ad Account ID không hợp lệ hoặc thiếu quyền truy cập. Vui lòng kiểm tra:\n' +
+          '1. Ad Account ID phải có dạng: act_XXXXXXXXXX\n' +
+          '2. Access Token phải có quyền truy cập Ad Account này\n' +
+          '3. Kiểm tra tại: https://business.facebook.com/settings/ad-accounts';
+      }
+      
       return json({ 
         ok: false, 
         error: 'Facebook API Error',
         details: result.error,
-        message: result.error.message || result.error.error_user_msg || 'Unknown error'
+        message: userMessage
       }, { status: 400 }, req);
     }
 

@@ -25,26 +25,32 @@ export async function handle(req) {
 function toNum(x){ return typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g,''))||0) : Number(x||0); }
 
 function computePriceDisplay(p){
+  // ƯU TIÊN: dùng đúng giá đã được chuẩn hoá từ /public/products
   const ready = toNum(p.price_display);
-  if (ready > 0) return { price_display: ready, compare_at_display: toNum(p.compare_at_display) };
+  const cmp   = toNum(p.compare_at_display);
 
-  const variants = Array.isArray(p.variants) ? p.variants
-                : Array.isArray(p.options)  ? p.options
-                : Array.isArray(p.skus)     ? p.skus   : [];
-  const cand = [];
-  const push = v => { const n = toNum(v); if (n>0) cand.push(n); };
-
-  if (variants.length){
-    for (const v of variants){
-      push(v.price_sale ?? v.sale_price ?? v.sale);
-      push(v.price ?? v.unit_price ?? v.regular_price ?? v.base_price);
-    }
-  } else {
-    push(p.price_sale ?? p.sale_price ?? p.price);
+  if (ready > 0){
+    return {
+      price_display: ready,
+      compare_at_display: cmp > 0 ? cmp : null
+    };
   }
-  const min = cand.length ? Math.min(...cand) : 0;
-  return { price_display: min, compare_at_display: toNum(p.compare_at||0) };
+
+  // Fallback legacy: nếu API cũ chưa có price_display thì dùng price/compare_at
+  const legacyPrice   = toNum(p.price);
+  const legacyCompare = toNum(p.compare_at);
+
+  if (legacyPrice > 0){
+    return {
+      price_display: legacyPrice,
+      compare_at_display: legacyCompare > legacyPrice ? legacyCompare : null
+    };
+  }
+
+  // Không có giá hợp lệ
+  return { price_display: 0, compare_at_display: null };
 }
+
 
 async function fetchAllPublicProducts(origin, max = 200){
   let cursor = null, items = [];
