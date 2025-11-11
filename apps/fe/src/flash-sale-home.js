@@ -60,21 +60,27 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 // TÍNH GIÁ FLASH SALE
 // ==========================================
 function calculateFlashPrice(product, discountType, discountValue) {
-  // Lấy giá gốc chuẩn: ưu tiên price_display từ API,
-  // fallback về pickLowestPrice (variants).
-  let basePrice = 0;
 
-  if (product.price_display && Number(product.price_display) > 0) {
-    basePrice = Number(product.price_display || 0);
+  // Lấy giá gốc từ product
+  let basePrice = 0;
+  
+  if (product.price_display && product.price_display > 0) {
+    basePrice = Number(product.price_display);
+  } else if (product.variants && product.variants.length > 0) {
+    // Lấy giá thấp nhất từ variants
+    const prices = product.variants
+      .map(v => Number(v.price || v.unit_price || v.regular_price || 0))
+      .filter(p => p > 0);
+    basePrice = prices.length > 0 ? Math.min(...prices) : 0;
   } else {
-    const info = pickLowestPrice(product);
-    basePrice = info.base || 0;
+    basePrice = Number(product.price || 0);
   }
 
   if (basePrice === 0) return { flashPrice: 0, originalPrice: 0 };
 
+  // Tính giá Flash Sale
   let flashPrice = basePrice;
-
+  
   if (discountType === 'percent') {
     // Giảm theo %
     flashPrice = basePrice * (1 - discountValue / 100);
@@ -86,11 +92,25 @@ function calculateFlashPrice(product, discountType, discountValue) {
   // Đảm bảo giá Flash Sale không âm
   flashPrice = Math.max(0, flashPrice);
 
-  return {
+  const result = {
     flashPrice: Math.round(flashPrice),
     originalPrice: basePrice
   };
+
+  // LƯU MAP GIÁ FLASH DÙNG CHUNG CHO HOME
+  if (product && product.id) {
+    if (!window.__FLASH_PRICE_MAP) {
+      window.__FLASH_PRICE_MAP = {};
+    }
+    window.__FLASH_PRICE_MAP[product.id] = {
+      base: result.flashPrice,
+      original: result.originalPrice,
+    };
+  }
+
+  return result;
 }
+
 
 
 // ==========================================

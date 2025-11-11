@@ -50,25 +50,31 @@ function card(p){
   const thumb = cloudify(p?.images?.[0]);
   
   // UU TIEN: Doc gia tu API tra ve (price_display da tinh san)
+    const flashMap = window.__FLASH_PRICE_MAP || {};
+  const flashInfo = flashMap[p.id];
+
   let base = 0;
   let original = 0;
-  
-  if (p.price_display && p.price_display > 0) {
-    // API da tinh san gia -> dung luon
+
+  if (flashInfo && flashInfo.original > flashInfo.base) {
+    // Sản phẩm đang Flash Sale: dùng đúng cặp giá flash
+    base = flashInfo.base;
+    original = flashInfo.original;
+  } else if (p.price_display && p.price_display > 0) {
     base = Number(p.price_display || 0);
     original = Number(p.compare_at_display || 0);
   } else {
-    // Fallback: tinh tu variants (cho tuong thich cu)
-    const priceInfo = pickLowestPrice(p);
+    const priceInfo = pickLowestPrice(p) || {};
     base = priceInfo.base || 0;
     original = priceInfo.original || 0;
   }
-  
+
   const priceHtml = original > base && original > 0
     ? `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(original)}</span></div>`
     : base > 0 
       ? `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`
-      : `<div class="text-gray-400 text-sm">Lien he</div>`;
+      : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
+
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
     <div class="aspect-[1/1] w-full bg-gray-50 overflow-hidden">
