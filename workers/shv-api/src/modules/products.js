@@ -788,15 +788,39 @@ async function getBestsellers(req, env) {
       return soldB - soldA;
     });
 
-    // Lấy top N
+        // Lấy top N
     const limited = full.slice(0, limit);
 
-    // Tính giá từ variants
-    const tier = getCustomerTier(req);
-    const out  = limited.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+    // Tính giá hiển thị PUBLIC giống list (dùng tier = 'retail' + fallback product.price nếu không có variant)
+    const tier = 'retail';
+    const out  = limited.map((p) => {
+      const priced = computeDisplayPrice(p, tier); // { price_display, compare_at_display, no_variant }
+
+      let price_display   = Number(priced.price_display || 0);
+      let compare_display = Number(priced.compare_at_display || 0);
+
+      // Fallback cho sản phẩm KHÔNG có variants: lấy giá cấp product (giống toSummary)
+      if (price_display === 0 && priced.no_variant) {
+        let legacyPrice   = Number(p.price || p.price_sale || 0);
+        let legacyCompare = 0;
+        if (p.price && p.price_sale && Number(p.price_sale) < Number(p.price)) {
+          legacyCompare = Number(p.price);
+          legacyPrice   = Number(p.price_sale);
+        }
+        price_display   = legacyPrice;
+        compare_display = legacyCompare;
+      }
+
+      return {
+        ...p,
+        price_display,
+        compare_at_display: compare_display > 0 ? compare_display : null,
+      };
+    });
 
     console.log('[BESTSELLERS] Returned:', out.length, 'products');
     return json({ ok: true, items: out }, {}, req);
+
   } catch (e) {
     console.error('❌ Error:', e);
     return errorResponse(e, 500, req);
@@ -839,7 +863,7 @@ async function getNewest(req, env) {
       return ageDays <= DAYS;
     });
 
-    // Sắp xếp theo createdAt (mới nhất trước)
+        // Sắp xếp theo createdAt (mới nhất trước)
     newest.sort((a, b) => {
       const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
       const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
@@ -849,12 +873,35 @@ async function getNewest(req, env) {
     // Lấy top N
     const limited = newest.slice(0, limit);
 
-    // Tính giá từ variants
-    const tier = getCustomerTier(req);
-    const out  = limited.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
+    // Tính giá hiển thị PUBLIC giống list (tier = 'retail' + fallback product.price nếu không có variant)
+    const tier = 'retail';
+    const out  = limited.map((p) => {
+      const priced = computeDisplayPrice(p, tier);
+
+      let price_display   = Number(priced.price_display || 0);
+      let compare_display = Number(priced.compare_at_display || 0);
+
+      if (price_display === 0 && priced.no_variant) {
+        let legacyPrice   = Number(p.price || p.price_sale || 0);
+        let legacyCompare = 0;
+        if (p.price && p.price_sale && Number(p.price_sale) < Number(p.price)) {
+          legacyCompare = Number(p.price);
+          legacyPrice   = Number(p.price_sale);
+        }
+        price_display   = legacyPrice;
+        compare_display = legacyCompare;
+      }
+
+      return {
+        ...p,
+        price_display,
+        compare_at_display: compare_display > 0 ? compare_display : null,
+      };
+    });
 
     console.log('[NEWEST] Returned:', out.length, 'products (in last', DAYS, 'days)');
     return json({ ok: true, items: out }, {}, req);
+
   } catch (e) {
     console.error('❌ Error:', e);
     return errorResponse(e, 500, req);

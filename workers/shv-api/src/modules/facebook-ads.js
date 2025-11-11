@@ -1482,5 +1482,111 @@ async function setDefaultFanpage(req, env, fanpageId) {
     return errorResponse(e, 500, req);
   }
 }
+// ===================================================================
+// CREATE AD (Single)
+// ===================================================================
+
+async function createAd(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await req.json();
+    const { product_id, ad_set_id } = body;
+
+    if (!product_id || !ad_set_id) {
+      return json({
+        ok: false,
+        error: 'Thiếu product_id hoặc ad_set_id'
+      }, { status: 400 }, req);
+    }
+
+    const creds = await getFBCredentials(env);
+    if (!creds || !creds.access_token) {
+      return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
+    }
+
+    const product = await getJSON(env, `product:${product_id}`, null);
+    if (!product) {
+      return json({
+        ok: false,
+        error: 'Không tìm thấy sản phẩm'
+      }, { status: 404 }, req);
+    }
+
+    const adResult = await createAdForProduct(env, creds, ad_set_id, product);
+
+    if (!adResult.ok) {
+      return json({
+        ok: false,
+        error: 'Tạo ad thất bại',
+        details: adResult.error
+      }, { status: 400 }, req);
+    }
+
+    return json({
+      ok: true,
+      ad: adResult.ad,
+      message: 'Đã tạo ad thành công'
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Ads] Create ad error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// GET AD STATS
+// ===================================================================
+
+async function getAdStats(req, env, adId) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const creds = await getFBCredentials(env);
+    if (!creds || !creds.access_token) {
+      return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
+    }
+
+    const result = await callFacebookAPI(
+      `${adId}/insights`,
+      'GET',
+      {
+        fields: 'impressions,clicks,spend,ctr,cpc,cpm,reach,frequency',
+        date_preset: 'last_7d',
+        access_token: creds.access_token
+      },
+      creds.access_token
+    );
+
+    if (result.error) {
+      return json({ ok: false, error: result.error }, { status: 400 }, req);
+    }
+
+    const stats = result.data && result.data[0] ? result.data[0] : {};
+
+    return json({
+      ok: true,
+      stats: {
+        impressions: parseInt(stats.impressions || 0),
+        clicks: parseInt(stats.clicks || 0),
+        spend: parseFloat(stats.spend || 0),
+        ctr: parseFloat(stats.ctr || 0),
+        cpc: parseFloat(stats.cpc || 0),
+        cpm: parseFloat(stats.cpm || 0),
+        reach: parseInt(stats.reach || 0),
+        frequency: parseFloat(stats.frequency || 0)
+      }
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Ads] Get ad stats error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
 
 console.log('✅ facebook-ads.js loaded');
