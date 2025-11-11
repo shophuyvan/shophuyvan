@@ -225,26 +225,25 @@ async function deleteCampaign(campaignId) {
   // ============================================================
 
   async function loadFanpages() {
-    showLoading('fanpagesTable', 'Đang tải danh sách fanpage...');
+    showLoading('fanpageTableBody', 'Đang tải danh sách fanpage...');
     try {
       const r = await Admin.req('/admin/facebook/fanpages', { method: 'GET' });
       if (r && r.ok) {
         fanpagesCache = r.fanpages || [];
         renderFanpages(fanpagesCache);
       } else {
-        showError('fanpagesTable', r.error || 'Không thể tải danh sách fanpage');
+        showError('fanpageTableBody', r.error || 'Không thể tải danh sách fanpage');
       }
     } catch (e) {
-      showError('fanpagesTable', 'Lỗi: ' + e.message);
+      showError('fanpageTableBody', 'Lỗi: ' + e.message);
     }
   }
 
   async function addFanpage() {
-    const pageId = document.getElementById('fanpageId')?.value?.trim();
-    const pageName = document.getElementById('fanpageName')?.value?.trim();
-    const accessToken = document.getElementById('fanpageToken')?.value?.trim();
+    const pageId = document.getElementById('newFanpageId')?.value?.trim();
+    const pageName = document.getElementById('newFanpageName')?.value?.trim();
 
-    if (!pageId || !pageName || !accessToken) {
+    if (!pageId || !pageName) {
       toast('❌ Vui lòng điền đầy đủ thông tin');
       return;
     }
@@ -265,17 +264,15 @@ async function deleteCampaign(campaignId) {
         method: 'POST',
         body: {
           page_id: pageId,
-          page_name: pageName,
-          access_token: accessToken
+          page_name: pageName
         }
       });
 
       if (r && r.ok) {
         toast('✅ ' + (r.message || 'Thêm fanpage thành công'));
         // Reset form
-        document.getElementById('fanpageId').value = '';
-        document.getElementById('fanpageName').value = '';
-        document.getElementById('fanpageToken').value = '';
+        document.getElementById('newFanpageId').value = '';
+        document.getElementById('newFanpageName').value = '';
         // Reload fanpages
         loadFanpages();
       } else {
@@ -286,7 +283,7 @@ async function deleteCampaign(campaignId) {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = '➕ Thêm Fanpage';
+        btn.textContent = '➕ Thêm';
       }
     }
   }
@@ -328,7 +325,7 @@ async function deleteCampaign(campaignId) {
   }
 
   function renderFanpages(fanpages) {
-    const container = document.getElementById('fanpagesTable');
+    const container = document.getElementById('fanpageTableBody');
     if (!container) return;
 
     if (!fanpages || fanpages.length === 0) {

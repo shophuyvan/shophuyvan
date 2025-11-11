@@ -83,6 +83,30 @@ export async function handle(req, env, ctx) {
     return deleteCampaign(req, env, campaignId);
   }
 
+  // ===== FANPAGE MANAGEMENT ROUTES =====
+  
+  // Get fanpages list
+  if (path === '/admin/facebook/fanpages' && method === 'GET') {
+    return listFanpages(req, env);
+  }
+
+  // Add new fanpage
+  if (path === '/admin/facebook/fanpages' && method === 'POST') {
+    return addFanpage(req, env);
+  }
+
+  // Delete fanpage
+  if (path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)$/) && method === 'DELETE') {
+    const fanpageId = path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)$/)[1];
+    return deleteFanpage(req, env, fanpageId);
+  }
+
+  // Set default fanpage
+  if (path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)\/default$/) && method === 'POST') {
+    const fanpageId = path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)\/default$/)[1];
+    return setDefaultFanpage(req, env, fanpageId);
+  }
+
   // Create ad from single product
   if (path === '/admin/facebook/ads' && method === 'POST') {
     return createAd(req, env);
@@ -1227,6 +1251,181 @@ async function exportDashboardPDF(req, env) {
 
   } catch (e) {
     console.error('[Dashboard] Export PDF error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// FANPAGE MANAGEMENT
+// ===================================================================
+
+/**
+ * List all fanpages
+ */
+async function listFanpages(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+    
+    return json({
+      ok: true,
+      fanpages: fanpages
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Fanpages] List error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Add new fanpage
+ */
+async function addFanpage(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await req.json();
+    const { page_id, page_name } = body;
+
+    if (!page_id || !page_name) {
+      return json({
+        ok: false,
+        error: 'Thiếu thông tin page_id hoặc page_name'
+      }, { status: 400 }, req);
+    }
+
+    // Get current list
+    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+
+    // Check duplicate
+    if (fanpages.find(fp => fp.page_id === page_id)) {
+      return json({
+        ok: false,
+        error: 'Fanpage này đã tồn tại'
+      }, { status: 400 }, req);
+    }
+
+    // Create new fanpage object
+    const newFanpage = {
+      id: `fp_${Date.now()}`,
+      page_id: page_id,
+      page_name: page_name,
+      status: 'active',
+      is_default: fanpages.length === 0, // First fanpage is default
+      created_at: new Date().toISOString()
+    };
+
+    // Add to list
+    fanpages.push(newFanpage);
+
+    // Save to KV
+    await putJSON(env, 'facebook:fanpages:list', fanpages);
+
+    return json({
+      ok: true,
+      message: 'Thêm fanpage thành công',
+      fanpage: newFanpage
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Fanpages] Add error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Delete fanpage
+ */
+async function deleteFanpage(req, env, fanpageId) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    // Get current list
+    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+
+    // Find fanpage
+    const fanpage = fanpages.find(fp => fp.id === fanpageId);
+    if (!fanpage) {
+      return json({
+        ok: false,
+        error: 'Không tìm thấy fanpage'
+      }, { status: 404 }, req);
+    }
+
+    // Cannot delete default fanpage if there are others
+    if (fanpage.is_default && fanpages.length > 1) {
+      return json({
+        ok: false,
+        error: 'Không thể xóa fanpage mặc định. Vui lòng đặt fanpage khác làm mặc định trước.'
+      }, { status: 400 }, req);
+    }
+
+    // Remove from list
+    const newList = fanpages.filter(fp => fp.id !== fanpageId);
+
+    // If deleted was default and there are remaining pages, set first as default
+    if (fanpage.is_default && newList.length > 0) {
+      newList[0].is_default = true;
+    }
+
+    // Save to KV
+    await putJSON(env, 'facebook:fanpages:list', newList);
+
+    return json({
+      ok: true,
+      message: 'Đã xóa fanpage'
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Fanpages] Delete error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Set default fanpage
+ */
+async function setDefaultFanpage(req, env, fanpageId) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    // Get current list
+    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+
+    // Find fanpage
+    const fanpage = fanpages.find(fp => fp.id === fanpageId);
+    if (!fanpage) {
+      return json({
+        ok: false,
+        error: 'Không tìm thấy fanpage'
+      }, { status: 404 }, req);
+    }
+
+    // Update all fanpages: set only selected one as default
+    fanpages.forEach(fp => {
+      fp.is_default = (fp.id === fanpageId);
+    });
+
+    // Save to KV
+    await putJSON(env, 'facebook:fanpages:list', fanpages);
+
+    return json({
+      ok: true,
+      message: 'Đã đặt fanpage mặc định'
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[FB Fanpages] Set default error:', e);
     return errorResponse(e, 500, req);
   }
 }
