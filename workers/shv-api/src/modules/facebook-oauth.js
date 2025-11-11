@@ -73,7 +73,9 @@ async function getAuthorizationURL(req, env) {
     ].join(',');
 
     // Redirect URI (phải match với Facebook App settings)
-    const redirectUri = `${new URL(req.url).origin}/admin/facebook/oauth/callback`;
+    // CRITICAL: Phải dùng API domain, không phải admin domain
+    const apiBase = env.API_BASE_URL || 'https://api.shophuyvan.vn';
+    const redirectUri = `${apiBase}/admin/facebook/oauth/callback`;
 
     // Build OAuth URL
     const authUrl = new URL('https://www.facebook.com/v19.0/dialog/oauth');
@@ -159,7 +161,8 @@ async function handleOAuthCallback(req, env) {
       throw new Error('Chưa cấu hình Facebook App credentials');
     }
 
-    const redirectUri = `${url.origin}/admin/facebook/oauth/callback`;
+    const apiBase = env.API_BASE_URL || 'https://api.shophuyvan.vn';
+    const redirectUri = `${apiBase}/admin/facebook/oauth/callback`;
 
     // Exchange code for access token
     const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token');
