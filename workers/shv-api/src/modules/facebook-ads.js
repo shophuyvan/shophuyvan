@@ -130,16 +130,29 @@ export async function handle(req, env, ctx) {
  */
 async function getFBCredentials(env) {
   try {
-    const settings = await getJSON(env, 'settings:facebook_ads', null);
-    if (settings) return settings;
+    // Thử lấy từ KV với key 'settings:facebook_ads'
+    let settings = await getJSON(env, 'settings:facebook_ads', null);
+    
+    // Nếu không có, thử lấy từ key 'settings' với path facebook_ads
+    if (!settings) {
+      const allSettings = await getJSON(env, 'settings', null);
+      settings = allSettings?.facebook_ads || null;
+    }
+    
+    if (settings) {
+      console.log('[FB Ads] Loaded credentials from KV');
+      return settings;
+    }
 
     // Fallback to env vars
+    console.log('[FB Ads] Using fallback env vars');
     return {
       app_id: env.FB_APP_ID,
       app_secret: env.FB_APP_SECRET,
       access_token: env.FB_ACCESS_TOKEN,
       ad_account_id: env.FB_AD_ACCOUNT_ID,
-      page_id: env.FB_PAGE_ID
+      page_id: env.FB_PAGE_ID,
+      pixel_id: env.FB_PIXEL_ID
     };
   } catch (e) {
     console.error('[FB Ads] Get credentials error:', e);

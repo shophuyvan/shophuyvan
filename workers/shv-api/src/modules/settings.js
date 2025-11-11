@@ -56,20 +56,34 @@ async function upsertSettings(req, env) {
 
   try {
     const body = await readBody(req) || {};
-    const current = await getJSON(env, 'settings', {});
 
-    // Support deep path setting: {path: 'ads.fb', value: '...'}
+    // Support path-based setting: {path: 'facebook_ads', value: {...}}
     if (body.path) {
-      setDeepValue(current, body.path, body.value);
+      // Lưu vào KV với key riêng: settings:facebook_ads
+      const kvKey = `settings:${body.path}`;
+      await putJSON(env, kvKey, body.value);
+      
+      console.log('[Settings] Saved to KV:', kvKey);
+      
+      return json({ 
+        ok: true, 
+        message: `Đã lưu settings cho ${body.path}`,
+        key: kvKey,
+        value: body.value
+      }, {}, req);
     } 
-    // Support direct data merge
+    // Support direct data merge (legacy)
     else if (body.data && typeof body.data === 'object') {
+      const current = await getJSON(env, 'settings', {});
       Object.assign(current, body.data);
+      await putJSON(env, 'settings', current);
+      
+      return json({ ok: true, settings: current }, {}, req);
     }
 
-    await putJSON(env, 'settings', current);
-    return json({ ok: true, settings: current }, {}, req);
+    return errorResponse('Missing path or data', 400, req);
   } catch (e) {
+    console.error('[Settings] Upsert error:', e);
     return errorResponse(e, 500, req);
   }
 }
