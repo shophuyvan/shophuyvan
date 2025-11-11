@@ -117,21 +117,14 @@ function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
-  // ƯU TIÊN: giá từ API (price_display đã tính sẵn).
-  // FALLBACK: dùng pickLowestPrice (chỉ đọc variants, không dùng price cấp product).
-  let base = 0;
-  let original = 0;
-
-  if (p.price_display && Number(p.price_display) > 0) {
-    base = Number(p.price_display || 0);
-    original = Number(p.compare_at_display || 0);
-  } else {
-    const info = pickLowestPrice(p);
-    base = info.base || 0;
-    original = info.original || 0;
-  }
+    // TÍNH GIÁ HOÀN TOÀN từ variants bằng pickLowestPrice
+  // để đồng bộ với các block khác (grid, flash sale, v.v.)
+  const info = pickLowestPrice(p) || {};
+  const base = info.base || 0;
+  const original = info.original || 0;
 
   let priceHtml = '';
+
 
   if (base > 0) {
     if (original > base) {
