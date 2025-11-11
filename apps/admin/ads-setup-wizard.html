@@ -633,12 +633,15 @@ async function saveSettings() {
     document.getElementById('btnNext').disabled = true;
     document.getElementById('btnNext').textContent = '⏳ Đang lưu...';
     
-    const response = await Admin.req('/admin/settings/facebook_ads', {
+    const response = await Admin.req('/admin/settings/upsert', {
       method: 'POST',
       body: {
-        app_id: appId,
-        app_secret: appSecret,
-        ad_account_id: adAccountId
+        path: 'facebook_ads',
+        value: {
+          app_id: appId,
+          app_secret: appSecret,
+          ad_account_id: adAccountId
+        }
       }
     });
     
