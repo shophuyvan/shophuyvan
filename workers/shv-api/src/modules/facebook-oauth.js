@@ -67,9 +67,7 @@ async function getAuthorizationURL(req, env) {
     const permissions = [
       'ads_management',        // Quản lý quảng cáo
       'ads_read',              // Đọc dữ liệu quảng cáo
-      'business_management',   // Quản lý Business Manager
-      'pages_read_engagement', // Đọc fanpage
-      'pages_manage_posts'     // Đăng bài lên fanpage
+      'business_management'    // Quản lý Business Manager
     ].join(',');
 
     // Redirect URI (phải match với Facebook App settings)
