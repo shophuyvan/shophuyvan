@@ -222,7 +222,7 @@ export default {
         return handleCartSync(req, env);
       }
 
-      // Settings module
+      // Settings module (bao gồm /admin/settings/facebook_ads)
       if (path.startsWith('/public/settings') ||
           path.startsWith('/admin/settings')) {
         return settings.handle(req, env, ctx);
@@ -253,23 +253,27 @@ export default {
         return flashSales.handle(req, env, ctx);
       }
 
-      // ✅ THÊM: Routes cho Facebook Ads Automation (phải đặt trước /admin/facebook)
+      // ============================================
+      // FACEBOOK ADS ROUTES (ƯU TIÊN CAO - ĐẶT SAU FLASH SALES)
+      // ============================================
+      
+      // Facebook Ads Automation (phải đặt trước /admin/facebook)
       if (path.startsWith('/admin/facebook/automation')) {
         return FacebookAdsAutomation.handle(req, env, ctx);
       }
 
-      // ✅ THÊM: Routes cho Facebook Ads Creative (phải đặt trước /admin/facebook)
+      // Facebook Ads Creative (phải đặt trước /admin/facebook)
       if (path.startsWith('/admin/facebook/creatives') || 
           path.startsWith('/admin/facebook/ads/bulk-create')) {
         return FacebookAdsCreative.handle(req, env, ctx);
       }
 
-      // ✅ THÊM: Routes cho Facebook Ads
+      // Facebook Ads Main Routes (dashboard, campaigns, settings, fanpages, posts, ab-test)
       if (path.startsWith('/admin/facebook')) {
         return FacebookAds.handle(req, env, ctx);
       }
-	  
-            // ============================================
+
+      // ============================================
       // FACEBOOK LOGIN (WEB + MINI)
       // ============================================
       if (path === '/auth/facebook/start') {
