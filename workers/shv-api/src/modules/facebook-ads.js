@@ -231,7 +231,6 @@ async function testFacebookConnection(req, env) {
   }
 
   try {
-try {
     const creds = await getFBCredentials(env);
     if (!creds || !creds.access_token) {
       return json({
