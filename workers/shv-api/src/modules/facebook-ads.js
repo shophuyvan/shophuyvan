@@ -231,9 +231,16 @@ async function testFacebookConnection(req, env) {
   }
 
   try {
+try {
     const creds = await getFBCredentials(env);
     if (!creds || !creds.access_token) {
-      // Auto-fix Ad Account ID
+      return json({
+        ok: false,
+        error: 'Chưa cấu hình credentials'
+      }, { status: 400 }, req);
+    }
+
+    // Auto-fix Ad Account ID
     let adAccountId = creds.ad_account_id;
     if (adAccountId && !adAccountId.startsWith('act_')) {
       adAccountId = `act_${adAccountId}`;
