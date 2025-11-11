@@ -17,6 +17,7 @@ import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
 import * as FacebookAds from './modules/facebook-ads.js';
+import * as FacebookOAuth from './modules/facebook-oauth.js';
 import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
 import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
 import { handleCartSync } from './modules/cart-sync-handler.js';
@@ -257,6 +258,11 @@ export default {
       // FACEBOOK ADS ROUTES (ƯU TIÊN CAO - ĐẶT SAU FLASH SALES)
       // ============================================
       
+      // Facebook OAuth (phải đặt TRƯỚC tất cả /admin/facebook routes)
+      if (path.startsWith('/admin/facebook/oauth/')) {
+        return FacebookOAuth.handle(req, env, ctx);
+      }
+
       // Facebook Ads Automation (phải đặt trước /admin/facebook)
       if (path.startsWith('/admin/facebook/automation')) {
         return FacebookAdsAutomation.handle(req, env, ctx);

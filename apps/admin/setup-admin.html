@@ -130,6 +130,32 @@
     
     <div id="result" class="result"></div>
     
+    <div class="step" style="margin-top: 30px; background: #eff6ff;">
+      <h3>🔐 Cấu hình Facebook App (Bắt buộc cho Facebook Ads)</h3>
+      <ol style="line-height: 1.8;">
+        <li>Truy cập <a href="https://developers.facebook.com/apps" target="_blank">Facebook Developers</a></li>
+        <li>Tạo App mới → Chọn "Business" type</li>
+        <li>Thêm sản phẩm "Marketing API"</li>
+        <li><strong>Settings → Basic:</strong>
+          <ul>
+            <li>Copy App ID & App Secret</li>
+            <li>Thêm App Domain: <code>admin.shophuyvan.vn</code></li>
+          </ul>
+        </li>
+        <li><strong>Facebook Login → Settings:</strong>
+          <ul>
+            <li>Valid OAuth Redirect URIs: <code>https://api.shophuyvan.vn/admin/facebook/oauth/callback</code></li>
+          </ul>
+        </li>
+        <li><strong>App Review:</strong>
+          <ul>
+            <li>Request permissions: <code>ads_management</code>, <code>ads_read</code>, <code>business_management</code></li>
+          </ul>
+        </li>
+        <li>Sau đó vào <strong>Admin → Facebook Ads → Settings</strong> để nhập App ID/Secret và Login Facebook</li>
+      </ol>
+    </div>
+
     <div class="step" style="margin-top: 30px;">
       <h3>📋 Thông tin đăng nhập (sau khi setup)</h3>
       <pre>Email: admin@shophuyvan.com

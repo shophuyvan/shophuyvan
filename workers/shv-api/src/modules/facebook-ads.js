@@ -235,8 +235,21 @@ async function testFacebookConnection(req, env) {
     if (!creds || !creds.access_token) {
       return json({
         ok: false,
-        error: 'Chưa cấu hình credentials'
+        error: 'Chưa cấu hình credentials. Vui lòng Login Facebook để lấy access token với đúng permissions.',
+        need_oauth: true
       }, { status: 400 }, req);
+    }
+
+    // Validate permissions
+    const permissionsCheck = await validatePermissions(creds.access_token, env);
+    if (!permissionsCheck.valid) {
+      return json({
+        ok: false,
+        error: 'Access token thiếu quyền cần thiết',
+        missing_permissions: permissionsCheck.missing,
+        need_oauth: true,
+        message: '(#200) Ad account owner has NOT grant ads_management or ads_read permission. Vui lòng login lại Facebook.'
+      }, { status: 403 }, req);
     }
 
     // Auto-fix Ad Account ID
@@ -1586,6 +1599,55 @@ async function getAdStats(req, env, adId) {
   } catch (e) {
     console.error('[FB Ads] Get ad stats error:', e);
     return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Validate if access token has required permissions
+ */
+async function validatePermissions(accessToken, env) {
+  try {
+    const settings = await getJSON(env, 'settings:facebook_ads', null) || {};
+    const appId = settings.app_id || env.FB_APP_ID;
+    const appSecret = settings.app_secret || env.FB_APP_SECRET;
+
+    if (!appId || !appSecret) {
+      return { valid: false, missing: ['app_credentials'], message: 'Thiếu App ID/Secret' };
+    }
+
+    // Debug token to get permissions
+    const url = new URL('https://graph.facebook.com/v19.0/debug_token');
+    url.searchParams.set('input_token', accessToken);
+    url.searchParams.set('access_token', `${appId}|${appSecret}`);
+
+    const response = await fetch(url.toString());
+    const data = await response.json();
+
+    if (data.error) {
+      return { valid: false, missing: [], message: data.error.message };
+    }
+
+    const tokenData = data.data;
+    const scopes = tokenData.scopes || [];
+
+    // Required permissions
+    const required = ['ads_management', 'ads_read'];
+    const missing = required.filter(p => !scopes.includes(p));
+
+    if (missing.length > 0) {
+      return { 
+        valid: false, 
+        missing: missing,
+        current: scopes,
+        message: `Thiếu permissions: ${missing.join(', ')}`
+      };
+    }
+
+    return { valid: true, scopes: scopes };
+
+  } catch (e) {
+    console.error('[FB Ads] Validate permissions error:', e);
+    return { valid: false, missing: [], message: e.message };
   }
 }
 

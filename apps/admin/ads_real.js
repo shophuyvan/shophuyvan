@@ -394,6 +394,67 @@ async function deleteCampaign(campaignId) {
     }
   }
 
+  async function loginFacebook() {
+    try {
+      const r = await Admin.req('/admin/facebook/oauth/authorize', { method: 'GET' });
+      if (r && r.ok && r.auth_url) {
+        // Mở popup OAuth
+        const width = 600;
+        const height = 700;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+        
+        window.open(
+          r.auth_url,
+          'FacebookOAuth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+        );
+        
+        toast('🔐 Đang mở cửa sổ Facebook Login...');
+      } else {
+        toast('❌ ' + (r.error || 'Không thể tạo OAuth URL'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    }
+  }
+
+  async function checkTokenInfo() {
+    try {
+      const r = await Admin.req('/admin/facebook/oauth/token-info', { method: 'GET' });
+      if (r && r.ok) {
+        const status = r.is_expired ? '⚠️ Đã hết hạn' : '✅ Còn hiệu lực';
+        const expires = new Date(r.expires_at).toLocaleString('vi-VN');
+        const scopes = r.scopes.join(', ');
+        
+        alert(`🔑 THÔNG TIN ACCESS TOKEN\n\n` +
+              `User: ${r.user_name}\n` +
+              `Status: ${status}\n` +
+              `Expires: ${expires}\n\n` +
+              `Permissions:\n${scopes}`);
+      } else {
+        toast('❌ ' + (r.error || 'Không có token'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    }
+  }
+
+  async function revokeToken() {
+    if (!confirm('Bạn có chắc muốn xóa access token?\n\nSau khi xóa, bạn cần login lại Facebook.')) return;
+    
+    try {
+      const r = await Admin.req('/admin/facebook/oauth/revoke', { method: 'POST' });
+      if (r && r.ok) {
+        toast('✅ Đã xóa access token');
+      } else {
+        toast('❌ ' + (r.error || 'Xóa thất bại'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    }
+  }
+
   async function loadSettings() {
     try {
       const r = await Admin.req('/admin/settings/facebook_ads', { method: 'GET' });
@@ -902,6 +963,15 @@ async function deleteCampaign(campaignId) {
     const btnSave = document.getElementById('btnSaveSettings');
     if (btnSave) btnSave.onclick = saveSettings;
 
+    const btnLoginFacebook = document.getElementById('btnLoginFacebook');
+    if (btnLoginFacebook) btnLoginFacebook.onclick = loginFacebook;
+
+    const btnCheckToken = document.getElementById('btnCheckToken');
+    if (btnCheckToken) btnCheckToken.onclick = checkTokenInfo;
+
+    const btnRevokeToken = document.getElementById('btnRevokeToken');
+    if (btnRevokeToken) btnRevokeToken.onclick = revokeToken;
+
     // Fanpage Management Buttons
     const btnAddFanpage = document.getElementById('btnAddFanpage');
     if (btnAddFanpage) btnAddFanpage.onclick = addFanpage;
@@ -927,6 +997,9 @@ async function deleteCampaign(campaignId) {
   window.FacebookAds = {
     init,
     testConnection,
+    loginFacebook,
+    checkTokenInfo,
+    revokeToken,
     loadCampaigns,
     loadProducts,
     createCampaign,

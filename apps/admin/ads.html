@@ -135,7 +135,13 @@
   <div id="tab-campaigns" class="tab-content">
     <div class="toolbar">
       <button id="btnRefreshCampaigns" class="btn primary">🔄 Làm mới</button>
-      <button id="btnTestConnection" class="btn">🔗 Test kết nối</button>
+      <button id="btnTestConnection" class="btn">🔌 Test Connection</button>
+          <button id="btnLoginFacebook" class="btn primary" style="background: #1877f2; margin-left: 10px;">
+            🔐 Login with Facebook
+          </button>
+          <button id="btnCheckToken" class="btn" style="margin-left: 10px;">
+            🔑 Check Token
+          </button>
     </div>
     <div id="campaignsList" class="loading">Đang tải...</div>
   </div>
@@ -405,6 +411,27 @@
 
   <!-- Tab: Settings -->
   <div id="tab-settings" class="tab-content">
+    <div class="card" style="background: #eff6ff; border-left: 4px solid #3b82f6; margin-bottom: 20px;">
+      <h3 style="color: #1e40af; margin-top: 0;">🔐 OAuth Authentication (Khuyên dùng)</h3>
+      <p style="margin-bottom: 15px; color: #1e40af;">
+        <strong>Bước 1:</strong> Nhập App ID + Secret bên dưới và lưu → <strong>Bước 2:</strong> Click "Login with Facebook"
+      </p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button id="btnLoginFacebook" class="btn primary" style="background: #1877f2;">
+          🔐 Login with Facebook
+        </button>
+        <button id="btnCheckToken" class="btn">
+          🔑 Check Token Status
+        </button>
+        <button id="btnRevokeToken" class="btn" style="background: #dc2626; color: white;">
+          🗑️ Revoke Token
+        </button>
+      </div>
+      <p style="margin-top: 15px; font-size: 13px; color: #1e3a8a;">
+        ℹ️ <strong>Lợi ích OAuth:</strong> Token tự động với đầy đủ permissions (ads_management, ads_read, business_management). Token hợp lệ 60 ngày.
+      </p>
+    </div>
+    
     <div class="card">
       <h3>Cấu hình Facebook Pixel & Credentials</h3>
       <p class="hint">Nhập thông tin từ Facebook Business Manager</p>
@@ -421,11 +448,14 @@
         <a href="https://developers.facebook.com/apps" target="_blank" class="btn-helper">🔗 Lấy Secret</a>
       </div>
       
-      <label>Access Token (Long-lived)</label>
+      <label>Access Token (Long-lived) <span style="color: #10b981; font-size: 11px;">[Tự động từ OAuth]</span></label>
       <div class="input-with-helper">
-        <input id="fbAccessToken" class="input" type="password" placeholder="EAAxxxx..."/>
-        <a href="https://developers.facebook.com/tools/accesstoken" target="_blank" class="btn-helper">🔗 Tạo Token</a>
+        <input id="fbAccessToken" class="input" type="password" placeholder="Sẽ tự động lấy sau khi Login Facebook" readonly style="background: #f9fafb;"/>
+        <a href="https://developers.facebook.com/tools/accesstoken" target="_blank" class="btn-helper">🔗 Hoặc nhập Manual</a>
       </div>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+        💡 <strong>Khuyến nghị:</strong> Dùng OAuth ở trên thay vì nhập token manual. Token manual dễ thiếu permissions.
+      </p>
       
       <label>Ad Account ID</label>
       <div class="input-with-helper">
