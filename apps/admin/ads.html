@@ -83,6 +83,19 @@
     .progress-bar { width:100%; height:24px; background:#e5e7eb; border-radius:12px; overflow:hidden; margin-bottom:8px; }
     .progress-fill { height:100%; background:linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); transition:width 0.3s; }
     #progressText { text-align:center; font-size:13px; color:#6b7280; }
+    
+    /* Settings Helper Links */
+    .input-with-helper { display:flex; gap:8px; align-items:center; }
+    .input-with-helper input { flex:1; }
+    .btn-helper { padding:8px 12px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap; }
+    .btn-helper:hover { background:#dbeafe; }
+    .fanpage-table { width:100%; border-collapse:collapse; margin-top:12px; }
+    .fanpage-table th, .fanpage-table td { padding:10px; border:1px solid var(--border); text-align:left; font-size:13px; }
+    .fanpage-table th { background:#f9fafb; font-weight:600; }
+    .fanpage-status { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .fanpage-status.active { background:#d1fae5; color:#065f46; }
+    .fanpage-status.paused { background:#fed7aa; color:#92400e; }
+    .fanpage-actions { display:flex; gap:6px; }
   </style>
 </head>
 <body>
@@ -397,24 +410,64 @@
       <p class="hint">Nhập thông tin từ Facebook Business Manager</p>
       
       <label>Facebook App ID</label>
-      <input id="fbAppId" class="input" placeholder="123456789012345"/>
+      <div class="input-with-helper">
+        <input id="fbAppId" class="input" placeholder="123456789012345"/>
+        <a href="https://developers.facebook.com/apps" target="_blank" class="btn-helper">🔗 Lấy App ID</a>
+      </div>
       
       <label>Facebook App Secret</label>
-      <input id="fbAppSecret" class="input" type="password" placeholder="abcdef..."/>
+      <div class="input-with-helper">
+        <input id="fbAppSecret" class="input" type="password" placeholder="abcdef..."/>
+        <a href="https://developers.facebook.com/apps" target="_blank" class="btn-helper">🔗 Lấy Secret</a>
+      </div>
       
       <label>Access Token (Long-lived)</label>
-      <input id="fbAccessToken" class="input" type="password" placeholder="EAAxxxx..."/>
+      <div class="input-with-helper">
+        <input id="fbAccessToken" class="input" type="password" placeholder="EAAxxxx..."/>
+        <a href="https://developers.facebook.com/tools/accesstoken" target="_blank" class="btn-helper">🔗 Tạo Token</a>
+      </div>
       
       <label>Ad Account ID</label>
-      <input id="fbAdAccountId" class="input" placeholder="act_123456789"/>
-      
-      <label>Facebook Page ID</label>
-      <input id="fbPageId" class="input" placeholder="123456789012345"/>
+      <div class="input-with-helper">
+        <input id="fbAdAccountId" class="input" placeholder="act_123456789"/>
+        <a href="https://business.facebook.com/settings/ad-accounts" target="_blank" class="btn-helper">🔗 Business Manager</a>
+      </div>
       
       <hr/>
       
       <label>Facebook Pixel ID</label>
-      <input id="fbPixel" class="input" placeholder="123456789012345"/>
+      <div class="input-with-helper">
+        <input id="fbPixel" class="input" placeholder="123456789012345"/>
+        <a href="https://business.facebook.com/events-manager" target="_blank" class="btn-helper">🔗 Tạo Pixel</a>
+      </div>
+      
+      <hr/>
+      
+      <h4>📄 Quản lý Fanpage</h4>
+      <p class="hint">Thêm và quản lý nhiều fanpage</p>
+      
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <input id="newFanpageName" class="input" placeholder="Tên Fanpage" style="flex:1;"/>
+        <input id="newFanpageId" class="input" placeholder="Page ID" style="flex:1;"/>
+        <button id="btnAddFanpage" class="btn green">➕ Thêm</button>
+      </div>
+      
+      <table class="fanpage-table">
+        <thead>
+          <tr>
+            <th style="width:30px;">✓</th>
+            <th>Tên Fanpage</th>
+            <th>Page ID</th>
+            <th>Trạng thái</th>
+            <th style="width:120px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="fanpageTableBody">
+          <tr>
+            <td colspan="5" style="text-align:center; color:#6b7280;">Chưa có fanpage nào. Thêm fanpage bên trên.</td>
+          </tr>
+        </tbody>
+      </table>
       
       <button id="btnSaveSettings" class="btn primary" style="margin-top:16px; width:100%;">💾 Lưu cấu hình</button>
     </div>

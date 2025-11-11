@@ -9,6 +9,7 @@
   const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || 'https://api.shophuyvan.vn';
   let productsCache = [];
   let campaignsCache = [];
+  let fanpagesCache = [];
 
   // ============================================================
   // UTILITIES
@@ -200,7 +201,7 @@
     }
   }
 
-  async function deleteCampaign(campaignId) {
+async function deleteCampaign(campaignId) {
     if (!confirm('Bạn có chắc muốn xóa campaign này?')) return;
 
     try {
@@ -217,6 +218,167 @@
     } catch (e) {
       toast('❌ Lỗi: ' + e.message);
     }
+  }
+
+  // ============================================================
+  // FANPAGE MANAGEMENT
+  // ============================================================
+
+  async function loadFanpages() {
+    showLoading('fanpagesTable', 'Đang tải danh sách fanpage...');
+    try {
+      const r = await Admin.req('/admin/facebook/fanpages', { method: 'GET' });
+      if (r && r.ok) {
+        fanpagesCache = r.fanpages || [];
+        renderFanpages(fanpagesCache);
+      } else {
+        showError('fanpagesTable', r.error || 'Không thể tải danh sách fanpage');
+      }
+    } catch (e) {
+      showError('fanpagesTable', 'Lỗi: ' + e.message);
+    }
+  }
+
+  async function addFanpage() {
+    const pageId = document.getElementById('fanpageId')?.value?.trim();
+    const pageName = document.getElementById('fanpageName')?.value?.trim();
+    const accessToken = document.getElementById('fanpageToken')?.value?.trim();
+
+    if (!pageId || !pageName || !accessToken) {
+      toast('❌ Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+
+    if (pageId.length < 5) {
+      toast('❌ Page ID không hợp lệ');
+      return;
+    }
+
+    const btn = document.getElementById('btnAddFanpage');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Đang thêm...';
+    }
+
+    try {
+      const r = await Admin.req('/admin/facebook/fanpages', {
+        method: 'POST',
+        body: {
+          page_id: pageId,
+          page_name: pageName,
+          access_token: accessToken
+        }
+      });
+
+      if (r && r.ok) {
+        toast('✅ ' + (r.message || 'Thêm fanpage thành công'));
+        // Reset form
+        document.getElementById('fanpageId').value = '';
+        document.getElementById('fanpageName').value = '';
+        document.getElementById('fanpageToken').value = '';
+        // Reload fanpages
+        loadFanpages();
+      } else {
+        toast('❌ ' + (r.error || 'Thêm fanpage thất bại'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '➕ Thêm Fanpage';
+      }
+    }
+  }
+
+  async function deleteFanpage(id) {
+    if (!confirm('Bạn có chắc muốn xóa fanpage này?')) return;
+
+    try {
+      const r = await Admin.req(`/admin/facebook/fanpages/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (r && r.ok) {
+        toast('✅ Đã xóa fanpage');
+        loadFanpages();
+      } else {
+        toast('❌ ' + (r.error || 'Xóa thất bại'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    }
+  }
+
+  async function setDefaultFanpage(id) {
+    try {
+      const r = await Admin.req(`/admin/facebook/fanpages/${id}/default`, {
+        method: 'POST'
+      });
+
+      if (r && r.ok) {
+        toast('✅ ' + (r.message || 'Đã đặt fanpage mặc định'));
+        loadFanpages();
+      } else {
+        toast('❌ ' + (r.error || 'Đặt mặc định thất bại'));
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+    }
+  }
+
+  function renderFanpages(fanpages) {
+    const container = document.getElementById('fanpagesTable');
+    if (!container) return;
+
+    if (!fanpages || fanpages.length === 0) {
+      container.innerHTML = '<div class="alert">Chưa có fanpage nào. Vui lòng thêm fanpage!</div>';
+      return;
+    }
+
+    const tableHTML = `
+      <style>
+        .fanpage-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .fanpage-table th, .fanpage-table td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; font-size: 13px; }
+        .fanpage-table th { background: #f9fafb; font-weight: 600; }
+        .fanpage-table tr.default-page td { background: #dbeafe; }
+        .fanpage-table .badge-default { background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .fanpage-table .btn-group { display: flex; gap: 6px; }
+        .fanpage-table .btn-sm { padding: 4px 10px; font-size: 12px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; }
+        .fanpage-table .btn-sm:hover { background: #f3f4f6; }
+        .fanpage-table .btn-danger { background: #fee; color: #dc2626; border-color: #fca5a5; }
+        .fanpage-table .btn-primary { background: #eff6ff; color: #2563eb; border-color: #93c5fd; }
+      </style>
+      <table class="fanpage-table">
+        <thead>
+          <tr>
+            <th>Tên Fanpage</th>
+            <th>Page ID</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${fanpages.map(fp => `
+            <tr class="${fp.is_default ? 'default-page' : ''}">
+              <td>
+                <strong>${fp.page_name || 'Unnamed Page'}</strong>
+                ${fp.is_default ? '<span class="badge-default">MẶC ĐỊNH</span>' : ''}
+              </td>
+              <td><code>${fp.page_id}</code></td>
+              <td>${fp.status === 'active' ? '🟢 Active' : '🔴 Inactive'}</td>
+              <td>
+                <div class="btn-group">
+                  ${!fp.is_default ? `<button class="btn-sm btn-primary" onclick="FacebookAds.setDefaultFanpage('${fp.id}')">Đặt mặc định</button>` : ''}
+                  <button class="btn-sm btn-danger" onclick="FacebookAds.deleteFanpage('${fp.id}')">Xóa</button>
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    container.innerHTML = tableHTML;
   }
 
   async function getCampaignStats(campaignId) {
@@ -247,6 +409,9 @@
         document.getElementById('fbPageId').value = settings.page_id || '';
         document.getElementById('fbPixel').value = settings.pixel_id || '';
       }
+      
+      // Load danh sách fanpages
+      loadFanpages();
     } catch (e) {
       console.error('Load settings error:', e);
     }
@@ -729,6 +894,10 @@
     const btnSave = document.getElementById('btnSaveSettings');
     if (btnSave) btnSave.onclick = saveSettings;
 
+    // Fanpage Management Buttons
+    const btnAddFanpage = document.getElementById('btnAddFanpage');
+    if (btnAddFanpage) btnAddFanpage.onclick = addFanpage;
+
     // THÊM MỚI: Button handlers (mới)
     const btnCreatePost = document.getElementById('btnCreatePost');
     if (btnCreatePost) btnCreatePost.onclick = createFanpagePost;
@@ -757,7 +926,11 @@
     deleteCampaign,
     getCampaignStats,
     loadSettings,
-    saveSettings
+    saveSettings,
+    loadFanpages,
+    addFanpage,
+    deleteFanpage,
+    setDefaultFanpage
   };
 
   // Auto-init on DOM ready
