@@ -302,8 +302,16 @@ async function listCampaigns(req, env) {
       creds.access_token
     );
 
+    console.log('[FB Ads] Facebook API result:', JSON.stringify(result).substring(0, 500));
+
     if (result.error) {
-      return json({ ok: false, error: result.error }, { status: 400 }, req);
+      console.error('[FB Ads] Facebook API error:', result.error);
+      return json({ 
+        ok: false, 
+        error: 'Facebook API Error',
+        details: result.error,
+        message: result.error.message || result.error.error_user_msg || 'Unknown error'
+      }, { status: 400 }, req);
     }
 
     return json({

@@ -2,7 +2,7 @@
 // Component Top Products (Bestsellers + Newest) cho trang chủ - Phương án 2
 
 import api from './lib/api.js';
-import { formatPrice } from './lib/price.js';
+import { formatPrice, pickLowestPrice } from './lib/price.js';
 
 // Đánh dấu đã dùng component Top Products v2
 if (typeof window !== 'undefined') {
@@ -117,24 +117,24 @@ function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
-  // Ưu tiên giá từ API (price_display đã tính sẵn)
+  // ƯU TIÊN: giá từ API (price_display đã tính sẵn).
+  // FALLBACK: dùng pickLowestPrice (chỉ đọc variants, không dùng price cấp product).
   let base = 0;
   let original = 0;
 
-  if (p.price_display && p.price_display > 0) {
-    base = Number(p.price_display);
+  if (p.price_display && Number(p.price_display) > 0) {
+    base = Number(p.price_display || 0);
     original = Number(p.compare_at_display || 0);
   } else {
-    // Fallback: tính từ variants
-    base = Number(p.price || 0);
-    original = Number(p.compare_at || 0);
+    const info = pickLowestPrice(p);
+    base = info.base || 0;
+    original = info.original || 0;
   }
 
   let priceHtml = '';
 
   if (base > 0) {
     if (original > base) {
-      // Có giá gạch ngang
       priceHtml = `
         <div class="product-card-price">
           <span class="product-card-price-sale">${formatPrice(base)}</span>
@@ -151,6 +151,7 @@ function productCard(p) {
   } else {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
   }
+
 
   // Sold badge cho bestsellers (hiển thị nhỏ ở góc)
   const soldBadge = p.sold && p.sold > 0

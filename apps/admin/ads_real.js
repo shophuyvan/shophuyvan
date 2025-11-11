@@ -397,14 +397,25 @@ async function deleteCampaign(campaignId) {
   async function loadSettings() {
     try {
       const r = await Admin.req('/admin/settings/facebook_ads', { method: 'GET' });
+      console.log('[FB Ads] loadSettings response:', r);
+      
       if (r && r.ok && r.value) {
         const settings = r.value;
-        document.getElementById('fbAppId').value = settings.app_id || '';
-        document.getElementById('fbAppSecret').value = settings.app_secret || '';
-        document.getElementById('fbAccessToken').value = settings.access_token || '';
-        document.getElementById('fbAdAccountId').value = settings.ad_account_id || '';
-        document.getElementById('fbPageId').value = settings.page_id || '';
-        document.getElementById('fbPixel').value = settings.pixel_id || '';
+        const fbAppId = document.getElementById('fbAppId');
+        const fbAppSecret = document.getElementById('fbAppSecret');
+        const fbAccessToken = document.getElementById('fbAccessToken');
+        const fbAdAccountId = document.getElementById('fbAdAccountId');
+        const fbPageId = document.getElementById('fbPageId');
+        const fbPixel = document.getElementById('fbPixel');
+        
+        if (fbAppId) fbAppId.value = settings.app_id || '';
+        if (fbAppSecret) fbAppSecret.value = settings.app_secret || '';
+        if (fbAccessToken) fbAccessToken.value = settings.access_token || '';
+        if (fbAdAccountId) fbAdAccountId.value = settings.ad_account_id || '';
+        if (fbPageId) fbPageId.value = settings.page_id || '';
+        if (fbPixel) fbPixel.value = settings.pixel_id || '';
+      } else {
+        console.warn('[FB Ads] No settings found or invalid response');
       }
       
       // Load danh sách fanpages
