@@ -322,44 +322,77 @@ function getCustomerTier(req) {
 }
 
 // Only compute from variants; no product-level fallback
+// Chọn 1 biến thể có GIÁ THẤP NHẤT, giữ nguyên cặp (sale, price) của chính biến thể đó
 function computeDisplayPrice(product, tier) {
   try {
-    const toNum = (x) => (typeof x === 'string' ? (Number(x.replace(/[^\d.-]/g, '')) || 0) : Number(x || 0));
+    const toNum = (x) =>
+      typeof x === 'string'
+        ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
+        : Number(x || 0);
+
     const vars = Array.isArray(product?.variants) ? product.variants : [];
 
     if (!vars.length) {
-      return { price_display: 0, compare_at_display: null, price_tier: tier, no_variant: true };
+      return {
+        price_display: 0,
+        compare_at_display: null,
+        price_tier: tier,
+        no_variant: true,
+      };
     }
 
-    let minSale = null;
-    let minReg  = null;
+    let bestBase = null;
+    let bestOrig = null;
 
     for (const v of vars) {
-      // Nếu có field dành cho wholesale ở biến thể, tự phát hiện; nếu không có vẫn dùng sale_price/price
-      const svTier = (tier === 'wholesale')
-        ? (v.sale_price_wholesale ?? v.wholesale_sale_price ?? null)
-        : null;
-      const rvTier = (tier === 'wholesale')
-        ? (v.price_wholesale ?? v.wholesale_price ?? null)
-        : null;
+      // Giá theo tier (wholesale) nếu có
+      const svTier =
+        tier === 'wholesale'
+          ? v.sale_price_wholesale ?? v.wholesale_sale_price ?? null
+          : null;
+      const rvTier =
+        tier === 'wholesale'
+          ? v.price_wholesale ?? v.wholesale_price ?? null
+          : null;
 
-      const sv = toNum(svTier ?? v.sale_price ?? v.price_sale);
-      const rv = toNum(rvTier ?? v.price);
+      const sale = toNum(svTier ?? v.sale_price ?? v.price_sale);
+      const reg = toNum(rvTier ?? v.price);
 
-      if (sv > 0) minSale = (minSale == null ? sv : Math.min(minSale, sv));
-      if (rv > 0) minReg  = (minReg  == null ? rv : Math.min(minReg,  rv));
+      let base = 0;
+      let orig = 0;
+
+      if (sale > 0 && reg > 0 && sale < reg) {
+        // Có giảm giá: base = sale, original = price
+        base = sale;
+        orig = reg;
+      } else {
+        // Không giảm: base = price, không có compare_at
+        base = reg;
+        orig = 0;
+      }
+
+      if (base > 0) {
+        if (bestBase == null || base < bestBase) {
+          bestBase = base;
+          bestOrig = orig;
+        }
+      }
     }
 
-    if (minSale != null && minReg != null && minSale < minReg) {
-      return { price_display: minSale, compare_at_display: minReg, price_tier: tier };
+    if (bestBase == null) {
+      return { price_display: 0, compare_at_display: null, price_tier: tier };
     }
 
-    const price = (minSale != null ? minSale : (minReg != null ? minReg : 0));
-    return { price_display: price, compare_at_display: null, price_tier: tier };
+    return {
+      price_display: bestBase,
+      compare_at_display: bestOrig > 0 ? bestOrig : null,
+      price_tier: tier,
+    };
   } catch {
     return { price_display: 0, compare_at_display: null, price_tier: tier };
   }
 }
+
 
 // ===================================================================
 // PUBLIC: Get Product by ID
