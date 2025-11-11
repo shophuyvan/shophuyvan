@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧙 Facebook Ads Setup Wizard</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <script src="./admin_real.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .wizard-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 700px;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    .wizard-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .wizard-header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    
+    .wizard-header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+      font-size: 15px;
+    }
+    
+    .steps-indicator {
+      display: flex;
+      justify-content: space-between;
+      padding: 30px 30px 0 30px;
+      margin-bottom: 30px;
+    }
+    
+    .step-indicator {
+      flex: 1;
+      text-align: center;
+      position: relative;
+      padding-bottom: 20px;
+    }
+    
+    .step-indicator:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      width: 100%;
+      height: 3px;
+      background: #e5e7eb;
+      z-index: 0;
+    }
+    
+    .step-indicator.active:not(:last-child)::after {
+      background: #667eea;
+    }
+    
+    .step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      color: #6b7280;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .step-indicator.active .step-number {
+      background: #667eea;
+      color: white;
+    }
+    
+    .step-indicator.completed .step-number {
+      background: #10b981;
+      color: white;
+    }
+    
+    .step-indicator.completed .step-number::before {
+      content: '✓';
+    }
+    
+    .step-label {
+      font-size: 13px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    
+    .step-indicator.active .step-label {
+      color: #667eea;
+      font-weight: 600;
+    }
+    
+    .wizard-content {
+      padding: 0 30px 30px 30px;
+      min-height: 300px;
+    }
+    
+    .step-content {
+      display: none;
+    }
+    
+    .step-content.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .step-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 10px;
+    }
+    
+    .step-description {
+      color: #6b7280;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+    
+    .instruction-box {
+      background: #f9fafb;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .instruction-box h4 {
+      margin: 0 0 12px 0;
+      color: #374151;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .instruction-box ol {
+      margin: 0;
+      padding-left: 20px;
+      color: #4b5563;
+      line-height: 1.8;
+    }
+    
+    .instruction-box li {
+      margin-bottom: 8px;
+    }
+    
+    .action-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-block;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.3s;
+      margin-bottom: 15px;
+    }
+    
+    .action-button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .action-button.secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+    
+    .action-button.secondary:hover {
+      background: #f9fafb;
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    .input-group label {
+      display: block;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .input-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.3s;
+    }
+    
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 30px;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s;
+    }
+    
+    .btn-back {
+      background: white;
+      color: #6b7280;
+      border: 2px solid #e5e7eb;
+    }
+    
+    .btn-back:hover {
+      background: #f9fafb;
+    }
+    
+    .btn-next {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-next:hover {
+      background: #5568d3;
+    }
+    
+    .btn-next:disabled {
+      background: #d1d5db;
+      cursor: not-allowed;
+    }
+    
+    .success-message {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .success-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .alert-info {
+      background: #dbeafe;
+      color: #1e40af;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    .alert-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border-left: 4px solid #f59e0b;
+    }
+    
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border-left: 4px solid #10b981;
+    }
+    
+    .checkbox-group {
+      margin: 20px 0;
+    }
+    
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 12px;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+    
+    .checkbox-group label:hover {
+      background: #f9fafb;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 12px;
+      cursor: pointer;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wizard-container">
+  <!-- Header -->
+  <div class="wizard-header">
+    <h1>🧙‍♂️ Facebook Ads Setup Wizard</h1>
+    <p>Chỉ 3 bước đơn giản để kết nối Facebook Ads</p>
+  </div>
+  
+  <!-- Steps Indicator -->
+  <div class="steps-indicator">
+    <div class="step-indicator active" data-step="1">
+      <div class="step-number">1</div>
+      <div class="step-label">Tạo App</div>
+    </div>
+    <div class="step-indicator" data-step="2">
+      <div class="step-number">2</div>
+      <div class="step-label">Cấu hình</div>
+    </div>
+    <div class="step-indicator" data-step="3">
+      <div class="step-number">3</div>
+      <div class="step-label">Hoàn tất</div>
+    </div>
+  </div>
+  
+  <!-- Wizard Content -->
+  <div class="wizard-content">
+    
+    <!-- Step 1: Create Facebook App -->
+    <div class="step-content active" data-step="1">
+      <div class="step-title">Bước 1: Tạo Facebook App</div>
+      <div class="step-description">
+        Bạn cần có Facebook App để sử dụng Facebook Ads API. Đừng lo, tôi sẽ hướng dẫn chi tiết!
+      </div>
+      
+      <div class="alert alert-info">
+        💡 <strong>Lưu ý:</strong> Bạn cần có tài khoản Facebook đã xác minh và có quyền quản lý Business Manager.
+      </div>
+      
+      <div class="instruction-box">
+        <h4>📋 Các bước thực hiện:</h4>
+        <ol>
+          <li>Click nút bên dưới để mở Facebook Developers</li>
+          <li>Đăng nhập Facebook (nếu chưa đăng nhập)</li>
+          <li>Click <strong>"Create App"</strong></li>
+          <li>Chọn <strong>"Business"</strong> → Click <strong>"Next"</strong></li>
+          <li>Nhập App Name: <strong>"ShopHuyVan Ads"</strong> (hoặc tên bạn muốn)</li>
+          <li>Chọn App Purpose: <strong>"Yourself or your own business"</strong></li>
+          <li>Click <strong>"Create App"</strong></li>
+          <li>Quay lại đây và tick ô bên dưới ✅</li>
+        </ol>
+      </div>
+      
+      <a href="https://developers.facebook.com/apps/create/" target="_blank" class="action-button">
+        🚀 Mở Facebook Developers
+      </a>
+      
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="appCreatedCheck" onchange="checkStep1()">
+          <span>✅ Tôi đã tạo xong Facebook App</span>
+        </label>
+      </div>
+    </div>
+    
+    <!-- Step 2: Configure App -->
+    <div class="step-content" data-step="2">
+      <div class="step-title">Bước 2: Cấu hình App</div>
+      <div class="step-description">
+        Nhập thông tin App và cấu hình các settings cần thiết
+      </div>
+      
+      <div class="alert alert-warning">
+        ⚠️ Vui lòng làm theo đúng hướng dẫn bên dưới trước khi nhập thông tin
+      </div>
+      
+      <div class="instruction-box">
+        <h4>🔧 Cấu hình App trên Facebook:</h4>
+        <ol>
+          <li>Vào <strong>Settings → Basic</strong></li>
+          <li>Copy <strong>App ID</strong> và <strong>App Secret</strong> (Click "Show")</li>
+          <li>Thêm <strong>App Domains</strong>: 
+            <code style="background:#fff;padding:2px 6px;border-radius:4px;">admin.shophuyvan.vn, api.shophuyvan.vn</code>
+          </li>
+          <li>Menu bên trái → Click <strong>"+ Add Product"</strong> → Chọn <strong>"Marketing API"</strong></li>
+          <li>Menu bên trái → <strong>Facebook Login → Settings</strong></li>
+          <li>Valid OAuth Redirect URIs: 
+            <code style="background:#fff;padding:2px 6px;border-radius:4px;">https://api.shophuyvan.vn/admin/facebook/oauth/callback</code>
+          </li>
+          <li>Click <strong>"Save Changes"</strong></li>
+        </ol>
+      </div>
+      
+      <div class="input-group">
+        <label>Facebook App ID *</label>
+        <input type="text" id="fbAppId" placeholder="Ví dụ: 1234567890123456" />
+      </div>
+      
+      <div class="input-group">
+        <label>Facebook App Secret *</label>
+        <input type="password" id="fbAppSecret" placeholder="Nhập App Secret tại đây" />
+      </div>
+      
+      <div class="input-group">
+        <label>Ad Account ID *</label>
+        <input type="text" id="fbAdAccountId" placeholder="Ví dụ: act_1234567890" />
+        <small style="color:#6b7280;font-size:12px;display:block;margin-top:6px;">
+          💡 Lấy tại: <a href="https://business.facebook.com/settings/ad-accounts" target="_blank">Business Manager → Ad Accounts</a>
+        </small>
+      </div>
+      
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="configCompletedCheck" onchange="checkStep2()">
+          <span>✅ Tôi đã cấu hình xong trên Facebook và điền đủ thông tin</span>
+        </label>
+      </div>
+    </div>
+    
+    <!-- Step 3: Get Access Token -->
+    <div class="step-content" data-step="3">
+      <div class="step-title">Bước 3: Lấy Access Token</div>
+      <div class="step-description">
+        Bước cuối cùng - Đăng nhập Facebook để lấy access token tự động
+      </div>
+      
+      <div id="step3Loading" class="loading" style="display:none;">
+        <div class="spinner"></div>
+        <p>Đang lưu cấu hình và chuẩn bị OAuth...</p>
+      </div>
+      
+      <div id="step3Content">
+        <div class="alert alert-success">
+          🎉 <strong>Gần xong rồi!</strong> Click nút bên dưới để login Facebook và cấp quyền cho App.
+        </div>
+        
+        <div class="instruction-box">
+          <h4>🔐 Khi popup Facebook mở:</h4>
+          <ol>
+            <li>Đăng nhập Facebook (nếu chưa)</li>
+            <li>Chọn <strong>Business Manager/Ad Account</strong> cần kết nối</li>
+            <li>Cấp tất cả các quyền được yêu cầu</li>
+            <li>Click <strong>"Continue"</strong></li>
+            <li>Popup sẽ tự động đóng và bạn hoàn tất!</li>
+          </ol>
+        </div>
+        
+        <button class="action-button" onclick="startOAuth()" id="btnStartOAuth">
+          🔐 Login Facebook & Lấy Token
+        </button>
+        
+        <div class="alert alert-info" style="margin-top:20px;">
+          <strong>Lưu ý Permissions:</strong> App cần các quyền sau:
+          <ul style="margin:10px 0 0 20px;">
+            <li>✅ ads_management (Quản lý quảng cáo)</li>
+            <li>✅ ads_read (Đọc dữ liệu quảng cáo)</li>
+            <li>✅ business_management (Quản lý Business)</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div id="step3Success" style="display:none;">
+        <div class="success-message">
+          <div class="success-icon">🎉</div>
+          <h2 style="color:#10b981;margin-bottom:10px;">Hoàn tất!</h2>
+          <p style="color:#6b7280;margin-bottom:30px;">
+            Access token đã được lưu thành công. Bạn có thể bắt đầu sử dụng Facebook Ads ngay bây giờ.
+          </p>
+          <a href="./ads.html" class="action-button">
+            🚀 Đến trang Facebook Ads
+          </a>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  <!-- Wizard Actions -->
+  <div class="wizard-actions">
+    <button class="btn btn-back" onclick="prevStep()" id="btnBack" style="display:none;">
+      ◀ Quay lại
+    </button>
+    <button class="btn btn-next" onclick="nextStep()" id="btnNext" disabled>
+      Tiếp tục ▶
+    </button>
+  </div>
+</div>
+
+<script>
+let currentStep = 1;
+
+function checkStep1() {
+  const checked = document.getElementById('appCreatedCheck').checked;
+  document.getElementById('btnNext').disabled = !checked;
+}
+
+function checkStep2() {
+  const appId = document.getElementById('fbAppId').value.trim();
+  const appSecret = document.getElementById('fbAppSecret').value.trim();
+  const adAccountId = document.getElementById('fbAdAccountId').value.trim();
+  const checked = document.getElementById('configCompletedCheck').checked;
+  
+  const allFilled = appId && appSecret && adAccountId && checked;
+  document.getElementById('btnNext').disabled = !allFilled;
+}
+
+// Listen to input changes in step 2
+document.addEventListener('DOMContentLoaded', () => {
+  const step2Inputs = ['fbAppId', 'fbAppSecret', 'fbAdAccountId'];
+  step2Inputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', checkStep2);
+    }
+  });
+});
+
+function nextStep() {
+  if (currentStep === 2) {
+    // Save settings before moving to step 3
+    saveSettings();
+    return;
+  }
+  
+  if (currentStep < 3) {
+    currentStep++;
+    updateWizard();
+  }
+}
+
+function prevStep() {
+  if (currentStep > 1) {
+    currentStep--;
+    updateWizard();
+  }
+}
+
+function updateWizard() {
+  // Update step indicators
+  document.querySelectorAll('.step-indicator').forEach((el, index) => {
+    el.classList.remove('active', 'completed');
+    if (index + 1 < currentStep) {
+      el.classList.add('completed');
+    } else if (index + 1 === currentStep) {
+      el.classList.add('active');
+    }
+  });
+  
+  // Update step content
+  document.querySelectorAll('.step-content').forEach(el => {
+    el.classList.remove('active');
+  });
+  document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.add('active');
+  
+  // Update buttons
+  document.getElementById('btnBack').style.display = currentStep > 1 ? 'block' : 'none';
+  
+  if (currentStep === 3) {
+    document.getElementById('btnNext').style.display = 'none';
+  } else {
+    document.getElementById('btnNext').style.display = 'block';
+    // Reset next button state based on current step
+    if (currentStep === 1) {
+      checkStep1();
+    } else if (currentStep === 2) {
+      checkStep2();
+    }
+  }
+}
+
+async function saveSettings() {
+  const appId = document.getElementById('fbAppId').value.trim();
+  const appSecret = document.getElementById('fbAppSecret').value.trim();
+  const adAccountId = document.getElementById('fbAdAccountId').value.trim();
+  
+  try {
+    document.getElementById('btnNext').disabled = true;
+    document.getElementById('btnNext').textContent = '⏳ Đang lưu...';
+    
+    const response = await Admin.req('/admin/settings/facebook_ads', {
+      method: 'POST',
+      body: {
+        app_id: appId,
+        app_secret: appSecret,
+        ad_account_id: adAccountId
+      }
+    });
+    
+    if (response.ok) {
+      currentStep = 3;
+      updateWizard();
+    } else {
+      alert('❌ Lỗi lưu cấu hình: ' + (response.error || 'Unknown error'));
+      document.getElementById('btnNext').disabled = false;
+      document.getElementById('btnNext').textContent = 'Tiếp tục ▶';
+    }
+  } catch (e) {
+    alert('❌ Lỗi: ' + e.message);
+    document.getElementById('btnNext').disabled = false;
+    document.getElementById('btnNext').textContent = 'Tiếp tục ▶';
+  }
+}
+
+async function startOAuth() {
+  try {
+    document.getElementById('btnStartOAuth').disabled = true;
+    document.getElementById('btnStartOAuth').textContent = '⏳ Đang chuẩn bị...';
+    
+    const response = await Admin.req('/admin/facebook/oauth/authorize', { method: 'GET' });
+    
+    if (response && response.ok && response.auth_url) {
+      // Open OAuth popup
+      const width = 600;
+      const height = 700;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      
+      const popup = window.open(
+        response.auth_url,
+        'FacebookOAuth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+      );
+      
+      // Listen for popup close
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          checkOAuthSuccess();
+        }
+      }, 500);
+      
+    } else {
+      alert('❌ Không thể tạo OAuth URL: ' + (response.error || 'Unknown error'));
+      document.getElementById('btnStartOAuth').disabled = false;
+      document.getElementById('btnStartOAuth').textContent = '🔐 Login Facebook & Lấy Token';
+    }
+  } catch (e) {
+    alert('❌ Lỗi: ' + e.message);
+    document.getElementById('btnStartOAuth').disabled = false;
+    document.getElementById('btnStartOAuth').textContent = '🔐 Login Facebook & Lấy Token';
+  }
+}
+
+async function checkOAuthSuccess() {
+  try {
+    const response = await Admin.req('/admin/facebook/oauth/token-info', { method: 'GET' });
+    
+    if (response && response.ok && response.has_token && !response.is_expired) {
+      // Success!
+      document.getElementById('step3Content').style.display = 'none';
+      document.getElementById('step3Success').style.display = 'block';
+    } else {
+      // Failed or cancelled
+      alert('❌ Chưa lấy được token. Vui lòng thử lại.');
+      document.getElementById('btnStartOAuth').disabled = false;
+      document.getElementById('btnStartOAuth').textContent = '🔐 Login Facebook & Lấy Token';
+    }
+  } catch (e) {
+    console.error('Check OAuth error:', e);
+    document.getElementById('btnStartOAuth').disabled = false;
+    document.getElementById('btnStartOAuth').textContent = '🔐 Login Facebook & Lấy Token';
+  }
+}
+
+// Initialize
+updateWizard();
+</script>
+
+</body>
+</html>

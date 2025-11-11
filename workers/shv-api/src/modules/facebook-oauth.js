@@ -112,8 +112,10 @@ function generateState() {
 async function handleOAuthCallback(req, env) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
-  const error = url.searchParams.get('error');
-  const errorDescription = url.searchParams.get('error_description');
+  
+  // Facebook có thể trả về error hoặc error_code
+  const error = url.searchParams.get('error') || url.searchParams.get('error_code');
+  const errorDescription = url.searchParams.get('error_description') || url.searchParams.get('error_message');
 
   // Check for errors
   if (error) {
