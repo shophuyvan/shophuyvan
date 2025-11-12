@@ -682,7 +682,7 @@ function card(p){
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
   const u   = `/product.html?id=${encodeURIComponent(id)}`;
   
-  // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier ĐỒNG NHẤT
+  // ✅ Dùng pickPriceByCustomer để áp dụng giá tier ĐỒNG NHẤT
   const priceInfo = pickPriceByCustomer(p, null) || {};
   const base = priceInfo.base || 0;
   const original = priceInfo.original || null;
@@ -690,26 +690,28 @@ function card(p){
   let priceHtml = '';
   
   if (base > 0) {
-    priceHtml = `<div class="product-card-price"><span class="product-card-price-sale">${base.toLocaleString('vi-VN')}₫</span>`;
+    // ✅ GIÁ SALE (to, đậm, đỏ) + GIÁ GỐC (nhỏ, gạch ngang, xám) CÙNG DÒNG
+    priceHtml = `<div style="display:flex;align-items:baseline;gap:6px;">
+      <span style="font-size:16px;font-weight:700;color:#ef4444;">${base.toLocaleString('vi-VN')}₫</span>`;
     
     // Hiển thị giá gốc nếu có
     if (original && original > base) {
-      priceHtml += `<span class="product-card-price-original">${original.toLocaleString('vi-VN')}₫</span>`;
+      priceHtml += `<span style="font-size:13px;color:#9ca3af;text-decoration:line-through;">${original.toLocaleString('vi-VN')}₫</span>`;
     }
     
     priceHtml += `</div>`;
     
-    // ✅ Badge giá sỉ hoặc giảm giá theo tier
+    // ✅ Badge giá sỉ hoặc giảm giá theo tier (DÒNG MỚI phía dưới)
     if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
-      priceHtml += ` <span style="background:#4f46e5;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">Giá sỉ</span>`;
+      priceHtml += `<div style="margin-top:4px;"><span style="background:#4f46e5;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">Giá sỉ</span></div>`;
     } else if (priceInfo.discount > 0) {
-      priceHtml += ` <span style="background:#10b981;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">-${priceInfo.discount}%</span>`;
+      priceHtml += `<div style="margin-top:4px;"><span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${priceInfo.discount}%</span></div>`;
     }
   } else {
-    priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
+    priceHtml = `<div style="color:#9ca3af;font-size:12px;">Liên hệ</div>`;
   }
   
-  // ✅ THÊM: Hiển thị text tier (giống Bán chạy)
+  // ✅ Hiển thị text tier (giống Bán chạy)
   const tierMap = {
     'retail': { name: 'Thành viên thường', icon: '👤' },
     'silver': { name: 'Thành viên bạc', icon: '🥈' },
@@ -718,7 +720,7 @@ function card(p){
   };
   const tierInfo = tierMap[priceInfo.tier] || tierMap['retail'];
   
-  // Chỉ hiển thị text tier cho khách lẻ có hạng (không phải retail và không phải sỉ)
+  // Chỉ hiển thị text tier cho khách lẻ có hạng
   let tierText = '';
   if (priceInfo.customer_type === 'retail' && priceInfo.tier !== 'retail') {
     tierText = `<div style="font-size:11px;color:#059669;margin-top:4px;font-weight:600;">${tierInfo.name}</div>`;
@@ -730,7 +732,7 @@ function card(p){
     </div>
     <div class="p-3">
       <div class="font-semibold text-sm line-clamp-2 min-h-[40px]">${p.title||p.name||''}</div>
-      <div class="mt-1 text-blue-600 js-price" data-id="${id}">
+      <div class="mt-1 js-price" data-id="${id}">
         ${priceHtml}
         ${tierText}
       </div>
