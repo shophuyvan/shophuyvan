@@ -117,32 +117,32 @@ function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
-        // TÍNH GIÁ TỪ VARIANTS = pickLowestPrice (đơn giản, đồng nhất)
-  const info = pickLowestPrice(p) || {};
-  const base = info.base || 0;
-  const original = info.original || 0;
+  // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier
+  const priceInfo = pickPriceByCustomer(p, null) || {};
+  const base = priceInfo.base || 0;
+  const original = priceInfo.original || null;
 
   let priceHtml = '';
 
   if (base > 0) {
-    if (original > base) {
-      priceHtml = `
-        <div class="product-card-price">
-          <span class="product-card-price-sale">${formatPrice(base)}</span>
-          <span class="product-card-price-original">${formatPrice(original)}</span>
-        </div>
-      `;
-    } else {
-      priceHtml = `
-        <div class="product-card-price">
-          <span class="product-card-price-sale">${formatPrice(base)}</span>
-        </div>
-      `;
+    priceHtml = `<div class="product-card-price"><span class="product-card-price-sale">${formatPrice(base)}</span>`;
+    
+    // Hiển thị giá gốc nếu có
+    if (original && original > base) {
+      priceHtml += `<span class="product-card-price-original">${formatPrice(original)}</span>`;
+    }
+    
+    priceHtml += `</div>`;
+    
+    // ✅ Badge giá sỉ hoặc giảm giá theo tier
+    if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
+      priceHtml += ` <span style="background:#4f46e5;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">Giá sỉ</span>`;
+    } else if (priceInfo.discount > 0) {
+      priceHtml += ` <span style="background:#10b981;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">-${priceInfo.discount}%</span>`;
     }
   } else {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
   }
-
 
   // Sold badge cho bestsellers (hiển thị nhỏ ở góc)
   const soldBadge = p.sold && p.sold > 0
