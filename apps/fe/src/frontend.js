@@ -682,22 +682,48 @@ function card(p){
   const img = (p.images && p.images[0]) || '/assets/no-image.svg';
   const u   = `/product.html?id=${encodeURIComponent(id)}`;
   
-  // UU TIEN: Doc gia tu API (price_display da tinh san)
+  // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier
   let priceHtml = '';
-  const priceDisplay = Number(p.price_display || 0);
-  const compareAt = Number(p.compare_at_display || 0);
   
-  if (priceDisplay > 0) {
-    if (compareAt > priceDisplay) {
-      // Co gia gach ngang
-      priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}đ</b> <span class="line-through text-gray-400 text-sm">${compareAt.toLocaleString('vi-VN')}đ</span></div>`;
+  if (typeof pickPriceByCustomer === 'function') {
+    // Dùng logic giá tier (Sỉ/Lẻ/Kim Cương)
+    const priceInfo = pickPriceByCustomer(p, null) || {};
+    const base = priceInfo.base || 0;
+    const original = priceInfo.original || null;
+    
+    if (base > 0) {
+      priceHtml = `<div><b class="text-rose-600">${base.toLocaleString('vi-VN')}₫</b>`;
+      
+      // Hiển thị giá gốc nếu có
+      if (original && original > base) {
+        priceHtml += ` <span class="line-through opacity-70 text-sm ml-1">${original.toLocaleString('vi-VN')}₫</span>`;
+      }
+      
+      // ✅ Badge giá sỉ hoặc giảm giá theo tier
+      if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
+        priceHtml += ` <span style="background:#4f46e5;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">Giá sỉ</span>`;
+      } else if (priceInfo.discount > 0) {
+        priceHtml += ` <span style="background:#10b981;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">-${priceInfo.discount}%</span>`;
+      }
+      
+      priceHtml += `</div>`;
     } else {
-      // Chi co gia ban
-      priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}đ</b></div>`;
+      priceHtml = '<b class="text-rose-600">...</b>';
     }
   } else {
-    // Fallback: se duoc hydrate sau
-    priceHtml = '<b class="text-rose-600">...</b>';
+    // Fallback: Dùng price_display từ API (nếu price.js chưa load)
+    const priceDisplay = Number(p.price_display || 0);
+    const compareAt = Number(p.compare_at_display || 0);
+    
+    if (priceDisplay > 0) {
+      if (compareAt > priceDisplay) {
+        priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}₫</b> <span class="line-through text-gray-400 text-sm">${compareAt.toLocaleString('vi-VN')}₫</span></div>`;
+      } else {
+        priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}₫</b></div>`;
+      }
+    } else {
+      priceHtml = '<b class="text-rose-600">...</b>';
+    }
   }
   
   return `<a href="${u}" class="block border rounded-xl overflow-hidden bg-white hover:shadow-lg transition-shadow" data-card-id="${encodeURIComponent(id)}">
