@@ -18,6 +18,51 @@ import { navigate as openLink } from '@/lib/navigation';
 import ProductCard from '@/components/ProductCard';
 
 // ==========================================
+// FLASH SALE COUNTDOWN HELPER
+// ==========================================
+function formatCountdown(endTime: string): string {
+  try {
+    const end = new Date(endTime).getTime();
+    const now = Date.now();
+    const diff = end - now;
+    
+    if (diff <= 0) return 'Đã kết thúc';
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+}
+
+function useCountdown(endTime: string | null | undefined) {
+  const [countdown, setCountdown] = React.useState('');
+  
+  React.useEffect(() => {
+    if (!endTime) return;
+    
+    const update = () => {
+      const text = formatCountdown(endTime);
+      setCountdown(text);
+      
+      if (text === 'Đã kết thúc') {
+        window.location.reload();
+      }
+    };
+    
+    update();
+    const timer = setInterval(update, 1000);
+    
+    return () => clearInterval(timer);
+  }, [endTime]);
+  
+  return countdown;
+}
+
+// ==========================================
 // CART COUNT HOOK (Realtime)
 // ==========================================
 function useCartCount() {
@@ -91,13 +136,35 @@ function VariantModal({
     }
   }, [open, defaultVariant, selectedVariant]);
 
-  // ✅ Giá hiện tại: luôn bám theo biến thể hiệu lực nếu có variants
+  // ⚡ Giá hiện tại: ưu tiên Flash Sale trước
   const currentPrice = useMemo(() => {
+    if (hasFlashSale) {
+      const flashInfo = effectiveVariant?.flash_sale || product?.flash_sale;
+      return {
+        base: flashInfo?.price || 0,
+        original: flashInfo?.original_price || null
+      };
+    }
+    
     if (Array.isArray(variants) && variants.length > 0) {
       return pickPrice(product, effectiveVariant as any);
     }
     return pickPrice(product);
-  }, [product, variants, effectiveVariant]);
+  }, [product, variants, effectiveVariant, hasFlashSale]);
+  
+  // ⚡ CHECK FLASH SALE
+  const hasFlashSale = useMemo(() => {
+    if (effectiveVariant?.flash_sale?.active) return true;
+    if (product?.flash_sale?.active) return true;
+    return false;
+  }, [effectiveVariant, product]);
+
+  // ⚡ Flash Sale Info
+  const flashSaleInfo = useMemo(() => {
+    return effectiveVariant?.flash_sale || product?.flash_sale || null;
+  }, [effectiveVariant, product]);
+
+  const countdown = useCountdown(flashSaleInfo?.ends_at);
 
   // Helper ảnh
   const getImages = (item: any) => {
@@ -153,19 +220,33 @@ function VariantModal({
               {product?.name}
             </h3>
 
-            {/* ✅ Giá với giá gốc gạch ngang (theo biến thể hiệu lực) */}
-            <div className="flex items-baseline gap-2">
-              {currentPrice.original &&
-                currentPrice.original > currentPrice.base && (
-                  <span className="text-gray-400 line-through text-sm">
-                    {fmtVND(currentPrice.original)}
+            {/* ⚡ FLASH SALE BADGE + Giá */}
+            <div className="space-y-1">
+              {hasFlashSale && flashSaleInfo && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded animate-pulse">
+                    ⚡ FLASH SALE -{flashSaleInfo.discount_percent}%
                   </span>
-                )}
-              <span className="text-rose-600 font-bold text-xl">
-                {fmtVND(currentPrice.base)}
-              </span>
+                  {countdown && (
+                    <span className="text-xs font-bold text-red-600 border-2 border-red-500 px-2 py-1 rounded">
+                      {countdown}
+                    </span>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex items-baseline gap-2">
+                {currentPrice.original &&
+                  currentPrice.original > currentPrice.base && (
+                    <span className="text-gray-400 line-through text-sm">
+                      {fmtVND(currentPrice.original)}
+                    </span>
+                  )}
+                <span className={`font-bold text-xl ${hasFlashSale ? 'text-red-600' : 'text-rose-600'}`}>
+                  {fmtVND(currentPrice.base)}
+                </span>
+              </div>
             </div>
-
             {/* ✅ Tồn kho theo biến thể hiệu lực */}
             {effectiveVariant && (
               <p className="text-xs text-gray-500 mt-1">
@@ -226,8 +307,22 @@ function VariantModal({
                           `Loại ${index + 1}`}
                       </p>
 
-                      {/* Giá theo variant */}
-                      {price.base > 0 && (
+                      {/* ⚡ Flash Sale Price hoặc giá thường */}
+                      {variant.flash_sale?.active ? (
+                        <div className="text-center">
+                          {variant.flash_sale.original_price && (
+                            <p className="text-[10px] text-gray-400 line-through">
+                              {fmtVND(variant.flash_sale.original_price)}
+                            </p>
+                          )}
+                          <p className={`text-xs mt-0.5 font-bold ${isSelected ? 'text-red-600' : 'text-red-500'}`}>
+                            {fmtVND(variant.flash_sale.price)}
+                          </p>
+                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-red-100 text-red-600 text-[9px] font-bold rounded">
+                            ⚡ -{variant.flash_sale.discount_percent}%
+                          </span>
+                        </div>
+                      ) : price.base > 0 ? (
                         <p
                           className={`text-xs mt-1 font-semibold ${
                             isSelected ? 'text-rose-600' : 'text-gray-500'
@@ -235,7 +330,7 @@ function VariantModal({
                         >
                           {fmtVND(price.base)}
                         </p>
-                      )}
+                      ) : null}
 
                       {/* Stock indicator */}
                       <p
@@ -406,12 +501,29 @@ export default function Product() {
     setShareOpen(false);
   };
 
-   // NOTE: onConfirm của modal sẽ gọi hàm này
+// NOTE: onConfirm của modal sẽ gọi hàm này
   const addLine = (variant: any, qty: number, mode: 'cart' | 'buy') => {
-    const price = pickPrice(p, variant);
+    // ⚡ Ưu tiên giá Flash Sale
+    let finalPrice: any;
+    let flashSaleData = null;
+    
+    if (variant?.flash_sale?.active) {
+      finalPrice = { base: variant.flash_sale.price, original: variant.flash_sale.original_price };
+      flashSaleData = {
+        active: true,
+        price: variant.flash_sale.price,
+        original_price: variant.flash_sale.original_price,
+        discount_percent: variant.flash_sale.discount_percent,
+        ends_at: variant.flash_sale.ends_at,
+        flash_sale_id: variant.flash_sale.flash_sale_id,
+        flash_sale_name: variant.flash_sale.flash_sale_name
+      };
+    } else {
+      finalPrice = pickPrice(p, variant);
+    }
 
     // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
-    // ✅ ƯU TIÊN weight trên variant trước
+    // ✅ Ưu tiên weight trên variant trước
     const w = Number(
       variant?.weight ??
         variant?.weight_gram ??
@@ -422,19 +534,24 @@ export default function Product() {
         0,
     );
 
-    const line = {
+    const line: any = {
       ...p,
-      price,
+      price: finalPrice,
       variantName: variant?.name || variant?.sku || '',
       variantImage:
         variant?.image ||
         (Array.isArray(variant?.images) ? variant.images[0] : undefined),
 
-      // 🔽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
+      // 📽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
       weight_gram: w,
       weight_grams: w,
       weight: w,
     };
+
+    // ⚡ Lưu thông tin Flash Sale
+    if (flashSaleData) {
+      line.flash_sale = flashSaleData;
+    }
 
     cart.add(line, qty);
     window.dispatchEvent(new Event('shv:cart-changed'));
@@ -705,37 +822,71 @@ export default function Product() {
             </div>
 
             {/* Price Section (show range if variants) */}
-            {variants.length > 0 ? (
-              <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-                <div className="flex items-baseline gap-2">
-                  {range.minOrig && range.minOrig > range.minBase && (
-                    <span className="text-gray-400 line-through text-sm">
-                      {fmtVND(range.minOrig)}
-                      {range.maxOrig > range.minOrig
-                        ? ` - ${fmtVND(range.maxOrig)}`
-                        : ''}
-                    </span>
+            {(() => {
+              // ⚡ Check Flash Sale
+              const mainHasFlashSale = variants.some((v: any) => v.flash_sale?.active) || p?.flash_sale?.active;
+              const mainFlashInfo = variants.find((v: any) => v.flash_sale?.active)?.flash_sale || p?.flash_sale;
+              const mainCountdown = useCountdown(mainFlashInfo?.ends_at);
+              
+              return variants.length > 0 ? (
+                <div className="mt-3 bg-gray-50 p-3 rounded-lg">
+                  {mainHasFlashSale && mainFlashInfo && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-lg animate-pulse">
+                        ⚡ FLASH SALE -{mainFlashInfo.discount_percent}%
+                      </span>
+                      {mainCountdown && (
+                        <span className="text-sm font-bold text-red-600 border-2 border-red-500 px-3 py-1 rounded-lg">
+                          {mainCountdown}
+                        </span>
+                      )}
+                    </div>
                   )}
-                </div>
-                <div className="text-rose-600 font-bold text-xl mt-1">
-                  {range.minBase ? fmtVND(range.minBase) : 'Liên hệ'}
-                  {range.maxBase > range.minBase
-                    ? ` - ${fmtVND(range.maxBase)}`
-                    : ''}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-                {p.price && p.sale_price && p.price > p.sale_price && (
-                  <div className="text-gray-400 line-through text-sm">
-                    {fmtVND(p.price)}
+                  
+                  <div className="flex items-baseline gap-2">
+                    {range.minOrig && range.minOrig > range.minBase && (
+                      <span className="text-gray-400 line-through text-sm">
+                        {fmtVND(range.minOrig)}
+                        {range.maxOrig > range.minOrig
+                          ? ` - ${fmtVND(range.maxOrig)}`
+                          : ''}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="text-rose-600 font-bold text-xl">
-                  {fmtVND(p.sale_price || p.price || 0)}
+                  <div className={`font-bold text-xl mt-1 ${mainHasFlashSale ? 'text-red-600' : 'text-rose-600'}`}>
+                    {range.minBase ? fmtVND(range.minBase) : 'Liên hệ'}
+                    {range.maxBase > range.minBase
+                      ? ` - ${fmtVND(range.maxBase)}`
+                      : ''}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="mt-3 bg-gray-50 p-3 rounded-lg">
+                  {p?.flash_sale?.active && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-lg animate-pulse">
+                        ⚡ FLASH SALE -{p.flash_sale.discount_percent}%
+                      </span>
+                      {mainCountdown && (
+                        <span className="text-sm font-bold text-red-600 border-2 border-red-500 px-3 py-1 rounded-lg">
+                          {mainCountdown}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {((p?.flash_sale?.original_price || p.price) && 
+                    (p?.flash_sale?.original_price || p.price) > (p?.flash_sale?.price || p.sale_price)) && (
+                    <div className="text-gray-400 line-through text-sm">
+                      {fmtVND(p?.flash_sale?.original_price || p.price)}
+                    </div>
+                  )}
+                  <div className={`font-bold text-xl ${p?.flash_sale?.active ? 'text-red-600' : 'text-rose-600'}`}>
+                    {fmtVND(p?.flash_sale?.price || p.sale_price || p.price || 0)}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Stock tổng */}
             <div className="mt-3">

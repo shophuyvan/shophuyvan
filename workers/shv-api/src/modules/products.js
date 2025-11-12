@@ -422,19 +422,59 @@ async function getProductById(req, env, productId) {
       }, { status: 404 }, req);
     }
 
-    // âœ… Äáº£m báº£o variants cÃ³ weight
+    // ⚡ CHECK FLASH SALE
+    const flashSaleInfo = await getFlashSaleForProduct(env, product.id);
+    
+    // ✅ Đảm bảo variants có weight + apply Flash Sale
     if (Array.isArray(product.variants)) {
-      product.variants = product.variants.map(v => ({
-        ...v,
-        weight_gram: v.weight_gram || 0,
-        weight_grams: v.weight_grams || 0,
-        weight: v.weight || 0
-      }));
+      product.variants = product.variants.map(v => {
+        let variant = {
+          ...v,
+          weight_gram: v.weight_gram || 0,
+          weight_grams: v.weight_grams || 0,
+          weight: v.weight || 0
+        };
+        
+        // ⚡ Apply Flash Sale discount
+        if (flashSaleInfo) {
+          variant = applyFlashSaleDiscount(variant, flashSaleInfo);
+        }
+        
+        return variant;
+      });
+    } else if (flashSaleInfo) {
+      // Product không có variants nhưng có Flash Sale
+      const basePrice = Number(product.price || product.price_sale || 0);
+      if (basePrice > 0) {
+        let flashPrice = basePrice;
+        
+        if (flashSaleInfo.discount_type === 'percent') {
+          flashPrice = Math.floor(basePrice * (1 - flashSaleInfo.discount_value / 100));
+        } else if (flashSaleInfo.discount_type === 'fixed') {
+          flashPrice = Math.max(0, basePrice - flashSaleInfo.discount_value);
+        }
+        
+        product.flash_sale = {
+          active: true,
+          price: flashPrice,
+          original_price: basePrice,
+          discount_percent: Math.round((basePrice - flashPrice) / basePrice * 100),
+          ends_at: flashSaleInfo.ends_at,
+          flash_sale_id: flashSaleInfo.flash_sale_id,
+          flash_sale_name: flashSaleInfo.flash_sale_name
+        };
+      }
     }
 
     const tier = getCustomerTier(req);
     const priced = { ...product, ...computeDisplayPrice(product, tier) };
-    console.log('[PRICE] getProductById', { id: productId, tier, price: priced.price_display, compare_at: priced.compare_at_display });
+    console.log('[PRICE] getProductById', { 
+      id: productId, 
+      tier, 
+      price: priced.price_display, 
+      compare_at: priced.compare_at_display,
+      flash_sale: flashSaleInfo ? 'active' : 'none'
+    });
     
     // ✅ FIX: Trả về cả item và data để tương thích frontend
     return json({ 
@@ -1040,5 +1080,77 @@ export async function exportFacebookFeedCsv(req, env) {
   }
 }
 
-console.log('✅ products.js loaded - CATEGORY FILTER FIXED');
+/**
+ * ⚡ Helper: Check Flash Sale cho product
+ */
+async function getFlashSaleForProduct(env, productId) {
+  try {
+    const list = await getJSON(env, 'flash-sales:list', []);
+    const now = Date.now();
+
+    for (const id of list) {
+      const fs = await getJSON(env, `flash-sale:${id}`, null);
+      if (!fs) continue;
+
+      const start = new Date(fs.start_time).getTime();
+      const end = new Date(fs.end_time).getTime();
+
+      // Kiểm tra: đang active + trong thời gian
+      if (fs.status === 'active' && start <= now && now <= end) {
+        // Tìm product trong Flash Sale
+        const item = (fs.products || []).find(p => String(p.product_id) === String(productId));
+        if (item) {
+          return {
+            active: true,
+            discount_type: item.discount_type,
+            discount_value: item.discount_value,
+            stock_limit: item.stock_limit || 0,
+            ends_at: fs.end_time,
+            flash_sale_id: fs.id,
+            flash_sale_name: fs.name
+          };
+        }
+      }
+    }
+
+    return null;
+  } catch (e) {
+    console.error('[Flash Sale] Check error:', e);
+    return null;
+  }
+}
+
+/**
+ * ⚡ Helper: Apply Flash Sale discount cho variant
+ */
+function applyFlashSaleDiscount(variant, flashSaleInfo) {
+  if (!flashSaleInfo || !flashSaleInfo.active) return variant;
+
+  const basePrice = Number(variant.price || 0);
+  if (basePrice <= 0) return variant;
+
+  let flashPrice = basePrice;
+
+  if (flashSaleInfo.discount_type === 'percent') {
+    const discount = basePrice * (flashSaleInfo.discount_value / 100);
+    flashPrice = Math.floor(basePrice - discount);
+  } else if (flashSaleInfo.discount_type === 'fixed') {
+    flashPrice = Math.max(0, basePrice - flashSaleInfo.discount_value);
+  }
+
+  return {
+    ...variant,
+    flash_sale: {
+      active: true,
+      price: flashPrice,
+      original_price: basePrice,
+      discount_percent: flashSaleInfo.discount_type === 'percent' ? flashSaleInfo.discount_value : Math.round((basePrice - flashPrice) / basePrice * 100),
+      ends_at: flashSaleInfo.ends_at,
+      flash_sale_id: flashSaleInfo.flash_sale_id,
+      flash_sale_name: flashSaleInfo.flash_sale_name
+    }
+  };
+}
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED');
 // <<< Cuối file >>>
