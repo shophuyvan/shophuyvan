@@ -570,28 +570,6 @@ async function renderPriceStock() {
       if (priceOriginalEl) priceOriginalEl.style.display = 'none';
     }
   }
-    const { base, original, isWholesale } = priceData;
-    
-    // ✅ Thêm badge theo loại giá
-    let badge = '';
-    
-    if (isWholesale && original) {
-      badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
-    } else if (priceData.discount > 0) {
-      const tierIcons = { 'silver': '🥈', 'gold': '🥇', 'diamond': '💎' };
-      const icon = tierIcons[priceData.tier] || '';
-      badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${priceData.discount}%</span>`;
-    }
-    
-    priceSaleEl.innerHTML = formatPrice(+base || 0) + badge;
-    
-    if (original && original > base && priceOriginalEl) {
-      priceOriginalEl.textContent = formatPrice(original);
-      priceOriginalEl.style.display = 'inline';
-    } else {
-      if (priceOriginalEl) priceOriginalEl.style.display = 'none';
-    }
-  }
 
   // Stock display
   if (stockEl) {
