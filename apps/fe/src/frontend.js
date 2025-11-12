@@ -700,16 +700,11 @@ function card(p){
     
     priceHtml += `</div>`;
     
-    // ✅ Badge "Giá sỉ" hoặc "-%discount" - LUÔN XUỐNG DÒNG RIÊNG
-    let badgeHtml = '';
+    // ✅ Badge "Giá sỉ" hoặc "-%discount" - ĐỒNG NHẤT 100% XUỐNG DÒNG
     if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
-      badgeHtml = `<span style="background:#4f46e5;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">Giá sỉ</span>`;
+      priceHtml += `<div style="margin-top:4px;"><span style="background:#4f46e5;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">Giá sỉ</span></div>`;
     } else if (priceInfo.discount > 0) {
-      badgeHtml = `<span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${priceInfo.discount}%</span>`;
-    }
-    
-    if (badgeHtml) {
-      priceHtml += `<div style="margin-top:4px;">${badgeHtml}</div>`;
+      priceHtml += `<div style="margin-top:4px;"><span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${priceInfo.discount}%</span></div>`;
     }
   } else {
     priceHtml = `<div style="color:#9ca3af;font-size:12px;">Liên hệ</div>`;
