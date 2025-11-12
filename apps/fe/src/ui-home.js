@@ -1,5 +1,5 @@
 import api from './lib/api.js';
-import { formatPrice, pickLowestPrice } from './lib/price.js';
+import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
 
 const noImage = encodeURI(`
   data:image/svg+xml;utf8,
@@ -49,24 +49,32 @@ function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
   
-  // UU TIEN: Doc gia tu API tra ve (price_display da tinh san)
-      let base = 0;
-  let original = 0;
+  // ✅ DÙNG pickPriceByCustomer ĐỂ ĐỒNG BỘ GIÁ SỈ/LẺ
+  const priceInfo = pickPriceByCustomer(p, null) || {};
+  const base = priceInfo.base || 0;
+  const original = priceInfo.original || null;
 
-  if (p.price_display && p.price_display > 0) {
-    base = Number(p.price_display || 0);
-    original = Number(p.compare_at_display || 0);
+  let priceHtml = '';
+  
+  if (base > 0) {
+    priceHtml = `<div><span class="text-rose-600 font-semibold">${formatPrice(base)}</span>`;
+    
+    // Hiển thị giá gốc nếu có
+    if (original && original > base) {
+      priceHtml += `<span class="line-through text-gray-400 text-sm ml-2">${formatPrice(original)}</span>`;
+    }
+    
+    // Badge giá sỉ hoặc giảm giá
+    if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
+      priceHtml += ` <span style="background:#4f46e5;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">Giá sỉ</span>`;
+    } else if (priceInfo.discount > 0) {
+      priceHtml += ` <span style="background:#10b981;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">-${priceInfo.discount}%</span>`;
+    }
+    
+    priceHtml += `</div>`;
   } else {
-    const priceInfo = pickLowestPrice(p) || {};
-    base = priceInfo.base || 0;
-    original = priceInfo.original || 0;
+    priceHtml = `<div class="text-gray-400 text-sm">Liên hệ</div>`;
   }
-
-  const priceHtml = original > base && original > 0
-    ? `<div><span class="text-rose-600 font-semibold mr-2">${formatPrice(base)}</span><span class="line-through text-gray-400 text-sm">${formatPrice(original)}</span></div>`
-    : base > 0 
-      ? `<div class="text-rose-600 font-semibold">${formatPrice(base)}</div>`
-      : `<div class="text-gray-400 text-sm">Liên hệ</div>`;
 
 
   return `

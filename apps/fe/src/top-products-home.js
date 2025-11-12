@@ -2,7 +2,7 @@
 // Component Top Products (Bestsellers + Newest) cho trang chủ - Phương án 2
 
 import api from './lib/api.js';
-import { formatPrice, pickLowestPrice } from './lib/price.js';
+import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
 
 // Đánh dấu đã dùng component Top Products v2
 if (typeof window !== 'undefined') {

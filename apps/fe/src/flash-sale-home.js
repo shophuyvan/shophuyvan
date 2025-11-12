@@ -2,7 +2,7 @@
 // Component Flash Sale cho trang chủ - Phương án 2
 
 import api from './lib/api.js';
-import { formatPrice, pickLowestPrice } from './lib/price.js';
+import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
 
 // Đánh dấu đã dùng phiên bản Flash Sale v2 (để frontend.js bỏ qua loader cũ)
 if (typeof window !== 'undefined') {
@@ -57,28 +57,18 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 })();
 
 // ==========================================
-// TÍNH GIÁ FLASH SALE
+// TÍNH GIÁ FLASH SALE (tích hợp giá sỉ)
 // ==========================================
 function calculateFlashPrice(product, discountType, discountValue) {
 
-  // Lấy giá gốc từ product
-  let basePrice = 0;
-  
-  if (product.price_display && product.price_display > 0) {
-    basePrice = Number(product.price_display);
-  } else if (product.variants && product.variants.length > 0) {
-    // Lấy giá thấp nhất từ variants
-    const prices = product.variants
-      .map(v => Number(v.price || v.unit_price || v.regular_price || 0))
-      .filter(p => p > 0);
-    basePrice = prices.length > 0 ? Math.min(...prices) : 0;
-  } else {
-    basePrice = Number(product.price || 0);
-  }
+  // ✅ Dùng pickPriceByCustomer để lấy giá đã tính sỉ/lẻ
+  const priceInfo = pickPriceByCustomer(product, null) || {};
+  let basePrice = priceInfo.base || 0;
 
-  if (basePrice === 0) return { flashPrice: 0, originalPrice: 0 };
+  // Fallback nếu không có giá
+  if (basePrice === 0) return { flashPrice: 0, originalPrice: 0, customerInfo: priceInfo };
 
-  // Tính giá Flash Sale
+  // Tính giá Flash Sale từ giá đã xử lý sỉ/lẻ
   let flashPrice = basePrice;
   
   if (discountType === 'percent') {
@@ -94,7 +84,8 @@ function calculateFlashPrice(product, discountType, discountValue) {
 
   return {
     flashPrice: Math.round(flashPrice),
-    originalPrice: basePrice
+    originalPrice: basePrice,
+    customerInfo: priceInfo // Trả về thông tin khách hàng để hiển thị badge
   };
 }
 
@@ -105,21 +96,35 @@ function calculateFlashPrice(product, discountType, discountValue) {
 function flashCard(p, discountType, discountValue) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
-  const { flashPrice, originalPrice } = calculateFlashPrice(p, discountType, discountValue);
+  const { flashPrice, originalPrice, customerInfo } = calculateFlashPrice(p, discountType, discountValue);
 
   const discountPercent = (originalPrice > 0)
     ? Math.round(((originalPrice - flashPrice) / originalPrice) * 100)
     : 0;
 
-  const priceHtml = flashPrice > 0
-    ? `
-      <div class="product-card-price">
-        <span class="product-card-price-sale">${formatPrice(flashPrice)}</span>
-        ${originalPrice > flashPrice ? `<span class="product-card-price-original">${formatPrice(originalPrice)}</span>` : ''}
-      </div>
-      ${discountPercent > 0 ? `<div class="inline-block bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded mt-1">-${discountPercent}%</div>` : ''}
-    `
-    : `<div class="text-gray-400 text-xs">Liên hệ</div>`;
+  let priceHtml = '';
+  
+  if (flashPrice > 0) {
+    priceHtml = `<div class="product-card-price"><span class="product-card-price-sale">${formatPrice(flashPrice)}</span>`;
+    
+    // Hiển thị giá gốc
+    if (originalPrice > flashPrice) {
+      priceHtml += `<span class="product-card-price-original">${formatPrice(originalPrice)}</span>`;
+    }
+    priceHtml += `</div>`;
+    
+    // Badge Flash Sale discount
+    if (discountPercent > 0) {
+      priceHtml += `<div class="inline-block bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded mt-1">-${discountPercent}%</div>`;
+    }
+    
+    // Badge giá sỉ (nếu là khách sỉ)
+    if (customerInfo?.customer_type === 'wholesale' || customerInfo?.customer_type === 'si') {
+      priceHtml += ` <span style="background:#4f46e5;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">Giá sỉ</span>`;
+    }
+  } else {
+    priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
+  }
 
   const soldBadge = p.sold && p.sold > 0
     ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`

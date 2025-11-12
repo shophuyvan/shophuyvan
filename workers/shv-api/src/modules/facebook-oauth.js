@@ -174,8 +174,20 @@ async function handleOAuthCallback(req, env) {
     const tokenResponse = await fetch(tokenUrl.toString());
     const tokenData = await tokenResponse.json();
 
-    if (tokenData.error) {
-      throw new Error(tokenData.error.message || 'Failed to get access token');
+if (tokenData.error) {
+      console.error('[OAuth] Token exchange error:', JSON.stringify(tokenData.error));
+      throw new Error(`Facebook API Error: ${tokenData.error.message || 'Failed to get access token'}\n\nChi tiết: ${tokenData.error.error_user_msg || 'Vui lòng kiểm tra lại App ID và App Secret'}`);
+    }
+```
+
+---
+
+## **✅ CHECKLIST DEBUG:**
+
+**1. Xác minh App Secret:**
+```
+App ID:     1812710006054764
+App Secret: [Kiểm tra lại có đúng không?]
     }
 
     const accessToken = tokenData.access_token;
