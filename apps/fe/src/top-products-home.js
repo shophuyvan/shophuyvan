@@ -113,7 +113,37 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
   }
 }
 
-} else {
+// ==========================================
+// RENDER PRODUCT CARD
+// ==========================================
+function productCard(p) {
+  const id = p?.id || p?.key || '';
+  const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
+
+  // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier
+  const priceInfo = pickPriceByCustomer(p, null) || {};
+  const base = priceInfo.base || 0;
+  const original = priceInfo.original || null;
+
+  let priceHtml = '';
+
+  if (base > 0) {
+    priceHtml = `<div class="product-card-price"><span class="product-card-price-sale">${formatPrice(base)}</span>`;
+    
+    // Hiển thị giá gốc nếu có
+    if (original && original > base) {
+      priceHtml += `<span class="product-card-price-original">${formatPrice(original)}</span>`;
+    }
+    
+    priceHtml += `</div>`;
+    
+    // ✅ Badge giá sỉ hoặc giảm giá theo tier
+    if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
+      priceHtml += ` <span style="background:#4f46e5;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">Giá sỉ</span>`;
+    } else if (priceInfo.discount > 0) {
+      priceHtml += ` <span style="background:#10b981;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;font-weight:700;">-${priceInfo.discount}%</span>`;
+    }
+  } else {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
   }
   

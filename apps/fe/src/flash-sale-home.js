@@ -130,6 +130,20 @@ function flashCard(p, discountType, discountValue) {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
   }
 
+  // ✅ THÊM: Hiển thị text tier cho Flash Sale
+  const tierMap = {
+    'retail': { name: 'Thành viên thường', icon: '👤' },
+    'silver': { name: 'Thành viên bạc', icon: '🥈' },
+    'gold': { name: 'Thành viên vàng', icon: '🥇' },
+    'diamond': { name: 'Thành viên kim cương', icon: '💎' }
+  };
+  const tierInfo = tierMap[customerInfo.tier] || tierMap['retail'];
+  
+  let tierText = '';
+  if (customerInfo.customer_type === 'retail' && customerInfo.tier !== 'retail') {
+    tierText = `<div style="font-size:11px;color:#059669;margin-top:4px;font-weight:600;">${tierInfo.name}</div>`;
+  }
+
   const soldBadge = p.sold && p.sold > 0
     ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">🔥 Đã bán ${p.sold}</div>`
     : '';
@@ -144,6 +158,7 @@ function flashCard(p, discountType, discountValue) {
       <div class="font-semibold text-xs line-clamp-2 min-h-[32px]">${p.title || p.name || 'Sản phẩm'}</div>
       <div class="mt-1 text-blue-600 text-xs js-price js-flash-locked" data-id="${id}" data-flash-sale="true">
         ${priceHtml}
+        ${tierText}
       </div>
       <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-600">
         <span class="js-rating" data-id="${id}">★ 5.0 (0)</span>

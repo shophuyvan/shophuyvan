@@ -76,6 +76,19 @@ function card(p){
     priceHtml = `<div class="text-gray-400 text-sm">Liên hệ</div>`;
   }
 
+  // ✅ THÊM: Hiển thị text tier cho All Products
+  const tierMap = {
+    'retail': { name: 'Thành viên thường', icon: '👤' },
+    'silver': { name: 'Thành viên bạc', icon: '🥈' },
+    'gold': { name: 'Thành viên vàng', icon: '🥇' },
+    'diamond': { name: 'Thành viên kim cương', icon: '💎' }
+  };
+  const tierInfo = tierMap[priceInfo.tier] || tierMap['retail'];
+  
+  let tierText = '';
+  if (priceInfo.customer_type === 'retail' && priceInfo.tier !== 'retail') {
+    tierText = `<div style="font-size:11px;color:#059669;margin-top:4px;font-weight:600;">${tierInfo.name}</div>`;
+  }
 
   return `
   <a class="block rounded-lg border hover:shadow transition bg-white" href="/product?id=${encodeURIComponent(p.id)}">
@@ -85,6 +98,7 @@ function card(p){
     <div class="p-3">
       <div class="text-sm h-10 line-clamp-2">${p.name || 'Sản phẩm'}</div>
       ${priceHtml}
+      ${tierText}
     </div>
   </a>`;
 }
