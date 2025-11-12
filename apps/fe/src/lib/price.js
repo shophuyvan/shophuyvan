@@ -121,29 +121,29 @@ export function pickPriceByCustomer(product, variant) {
     
     let wholesalePrice = 0;
 
-    if (variant) {
-      // 1. Nếu đang ở trang chi tiết (có chọn variant)
-      wholesalePrice = num(variant.wholesale_price ?? variant.price_wholesale);
-    
-    } else if (product && Array.isArray(product.variants) && product.variants.length > 0) {
-      // 2. SỬA LỖI: Nếu ở trang chủ (không có variant), tìm giá sỉ THẤP NHẤT
-      let minWholesale = Infinity;
-      for (const v of product.variants) {
-        const vPrice = num(v.wholesale_price ?? v.price_wholesale);
-        if (vPrice > 0 && vPrice < minWholesale) {
-          minWholesale = vPrice;
+    // ✅ ƯU TIÊN 1: Lấy từ product level TRƯỚC (vì API bestsellers không trả về variants)
+    wholesalePrice = num(product?.wholesale_price ?? product?.price_wholesale);
+
+    // ✅ ƯU TIÊN 2: Nếu không có ở product level, mới tìm từ variants
+    if (wholesalePrice === 0) {
+      if (variant) {
+        // 2a. Nếu đang ở trang chi tiết (có chọn variant)
+        wholesalePrice = num(variant.wholesale_price ?? variant.price_wholesale);
+      
+      } else if (product && Array.isArray(product.variants) && product.variants.length > 0) {
+        // 2b. Nếu ở trang chủ (không có variant), tìm giá sỉ THẤP NHẤT từ variants
+        let minWholesale = Infinity;
+        for (const v of product.variants) {
+          const vPrice = num(v.wholesale_price ?? v.price_wholesale);
+          if (vPrice > 0 && vPrice < minWholesale) {
+            minWholesale = vPrice;
+          }
+        }
+        if (minWholesale !== Infinity) {
+          wholesalePrice = minWholesale;
         }
       }
-      if (minWholesale !== Infinity) {
-        wholesalePrice = minWholesale;
-      }
     }
-
-    // 3. Fallback: Nếu vẫn không có, tìm ở cấp độ sản phẩm
-    if (wholesalePrice === 0) {
-      wholesalePrice = num(product?.wholesale_price ?? product?.price_wholesale);
-    }
-    // --- HẾT SỬA LỖI ---
 
     if (wholesalePrice > 0) {
       return {
