@@ -20,6 +20,7 @@ import * as FacebookAds from './modules/facebook-ads.js';
 import * as FacebookOAuth from './modules/facebook-oauth.js';
 import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
 import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
+import * as Channels from './modules/channels.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
 
@@ -111,7 +112,7 @@ export default {
           path.startsWith('/admin/roles')) {
         return admin.handle(req, env, ctx);
       }
-	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
+	  	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
       // ============================================
             // CUSTOMER API ROUTES (PUBLIC)
       // ============================================
@@ -124,8 +125,17 @@ export default {
       }
 
       // ============================================
+      // CHANNELS / TMDT (TikTok, Lazada, Shopee)
+      // ============================================
+      if (path.startsWith('/admin/channels') ||
+          path.startsWith('/channels/tiktok')) { // callback public từ TikTok Shop
+        return Channels.handle(req, env, ctx);
+      }
+
+      // ============================================
       // EXISTING ROUTES
       // ============================================
+
 
       // Auth module (login/password/otp/zalo + customer me)
       if (path === '/admin/me' || path.startsWith('/auth/') || path === '/api/customers/me') {

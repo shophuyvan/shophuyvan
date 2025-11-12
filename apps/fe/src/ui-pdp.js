@@ -456,15 +456,25 @@ async function renderPriceStock() {
     let origVals = [];
     
     if (hasFlashSale) {
-      // ✅ Flash Sale: giá hiển thị = flash_sale.price, giá gạch = sale_price (không phải original_price)
-      baseVals = vs.map(v => Number(v.flash_sale?.price || 0)).filter(v => v > 0);
-      origVals = vs.map(v => Number(v.sale_price || v.price || 0)).filter(v => v > 0);
+      // ✅ FIX: Flash Sale phải tính từ GIÁ SALE (sale_price), KHÔNG phải giá gốc (price)
+      baseVals = vs.map(v => {
+        const salePrice = Number(v.sale_price || v.price_sale || 0);
+        const flashDiscount = Number(flashSaleInfo?.discount_value || 0);
+        const discountType = flashSaleInfo?.discount_type || 'percent';
+        
+        if (salePrice > 0 && flashDiscount > 0) {
+          if (discountType === 'percent') {
+            return Math.floor(salePrice * (1 - flashDiscount / 100));
+          } else {
+            return Math.max(0, salePrice - flashDiscount);
+          }
+        }
+        return 0;
+      }).filter(v => v > 0);
+      
+      // Giá gốc gạch ngang = sale_price (trước khi giảm flash)
+      origVals = vs.map(v => Number(v.sale_price || v.price_sale || 0)).filter(v => v > 0);
     } else {
-      baseVals = pairs.map(p => +p.base || 0).filter(v => v > 0);
-      origVals = pairs.map(p => +p.original || 0).filter(v => v > 0);
-    }
-    
-    if (baseVals.length) {
       const minBase = Math.min(...baseVals);
       const maxBase = Math.max(...baseVals);
       
@@ -533,10 +543,19 @@ async function renderPriceStock() {
     let badge = '';
     
     if (hasFlashSale && flashSaleInfo) {
-      // ✅ Flash Sale: giá hiển thị = flash_sale.price, giá gạch = original_price (đã tính sẵn từ backend)
-      displayPrice = flashSaleInfo.price;
-      originalPrice = flashSaleInfo.original_price || null;
-      badge = `<span style="background:linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:800;animation:flash-pulse 1.5s infinite;">⚡ FLASH SALE -${flashSaleInfo.discount_percent}%</span>`;
+      // ✅ FIX: Tính giá Flash Sale từ sale_price
+      const salePrice = Number(src?.sale_price || src?.price_sale || src?.price || 0);
+      const flashDiscount = Number(flashSaleInfo.discount_value || 0);
+      const discountType = flashSaleInfo.discount_type || 'percent';
+      
+      if (discountType === 'percent') {
+        displayPrice = Math.floor(salePrice * (1 - flashDiscount / 100));
+      } else {
+        displayPrice = Math.max(0, salePrice - flashDiscount);
+      }
+      
+      // Giá gốc gạch ngang = sale_price (trước flash)
+      originalPrice = salePrice > displayPrice ? salePrice : null;
       
       // Thêm countdown
       if (!document.getElementById('flash-countdown-container')) {

@@ -30,7 +30,7 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     return r?.items || r?.data || r?.products || r?.rows || r?.list || [];
   };
 
-  api.getProductDetail = async (id) => {
+    api.getProductDetail = async (id) => {
     const r = await api.tryPaths([
       `/admin/product?id=${encodeURIComponent(id)}`,
       `/admin/product/detail?id=${encodeURIComponent(id)}`,
@@ -39,5 +39,27 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     return r?.item || r?.data || r || null;
   };
 
+  // =======================
+  // TMDT / TikTok Shop
+  // =======================
+
+  api.getTiktokConfig = async () => {
+    const r = await window.Admin.req('/admin/channels/config');
+    return r || {};
+  };
+
+  api.getTiktokShops = async () => {
+    const r = await window.Admin.req('/admin/channels/tiktok/shops');
+    return r?.shops || [];
+  };
+
+  api.disconnectTiktokShop = async (id) => {
+    if (!id) return { ok: false, error: 'missing_id' };
+    return await window.Admin.req(
+      `/admin/channels/tiktok/shops/disconnect?id=${encodeURIComponent(id)}`
+    );
+  };
+
   window.SHARED.api = api;
 })();
+
