@@ -1,38 +1,98 @@
 // File: workers/shv-api/src/admin-handlers.js
 // API handlers cho quản lý admin và phân quyền
-
-import bcrypt from 'bcryptjs';
-import jwt from '@tsndr/cloudflare-worker-jwt';
+// Đã bỏ bcryptjs và @tsndr/cloudflare-worker-jwt để tránh lỗi bundler trên Cloudflare Worker
 
 const JWT_SECRET = 'YOUR_SECRET_KEY_CHANGE_THIS'; // Nên lưu trong env.JWT_SECRET
 
+const encoder = new TextEncoder();
+
+/**
+ * Base64URL encode (dùng cho JWT)
+ */
+function base64UrlEncode(input) {
+  let bytes;
+  if (typeof input === 'string') {
+    bytes = encoder.encode(input);
+  } else {
+    bytes = new Uint8Array(input);
+  }
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+/**
+ * Base64URL decode → string
+ */
+function base64UrlDecodeToString(input) {
+  input = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = input.length % 4;
+  if (pad) input += '='.repeat(4 - pad);
+  const binary = atob(input);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/**
+ * HMAC-SHA256 (dùng cho JWT & hash password)
+ */
+async function hmacSha256(data, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+  return base64UrlEncode(new Uint8Array(sig));
+}
+
+
 /**
  * Hash password
+ * Dùng HMAC-SHA256 với JWT_SECRET, tránh phụ thuộc bcryptjs
  */
 async function hashPassword(password) {
-  const salt = await bcrypt.genSalt(10);
-  return await bcrypt.hash(password, salt);
+  // Kết quả: base64url(HMAC_SHA256(password, JWT_SECRET))
+  return await hmacSha256(password, JWT_SECRET);
 }
 
 /**
  * Verify password
  */
 async function verifyPassword(password, hash) {
-  return await bcrypt.compare(password, hash);
+  const hashed = await hashPassword(password);
+  return hashed === hash;
 }
 
 /**
- * Generate JWT token
+ * Generate JWT token (HS256)
  */
 async function generateToken(admin) {
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
+
   const payload = {
     id: admin.id,
     email: admin.email,
     role_id: admin.role_id,
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+    exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days
   };
-  
-  return await jwt.sign(payload, JWT_SECRET);
+
+  const headerB64 = base64UrlEncode(JSON.stringify(header));
+  const payloadB64 = base64UrlEncode(JSON.stringify(payload));
+  const unsigned = `${headerB64}.${payloadB64}`;
+
+  const sig = await hmacSha256(unsigned, JWT_SECRET);
+  return `${unsigned}.${sig}`;
 }
 
 /**
@@ -40,12 +100,24 @@ async function generateToken(admin) {
  */
 async function verifyToken(token) {
   try {
-    const isValid = await jwt.verify(token, JWT_SECRET);
-    if (!isValid) return null;
-    
-    const decoded = jwt.decode(token);
-    return decoded.payload;
-  } catch {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const [headerB64, payloadB64, sig] = parts;
+    const unsigned = `${headerB64}.${payloadB64}`;
+    const expectedSig = await hmacSha256(unsigned, JWT_SECRET);
+    if (sig !== expectedSig) return null;
+
+    const payloadJson = base64UrlDecodeToString(payloadB64);
+    const payload = JSON.parse(payloadJson);
+
+    if (payload.exp && Date.now() / 1000 > payload.exp) {
+      return null;
+    }
+
+    return payload;
+  } catch (e) {
+    console.error('[AdminAuth] verifyToken error:', e);
     return null;
   }
 }
