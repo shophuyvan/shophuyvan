@@ -73,6 +73,10 @@ if (typeof window !== 'undefined') {
     }
     .shv-scroll-section { gap: 16px !important; }
   }
+  
+  .shv-product-card .product-card-price{display:flex!important;align-items:baseline!important;gap:8px!important;margin-top:4px!important;}
+  .shv-product-card .product-card-price-sale{font-size:16px!important;font-weight:700!important;color:#ef4444!important;}
+  .shv-product-card .product-card-price-original{font-size:13px!important;color:#9ca3af!important;text-decoration:line-through!important;}
   `;
 
   const style = document.createElement('style');
@@ -85,7 +89,6 @@ if (typeof window !== 'undefined') {
 // CLOUDIFY HELPER (giống ui-home.js)
 // ==========================================
 const noImage = encodeURI(`
-
   data:image/svg+xml;utf8,
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 380'>
     <rect width='100%' height='100%' fill='%23f3f4f6'/>
@@ -190,7 +193,7 @@ async function loadBestsellers() {
       </div>
     `;
 
-        const data = await api('/products/bestsellers?limit=8');
+    const data = await api('/products/bestsellers?limit=8');
 
     if (!data || !data.ok || !data.items || data.items.length === 0) {
       console.log('ℹ️ Không có sản phẩm bán chạy');
@@ -200,8 +203,7 @@ async function loadBestsellers() {
       return;
     }
 
-    // Chỉ hiển thị 3 sản phẩm đầu tiên
-        const items = data.items || [];
+    const items = data.items || [];
 
     // Render sản phẩm
     bestProductsEl.innerHTML = items.map(productCard).join('');
@@ -240,7 +242,7 @@ async function loadNewest() {
       </div>
     `;
 
-        const data = await api('/products/newest?limit=8');
+    const data = await api('/products/newest?limit=8');
 
     if (!data || !data.ok || !data.items || data.items.length === 0) {
       console.log('ℹ️ Không có sản phẩm mới');
@@ -250,7 +252,7 @@ async function loadNewest() {
       return;
     }
 
-        const items = data.items || [];
+    const items = data.items || [];
 
     // Render sản phẩm
     newProductsEl.innerHTML = items.map(productCard).join('');
@@ -262,8 +264,6 @@ async function loadNewest() {
     }
 
     console.log(`✅ Đã render ${items.length} sản phẩm mới`);
-
-
 
   } catch (error) {
     console.error('❌ Lỗi load newest products:', error);

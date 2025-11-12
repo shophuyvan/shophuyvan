@@ -52,6 +52,10 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
     @media (min-width:375px){ .shv-product-card{ width:140px!important; min-width:140px!important; max-width:140px!important; flex-basis:140px!important; } }
     @media (min-width:640px){ .shv-product-card{ width:180px!important; min-width:180px!important; max-width:180px!important; flex-basis:180px!important; } }
     @media (min-width:1024px){ .shv-product-card{ width:220px!important; min-width:220px!important; max-width:220px!important; flex-basis:220px!important; } }
+    
+    .shv-product-card .product-card-price{display:flex!important;align-items:baseline!important;gap:8px!important;margin-top:4px!important;}
+    .shv-product-card .product-card-price-sale{font-size:16px!important;font-weight:700!important;color:#ef4444!important;}
+    .shv-product-card .product-card-price-original{font-size:13px!important;color:#9ca3af!important;text-decoration:line-through!important;}
   `;
   const s = document.createElement('style'); s.id='shv-scroll-fix-fs'; s.textContent = css; document.head.appendChild(s);
 })();
