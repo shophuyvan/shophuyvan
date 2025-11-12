@@ -650,7 +650,8 @@ async function hydrateSoldAndRating(items){
   for (const id of ids){
     const ratingEl = document.querySelector(`.js-rating[data-id="${id}"]`);
     const soldEl   = document.querySelector(`.js-sold[data-id="${id}"]`);
-    const priceEl  = document.querySelector(`.js-price[data-id="${id}"]`); // THÊM DÒNG NÀY
+    const priceEl  = document.querySelector(`.js-price[data-id="${id}"]:not(.js-flash-locked)`); // BỎ QUA GIÁ FLASH SALE
+
 
     // SỬA: Chỉ 'continue' nếu không có element NÀO
     if (!ratingEl && !soldEl && !priceEl) continue;
