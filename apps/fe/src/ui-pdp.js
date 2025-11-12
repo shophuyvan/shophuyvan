@@ -456,8 +456,9 @@ async function renderPriceStock() {
     let origVals = [];
     
     if (hasFlashSale) {
+      // ✅ Flash Sale: giá hiển thị = flash_sale.price, giá gạch = sale_price (không phải original_price)
       baseVals = vs.map(v => Number(v.flash_sale?.price || 0)).filter(v => v > 0);
-      origVals = vs.map(v => Number(v.flash_sale?.original_price || v.price || 0)).filter(v => v > 0);
+      origVals = vs.map(v => Number(v.sale_price || v.price || 0)).filter(v => v > 0);
     } else {
       baseVals = pairs.map(p => +p.base || 0).filter(v => v > 0);
       origVals = pairs.map(p => +p.original || 0).filter(v => v > 0);
@@ -532,8 +533,9 @@ async function renderPriceStock() {
     let badge = '';
     
     if (hasFlashSale && flashSaleInfo) {
+      // ✅ Flash Sale: giá hiển thị = flash_sale.price, giá gạch = sale_price (không phải original_price)
       displayPrice = flashSaleInfo.price;
-      originalPrice = flashSaleInfo.original_price;
+      originalPrice = src.sale_price || src.price || null;
       badge = `<span style="background:linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:800;animation:flash-pulse 1.5s infinite;">⚡ FLASH SALE -${flashSaleInfo.discount_percent}%</span>`;
       
       // Thêm countdown
