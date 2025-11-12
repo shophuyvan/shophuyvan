@@ -692,37 +692,40 @@ function card(p){
     const original = priceInfo.original || null;
     
     if (base > 0) {
-      priceHtml = `<div><b class="text-rose-600">${base.toLocaleString('vi-VN')}₫</b>`;
+      // ✅ GIÁ GIẢM (to, đậm)
+      priceHtml = `<div style="color:#e11d48;font-weight:600;font-size:15px;">${base.toLocaleString('vi-VN')}₫`;
       
-      // Hiển thị giá gốc nếu có
+      // ✅ GIÁ GỐC GẠCH NGANG (nhỏ, bên cạnh)
       if (original && original > base) {
-        priceHtml += ` <span class="line-through opacity-70 text-sm ml-1">${original.toLocaleString('vi-VN')}₫</span>`;
-      }
-      
-      // ✅ Badge giá sỉ hoặc giảm giá theo tier
-      if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
-        priceHtml += ` <span style="background:#4f46e5;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">Giá sỉ</span>`;
-      } else if (priceInfo.discount > 0) {
-        priceHtml += ` <span style="background:#10b981;color:white;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">-${priceInfo.discount}%</span>`;
+        priceHtml += ` <span style="text-decoration:line-through;color:#9ca3af;font-size:13px;font-weight:400;margin-left:4px;">${original.toLocaleString('vi-VN')}₫</span>`;
       }
       
       priceHtml += `</div>`;
+      
+      // ✅ Badge giá sỉ hoặc giảm giá (dòng riêng phía dưới)
+      if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
+        priceHtml += `<div style="margin-top:4px;"><span style="background:#4f46e5;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">Giá sỉ</span></div>`;
+      } else if (priceInfo.discount > 0) {
+        priceHtml += `<div style="margin-top:4px;"><span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${priceInfo.discount}%</span></div>`;
+      }
     } else {
-      priceHtml = '<b class="text-rose-600">...</b>';
+      priceHtml = '<div style="color:#9ca3af;font-size:12px;">Liên hệ</div>';
     }
   } else {
-    // Fallback: Dùng price_display từ API (nếu price.js chưa load)
+    // ✅ Fallback: Dùng price_display từ API
     const priceDisplay = Number(p.price_display || 0);
     const compareAt = Number(p.compare_at_display || 0);
     
     if (priceDisplay > 0) {
+      priceHtml = `<div style="color:#e11d48;font-weight:600;font-size:15px;">${priceDisplay.toLocaleString('vi-VN')}₫`;
+      
       if (compareAt > priceDisplay) {
-        priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}₫</b> <span class="line-through text-gray-400 text-sm">${compareAt.toLocaleString('vi-VN')}₫</span></div>`;
-      } else {
-        priceHtml = `<div><b class="text-rose-600">${priceDisplay.toLocaleString('vi-VN')}₫</b></div>`;
+        priceHtml += ` <span style="text-decoration:line-through;color:#9ca3af;font-size:13px;font-weight:400;margin-left:4px;">${compareAt.toLocaleString('vi-VN')}₫</span>`;
       }
+      
+      priceHtml += `</div>`;
     } else {
-      priceHtml = '<b class="text-rose-600">...</b>';
+      priceHtml = '<div style="color:#9ca3af;font-size:12px;">Liên hệ</div>';
     }
   }
   
