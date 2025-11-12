@@ -138,7 +138,7 @@ function flashCard(p, discountType, discountValue) {
     </div>
     <div class="p-2">
       <div class="font-semibold text-xs line-clamp-2 min-h-[32px]">${p.title || p.name || 'Sản phẩm'}</div>
-      <div class="mt-1 text-blue-600 text-xs js-price" data-id="${id}">
+      <div class="mt-1 text-blue-600 text-xs js-price js-flash-locked" data-id="${id}" data-flash-sale="true">
         ${priceHtml}
       </div>
       <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-600">
