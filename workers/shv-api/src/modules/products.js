@@ -1126,7 +1126,11 @@ async function getFlashSaleForProduct(env, productId) {
 function applyFlashSaleDiscount(variant, flashSaleInfo) {
   if (!flashSaleInfo || !flashSaleInfo.active) return variant;
 
-  const basePrice = Number(variant.price || 0);
+  // ✅ FIX: Ưu tiên sale_price (giá đã giảm) làm base, không phải price gốc
+  const salePrice = Number(variant.sale_price || 0);
+  const regularPrice = Number(variant.price || 0);
+  const basePrice = salePrice > 0 ? salePrice : regularPrice;
+  
   if (basePrice <= 0) return variant;
 
   let flashPrice = basePrice;
@@ -1143,7 +1147,7 @@ function applyFlashSaleDiscount(variant, flashSaleInfo) {
     flash_sale: {
       active: true,
       price: flashPrice,
-      original_price: basePrice,
+      original_price: basePrice, // Giá gạch = giá trước Flash Sale (sale_price)
       discount_percent: flashSaleInfo.discount_type === 'percent' ? flashSaleInfo.discount_value : Math.round((basePrice - flashPrice) / basePrice * 100),
       ends_at: flashSaleInfo.ends_at,
       flash_sale_id: flashSaleInfo.flash_sale_id,
