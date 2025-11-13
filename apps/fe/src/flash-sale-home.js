@@ -3,6 +3,7 @@
 
 import api from './lib/api.js';
 import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
+import { computeFlashPriceRangeByProduct } from '../../../packages/shared/src/utils/priceFlash.ts';
 
 // Đánh dấu đã dùng phiên bản Flash Sale v2 (để frontend.js bỏ qua loader cũ)
 if (typeof window !== 'undefined') {
@@ -61,36 +62,13 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 })();
 
 // ==========================================
-// TÍNH GIÁ FLASH SALE (tích hợp giá sỉ)
+// TÍNH GIÁ FLASH SALE (DÙNG CHUNG THEO VARIANTS)
 // ==========================================
-function calculateFlashPrice(product, discountType, discountValue) {
-
-  // ✅ Dùng pickPriceByCustomer để lấy giá đã tính sỉ/lẻ
-  const priceInfo = pickPriceByCustomer(product, null) || {};
-  let basePrice = priceInfo.base || 0;
-
-  // Fallback nếu không có giá
-  if (basePrice === 0) return { flashPrice: 0, originalPrice: 0, customerInfo: priceInfo };
-
-  // Tính giá Flash Sale từ giá đã xử lý sỉ/lẻ
-  let flashPrice = basePrice;
-  
-  if (discountType === 'percent') {
-    // Giảm theo %
-    flashPrice = basePrice * (1 - discountValue / 100);
-  } else if (discountType === 'fixed') {
-    // Giảm cố định
-    flashPrice = basePrice - discountValue;
-  }
-
-  // Đảm bảo giá Flash Sale không âm
-  flashPrice = Math.max(0, flashPrice);
-
-  return {
-    flashPrice: Math.round(flashPrice),
-    originalPrice: basePrice,
-    customerInfo: priceInfo // Trả về thông tin khách hàng để hiển thị badge
-  };
+function computeRangeByProduct(product, discountType, discountValue) {
+  const flash = (Number(discountValue || 0) > 0)
+    ? { type: discountType || 'percent', value: Number(discountValue || 0) }
+    : null;
+  return computeFlashPriceRangeByProduct(product, flash);
 }
 
 
@@ -100,7 +78,14 @@ function calculateFlashPrice(product, discountType, discountValue) {
 function flashCard(p, discountType, discountValue) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
-  const { flashPrice, originalPrice, customerInfo } = calculateFlashPrice(p, discountType, discountValue);
+
+  const { minFinal, minStrike } = computeRangeByProduct(p, discountType, discountValue);
+  const flashPrice = minFinal;
+  const originalPrice = minStrike;
+
+  // vẫn giữ badge/logic sỉ bằng pickPriceByCustomer
+  const customerInfo = pickPriceByCustomer(p, null) || {};
+
 
   const discountPercent = (originalPrice > 0)
     ? Math.round(((originalPrice - flashPrice) / originalPrice) * 100)

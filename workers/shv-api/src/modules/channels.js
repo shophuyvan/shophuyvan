@@ -154,8 +154,27 @@ export async function handle(req, env, ctx) {
     );
   }
 
+    // ==========================================
+  // 4) PUBLIC: TikTok Shop - tạo kết nối
+  //    /channels/tiktok/connect -> redirect sang TikTok auth link
   // ==========================================
-  // 4) PUBLIC: TikTok Shop redirect về
+  if (path === '/channels/tiktok/connect') {
+    const authUrl = env.TIKTOK_SHOP_AUTH_URL;
+    if (!authUrl) {
+      // Thiếu cấu hình auth URL
+      return json(
+        { ok: false, error: 'missing_tiktok_auth_url' },
+        { status: 500 },
+        req
+      );
+    }
+
+    // Chỉ đơn giản redirect thẳng sang link ủy quyền TikTok
+    return Response.redirect(authUrl, 302);
+  }
+
+  // ==========================================
+  // 5) PUBLIC: TikTok Shop redirect về
   //    Redirect URL: https://api.shophuyvan.vn/channels/tiktok/callback
   // ==========================================
   if (path === '/channels/tiktok/callback') {
@@ -174,10 +193,7 @@ export async function handle(req, env, ctx) {
 
     if (!authCode) {
       console.error('[TikTok] missing auth_code in callback');
-      return Response.redirect(
-        `${failBase}&reason=missing_code`,
-        302
-      );
+      return Response.redirect(`${failBase}&reason=missing_code`, 302);
     }
 
     if (!env.TIKTOK_SHOP_APP_KEY || !env.TIKTOK_SHOP_APP_SECRET) {
@@ -188,8 +204,6 @@ export async function handle(req, env, ctx) {
       );
     }
 
-    // Gọi token API: auth.tiktok-shops.com/api/v2/token/get
-    // Tham số: app_key, app_secret, auth_code, grant_type=authorized_code :contentReference[oaicite:1]{index=1}
     const tokenUrl = new URL(
       '/api/v2/token/get',
       'https://auth.tiktok-shops.com'
@@ -214,13 +228,9 @@ export async function handle(req, env, ctx) {
       }
     } catch (e) {
       console.error('[TikTok] token fetch error:', e);
-      return Response.redirect(
-        `${failBase}&reason=network_error`,
-        302
-      );
+      return Response.redirect(`${failBase}&reason=network_error`, 302);
     }
 
-    // Chuẩn hoá data (tuỳ phiên bản API, dùng data hoặc root)
     const d = tokenData?.data || tokenData || {};
     const now = Date.now();
 
@@ -279,3 +289,4 @@ export async function handle(req, env, ctx) {
     req
   );
 }
+

@@ -8,6 +8,7 @@
 
 import api from './lib/api.js';
 import { formatPrice } from './lib/price.js';
+import { computeFinalPriceByVariant } from '../../../packages/shared/src/utils/priceFlash.ts';
 
 // === CART MIGRATION ===
 (function migrateCart() {
@@ -449,90 +450,79 @@ async function renderPriceStock() {
   }
 
   if (vs.length) {
-    const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
-    
-    // ⚡ Nếu có Flash Sale, ưu tiên giá Flash Sale
-    let baseVals = [];
-    let origVals = [];
-    
-    if (hasFlashSale) {
-      // ✅ FIX: Flash Sale phải tính từ GIÁ SALE (sale_price), KHÔNG phải giá gốc (price)
-      baseVals = vs.map(v => {
-        const salePrice = Number(v.sale_price || v.price_sale || 0);
-        const flashDiscount = Number(flashSaleInfo?.discount_value || 0);
-        const discountType = flashSaleInfo?.discount_type || 'percent';
-        
-        if (salePrice > 0 && flashDiscount > 0) {
-          if (discountType === 'percent') {
-            return Math.floor(salePrice * (1 - flashDiscount / 100));
-          } else {
-            return Math.max(0, salePrice - flashDiscount);
-          }
-        }
-        return 0;
-      }).filter(v => v > 0);
-      
-      // Giá gốc gạch ngang = sale_price (trước khi giảm flash)
-      origVals = vs.map(v => Number(v.sale_price || v.price_sale || 0)).filter(v => v > 0);
-    } else {
-      const minBase = Math.min(...baseVals);
-      const maxBase = Math.max(...baseVals);
-      
-      let minOrig = 0, maxOrig = 0;
-      if (origVals.length) {
-        minOrig = Math.min(...origVals);
-        maxOrig = Math.max(...origVals);
-      }
-      
-      const baseText = (minBase === maxBase) 
-        ? formatPrice(minBase) 
-        : (formatPrice(minBase) + ' - ' + formatPrice(maxBase));
-      
-      // ⚡ FLASH SALE BADGE
-      let badge = '';
-      if (hasFlashSale && flashSaleInfo) {
-        badge = `<span style="background:linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:800;animation:flash-pulse 1.5s infinite;">⚡ FLASH SALE -${flashSaleInfo.discount_percent}%</span>`;
-        
-        // Thêm countdown
-        if (!document.getElementById('flash-countdown-container')) {
-          const countdownHTML = `
-            <div id="flash-countdown-container" style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;background:#fff;border:2px solid #ff6b6b;padding:4px 12px;border-radius:8px;">
-              <span style="font-size:11px;font-weight:700;color:#ff6b6b;">KẾT THÚC SAU</span>
-              <span id="flash-countdown" style="font-size:13px;font-weight:800;color:#ff6b6b;font-family:monospace;"></span>
-            </div>
-          `;
-          priceSaleEl.insertAdjacentHTML('afterend', countdownHTML);
-          startCountdown(flashSaleInfo.ends_at, 'flash-countdown');
-        }
-      } else {
-        const firstPair = pairs[0] || {};
-        if (firstPair.isWholesale && firstPair.original) {
-          badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
-        } else if (firstPair.discount > 0) {
-          const tierIcons = { 'silver': '🥈', 'gold': '🥇', 'diamond': '💎' };
-          const icon = tierIcons[firstPair.tier] || '';
-          badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${firstPair.discount}%</span>`;
-        }
-      }
-      
-      priceSaleEl.innerHTML = baseText + badge;
-      
-      if (minOrig > 0 && maxOrig > 0 && maxOrig > minBase) {
-        const origText = (minOrig === maxOrig) 
-          ? formatPrice(minOrig) 
-          : (formatPrice(minOrig) + ' - ' + formatPrice(maxOrig));
-        
-        if (priceOriginalEl) {
-          priceOriginalEl.textContent = origText;
-          priceOriginalEl.style.display = 'inline';
-        }
-      } else {
-        if (priceOriginalEl) priceOriginalEl.style.display = 'none';
-      }
-      
-      rendered = true;
+  const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
+
+  // TÍNH GIÁ HIỂN THỊ: ưu tiên Flash Sale giảm tiếp trên sale_price
+  const prices = vs.map((v, i) => {
+    const salePrice = Number(v.sale_price || v.price_sale || v.price || 0);
+
+    if (hasFlashSale && Number(flashSaleInfo?.discount_value) > 0) {
+      const dv = Number(flashSaleInfo.discount_value || 0);
+      const dt = flashSaleInfo.discount_type || 'percent';
+      const final = dt === 'percent'
+        ? Math.floor(salePrice * (1 - dv / 100))
+        : Math.max(0, salePrice - dv);
+      return { final, strike: salePrice };
     }
+
+    const p = pairs[i]?.base || salePrice || 0;
+    const strike = pairs[i]?.original || null;
+    return { final: p, strike };
+  }).filter(x => x.final > 0);
+
+  if (prices.length) {
+    const mins = Math.min(...prices.map(x => x.final));
+    const maxs = Math.max(...prices.map(x => x.final));
+    const strikes = prices.map(x => x.strike).filter(Boolean);
+    const minStrike = strikes.length ? Math.min(...strikes) : 0;
+    const maxStrike = strikes.length ? Math.max(...strikes) : 0;
+
+    const baseText = mins === maxs
+      ? formatPrice(mins)
+      : `${formatPrice(mins)} - ${formatPrice(maxs)}`;
+
+    let badge = '';
+    if (hasFlashSale && flashSaleInfo) {
+      badge = `<span style="background:linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:800;animation:flash-pulse 1.5s infinite;">⚡ FLASH SALE</span>`;
+      if (!document.getElementById('flash-countdown-container')) {
+        const countdownHTML = `
+          <div id="flash-countdown-container" style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;background:#fff;border:2px solid #ff6b6b;padding:4px 12px;border-radius:8px;">
+            <span style="font-size:11px;font-weight:700;color:#ff6b6b;">KẾT THÚC SAU</span>
+            <span id="flash-countdown" style="font-size:13px;font-weight:800;color:#ff6b6b;font-family:monospace;"></span>
+          </div>
+        `;
+        priceSaleEl.insertAdjacentHTML('afterend', countdownHTML);
+        startCountdown(flashSaleInfo.ends_at, 'flash-countdown');
+      }
+    } else {
+      const firstPair = pairs[0] || {};
+      if (firstPair.isWholesale && firstPair.original) {
+        badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
+      } else if (firstPair.discount > 0) {
+        const tierIcons = { silver:'🥈', gold:'🥇', diamond:'💎' };
+        const icon = tierIcons[firstPair.tier] || '';
+        badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${firstPair.discount}%</span>`;
+      }
+    }
+
+    priceSaleEl.innerHTML = baseText + badge;
+
+    if (minStrike > 0 && maxStrike > 0 && maxStrike > mins) {
+      const origText = minStrike === maxStrike
+        ? formatPrice(minStrike)
+        : `${formatPrice(minStrike)} - ${formatPrice(maxStrike)}`;
+      if (priceOriginalEl) {
+        priceOriginalEl.textContent = origText;
+        priceOriginalEl.style.display = 'inline';
+      }
+    } else {
+      if (priceOriginalEl) priceOriginalEl.style.display = 'none';
+    }
+
+    rendered = true;
   }
+}
+
 
   if (!rendered) {
     const src = CURRENT || PRODUCT || null;
@@ -943,37 +933,44 @@ function openVariantModal(mode) {
     renderVariantList();
   });
 
-  // === Các xử lý sự kiện ===
+   === Các xử lý sự kiện ===
   async function updPrice() {
     const src = CURRENT || PRODUCT;
-    const pr = await pricePair(src); // ✅ THÊM await
+
+    const flash = (src?.flash_sale?.active && (Number(src.flash_sale?.discount_value || 0) > 0))
+      ? { type: src.flash_sale.discount_type || 'percent', value: Number(src.flash_sale.discount_value || 0) }
+      : null;
+
+    const { final } = computeFinalPriceByVariant(src, flash);
     const stock = src.stock || src.qty || src.quantity || 0;
-    mask.querySelector('#vm-price').textContent = formatPrice(pr.base || 0);
+
+    mask.querySelector('#vm-price').textContent = formatPrice(final || 0);
     mask.querySelector('#vm-stock-info').textContent = stock > 0 ? `Còn ${stock} sản phẩm` : 'Hết hàng';
   }
 
-  async function addSelectedToCart() {
+    async function addSelectedToCart() {
     const qty = Math.max(1, parseInt(mask.querySelector('#vm-qty').value || '1', 10));
     const src = CURRENT || PRODUCT;
-    
-    // ⚡ Ưu tiên giá Flash Sale
-    let finalPrice = 0;
+
+    const flash = (src?.flash_sale?.active && (Number(src.flash_sale?.discount_value || 0) > 0))
+      ? { type: src.flash_sale.discount_type || 'percent', value: Number(src.flash_sale.discount_value || 0) }
+      : null;
+
+    const { final, strike } = computeFinalPriceByVariant(src, flash);
+    const finalPrice = Number(final || 0);
+
     let flashSaleData = null;
-    
-    if (src.flash_sale?.active) {
-      finalPrice = src.flash_sale.price;
+    if (flash) {
+      const dp = (strike > 0) ? Math.round(((strike - finalPrice) / strike) * 100) : 0;
       flashSaleData = {
         active: true,
-        price: src.flash_sale.price,
-        original_price: src.flash_sale.original_price,
-        discount_percent: src.flash_sale.discount_percent,
-        ends_at: src.flash_sale.ends_at,
-        flash_sale_id: src.flash_sale.flash_sale_id,
-        flash_sale_name: src.flash_sale.flash_sale_name
+        price: finalPrice,
+        original_price: strike,
+        discount_percent: dp,
+        ends_at: src.flash_sale?.ends_at,
+        flash_sale_id: src.flash_sale?.flash_sale_id,
+        flash_sale_name: src.flash_sale?.flash_sale_name,
       };
-    } else {
-      const pr = await pricePair(src);
-      finalPrice = Number(pr.base || 0);
     }
 
     // ✅ FIX: Ưu tiên weight (field trong Admin) trước weight_gram

@@ -3,6 +3,7 @@ import { useNavigate } from 'zmp-ui';
 import { routes } from '../routes';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
+import { computeFinalPriceByVariant } from '@shared/utils/priceFlash';
 import cart from '@shared/cart';
 import { cloudify } from '@shared/utils/cloudinary';
 import { zmp } from '@/lib/zmp';
@@ -67,11 +68,36 @@ export default function ProductCard({ p }: { p: Product }) {
     base = numLike(base || pair.base);
     original = numLike(original || (pair.original ?? 0));
   }
-  if (base <= 0) {
-    const low = pickLowestPrice((p as any)?.raw || p);
-    base = numLike(low?.base);
-    original = numLike(original || (low?.original ?? 0));
+    if (base <= 0) {
+    const raw: any = (p as any)?.raw || p;
+    try {
+      const vs = Array.isArray(raw?.variants) ? raw.variants : [];
+      if (vs.length) {
+        const rows = vs.map((v: any) => {
+          const s = v?.flash_sale;
+          const val = Number(s?.discount_value ?? s?.value ?? 0);
+          const f = (s?.active && val > 0)
+            ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val }
+            : null;
+          const { final, strike } = computeFinalPriceByVariant(v, f);
+          return { final, strike };
+        }).filter((r: any) => r.final > 0);
+
+        if (rows.length) {
+          base = Math.min(...rows.map((r: any) => r.final));
+          const strikes = rows.map((r: any) => r.strike).filter(Boolean);
+          if (!original && strikes.length) original = Math.max(...strikes);
+        }
+      }
+    } catch {}
+    // nếu vẫn chưa có → fallback cũ
+    if (base <= 0) {
+      const low = pickLowestPrice(raw);
+      base = numLike(low?.base);
+      original = numLike(original || (low?.original ?? 0));
+    }
   }
+  
   if (base <= 0) {
     const r = (p as any)?.raw || p;
     const baseCand = [

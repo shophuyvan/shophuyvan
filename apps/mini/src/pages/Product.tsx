@@ -16,6 +16,7 @@ import cart from '@shared/cart';
 import { routes } from '../routes';
 import { navigate as openLink } from '@/lib/navigation';
 import ProductCard from '@/components/ProductCard';
+import { computeFinalPriceByVariant, computeFlashPriceRangeByProduct } from '@shared/utils/priceFlash';
 
 // ==========================================
 // FLASH SALE COUNTDOWN HELPER
@@ -136,34 +137,29 @@ function VariantModal({
     }
   }, [open, defaultVariant, selectedVariant]);
 
-  // ⚡ Giá hiện tại: ưu tiên Flash Sale trước
+    // ⚡ Chuẩn: Flash Sale giảm TIẾP trên sale_price của biến thể
+  const flash = useMemo(() => {
+    const s: any = (effectiveVariant?.flash_sale || product?.flash_sale);
+    const val = Number(s?.discount_value ?? s?.value ?? 0);
+    if (!(s?.active && val > 0)) return null;
+    const type = s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent');
+    return { type, value: val, ends_at: s?.ends_at, raw: s };
+  }, [effectiveVariant, product]);
+
   const currentPrice = useMemo(() => {
-    if (hasFlashSale) {
-      const flashInfo = effectiveVariant?.flash_sale || product?.flash_sale;
-      return {
-        base: flashInfo?.price || 0,
-        original: flashInfo?.original_price || null
-      };
-    }
-    
-    if (Array.isArray(variants) && variants.length > 0) {
-      return pickPrice(product, effectiveVariant as any);
-    }
-    return pickPrice(product);
-  }, [product, variants, effectiveVariant, hasFlashSale]);
-  
-  // ⚡ CHECK FLASH SALE
-  const hasFlashSale = useMemo(() => {
-    if (effectiveVariant?.flash_sale?.active) return true;
-    if (product?.flash_sale?.active) return true;
-    return false;
-  }, [effectiveVariant, product]);
+    const { final, strike } = computeFinalPriceByVariant(effectiveVariant || product, flash as any);
+    return { base: final, original: strike };
+  }, [effectiveVariant, product, flash]);
 
-  // ⚡ Flash Sale Info
+  const hasFlashSale = !!flash && currentPrice.base > 0 && (currentPrice.original || 0) > currentPrice.base;
+
   const flashSaleInfo = useMemo(() => {
-    return effectiveVariant?.flash_sale || product?.flash_sale || null;
-  }, [effectiveVariant, product]);
-
+    if (!flash) return null;
+    const dp = (currentPrice.original && currentPrice.original > 0)
+      ? Math.round(((currentPrice.original - currentPrice.base) / currentPrice.original) * 100)
+      : Number((flash as any)?.raw?.discount_percent || 0);
+    return { ...(flash as any)?.raw, discount_percent: dp, ends_at: (flash as any)?.ends_at };
+  }, [flash, currentPrice]);
   const countdown = useCountdown(flashSaleInfo?.ends_at);
 
   // Helper ảnh
@@ -480,7 +476,30 @@ export default function Product() {
     () => (Array.isArray(p?.variants) ? p.variants : []),
     [p]
   );
-  const range = useMemo(() => priceRange(variants), [variants]);
+    const range = useMemo(() => {
+    if (!Array.isArray(variants) || variants.length === 0) {
+      const { final, strike } = computeFinalPriceByVariant(p || {}, (p?.flash_sale?.active && Number(p?.flash_sale?.discount_value || 0) > 0)
+        ? { type: p.flash_sale.discount_type || 'percent', value: Number(p.flash_sale.discount_value || 0) }
+        : null);
+      return { minBase: final || 0, maxBase: final || 0, minOrig: strike || 0, maxOrig: strike || 0 };
+    }
+    const rows = variants.map((v: any) => {
+      const s = v?.flash_sale;
+      const val = Number(s?.discount_value ?? s?.value ?? 0);
+      const f = (s?.active && val > 0) ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val } : null;
+      const { final, strike } = computeFinalPriceByVariant(v, f);
+      return { final, strike };
+    }).filter(r => r.final > 0);
+    if (!rows.length) return { minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 };
+    const finals = rows.map(r => r.final);
+    const strikes = rows.map(r => r.strike);
+    return {
+      minBase: Math.min(...finals),
+      maxBase: Math.max(...finals),
+      minOrig: strikes.length ? Math.min(...strikes) : 0,
+      maxOrig: strikes.length ? Math.max(...strikes) : 0,
+    };
+  }, [variants, p]);
 
   const handleBack = () => {
     try {
@@ -503,54 +522,54 @@ export default function Product() {
 
 // NOTE: onConfirm của modal sẽ gọi hàm này
   const addLine = (variant: any, qty: number, mode: 'cart' | 'buy') => {
-    // ⚡ Ưu tiên giá Flash Sale
-    let finalPrice: any;
-    let flashSaleData = null;
-    
-    if (variant?.flash_sale?.active) {
-      finalPrice = { base: variant.flash_sale.price, original: variant.flash_sale.original_price };
-      flashSaleData = {
-        active: true,
-        price: variant.flash_sale.price,
-        original_price: variant.flash_sale.original_price,
-        discount_percent: variant.flash_sale.discount_percent,
-        ends_at: variant.flash_sale.ends_at,
-        flash_sale_id: variant.flash_sale.flash_sale_id,
-        flash_sale_name: variant.flash_sale.flash_sale_name
-      };
-    } else {
-      finalPrice = pickPrice(p, variant);
-    }
+    // ⚡ Tính đúng giá cuối: giảm TIẾP trên sale_price theo flash_sale của biến thể (nếu có)
+    const s = variant?.flash_sale;
+    const val = Number(s?.discount_value ?? s?.value ?? 0);
+    const flash = (s?.active && val > 0)
+      ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val }
+      : null;
 
-    // ✅ TÍNH TRỌNG LƯỢNG THỰC (GRAM) TỪ VARIANT → PRODUCT (không fallback)
-    // ✅ Ưu tiên weight trên variant trước
+    const pair = computeFinalPriceByVariant(variant || p, flash);
+    const finalPriceNum = Number(pair.final || 0);
+    const strikeNum = Number(pair.strike || 0);
+    const dp = (strikeNum > finalPriceNum && strikeNum > 0)
+      ? Math.round(((strikeNum - finalPriceNum) / strikeNum) * 100)
+      : 0;
+
+    // ✅ TRỌNG LƯỢNG: ưu tiên variant
     const w = Number(
       variant?.weight ??
-        variant?.weight_gram ??
-        variant?.weight_grams ??
-        p?.weight ??
-        p?.weight_gram ??
-        p?.weight_grams ??
-        0,
+      variant?.weight_gram ??
+      variant?.weight_grams ??
+      p?.weight ??
+      p?.weight_gram ??
+      p?.weight_grams ??
+      0
     );
 
     const line: any = {
       ...p,
-      price: finalPrice,
+      price: finalPriceNum,            // ✅ số
+      original: strikeNum || null,     // ✅ gạch giá gốc nếu có
       variantName: variant?.name || variant?.sku || '',
-      variantImage:
-        variant?.image ||
-        (Array.isArray(variant?.images) ? variant.images[0] : undefined),
-
-      // 📽 BẮT BUỘC: gắn đủ 3 alias để Checkout đọc đúng
+      variantImage: variant?.image || (Array.isArray(variant?.images) ? variant.images[0] : undefined),
       weight_gram: w,
       weight_grams: w,
       weight: w,
+      // giữ id/sku hiện có
     };
 
-    // ⚡ Lưu thông tin Flash Sale
-    if (flashSaleData) {
-      line.flash_sale = flashSaleData;
+    // ⚡ Lưu Flash Sale (để Checkout hiển thị)
+    if (flash) {
+      line.flash_sale = {
+        active: true,
+        price: finalPriceNum,
+        original_price: strikeNum || null,
+        discount_percent: dp,
+        ends_at: s?.ends_at,
+        flash_sale_id: s?.flash_sale_id,
+        flash_sale_name: s?.flash_sale_name,
+      };
     }
 
     cart.add(line, qty);
