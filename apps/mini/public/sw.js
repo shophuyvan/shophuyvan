@@ -295,7 +295,7 @@ function isImageDomain(hostname) {
 function isAPIRequest(pathOrHost) {
   return pathOrHost.startsWith('/v1/') || 
          pathOrHost.startsWith('/api/') ||
-         pathOrHost.includes('shv-api.shophuyvan.workers.dev') ||
+         pathOrHost.includes('api.shophuyvan.vn') ||
          pathOrHost.includes('workers.dev');
 }
 

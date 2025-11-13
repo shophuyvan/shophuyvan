@@ -1,7 +1,7 @@
 // File: apps/mini/src/lib/cart-sync-init.ts
 // Cart sync đơn giản cho Mini App
 
-const API_BASE = 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE = 'https://api.shophuyvan.vn';
 const SESSION_KEY = 'shv_session_id';
 const CART_KEY = 'shv_cart_v1';
 const SYNC_INTERVAL = 5000; // 5 giây
