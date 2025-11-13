@@ -151,14 +151,15 @@ export default {
 	  
 	  // REMOVED - Dùng Products.handle thay vì TopNew
 
-      // Products module
+      // Products module (bao gồm metrics API)
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
           path === '/admin/products' || // EXACT match
           path === '/admin/products/list' || // EXACT match for list
           path.startsWith('/admin/products/') || // Specific actions like /get, /upsert
+          path.startsWith('/api/products/') || // ✅ THÊM: metrics API
           path === '/product') {
-        console.log('[Index] ➡️ Đang gọi Products.handle cho path:', path, 'Module Products có tồn tại:', typeof Products); // LOG KIỂM TRA TRƯỚC KHI GỌI
+        console.log('[Index] ➡️ Đang gọi Products.handle cho path:', path, 'Module Products có tồn tại:', typeof Products);
         return Products.handle(req, env, ctx);
       }
 
