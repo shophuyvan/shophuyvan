@@ -931,9 +931,9 @@ function openVariantModal(mode) {
 
     // Vẽ lại danh sách để highlight item đang chọn
     renderVariantList();
-  });
-
-   === Các xử lý sự kiện ===
+   });
+  
+  // === Các xử lý sự kiện ===
   async function updPrice() {
     const src = CURRENT || PRODUCT;
 
