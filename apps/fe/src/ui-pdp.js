@@ -525,19 +525,22 @@ async function renderPriceStock() {
   if (!rendered) {
     const src = CURRENT || PRODUCT || null;
     
-    // ⚡ Ưu tiên giá Flash Sale
+    // ⚡ CHECK: Có Flash Sale không?
     let displayPrice = 0;
     let originalPrice = null;
     let badge = '';
     
     if (hasFlashSale && flashSaleInfo) {
-      // ✅ FIX: Gọi API tính giá Flash Sale (giống trang chủ)
+      // ✅ FIX: BẮT BUỘC gọi API tính giá Flash Sale
       const flash = {
         type: flashSaleInfo.discount_type || 'percent',
         value: Number(flashSaleInfo.discount_value || 0)
       };
       
-      const { final, strike } = await computeFinalPriceByVariant(src, flash);
+      // 🔧 CRITICAL: Dùng CURRENT variant thay vì PRODUCT
+      const variantToUse = CURRENT || (variantsOf(PRODUCT)[0]) || src;
+      const { final, strike } = await computeFinalPriceByVariant(variantToUse, flash);
+      
       displayPrice = final;
       originalPrice = strike > final ? strike : null;
       
