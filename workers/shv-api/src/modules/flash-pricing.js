@@ -15,8 +15,15 @@ function num(v) {
  * @returns {object} { final, strike }
  */
 function computeFinalPriceByVariant(variant, flash) {
-  // 🔧 FIX: Ưu tiên sale_price > price_sale > price
-  const base = num(variant?.sale_price ?? variant?.price_sale ?? variant?.price ?? 0);
+    // 🔧 FIX: Ưu tiên sale_price > price_sale > sale > price
+  const base = num(
+    variant?.sale_price ??
+    variant?.price_sale ??
+    variant?.sale ??
+    variant?.price ??
+    0
+  );
+
   
   // ⚠️ CRITICAL: Nếu variant có flash_sale.price, BỎ QUA tính toán
   if (variant?.flash_sale?.price && num(variant.flash_sale.price) > 0) {
