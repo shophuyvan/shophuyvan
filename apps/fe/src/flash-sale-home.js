@@ -2,8 +2,8 @@
 // Component Flash Sale cho trang chủ - Phương án 2
 
 import api from './lib/api.js';
-import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
-import { computeFlashPriceRangeByProduct } from '../../../packages/shared/src/utils/priceFlash.ts';
+import { formatPrice, pickLowestPrice, pickPriceByCustomer, computeFlashPriceRangeByProduct } from './lib/price.js';
+
 
 // Đánh dấu đã dùng phiên bản Flash Sale v2 (để frontend.js bỏ qua loader cũ)
 if (typeof window !== 'undefined') {
@@ -78,15 +78,12 @@ function computeRangeByProduct(product, discountType, discountValue) {
 function flashCard(p, discountType, discountValue) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
-
   const { minFinal, minStrike } = computeRangeByProduct(p, discountType, discountValue);
   const flashPrice = minFinal;
   const originalPrice = minStrike;
 
   // vẫn giữ badge/logic sỉ bằng pickPriceByCustomer
   const customerInfo = pickPriceByCustomer(p, null) || {};
-
-
   const discountPercent = (originalPrice > 0)
     ? Math.round(((originalPrice - flashPrice) / originalPrice) * 100)
     : 0;

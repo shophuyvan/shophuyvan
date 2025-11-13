@@ -7,8 +7,8 @@
 // ============================================
 
 import api from './lib/api.js';
-import { formatPrice } from './lib/price.js';
-import { computeFinalPriceByVariant } from '../../../packages/shared/src/utils/priceFlash.ts';
+import { formatPrice, computeFinalPriceByVariant } from './lib/price.js';
+
 
 // === CART MIGRATION ===
 (function migrateCart() {
