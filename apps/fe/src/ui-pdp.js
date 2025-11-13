@@ -938,7 +938,7 @@ function openVariantModal(mode) {
       ? { type: src.flash_sale.discount_type || 'percent', value: Number(src.flash_sale.discount_value || 0) }
       : null;
 
-    const { final } = computeFinalPriceByVariant(src, flash);
+    const { final } = await computeFinalPriceByVariant(src, flash);
     const stock = src.stock || src.qty || src.quantity || 0;
 
     mask.querySelector('#vm-price').textContent = formatPrice(final || 0);
@@ -953,7 +953,7 @@ function openVariantModal(mode) {
       ? { type: src.flash_sale.discount_type || 'percent', value: Number(src.flash_sale.discount_value || 0) }
       : null;
 
-    const { final, strike } = computeFinalPriceByVariant(src, flash);
+    const { final, strike } = await computeFinalPriceByVariant(src, flash);
     const finalPrice = Number(final || 0);
 
     let flashSaleData = null;
