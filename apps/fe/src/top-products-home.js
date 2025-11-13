@@ -227,10 +227,35 @@ async function loadBestsellers() {
     const cards = await Promise.all(cardPromises);
     bestProductsEl.innerHTML = cards.join('');
 
-    // Hydrate sao & đã bán nếu có hàm global
-    if (typeof hydrateSoldAndRating === 'function') {
-      try { hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean)); }
-      catch (err) { console.warn('hydrateSoldAndRating(bestsellers) error', err); }
+    // ✅ Hydrate sold & rating từ API metrics
+    try {
+      const ids = items.map(p => p.id || p.key || '').filter(Boolean);
+      
+      if (ids.length > 0) {
+        const metricsRes = await api('/api/products/metrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_ids: ids })
+        });
+
+        if (metricsRes?.ok && Array.isArray(metricsRes.metrics)) {
+          metricsRes.metrics.forEach(m => {
+            const soldEls = document.querySelectorAll(`.js-sold[data-id="${m.product_id}"]`);
+            soldEls.forEach(el => {
+              el.textContent = `Đã bán ${m.sold || 0}`;
+            });
+
+            const ratingEls = document.querySelectorAll(`.js-rating[data-id="${m.product_id}"]`);
+            ratingEls.forEach(el => {
+              el.textContent = `★ ${(m.rating || 5.0).toFixed(1)} (${m.rating_count || 0})`;
+            });
+          });
+
+          console.log('✅ Đã cập nhật metrics cho Bán chạy:', metricsRes.metrics.length);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Không thể load metrics Bán chạy:', e);
     }
 
     console.log(`✅ Đã render ${items.length} sản phẩm bán chạy`);
@@ -278,10 +303,35 @@ async function loadNewest() {
     const cards = await Promise.all(cardPromises);
     newProductsEl.innerHTML = cards.join('');
 
-    // Hydrate sao & đã bán
-    if (typeof hydrateSoldAndRating === 'function') {
-      try { hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean)); }
-      catch (err) { console.warn('hydrateSoldAndRating(newest) error', err); }
+    // ✅ Hydrate sold & rating từ API metrics
+    try {
+      const ids = items.map(p => p.id || p.key || '').filter(Boolean);
+      
+      if (ids.length > 0) {
+        const metricsRes = await api('/api/products/metrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_ids: ids })
+        });
+
+        if (metricsRes?.ok && Array.isArray(metricsRes.metrics)) {
+          metricsRes.metrics.forEach(m => {
+            const soldEls = document.querySelectorAll(`.js-sold[data-id="${m.product_id}"]`);
+            soldEls.forEach(el => {
+              el.textContent = `Đã bán ${m.sold || 0}`;
+            });
+
+            const ratingEls = document.querySelectorAll(`.js-rating[data-id="${m.product_id}"]`);
+            ratingEls.forEach(el => {
+              el.textContent = `★ ${(m.rating || 5.0).toFixed(1)} (${m.rating_count || 0})`;
+            });
+          });
+
+          console.log('✅ Đã cập nhật metrics cho Sản phẩm mới:', metricsRes.metrics.length);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Không thể load metrics Sản phẩm mới:', e);
     }
 
     console.log(`✅ Đã render ${items.length} sản phẩm mới`);

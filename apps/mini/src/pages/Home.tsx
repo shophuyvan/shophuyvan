@@ -174,6 +174,35 @@ const Home: React.FC = () => {
         setItems(arr);
         setLoading(false);
 
+        // ✅ Load metrics cho các sản phẩm
+        if (arr.length > 0) {
+          try {
+            const ids = arr.map((p: any) => p.id).filter(Boolean);
+            const metrics = await api.products.metrics(ids);
+            
+            if (Array.isArray(metrics) && metrics.length > 0) {
+              // Merge metrics vào items
+              const updatedItems = arr.map((item: any) => {
+                const m = metrics.find((x: any) => String(x.product_id) === String(item.id));
+                if (m) {
+                  return {
+                    ...item,
+                    sold: m.sold,
+                    rating: m.rating,
+                    rating_count: m.rating_count
+                  };
+                }
+                return item;
+              });
+              
+              setItems(updatedItems);
+              console.log('✅ Đã cập nhật metrics cho', metrics.length, 'sản phẩm');
+            }
+          } catch (e) {
+            console.warn('⚠️ Không thể load metrics:', e);
+          }
+        }
+
         // Prefetch ảnh cho vài sản phẩm đầu
         const firstFew = arr.slice(0, 4);
         firstFew.forEach((item: any) => {

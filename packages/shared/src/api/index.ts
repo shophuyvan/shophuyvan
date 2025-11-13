@@ -225,6 +225,15 @@ return filtered;
         return norm;
       });
     },
+    async metrics(productIds: (string | number)[]) {
+      const r = await _fetch('/api/products/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids: productIds }),
+      });
+      if (!r.ok) return [];
+      return r.data?.metrics || [];
+    },
   },
   categories: {
     async list() {

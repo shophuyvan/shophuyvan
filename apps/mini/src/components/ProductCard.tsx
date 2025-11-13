@@ -147,9 +147,33 @@ export default function ProductCard({ p }: { p: Product }) {
     ? Math.max(1, Math.round((1 - base / original) * 100))
     : 0;
 
+  // ✅ Đọc rating từ nhiều nguồn
   const rating =
-    Number((p as any)?.rating ?? (p as any)?.raw?.rating ?? 0) || 0;
-  const sold = Number((p as any)?.sold ?? (p as any)?.raw?.sold ?? 0) || 0;
+    Number(
+      (p as any)?.rating ?? 
+      (p as any)?.rating_avg ?? 
+      (p as any)?.rating_average ??
+      (p as any)?.raw?.rating ?? 
+      (p as any)?.raw?.rating_avg ?? 
+      0
+    ) || 5.0;
+    
+  // ✅ Đọc sold từ nhiều nguồn
+  const sold = Number(
+    (p as any)?.sold ?? 
+    (p as any)?.sold_count ?? 
+    (p as any)?.sales ??
+    (p as any)?.raw?.sold ?? 
+    (p as any)?.raw?.sold_count ?? 
+    0
+  ) || 0;
+  
+  const ratingCount = Number(
+    (p as any)?.rating_count ??
+    (p as any)?.reviews_count ??
+    (p as any)?.raw?.rating_count ??
+    0
+  ) || 0;
 
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -190,7 +214,7 @@ try {
       <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
         <div className="flex items-center gap-1">
           <span className="inline-block">⭐</span>
-          <span>{rating > 0 ? rating.toFixed(1) : '—'}</span>
+          <span>{rating > 0 ? rating.toFixed(1) : '5.0'} ({ratingCount || 0})</span>
         </div>
         <div>Đã bán {sold || 0}</div>
       </div>

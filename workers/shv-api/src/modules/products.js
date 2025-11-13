@@ -64,6 +64,19 @@ export async function handle(req, env, ctx) {
     return listPublicProductsFiltered(req, env);
   }
 
+  // ===== METRICS ROUTES (PUBLIC) =====
+  
+  // Get metrics for multiple products (batch)
+  if (path === '/api/products/metrics' && method === 'POST') {
+    return getProductsMetricsBatch(req, env);
+  }
+  
+  // Get metrics for single product
+  if (path.match(/^\/api\/products\/[^\/]+\/metrics$/) && method === 'GET') {
+    const id = decodeURIComponent(path.split('/')[3]);
+    return getProductMetrics(req, env, id);
+  }
+
   // ===== ADMIN ROUTES =====
 
   // Admin: List all products
@@ -1158,5 +1171,93 @@ const basePrice = salePrice > 0 ? salePrice : regularPrice;
   };
 }
 
-console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED');
+// ===================================================================
+// PUBLIC: Get Product Metrics (sold, rating)
+// ===================================================================
+
+/**
+ * Lấy metrics của 1 sản phẩm (sold, rating, rating_count)
+ * GET /api/products/{id}/metrics
+ */
+async function getProductMetrics(req, env, productId) {
+  try {
+    const product = await getJSON(env, 'product:' + productId, null);
+    
+    if (!product) {
+      return json({
+        ok: false,
+        error: 'Product not found'
+      }, { status: 404 }, req);
+    }
+
+    // Đọc metrics từ product
+    const metrics = {
+      product_id: productId,
+      sold: Number(product.sold || product.sold_count || product.sales || 0),
+      rating: Number(product.rating || product.rating_avg || product.rating_average || 5.0),
+      rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0)
+    };
+
+    return json({
+      ok: true,
+      metrics
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[METRICS] Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+/**
+ * Lấy metrics của nhiều sản phẩm (batch)
+ * POST /api/products/metrics
+ * Body: { product_ids: ['id1', 'id2', ...] }
+ */
+async function getProductsMetricsBatch(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const productIds = body.product_ids || body.ids || [];
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return json({
+        ok: false,
+        error: 'product_ids array is required'
+      }, { status: 400 }, req);
+    }
+
+    // Giới hạn tối đa 50 sản phẩm mỗi request
+    const ids = productIds.slice(0, 50);
+    const results = [];
+
+    for (const id of ids) {
+      try {
+        const product = await getJSON(env, 'product:' + id, null);
+        
+        if (product) {
+          results.push({
+            product_id: id,
+            sold: Number(product.sold || product.sold_count || product.sales || 0),
+            rating: Number(product.rating || product.rating_avg || product.rating_average || 5.0),
+            rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0)
+          });
+        }
+      } catch (e) {
+        console.warn('[METRICS] Error loading product:', id, e);
+        // Skip sản phẩm lỗi, không fail toàn bộ request
+      }
+    }
+
+    return json({
+      ok: true,
+      metrics: results
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[METRICS BATCH] Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED + METRICS API');
 // <<< Cuối file >>>

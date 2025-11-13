@@ -322,11 +322,14 @@ async function adjustInventory(items, env, direction = -1) {
         console.log('[INV] Variant updated', { key: keySet, before, after, variantId });
         touched = true;
 
-        // Update sold count
-        const vSoldBefore = Number(v.sold || v.sold_count || 0);
+        // ✅ Update sold count - ĐỒNG BỘ CẢ 3 FIELD
+        const vSoldBefore = Number(v.sold || v.sold_count || v.sales || 0);
         const vSoldAfter = Math.max(0, vSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
         v.sold = vSoldAfter;
         v.sold_count = vSoldAfter;
+        v.sales = vSoldAfter;
+        
+        console.log('[INV] ✅ Variant sold updated:', { variantId, before: vSoldBefore, after: vSoldAfter });
       }
     }
 
@@ -338,13 +341,31 @@ async function adjustInventory(items, env, direction = -1) {
       console.log('[INV] Product stock updated', { key: keySet, before, after, productId: product.id });
     }
 
-    // Update product sold count
-    const pSoldBefore = Number(product.sold || product.sold_count || 0);
+    // ✅ Update product sold count - ĐỒNG BỘ CẢ 3 FIELD
+    const pSoldBefore = Number(product.sold || product.sold_count || product.sales || 0);
     const pSoldAfter = Math.max(0, pSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
     product.sold = pSoldAfter;
     product.sold_count = pSoldAfter;
+    product.sales = pSoldAfter;
+    
+    console.log('[INV] ✅ Product sold updated:', { productId: product.id, before: pSoldBefore, after: pSoldAfter });
 
     await putJSON(env, 'product:' + product.id, product);
+    
+    // ✅ Cập nhật luôn vào products:list để đồng bộ
+    try {
+      const list = await getJSON(env, 'products:list', []);
+      const index = list.findIndex(p => p.id === product.id);
+      if (index >= 0) {
+        list[index].sold = pSoldAfter;
+        list[index].sold_count = pSoldAfter;
+        list[index].sales = pSoldAfter;
+        await putJSON(env, 'products:list', list);
+        console.log('[INV] ✅ Updated sold in products:list cache');
+      }
+    } catch (e) {
+      console.warn('[INV] Cannot update products:list cache:', e);
+    }
   }
 
   console.log('[INV] Adjustment complete');
