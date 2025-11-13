@@ -15,13 +15,39 @@ function num(v) {
  * @returns {object} { final, strike }
  */
 function computeFinalPriceByVariant(variant, flash) {
-  const base = num(variant?.sale_price ?? variant?.price_sale ?? variant?.price);
+  // 🔧 FIX: Ưu tiên sale_price > price_sale > price
+  const base = num(variant?.sale_price ?? variant?.price_sale ?? variant?.price ?? 0);
+  
+  // ⚠️ CRITICAL: Nếu variant có flash_sale.price, BỎ QUA tính toán
+  if (variant?.flash_sale?.price && num(variant.flash_sale.price) > 0) {
+    const flashPrice = num(variant.flash_sale.price);
+    const originalPrice = num(variant.flash_sale.original_price ?? base);
+    
+    console.log('[Flash Pricing] Using pre-calculated price:', {
+      final: flashPrice,
+      strike: originalPrice
+    });
+    
+    return { 
+      final: flashPrice, 
+      strike: originalPrice > flashPrice ? originalPrice : base 
+    };
+  }
+  
+  // 🔧 Tính giá Flash Sale từ discount_value
   let final = base;
-
+  
   if (flash && num(flash.value) > 0 && base > 0) {
     final = (flash.type === 'fixed')
       ? Math.max(0, base - num(flash.value))
       : Math.floor(base * (1 - num(flash.value) / 100));
+    
+    console.log('[Flash Pricing] Calculated discount:', {
+      base,
+      type: flash.type,
+      value: flash.value,
+      final
+    });
   }
 
   return { final, strike: base };
