@@ -2,7 +2,8 @@
 // Component Flash Sale cho trang chủ - Phương án 2
 
 import api from './lib/api.js';
-import { formatPrice, pickLowestPrice, pickPriceByCustomer, computeFlashPriceRangeByProduct } from './lib/price.js';
+import { formatPrice, pickLowestPrice, pickPriceByCustomer } from './lib/price.js';
+import { computeFlashPriceRangeByProduct } from './lib/flashPricing.js';
 
 
 // Đánh dấu đã dùng phiên bản Flash Sale v2 (để frontend.js bỏ qua loader cũ)
