@@ -465,6 +465,8 @@ async function renderPriceStock() {
     const { final, strike } = await computeFinalPriceByVariant(v, flash);
     return { final, strike };
   });
+  
+  const prices = (await Promise.all(pricesPromises)).filter(x => x.final > 0);
 
   if (prices.length) {
     const mins = Math.min(...prices.map(x => x.final));
