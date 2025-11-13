@@ -530,19 +530,15 @@ async function renderPriceStock() {
     let badge = '';
     
     if (hasFlashSale && flashSaleInfo) {
-      // ✅ FIX: Tính giá Flash Sale từ sale_price
-      const salePrice = Number(src?.sale_price || src?.price_sale || src?.price || 0);
-      const flashDiscount = Number(flashSaleInfo.discount_value || 0);
-      const discountType = flashSaleInfo.discount_type || 'percent';
+      // ✅ FIX: Gọi API tính giá Flash Sale (giống trang chủ)
+      const flash = {
+        type: flashSaleInfo.discount_type || 'percent',
+        value: Number(flashSaleInfo.discount_value || 0)
+      };
       
-      if (discountType === 'percent') {
-        displayPrice = Math.floor(salePrice * (1 - flashDiscount / 100));
-      } else {
-        displayPrice = Math.max(0, salePrice - flashDiscount);
-      }
-      
-      // Giá gốc gạch ngang = sale_price (trước flash)
-      originalPrice = salePrice > displayPrice ? salePrice : null;
+      const { final, strike } = await computeFinalPriceByVariant(src, flash);
+      displayPrice = final;
+      originalPrice = strike > final ? strike : null;
       
       // Thêm countdown
       if (!document.getElementById('flash-countdown-container')) {
