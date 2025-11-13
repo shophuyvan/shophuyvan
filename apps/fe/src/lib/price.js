@@ -72,39 +72,12 @@ export function pickLowestPrice(product){
 }
 // [END PATCH]
 
-// [BEGIN SHARED FLASH PRICE] - dùng chung FE & Mini (JS thuần)
-export function computeFinalPriceByVariant(variant, flash) {
-  const base = num(variant?.sale_price ?? variant?.price_sale ?? variant?.price);
-  let final = base;
-
-  if (flash && num(flash.value) > 0 && base > 0) {
-    final = (flash.type === 'fixed')
-      ? Math.max(0, base - num(flash.value))
-      : Math.floor(base * (1 - num(flash.value) / 100));
-  }
-  return { final, strike: base };
-}
-
-export function computeFlashPriceRangeByProduct(product, flash) {
-  const vs = Array.isArray(product?.variants) ? product.variants : [];
-  const rows = vs
-    .map(v => computeFinalPriceByVariant(v, flash))
-    .filter(x => x.final > 0);
-
-  if (!rows.length) return { minFinal: 0, maxFinal: 0, minStrike: 0, maxStrike: 0 };
-
-  const finals = rows.map(x => x.final);
-  const strikes = rows.map(x => x.strike);
-  return {
-    minFinal: Math.min(...finals),
-    maxFinal: Math.max(...finals),
-    minStrike: Math.min(...strikes),
-    maxStrike: Math.max(...strikes),
-  };
-}
+// [BEGIN SHARED FLASH PRICE] - re-export từ shared build (FE & Mini dùng chung)
+export {
+  computeFinalPriceByVariant,
+  computeFlashPriceRangeByProduct
+} from '../../../packages/shared/dist/priceFlash.js';
 // [END SHARED FLASH PRICE]
-
-
 // ===================================================================
 // WHOLESALE PRICE LOGIC
 // ===================================================================
