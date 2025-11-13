@@ -16,7 +16,7 @@ import cart from '@shared/cart';
 import { routes } from '../routes';
 import { navigate as openLink } from '@/lib/navigation';
 import ProductCard from '@/components/ProductCard';
-import { computeFinalPriceByVariant, computeFlashPriceRangeByProduct } from '@shared/utils/priceFlash';
+import { computeFinalPriceByVariant, computeFlashPriceRangeByProduct } from '@/lib/flashPricing';
 
 // ==========================================
 // FLASH SALE COUNTDOWN HELPER
@@ -146,9 +146,14 @@ function VariantModal({
     return { type, value: val, ends_at: s?.ends_at, raw: s };
   }, [effectiveVariant, product]);
 
-  const currentPrice = useMemo(() => {
-    const { final, strike } = computeFinalPriceByVariant(effectiveVariant || product, flash as any);
-    return { base: final, original: strike };
+  const [currentPrice, setCurrentPrice] = useState({ base: 0, original: 0 });
+
+  useEffect(() => {
+    const loadPrice = async () => {
+      const { final, strike } = await computeFinalPriceByVariant(effectiveVariant || product, flash as any);
+      setCurrentPrice({ base: final, original: strike });
+    };
+    loadPrice();
   }, [effectiveVariant, product, flash]);
 
   const hasFlashSale = !!flash && currentPrice.base > 0 && (currentPrice.original || 0) > currentPrice.base;
@@ -476,29 +481,48 @@ export default function Product() {
     () => (Array.isArray(p?.variants) ? p.variants : []),
     [p]
   );
-    const range = useMemo(() => {
-    if (!Array.isArray(variants) || variants.length === 0) {
-      const { final, strike } = computeFinalPriceByVariant(p || {}, (p?.flash_sale?.active && Number(p?.flash_sale?.discount_value || 0) > 0)
-        ? { type: p.flash_sale.discount_type || 'percent', value: Number(p.flash_sale.discount_value || 0) }
-        : null);
-      return { minBase: final || 0, maxBase: final || 0, minOrig: strike || 0, maxOrig: strike || 0 };
-    }
-    const rows = variants.map((v: any) => {
-      const s = v?.flash_sale;
-      const val = Number(s?.discount_value ?? s?.value ?? 0);
-      const f = (s?.active && val > 0) ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val } : null;
-      const { final, strike } = computeFinalPriceByVariant(v, f);
-      return { final, strike };
-    }).filter(r => r.final > 0);
-    if (!rows.length) return { minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 };
-    const finals = rows.map(r => r.final);
-    const strikes = rows.map(r => r.strike);
-    return {
-      minBase: Math.min(...finals),
-      maxBase: Math.max(...finals),
-      minOrig: strikes.length ? Math.min(...strikes) : 0,
-      maxOrig: strikes.length ? Math.max(...strikes) : 0,
+    const [range, setRange] = useState({ minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 });
+
+  useEffect(() => {
+    const loadRange = async () => {
+      if (!Array.isArray(variants) || variants.length === 0) {
+        const { final, strike } = await computeFinalPriceByVariant(
+          p || {}, 
+          (p?.flash_sale?.active && Number(p?.flash_sale?.discount_value || 0) > 0)
+            ? { type: p.flash_sale.discount_type || 'percent', value: Number(p.flash_sale.discount_value || 0) }
+            : null
+        );
+        setRange({ minBase: final || 0, maxBase: final || 0, minOrig: strike || 0, maxOrig: strike || 0 });
+        return;
+      }
+    const rows = await Promise.all(
+        variants.map(async (v: any) => {
+          const s = v?.flash_sale;
+          const val = Number(s?.discount_value ?? s?.value ?? 0);
+          const f = (s?.active && val > 0) 
+            ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val } 
+            : null;
+          const { final, strike } = await computeFinalPriceByVariant(v, f);
+          return { final, strike };
+        })
+      );
+      const filtered = rows.filter(r => r.final > 0);
+    if (!filtered.length) {
+        setRange({ minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 });
+        return;
+      }
+      
+      const finals = filtered.map(r => r.final);
+      const strikes = filtered.map(r => r.strike);
+      setRange({
+        minBase: Math.min(...finals),
+        maxBase: Math.max(...finals),
+        minOrig: strikes.length ? Math.min(...strikes) : 0,
+        maxOrig: strikes.length ? Math.max(...strikes) : 0,
+      });
     };
+    
+    loadRange();
   }, [variants, p]);
 
   const handleBack = () => {
@@ -521,7 +545,7 @@ export default function Product() {
   };
 
 // NOTE: onConfirm của modal sẽ gọi hàm này
-  const addLine = (variant: any, qty: number, mode: 'cart' | 'buy') => {
+  const addLine = async (variant: any, qty: number, mode: 'cart' | 'buy') => {
     // ⚡ Tính đúng giá cuối: giảm TIẾP trên sale_price theo flash_sale của biến thể (nếu có)
     const s = variant?.flash_sale;
     const val = Number(s?.discount_value ?? s?.value ?? 0);
@@ -529,7 +553,7 @@ export default function Product() {
       ? { type: s?.discount_type || (s?.type === 'fixed' ? 'fixed' : 'percent'), value: val }
       : null;
 
-    const pair = computeFinalPriceByVariant(variant || p, flash);
+    const pair = await computeFinalPriceByVariant(variant || p, flash);
     const finalPriceNum = Number(pair.final || 0);
     const strikeNum = Number(pair.strike || 0);
     const dp = (strikeNum > finalPriceNum && strikeNum > 0)

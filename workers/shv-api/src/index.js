@@ -16,6 +16,7 @@ import * as admin from './modules/admin.js'; // NEW
 import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
+import * as FlashPricing from './modules/flash-pricing.js'; // ✅ API tính giá Flash Sale (FE + Mini)
 import * as FacebookAds from './modules/facebook-ads.js';
 import * as FacebookOAuth from './modules/facebook-oauth.js';
 import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
@@ -262,6 +263,11 @@ export default {
       if (path.startsWith('/flash-sales') ||
           path.startsWith('/admin/flash-sales')) {
         return flashSales.handle(req, env, ctx);
+      }
+
+      // ✅ FLASH PRICING API (FE + Mini dùng chung)
+      if (path.startsWith('/api/flash-pricing')) {
+        return FlashPricing.handle(req, env, ctx);
       }
 
       // ============================================

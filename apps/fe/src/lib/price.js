@@ -72,11 +72,44 @@ export function pickLowestPrice(product){
 }
 // [END PATCH]
 
-// [BEGIN SHARED FLASH PRICE] - re-export từ shared build (FE & Mini dùng chung)
-export {
-  computeFinalPriceByVariant,
-  computeFlashPriceRangeByProduct
-} from '../../../packages/shared/dist/priceFlash.js';
+// [BEGIN SHARED FLASH PRICE] - Gọi API để đồng bộ với Mini
+import api from './api.js';
+
+/**
+ * Tính giá cuối cho 1 variant + Flash Sale
+ * @param {object} variant 
+ * @param {object} flash 
+ * @returns {Promise<{final, strike}>}
+ */
+export async function computeFinalPriceByVariant(variant, flash) {
+  try {
+    const res = await api.post('/api/flash-pricing/compute', { variant, flash });
+    if (res.ok) return res.data;
+    console.error('[Flash Pricing] API error:', res);
+    return { final: 0, strike: 0 };
+  } catch (e) {
+    console.error('[Flash Pricing] Network error:', e);
+    return { final: 0, strike: 0 };
+  }
+}
+
+/**
+ * Tính MIN/MAX giá cho product + Flash Sale
+ * @param {object} product 
+ * @param {object} flash 
+ * @returns {Promise<{minFinal, maxFinal, minStrike, maxStrike}>}
+ */
+export async function computeFlashPriceRangeByProduct(product, flash) {
+  try {
+    const res = await api.post('/api/flash-pricing/range', { product, flash });
+    if (res.ok) return res.data;
+    console.error('[Flash Pricing] API error:', res);
+    return { minFinal: 0, maxFinal: 0, minStrike: 0, maxStrike: 0 };
+  } catch (e) {
+    console.error('[Flash Pricing] Network error:', e);
+    return { minFinal: 0, maxFinal: 0, minStrike: 0, maxStrike: 0 };
+  }
+}
 // [END SHARED FLASH PRICE]
 // ===================================================================
 // WHOLESALE PRICE LOGIC
