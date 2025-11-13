@@ -75,10 +75,15 @@ function computeRangeByProduct(product, discountType, discountValue) {
 // ==========================================
 // RENDER PRODUCT CARD
 // ==========================================
-function flashCard(p, discountType, discountValue) {
+async function flashCard(p, discountType, discountValue) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
-  const { minFinal, minStrike } = computeRangeByProduct(p, discountType, discountValue);
+  
+  // ✅ GỌI API ĐỂ TÍNH GIÁ FLASH SALE
+  const flash = (Number(discountValue || 0) > 0)
+    ? { type: discountType || 'percent', value: Number(discountValue || 0) }
+    : null;
+  const { minFinal, minStrike } = await computeFlashPriceRangeByProduct(p, flash);
   const flashPrice = minFinal;
   const originalPrice = minStrike;
 
@@ -277,11 +282,11 @@ function showFlashSaleSection() {
     }
 
         // Render sản phẩm
-    flashProductsEl.innerHTML = products
-      .map(({ product, discountType, discountValue }) =>
-        flashCard(product, discountType, discountValue)
-      )
-      .join('');
+    const cardPromises = products.map(async ({ product, discountType, discountValue }) =>
+      await flashCard(product, discountType, discountValue)
+    );
+    const cards = await Promise.all(cardPromises);
+    flashProductsEl.innerHTML = cards.join('');
 
     // Hydrate sao & đã bán
     if (typeof hydrateSoldAndRating === 'function') {

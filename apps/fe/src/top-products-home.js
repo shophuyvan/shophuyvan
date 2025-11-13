@@ -116,12 +116,12 @@ function cloudify(u, t = 'w_800,dpr_auto,q_auto,f_auto') {
 // ==========================================
 // RENDER PRODUCT CARD
 // ==========================================
-function productCard(p) {
+async function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
   // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier
-  const priceInfo = pickPriceByCustomer(p, null) || {};
+  const priceInfo = await pickPriceByCustomer(p, null) || {};
   const base = priceInfo.base || 0;
   const original = priceInfo.original || null;
 
@@ -222,8 +222,10 @@ async function loadBestsellers() {
 
     const items = data.items || [];
 
-    // Render sản phẩm
-    bestProductsEl.innerHTML = items.map(productCard).join('');
+// Render sản phẩm
+    const cardPromises = items.map(async (item) => await productCard(item));
+    const cards = await Promise.all(cardPromises);
+    bestProductsEl.innerHTML = cards.join('');
 
     // Hydrate sao & đã bán nếu có hàm global
     if (typeof hydrateSoldAndRating === 'function') {
@@ -272,7 +274,9 @@ async function loadNewest() {
     const items = data.items || [];
 
     // Render sản phẩm
-    newProductsEl.innerHTML = items.map(productCard).join('');
+    const cardPromises = items.map(async (item) => await productCard(item));
+    const cards = await Promise.all(cardPromises);
+    newProductsEl.innerHTML = cards.join('');
 
     // Hydrate sao & đã bán
     if (typeof hydrateSoldAndRating === 'function') {

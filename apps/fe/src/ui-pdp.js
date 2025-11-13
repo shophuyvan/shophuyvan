@@ -7,7 +7,8 @@
 // ============================================
 
 import api from './lib/api.js';
-import { formatPrice, computeFinalPriceByVariant } from './lib/price.js';
+import { formatPrice } from './lib/price.js';
+import { computeFinalPriceByVariant } from './lib/flashPricing.js';
 
 
 // === CART MIGRATION ===
