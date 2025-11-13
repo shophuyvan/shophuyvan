@@ -453,7 +453,7 @@ async function renderPriceStock() {
   if (vs.length) {
   const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
 
-  // ✅ GỌI API ĐỂ TÍNH GIÁ FLASH SALE
+  // ✅ GỌI API ĐỂ TÍNH GIÁ FLASH SALE - LUÔN GỌI CHO TẤT CẢ VARIANTS
   const pricesPromises = vs.map(async (v) => {
     const s = v?.flash_sale;
     const val = Number(s?.discount_value ?? s?.value ?? 0);
@@ -461,11 +461,10 @@ async function renderPriceStock() {
       ? { type: s?.discount_type || 'percent', value: val }
       : null;
     
+    // ⚡ FIX: Gọi API thay vì tính thủ công
     const { final, strike } = await computeFinalPriceByVariant(v, flash);
     return { final, strike };
   });
-  
-  const prices = (await Promise.all(pricesPromises)).filter(x => x.final > 0);
 
   if (prices.length) {
     const mins = Math.min(...prices.map(x => x.final));
