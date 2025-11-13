@@ -3,7 +3,7 @@ import { useNavigate } from 'zmp-ui';
 import { routes } from '../routes';
 import { fmtVND } from '@shared/utils/fmtVND';
 import { pickPrice, pickLowestPrice, numLike } from '@shared/utils/price';
-import { computeFinalPriceByVariant } from '@shared/utils/priceFlash';
+import { computeFinalPriceByVariant } from '@/lib/flashPricing';
 import cart from '@shared/cart';
 import { cloudify } from '@shared/utils/cloudinary';
 import { zmp } from '@/lib/zmp';
