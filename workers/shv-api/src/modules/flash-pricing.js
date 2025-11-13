@@ -16,15 +16,15 @@ function num(v) {
  */
 function computeFinalPriceByVariant(variant, flash) {
     // 🔧 FIX: Ưu tiên sale_price > price_sale > sale > price
-  const base = num(
-    variant?.sale_price ??
+  // ⚡ Base FlashSale chuẩn: LUÔN ƯU TIÊN giá_sale (price_sale) bạn nhập trong Admin
+const base = num(
     variant?.price_sale ??
+    variant?.sale_price ??
     variant?.sale ??
     variant?.price ??
     0
-  );
-
-  
+);
+ 
   // ⚠️ CRITICAL: Nếu variant có flash_sale.price, BỎ QUA tính toán
   if (variant?.flash_sale?.price && num(variant.flash_sale.price) > 0) {
     const flashPrice = num(variant.flash_sale.price);

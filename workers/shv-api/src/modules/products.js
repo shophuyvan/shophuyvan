@@ -1127,9 +1127,11 @@ function applyFlashSaleDiscount(variant, flashSaleInfo) {
   if (!flashSaleInfo || !flashSaleInfo.active) return variant;
 
   // ✅ FIX: Ưu tiên sale_price (giá đã giảm) làm base, không phải price gốc
-  const salePrice = Number(variant.sale_price || 0);
-  const regularPrice = Number(variant.price || 0);
-  const basePrice = salePrice > 0 ? salePrice : regularPrice;
+// ⚡ Base FlashSale đúng: lấy price_sale trước, rồi mới tới price
+const salePrice = Number(variant.price_sale || variant.sale_price || 0);
+const regularPrice = Number(variant.price || 0);
+const basePrice = salePrice > 0 ? salePrice : regularPrice;
+
   
   if (basePrice <= 0) return variant;
 
