@@ -453,23 +453,19 @@ async function renderPriceStock() {
   if (vs.length) {
   const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
 
-  // TÍNH GIÁ HIỂN THỊ: ưu tiên Flash Sale giảm tiếp trên sale_price
-  const prices = vs.map((v, i) => {
-    const salePrice = Number(v.sale_price || v.price_sale || v.price || 0);
-
-    if (hasFlashSale && Number(flashSaleInfo?.discount_value) > 0) {
-      const dv = Number(flashSaleInfo.discount_value || 0);
-      const dt = flashSaleInfo.discount_type || 'percent';
-      const final = dt === 'percent'
-        ? Math.floor(salePrice * (1 - dv / 100))
-        : Math.max(0, salePrice - dv);
-      return { final, strike: salePrice };
-    }
-
-    const p = pairs[i]?.base || salePrice || 0;
-    const strike = pairs[i]?.original || null;
-    return { final: p, strike };
-  }).filter(x => x.final > 0);
+  // ✅ GỌI API ĐỂ TÍNH GIÁ FLASH SALE
+  const pricesPromises = vs.map(async (v) => {
+    const s = v?.flash_sale;
+    const val = Number(s?.discount_value ?? s?.value ?? 0);
+    const flash = (s?.active && val > 0)
+      ? { type: s?.discount_type || 'percent', value: val }
+      : null;
+    
+    const { final, strike } = await computeFinalPriceByVariant(v, flash);
+    return { final, strike };
+  });
+  
+  const prices = (await Promise.all(pricesPromises)).filter(x => x.final > 0);
 
   if (prices.length) {
     const mins = Math.min(...prices.map(x => x.final));
