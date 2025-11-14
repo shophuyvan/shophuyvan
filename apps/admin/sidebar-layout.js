@@ -506,16 +506,16 @@
         'index': 'dashboard.view',
         'orders': 'orders.view',
         'products': 'products.view',
-        'categories': 'products.view',
+        'categories': 'categories.view',
         'vouchers': 'vouchers.view',
-        'flash-sales': 'products.view',
+        'flash-sales': 'flash-sales.view',
         'banners': 'banners.view',
         'stats': 'stats.view',
+        'ads': 'ads.view',
         'shipping': 'shipping.view',
-        'channels': 'products.view',
+        'channels': 'channels.view',
         'admin-users': 'admins.view',
         'customers': 'customers.view',
-        'ads': 'ads.view',
         'costs': 'costs.view'
       };
 
