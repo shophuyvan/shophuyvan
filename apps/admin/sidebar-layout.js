@@ -297,7 +297,15 @@
             Thống Kê
           </a>
 
-                    <a href="/shipping.html" class="admin-menu-item" data-page="shipping">
+          <a href="/ads.html" class="admin-menu-item" data-page="ads">
+            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+            </svg>
+            Quảng Cáo Facebook
+          </a>
+
+          <a href="/shipping.html" class="admin-menu-item" data-page="shipping">
             <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
             </svg>
@@ -331,16 +339,7 @@
         </div>
 
         <div class="admin-menu-section">
-          <div class="admin-menu-section-title">Cài đặt</div>
-          
-          <a href="/ads.html" class="admin-menu-item" data-page="ads">
-            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
-            </svg>
-            Marketing & Ads
-          </a>
-
+          <div class="admin-menu-section-title">Cài Đặt</div>
           <a href="/costs.html" class="admin-menu-item" data-page="costs">
             <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2zM3 10c0-1.105 1.343-2 3-2m0 0c1.657 0 3 .895 3 2s-1.343 2-3 2m0-4c-1.657 0-3 .895-3 2s1.343 2 3 2m0-4c-1.657 0-3 .895-3 2s1.343 2 3 2m12 0c0 1.105-1.343 2-3 2m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2m-6 4c0 1.105-1.343 2-3 2m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2m0 4c1.657 0 3-.895 3-2s-1.343-2-3-2"/>
