@@ -107,7 +107,8 @@ export default {
       }
       
       // Admin management routes
-      if (path.startsWith('/admin/setup') ||
+      if (path === '/admin/me' ||  // ✅ THÊM DÒNG NÀY
+          path.startsWith('/admin/setup') ||
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
           path.startsWith('/admin/roles')) {
@@ -138,8 +139,8 @@ export default {
       // ============================================
 
 
-      // Auth module (login/password/otp/zalo + customer me)
-      if (path === '/admin/me' || path.startsWith('/auth/') || path === '/api/customers/me') {
+      // Auth module (login/password/otp/zalo + customer me) - BỎ /admin/me
+      if (path.startsWith('/auth/') || path === '/api/customers/me') {
         return auth.handle(req, env, ctx);
       }
 
