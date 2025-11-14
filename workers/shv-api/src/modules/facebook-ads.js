@@ -299,28 +299,15 @@ async function listCampaigns(req, env) {
   }
 
   try {
-      try {
     console.log('[FB Ads] listCampaigns called');
+
     const creds = await getFBCredentials(env);
 
-    // LOG CHI TIẾT: kiểm tra settings:facebook_ads trong KV / ENV
-    try {
-      console.log('[FB Ads] Raw creds from KV / ENV:', JSON.stringify(creds));
-    } catch (logErr) {
-      console.error('[FB Ads] Error JSON.stringify creds:', logErr);
-    }
+    // LOG CHI TIẾT CREDENTIALS (không dùng try lồng, tránh lỗi cú pháp)
+    console.log('[FB Ads] Raw creds from KV / ENV (listCampaigns):', creds);
 
-    if (!creds) {
-      console.error('[FB Ads] Credentials NOT FOUND - settings:facebook_ads có thể chưa cấu hình');
-      return json(
-        { ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' },
-        { status: 400 },
-        req
-      );
-    }
-
-    // Auto-fix Ad Account ID format
-    let adAccountId = creds.ad_account_id;
+    // Auto-fix Ad Account ID format (dùng optional chaining cho an toàn)
+    let adAccountId = creds?.ad_account_id || null;
     if (adAccountId && !adAccountId.startsWith('act_')) {
       adAccountId = `act_${adAccountId}`;
       console.log('[FB Ads] Auto-fixed Ad Account ID:', adAccountId);
@@ -328,13 +315,17 @@ async function listCampaigns(req, env) {
     
     console.log('[FB Ads] Credentials check:', { 
       hasCreds: !!creds, 
-      hasToken: !!(creds?.access_token),
+      hasToken: !!(creds && creds.access_token),
       hasAdAccount: !!adAccountId,
       adAccountId: adAccountId
     });
     
     if (!creds || !creds.access_token) {
-      return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
+      return json(
+        { ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' },
+        { status: 400 },
+        req
+      );
     }
 
     const result = await callFacebookAPI(
@@ -381,6 +372,7 @@ async function listCampaigns(req, env) {
     return errorResponse(e, 500, req);
   }
 }
+
 
 // ===================================================================
 // THÊM MỚI: TÍNH NĂNG 1: AUTO POST TO FANPAGE
