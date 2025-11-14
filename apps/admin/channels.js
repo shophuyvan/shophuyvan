@@ -41,11 +41,17 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="channels-panel" data-panel="lazada" style="display:none;">
-          <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">Lazada</h2>
-          <p style="font-size:13px;color:#64748b;">
-            Phần Lazada sẽ cấu hình sau khi hoàn tất TikTok Shop.
-          </p>
-        </div>
+  <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">Lazada</h2>
+
+  <div id="lazadaShopsEmpty" style="font-size:13px;color:#64748b;margin-bottom:12px;">
+    Chưa có shop Lazada nào được kết nối.
+  </div>
+
+  <button id="btnConnectLazada" class="btn primary">
+    Kết nối Lazada
+  </button>
+</div>
+
 
         <div class="channels-panel" data-panel="shopee" style="display:none;">
           <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">Shopee</h2>
@@ -76,15 +82,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Nút connect TikTok Shop: bước 1 chỉ mở URL backend, sau mình sẽ code handler worker
   const btnConnect = root.querySelector('#btnConnectTiktok');
-  if (btnConnect) {
-    btnConnect.addEventListener('click', () => {
-      // Sau này mình sẽ dùng API base động; tạm thời hardcode đúng domain API
-      const base = 'https://api.shophuyvan.vn';
-      const redirect = encodeURIComponent('https://admin.shophuyvan.vn/channels.html');
+if (btnConnect) {
+  btnConnect.addEventListener('click', () => {
+    const base = 'https://api.shophuyvan.vn';
+    const redirect = encodeURIComponent('https://admin.shophuyvan.vn/channels.html');
+    const url = `${base}/channels/tiktok/connect?redirect=${redirect}`;
+    window.location.href = url;
+  });
+}
 
-      // Route backend sẽ xử lý auth TikTok & redirect về lại admin
-      const url = `${base}/channels/tiktok/connect?redirect=${redirect}`;
-      window.location.href = url;
-    });
-  }
+// Thêm handler Lazada
+const btnConnectLazada = root.querySelector('#btnConnectLazada');
+if (btnConnectLazada) {
+  btnConnectLazada.addEventListener('click', () => {
+    const base = 'https://api.shophuyvan.vn';
+    const redirect = encodeURIComponent('https://admin.shophuyvan.vn/channels.html');
+    const url = `${base}/channels/lazada/connect?redirect=${redirect}`;
+    window.location.href = url;
+  });
+}
 });

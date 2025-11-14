@@ -3,6 +3,8 @@
 
 import { json } from '../lib/response.js';
 import { verifyAdminAuth } from '../admin-handlers.js';
+import { buildOAuthURL, exchangeToken, loadLazadaShops, saveLazadaShops } from './lazada.js';
+
 
 /**
  * Helper auth admin
@@ -154,24 +156,30 @@ export async function handle(req, env, ctx) {
     );
   }
 
-    // ==========================================
-  // 4) PUBLIC: TikTok Shop - tạo kết nối
-  //    /channels/tiktok/connect -> redirect sang TikTok auth link
-  // ==========================================
+      // 4) PUBLIC: TikTok Shop - tạo kết nối
   if (path === '/channels/tiktok/connect') {
     const authUrl = env.TIKTOK_SHOP_AUTH_URL;
     if (!authUrl) {
-      // Thiếu cấu hình auth URL
       return json(
         { ok: false, error: 'missing_tiktok_auth_url' },
         { status: 500 },
         req
       );
     }
-
-    // Chỉ đơn giản redirect thẳng sang link ủy quyền TikTok
     return Response.redirect(authUrl, 302);
   }
+
+  // Lazada: CONNECT
+  if (path === '/channels/lazada/connect') {
+    try {
+      const url = buildOAuthURL(env);
+      return Response.redirect(url, 302);
+    } catch (e) {
+      console.error('[Lazada][Connect] error:', e);
+      return json({ ok: false, error: e.message }, { status: 500 }, req);
+    }
+  }
+
 
   // ==========================================
   // 5) PUBLIC: TikTok Shop redirect về
@@ -282,6 +290,63 @@ export async function handle(req, env, ctx) {
     return Response.redirect(successRedirect, 302);
   }
 
+    // Lazada CALLBACK
+  if (path === '/channels/lazada/callback') {
+    const code = url.searchParams.get('code');
+    const failUrl =
+      'https://admin.shophuyvan.vn/channels.html?lz_status=error';
+    const okUrl =
+      'https://admin.shophuyvan.vn/channels.html?lz_status=success';
+
+    if (!code) {
+      console.error('[Lazada][Callback] missing code');
+      return Response.redirect(failUrl + '&reason=missing_code', 302);
+    }
+
+    try {
+      const token = await exchangeToken(env, code);
+      const now = Date.now();
+
+      const shopId =
+        token.account_id ||
+        token.user_id ||
+        token.country_user_id ||
+        'lz_' + now;
+
+      const shopInfo = {
+        platform: 'lazada',
+        id: shopId,
+        country: token.country || null,
+        access_token: token.access_token || null,
+        refresh_token: token.refresh_token || null,
+        expires_at: token.expires_in
+          ? now + token.expires_in * 1000
+          : null,
+        raw: token,
+        created_at: new Date(now).toISOString(),
+        updated_at: new Date(now).toISOString(),
+      };
+
+      const shops = await loadLazadaShops(env);
+      const idx = shops.findIndex((s) => s.id === shopInfo.id);
+      if (idx >= 0) {
+        shops[idx] = { ...shops[idx], ...shopInfo };
+      } else {
+        shops.push(shopInfo);
+      }
+
+      await saveLazadaShops(env, shops);
+
+      return Response.redirect(okUrl, 302);
+    } catch (e) {
+      console.error('[Lazada][Callback] error:', e);
+      return Response.redirect(
+        failUrl + '&reason=' + encodeURIComponent(e.message || 'error'),
+        302
+      );
+    }
+  }
+
   // Mặc định: không khớp route
   return json(
     { ok: false, error: 'channels_route_not_found' },
@@ -289,4 +354,5 @@ export async function handle(req, env, ctx) {
     req
   );
 }
+
 
