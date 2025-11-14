@@ -117,6 +117,7 @@ async function createSecurityToggle() {
           "></span>
         </div>
       </div>
+    `;
 
     // Inject vào body khi DOM ready
     if (document.body) {
