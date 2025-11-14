@@ -126,3 +126,108 @@ try {
     return false;
   }
 }
+
+/**
+ * Get admin from token
+ * Returns admin object if valid, null otherwise
+ */
+export async function getAdminFromToken(req, env) {
+  try {
+    const url = new URL(req.url);
+    
+    let token =
+      req.headers.get('x-token') ||
+      req.headers.get('Token') ||
+      ((req.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1]) ||
+      url.searchParams.get('token') ||
+      parseCookie(req.headers.get('cookie') || '')['x-token'] ||
+      '';
+    
+    token = String(token || '').trim().replace(/^"+|"+$/g, '');
+    
+    if (!token) return null;
+
+    // Try new admin format
+    try {
+      const decoded = atob(token);
+      if (decoded.includes(':')) {
+        const adminId = decoded.split(':')[0];
+        const adminData = await env.SHV.get(`admin:${adminId}`);
+        
+        if (adminData) {
+          const admin = JSON.parse(adminData);
+          
+          if (admin.status === 'active') {
+            // Get role and permissions
+            const roleData = await env.SHV.get(`admin:role:${admin.role_id}`);
+            const role = roleData ? JSON.parse(roleData) : null;
+            
+            return {
+              ...admin,
+              role: role,
+              permissions: role?.permissions || []
+            };
+          }
+        }
+      }
+    } catch (e) {
+      // Not valid format
+    }
+    
+    return null;
+  } catch (e) {
+    console.error('[Auth] getAdminFromToken error:', e);
+    return null;
+  }
+}
+
+/**
+ * Check if admin has specific permission
+ */
+export function hasPermission(admin, requiredPermission) {
+  if (!admin || !admin.permissions) return false;
+  
+  const permissions = admin.permissions;
+  
+  // Super admin has all permissions
+  if (permissions.includes('*')) return true;
+  
+  // Exact match
+  if (permissions.includes(requiredPermission)) return true;
+  
+  // Wildcard match (e.g. products.* matches products.view)
+  const parts = requiredPermission.split('.');
+  if (parts.length === 2) {
+    if (permissions.includes(`${parts[0]}.*`)) return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Middleware to check permission
+ * Usage: await requirePermission(req, env, 'products.view')
+ */
+export async function requirePermission(req, env, permission) {
+  const admin = await getAdminFromToken(req, env);
+  
+  if (!admin) {
+    return {
+      ok: false,
+      error: 'Unauthorized - Please login',
+      status: 401
+    };
+  }
+  
+  if (!hasPermission(admin, permission)) {
+    return {
+      ok: false,
+      error: 'Forbidden - You do not have permission to access this resource',
+      required: permission,
+      your_permissions: admin.permissions,
+      status: 403
+    };
+  }
+  
+  return { ok: true, admin };
+}

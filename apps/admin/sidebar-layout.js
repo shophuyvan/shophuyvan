@@ -489,10 +489,66 @@
           
           const firstLetter = (admin.full_name || admin.email || 'A').charAt(0).toUpperCase();
           document.getElementById('adminUserAvatar').textContent = firstLetter;
+          
+          // ✅ ẨN MENU THEO PERMISSIONS
+          this.filterMenuByPermissions(admin.permissions || []);
         }
       } catch(e) {
         console.warn('Load user info failed:', e);
       }
+    },
+
+    /**
+     * Lọc menu dựa trên permissions
+     */
+    filterMenuByPermissions(permissions) {
+      // Permission mapping cho từng menu item
+      const menuPermissions = {
+        'index': 'dashboard.view',
+        'orders': 'orders.view',
+        'products': 'products.view',
+        'categories': 'products.view',
+        'vouchers': 'vouchers.view',
+        'flash-sales': 'products.view',
+        'banners': 'banners.view',
+        'stats': 'stats.view',
+        'shipping': 'shipping.view',
+        'channels': 'products.view',
+        'admin-users': 'admins.view',
+        'customers': 'customers.view',
+        'ads': 'ads.view',
+        'costs': 'costs.view'
+      };
+
+      // Kiểm tra permission
+      const hasPermission = (required) => {
+        if (!required) return true;
+        if (permissions.includes('*')) return true;
+        if (permissions.includes(required)) return true;
+        
+        const parts = required.split('.');
+        if (parts.length === 2 && permissions.includes(`${parts[0]}.*`)) return true;
+        
+        return false;
+      };
+
+      // Ẩn các menu item không có quyền
+      document.querySelectorAll('.admin-menu-item').forEach(item => {
+        const page = item.getAttribute('data-page');
+        const requiredPerm = menuPermissions[page];
+        
+        if (requiredPerm && !hasPermission(requiredPerm)) {
+          item.style.display = 'none';
+        }
+      });
+
+      // Ẩn cả section nếu tất cả items bị ẩn
+      document.querySelectorAll('.admin-menu-section').forEach(section => {
+        const visibleItems = section.querySelectorAll('.admin-menu-item:not([style*="display: none"])');
+        if (visibleItems.length === 0) {
+          section.style.display = 'none';
+        }
+      });
     }
   };
 
