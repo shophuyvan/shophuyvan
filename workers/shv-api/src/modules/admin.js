@@ -2,7 +2,7 @@
 // Admin management module - FIXED
 
 import { json, corsHeaders } from '../lib/response.js';
-import { sha256Hex } from '../lib/auth.js';
+import { sha256Hex, requirePermission } from '../lib/auth.js'; // ✅ THÊM requirePermission
 
 /**
  * Main admin handler
@@ -34,11 +34,19 @@ export async function handle(req, env, ctx) {
 
     // List admins
     if (path === '/admin/users/list' && method === 'GET') {
+      const permCheck = await requirePermission(req, env, 'admins.view');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
       return await listAdmins(req, env);
     }
 
     // Create admin
     if (path === '/admin/users/create' && method === 'POST') {
+      const permCheck = await requirePermission(req, env, 'admins.create');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
       return await createAdmin(req, env);
     }
 
@@ -46,6 +54,16 @@ export async function handle(req, env, ctx) {
     const userMatch = path.match(/^\/admin\/users\/([^\/]+)$/);
     if (userMatch) {
       const adminId = userMatch[1];
+      
+      let requiredPerm = 'admins.view';
+      if (method === 'PUT') requiredPerm = 'admins.edit';
+      else if (method === 'DELETE') requiredPerm = 'admins.delete';
+      
+      const permCheck = await requirePermission(req, env, requiredPerm);
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
+      
       if (method === 'GET') return await getAdmin(req, env, adminId);
       if (method === 'PUT') return await updateAdmin(req, env, adminId);
       if (method === 'DELETE') return await deleteAdmin(req, env, adminId);
@@ -53,20 +71,33 @@ export async function handle(req, env, ctx) {
 
     // Roles
     if (path === '/admin/roles/list' && method === 'GET') {
+      const permCheck = await requirePermission(req, env, 'admins.manage_roles');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
       return await listRoles(req, env);
     }
     if (path === '/admin/roles/create' && method === 'POST') {
+      const permCheck = await requirePermission(req, env, 'admins.manage_roles');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
       return await createRole(req, env);
     }
 
     const roleMatch = path.match(/^\/admin\/roles\/([^\/]+)$/);
     if (roleMatch) {
       const roleId = roleMatch[1];
+      
+      const permCheck = await requirePermission(req, env, 'admins.manage_roles');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
+      
       if (method === 'GET') return await getRole(req, env, roleId);
       if (method === 'PUT') return await updateRole(req, env, roleId);
       if (method === 'DELETE') return await deleteRole(req, env, roleId);
     }
-
     // Customers
     if (path === '/admin/customers/list' && method === 'GET') {
       return await listCustomers(req, env);

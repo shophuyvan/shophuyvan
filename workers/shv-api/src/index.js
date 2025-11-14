@@ -3,6 +3,7 @@
 // ===================================================================
 
 import { json, corsHeaders } from './lib/response.js';
+import { requirePermission } from './lib/auth.js'; // ✅ THÊM IMPORT
 import * as categories from './modules/categories.js';
 import * as Orders from './modules/orders.js';
 import * as Products from './modules/products.js';
@@ -155,12 +156,31 @@ export default {
       // Products module (bao gồm metrics API)
       if (path.startsWith('/products') ||
           path.startsWith('/public/products') ||
-          path === '/admin/products' || // EXACT match
-          path === '/admin/products/list' || // EXACT match for list
-          path.startsWith('/admin/products/') || // Specific actions like /get, /upsert
-          path.startsWith('/api/products/') || // ✅ THÊM: metrics API
+          path === '/admin/products' ||
+          path === '/admin/products/list' ||
+          path.startsWith('/admin/products/') ||
+          path.startsWith('/api/products/') ||
           path === '/product') {
-        console.log('[Index] ➡️ Đang gọi Products.handle cho path:', path, 'Module Products có tồn tại:', typeof Products);
+        
+        // ✅ CHECK PERMISSION cho admin routes
+        if (path.startsWith('/admin/products')) {
+          let requiredPerm = 'products.view';
+          
+          if (method === 'POST' || path.includes('/upsert') || path.includes('/create')) {
+            requiredPerm = 'products.create';
+          } else if (method === 'PUT' || path.includes('/update') || path.includes('/edit')) {
+            requiredPerm = 'products.edit';
+          } else if (method === 'DELETE' || path.includes('/delete')) {
+            requiredPerm = 'products.delete';
+          }
+          
+          const permCheck = await requirePermission(req, env, requiredPerm);
+          if (!permCheck.ok) {
+            return json(permCheck, { status: permCheck.status }, req);
+          }
+        }
+        
+        console.log('[Index] ➡️ Đang gọi Products.handle cho path:', path);
         return Products.handle(req, env, ctx);
       }
 
@@ -180,8 +200,27 @@ export default {
           path.startsWith('/public/order-create') ||
           path === '/admin/stats' ||
           path === '/orders/my' ||
-          path === '/orders/cancel' ||          // ✅ THÊM
-          path === '/orders/update') {          // ✅ THÊM route này
+          path === '/orders/cancel' ||
+          path === '/orders/update') {
+        
+        // ✅ CHECK PERMISSION cho admin routes
+        if (path.startsWith('/admin/orders') || path === '/admin/stats') {
+          let requiredPerm = 'orders.view';
+          
+          if (method === 'POST' || path.includes('/create')) {
+            requiredPerm = 'orders.create';
+          } else if (method === 'PUT' || path.includes('/update') || path.includes('/edit')) {
+            requiredPerm = 'orders.edit';
+          } else if (path.includes('/cancel')) {
+            requiredPerm = 'orders.cancel';
+          }
+          
+          const permCheck = await requirePermission(req, env, requiredPerm);
+          if (!permCheck.ok) {
+            return json(permCheck, { status: permCheck.status }, req);
+          }
+        }
+        
         return Orders.handle(req, env, ctx);
       }
 
@@ -200,9 +239,9 @@ export default {
        return cancelWaybillsBulk(req, env);
      }
 
-            // Shipping module (ensure Token header for SuperAI v1 routes)
+            // Shipping module
       if (path.startsWith('/shipping') ||
-          path.startsWith('/public/shipping') || // ✅ cho Mini: /public/shipping/areas
+          path.startsWith('/public/shipping') ||
           path.startsWith('/admin/shipping') ||
           path.startsWith('/api/addresses') ||
           path.startsWith('/v1/platform/areas') ||
@@ -228,6 +267,14 @@ export default {
          r = new Request(req, { headers: h });
        }
      
+       // ✅ CHECK PERMISSION cho admin shipping
+       if (path.startsWith('/admin/shipping')) {
+         const permCheck = await requirePermission(req, env, method === 'GET' ? 'shipping.view' : 'shipping.edit');
+         if (!permCheck.ok) {
+           return json(permCheck, { status: permCheck.status }, req);
+         }
+       }
+       
        return shipping.handle(r, env, ctx);
      }
 
@@ -246,24 +293,66 @@ export default {
       if (path === '/banners' ||
           path.startsWith('/admin/banners') ||
           path.startsWith('/admin/banner')) {
+        
+        // ✅ CHECK PERMISSION
+        if (path.startsWith('/admin/banner')) {
+          let requiredPerm = 'banners.view';
+          if (method === 'POST') requiredPerm = 'banners.create';
+          else if (method === 'PUT') requiredPerm = 'banners.edit';
+          else if (method === 'DELETE') requiredPerm = 'banners.delete';
+          
+          const permCheck = await requirePermission(req, env, requiredPerm);
+          if (!permCheck.ok) {
+            return json(permCheck, { status: permCheck.status }, req);
+          }
+        }
+        
         return banners.handle(req, env, ctx);
       }
 
-      // Vouchers module
+// Vouchers module
       if (path === '/vouchers' ||
           path === '/vouchers/apply' ||
           path.startsWith('/admin/vouchers')) {
+        
+        // ✅ CHECK PERMISSION
+        if (path.startsWith('/admin/vouchers')) {
+          let requiredPerm = 'vouchers.view';
+          if (method === 'POST') requiredPerm = 'vouchers.create';
+          else if (method === 'PUT') requiredPerm = 'vouchers.edit';
+          else if (method === 'DELETE') requiredPerm = 'vouchers.delete';
+          
+          const permCheck = await requirePermission(req, env, requiredPerm);
+          if (!permCheck.ok) {
+            return json(permCheck, { status: permCheck.status }, req);
+          }
+        }
+        
         return vouchers.handle(req, env, ctx);
       }
 
-      // THÊM: Routes cho Quản lý Chi Phí
+      // Routes cho Quản lý Chi Phí
       if (path.startsWith('/admin/costs')) {
+        const permCheck = await requirePermission(req, env, method === 'GET' ? 'costs.view' : 'costs.edit');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        
         return costs.handle(req, env, ctx);
       }
 
-      // THÊM: Routes cho Flash Sale
+      // Routes cho Flash Sale
       if (path.startsWith('/flash-sales') ||
           path.startsWith('/admin/flash-sales')) {
+        
+        // ✅ CHECK PERMISSION cho admin
+        if (path.startsWith('/admin/flash-sales')) {
+          const permCheck = await requirePermission(req, env, 'products.edit');
+          if (!permCheck.ok) {
+            return json(permCheck, { status: permCheck.status }, req);
+          }
+        }
+        
         return flashSales.handle(req, env, ctx);
       }
 
@@ -292,8 +381,13 @@ export default {
         return FacebookAdsCreative.handle(req, env, ctx);
       }
 
-      // Facebook Ads Main Routes (dashboard, campaigns, settings, fanpages, posts, ab-test)
+      // Facebook Ads Main Routes
       if (path.startsWith('/admin/facebook')) {
+        const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        
         return FacebookAds.handle(req, env, ctx);
       }
 

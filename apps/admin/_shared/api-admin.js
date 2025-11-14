@@ -12,6 +12,22 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     for (const p of paths) {
       try {
         const res = await window.Admin.req(p);
+        
+        // ✅ CHECK 403 FORBIDDEN
+        if (res && res.status === 403) {
+          console.error('[API] 403 Forbidden:', p, res.error);
+          window.Admin.toast('⛔ Bạn không có quyền truy cập chức năng này');
+          
+          // Redirect về trang chủ sau 2s
+          setTimeout(() => {
+            if (location.pathname !== '/index.html') {
+              location.href = '/index.html';
+            }
+          }, 2000);
+          
+          throw new Error('Permission denied');
+        }
+        
         return res;
       } catch (e) {
         lastErr = e;
