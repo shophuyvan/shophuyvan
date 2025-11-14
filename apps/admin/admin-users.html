@@ -465,8 +465,10 @@ document.addEventListener('DOMContentLoaded', function() {
           ? new Date(admin.last_login).toLocaleString('vi-VN')
           : 'Chưa đăng nhập';
         
-        const canEdit = currentAdmin && hasPermission(currentAdmin.permissions, 'admins.edit');
-        const canDelete = currentAdmin && hasPermission(currentAdmin.permissions, 'admins.delete') && admin.id !== currentAdmin.id;
+        // Chỉ Super Admin mới được edit/delete (có permission '*')
+        const isSuperAdmin = currentAdmin && currentAdmin.permissions && currentAdmin.permissions.includes('*');
+        const canEdit = isSuperAdmin;
+        const canDelete = isSuperAdmin && admin.id !== currentAdmin.id;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
