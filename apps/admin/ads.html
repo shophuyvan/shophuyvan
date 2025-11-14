@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="./styles.css"/>
   <link rel="stylesheet" href="./ads-analytics-ui.css?v=1"/>
   <script src="./admin_real.js?v=25"></script>
+  <script src="./sidebar-layout.js"></script>
   <script src="./ads_real.js?v=1"></script>
   <script src="./ads-dashboard.js?v=1"></script>
   <script src="./ads-automation.js?v=1"></script>
@@ -99,18 +100,7 @@
   </style>
 </head>
 <body>
-<div class='container'>
-  <div class='header'>
-    <div class='title'>🎯 Quảng cáo Facebook</div>
-    <div class='nav'>
-      <a href='./products.html' class='badge'>Sản phẩm</a>
-      <a href='./banners.html' class='badge'>Banner</a>
-      <a href='./orders.html' class='badge'>Đơn hàng</a>
-      <a href='./stats.html' class='badge'>Thống kê</a>
-      <a href='./ads.html' class='badge'>Quảng cáo</a>
-      <span class='badge'>API: <span data-api-base></span></span>
-    </div>
-  </div>
+<!-- ✅ Sidebar sẽ tự động inject vào đây bởi AdminLayout.init() -->
 
   <!-- Tabs -->
   <div class="tabs">
@@ -453,7 +443,8 @@
       
       <label>Access Token (Long-lived) <span style="color: #10b981; font-size: 11px;">[Tự động từ OAuth]</span></label>
       <div class="input-with-helper">
-        <input id="fbAccessToken" class="input" type="password" placeholder="Sẽ tự động lấy sau khi Login Facebook" readonly style="background: #f9fafb;"/>
+        <input id="fbAccessToken" class="input" type="password" placeholder="Sẽ tự động lấy sau khi Login Facebook" readonly style="background: #f9faf
+		b;"/>
         <a href="https://developers.facebook.com/tools/accesstoken" target="_blank" class="btn-helper">🔗 Hoặc nhập Manual</a>
       </div>
       <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">
@@ -488,7 +479,7 @@
       <table class="fanpage-table">
         <thead>
           <tr>
-            <th style="width:30px;">✓</th>
+            <th style="width:30px;">✔</th>
             <th>Tên Fanpage</th>
             <th>Page ID</th>
             <th>Trạng thái</th>
@@ -506,9 +497,16 @@
     </div>
   </div>
 
-</div>
-
 <script>
 // Logic đã được chuyển sang ads_real.js
 // File này chỉ còn phục vụ mục đích tham khảo cấu trúc HTML
+
+// ✅ INIT SIDEBAR LAYOUT
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.AdminLayout) {
+    AdminLayout.init('Quảng cáo Facebook');
+  }
+});
 </script>
+</body>
+</html>
