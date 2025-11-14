@@ -12,15 +12,13 @@
   const CONFIG = {
     // 🔧 TOGGLE: Bật/tắt security (lưu trong localStorage)
     get enabled() {
-      return localStorage.getItem('admin_security_enabled') !== 'false';
+      const value = localStorage.getItem('admin_security_enabled');
+      if (value === null) return true; // Mặc định bật
+      return value === 'true'; // So sánh string
     },
     set enabled(value) {
-      localStorage.setItem('admin_security_enabled', value);
-      if (!value) {
-        console.log('🔓 Security DISABLED');
-      } else {
-        console.log('🔒 Security ENABLED');
-      }
+      localStorage.setItem('admin_security_enabled', value ? 'true' : 'false');
+      console.log(value ? '🔒 Security ENABLED' : '🔓 Security DISABLED');
     },
 
     // Tự động detect môi trường
@@ -79,18 +77,15 @@ if (!isAdminSite) {
       ">
         <span id="security-icon">🔒</span>
         <span id="security-text">Security</span>
-        <label style="
+        <div style="
           position: relative;
           display: inline-block;
           width: 44px;
           height: 24px;
-          margin: 0;
+          background-color: rgba(255,255,255,0.3);
+          border-radius: 24px;
+          transition: .4s;
         ">
-          <input type="checkbox" id="security-checkbox" ${CONFIG.enabled ? 'checked' : ''} style="
-            opacity: 0;
-            width: 0;
-            height: 0;
-          ">
           <span style="
             position: absolute;
             cursor: pointer;
@@ -133,24 +128,29 @@ if (!isAdminSite) {
 
   function setupToggleEvents() {
     const toggle = document.getElementById('security-toggle');
-    const checkbox = document.getElementById('security-checkbox');
     const icon = document.getElementById('security-icon');
-    const slider = checkbox.nextElementSibling.querySelector('span');
+    const slider = document.querySelector('#security-toggle span span');
+
+    if (!toggle) return;
 
     toggle.addEventListener('click', (e) => {
-      if (e.target === checkbox) return; // Let checkbox handle itself
-      checkbox.click();
-    });
-
-    checkbox.addEventListener('change', () => {
-      CONFIG.enabled = checkbox.checked;
-      icon.textContent = checkbox.checked ? '🔒' : '🔓';
-      slider.style.transform = checkbox.checked ? 'translateX(20px)' : 'translateX(0)';
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Toggle state
+      const newState = !CONFIG.enabled;
+      CONFIG.enabled = newState;
+      
+      // Update UI
+      icon.textContent = newState ? '🔒' : '🔓';
+      if (slider) {
+        slider.style.transform = newState ? 'translateX(20px)' : 'translateX(0)';
+      }
       
       // Show notification
       showNotification(
-        checkbox.checked ? 'Security Enabled' : 'Security Disabled',
-        checkbox.checked ? '🔒' : '🔓'
+        newState ? 'Security Enabled' : 'Security Disabled',
+        newState ? '🔒' : '🔓'
       );
 
       // Reload page để apply changes

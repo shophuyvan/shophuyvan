@@ -36,18 +36,28 @@ export async function exchangeToken(env, code) {
   form.set('code', code);
   form.set('redirect_uri', callback);
 
-  const res = await fetch('https://auth.lazada.com/oauth/token', {
+    const res = await fetch('https://auth.lazada.com/oauth/token', {
     method: 'POST',
     body: form,
   });
 
-  const json = await res.json();
+  const text = await res.text();  // Lazada đôi khi trả về HTML hoặc empty
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    console.error('[Lazada][exchangeToken] Raw response:', text);
+    throw new Error('lazada_token_not_json');
+  }
+
   if (!res.ok) {
     throw new Error('Lazada token error: ' + JSON.stringify(json));
   }
 
   return json;
 }
+
 
 export async function loadLazadaShops(env) {
   const raw = await env.SHV.get('channels:lazada:shops');
