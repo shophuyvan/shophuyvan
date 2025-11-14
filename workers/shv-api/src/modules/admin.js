@@ -877,14 +877,19 @@ async function handleMe(req, env) {
       token = req.headers.get('x-token');
     }
     
+    console.log('[handleMe] Token received:', token ? 'YES' : 'NO');
+    
     if (!token) {
       return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
     }
 
     const decoded = atob(token);
     const adminId = decoded.split(':')[0];
+    console.log('[handleMe] Admin ID:', adminId);
 
     const adminData = await env.SHV.get(`admin:${adminId}`);
+    console.log('[handleMe] Admin data found:', adminData ? 'YES' : 'NO');
+    
     if (!adminData) {
       return json({ ok: false, error: 'Admin not found' }, { status: 404 }, req);
     }
@@ -894,19 +899,26 @@ async function handleMe(req, env) {
 
     const roleData = await env.SHV.get(`admin:role:${admin.role_id}`);
     const role = roleData ? JSON.parse(roleData) : null;
+    
+    console.log('[handleMe] Role found:', role ? role.name : 'NO');
+    console.log('[handleMe] Permissions:', role?.permissions);
 
-    return json({
+    const response = {
       ok: true,
       admin: {
         ...safeAdmin,
         role: role,
         permissions: role?.permissions || []
       }
-    }, {}, req);
+    };
+    
+    console.log('[handleMe] Response prepared:', JSON.stringify(response).substring(0, 200));
+
+    return json(response, {}, req);
 
   } catch (e) {
     console.error('[Admin] Me error:', e);
-    return json({ ok: false, error: 'Invalid token' }, { status: 401 }, req);
+    return json({ ok: false, error: 'Invalid token: ' + e.message }, { status: 401 }, req);
   }
 }
 
