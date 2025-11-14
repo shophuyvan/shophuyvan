@@ -299,9 +299,27 @@ async function listCampaigns(req, env) {
   }
 
   try {
+      try {
     console.log('[FB Ads] listCampaigns called');
     const creds = await getFBCredentials(env);
-// Auto-fix Ad Account ID format
+
+    // LOG CHI TIẾT: kiểm tra settings:facebook_ads trong KV / ENV
+    try {
+      console.log('[FB Ads] Raw creds from KV / ENV:', JSON.stringify(creds));
+    } catch (logErr) {
+      console.error('[FB Ads] Error JSON.stringify creds:', logErr);
+    }
+
+    if (!creds) {
+      console.error('[FB Ads] Credentials NOT FOUND - settings:facebook_ads có thể chưa cấu hình');
+      return json(
+        { ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' },
+        { status: 400 },
+        req
+      );
+    }
+
+    // Auto-fix Ad Account ID format
     let adAccountId = creds.ad_account_id;
     if (adAccountId && !adAccountId.startsWith('act_')) {
       adAccountId = `act_${adAccountId}`;
