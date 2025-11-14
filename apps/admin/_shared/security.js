@@ -1,0 +1,412 @@
+// ===================================================================
+// security.js - Advanced Security System with Toggle
+// ===================================================================
+
+(function() {
+  'use strict';
+
+  // ===================================================================
+  // CONFIGURATION
+  // ===================================================================
+  
+  const CONFIG = {
+    // 🔧 TOGGLE: Bật/tắt security (lưu trong localStorage)
+    get enabled() {
+      return localStorage.getItem('admin_security_enabled') !== 'false';
+    },
+    set enabled(value) {
+      localStorage.setItem('admin_security_enabled', value);
+      if (!value) {
+        console.log('🔓 Security DISABLED');
+      } else {
+        console.log('🔒 Security ENABLED');
+      }
+    },
+
+    // Tự động detect môi trường
+    get isProduction() {
+      return !['localhost', '127.0.0.1'].includes(location.hostname) &&
+             !location.hostname.includes('192.168') &&
+             !location.hostname.includes('.local') &&
+             !location.hostname.includes('.pages.dev'); // Cloudflare Pages preview
+    },
+
+    // Level bảo mật (có thể điều chỉnh)
+    disableConsole: true,
+    blockDevTools: true,
+    disableRightClick: true,
+    disableKeyboardShortcuts: true,
+    disableTextSelection: true,
+    disableCopy: true
+  };
+
+  // ===================================================================
+  // SECURITY TOGGLE UI (Floating Button)
+  // ===================================================================
+  
+  function createSecurityToggle() {
+    // Chỉ hiện toggle trong admin pages
+    if (!location.pathname.includes('/admin') && 
+        !location.pathname.includes('apps/admin')) {
+      return;
+    }
+
+    const toggleHTML = `
+      <div id="security-toggle" style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 999999;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 50px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      ">
+        <span id="security-icon">🔒</span>
+        <span id="security-text">Security</span>
+        <label style="
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+          margin: 0;
+        ">
+          <input type="checkbox" id="security-checkbox" ${CONFIG.enabled ? 'checked' : ''} style="
+            opacity: 0;
+            width: 0;
+            height: 0;
+          ">
+          <span style="
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.3);
+            transition: .4s;
+            border-radius: 24px;
+          ">
+            <span style="
+              position: absolute;
+              content: '';
+              height: 18px;
+              width: 18px;
+              left: 3px;
+              bottom: 3px;
+              background-color: white;
+              transition: .4s;
+              border-radius: 50%;
+              transform: ${CONFIG.enabled ? 'translateX(20px)' : 'translateX(0)'};
+            "></span>
+          </span>
+        </label>
+      </div>
+    `;
+
+    // Inject vào body khi DOM ready
+    if (document.body) {
+      document.body.insertAdjacentHTML('beforeend', toggleHTML);
+      setupToggleEvents();
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.insertAdjacentHTML('beforeend', toggleHTML);
+        setupToggleEvents();
+      });
+    }
+  }
+
+  function setupToggleEvents() {
+    const toggle = document.getElementById('security-toggle');
+    const checkbox = document.getElementById('security-checkbox');
+    const icon = document.getElementById('security-icon');
+    const slider = checkbox.nextElementSibling.querySelector('span');
+
+    toggle.addEventListener('click', (e) => {
+      if (e.target === checkbox) return; // Let checkbox handle itself
+      checkbox.click();
+    });
+
+    checkbox.addEventListener('change', () => {
+      CONFIG.enabled = checkbox.checked;
+      icon.textContent = checkbox.checked ? '🔒' : '🔓';
+      slider.style.transform = checkbox.checked ? 'translateX(20px)' : 'translateX(0)';
+      
+      // Show notification
+      showNotification(
+        checkbox.checked ? 'Security Enabled' : 'Security Disabled',
+        checkbox.checked ? '🔒' : '🔓'
+      );
+
+      // Reload page để apply changes
+      setTimeout(() => location.reload(), 1000);
+    });
+
+    // Hover effect
+    toggle.addEventListener('mouseenter', () => {
+      toggle.style.transform = 'scale(1.05)';
+      toggle.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
+    });
+
+    toggle.addEventListener('mouseleave', () => {
+      toggle.style.transform = 'scale(1)';
+      toggle.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    });
+  }
+
+  function showNotification(message, icon) {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000000;
+      background: white;
+      color: #111827;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease-out;
+    `;
+    notif.innerHTML = `<span style="font-size: 20px;">${icon}</span> ${message}`;
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 2000);
+  }
+
+  // ===================================================================
+  // 1. DISABLE CONSOLE
+  // ===================================================================
+  
+  function disableConsole() {
+    if (!CONFIG.enabled || !CONFIG.disableConsole) return;
+
+    const noop = function() {};
+    const consoleMethods = [
+      'log', 'debug', 'info', 'warn', 'error', 
+      'table', 'trace', 'dir', 'dirxml', 'group', 
+      'groupCollapsed', 'groupEnd', 'clear', 'count', 
+      'countReset', 'assert', 'profile', 'profileEnd', 
+      'time', 'timeLog', 'timeEnd', 'timeStamp'
+    ];
+
+    consoleMethods.forEach(method => {
+      if (console[method]) {
+        console[method] = noop;
+      }
+    });
+
+    Object.freeze(console);
+  }
+
+  // ===================================================================
+  // 2. DETECT & BLOCK DEVTOOLS
+  // ===================================================================
+  
+  let devtoolsOpen = false;
+
+  function detectDevTools() {
+    if (!CONFIG.enabled || !CONFIG.blockDevTools) return;
+
+    const threshold = 160;
+    const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+    const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+    
+    if (widthThreshold || heightThreshold) {
+      if (!devtoolsOpen) {
+        devtoolsOpen = true;
+        handleDevToolsOpen();
+      }
+    } else {
+      devtoolsOpen = false;
+    }
+  }
+
+  function checkDebugger() {
+    if (!CONFIG.enabled || !CONFIG.blockDevTools) return;
+
+    const start = performance.now();
+    debugger;
+    const end = performance.now();
+    
+    if (end - start > 100) {
+      handleDevToolsOpen();
+    }
+  }
+
+  function handleDevToolsOpen() {
+    // Blur content
+    document.body.style.filter = 'blur(10px)';
+    document.body.style.pointerEvents = 'none';
+
+    // Show warning overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 9999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    overlay.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-size: 80px; margin-bottom: 20px;">⛔</div>
+        <h1 style="font-size: 32px; margin-bottom: 12px;">DevTools Detected</h1>
+        <p style="font-size: 16px; color: #9ca3af; margin-bottom: 30px;">
+          Vui lòng đóng Developer Tools để tiếp tục
+        </p>
+        <button onclick="location.reload()" style="
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        ">
+          🔄 Reload Page
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  // ===================================================================
+  // 3. DISABLE RIGHT CLICK & KEYBOARD SHORTCUTS
+  // ===================================================================
+  
+  function setupEventBlockers() {
+    if (!CONFIG.enabled) return;
+
+    // Chặn chuột phải
+    if (CONFIG.disableRightClick) {
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        showNotification('Right-click disabled', '🚫');
+        return false;
+      });
+    }
+
+    // Chặn phím tắt
+    if (CONFIG.disableKeyboardShortcuts) {
+      document.addEventListener('keydown', function(e) {
+        // F12
+        if (e.key === 'F12' || e.keyCode === 123) {
+          e.preventDefault();
+          showNotification('F12 disabled', '🚫');
+          return false;
+        }
+
+        // Ctrl+Shift+I/J/C (DevTools)
+        if (e.ctrlKey && e.shiftKey && 
+            ['I', 'J', 'C'].includes(e.key.toUpperCase())) {
+          e.preventDefault();
+          showNotification('Shortcut disabled', '🚫');
+          return false;
+        }
+
+        // Ctrl+U (View Source)
+        if (e.ctrlKey && e.key.toUpperCase() === 'U') {
+          e.preventDefault();
+          showNotification('View source disabled', '🚫');
+          return false;
+        }
+
+        // Ctrl+S (Save)
+        if (e.ctrlKey && e.key.toUpperCase() === 'S') {
+          e.preventDefault();
+          showNotification('Save disabled', '🚫');
+          return false;
+        }
+      });
+    }
+
+    // Chặn select text
+    if (CONFIG.disableTextSelection) {
+      document.addEventListener('selectstart', function(e) {
+        if (!e.target.matches('input, textarea')) {
+          e.preventDefault();
+          return false;
+        }
+      });
+    }
+
+    // Chặn copy
+    if (CONFIG.disableCopy) {
+      document.addEventListener('copy', function(e) {
+        if (!e.target.matches('input, textarea')) {
+          e.preventDefault();
+          showNotification('Copy disabled', '🚫');
+          return false;
+        }
+      });
+    }
+  }
+
+  // ===================================================================
+  // 4. INIT SECURITY SYSTEM
+  // ===================================================================
+  
+  function initSecurity() {
+    // Always show toggle (even when disabled)
+    createSecurityToggle();
+
+    // Only apply security if enabled
+    if (CONFIG.enabled) {
+      console.log('🔒 Security System: ACTIVE');
+
+      // Disable console
+      disableConsole();
+
+      // Setup event blockers
+      setupEventBlockers();
+
+      // Start DevTools detection
+      if (CONFIG.blockDevTools) {
+        setInterval(detectDevTools, 1000);
+        setInterval(checkDebugger, 3000);
+        window.addEventListener('resize', detectDevTools);
+      }
+    } else {
+      console.log('🔓 Security System: DISABLED (Dev Mode)');
+    }
+  }
+
+  // Run on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSecurity);
+  } else {
+    initSecurity();
+  }
+
+})();

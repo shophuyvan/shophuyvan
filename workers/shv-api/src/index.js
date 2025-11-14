@@ -127,13 +127,18 @@ export default {
         return admin.handle(req, env, ctx);
       }
 
-      // ============================================
+            // ============================================
       // CHANNELS / TMDT (TikTok, Lazada, Shopee)
       // ============================================
-      if (path.startsWith('/admin/channels') ||
-          path.startsWith('/channels/tiktok')) { // callback public từ TikTok Shop
+      if (
+        path.startsWith('/admin/channels') ||
+        path.startsWith('/channels/tiktok') ||  // TikTok public callback
+        path.startsWith('/channels/lazada') ||  // Lazada connect + callback
+        path.startsWith('/channels/shopee')     // Shopee (sau này dùng)
+      ) {
         return Channels.handle(req, env, ctx);
       }
+
 
       // ============================================
       // EXISTING ROUTES

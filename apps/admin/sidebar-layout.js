@@ -4,6 +4,14 @@
 // ===================================================================
 
 (function() {
+  // ✅ LOAD SECURITY SCRIPT
+  (function loadSecurity() {
+    const script = document.createElement('script');
+    script.src = './_shared/security.js?v=' + Date.now();
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+
   // Common styles for sidebar layout
   const styles = `
     <style id="admin-sidebar-styles">
