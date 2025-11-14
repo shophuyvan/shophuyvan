@@ -46,10 +46,16 @@
   
   function createSecurityToggle() {
     // Chỉ hiện toggle trong admin pages
-    if (!location.pathname.includes('/admin') && 
-        !location.pathname.includes('apps/admin')) {
-      return;
-    }
+    // Detect admin domain hoặc local dev
+const isAdminSite = 
+  location.hostname.includes('admin.shophuyvan') || // Production
+  location.hostname === 'localhost' || // Local dev
+  location.hostname.includes('192.168') || // Local network
+  location.hostname.includes('.pages.dev'); // Cloudflare preview
+
+if (!isAdminSite) {
+  return; // Chỉ show toggle ở admin site
+}
 
     const toggleHTML = `
       <div id="security-toggle" style="
