@@ -42,18 +42,36 @@
   // SECURITY TOGGLE UI (Floating Button)
   // ===================================================================
   
-  function createSecurityToggle() {
+async function createSecurityToggle() {
     // Chỉ hiện toggle trong admin pages
     // Detect admin domain hoặc local dev
-const isAdminSite = 
-  location.hostname.includes('admin.shophuyvan') || // Production
-  location.hostname === 'localhost' || // Local dev
-  location.hostname.includes('192.168') || // Local network
-  location.hostname.includes('.pages.dev'); // Cloudflare preview
+    const isAdminSite = 
+      location.hostname.includes('admin.shophuyvan') || // Production
+      location.hostname === 'localhost' || // Local dev
+      location.hostname.includes('192.168') || // Local network
+      location.hostname.includes('.pages.dev'); // Cloudflare preview
 
-if (!isAdminSite) {
-  return; // Chỉ show toggle ở admin site
-}
+    if (!isAdminSite) {
+      return; // Chỉ show toggle ở admin site
+    }
+
+    // Check Super Admin
+    try {
+      if (typeof Admin !== 'undefined' && Admin.me) {
+        const me = await Admin.me();
+        if (!me?.ok || !me?.admin) return;
+        
+        // Chỉ show nút cho Super Admin
+        const isSuperAdmin = me.admin.role?.name === 'Super Admin' || 
+                             me.admin.role?.slug === 'super_admin' ||
+                             me.admin.role?.name === 'super_admin';
+        
+        if (!isSuperAdmin) return;
+      }
+    } catch(e) {
+      console.warn('Could not check admin role:', e);
+      return;
+    }
 
     const toggleHTML = `
       <div id="security-toggle" style="
@@ -88,31 +106,17 @@ if (!isAdminSite) {
         ">
           <span style="
             position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255,255,255,0.3);
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
             transition: .4s;
-            border-radius: 24px;
-          ">
-            <span style="
-              position: absolute;
-              content: '';
-              height: 18px;
-              width: 18px;
-              left: 3px;
-              bottom: 3px;
-              background-color: white;
-              transition: .4s;
-              border-radius: 50%;
-              transform: ${CONFIG.enabled ? 'translateX(20px)' : 'translateX(0)'};
-            "></span>
-          </span>
-        </label>
+            border-radius: 50%;
+            transform: ${CONFIG.enabled ? 'translateX(20px)' : 'translateX(0)'};
+          "></span>
+        </div>
       </div>
-    `;
 
     // Inject vào body khi DOM ready
     if (document.body) {
