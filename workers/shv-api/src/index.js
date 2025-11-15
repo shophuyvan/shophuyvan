@@ -136,7 +136,7 @@ export default {
         path.startsWith('/channels/lazada') ||  // Lazada connect + callback
         path.startsWith('/channels/shopee')     // Shopee (sau này dùng)
       ) {
-        return Channels.handle(req, env, ctx);
+        return channels.handle(req, env, ctx);
       }
 
 
