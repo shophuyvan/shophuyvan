@@ -207,30 +207,19 @@ if (lzStatus === 'success') {
 }
 
 
-// Đợi window.SHARED.api và window.Admin sẵn sàng
-function waitForAPI() {
-  return new Promise((resolve) => {
-    const check = setInterval(() => {
-      if (window.SHARED && window.SHARED.api && window.Admin && window.Admin.req) {
-        clearInterval(check);
-        resolve();
-      }
-    }, 100);
-    
-    // Timeout sau 5s
-    setTimeout(() => {
-      clearInterval(check);
-      console.error('[Lazada] API not ready after 5s');
-      resolve();
-    }, 5000);
-  });
-}
-
-// Gọi sau khi API ready
-setTimeout(async () => {
-  console.log('[Lazada][DEBUG] Waiting for API...');
-  await waitForAPI();
-  console.log('[Lazada][DEBUG] API ready, loading shops...');
+// ✅ Lắng nghe event adminLayoutReady
+window.addEventListener('adminLayoutReady', async () => {
+  console.log('[Lazada][DEBUG] AdminLayout ready, waiting for API...');
+  
+  // Đợi thêm 500ms để window.Admin.req chắc chắn sẵn sàng
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  if (!window.Admin || !window.Admin.req) {
+    console.error('[Lazada][DEBUG] window.Admin.req still not available');
+    return;
+  }
+  
+  console.log('[Lazada][DEBUG] Loading shops...');
   loadLazadaShops();
-}, 500);
+});
 });

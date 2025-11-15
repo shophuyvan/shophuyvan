@@ -433,6 +433,9 @@
 
       // Load user info
       this.loadUserInfo();
+
+      // ✅ Emit event khi AdminLayout ready
+      window.dispatchEvent(new CustomEvent('adminLayoutReady'));
     },
 
     setActiveMenuItem: function() {
