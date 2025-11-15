@@ -104,19 +104,33 @@ if (btnConnectLazada) {
 
 // Load Lazada shops
 async function loadLazadaShops() {
+  console.log('[Lazada][DEBUG] Starting loadLazadaShops...');
+  
   try {
-    // Đợi adminAPI ready
+    
     if (!window.adminAPI) {
-      console.warn('[Lazada] adminAPI not ready yet');
+      console.error('[Lazada][DEBUG] adminAPI is null/undefined');
       return;
     }
     
+    console.log('[Lazada][DEBUG] Calling API: /admin/channels/lazada/shops');
     const res = await window.adminAPI.get('/admin/channels/lazada/shops');
-    if (res.ok && res.shops && res.shops.length > 0) {
-      renderLazadaShops(res.shops);
+    
+    console.log('[Lazada][DEBUG] API Response:', JSON.stringify(res, null, 2));
+    
+    if (res.ok && res.shops) {
+      console.log('[Lazada][DEBUG] Shops found:', res.shops.length);
+      if (res.shops.length > 0) {
+        renderLazadaShops(res.shops);
+      } else {
+        console.warn('[Lazada][DEBUG] Shop list is empty');
+      }
+    } else {
+      console.error('[Lazada][DEBUG] Invalid response:', res);
     }
   } catch (e) {
-    console.error('[Lazada] Load shops error:', e);
+    console.error('[Lazada][DEBUG] Load shops error:', e);
+    console.error('[Lazada][DEBUG] Error stack:', e.stack);
   }
 }
 
