@@ -9,10 +9,11 @@
   <!-- Nội dung thô, AdminLayout sẽ wrap lại -->
   <div id="channelsRoot"></div>
 
-  <!-- Shared admin API + layout -->
-  <script src="/_shared/api-admin.js"></script>
+  <!-- Layout trước (chứa window.Admin) -->
   <script src="/sidebar-layout.js"></script>
-  <!-- Trang TMDT -->
+  <!-- Shared admin API sau (dùng window.Admin) -->
+  <script src="/_shared/api-admin.js"></script>
+  <!-- Trang TMDT cuối cùng -->
   <script src="/channels.js"></script>
   
 </body>

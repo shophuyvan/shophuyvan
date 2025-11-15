@@ -82,6 +82,13 @@ window.API_BASE = 'https://api.shophuyvan.vn';
 
   api.getLazadaShops = async () => {
     console.log('[API] Calling getLazadaShops...');
+    
+    // ✅ Đảm bảo window.Admin.req tồn tại
+    if (!window.Admin || !window.Admin.req) {
+      console.error('[API] window.Admin.req not available yet');
+      throw new Error('Admin API not ready');
+    }
+    
     const r = await window.Admin.req('/admin/channels/lazada/shops');
     console.log('[API] getLazadaShops response:', r);
     return r?.shops || [];
@@ -89,6 +96,12 @@ window.API_BASE = 'https://api.shophuyvan.vn';
 
   api.disconnectLazadaShop = async (id) => {
     if (!id) return { ok: false, error: 'missing_id' };
+    
+    // ✅ Đảm bảo window.Admin.req tồn tại
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
     return await window.Admin.req(
       `/admin/channels/lazada/shops/disconnect?id=${encodeURIComponent(id)}`
     );
@@ -96,6 +109,12 @@ window.API_BASE = 'https://api.shophuyvan.vn';
 
   api.syncLazadaProducts = async (shopId) => {
     if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    // ✅ Đảm bảo window.Admin.req tồn tại
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
     return await window.Admin.req('/admin/channels/lazada/sync-products', {
       method: 'POST',
       body: JSON.stringify({ shop_id: shopId })
