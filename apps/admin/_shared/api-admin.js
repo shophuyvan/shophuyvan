@@ -76,6 +76,32 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     );
   };
 
+  // =======================
+  // LAZADA API Helpers
+  // =======================
+
+  api.getLazadaShops = async () => {
+    console.log('[API] Calling getLazadaShops...');
+    const r = await window.Admin.req('/admin/channels/lazada/shops');
+    console.log('[API] getLazadaShops response:', r);
+    return r?.shops || [];
+  };
+
+  api.disconnectLazadaShop = async (id) => {
+    if (!id) return { ok: false, error: 'missing_id' };
+    return await window.Admin.req(
+      `/admin/channels/lazada/shops/disconnect?id=${encodeURIComponent(id)}`
+    );
+  };
+
+  api.syncLazadaProducts = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    return await window.Admin.req('/admin/channels/lazada/sync-products', {
+      method: 'POST',
+      body: JSON.stringify({ shop_id: shopId })
+    });
+  };
+
   window.SHARED.api = api;
 })();
 

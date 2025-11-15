@@ -102,38 +102,20 @@ if (btnConnectLazada) {
   });
 }
 
-// Load Lazada shops
+// Load Lazada shops - Dùng API helper đã có sẵn token
 async function loadLazadaShops() {
   console.log('[Lazada][DEBUG] Starting loadLazadaShops...');
   
   try {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      console.error('[Lazada][DEBUG] No admin token found');
-      return;
-    }
+    // ✅ Sử dụng window.SHARED.api.getLazadaShops() thay vì fetch trực tiếp
+    const shops = await window.SHARED.api.getLazadaShops();
     
-    console.log('[Lazada][DEBUG] Calling API: /admin/channels/lazada/shops');
-    const response = await fetch('https://api.shophuyvan.vn/admin/channels/lazada/shops', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('[Lazada][DEBUG] Shops loaded:', shops.length);
     
-    const res = await response.json();
-    console.log('[Lazada][DEBUG] API Response:', JSON.stringify(res, null, 2));
-    
-    if (res.ok && res.shops) {
-      console.log('[Lazada][DEBUG] Shops found:', res.shops.length);
-      if (res.shops.length > 0) {
-        renderLazadaShops(res.shops);
-      } else {
-        console.warn('[Lazada][DEBUG] Shop list is empty');
-      }
+    if (shops && shops.length > 0) {
+      renderLazadaShops(shops);
     } else {
-      console.error('[Lazada][DEBUG] Invalid response:', res);
+      console.warn('[Lazada][DEBUG] No shops found');
     }
   } catch (e) {
     console.error('[Lazada][DEBUG] Load shops error:', e);
@@ -179,9 +161,8 @@ window.syncLazadaProducts = async function(shopId) {
   btn.textContent = 'Đang đồng bộ...';
   
   try {
-    const res = await window.adminAPI.post('/admin/channels/lazada/sync-products', {
-      shop_id: shopId
-    });
+    // ✅ Sử dụng API helper
+    const res = await window.SHARED.api.syncLazadaProducts(shopId);
     
     if (res.ok) {
       alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!`);
@@ -200,8 +181,13 @@ window.syncLazadaProducts = async function(shopId) {
 window.disconnectLazada = async function(shopId) {
   if (!confirm('Ngắt kết nối shop này?')) return;
   try {
-    await window.adminAPI.get(`/admin/channels/lazada/shops/disconnect?id=${shopId}`);
-    location.reload();
+    // ✅ Sử dụng API helper
+    const res = await window.SHARED.api.disconnectLazadaShop(shopId);
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Lỗi: ' + (res.error || 'unknown'));
+    }
   } catch (e) {
     alert('Lỗi ngắt kết nối: ' + e.message);
   }
