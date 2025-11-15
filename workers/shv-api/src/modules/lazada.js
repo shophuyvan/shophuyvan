@@ -29,23 +29,21 @@ export async function exchangeToken(env, code) {
     throw new Error('Missing Lazada App Key/Secret');
   }
 
-  const params = new URLSearchParams();
-  params.append('grant_type', 'authorization_code');
-  params.append('client_id', clientId);
-  params.append('client_secret', clientSecret);
-  params.append('code', code);
-  params.append('redirect_uri', callback);
+  const tokenUrl = new URL('https://auth.lazada.com/rest/auth/token/create');
+  tokenUrl.searchParams.append('code', code);
+  tokenUrl.searchParams.append('client_id', clientId);
+  tokenUrl.searchParams.append('client_secret', clientSecret);
 
-  const res = await fetch('https://auth.lazada.com/oauth/token', {
+  console.log('[Lazada][exchangeToken] URL:', tokenUrl.toString());
+
+  const res = await fetch(tokenUrl.toString(), {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',
     },
-    body: params.toString(),
   });
 
   console.log('[Lazada][exchangeToken] Status:', res.status);
-  console.log('[Lazada][exchangeToken] Headers:', JSON.stringify([...res.headers.entries()]));
 
   const text = await res.text();
   console.log('[Lazada][exchangeToken] Raw response:', text);
