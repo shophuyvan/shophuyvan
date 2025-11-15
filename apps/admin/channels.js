@@ -231,3 +231,4 @@ function waitForAdminAPI(attempt = 0) {
 window.addEventListener('load', () => {
   setTimeout(waitForAdminAPI, 300);
 });
+});
