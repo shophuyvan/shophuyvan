@@ -10,14 +10,16 @@
   // ===================================================================
   
   const CONFIG = {
-    // 🔧 TOGGLE: Bật/tắt security (lưu trong localStorage)
+    // 🔧 TOGGLE: Bật/tắt security (lưu trong Cookie - share giữa admin & FE)
     get enabled() {
-      const value = localStorage.getItem('admin_security_enabled');
-      if (value === null) return true; // Mặc định bật
-      return value === 'true'; // So sánh string
+      const value = document.cookie.split('; ').find(row => row.startsWith('security_enabled='));
+      if (!value) return true; // Mặc định bật
+      return value.split('=')[1] === 'true';
     },
     set enabled(value) {
-      localStorage.setItem('admin_security_enabled', value ? 'true' : 'false');
+      // Set cookie với domain .shophuyvan.vn để share
+      const val = value ? 'true' : 'false';
+      document.cookie = `security_enabled=${val}; path=/; domain=.shophuyvan.vn; max-age=31536000; SameSite=Lax`;
       console.log(value ? '🔒 Security ENABLED' : '🔓 Security DISABLED');
     },
 
