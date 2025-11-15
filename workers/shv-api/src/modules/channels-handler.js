@@ -269,10 +269,8 @@ export async function handle(req, env, ctx) {
         { status: 500 },
         req
       );
-    }
   }
-
- }
+  }
 
       // 4) PUBLIC: TikTok Shop - tạo kết nối
   if (path === '/channels/tiktok/connect') {
