@@ -213,13 +213,19 @@ if (lzStatus === 'success') {
 window.addEventListener('adminLayoutReady', async () => {
   console.log('[Lazada][DEBUG] AdminLayout ready, waiting for API...');
   
-  // Đợi thêm 500ms để window.Admin.req chắc chắn sẵn sàng
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Đợi window.Admin.req sẵn sàng (tối đa 5s)
+  let retries = 0;
+  while ((!window.Admin || !window.Admin.req) && retries < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    retries++;
+  }
   
   if (!window.Admin || !window.Admin.req) {
-    console.error('[Lazada][DEBUG] window.Admin.req still not available');
+    console.error('[Lazada][DEBUG] window.Admin.req not available after 5s');
     return;
   }
+  
+  console.log('[Lazada][DEBUG] window.Admin.req ready after', retries * 100, 'ms');
   
   console.log('[Lazada][DEBUG] Loading shops...');
   
