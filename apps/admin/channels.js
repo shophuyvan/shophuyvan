@@ -207,9 +207,30 @@ if (lzStatus === 'success') {
 }
 
 
-// Gọi trực tiếp khi DOM ready
-setTimeout(() => {
-  console.log('[Lazada][DEBUG] Auto-loading shops after page load');
+// Đợi window.SHARED.api và window.Admin sẵn sàng
+function waitForAPI() {
+  return new Promise((resolve) => {
+    const check = setInterval(() => {
+      if (window.SHARED && window.SHARED.api && window.Admin && window.Admin.req) {
+        clearInterval(check);
+        resolve();
+      }
+    }, 100);
+    
+    // Timeout sau 5s
+    setTimeout(() => {
+      clearInterval(check);
+      console.error('[Lazada] API not ready after 5s');
+      resolve();
+    }, 5000);
+  });
+}
+
+// Gọi sau khi API ready
+setTimeout(async () => {
+  console.log('[Lazada][DEBUG] Waiting for API...');
+  await waitForAPI();
+  console.log('[Lazada][DEBUG] API ready, loading shops...');
   loadLazadaShops();
 }, 500);
 });
