@@ -272,65 +272,7 @@ export async function handle(req, env, ctx) {
     }
   }
 
-  // ==========================================
-  // LAZADA: Lấy danh sách shops
-  // ==========================================
-  if (path === '/admin/channels/lazada/shops' && method === 'GET') {
-    const auth = await requireAdmin(req, env);
-    if (auth.error) {
-      return json(
-        { ok: false, error: auth.error.error },
-        { status: auth.error.status },
-        req
-      );
-    }
-
-    const shops = await loadLazadaShops(env);
-    return json(
-      {
-        ok: true,
-        shops,
-        total: shops.length,
-      },
-      {},
-      req
-    );
-  }
-
-  // ==========================================
-  // LAZADA: Ngắt kết nối shop
-  // ==========================================
-  if (path === '/admin/channels/lazada/shops/disconnect' && method === 'GET') {
-    const auth = await requireAdmin(req, env);
-    if (auth.error) {
-      return json(
-        { ok: false, error: auth.error.error },
-        { status: auth.error.status },
-        req
-      );
-    }
-
-    const id = url.searchParams.get('id');
-    if (!id) {
-      return json({ ok: false, error: 'missing_id' }, { status: 400 }, req);
-    }
-
-    const shops = await loadLazadaShops(env);
-    const newShops = shops.filter((s) => s.id !== id);
-
-    await saveLazadaShops(env, newShops);
-    await env.SHV.delete(`channels:lazada:shop:${id}`);
-
-    return json(
-      {
-        ok: true,
-        removed: id,
-        total: newShops.length,
-      },
-      {},
-      req
-    );
-  }
+ }
 
       // 4) PUBLIC: TikTok Shop - tạo kết nối
   if (path === '/channels/tiktok/connect') {
