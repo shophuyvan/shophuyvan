@@ -29,10 +29,35 @@ export async function exchangeToken(env, code) {
     throw new Error('Missing Lazada App Key/Secret');
   }
 
+  const timestamp = Date.now().toString();
+  
   const tokenUrl = new URL('https://auth.lazada.com/rest/auth/token/create');
-  tokenUrl.searchParams.append('code', code);
   tokenUrl.searchParams.append('app_key', clientId);
-  tokenUrl.searchParams.append('app_secret', clientSecret);
+  tokenUrl.searchParams.append('timestamp', timestamp);
+  tokenUrl.searchParams.append('sign_method', 'sha256');
+  tokenUrl.searchParams.append('code', code);
+
+  // Generate signature
+  const params = {
+    app_key: clientId,
+    timestamp: timestamp,
+    sign_method: 'sha256',
+    code: code,
+  };
+  
+  const sortedKeys = Object.keys(params).sort();
+  let signString = '';
+  for (const key of sortedKeys) {
+    signString += key + params[key];
+  }
+  signString = clientSecret + signString + clientSecret;
+
+  const msgBuffer = new TextEncoder().encode(signString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const sign = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+  tokenUrl.searchParams.append('sign', sign);
 
   console.log('[Lazada][exchangeToken] URL:', tokenUrl.toString());
 
