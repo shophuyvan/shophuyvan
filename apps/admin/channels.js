@@ -286,17 +286,5 @@ window.addEventListener('adminLayoutReady', async () => {
     `;
   }
   
-  // Retry nếu Admin.req chưa sẵn sàng
-  let retries = 0;
-  const tryLoad = () => {
-    if (window.Admin && window.Admin.req) {
-      loadLazadaShops();
-    } else if (retries < 20) {
-      retries++;
-      setTimeout(tryLoad, 100);
-    } else {
-      console.error('[Lazada] Admin.req not available after 2s');
-    }
-  };
-  tryLoad();
+  loadLazadaShops();
 });
