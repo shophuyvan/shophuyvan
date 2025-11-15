@@ -29,16 +29,19 @@ export async function exchangeToken(env, code) {
     throw new Error('Missing Lazada App Key/Secret');
   }
 
-  const form = new FormData();
-  form.set('grant_type', 'authorization_code');
-  form.set('client_id', clientId);
-  form.set('client_secret', clientSecret);
-  form.set('code', code);
-  form.set('redirect_uri', callback);
+  const params = new URLSearchParams();
+  params.append('grant_type', 'authorization_code');
+  params.append('client_id', clientId);
+  params.append('client_secret', clientSecret);
+  params.append('code', code);
+  params.append('redirect_uri', callback);
 
-    const res = await fetch('https://auth.lazada.com/oauth/token', {
+  const res = await fetch('https://auth.lazada.com/oauth/token', {
     method: 'POST',
-    body: form,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
   });
 
   const text = await res.text();  // Lazada đôi khi trả về HTML hoặc empty
