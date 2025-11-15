@@ -107,15 +107,22 @@ async function loadLazadaShops() {
   console.log('[Lazada][DEBUG] Starting loadLazadaShops...');
   
   try {
-    
-    if (!window.adminAPI) {
-      console.error('[Lazada][DEBUG] adminAPI is null/undefined');
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      console.error('[Lazada][DEBUG] No admin token found');
       return;
     }
     
     console.log('[Lazada][DEBUG] Calling API: /admin/channels/lazada/shops');
-    const res = await window.adminAPI.get('/admin/channels/lazada/shops');
+    const response = await fetch('https://api.shophuyvan.vn/admin/channels/lazada/shops', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
     
+    const res = await response.json();
     console.log('[Lazada][DEBUG] API Response:', JSON.stringify(res, null, 2));
     
     if (res.ok && res.shops) {
