@@ -6,15 +6,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 </head>
 <body>
-  <!-- Nội dung thô, AdminLayout sẽ wrap lại -->
   <div id="channelsRoot"></div>
 
-  <!-- Layout trước (chứa window.Admin) -->
   <script src="/sidebar-layout.js"></script>
-  <!-- Shared admin API sau (dùng window.Admin) -->
+  
+  <!-- DEBUG: Check window.Admin -->
+  <script>
+    console.log('[DEBUG] After sidebar-layout.js');
+    console.log('[DEBUG] window.Admin exists:', !!window.Admin);
+    console.log('[DEBUG] window.Admin.req exists:', !!(window.Admin && window.Admin.req));
+    if (window.Admin) {
+      console.log('[DEBUG] window.Admin keys:', Object.keys(window.Admin));
+    }
+  </script>
+  
   <script src="/_shared/api-admin.js" defer></script>
   <script src="/channels.js" defer></script>
-
-  
 </body>
 </html>
