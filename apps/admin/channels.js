@@ -207,7 +207,9 @@ if (lzStatus === 'success') {
 }
 
 
-// ✅ Lắng nghe event adminLayoutReady
+/}); // Kết thúc DOMContentLoaded
+
+// ✅ Lắng nghe event adminLayoutReady (RA NGOÀI DOMContentLoaded)
 window.addEventListener('adminLayoutReady', async () => {
   console.log('[Lazada][DEBUG] AdminLayout ready, waiting for API...');
   
@@ -220,6 +222,63 @@ window.addEventListener('adminLayoutReady', async () => {
   }
   
   console.log('[Lazada][DEBUG] Loading shops...');
+  
+  // Đảm bảo loadLazadaShops có thể gọi được
+  const root = document.getElementById('channelsRoot');
+  if (!root) {
+    console.error('[Lazada][DEBUG] channelsRoot not found');
+    return;
+  }
+  
+  // Load shops function
+  async function loadLazadaShops() {
+    console.log('[Lazada][DEBUG] Starting loadLazadaShops...');
+    
+    try {
+      const shops = await window.SHARED.api.getLazadaShops();
+      
+      console.log('[Lazada][DEBUG] Shops loaded:', shops.length);
+      
+      if (shops && shops.length > 0) {
+        renderLazadaShops(shops);
+      } else {
+        console.warn('[Lazada][DEBUG] No shops found');
+      }
+    } catch (e) {
+      console.error('[Lazada][DEBUG] Load shops error:', e);
+      console.error('[Lazada][DEBUG] Error stack:', e.stack);
+    }
+  }
+  
+  function renderLazadaShops(shops) {
+    const emptyEl = root.querySelector('#lazadaShopsEmpty');
+    if (!emptyEl) return;
+    
+    emptyEl.innerHTML = `
+      <div style="margin-bottom:16px;">
+        <p style="font-size:14px;font-weight:600;margin-bottom:8px;">Shops đã kết nối (${shops.length})</p>
+        ${shops.map(shop => `
+          <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-weight:600;font-size:14px;">${shop.id}</div>
+                <div style="font-size:12px;color:#64748b;">Country: ${shop.country || 'N/A'}</div>
+                <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn primary btn-sm" onclick="syncLazadaProducts('${shop.id}')">
+                  Đồng bộ sản phẩm
+                </button>
+                <button class="btn danger btn-sm" onclick="disconnectLazada('${shop.id}')">
+                  Ngắt kết nối
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
   loadLazadaShops();
-});
 });
