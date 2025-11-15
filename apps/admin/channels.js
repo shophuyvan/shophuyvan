@@ -105,6 +105,12 @@ if (btnConnectLazada) {
 // Load Lazada shops
 async function loadLazadaShops() {
   try {
+    // Đợi adminAPI ready
+    if (!window.adminAPI) {
+      console.warn('[Lazada] adminAPI not ready yet');
+      return;
+    }
+    
     const res = await window.adminAPI.get('/admin/channels/lazada/shops');
     if (res.ok && res.shops && res.shops.length > 0) {
       renderLazadaShops(res.shops);
@@ -193,6 +199,8 @@ if (lzStatus === 'success') {
   window.history.replaceState({}, '', '/channels.html');
 }
 
-// Load initial data
-loadLazadaShops();
+// Load initial data - đợi 100ms để adminAPI load xong
+setTimeout(() => {
+  loadLazadaShops();
+}, 100);
 });

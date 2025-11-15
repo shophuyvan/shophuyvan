@@ -22,7 +22,7 @@ import * as FacebookAds from './modules/facebook-ads.js';
 import * as FacebookOAuth from './modules/facebook-oauth.js';
 import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
 import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
-import * as Channels from './modules/channels.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
+import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
 
