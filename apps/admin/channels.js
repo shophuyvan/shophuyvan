@@ -199,8 +199,14 @@ if (lzStatus === 'success') {
   window.history.replaceState({}, '', '/channels.html');
 }
 
-// Load initial data - đợi 100ms để adminAPI load xong
-setTimeout(() => {
-  loadLazadaShops();
-}, 100);
+// Load initial data - đợi adminAPI ready
+function waitForAdminAPI() {
+  if (window.adminAPI) {
+    loadLazadaShops();
+  } else {
+    setTimeout(waitForAdminAPI, 50);
+  }
+}
+
+waitForAdminAPI();
 });
