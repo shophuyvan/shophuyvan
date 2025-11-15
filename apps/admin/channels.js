@@ -211,12 +211,6 @@ function waitForAdminAPI(attempt = 0) {
   }
 }
 
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(waitForAdminAPI, 200);
-  });
-} else {
-  setTimeout(waitForAdminAPI, 200);
-}
+// Bắt đầu wait sau khi DOM + scripts load xong
+setTimeout(waitForAdminAPI, 500);
 });
