@@ -4,6 +4,7 @@
 import { json } from '../lib/response.js';
 import { verifyAdminAuth } from '../admin-handlers.js';
 import { buildOAuthURL, exchangeToken, loadLazadaShops, saveLazadaShops } from './lazada.js';
+import { callLazadaAPI } from './lazada-api.js';
 
 
 /**
@@ -154,6 +155,121 @@ export async function handle(req, env, ctx) {
       {},
       req
     );
+  }
+
+  // ==========================================
+  // LAZADA: Lấy danh sách shops
+  // ==========================================
+  if (path === '/admin/channels/lazada/shops' && method === 'GET') {
+    const auth = await requireAdmin(req, env);
+    if (auth.error) {
+      return json(
+        { ok: false, error: auth.error.error },
+        { status: auth.error.status },
+        req
+      );
+    }
+
+    const shops = await loadLazadaShops(env);
+    return json(
+      {
+        ok: true,
+        shops,
+        total: shops.length,
+      },
+      {},
+      req
+    );
+  }
+
+  // ==========================================
+  // LAZADA: Ngắt kết nối shop
+  // ==========================================
+  if (path === '/admin/channels/lazada/shops/disconnect' && method === 'GET') {
+    const auth = await requireAdmin(req, env);
+    if (auth.error) {
+      return json(
+        { ok: false, error: auth.error.error },
+        { status: auth.error.status },
+        req
+      );
+    }
+
+    const id = url.searchParams.get('id');
+    if (!id) {
+      return json({ ok: false, error: 'missing_id' }, { status: 400 }, req);
+    }
+
+    const shops = await loadLazadaShops(env);
+    const newShops = shops.filter((s) => s.id !== id);
+
+    await saveLazadaShops(env, newShops);
+    await env.SHV.delete(`channels:lazada:shop:${id}`);
+
+    return json(
+      {
+        ok: true,
+        removed: id,
+        total: newShops.length,
+      },
+      {},
+      req
+    );
+  }
+
+  // ==========================================
+  // LAZADA: Đồng bộ sản phẩm
+  // ==========================================
+  if (path === '/admin/channels/lazada/sync-products' && method === 'POST') {
+    const auth = await requireAdmin(req, env);
+    if (auth.error) {
+      return json(
+        { ok: false, error: auth.error.error },
+        { status: auth.error.status },
+        req
+      );
+    }
+
+    const body = await req.json();
+    const shopId = body.shop_id;
+
+    if (!shopId) {
+      return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
+    }
+
+    try {
+      // Call Lazada API để lấy products
+      const result = await callLazadaAPI(env, shopId, '/products/get', {
+        filter: 'all',
+        offset: 0,
+        limit: 100,
+      });
+
+      const products = result.data?.products || [];
+
+      // Lưu vào KV (tạm thời, sau này có thể lưu vào D1)
+      await env.SHV.put(
+        `channels:lazada:${shopId}:products`,
+        JSON.stringify(products)
+      );
+
+      return json(
+        {
+          ok: true,
+          total: products.length,
+          products: products.slice(0, 10), // Trả về 10 sản phẩm đầu
+        },
+        {},
+        req
+      );
+    } catch (e) {
+      console.error('[Lazada][Sync] error:', e);
+      return json(
+        { ok: false, error: e.message },
+        { status: 500 },
+        req
+      );
+    }
   }
 
       // 4) PUBLIC: TikTok Shop - tạo kết nối
@@ -308,9 +424,9 @@ export async function handle(req, env, ctx) {
       const now = Date.now();
 
       const shopId =
-        token.account_id ||
+        token.country_user_info?.[0]?.seller_id ||
+        token.seller_id ||
         token.user_id ||
-        token.country_user_id ||
         'lz_' + now;
 
       const shopInfo = {

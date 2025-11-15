@@ -101,4 +101,98 @@ if (btnConnectLazada) {
     window.location.href = url;
   });
 }
+
+// Load Lazada shops
+async function loadLazadaShops() {
+  try {
+    const res = await window.adminAPI.get('/admin/channels/lazada/shops');
+    if (res.ok && res.shops && res.shops.length > 0) {
+      renderLazadaShops(res.shops);
+    }
+  } catch (e) {
+    console.error('[Lazada] Load shops error:', e);
+  }
+}
+
+function renderLazadaShops(shops) {
+  const emptyEl = root.querySelector('#lazadaShopsEmpty');
+  if (!emptyEl) return;
+  
+  emptyEl.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <p style="font-size:14px;font-weight:600;margin-bottom:8px;">Shops đã kết nối (${shops.length})</p>
+      ${shops.map(shop => `
+        <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:600;font-size:14px;">${shop.id}</div>
+              <div style="font-size:12px;color:#64748b;">Country: ${shop.country || 'N/A'}</div>
+              <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn primary btn-sm" onclick="syncLazadaProducts('${shop.id}')">
+                Đồng bộ sản phẩm
+              </button>
+              <button class="btn danger btn-sm" onclick="disconnectLazada('${shop.id}')">
+                Ngắt kết nối
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.syncLazadaProducts = async function(shopId) {
+  if (!confirm('Đồng bộ sản phẩm từ Lazada?')) return;
+  
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Đang đồng bộ...';
+  
+  try {
+    const res = await window.adminAPI.post('/admin/channels/lazada/sync-products', {
+      shop_id: shopId
+    });
+    
+    if (res.ok) {
+      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!`);
+      location.reload();
+    } else {
+      alert('❌ Lỗi: ' + (res.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('❌ Lỗi đồng bộ: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Đồng bộ sản phẩm';
+  }
+};
+
+window.disconnectLazada = async function(shopId) {
+  if (!confirm('Ngắt kết nối shop này?')) return;
+  try {
+    await window.adminAPI.get(`/admin/channels/lazada/shops/disconnect?id=${shopId}`);
+    location.reload();
+  } catch (e) {
+    alert('Lỗi ngắt kết nối: ' + e.message);
+  }
+};
+
+// Check callback status
+const urlParams = new URLSearchParams(window.location.search);
+const lzStatus = urlParams.get('lz_status');
+if (lzStatus === 'success') {
+  alert('✅ Kết nối Lazada thành công!');
+  window.history.replaceState({}, '', '/channels.html');
+  loadLazadaShops();
+} else if (lzStatus === 'error') {
+  const reason = urlParams.get('reason') || 'unknown';
+  alert('❌ Kết nối Lazada thất bại: ' + reason);
+  window.history.replaceState({}, '', '/channels.html');
+}
+
+// Load initial data
+loadLazadaShops();
 });
