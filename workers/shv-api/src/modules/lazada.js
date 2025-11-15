@@ -31,8 +31,8 @@ export async function exchangeToken(env, code) {
 
   const tokenUrl = new URL('https://auth.lazada.com/rest/auth/token/create');
   tokenUrl.searchParams.append('code', code);
-  tokenUrl.searchParams.append('client_id', clientId);
-  tokenUrl.searchParams.append('client_secret', clientSecret);
+  tokenUrl.searchParams.append('app_key', clientId);
+  tokenUrl.searchParams.append('app_secret', clientSecret);
 
   console.log('[Lazada][exchangeToken] URL:', tokenUrl.toString());
 
