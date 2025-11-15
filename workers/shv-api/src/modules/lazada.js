@@ -37,25 +37,39 @@ export async function exchangeToken(env, code) {
   tokenUrl.searchParams.append('sign_method', 'sha256');
   tokenUrl.searchParams.append('code', code);
 
-  // Generate signature
+  // Generate signature - Lazada format: /api + sorted params
+  const apiPath = '/auth/token/create';
   const params = {
     app_key: clientId,
-    timestamp: timestamp,
-    sign_method: 'sha256',
     code: code,
+    sign_method: 'sha256',
+    timestamp: timestamp,
   };
   
   const sortedKeys = Object.keys(params).sort();
-  let signString = '';
+  let signString = apiPath;
   for (const key of sortedKeys) {
     signString += key + params[key];
   }
-  signString = clientSecret + signString + clientSecret;
 
+  console.log('[Lazada][exchangeToken] Sign string:', signString);
+
+  const keyBuffer = new TextEncoder().encode(clientSecret);
   const msgBuffer = new TextEncoder().encode(signString);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const hashBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const sign = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+  console.log('[Lazada][exchangeToken] Signature:', sign);
 
   tokenUrl.searchParams.append('sign', sign);
 
