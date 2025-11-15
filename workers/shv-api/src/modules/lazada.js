@@ -44,13 +44,18 @@ export async function exchangeToken(env, code) {
     body: params.toString(),
   });
 
-  const text = await res.text();  // Lazada đôi khi trả về HTML hoặc empty
+  console.log('[Lazada][exchangeToken] Status:', res.status);
+  console.log('[Lazada][exchangeToken] Headers:', JSON.stringify([...res.headers.entries()]));
+
+  const text = await res.text();
+  console.log('[Lazada][exchangeToken] Raw response:', text);
 
   let json;
   try {
     json = JSON.parse(text);
   } catch (e) {
-    console.error('[Lazada][exchangeToken] Raw response:', text);
+    console.error('[Lazada][exchangeToken] Parse error - Status:', res.status);
+    console.error('[Lazada][exchangeToken] Parse error - Body:', text);
     throw new Error('lazada_token_not_json');
   }
 
