@@ -207,7 +207,7 @@ if (lzStatus === 'success') {
 }
 
 
-/}); // Kết thúc DOMContentLoaded
+}); // Kết thúc DOMContentLoaded
 
 // ✅ Lắng nghe event adminLayoutReady (RA NGOÀI DOMContentLoaded)
 window.addEventListener('adminLayoutReady', async () => {
