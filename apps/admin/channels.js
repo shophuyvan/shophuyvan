@@ -200,13 +200,23 @@ if (lzStatus === 'success') {
 }
 
 // Load initial data - đợi adminAPI ready
-function waitForAdminAPI() {
-  if (window.adminAPI) {
+function waitForAdminAPI(attempt = 0) {
+  if (window.adminAPI && typeof window.adminAPI.get === 'function') {
+    console.log('[Lazada] adminAPI ready, loading shops...');
     loadLazadaShops();
+  } else if (attempt < 100) {
+    setTimeout(() => waitForAdminAPI(attempt + 1), 100);
   } else {
-    setTimeout(waitForAdminAPI, 50);
+    console.error('[Lazada] adminAPI timeout after 10s');
   }
 }
 
-waitForAdminAPI();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(waitForAdminAPI, 200);
+  });
+} else {
+  setTimeout(waitForAdminAPI, 200);
+}
 });
