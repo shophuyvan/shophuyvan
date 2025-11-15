@@ -221,21 +221,9 @@ if (lzStatus === 'success') {
 }
 
 
-function waitForAdminAPI(attempt = 0) {
-  console.log(`[Lazada][DEBUG] Wait attempt ${attempt}, adminAPI exists:`, !!window.adminAPI);
-  
-  if (window.adminAPI && typeof window.adminAPI.get === 'function') {
-    console.log('[Lazada] adminAPI ready, loading shops...');
-    loadLazadaShops();
-  } else if (attempt < 200) {
-    setTimeout(() => waitForAdminAPI(attempt + 1), 50);
-  } else {
-    console.error('[Lazada] adminAPI timeout after 10s');
-  }
-}
-
-// Chờ tất cả scripts load
-window.addEventListener('load', () => {
-  setTimeout(waitForAdminAPI, 300);
-});
+// Gọi trực tiếp khi DOM ready
+setTimeout(() => {
+  console.log('[Lazada][DEBUG] Auto-loading shops after page load');
+  loadLazadaShops();
+}, 500);
 });
