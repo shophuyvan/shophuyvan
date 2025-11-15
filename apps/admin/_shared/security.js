@@ -17,9 +17,9 @@
       return value.split('=')[1] === 'true';
     },
     set enabled(value) {
-      // Set cookie với domain .shophuyvan.vn để share
+      // Set cookie với domain .shophuyvan.vn để share (HTTPS cần Secure flag)
       const val = value ? 'true' : 'false';
-      document.cookie = `security_enabled=${val}; path=/; domain=.shophuyvan.vn; max-age=31536000; SameSite=Lax`;
+      document.cookie = `security_enabled=${val}; path=/; domain=.shophuyvan.vn; max-age=31536000; Secure; SameSite=None`;
       console.log(value ? '🔒 Security ENABLED' : '🔓 Security DISABLED');
     },
 
