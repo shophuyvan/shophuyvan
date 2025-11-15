@@ -115,9 +115,8 @@ window.API_BASE = 'https://api.shophuyvan.vn';
       throw new Error('Admin API not ready');
     }
     
-    return await window.Admin.req('/admin/channels/lazada/sync-products', {
-      method: 'POST',
-      body: JSON.stringify({ shop_id: shopId })
+    return await window.Admin.req('/admin/channels/lazada/sync-products', 'POST', {
+      shop_id: shopId
     });
   };
 
