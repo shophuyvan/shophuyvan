@@ -10,16 +10,10 @@
 
   <script src="/sidebar-layout.js"></script>
   
-  <!-- DEBUG: Check window.Admin -->
-  <script>
-    console.log('[DEBUG] After sidebar-layout.js');
-    console.log('[DEBUG] window.Admin exists:', !!window.Admin);
-    console.log('[DEBUG] window.Admin.req exists:', !!(window.Admin && window.Admin.req));
-    if (window.Admin) {
-      console.log('[DEBUG] window.Admin keys:', Object.keys(window.Admin));
-    }
-  </script>
+  <!-- Core Admin API -->
+  <script src="/_shared/admin-core.js"></script>
   
+  <!-- Shared utilities -->
   <script src="/_shared/api-admin.js" defer></script>
   <script src="/channels.js" defer></script>
 </body>
