@@ -81,18 +81,22 @@ window.API_BASE = 'https://api.shophuyvan.vn';
   // =======================
 
   api.getLazadaShops = async () => {
-    console.log('[API] Calling getLazadaShops...');
-    
-    // ✅ Đảm bảo window.Admin.req tồn tại
-    if (!window.Admin || !window.Admin.req) {
-      console.error('[API] window.Admin.req not available yet');
-      throw new Error('Admin API not ready');
-    }
-    
-    const r = await window.Admin.req('/admin/channels/lazada/shops');
-    console.log('[API] getLazadaShops response:', r);
-    return r?.shops || [];
-  };
+  console.log('[API] Calling getLazadaShops...');
+  
+  // ✅ Check token
+  const token = window.Admin ? window.Admin.token() : null;
+  console.log('[API] Current token exists:', !!token);
+  console.log('[API] Token value (first 20 chars):', token ? token.substring(0, 20) + '...' : 'NULL');
+  
+  if (!token) {
+    console.error('[API] ❌ NO TOKEN - User needs to login!');
+    throw new Error('No authentication token');
+  }
+  
+  const r = await window.Admin.req('/admin/channels/lazada/shops');
+  console.log('[API] getLazadaShops response:', r);
+  return r?.shops || [];
+};
 
   api.disconnectLazadaShop = async (id) => {
     if (!id) return { ok: false, error: 'missing_id' };
