@@ -416,6 +416,40 @@ export async function handle(req, env, ctx) {
           console.log(`[Shopee] Fetched details for batch ${Math.floor(i/50) + 1}: ${items.length} items`);
         }
         
+        // ✅ BỔ SUNG: Lấy variants + giá + stock cho từng product
+        console.log('[Shopee] Fetching variants, price & stock for all products...');
+        
+        for (let item of allItems) {
+          try {
+            // Gọi API get_model_list để lấy variants
+            const modelPath = '/api/v2/product/get_model_list';
+            const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
+              item_id: item.item_id
+            });
+            
+            // Gắn variants vào item
+            item.model_list = modelData.response?.model || [];
+            item.price_info = modelData.response?.price_info || [];
+            item.stock_info_v2 = modelData.response?.stock_info_v2 || {};
+            
+            // Debug log cho item đầu tiên
+            if (allItems.indexOf(item) === 0) {
+              console.log('[DEBUG] First product with variants:', {
+                item_id: item.item_id,
+                model_count: item.model_list.length,
+                has_price_info: item.price_info.length > 0,
+                has_stock_info: !!item.stock_info_v2.stock_breakdown_by_location
+              });
+            }
+          } catch (err) {
+            console.error(`[Shopee] Error fetching models for item ${item.item_id}:`, err.message);
+            // Tiếp tục với items khác nếu có lỗi
+            item.model_list = [];
+            item.price_info = [];
+            item.stock_info_v2 = {};
+          }
+        }
+        
         const items = allItems;
         
         // ✅ DEBUG: Log 3 products đầu tiên để xem structure
@@ -437,12 +471,20 @@ export async function handle(req, env, ctx) {
             has_item_id: !!p.item_id,
             has_item_name: !!p.item_name,
             has_item_sku: !!p.item_sku,
-            has_price_info: !!p.price_info,
-            has_stock_info: !!p.stock_info,
+            has_price_info: !!p.price_info || (p.price_info?.length > 0),
+            has_stock_info: !!p.stock_info || !!p.stock_info_v2,
             has_image: !!p.image,
             has_description: !!p.description,
-            model_count: p.model?.length || 0
+            model_count: p.model_list?.length || 0
           });
+          
+          // Log chi tiết variants nếu có
+          if (p.model_list?.length > 0) {
+            console.log('[DEBUG] First variant sample:', JSON.stringify(p.model_list[0], null, 2));
+          }
+          if (p.price_info?.length > 0) {
+            console.log('[DEBUG] Price info sample:', JSON.stringify(p.price_info[0], null, 2));
+          }
         }
         
         // ✅ Lưu products vào database của hệ thống
