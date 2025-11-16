@@ -591,14 +591,16 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
 
-        // 2️⃣ Lấy stock info từ Shopee (batch 50 items/lần)
+        // 2️⃣ Lấy stock info từ Shopee (batch 20 items/lần để tránh subrequest limit)
         const stockUpdates = [];
-        const BATCH_SIZE = 50;
+        const BATCH_SIZE = 20; // ✅ GIẢM XUỐNG 20 để có buffer cho variants
         
         for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
           const batch = allItemIds.slice(i, i + BATCH_SIZE);
           
-          // Get item details với stock info
+          console.log(`[Shopee Stock] Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(allItemIds.length/BATCH_SIZE)}`);
+          
+          // ✅ PARALLEL: Lấy base_info VÀ model_list cùng lúc
           const detailPath = '/api/v2/product/get_item_base_info';
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
             item_id_list: batch.join(','),
@@ -607,17 +609,42 @@ export async function handle(req, env, ctx) {
           
           const items = detailData.response?.item_list || [];
           
-          for (const item of items) {
-            try {
-              // Check if product has variants
-              if (item.has_model === true) {
-                // Lấy stock từ model_list
+          // ✅ BATCH GET MODEL LIST cho tất cả items có variants trong batch này
+          const itemsWithVariants = items.filter(item => item.has_model === true);
+          
+          // Tạo Map để map nhanh model data
+          const modelDataMap = new Map();
+          
+          // Lấy models cho tất cả items có variants (parallel)
+          if (itemsWithVariants.length > 0) {
+            const modelPromises = itemsWithVariants.map(async (item) => {
+              try {
                 const modelPath = '/api/v2/product/get_model_list';
                 const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
                   item_id: item.item_id
                 });
                 
-                const models = modelData.response?.model || [];
+                return {
+                  item_id: item.item_id,
+                  models: modelData.response?.model || []
+                };
+              } catch (err) {
+                console.error(`[Shopee Stock] Error getting models for ${item.item_id}:`, err.message);
+                return { item_id: item.item_id, models: [] };
+              }
+            });
+            
+            // ✅ CHỜ TẤT CẢ MODEL CALLS XONG (nhưng vẫn giới hạn số lượng)
+            const modelResults = await Promise.all(modelPromises);
+            modelResults.forEach(r => modelDataMap.set(r.item_id, r.models));
+          }
+          
+          // Process từng item
+          for (const item of items) {
+            try {
+              // Check if product has variants
+              if (item.has_model === true) {
+                const models = modelDataMap.get(item.item_id) || [];
                 
                 for (const model of models) {
                   const shopeeStock = model.stock_info_v2?.current_stock || 0;
@@ -645,7 +672,7 @@ export async function handle(req, env, ctx) {
                       variant_id: mapping.variant_id,
                       shopee_item_id: item.item_id,
                       shopee_model_id: shopeeModelId,
-                      old_stock: null, // Không query old stock để tiết kiệm
+                      old_stock: null,
                       new_stock: shopeeStock
                     });
                     
