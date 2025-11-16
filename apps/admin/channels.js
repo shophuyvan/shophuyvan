@@ -312,23 +312,99 @@ window.syncShopeeStock = async function(shopId) {
   if (!confirm('📦 Đồng bộ tồn kho từ Shopee về Website?\n\nLưu ý: Tồn kho trên Shopee sẽ là chuẩn.')) return;
   
   const btn = event.target;
+  const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Đang đồng bộ...';
+  
+  // ✅ TẠO MODAL PROGRESS
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  `;
+  modal.innerHTML = `
+    <div style="background: white; padding: 24px; border-radius: 8px; min-width: 400px;">
+      <h3 style="margin: 0 0 16px 0; font-size: 18px;">Đang đồng bộ tồn kho Shopee</h3>
+      <div style="margin-bottom: 8px;">
+        <div style="font-size: 14px; color: #64748b;" id="syncProgress">Đang khởi tạo...</div>
+      </div>
+      <div style="background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+        <div id="syncProgressBar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #94a3b8;" id="syncDetails"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  const progressText = modal.querySelector('#syncProgress');
+  const progressBar = modal.querySelector('#syncProgressBar');
+  const detailsText = modal.querySelector('#syncDetails');
   
   try {
-    const res = await window.SHARED.api.syncShopeeStock(shopId);
+    let offset = 0;
+    let totalProcessed = 0;
+    let totalItems = 0;
+    const limit = 40;
     
-    if (res.ok) {
-      alert(`✅ Đồng bộ thành công ${res.total || 0} variants!\n\nTồn kho đã được cập nhật từ Shopee.`);
-      location.reload();
-    } else {
-      alert('❌ Lỗi: ' + (res.error || 'unknown'));
+    // ✅ LOOP GỌI API VỚI PAGINATION
+    while (true) {
+      progressText.textContent = `Đang xử lý batch ${Math.floor(offset / limit) + 1}...`;
+      
+      const res = await fetch('https://api.shophuyvan.vn/admin/shopee/sync-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-token': window.Admin.token
+        },
+        body: JSON.stringify({
+          shop_id: shopId,
+          offset: offset,
+          limit: limit
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (!data.ok) {
+        throw new Error(data.error || 'Sync failed');
+      }
+      
+      // ✅ CẬP NHẬT PROGRESS
+      totalItems = data.total;
+      totalProcessed += data.processed;
+      
+      const percent = Math.round((totalProcessed / totalItems) * 100);
+      progressBar.style.width = percent + '%';
+      progressText.textContent = `Đã xử lý ${totalProcessed}/${totalItems} sản phẩm (${percent}%)`;
+      detailsText.textContent = `Batch này: ${data.processed} variants đã cập nhật`;
+      
+      // ✅ KIỂM TRA XONG CHƯA
+      if (!data.has_more) {
+        break;
+      }
+      
+      offset = data.next_offset;
+      
+      // ✅ DELAY 500ms giữa các batch để tránh spam
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
+    
+    // ✅ HOÀN THÀNH
+    progressText.textContent = '✅ Hoàn thành!';
+    progressBar.style.background = '#10b981';
+    detailsText.textContent = `Tổng cộng ${totalProcessed} variants đã được cập nhật tồn kho`;
+    
+    setTimeout(() => {
+      document.body.removeChild(modal);
+      alert(`✅ Đồng bộ thành công ${totalProcessed} variants!\n\nTồn kho đã được cập nhật từ Shopee.`);
+      location.reload();
+    }, 2000);
+    
   } catch (e) {
+    document.body.removeChild(modal);
     alert('❌ Lỗi đồng bộ: ' + e.message);
-  } finally {
     btn.disabled = false;
-    btn.textContent = '📦 Đồng bộ tồn kho';
+    btn.textContent = originalText;
   }
 };
 

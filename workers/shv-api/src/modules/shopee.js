@@ -539,30 +539,29 @@ export async function handle(req, env, ctx) {
       }
     }
 
-    // ✅ THÊM: Đồng bộ TỒN KHO từ Shopee về Website
+    // Đồng bộ stock từ Shopee về website
     if (path === '/admin/shopee/sync-stock' && method === 'POST') {
-      let body;
       try {
-        body = await req.json();
-      } catch (e) {
-        return json({ ok: false, error: 'invalid_json' }, { status: 400 }, req);
-      }
-      
-      const shopId = body.shop_id;
+        const bodyData = await req.json();
+        const shopId = bodyData.shop_id;
+        
+        // ✅ PAGINATION PARAMS
+        const requestOffset = parseInt(bodyData.offset) || 0;
+        const requestLimit = Math.min(parseInt(bodyData.limit) || 40, 40); // Max 40 items/request
+        
+        if (!shopId) {
+          return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
+        }
 
-      if (!shopId) {
-        return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
-      }
+        const shopData = await getShopData(env, shopId);
+        if (!shopData) {
+          return json({ ok: false, error: 'shop_not_found' }, { status: 404 }, req);
+        }
 
-      const shopData = await getShopData(env, shopId);
-      if (!shopData) {
-        return json({ ok: false, error: 'shop_not_found' }, { status: 404 }, req);
-      }
+        console.log('[Shopee Stock Sync] 🔄 Starting stock sync for shop:', shopData.shop_id);
+        console.log('[Shopee Stock Sync] 📄 Request range:', requestOffset, '-', requestOffset + requestLimit);
 
-      try {
-        console.log('[Shopee Stock Sync] 🔄 Starting stock sync for shop:', shopId);
-
-        // 1️⃣ Lấy list items từ Shopee
+        // 1️⃣ Lấy danh sách TẤT CẢ item_ids từ Shopee (pagination)
         const itemListPath = '/api/v2/product/get_item_list';
         let allItemIds = [];
         let offset = 0;
@@ -591,16 +590,22 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
 
-        // 2️⃣ Lấy stock info từ Shopee (batch 10 items/lần để tránh subrequest limit)
+        console.log('[Shopee Stock Sync] 📊 Total items:', allItemIds.length);
+
+        // ✅ PAGINATION: Chỉ xử lý items trong range requestOffset -> requestOffset+requestLimit
+        const itemsToProcess = allItemIds.slice(requestOffset, requestOffset + requestLimit);
+        console.log('[Shopee Stock Sync] 🎯 Items in this batch:', itemsToProcess.length);
+
+        // 2️⃣ Lấy stock info từ Shopee (batch 5 items/lần để tránh subrequest limit)
         const stockUpdates = [];
-        const BATCH_SIZE = 5; // ✅ GIẢM XUỐNG 5 (an toàn hơn)
+        const BATCH_SIZE = 5;
         
-        for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
-          const batch = allItemIds.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+          const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
           
-          console.log(`[Shopee Stock] Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(allItemIds.length/BATCH_SIZE)}`);
+          console.log(`[Shopee Stock] Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(itemsToProcess.length/BATCH_SIZE)}`);
           
-          // ✅ PARALLEL: Lấy base_info VÀ model_list cùng lúc
+          // ✅ Lấy base_info
           const detailPath = '/api/v2/product/get_item_base_info';
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
             item_id_list: batch.join(','),
@@ -609,13 +614,11 @@ export async function handle(req, env, ctx) {
           
           const items = detailData.response?.item_list || [];
           
-          // ✅ BATCH GET MODEL LIST cho tất cả items có variants trong batch này
+          // ✅ BATCH GET MODEL LIST cho tất cả items có variants
           const itemsWithVariants = items.filter(item => item.has_model === true);
-          
-          // Tạo Map để map nhanh model data
           const modelDataMap = new Map();
           
-          // Lấy models cho tất cả items có variants (SEQUENTIAL - tránh subrequest limit)
+          // Lấy models cho items có variants (SEQUENTIAL - tránh subrequest limit)
           if (itemsWithVariants.length > 0) {
             for (const item of itemsWithVariants) {
               try {
@@ -710,11 +713,20 @@ export async function handle(req, env, ctx) {
 
         console.log('[Shopee Stock Sync] ✅ Completed:', stockUpdates.length, 'variants updated');
 
+        // ✅ PAGINATION RESPONSE
+        const totalItems = allItemIds.length;
+        const nextOffset = requestOffset + requestLimit;
+        const hasMore = nextOffset < totalItems;
+
         return json({
           ok: true,
-          total: stockUpdates.length,
+          total: totalItems,                    // Tổng số items
+          processed: stockUpdates.length,       // Số đã sync lần này
+          offset: requestOffset,                // Offset hiện tại
+          next_offset: nextOffset,              // Offset lần sau
+          has_more: hasMore,                    // Còn items chưa xử lý?
           updates: stockUpdates,
-          message: `✅ Synced stock for ${stockUpdates.length} variants from Shopee`
+          message: `✅ Synced ${stockUpdates.length} variants (${requestOffset + stockUpdates.length}/${totalItems})`
         }, {}, req);
 
       } catch (e) {
