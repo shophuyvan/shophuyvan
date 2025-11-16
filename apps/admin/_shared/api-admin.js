@@ -163,9 +163,17 @@ window.API_BASE = 'https://api.shophuyvan.vn';
       throw new Error('Admin API not ready');
     }
     
-    return await window.Admin.req('/admin/shopee/sync-products', 'POST', {
-      shop_id: shopId
+    // ✅ Method phải là POST và body phải có shop_id
+    const res = await fetch('https://api.shophuyvan.vn/admin/shopee/sync-products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ shop_id: shopId })
     });
+    
+    return await res.json();
   };
 
   api.syncShopeeOrders = async (shopId) => {
@@ -175,9 +183,17 @@ window.API_BASE = 'https://api.shophuyvan.vn';
       throw new Error('Admin API not ready');
     }
     
-    return await window.Admin.req('/admin/shopee/sync-orders', 'POST', {
-      shop_id: shopId
+    // ✅ Method phải là POST và body phải có shop_id
+    const res = await fetch('https://api.shophuyvan.vn/admin/shopee/sync-orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ shop_id: shopId })
     });
+    
+    return await res.json();
   };
 
   window.SHARED.api = api;
