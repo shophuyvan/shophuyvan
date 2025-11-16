@@ -12,16 +12,26 @@
   const CONFIG = {
     // 🔧 TOGGLE: Bật/tắt security (lưu trong Cookie - share giữa admin & FE)
     get enabled() {
-      const value = document.cookie.split('; ').find(row => row.startsWith('security_enabled='));
-      if (!value) return true; // Mặc định bật
-      return value.split('=')[1] === 'true';
-    },
+  try {
+    const value = localStorage.getItem('security_enabled');
+    if (value === null) return true; // Mặc định bật
+    return value === 'true';
+  } catch (e) {
+    return true; // Fallback: bật
+  }
+},
     set enabled(value) {
-      // Set cookie với domain .shophuyvan.vn để share (HTTPS cần Secure flag)
-      const val = value ? 'true' : 'false';
-      document.cookie = `security_enabled=${val}; path=/; domain=.shophuyvan.vn; max-age=31536000; Secure; SameSite=None`;
-      console.log(value ? '🔒 Security ENABLED' : '🔓 Security DISABLED');
-    },
+  const val = value ? 'true' : 'false';
+  
+  // Dùng localStorage thay vì cookie (đơn giản hơn, không cần HTTPS)
+  try {
+    localStorage.setItem('security_enabled', val);
+  } catch (e) {
+    console.warn('Cannot set security state:', e);
+  }
+  
+  console.log(value ? '🔒 Security ENABLED' : '🔓 Security DISABLED');
+},
 
     // Tự động detect môi trường
     get isProduction() {
