@@ -389,11 +389,12 @@ export async function handle(req, env, ctx) {
         
         console.log(`[Shopee] Total items to fetch details: ${allItemIds.length}`);
         
-        // ✅ Lấy chi tiết sản phẩm theo batch 50 items/lần
+        // ✅ Lấy chi tiết sản phẩm theo batch 20 items/lần (Shopee giới hạn)
         let allItems = [];
+        const BATCH_SIZE = 20;
         
-        for (let i = 0; i < allItemIds.length; i += 50) {
-          const batch = allItemIds.slice(i, i + 50);
+        for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
+          const batch = allItemIds.slice(i, i + BATCH_SIZE);
           
           const detailPath = '/api/v2/product/get_item_base_info';
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
@@ -413,7 +414,7 @@ export async function handle(req, env, ctx) {
             console.log('[DEBUG] First item keys:', Object.keys(items[0] || {}));
           }
           
-          console.log(`[Shopee] Fetched details for batch ${Math.floor(i/50) + 1}: ${items.length} items`);
+         console.log(`[Shopee] Fetched details for batch ${Math.floor(i/BATCH_SIZE) + 1}: ${items.length} items`);
         }
         
         // ✅ BỔ SUNG: Lấy variants + giá + stock cho từng product
