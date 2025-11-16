@@ -23,6 +23,7 @@ import * as FacebookOAuth from './modules/facebook-oauth.js';
 import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
 import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
+import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
 
@@ -128,15 +129,20 @@ export default {
         return admin.handle(req, env, ctx);
       }
 
-            // ============================================
+      // ============================================
       // CHANNELS / TMDT (TikTok, Lazada, Shopee)
       // ============================================
-      if (
-        path.startsWith('/admin/channels') ||
-        path.startsWith('/channels/tiktok') ||  // TikTok public callback
-        path.startsWith('/channels/lazada') ||  // Lazada connect + callback
-        path.startsWith('/channels/shopee')     // Shopee (sau này dùng)
-      ) {
+      
+      // ✅ Shopee routes - ƯU TIÊN TRƯỚC channels
+      if (path.startsWith('/channels/shopee') || 
+          path.startsWith('/admin/shopee')) {
+        return shopee.handle(req, env, ctx);
+      }
+      
+      // TikTok, Lazada routes
+      if (path.startsWith('/admin/channels') ||
+          path.startsWith('/channels/tiktok') ||
+          path.startsWith('/channels/lazada')) {
         return channels.handle(req, env, ctx);
       }
 

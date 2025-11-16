@@ -55,9 +55,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="channels-panel" data-panel="shopee" style="display:none;">
           <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">Shopee</h2>
-          <p style="font-size:13px;color:#64748b;">
-            Phần Shopee sẽ cấu hình sau khi hoàn tất TikTok Shop.
+          <p style="font-size:13px;color:#64748b;margin-bottom:12px;">
+            Kết nối Shopee để đồng bộ tồn kho & đơn hàng với hệ thống.
           </p>
+
+          <div id="shopeeShopsEmpty" style="font-size:13px;color:#64748b;margin-bottom:12px;">
+            Chưa có shop Shopee nào được kết nối.
+          </div>
+
+          <button id="btnConnectShopee" class="btn primary">
+            Kết nối Shopee
+          </button>
         </div>
       </div>
     </div>
@@ -98,6 +106,17 @@ if (btnConnectLazada) {
     const base = 'https://api.shophuyvan.vn';
     const redirect = encodeURIComponent('https://admin.shophuyvan.vn/channels.html');
     const url = `${base}/channels/lazada/connect?redirect=${redirect}`;
+    window.location.href = url;
+  });
+}
+
+// ✅ THÊM HANDLER SHOPEE
+const btnConnectShopee = root.querySelector('#btnConnectShopee');
+if (btnConnectShopee) {
+  btnConnectShopee.addEventListener('click', () => {
+    const base = 'https://api.shophuyvan.vn';
+    const redirect = encodeURIComponent('https://admin.shophuyvan.vn/channels.html');
+    const url = `${base}/channels/shopee/connect?redirect=${redirect}`;
     window.location.href = url;
   });
 }
@@ -233,4 +252,148 @@ if (lzStatus === 'success') {
   };
   
   tryLoadShops();
+  
+  // ✅ THÊM: Load Shopee shops
+  tryLoadShopeeShops();
 }); // Kết thúc DOMContentLoaded
+
+// ============================================
+// SHOPEE FUNCTIONS
+// ============================================
+
+async function loadShopeeShops() {
+  console.log('[Shopee][DEBUG] Starting loadShopeeShops...');
+  
+  try {
+    const shops = await window.SHARED.api.getShopeeShops();
+    console.log('[Shopee][DEBUG] Shops loaded:', shops.length);
+    
+    if (shops && shops.length > 0) {
+      renderShopeeShops(shops);
+    }
+  } catch (e) {
+    console.error('[Shopee][DEBUG] Load shops error:', e);
+  }
+}
+
+function renderShopeeShops(shops) {
+  const emptyEl = root.querySelector('#shopeeShopsEmpty');
+  if (!emptyEl) return;
+  
+  emptyEl.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <p style="font-size:14px;font-weight:600;margin-bottom:8px;">Shops đã kết nối (${shops.length})</p>
+      ${shops.map(shop => `
+        <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:600;font-size:14px;">Shop #${shop.shop_id}</div>
+              <div style="font-size:12px;color:#64748b;">Region: ${shop.region || 'VN'}</div>
+              <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn primary btn-sm" onclick="syncShopeeProducts('${shop.shop_id}')">
+                Đồng bộ sản phẩm
+              </button>
+              <button class="btn primary btn-sm" onclick="syncShopeeOrders('${shop.shop_id}')">
+                Đồng bộ đơn hàng
+              </button>
+              <button class="btn danger btn-sm" onclick="disconnectShopee('${shop.shop_id}')">
+                Ngắt kết nối
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.syncShopeeProducts = async function(shopId) {
+  if (!confirm('Đồng bộ sản phẩm từ Shopee?')) return;
+  
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Đang đồng bộ...';
+  
+  try {
+    const res = await window.SHARED.api.syncShopeeProducts(shopId);
+    
+    if (res.ok) {
+      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!`);
+      location.reload();
+    } else {
+      alert('❌ Lỗi: ' + (res.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('❌ Lỗi đồng bộ: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Đồng bộ sản phẩm';
+  }
+};
+
+window.syncShopeeOrders = async function(shopId) {
+  if (!confirm('Đồng bộ đơn hàng từ Shopee?')) return;
+  
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Đang đồng bộ...';
+  
+  try {
+    const res = await window.SHARED.api.syncShopeeOrders(shopId);
+    
+    if (res.ok) {
+      alert(`✅ Đồng bộ thành công ${res.total || 0} đơn hàng!`);
+    } else {
+      alert('❌ Lỗi: ' + (res.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('❌ Lỗi đồng bộ: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Đồng bộ đơn hàng';
+  }
+};
+
+window.disconnectShopee = async function(shopId) {
+  if (!confirm('Ngắt kết nối shop này?')) return;
+  try {
+    const res = await window.SHARED.api.disconnectShopeeShop(shopId);
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Lỗi: ' + (res.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('Lỗi ngắt kết nối: ' + e.message);
+  }
+};
+
+// Check Shopee callback status
+const spStatus = urlParams.get('sp_status');
+if (spStatus === 'success') {
+  alert('✅ Kết nối Shopee thành công!');
+  window.history.replaceState({}, '', '/channels.html');
+  loadShopeeShops();
+} else if (spStatus === 'error') {
+  const reason = urlParams.get('reason') || 'unknown';
+  alert('❌ Kết nối Shopee thất bại: ' + reason);
+  window.history.replaceState({}, '', '/channels.html');
+}
+
+// Load Shopee shops with retry
+function tryLoadShopeeShops() {
+  let retries = 0;
+  const tryLoad = () => {
+    if (!window.SHARED || !window.SHARED.api) {
+      if (retries < 50) {
+        retries++;
+        setTimeout(tryLoad, 100);
+      }
+      return;
+    }
+    loadShopeeShops();
+  };
+  tryLoad();
+}

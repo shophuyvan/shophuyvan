@@ -114,12 +114,68 @@ window.API_BASE = 'https://api.shophuyvan.vn';
   api.syncLazadaProducts = async (shopId) => {
     if (!shopId) return { ok: false, error: 'missing_shop_id' };
     
-    // ✅ Đảm bảo window.Admin.req tồn tại
     if (!window.Admin || !window.Admin.req) {
       throw new Error('Admin API not ready');
     }
     
     return await window.Admin.req('/admin/channels/lazada/sync-products', 'POST', {
+      shop_id: shopId
+    });
+  };
+
+  // =======================
+  // ✅ SHOPEE API Helpers
+  // =======================
+
+  api.getShopeeShops = async () => {
+    console.log('[API] Calling getShopeeShops...');
+    
+    const token = window.Admin ? window.Admin.token() : null;
+    console.log('[API] Current token exists:', !!token);
+    
+    if (!token) {
+      console.error('[API] ❌ NO TOKEN - User needs to login!');
+      throw new Error('No authentication token');
+    }
+    
+    const r = await window.Admin.req('/admin/shopee/shops');
+    console.log('[API] getShopeeShops response:', r);
+    return r?.shops || [];
+  };
+
+  api.disconnectShopeeShop = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
+    return await window.Admin.req(
+      `/admin/shopee/shops/disconnect?shop_id=${encodeURIComponent(shopId)}`,
+      'DELETE'
+    );
+  };
+
+  api.syncShopeeProducts = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
+    return await window.Admin.req('/admin/shopee/sync-products', 'POST', {
+      shop_id: shopId
+    });
+  };
+
+  api.syncShopeeOrders = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
+    return await window.Admin.req('/admin/shopee/sync-orders', 'POST', {
       shop_id: shopId
     });
   };
