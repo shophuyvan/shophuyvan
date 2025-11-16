@@ -3,6 +3,12 @@
 
 import { json, corsHeaders } from '../lib/response.js';
 import { adminOK } from '../lib/auth.js';
+import { 
+  convertShopeeProductToSHV, 
+  convertShopeeOrderToSHV,
+  saveProductToSHV,
+  saveOrderToSHV
+} from './shopee-sync.js';
 
 /**
  * Shopee API Configuration
@@ -367,15 +373,35 @@ export async function handle(req, env, ctx) {
 
         const items = detailData.response?.item_list || [];
         
-        // TODO: Lưu products vào database của hệ thống
-        // Format: Convert Shopee product -> SHV product schema
+        // ✅ Lưu products vào database của hệ thống
+        const savedProducts = [];
         
-        console.log('[Shopee] Synced products:', items.length);
+        for (const item of items) {
+          try {
+            // Convert Shopee product -> SHV product schema
+            const { product, variants } = convertShopeeProductToSHV(item);
+            
+            // Lưu vào KV
+            const result = await saveProductToSHV(env, product, variants);
+            savedProducts.push({
+              product_id: result.product_id,
+              name: product.name,
+              variants: result.variants
+            });
+            
+            console.log(`[Shopee] Saved product: ${product.name} (${result.variants} variants)`);
+          } catch (err) {
+            console.error(`[Shopee] Error saving product ${item.item_id}:`, err.message);
+          }
+        }
+        
+        console.log('[Shopee] Synced products:', savedProducts.length);
 
         return json({
           ok: true,
-          total: items.length,
-          message: `Synced ${items.length} products`
+          total: savedProducts.length,
+          products: savedProducts,
+          message: `Synced ${savedProducts.length} products`
         }, {}, req);
 
       } catch (e) {
@@ -429,15 +455,36 @@ export async function handle(req, env, ctx) {
 
         const orders = detailData.response?.order_list || [];
         
-        // TODO: Lưu orders vào database của hệ thống
-        // Format: Convert Shopee order -> SHV order schema
+        // ✅ Lưu orders vào database của hệ thống
+        const savedOrders = [];
         
-        console.log('[Shopee] Synced orders:', orders.length);
+        for (const order of orders) {
+          try {
+            // Convert Shopee order -> SHV order schema
+            const orderData = convertShopeeOrderToSHV(order);
+            
+            // Lưu vào KV
+            const result = await saveOrderToSHV(env, orderData);
+            savedOrders.push({
+              order_id: result.order_id,
+              order_number: orderData.order_number,
+              total: orderData.total,
+              status: orderData.status
+            });
+            
+            console.log(`[Shopee] Saved order: ${orderData.order_number} - ${orderData.total}đ`);
+          } catch (err) {
+            console.error(`[Shopee] Error saving order ${order.order_sn}:`, err.message);
+          }
+        }
+        
+        console.log('[Shopee] Synced orders:', savedOrders.length);
 
         return json({
           ok: true,
-          total: orders.length,
-          message: `Synced ${orders.length} orders`
+          total: savedOrders.length,
+          orders: savedOrders,
+          message: `Synced ${savedOrders.length} orders`
         }, {}, req);
 
       } catch (e) {
