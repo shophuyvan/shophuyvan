@@ -1,4 +1,4 @@
-// File: workers/shv-api/src/modules/channels.js
+// File: workers/shv-api/src/modules/channels-handler.js
 // Quản lý kênh TMDT: TikTok (sau này thêm Lazada / Shopee)
 
 import { json } from '../lib/response.js';
@@ -11,8 +11,16 @@ import { callLazadaAPI } from './lazada-api.js';
  * Helper auth admin
  */
 async function requireAdmin(req, env) {
+  console.log('[Channels][requireAdmin] Starting auth check');
+  
+  const token = req.headers.get('x-token') || req.headers.get('authorization')?.replace('Bearer ', '');
+  console.log('[Channels][requireAdmin] Token exists:', !!token);
+  
   const r = await verifyAdminAuth(req, env);
+  console.log('[Channels][requireAdmin] Auth result:', { ok: r?.ok, error: r?.error, hasAdmin: !!r?.admin });
+  
   if (!r || !r.ok) {
+    console.error('[Channels][requireAdmin] ❌ Auth failed:', r?.error || 'Unauthorized');
     return {
       error: {
         ok: false,
@@ -21,6 +29,8 @@ async function requireAdmin(req, env) {
       },
     };
   }
+  
+  console.log('[Channels][requireAdmin] ✅ Auth success, admin:', r.admin.id);
   return { admin: r.admin };
 }
 
@@ -53,6 +63,8 @@ export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
+  
+  console.log('[Channels] Handler called:', { method, path });
 
   // ===========================
   // 1) ADMIN: Lấy config TMDT
@@ -161,8 +173,11 @@ export async function handle(req, env, ctx) {
   // LAZADA: Lấy danh sách shops
   // ==========================================
   if (path === '/admin/channels/lazada/shops' && method === 'GET') {
+    console.log('[Channels][Lazada] GET /admin/channels/lazada/shops - Handler reached');
+    
     const auth = await requireAdmin(req, env);
     if (auth.error) {
+      console.error('[Channels][Lazada] Auth check failed:', auth.error);
       return json(
         { ok: false, error: auth.error.error },
         { status: auth.error.status },
@@ -170,7 +185,9 @@ export async function handle(req, env, ctx) {
       );
     }
 
+    console.log('[Channels][Lazada] Auth passed, loading shops...');
     const shops = await loadLazadaShops(env);
+    console.log('[Channels][Lazada] Loaded shops:', shops.length);
     return json(
       {
         ok: true,
@@ -470,5 +487,3 @@ export async function handle(req, env, ctx) {
     req
   );
 }
-
-
