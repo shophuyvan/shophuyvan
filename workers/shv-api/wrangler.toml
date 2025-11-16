@@ -29,6 +29,14 @@ FB_APP_ID = "786006640925553"
 FB_APP_SECRET = "8e44bb957d5eb1986f220bbd17c71542"
 
 # ============================================
+# D1 DATABASE
+# ============================================
+[[d1_databases]]
+binding = "DB"
+database_name = "shophuyvan-db"
+database_id = "d9c52d1d-bcb8-41c3-9324-5fa2d6c58560"
+
+# ============================================
 # CRON TRIGGERS FOR AUTOMATION
 # ============================================
 # Chạy automation tasks mỗi giờ vào phút 0

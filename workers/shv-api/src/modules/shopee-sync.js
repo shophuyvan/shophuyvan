@@ -320,31 +320,120 @@ export function prepareSHVPriceUpdateForShopee(variantData) {
 /**
  * Lưu product vào KV/D1
  */
-export async function saveProductToSHV(env, productData, variants) {
-  // TODO: Implement save to your database
-  // Có thể dùng KV hoặc D1 database
+export async function saveProductToD1(env, productData, variants) {
+  // ✅ Lưu vào D1 Database với UPSERT (tránh duplicate)
   
-  const productId = `shopee_${productData.shopee_item_id}`;
+  const now = Date.now();
   
-  // Save product
-  await env.SHV.put(
-    `product:${productId}`,
-    JSON.stringify(productData)
-  );
-  
-  // Save variants
-  for (const variant of variants) {
-    const variantId = `${productId}_${variant.shopee_model_id || 'default'}`;
-    await env.SHV.put(
-      `variant:${variantId}`,
-      JSON.stringify({
-        ...variant,
-        product_id: productId
-      })
-    );
+  try {
+    // 1. Insert hoặc Update product
+    const productResult = await env.DB.prepare(`
+      INSERT INTO products (
+        title, slug, shortDesc, desc, category_slug,
+        images, status, on_website, on_mini,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(slug) DO UPDATE SET
+        title = excluded.title,
+        shortDesc = excluded.shortDesc,
+        desc = excluded.desc,
+        images = excluded.images,
+        status = excluded.status,
+        updated_at = excluded.updated_at
+      RETURNING id
+    `).bind(
+      productData.name,
+      productData.slug,
+      productData.description?.substring(0, 200) || '',
+      productData.description || '',
+      productData.category_slug || null,
+      JSON.stringify(productData.images),
+      productData.status,
+      1, // on_website
+      1, // on_mini
+      now,
+      now
+    ).first();
+    
+    const productId = productResult.id;
+    
+    // 2. Insert hoặc Update variants
+    const savedVariants = [];
+    
+    for (const variant of variants) {
+      const variantResult = await env.DB.prepare(`
+        INSERT INTO variants (
+          product_id, sku, name,
+          price, price_sale, stock, weight,
+          image, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(sku) DO UPDATE SET
+          name = excluded.name,
+          price = excluded.price,
+          price_sale = excluded.price_sale,
+          stock = excluded.stock,
+          weight = excluded.weight,
+          image = excluded.image,
+          status = excluded.status,
+          updated_at = excluded.updated_at
+        RETURNING id
+      `).bind(
+        productId,
+        variant.sku,
+        variant.name,
+        variant.price,
+        variant.compare_at_price,
+        variant.stock,
+        variant.weight,
+        variant.image || null,
+        variant.status,
+        now,
+        now
+      ).first();
+      
+      const variantId = variantResult.id;
+      
+      // 3. Lưu mapping Shopee ↔ Variant
+      await env.DB.prepare(`
+        INSERT INTO channel_products (
+          channel, channel_item_id, channel_model_id, channel_sku,
+          product_id, variant_id,
+          channel_price, channel_price_sale,
+          is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(channel, channel_item_id, channel_model_id) DO UPDATE SET
+          channel_sku = excluded.channel_sku,
+          variant_id = excluded.variant_id,
+          channel_price = excluded.channel_price,
+          channel_price_sale = excluded.channel_price_sale,
+          updated_at = excluded.updated_at
+      `).bind(
+        'shopee',
+        productData.shopee_item_id,
+        variant.shopee_model_id || null,
+        variant.sku,
+        productId,
+        variantId,
+        variant.price,
+        variant.compare_at_price,
+        1, // is_active
+        now,
+        now
+      ).run();
+      
+      savedVariants.push({ variant_id: variantId, sku: variant.sku });
+    }
+    
+    return { 
+      product_id: productId, 
+      variants: savedVariants.length,
+      variant_details: savedVariants
+    };
+    
+  } catch (error) {
+    console.error('[Shopee Sync] Error saving to D1:', error);
+    throw error;
   }
-  
-  return { product_id: productId, variants: variants.length };
 }
 
 /**

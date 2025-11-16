@@ -6,7 +6,7 @@ import { adminOK } from '../lib/auth.js';
 import { 
   convertShopeeProductToSHV, 
   convertShopeeOrderToSHV,
-  saveProductToSHV,
+  saveProductToD1,
   saveOrderToSHV
 } from './shopee-sync.js';
 
@@ -349,29 +349,65 @@ export async function handle(req, env, ctx) {
       }
 
       try {
-        // Lấy danh sách sản phẩm từ Shopee
+        // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm từ Shopee
         const itemListPath = '/api/v2/product/get_item_list';
-        const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
-          offset: 0,
-          page_size: 50,
-          item_status: 'NORMAL' // ✅ PHẢI LÀ STRING, không phải array
-        });
-
-        const itemIds = itemListData.response?.item?.map(i => i.item_id) || [];
         
-        if (itemIds.length === 0) {
+        let allItemIds = [];
+        let offset = 0;
+        let hasNextPage = true;
+        
+        // Loop để lấy hết tất cả products
+        while (hasNextPage) {
+          const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
+            offset: offset,
+            page_size: 50,
+            item_status: 'NORMAL'
+          });
+          
+          const items = itemListData.response?.item || [];
+          const itemIds = items.map(i => i.item_id);
+          allItemIds.push(...itemIds);
+          
+          // Check có trang tiếp không
+          const totalCount = itemListData.response?.total_count || 0;
+          hasNextPage = itemListData.response?.has_next_page || false;
+          offset = itemListData.response?.next_offset || (offset + 50);
+          
+          console.log(`[Shopee] Fetched ${items.length} items (offset: ${offset - 50}, total so far: ${allItemIds.length}/${totalCount})`);
+          
+          // Safety: Tránh infinite loop
+          if (offset > 1000) {
+            console.warn('[Shopee] Reached safety limit (1000 items)');
+            break;
+          }
+        }
+        
+        if (allItemIds.length === 0) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
-
-        // Lấy chi tiết sản phẩm (tối đa 50 items/lần)
-        const detailPath = '/api/v2/product/get_item_base_info';
-        const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
-          item_id_list: itemIds.slice(0, 50).join(','), // ✅ LIMIT 50
-          need_tax_info: false,
-          need_complaint_policy: false
-        });
-
-        const items = detailData.response?.item_list || [];
+        
+        console.log(`[Shopee] Total items to fetch details: ${allItemIds.length}`);
+        
+        // ✅ Lấy chi tiết sản phẩm theo batch 50 items/lần
+        let allItems = [];
+        
+        for (let i = 0; i < allItemIds.length; i += 50) {
+          const batch = allItemIds.slice(i, i + 50);
+          
+          const detailPath = '/api/v2/product/get_item_base_info';
+          const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
+            item_id_list: batch.join(','),
+            need_tax_info: false,
+            need_complaint_policy: false
+          });
+          
+          const items = detailData.response?.item_list || [];
+          allItems.push(...items);
+          
+          console.log(`[Shopee] Fetched details for batch ${Math.floor(i/50) + 1}: ${items.length} items`);
+        }
+        
+        const items = allItems;
         
         // ✅ Lưu products vào database của hệ thống
         const savedProducts = [];
@@ -381,8 +417,8 @@ export async function handle(req, env, ctx) {
             // Convert Shopee product -> SHV product schema
             const { product, variants } = convertShopeeProductToSHV(item);
             
-            // Lưu vào KV
-            const result = await saveProductToSHV(env, product, variants);
+            // Lưu vào D1
+            const result = await saveProductToD1(env, product, variants);
             savedProducts.push({
               product_id: result.product_id,
               name: product.name,
