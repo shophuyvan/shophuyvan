@@ -411,6 +411,11 @@ export async function handle(req, env, ctx) {
         
         const items = allItems;
         
+        // ✅ DEBUG: Log 1 product mẫu để xem structure
+        if (items.length > 0) {
+          console.log('[DEBUG] Sample product from Shopee:', JSON.stringify(items[0], null, 2));
+        }
+        
         // ✅ Lưu products vào database của hệ thống
         const savedProducts = [];
         
