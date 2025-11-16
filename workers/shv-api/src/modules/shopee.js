@@ -106,9 +106,9 @@ async function callShopeeAPI(env, method, path, shopData, params = null) {
   const response = await fetch(url.toString(), options);
   const data = await response.json();
   
-  console.log('[Shopee API] Response:', data);
-  
+  // ✅ CHỈ LOG ERROR, KHÔNG LOG SUCCESS RESPONSE (tiết kiệm log quota)
   if (!response.ok || data.error) {
+    console.error('[Shopee API] Error Response:', data);
     throw new Error(data.message || data.error || 'Shopee API error');
   }
 
@@ -364,6 +364,7 @@ export async function handle(req, env, ctx) {
             item_status: 'NORMAL'
           });
           
+          // ✅ TẮT LOG RESPONSE ĐỂ TIẾT KIỆM QUOTA
           const items = itemListData.response?.item || [];
           const itemIds = items.map(i => i.item_id);
           allItemIds.push(...itemIds);
