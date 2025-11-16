@@ -417,26 +417,35 @@ export async function handle(req, env, ctx) {
          console.log(`[Shopee] Fetched details for batch ${Math.floor(i/BATCH_SIZE) + 1}: ${items.length} items`);
         }
         
-        // ✅ BỔ SUNG: Lấy variants + giá + stock cho từng product
-        console.log('[Shopee] Fetching variants, price & stock for all products...');
+        // ✅ BỔ SUNG: Lấy variants + giá + stock CHỈ cho products CÓ has_model = true
+        console.log('[Shopee] Fetching variants, price & stock for products with variants...');
         
         for (let item of allItems) {
           try {
-            // Gọi API get_model_list để lấy variants
-            const modelPath = '/api/v2/product/get_model_list';
-            const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
-              item_id: item.item_id
-            });
-            
-            // Gắn variants vào item
-            item.model_list = modelData.response?.model || [];
-            item.price_info = modelData.response?.price_info || [];
-            item.stock_info_v2 = modelData.response?.stock_info_v2 || {};
+            // ✅ KIỂM TRA has_model TRƯỚC KHI GỌI API
+            if (item.has_model === true) {
+              // Gọi API get_model_list để lấy variants
+              const modelPath = '/api/v2/product/get_model_list';
+              const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
+                item_id: item.item_id
+              });
+              
+              // Gắn variants vào item
+              item.model_list = modelData.response?.model || [];
+              item.price_info = modelData.response?.price_info || [];
+              item.stock_info_v2 = modelData.response?.stock_info_v2 || {};
+            } else {
+              // ❌ Product KHÔNG CÓ variants - Để trống
+              item.model_list = [];
+              item.price_info = [];
+              item.stock_info_v2 = {};
+            }
             
             // Debug log cho item đầu tiên
             if (allItems.indexOf(item) === 0) {
-              console.log('[DEBUG] First product with variants:', {
+              console.log('[DEBUG] First product:', {
                 item_id: item.item_id,
+                has_model: item.has_model,
                 model_count: item.model_list.length,
                 has_price_info: item.price_info.length > 0,
                 has_stock_info: !!item.stock_info_v2.stock_breakdown_by_location

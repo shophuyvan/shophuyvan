@@ -42,7 +42,8 @@ export function convertShopeeProductToSHV(shopeeProduct) {
   // Convert variants
   const variants = [];
   
-  if (shopeeProduct.model?.length > 0) {
+  // ✅ CHỈ lấy variants KHI has_model = true
+  if (shopeeProduct.has_model === true && shopeeProduct.model?.length > 0) {
     // Sản phẩm có biến thể
     shopeeProduct.model.forEach(model => {
       variants.push({
@@ -72,7 +73,7 @@ export function convertShopeeProductToSHV(shopeeProduct) {
       });
     });
   } else {
-    // Sản phẩm không có biến thể - tạo 1 variant mặc định
+    // ❌ Sản phẩm KHÔNG CÓ biến thể - Tạo 1 variant với giá/stock = 0
     variants.push({
       shopee_model_id: null,
       shopee_model_sku: shopeeProduct.item_sku,
@@ -80,17 +81,15 @@ export function convertShopeeProductToSHV(shopeeProduct) {
       name: baseProduct.name,
       sku: shopeeProduct.item_sku || `SP-${shopeeProduct.item_id}`,
       
-      // ✅ Pricing
-      price: shopeeProduct.price_info?.original_price || 0,
-      compare_at_price: shopeeProduct.price_info?.current_price || 0,
-      
-      // ✅ Stock
-      stock: shopeeProduct.stock_info_v2?.current_stock || 0,
+      // ✅ Giá & Stock = 0 (sẽ sync sau)
+      price: 0,
+      compare_at_price: 0,
+      stock: 0,
       
       // ✅ Weight
       weight: shopeeProduct.weight || 0,
       
-      status: shopeeProduct.stock_info_v2?.current_stock > 0 ? 'active' : 'out_of_stock',
+      status: 'active',
       image: baseProduct.images[0] || '',
     });
   }
