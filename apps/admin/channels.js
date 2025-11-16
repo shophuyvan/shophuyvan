@@ -255,13 +255,11 @@ if (lzStatus === 'success') {
   
   // ✅ THÊM: Load Shopee shops
   tryLoadShopeeShops();
-}); // Kết thúc DOMContentLoaded
-
 // ============================================
-// SHOPEE FUNCTIONS
-// ============================================
+  // SHOPEE FUNCTIONS (✅ DI CHUYỂN VÀO TRONG DOMContentLoaded)
+  // ============================================
 
-async function loadShopeeShops() {
+  async function loadShopeeShops() {
   console.log('[Shopee][DEBUG] Starting loadShopeeShops...');
   
   try {
@@ -277,6 +275,9 @@ async function loadShopeeShops() {
 }
 
 function renderShopeeShops(shops) {
+  const root = document.getElementById('channelsRoot'); // ✅ THÊM DÒNG NÀY
+  if (!root) return;
+  
   const emptyEl = root.querySelector('#shopeeShopsEmpty');
   if (!emptyEl) return;
   
@@ -383,17 +384,18 @@ if (spStatus === 'success') {
 }
 
 // Load Shopee shops with retry
-function tryLoadShopeeShops() {
-  let retries = 0;
-  const tryLoad = () => {
-    if (!window.SHARED || !window.SHARED.api) {
-      if (retries < 50) {
-        retries++;
-        setTimeout(tryLoad, 100);
+  function tryLoadShopeeShops() {
+    let retries = 0;
+    const tryLoad = () => {
+      if (!window.SHARED || !window.SHARED.api) {
+        if (retries < 50) {
+          retries++;
+          setTimeout(tryLoad, 100);
+        }
+        return;
       }
-      return;
-    }
-    loadShopeeShops();
-  };
-  tryLoad();
-}
+      loadShopeeShops();
+    };
+    tryLoad();
+  }
+}); // ✅ KẾT THÚC DOMContentLoaded Ở ĐÂY
