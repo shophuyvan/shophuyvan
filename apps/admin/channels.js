@@ -291,8 +291,11 @@ function renderShopeeShops(shops) {
               <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn success btn-sm" onclick="syncShopeeProducts('${shop.shop_id}')">
+                📦 Đồng bộ sản phẩm
+              </button>
               <button class="btn primary btn-sm" onclick="syncShopeeStock('${shop.shop_id}')">
-                📦 Đồng bộ tồn kho
+                📊 Đồng bộ tồn kho
               </button>
               <button class="btn primary btn-sm" onclick="syncShopeeOrders('${shop.shop_id}')">
                 Đồng bộ đơn hàng
@@ -307,6 +310,31 @@ function renderShopeeShops(shops) {
     </div>
   `;
 }
+
+window.syncShopeeProducts = async function(shopId) {
+  if (!confirm('📦 Đồng bộ sản phẩm từ Shopee?\n\nThao tác này sẽ tải tất cả sản phẩm từ Shopee về hệ thống.')) return;
+  
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Đang đồng bộ...';
+  
+  try {
+    const res = await window.SHARED.api.syncShopeeProducts(shopId);
+    
+    if (res.ok) {
+      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!\n\nBây giờ có thể đồng bộ tồn kho.`);
+      location.reload();
+    } else {
+      alert('❌ Lỗi: ' + (res.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('❌ Lỗi đồng bộ: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+};
 
 window.syncShopeeStock = async function(shopId) {
   if (!confirm('📦 Đồng bộ tồn kho từ Shopee về Website?\n\nLưu ý: Tồn kho trên Shopee sẽ là chuẩn.')) return;
