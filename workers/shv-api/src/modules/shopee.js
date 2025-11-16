@@ -348,7 +348,7 @@ export async function handle(req, env, ctx) {
         const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
           offset: 0,
           page_size: 50,
-          item_status: ['NORMAL', 'BANNED', 'DELETED', 'UNLIST'] // ✅ LẤY TẤT CẢ STATUS
+          item_status: 'NORMAL' // ✅ PHẢI LÀ STRING, không phải array
         });
 
         const itemIds = itemListData.response?.item?.map(i => i.item_id) || [];
