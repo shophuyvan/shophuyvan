@@ -45,6 +45,11 @@ export async function handle(req, env, ctx) {
     }
     return getProductById(req, env, id);
   }
+  // ✅ NEW: Get product channels mapping
+  if (path.match(/^\/api\/products\/[^\/]+\/channels$/) && method === 'GET') {
+    const id = decodeURIComponent(path.split('/')[3]);
+    return getProductChannels(req, env, id);
+  }
 
   // Public: Get product by ID (alternative path)
   if (path.startsWith('/public/products/') && method === 'GET') {
@@ -161,90 +166,64 @@ export async function handle(req, env, ctx) {
     }
 
 /**
- * Build products list from KV
+ * Build products list from D1
  */
 async function listProducts(env) {
-  const LIST_KEY = 'products:list';
-  const DETAIL_PREFIX = 'product:';
-  console.log('[listProducts] 🚀 Bắt đầu...'); // LOG MỚI
+  console.log('[listProducts] 🚀 Đọc từ D1...');
+  
+  try {
+    // Query tất cả products (chỉ lấy summary fields)
+    const products = await env.DB.prepare(`
+      SELECT 
+        id, title, slug, shortDesc, category_slug,
+        images, status, on_website, on_mini,
+        created_at, updated_at
+      FROM products
+      ORDER BY created_at DESC
+    `).all();
 
-  try { // THÊM TRY...CATCH BAO QUANH
-    // Try to get cached list first
-    console.log(`[listProducts] Đang đọc danh sách cache: ${LIST_KEY}`); // LOG MỚI
-    let list = null;
-    try { // TRY...CATCH RIÊNG CHO getJSON LIST
-      list = await getJSON(env, LIST_KEY, null);
-    } catch (e) {
-      console.error(`[listProducts] ❌ Lỗi khi đọc danh sách cache ${LIST_KEY}:`, e.message); // LOG MỚI
-      list = null; // Đảm bảo list là null nếu lỗi
+    if (!products.results || products.results.length === 0) {
+      console.log('[listProducts] ⚠️ Không có sản phẩm nào');
+      return [];
     }
 
-    if (list && Array.isArray(list) && list.length > 0) {
-      console.log(`[listProducts] ✅ Trả về ${list.length} sản phẩm từ cache`); // LOG MỚI
-      return list;
-    } else {
-      console.log(`[listProducts] ⚠️ Cache trống hoặc không hợp lệ, sẽ tạo lại từ chi tiết`); // LOG MỚI
-    }
+    console.log(`[listProducts] ✅ Tìm thấy ${products.results.length} sản phẩm`);
 
-    // Fallback: build from individual product keys
-    const items = [];
-    let cursor = undefined; // KHỞI TẠO CURSOR = undefined
-
-    console.log(`[listProducts] 🔍 Bắt đầu liệt kê các key có tiền tố '${DETAIL_PREFIX}'`); // LOG MỚI
-    let iteration = 0; // Đếm số lần lặp
-
-    do {
-      iteration++;
-      console.log(`[listProducts]   - Lần lặp ${iteration}, cursor: ${cursor ? '...' : 'none'}`); // LOG MỚI
-      let result = null;
-      try { // TRY...CATCH RIÊNG CHO LIST KEYS
-        result = await env.SHV.list({ prefix: DETAIL_PREFIX, cursor: cursor });
-      } catch (e) {
-        console.error(`[listProducts] ❌ Lỗi khi liệt kê key (lần lặp ${iteration}):`, e.message); // LOG MỚI
-        throw new Error(`Lỗi khi liệt kê key KV: ${e.message}`); // Ném lỗi để dừng lại
-      }
-
-      console.log(`[listProducts]   - Tìm thấy ${result.keys.length} key, list_complete: ${result.list_complete}`); // LOG MỚI
-
-      for (const key of result.keys) {
-        try { // TRY...CATCH RIÊNG CHO getJSON DETAIL
-          const product = await getJSON(env, key.name, null);
-          if (product) {
-            product.id = product.id || key.name.slice(DETAIL_PREFIX.length);
-            items.push(toSummary(product));
-          } else {
-            console.warn(`[listProducts]     - ⚠️ Dữ liệu cho key ${key.name} bị trống`); // LOG MỚI
-          }
-        } catch (e) {
-          console.error(`[listProducts]     - ❌ Lỗi khi đọc sản phẩm ${key.name}:`, e.message); // LOG MỚI
-          continue; // Bỏ qua sản phẩm lỗi
-        }
-      }
-
-      cursor = result.list_complete ? null : result.cursor;
-    } while (cursor);
-
-    console.log(`[listProducts] ✅ Đã tạo lại ${items.length} sản phẩm từ chi tiết`); // LOG MỚI
-
-    // Cache the list
-    if (items.length > 0) {
-      try { // TRY...CATCH RIÊNG CHO putJSON LIST
-        console.log(`[listProducts] 💾 Đang lưu danh sách đã tạo vào cache ${LIST_KEY}`); // LOG MỚI
-        await putJSON(env, LIST_KEY, items);
-        console.log(`[listProducts] ✅ Lưu cache thành công`); // LOG MỚI
-      } catch (e) {
-        console.error(`[listProducts] ❌ Lỗi khi lưu cache:`, e.message); // LOG MỚI
-        // Không ném lỗi, vẫn trả về danh sách đã tạo
-      }
-    }
+    // Convert sang format summary (tương thích với code cũ)
+    const items = products.results.map(p => {
+      // Parse JSON fields
+      const images = p.images ? JSON.parse(p.images) : [];
+      
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        category_slug: p.category_slug,
+        status: p.status === 'active' ? 1 : 0,
+        
+        // Placeholder fields (sẽ được override khi load full product)
+        price_display: 0,
+        compare_at_display: null,
+        price: 0,
+        stock: 0,
+        sold: 0,
+        rating: 5.0,
+        rating_count: 0,
+        
+        created_at: p.created_at,
+        updated_at: p.updated_at
+      };
+    });
 
     return items;
 
-  } catch (e) { // CATCH CHO TOÀN BỘ HÀM
-    console.error(`[listProducts] 💥 Xảy ra lỗi nghiêm trọng:`, e); // LOG MỚI
-throw e; // Ném lại lỗi để hàm gọi (listAdminProducts) bắt được và trả về 500
+  } catch (e) {
+    console.error('[listProducts] 💥 Lỗi D1:', e);
+    throw e;
   }
-} 
+}
 
 /**
  * ✅ Category matching helper (FIXED)
@@ -413,40 +392,64 @@ function computeDisplayPrice(product, tier) {
 
 async function getProductById(req, env, productId) {
   try {
-    // Try to get from KV directly
-    let product = await getJSON(env, 'product:' + productId, null);
+    console.log('[getProductById] 🔍 Tìm product:', productId);
+    
+    // Query product từ D1
+    const productResult = await env.DB.prepare(`
+      SELECT * FROM products WHERE id = ? OR slug = ?
+    `).bind(productId, productId).first();
 
-    if (!product) {
-      // Fallback: search in list
-      const list = await listProducts(env);
-      product = list.find(p => String(p.id || p.key || '') === String(productId));
-
-      if (product) {
-        // Try to get full version from KV
-        const cached = await getJSON(env, 'product:' + product.id, null);
-        if (cached) product = cached;
-      }
-    }
-
-    if (!product) {
+    if (!productResult) {
       return json({ 
         ok: false, 
         error: 'Product not found' 
       }, { status: 404 }, req);
     }
 
+    // Parse JSON fields
+    const product = {
+      ...productResult,
+      images: productResult.images ? JSON.parse(productResult.images) : [],
+      keywords: productResult.keywords ? JSON.parse(productResult.keywords) : [],
+      faq: productResult.faq ? JSON.parse(productResult.faq) : [],
+      reviews: productResult.reviews ? JSON.parse(productResult.reviews) : []
+    };
+
+    // Query variants của product này
+    const variantsResult = await env.DB.prepare(`
+      SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
+    `).bind(product.id).all();
+
+    product.variants = (variantsResult.results || []).map(v => ({
+      id: v.id,
+      sku: v.sku,
+      name: v.name,
+      price: v.price,
+      price_sale: v.price_sale,
+      price_wholesale: v.price_wholesale,
+      cost_price: v.cost_price,
+      price_silver: v.price_silver,
+      price_gold: v.price_gold,
+      price_diamond: v.price_diamond,
+      stock: v.stock,
+      weight: v.weight,
+      weight_gram: v.weight,
+      weight_grams: v.weight,
+      status: v.status,
+      image: v.image,
+      created_at: v.created_at,
+      updated_at: v.updated_at
+    }));
+
+    console.log(`[getProductById] ✅ Tìm thấy product với ${product.variants.length} variants`);
+
     // ⚡ CHECK FLASH SALE
     const flashSaleInfo = await getFlashSaleForProduct(env, product.id);
     
-    // ✅ Đảm bảo variants có weight + apply Flash Sale
+    // ✅ Apply Flash Sale cho variants
     if (Array.isArray(product.variants)) {
       product.variants = product.variants.map(v => {
-        let variant = {
-          ...v,
-          weight_gram: v.weight_gram || 0,
-          weight_grams: v.weight_grams || 0,
-          weight: v.weight || 0
-        };
+        let variant = { ...v };
         
         // ⚡ Apply Flash Sale discount
         if (flashSaleInfo) {
@@ -496,6 +499,7 @@ async function getProductById(req, env, productId) {
       data: priced    // Dùng cho các endpoint khác
     }, {}, req);
   } catch (e) {
+    console.error('[getProductById] ❌ Lỗi:', e);
     return errorResponse(e, 500, req);
   }
 }
@@ -506,25 +510,58 @@ async function getProductById(req, env, productId) {
 
 async function listPublicProducts(req, env) {
   try {
-    // Lấy danh sách summary (id, title, ...)
+    // Lấy danh sách summary
     const list = await listProducts(env);
     const actives = list.filter(p => p.status !== 0);
 
-    // 🔥 Nạp FULL từ KV theo từng id để có variants
+    // 🔥 Nạp FULL từ D1 theo từng id để có variants
     const full = [];
     for (const s of actives) {
-      const id = String(s.id || s.key || '');
-      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      full.push(p || s); // nếu thiếu full thì dùng summary
+      const id = Number(s.id);
+      if (!id) {
+        full.push(s);
+        continue;
+      }
+
+      // Query product + variants từ D1
+      const productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE id = ?
+      `).bind(id).first();
+
+      if (!productResult) {
+        full.push(s);
+        continue;
+      }
+
+      const variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
+      `).bind(id).all();
+
+      const product = {
+        ...productResult,
+        images: productResult.images ? JSON.parse(productResult.images) : [],
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      full.push(product);
     }
 
     // Tính giá từ variants
-    const tier  = getCustomerTier(req);
+    const tier = getCustomerTier(req);
     const items = full.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
 
     console.log('[PRICE] listPublicProducts', { tier, count: items.length, sample: { id: items[0]?.id, price: items[0]?.price_display } });
     return json({ ok: true, items }, {}, req);
   } catch (e) {
+    console.error('[listPublicProducts] Error:', e);
     return errorResponse(e, 500, req);
   }
 }
@@ -553,13 +590,45 @@ async function listPublicProductsFiltered(req, env) {
     // Chỉ lấy sản phẩm active
     items = items.filter(p => p.status !== 0);
 
-    // 🔥 Nạp FULL từ KV cho các item hiển thị (sau filter)
+    // 🔥 Nạp FULL từ D1 cho các item hiển thị (sau filter)
     const limited = items.slice(0, limit);
     const full = [];
     for (const s of limited) {
-      const id = String(s.id || s.key || '');
-      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      full.push(p || s);
+      const id = Number(s.id);
+      if (!id) {
+        full.push(s);
+        continue;
+      }
+
+      // Query product + variants từ D1
+      const productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE id = ?
+      `).bind(id).first();
+
+      if (!productResult) {
+        full.push(s);
+        continue;
+      }
+
+      const variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
+      `).bind(id).all();
+
+      const product = {
+        ...productResult,
+        images: productResult.images ? JSON.parse(productResult.images) : [],
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      full.push(product);
     }
 
     // Tính giá từ variants
@@ -607,35 +676,51 @@ async function getAdminProduct(req, env) {
   }
 
   try {
-    let product = null;
+    console.log('[getAdminProduct] 🔍 Query:', { id, slug });
 
-    // Try to get by ID first
+    // Query product từ D1 (by ID hoặc slug)
+    let productResult;
     if (id) {
-      product = await getJSON(env, 'product:' + id, null);
+      productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE id = ?
+      `).bind(id).first();
+    } else if (slug) {
+      productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE slug = ?
+      `).bind(slug).first();
     }
 
-    // Fallback: search by slug
-    if (!product && slug) {
-      const list = await listProducts(env);
-      const item = list.find(p => p.slug === slug);
-      if (item) {
-        product = await getJSON(env, 'product:' + item.id, null);
-      }
-    }
-
-    if (!product) {
+    if (!productResult) {
       return json({ 
         ok: false, 
         error: 'Product not found' 
       }, { status: 404 }, req);
     }
 
+    // Parse JSON fields
+    const product = {
+      ...productResult,
+      images: productResult.images ? JSON.parse(productResult.images) : [],
+      keywords: productResult.keywords ? JSON.parse(productResult.keywords) : [],
+      faq: productResult.faq ? JSON.parse(productResult.faq) : [],
+      reviews: productResult.reviews ? JSON.parse(productResult.reviews) : []
+    };
+
+    // Query variants
+    const variantsResult = await env.DB.prepare(`
+      SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
+    `).bind(product.id).all();
+
+    product.variants = variantsResult.results || [];
+
+    console.log('[getAdminProduct] ✅ Found product with', product.variants.length, 'variants');
+
     return json({ ok: true, data: product }, {}, req);
   } catch (e) {
+    console.error('[getAdminProduct] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
-
 // ===================================================================
 // ADMIN: Upsert Product
 // ===================================================================
@@ -647,15 +732,18 @@ async function upsertProduct(req, env) {
 
   try {
     const incoming = await readBody(req) || {};
+    console.log('💾 Upsert product D1:', incoming.id || 'new');
 
-    // 1) Bảo đảm có id
-    const id = (incoming.id && String(incoming.id).trim()) || crypto.randomUUID().replace(/-/g, '');
-    incoming.id = id;
+    const now = Date.now();
+    let productId = incoming.id ? Number(incoming.id) : null;
+    
+    // 1) Load bản cũ từ D1 (nếu đang sửa)
+    let old = null;
+    if (productId) {
+      old = await env.DB.prepare(`SELECT * FROM products WHERE id = ?`).bind(productId).first();
+    }
 
-    // 2) Load bản cũ (nếu có) để MERGE an toàn
-    const old = await getJSON(env, 'product:' + id, null) || null;
-
-    // 3) Chuẩn hoá slug/category_slug
+    // 2) Chuẩn hóa slug/category_slug
     if (!incoming.slug && (incoming.title || incoming.name)) {
       incoming.slug = slugify(incoming.title || incoming.name);
     }
@@ -663,147 +751,170 @@ async function upsertProduct(req, env) {
       incoming.category_slug = toSlug(incoming.category);
     }
 
-    // 4) Merge variants theo id (không reset nếu không gửi mới)
-    function mergeVariants(oldVars, newVars) {
-      const ov = Array.isArray(oldVars) ? oldVars : [];
-      const nv = Array.isArray(newVars) ? newVars : null; // nếu null → giữ nguyên ov
+    // 3) Prepare product data
+    const productData = {
+      title: incoming.title || incoming.name || 'Untitled',
+      slug: incoming.slug || slugify(incoming.title || incoming.name || 'untitled'),
+      shortDesc: incoming.shortDesc || incoming.short_description || '',
+      desc: incoming.desc || incoming.description || '',
+      category_slug: incoming.category_slug || null,
+      seo_title: incoming.seo_title || null,
+      seo_desc: incoming.seo_desc || null,
+      keywords: incoming.keywords ? JSON.stringify(incoming.keywords) : '[]',
+      faq: incoming.faq ? JSON.stringify(incoming.faq) : '[]',
+      reviews: incoming.reviews ? JSON.stringify(incoming.reviews) : '[]',
+      images: incoming.images ? JSON.stringify(incoming.images) : '[]',
+      video: incoming.video || null,
+      status: incoming.status || 'active',
+      on_website: incoming.on_website !== undefined ? incoming.on_website : 1,
+      on_mini: incoming.on_mini !== undefined ? incoming.on_mini : 1,
+      created_at: old ? old.created_at : now,
+      updated_at: now
+    };
 
-      if (!nv) return ov.slice();
-
-      const byId = new Map();
-      for (const v of ov) {
-        const key = String(v?.id ?? v?.sku ?? '');
-        if (key) byId.set(key, v);
-      }
-
-      const out = [];
-      for (const v of nv) {
-        const key = String(v?.id ?? v?.sku ?? '');
-        if (key && byId.has(key)) {
-          // merge giữ số liệu cũ phía variant nếu FE không gửi
-          const prev = byId.get(key);
-          out.push({ ...prev, ...v });
-        } else {
-          out.push({ ...v });
-        }
-      }
-      return out;
-    }
-
-    // 5) Danh sách TRƯỜNG THỐNG KÊ/ĐỌC-CHỈ cần bảo toàn nếu incoming không gửi
-    const readOnlyStats = [
-      'createdAt', 'created_by',
-      'sold', 'sold_count', 'sales',
-      'rating', 'rating_avg', 'rating_count',
-      'reviews', 'reviews_count'
-    ];
-
-    // Helper: xác định "rỗng"
-    const isEmptyLike = (val) => (
-      val === undefined || val === null ||
-      (Array.isArray(val) && val.length === 0) ||
-      (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)
-    );
-
-    // 6) Tao merged - UU TIEN DU LIEU CU
-    const base = old ? { ...old } : {};
-    const merged = { ...base, ...incoming };
-
-    // 6.1) BAO TOAN TRUONG THONG KE/DOC-CHI (CHAT CHE)
-    // Ket cung: Neu dang SUA (co old) thi GIU NGUYEN cac truong nay
+    // 4) Insert hoặc Update product
     if (old) {
-      for (const k of readOnlyStats) {
-        if (old[k] !== undefined && old[k] !== null) {
-          merged[k] = old[k]; // GHI DE gia tri cu, khong de incoming ghi de
-        }
-      }
-    }
-
-    // 6.2) createdAt: CHI GIU GIA TRI CU (neu co old)
-    if (old && old.createdAt) {
-      merged.createdAt = old.createdAt; // Bao toan createdAt cu
+      // UPDATE existing product
+      await env.DB.prepare(`
+        UPDATE products SET
+          title = ?, slug = ?, shortDesc = ?, desc = ?,
+          category_slug = ?, seo_title = ?, seo_desc = ?,
+          keywords = ?, faq = ?, reviews = ?,
+          images = ?, video = ?, status = ?,
+          on_website = ?, on_mini = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(
+        productData.title, productData.slug, productData.shortDesc, productData.desc,
+        productData.category_slug, productData.seo_title, productData.seo_desc,
+        productData.keywords, productData.faq, productData.reviews,
+        productData.images, productData.video, productData.status,
+        productData.on_website, productData.on_mini, productData.updated_at,
+        productId
+      ).run();
+      
+      console.log('✅ Updated product:', productId);
     } else {
-      // Neu la san pham moi (khong co old)
-      merged.createdAt = merged.createdAt || Date.now();
+      // INSERT new product
+      const result = await env.DB.prepare(`
+        INSERT INTO products (
+          title, slug, shortDesc, desc, category_slug,
+          seo_title, seo_desc, keywords, faq, reviews,
+          images, video, status, on_website, on_mini,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `).bind(
+        productData.title, productData.slug, productData.shortDesc, productData.desc,
+        productData.category_slug, productData.seo_title, productData.seo_desc,
+        productData.keywords, productData.faq, productData.reviews,
+        productData.images, productData.video, productData.status,
+        productData.on_website, productData.on_mini,
+        productData.created_at, productData.updated_at
+      ).first();
+      
+      productId = result.id;
+      console.log('✅ Inserted new product:', productId);
     }
 
-    // 6.3) updatedAt: Luon cap nhat khi save
-    merged.updatedAt = Date.now();
-
-    // 6.4) THEM: Xac dinh "san pham moi" (trong 30 ngay)
-    if (merged.createdAt) {
-      const ageMs = Date.now() - merged.createdAt;
-      const ageDays = ageMs / (1000 * 60 * 60 * 24);
-      merged.isNewProduct = ageDays <= 1; // Tu dong danh dau "moi" neu < 1 ngay
-    }
-
-    // 6.4) variants: merge theo id/sku
-    merged.variants = mergeVariants(old?.variants, incoming?.variants);
-
-    // 6.5) Dam bao can nang o variants (UU TIEN GIU GIA TRI CU)
-    if (Array.isArray(merged.variants)) {
-      const oldVariantsMap = new Map();
-      if (old && Array.isArray(old.variants)) {
-        old.variants.forEach(v => {
-          const key = String(v?.id ?? v?.sku ?? '');
-          if (key) oldVariantsMap.set(key, v);
-        });
-      }
-
-      merged.variants = merged.variants.map(v => {
-        const key = String(v?.id ?? v?.sku ?? '');
-        const oldV = key ? oldVariantsMap.get(key) : null;
-
-        // FIX: Nhan ca weight va weight_gram tu frontend
-        // Uu tien: weight_gram > weight > gia tri cu
-        let w_gram = 0;
-        
-        // Buoc 1: Lay gia tri moi tu incoming (uu tien weight_gram, roi moi den weight)
-        if (v.weight_gram !== undefined && v.weight_gram !== null && v.weight_gram !== 0) {
-          w_gram = v.weight_gram;
-        } else if (v.weight !== undefined && v.weight !== null && v.weight !== 0) {
-          w_gram = v.weight;
-        } else if (oldV) {
-          // Buoc 2: Neu khong co gia tri moi thi giu gia tri cu
-          w_gram = oldV.weight_gram || oldV.weight_grams || oldV.weight || 0;
-        }
-
-        return {
-          ...v,
-          weight_gram: w_gram,
-          weight_grams: w_gram,
-          weight: w_gram
-        };
+    // 5) Xử lý variants
+    const incomingVariants = Array.isArray(incoming.variants) ? incoming.variants : [];
+    
+    if (incomingVariants.length > 0) {
+      // Load variants hiện tại từ D1
+      const existingVariants = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ?
+      `).bind(productId).all();
+      
+      const existingMap = new Map();
+      (existingVariants.results || []).forEach(v => {
+        existingMap.set(v.id, v);
       });
+
+      // Process từng variant
+      for (const v of incomingVariants) {
+        const variantId = v.id ? Number(v.id) : null;
+        const oldVariant = variantId ? existingMap.get(variantId) : null;
+
+        // Chuẩn bị variant data
+        const variantData = {
+          product_id: productId,
+          sku: v.sku || `SKU-${productId}-${Date.now()}`,
+          name: v.name || v.title || 'Default',
+          price: Number(v.price || 0),
+          price_sale: v.price_sale ? Number(v.price_sale) : null,
+          price_wholesale: v.price_wholesale ? Number(v.price_wholesale) : null,
+          cost_price: v.cost_price ? Number(v.cost_price) : null,
+          price_silver: v.price_silver ? Number(v.price_silver) : null,
+          price_gold: v.price_gold ? Number(v.price_gold) : null,
+          price_diamond: v.price_diamond ? Number(v.price_diamond) : null,
+          stock: v.stock !== undefined ? Number(v.stock) : (oldVariant ? oldVariant.stock : 0),
+          weight: Number(v.weight || v.weight_gram || v.weight_grams || 0),
+          status: v.status || 'active',
+          image: v.image || null,
+          created_at: oldVariant ? oldVariant.created_at : now,
+          updated_at: now
+        };
+
+        if (oldVariant) {
+          // UPDATE existing variant
+          await env.DB.prepare(`
+            UPDATE variants SET
+              sku = ?, name = ?, price = ?, price_sale = ?,
+              price_wholesale = ?, cost_price = ?,
+              price_silver = ?, price_gold = ?, price_diamond = ?,
+              stock = ?, weight = ?, status = ?, image = ?,
+              updated_at = ?
+            WHERE id = ?
+          `).bind(
+            variantData.sku, variantData.name, variantData.price, variantData.price_sale,
+            variantData.price_wholesale, variantData.cost_price,
+            variantData.price_silver, variantData.price_gold, variantData.price_diamond,
+            variantData.stock, variantData.weight, variantData.status, variantData.image,
+            variantData.updated_at, variantId
+          ).run();
+        } else {
+          // INSERT new variant
+          await env.DB.prepare(`
+            INSERT INTO variants (
+              product_id, sku, name, price, price_sale,
+              price_wholesale, cost_price,
+              price_silver, price_gold, price_diamond,
+              stock, weight, status, image,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            variantData.product_id, variantData.sku, variantData.name,
+            variantData.price, variantData.price_sale,
+            variantData.price_wholesale, variantData.cost_price,
+            variantData.price_silver, variantData.price_gold, variantData.price_diamond,
+            variantData.stock, variantData.weight, variantData.status, variantData.image,
+            variantData.created_at, variantData.updated_at
+          ).run();
+        }
+      }
+      
+      console.log(`✅ Processed ${incomingVariants.length} variants`);
     }
 
-    console.log('💾 Saving product (MERGE):', {
-      id: merged.id,
-      name: merged.title || merged.name,
-      category: merged.category,
-      category_slug: merged.category_slug
-    });
+    // 6) Load lại full product để trả về
+    const saved = await env.DB.prepare(`SELECT * FROM products WHERE id = ?`).bind(productId).first();
+    const savedVariants = await env.DB.prepare(`SELECT * FROM variants WHERE product_id = ?`).bind(productId).all();
+    
+    const result = {
+      ...saved,
+      id: productId,
+      images: saved.images ? JSON.parse(saved.images) : [],
+      keywords: saved.keywords ? JSON.parse(saved.keywords) : [],
+      faq: saved.faq ? JSON.parse(saved.faq) : [],
+      reviews: saved.reviews ? JSON.parse(saved.reviews) : [],
+      variants: savedVariants.results || []
+    };
 
-    // 7) Cập nhật danh sách summary
-    const list = await listProducts(env);
-    const summary = toSummary(merged);
-    const index = list.findIndex(p => p.id === id);
-    if (index >= 0) {
-      list[index] = summary;
-    } else {
-      list.unshift(summary);
-    }
+    console.log('✅ Product saved to D1:', productId);
 
-    // 8) Lưu KV (list + detail + legacy)
-    await putJSON(env, 'products:list', list);
-    await putJSON(env, 'product:' + id, merged);
-    await putJSON(env, 'products:' + id, summary); // legacy
-
-    console.log('✅ Product saved (merged)');
-
-    return json({ ok: true, data: merged }, {}, req);
+    return json({ ok: true, data: result }, {}, req);
   } catch (e) {
-    console.error('❌ Save error (merged upsert):', e);
+    console.error('❌ Save error (D1 upsert):', e);
     return errorResponse(e, 500, req);
   }
 }
@@ -825,24 +936,30 @@ async function deleteProduct(req, env) {
       return errorResponse('Product ID is required', 400, req);
     }
 
-    // Get current list
-    const list = await listProducts(env);
-    
-    // Filter out deleted product
-    const newList = list.filter(p => p.id !== id);
+    console.log('🗑️ Deleting product from D1:', id);
 
-    // Save updated list
-    await putJSON(env, 'products:list', newList);
-    
-    // Delete from KV
-    await env.SHV.delete('product:' + id);
-    await env.SHV.delete('products:' + id);
+    // Check if product exists
+    const product = await env.DB.prepare(`
+      SELECT id FROM products WHERE id = ?
+    `).bind(id).first();
+
+    if (!product) {
+      return errorResponse('Product not found', 404, req);
+    }
+
+    // DELETE product (CASCADE sẽ tự động xóa variants, order_items, channel_products)
+    await env.DB.prepare(`
+      DELETE FROM products WHERE id = ?
+    `).bind(id).run();
+
+    console.log('✅ Product deleted:', id);
 
     return json({ ok: true, deleted: id }, {}, req);
   } catch (e) {
+    console.error('❌ Delete error:', e);
     return errorResponse(e, 500, req);
   }
-} // <<< THÊM DẤU } NÀY ĐỂ ĐÓNG HÀM deleteProduct
+}
 // ===================================================================
 // PUBLIC: Get Bestsellers (sắp xếp theo số lượng bán)
 // ===================================================================
@@ -1255,6 +1372,61 @@ async function getProductsMetricsBatch(req, env) {
 
   } catch (e) {
     console.error('[METRICS BATCH] Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// PUBLIC/ADMIN: Get Product Channels Mapping
+// ===================================================================
+
+/**
+ * Lấy danh sách channel mappings của 1 product
+ * GET /api/products/:id/channels
+ */
+async function getProductChannels(req, env, productId) {
+  try {
+    console.log('[getProductChannels] 🔍 Product:', productId);
+
+    // Query channel mappings
+    const result = await env.DB.prepare(`
+      SELECT 
+        cp.*,
+        v.sku as variant_sku,
+        v.name as variant_name
+      FROM channel_products cp
+      LEFT JOIN variants v ON cp.variant_id = v.id
+      WHERE cp.product_id = ?
+      ORDER BY cp.channel, cp.created_at DESC
+    `).bind(productId).all();
+
+    const channels = (result.results || []).map(row => ({
+      id: row.id,
+      channel: row.channel,
+      channel_item_id: row.channel_item_id,
+      channel_model_id: row.channel_model_id,
+      channel_sku: row.channel_sku,
+      variant_id: row.variant_id,
+      variant_sku: row.variant_sku,
+      variant_name: row.variant_name,
+      channel_price: row.channel_price,
+      channel_price_sale: row.channel_price_sale,
+      is_active: row.is_active,
+      last_sync_at: row.last_sync_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+
+    console.log(`[getProductChannels] ✅ Found ${channels.length} mappings`);
+
+    return json({
+      ok: true,
+      product_id: productId,
+      channels
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[getProductChannels] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }

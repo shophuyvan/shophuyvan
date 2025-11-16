@@ -54,54 +54,9 @@ async function generateSignature(partnerId, path, timestamp, accessToken, shopId
 
 /**
  * Gọi Shopee API
+ * ✅ EXPORT để dùng trong cron job
  */
-async function callShopeeAPI(env, method, path, shopData, params = null) {
-  const isTest = shopData.env === 'test';
-  const config = SHOPEE_CONFIG[shopData.env || 'live'];
-  const partnerKey = isTest ? env.SHOPEE_TEST_KEY : env.SHOPEE_LIVE_KEY;
-  
-  if (!partnerKey) {
-    throw new Error('Shopee partner key not configured');
-  }
-
-  const timestamp = Math.floor(Date.now() / 1000);
-  const accessToken = shopData.access_token || '';
-  const shopId = shopData.shop_id || '';
-  
-  const sign = await generateSignature(
-    config.partnerId,
-    path,
-    timestamp,
-    accessToken,
-    shopId,
-    partnerKey
-  );
-
-  const url = new URL(config.host + path);
-  url.searchParams.set('partner_id', config.partnerId);
-  url.searchParams.set('timestamp', timestamp);
-  url.searchParams.set('sign', sign);
-  url.searchParams.set('access_token', accessToken);
-  url.searchParams.set('shop_id', shopId);
-
-  const options = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  };
-
-  // ✅ XỬ LÝ PARAMS ĐÚNG CÁCH
-  if (method === 'GET' && params) {
-    // GET: params vào URL
-    Object.keys(params).forEach(key => {
-      url.searchParams.set(key, params[key]);
-    });
-  } else if ((method === 'POST' || method === 'PUT') && params) {
-    // POST/PUT: params vào body
-    options.body = JSON.stringify(params);
-  }
-
+export async function callShopeeAPI(env, method, path, shopData, params = null) {
   console.log('[Shopee API] Request:', method, path);
   const response = await fetch(url.toString(), options);
   const data = await response.json();
@@ -128,8 +83,9 @@ async function saveShopData(env, shopId, data) {
 
 /**
  * Lấy shop data từ KV
+ * ✅ EXPORT để dùng trong cron job
  */
-async function getShopData(env, shopId) {
+export async function getShopData(env, shopId) {
   const key = `shopee:shop:${shopId}`;
   const data = await env.SHV.get(key);
   return data ? JSON.parse(data) : null;
@@ -537,8 +493,8 @@ export async function handle(req, env, ctx) {
       }
     }
 
-    // Đồng bộ đơn hàng
-    if (path === '/admin/shopee/sync-orders' && method === 'POST') {
+    // ✅ THÊM: Đồng bộ TỒN KHO từ Shopee về Website
+    if (path === '/admin/shopee/sync-stock' && method === 'POST') {
       const body = await req.json();
       const shopId = body.shop_id;
 
@@ -552,6 +508,155 @@ export async function handle(req, env, ctx) {
       }
 
       try {
+        console.log('[Shopee Stock Sync] 🔄 Starting stock sync for shop:', shopId);
+
+        // 1️⃣ Lấy list items từ Shopee
+        const itemListPath = '/api/v2/product/get_item_list';
+        let allItemIds = [];
+        let offset = 0;
+        let hasNextPage = true;
+        
+        while (hasNextPage) {
+          const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
+            offset: offset,
+            page_size: 50,
+            item_status: 'NORMAL'
+          });
+          
+          const items = itemListData.response?.item || [];
+          const itemIds = items.map(i => i.item_id);
+          allItemIds.push(...itemIds);
+          
+          hasNextPage = itemListData.response?.has_next_page || false;
+          offset = itemListData.response?.next_offset || (offset + 50);
+          
+          console.log(`[Shopee Stock] Fetched ${items.length} items (total: ${allItemIds.length})`);
+          
+          if (offset > 1000) break; // Safety limit
+        }
+        
+        if (allItemIds.length === 0) {
+          return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
+        }
+
+        // 2️⃣ Lấy stock info từ Shopee (batch 50 items/lần)
+        const stockUpdates = [];
+        const BATCH_SIZE = 50;
+        
+        for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
+          const batch = allItemIds.slice(i, i + BATCH_SIZE);
+          
+          // Get item details với stock info
+          const detailPath = '/api/v2/product/get_item_base_info';
+          const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
+            item_id_list: batch.join(','),
+            need_stock_info: true
+          });
+          
+          const items = detailData.response?.item_list || [];
+          
+          for (const item of items) {
+            try {
+              // Check if product has variants
+              if (item.has_model === true) {
+                // Lấy stock từ model_list
+                const modelPath = '/api/v2/product/get_model_list';
+                const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
+                  item_id: item.item_id
+                });
+                
+                const models = modelData.response?.model || [];
+                
+                for (const model of models) {
+                  const shopeeStock = model.stock_info_v2?.current_stock || 0;
+                  const shopeeModelId = model.model_id;
+                  
+                  // 3️⃣ Tìm variant tương ứng trong D1
+                  const mapping = await env.DB.prepare(`
+                    SELECT variant_id 
+                    FROM channel_products 
+                    WHERE channel = 'shopee' 
+                      AND channel_item_id = ? 
+                      AND channel_model_id = ?
+                    LIMIT 1
+                  `).bind(String(item.item_id), String(shopeeModelId)).first();
+                  
+                  if (mapping && mapping.variant_id) {
+                    // 4️⃣ Update stock vào variants table
+                    await env.DB.prepare(`
+                      UPDATE variants 
+                      SET stock = ?, updated_at = ?
+                      WHERE id = ?
+                    `).bind(shopeeStock, Date.now(), mapping.variant_id).run();
+                    
+                    stockUpdates.push({
+                      variant_id: mapping.variant_id,
+                      shopee_item_id: item.item_id,
+                      shopee_model_id: shopeeModelId,
+                      old_stock: null, // Không query old stock để tiết kiệm
+                      new_stock: shopeeStock
+                    });
+                    
+                    console.log(`[Shopee Stock] ✅ Updated variant ${mapping.variant_id}: stock=${shopeeStock}`);
+                  }
+                }
+              } else {
+                // Product không có variants - lấy stock từ stock_info_v2
+                const shopeeStock = item.stock_info_v2?.current_stock || 0;
+                
+                const mapping = await env.DB.prepare(`
+                  SELECT variant_id 
+                  FROM channel_products 
+                  WHERE channel = 'shopee' 
+                    AND channel_item_id = ?
+                  LIMIT 1
+                `).bind(String(item.item_id)).first();
+                
+                if (mapping && mapping.variant_id) {
+                  await env.DB.prepare(`
+                    UPDATE variants 
+                    SET stock = ?, updated_at = ?
+                    WHERE id = ?
+                  `).bind(shopeeStock, Date.now(), mapping.variant_id).run();
+                  
+                  stockUpdates.push({
+                    variant_id: mapping.variant_id,
+                    shopee_item_id: item.item_id,
+                    shopee_model_id: null,
+                    old_stock: null,
+                    new_stock: shopeeStock
+                  });
+                  
+                  console.log(`[Shopee Stock] ✅ Updated variant ${mapping.variant_id}: stock=${shopeeStock}`);
+                }
+              }
+            } catch (err) {
+              console.error(`[Shopee Stock] Error processing item ${item.item_id}:`, err.message);
+            }
+          }
+        }
+
+        console.log('[Shopee Stock Sync] ✅ Completed:', stockUpdates.length, 'variants updated');
+
+        return json({
+          ok: true,
+          total: stockUpdates.length,
+          updates: stockUpdates,
+          message: `✅ Synced stock for ${stockUpdates.length} variants from Shopee`
+        }, {}, req);
+
+      } catch (e) {
+        console.error('[Shopee Stock Sync] ❌ Error:', e);
+        return json({
+          ok: false,
+          error: e.message || 'sync_stock_error'
+        }, { status: 500 }, req);
+      }
+    }
+
+    // Đồng bộ đơn hàng
+    if (path === '/admin/shopee/sync-orders' && method === 'POST') {
+      try {
         // Lấy danh sách đơn hàng trong 7 ngày qua
         const timeFrom = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
         const timeTo = Math.floor(Date.now() / 1000);
@@ -562,7 +667,7 @@ export async function handle(req, env, ctx) {
           time_from: timeFrom,
           time_to: timeTo,
           page_size: 100,
-          order_status: 'READY_TO_SHIP' // ✅ THÊM STATUS ĐỂ FILTER
+          order_status: 'READY_TO_SHIP'
         });
 
         const orderSns = orderListData.response?.order_list?.map(o => o.order_sn) || [];
@@ -579,7 +684,7 @@ export async function handle(req, env, ctx) {
 
         const orders = detailData.response?.order_list || [];
         
-        // ✅ Lưu orders vào database của hệ thống
+        // ✅ CHỈ LƯU ORDERS, KHÔNG TRỪ STOCK (stock sync từ Shopee)
         const savedOrders = [];
         
         for (const order of orders) {
@@ -587,7 +692,11 @@ export async function handle(req, env, ctx) {
             // Convert Shopee order -> SHV order schema
             const orderData = convertShopeeOrderToSHV(order);
             
-            // Lưu vào KV
+            // ⚠️ QUAN TRỌNG: Đánh dấu đơn từ Shopee để KHÔNG TRỪ STOCK
+            orderData.source = 'shopee';
+            orderData.skip_stock_adjustment = true; // Flag để orders.js biết
+            
+            // Lưu vào KV (hoặc D1 nếu có)
             const result = await saveOrderToSHV(env, orderData);
             savedOrders.push({
               order_id: result.order_id,
@@ -596,7 +705,7 @@ export async function handle(req, env, ctx) {
               status: orderData.status
             });
             
-            console.log(`[Shopee] Saved order: ${orderData.order_number} - ${orderData.total}đ`);
+            console.log(`[Shopee] ✅ Saved order (NO stock adjustment): ${orderData.order_number}`);
           } catch (err) {
             console.error(`[Shopee] Error saving order ${order.order_sn}:`, err.message);
           }
@@ -608,7 +717,7 @@ export async function handle(req, env, ctx) {
           ok: true,
           total: savedOrders.length,
           orders: savedOrders,
-          message: `Synced ${savedOrders.length} orders`
+          message: `Synced ${savedOrders.length} orders (stock NOT adjusted - sync from Shopee)`
         }, {}, req);
 
       } catch (e) {

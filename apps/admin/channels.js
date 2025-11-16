@@ -158,8 +158,8 @@ function renderLazadaShops(shops) {
               <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
             </div>
             <div style="display:flex;gap:8px;">
-              <button class="btn primary btn-sm" onclick="syncLazadaProducts('${shop.id}')">
-                Đồng bộ sản phẩm
+              <button class="btn primary btn-sm" onclick="syncLazadaOrders('${shop.id}')">
+                Đồng bộ đơn hàng
               </button>
               <button class="btn danger btn-sm" onclick="disconnectLazada('${shop.id}')">
                 Ngắt kết nối
@@ -172,20 +172,18 @@ function renderLazadaShops(shops) {
   `;
 }
 
-window.syncLazadaProducts = async function(shopId) {
-  if (!confirm('Đồng bộ sản phẩm từ Lazada?')) return;
+window.syncLazadaOrders = async function(shopId) {
+  if (!confirm('Đồng bộ đơn hàng từ Lazada?')) return;
   
   const btn = event.target;
   btn.disabled = true;
   btn.textContent = 'Đang đồng bộ...';
   
   try {
-    // ✅ Sử dụng API helper
-    const res = await window.SHARED.api.syncLazadaProducts(shopId);
+    const res = await window.SHARED.api.syncLazadaOrders(shopId);
     
     if (res.ok) {
-      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!`);
-      location.reload();
+      alert(`✅ Đồng bộ thành công ${res.total || 0} đơn hàng!`);
     } else {
       alert('❌ Lỗi: ' + (res.error || 'unknown'));
     }
@@ -193,7 +191,7 @@ window.syncLazadaProducts = async function(shopId) {
     alert('❌ Lỗi đồng bộ: ' + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Đồng bộ sản phẩm';
+    btn.textContent = 'Đồng bộ đơn hàng';
   }
 };
 
@@ -293,8 +291,8 @@ function renderShopeeShops(shops) {
               <div style="font-size:12px;color:#64748b;">Kết nối: ${new Date(shop.created_at).toLocaleDateString('vi-VN')}</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn primary btn-sm" onclick="syncShopeeProducts('${shop.shop_id}')">
-                Đồng bộ sản phẩm
+              <button class="btn primary btn-sm" onclick="syncShopeeStock('${shop.shop_id}')">
+                📦 Đồng bộ tồn kho
               </button>
               <button class="btn primary btn-sm" onclick="syncShopeeOrders('${shop.shop_id}')">
                 Đồng bộ đơn hàng
@@ -310,18 +308,18 @@ function renderShopeeShops(shops) {
   `;
 }
 
-window.syncShopeeProducts = async function(shopId) {
-  if (!confirm('Đồng bộ sản phẩm từ Shopee?')) return;
+window.syncShopeeStock = async function(shopId) {
+  if (!confirm('📦 Đồng bộ tồn kho từ Shopee về Website?\n\nLưu ý: Tồn kho trên Shopee sẽ là chuẩn.')) return;
   
   const btn = event.target;
   btn.disabled = true;
   btn.textContent = 'Đang đồng bộ...';
   
   try {
-    const res = await window.SHARED.api.syncShopeeProducts(shopId);
+    const res = await window.SHARED.api.syncShopeeStock(shopId);
     
     if (res.ok) {
-      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!`);
+      alert(`✅ Đồng bộ thành công ${res.total || 0} variants!\n\nTồn kho đã được cập nhật từ Shopee.`);
       location.reload();
     } else {
       alert('❌ Lỗi: ' + (res.error || 'unknown'));
@@ -330,7 +328,7 @@ window.syncShopeeProducts = async function(shopId) {
     alert('❌ Lỗi đồng bộ: ' + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Đồng bộ sản phẩm';
+    btn.textContent = '📦 Đồng bộ tồn kho';
   }
 };
 

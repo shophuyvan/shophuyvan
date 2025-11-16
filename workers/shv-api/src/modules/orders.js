@@ -222,153 +222,84 @@ function normalizeOrderItems(items) {
 
 
 /**
- * Adjust inventory (stock) by items
+ * Adjust inventory (stock) by items - D1 VERSION
  * @param {Array} items - Normalized order items
  * @param {object} env - Cloudflare env
  * @param {number} direction - -1 to decrease, +1 to increase
  */
 async function adjustInventory(items, env, direction = -1) {
-  console.log('[INV] Adjusting inventory', { itemCount: items?.length, direction });
-
-  const STOCK_KEYS = ['stock', 'ton_kho', 'quantity', 'qty_available', 'so_luong'];
-
-  const readStock = (obj) => {
-    for (const k of STOCK_KEYS) {
-      if (obj && obj[k] != null) return Number(obj[k] || 0);
-    }
-    return 0;
-  };
-
-  const writeStock = (obj, value) => {
-    for (const k of STOCK_KEYS) {
-      if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
-        obj[k] = Math.max(0, Number(value || 0));
-        return k;
-      }
-    }
-    obj['stock'] = Math.max(0, Number(value || 0));
-    return 'stock';
-  };
+  console.log('[INV] Adjusting inventory D1', { itemCount: items?.length, direction });
 
   for (const it of (items || [])) {
-    const variantId = it.id || it.variant_id || it.sku;
-    const productId = it.product_id;
+    const variantId = it.id || it.variant_id;
+    const sku = it.sku;
 
-    if (!variantId && !productId) {
-      console.warn('[INV] Skip item: no ID', it);
+    if (!variantId && !sku) {
+      console.warn('[INV] Skip item: no variant ID or SKU', it);
       continue;
     }
 
-    // Find product
-    let product = null;
-    if (productId) {
-      product = await getJSON(env, 'product:' + productId, null);
-      if (!product) product = await getJSON(env, 'products:' + productId, null);
-    }
-
-    if (!product && variantId) {
-      const list = await getJSON(env, 'products:list', []);
-      for (const s of list) {
-        const p = await getJSON(env, 'product:' + s.id, null);
-        if (!p || !Array.isArray(p.variants)) continue;
-
-        const text = String(it.variant || it.name || '').toUpperCase();
-        const ok = p.variants.some(v => {
-          const vid = String(v.id || '');
-          const vsku = String(v.sku || '');
-          const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
-          return (
-            vid === String(variantId) ||
-            vsku === String(variantId) ||
-            (it.sku && vsku === String(it.sku)) ||
-            (text && vname && text.includes(vname))
-          );
-        });
-
-        if (ok) {
-          product = p;
-          break;
-        }
+    try {
+      // Tìm variant trong D1
+      let variant = null;
+      
+      if (variantId) {
+        variant = await env.DB.prepare(`
+          SELECT * FROM variants WHERE id = ?
+        `).bind(variantId).first();
       }
-    }
+      
+      if (!variant && sku) {
+        variant = await env.DB.prepare(`
+          SELECT * FROM variants WHERE sku = ?
+        `).bind(sku).first();
+      }
 
-    if (!product) {
-      console.warn('[INV] Product not found for item', it);
-      continue;
-    }
+      if (!variant) {
+        console.warn('[INV] Variant not found:', { variantId, sku });
+        continue;
+      }
 
-    const delta = Number(it.qty || 1) * direction;
-    let touched = false;
+      const delta = Number(it.qty || 1) * direction;
+      const oldStock = Number(variant.stock || 0);
+      const newStock = Math.max(0, oldStock + delta);
 
-    // Adjust variant stock
-    if (Array.isArray(product.variants) && variantId) {
-      const text2 = String(it.variant || it.name || '').toUpperCase();
-      const v = product.variants.find(v => {
-        const vid = String(v.id || '');
-        const vsku = String(v.sku || '');
-        const vname = String(v.name || v.title || v.option_name || '').toUpperCase();
-        return (
-          vid === String(variantId) ||
-          vsku === String(variantId) ||
-          (it.sku && vsku === String(it.sku)) ||
-          (text2 && vname && text2.includes(vname))
-        );
+      // Update stock trong D1
+      await env.DB.prepare(`
+        UPDATE variants SET stock = ?, updated_at = ? WHERE id = ?
+      `).bind(newStock, Date.now(), variant.id).run();
+
+      console.log('[INV] ✅ Variant stock updated:', {
+        variantId: variant.id,
+        sku: variant.sku,
+        before: oldStock,
+        after: newStock,
+        delta
       });
 
-      if (v) {
-        const before = readStock(v);
-        const after = before + delta;
-        const keySet = writeStock(v, after);
-        console.log('[INV] Variant updated', { key: keySet, before, after, variantId });
-        touched = true;
+      // ✅ Log stock change vào stock_logs
+      await env.DB.prepare(`
+        INSERT INTO stock_logs (
+          variant_id, old_stock, new_stock, change,
+          reason, channel, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        variant.id,
+        oldStock,
+        newStock,
+        delta,
+        direction === -1 ? 'order' : 'return',
+        it.channel || 'website',
+        Date.now()
+      ).run();
 
-        // ✅ Update sold count - ĐỒNG BỘ CẢ 3 FIELD
-        const vSoldBefore = Number(v.sold || v.sold_count || v.sales || 0);
-        const vSoldAfter = Math.max(0, vSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
-        v.sold = vSoldAfter;
-        v.sold_count = vSoldAfter;
-        v.sales = vSoldAfter;
-        
-        console.log('[INV] ✅ Variant sold updated:', { variantId, before: vSoldBefore, after: vSoldAfter });
-      }
-    }
-
-    // Adjust product-level stock if variant not touched
-    if (!touched) {
-      const before = readStock(product);
-      const after = before + delta;
-      const keySet = writeStock(product, after);
-      console.log('[INV] Product stock updated', { key: keySet, before, after, productId: product.id });
-    }
-
-    // ✅ Update product sold count - ĐỒNG BỘ CẢ 3 FIELD
-    const pSoldBefore = Number(product.sold || product.sold_count || product.sales || 0);
-    const pSoldAfter = Math.max(0, pSoldBefore + (direction === -1 ? Number(it.qty || 1) : -Number(it.qty || 1)));
-    product.sold = pSoldAfter;
-    product.sold_count = pSoldAfter;
-    product.sales = pSoldAfter;
-    
-    console.log('[INV] ✅ Product sold updated:', { productId: product.id, before: pSoldBefore, after: pSoldAfter });
-
-    await putJSON(env, 'product:' + product.id, product);
-    
-    // ✅ Cập nhật luôn vào products:list để đồng bộ
-    try {
-      const list = await getJSON(env, 'products:list', []);
-      const index = list.findIndex(p => p.id === product.id);
-      if (index >= 0) {
-        list[index].sold = pSoldAfter;
-        list[index].sold_count = pSoldAfter;
-        list[index].sales = pSoldAfter;
-        await putJSON(env, 'products:list', list);
-        console.log('[INV] ✅ Updated sold in products:list cache');
-      }
-    } catch (e) {
-      console.warn('[INV] Cannot update products:list cache:', e);
+    } catch (err) {
+      console.error('[INV] Error adjusting variant:', err);
+      continue;
     }
   }
 
-  console.log('[INV] Adjustment complete');
+  console.log('[INV] Adjustment complete (D1)');
 }
 
 // ===================================================================
@@ -799,10 +730,13 @@ async function createOrder(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
-  // ✅ FIX: Adjust inventory + sold_count NGAY KHI ĐẶT HÀNG
-  if (shouldAdjustStock(order.status)) {
+  // ✅ FIX: CHỈ TRỪ STOCK CHO ĐỖN TỪ WEBSITE/MINI
+  // Orders từ Shopee (có flag skip_stock_adjustment) KHÔNG TRỪ STOCK
+  if (shouldAdjustStock(order.status) && !body.skip_stock_adjustment) {
     await adjustInventory(items, env, -1);
-    console.log('[ORDER] ✅ Đã trừ stock + tăng sold_count');
+    console.log('[ORDER] ✅ Đã trừ stock (Website/Mini order)');
+  } else if (body.skip_stock_adjustment) {
+    console.log('[ORDER] ⏭️ SKIP stock adjustment (Shopee order - stock sync from channel)');
   }
 
   // ✅ REMOVED: Không tự động tạo vận đơn, đợi admin xác nhận
@@ -878,8 +812,12 @@ async function createOrderPublic(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
-  if (shouldAdjustStock(order.status)) {
+  // ✅ CHỈ TRỪ STOCK CHO ĐƠN TỪ WEBSITE/MINI
+  if (shouldAdjustStock(order.status) && !body.skip_stock_adjustment) {
     await adjustInventory(items, env, -1);
+    console.log('[ORDER-PUBLIC] ✅ Đã trừ stock');
+  } else if (body.skip_stock_adjustment) {
+    console.log('[ORDER-PUBLIC] ⏭️ SKIP stock adjustment (Channel order)');
   }
 
   // ✅ FIX: Only add points when order is COMPLETED, not just confirmed

@@ -96,6 +96,34 @@ Mô tả ngắn gọn...
   ⚠️ <strong>Lưu ý:</strong> Giá bán, giá sale, giá sỉ, tồn kho phải nhập ở từng <strong>Biến thể</strong> bên dưới
     </div>
 
+    <!-- ✅ THÊM: Kênh bán hàng -->
+    <div class="card" style="padding:16px;margin-bottom:16px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <label style="font-weight:600;font-size:15px;margin-bottom:12px;display:block">🛒 Kênh bán hàng</label>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="channel_website" checked/>
+          <span>🌐 Website</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="channel_mini" checked/>
+          <span>📱 Mini App</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="channel_shopee"/>
+          <span>🛍️ Shopee</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="channel_lazada"/>
+          <span>🛒 Lazada</span>
+        </label>
+      </div>
+
+      <div style="font-size:12px;color:#64748b;padding:8px;background:white;border-radius:4px">
+        💡 <strong>Ghi chú:</strong> Giá cơ bản được lấy từ biến thể. Nếu cần giá riêng cho từng kênh, sẽ cập nhật sau.
+      </div>
+    </div>
+
     <label>Video (URL)</label>
     <div class="row">
       <div class="col"><input id="video" class="input" placeholder="https://..."/></div>
@@ -778,6 +806,12 @@ window.addEventListener('DOMContentLoaded', function() {
     }
    
     // ... truoc khi build payload
+    // ✅ THÊM: Lấy thông tin kênh bán
+    const channelWebsite = $('#channel_website')?.checked ? 1 : 0;
+    const channelMini = $('#channel_mini')?.checked ? 1 : 0;
+    const channelShopee = $('#channel_shopee')?.checked ? 1 : 0;
+    const channelLazada = $('#channel_lazada')?.checked ? 1 : 0;
+
     const payload = {
       id: state.id || undefined,
       title: titleEl.value.trim(),
@@ -788,14 +822,17 @@ window.addEventListener('DOMContentLoaded', function() {
       seoDesc: seoDescEl?.value?.trim() || '',
       keywords: (keywordsEl?.value || '').split(',').map(s => s.trim()).filter(Boolean),
       faq: parseFaq(faqEl?.value || ''),
-      // KHONG GUI sold, rating, reviews (de backend tu bao toan)
-      // reviews: parseReviews(reviewsEl?.value || ''),
       weight: gramsOf(0),
       images: state.images || [],
       category: (categoryEl?.value || '').trim(),
       category_slug: (categoryEl?.value || '').trim(),
       video: videoEl?.value?.trim() || '',
-      variants: vs
+      variants: vs,
+      // ✅ THÊM: Kênh bán hàng
+      on_website: channelWebsite,
+      on_mini: channelMini,
+      on_shopee: channelShopee,
+      on_lazada: channelLazada
     };
 
     console.log('Payload:', payload);
@@ -1440,7 +1477,13 @@ function renderPreview() {
     
     (d.variants || []).forEach(v => addVar(v));
 
-    // 🔓 Đã dùng xong id từ sessionStorage thì xóa để tránh “kẹt” lần sau
+    // ✅ THÊM: Load thông tin kênh
+    if ($('#channel_website')) $('#channel_website').checked = d.on_website !== 0;
+    if ($('#channel_mini')) $('#channel_mini').checked = d.on_mini !== 0;
+    if ($('#channel_shopee')) $('#channel_shopee').checked = d.on_shopee === 1;
+    if ($('#channel_lazada')) $('#channel_lazada').checked = d.on_lazada === 1;
+
+    // 🔔 Đã dùng xong id từ sessionStorage thì xóa để tránh "kẹt" lần sau
     try { if (__sid) sessionStorage.removeItem('editProductId'); } catch {}
   }
 

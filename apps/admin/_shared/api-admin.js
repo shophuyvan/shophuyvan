@@ -196,6 +196,46 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     return await res.json();
   };
 
+  // ✅ THÊM: Sync stock từ Shopee về Website
+  api.syncShopeeStock = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
+    // ✅ Method phải là POST và body phải có shop_id
+    const res = await fetch('https://api.shophuyvan.vn/admin/shopee/sync-stock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ shop_id: shopId })
+    });
+    
+    return await res.json();
+  };
+
+  // ✅ THÊM: Sync orders từ Lazada
+  api.syncLazadaOrders = async (shopId) => {
+    if (!shopId) return { ok: false, error: 'missing_shop_id' };
+    
+    if (!window.Admin || !window.Admin.req) {
+      throw new Error('Admin API not ready');
+    }
+    
+    const res = await fetch('https://api.shophuyvan.vn/admin/channels/lazada/sync-orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ shop_id: shopId })
+    });
+    
+    return await res.json();
+  };
+
   window.SHARED.api = api;
 })();
-

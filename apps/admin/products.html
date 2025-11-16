@@ -250,6 +250,7 @@
   </div>
   <div class="stats">
     <span>Tổng: <strong id="total-count">0</strong></span>
+    <a href="./channels.html" class="btn" style="background:#7c3aed;color:white;border-color:#7c3aed">🛒 Quản lý kênh</a>
     <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
   </div>
 </div>
@@ -392,6 +393,14 @@ function createProductCard(p) {
   const costImport = Number(p.costImport || 0);
   const stockTotal = Number(p.stockTotal || 0);
   const importTotal = Number(p.importTotal || 0);
+  
+  // ✅ THÊM: Hiển thị các kênh bán
+  const channels = [];
+  if (p.on_website !== 0) channels.push('🌐 Web');
+  if (p.on_mini !== 0) channels.push('📱 Mini');
+  if (p.on_shopee) channels.push('🛍️ Shopee');
+  if (p.on_lazada) channels.push('🛒 Lazada');
+  const channelsDisplay = channels.length > 0 ? channels.join(' | ') : '—';
 
   return `
     <div class="product-card ${selectedIds.has(id) ? 'selected' : ''}" data-id="${id}">
@@ -412,6 +421,11 @@ function createProductCard(p) {
           <div class="card-line">Giá nhập: <b>${formatPrice(costImport)}</b></div>
           <div class="card-line">Tồn kho: <b>${stockTotal.toLocaleString('vi-VN')}</b></div>
           <div class="card-line">Tổng tiền nhập: <b>${formatPrice(importTotal)}</b></div>
+          
+          <!-- ✅ THÊM: Hiển thị kênh bán -->
+          <div class="card-line" style="margin-top:6px;padding-top:6px;border-top:1px solid #f0f0f0;">
+            Kênh: <b>${channelsDisplay}</b>
+          </div>
         </div>
       </div>
       <div class="card-actions">
