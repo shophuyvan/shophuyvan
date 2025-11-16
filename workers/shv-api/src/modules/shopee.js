@@ -49,7 +49,7 @@ async function generateSignature(partnerId, path, timestamp, accessToken, shopId
 /**
  * Gọi Shopee API
  */
-async function callShopeeAPI(env, method, path, shopData, body = null) {
+async function callShopeeAPI(env, method, path, shopData, params = null) {
   const isTest = shopData.env === 'test';
   const config = SHOPEE_CONFIG[shopData.env || 'live'];
   const partnerKey = isTest ? env.SHOPEE_TEST_KEY : env.SHOPEE_LIVE_KEY;
@@ -85,8 +85,15 @@ async function callShopeeAPI(env, method, path, shopData, body = null) {
     },
   };
 
-  if (body && (method === 'POST' || method === 'PUT')) {
-    options.body = JSON.stringify(body);
+  // ✅ XỬ LÝ PARAMS ĐÚNG CÁCH
+  if (method === 'GET' && params) {
+    // GET: params vào URL
+    Object.keys(params).forEach(key => {
+      url.searchParams.set(key, params[key]);
+    });
+  } else if ((method === 'POST' || method === 'PUT') && params) {
+    // POST/PUT: params vào body
+    options.body = JSON.stringify(params);
   }
 
   console.log('[Shopee API] Request:', method, path);
@@ -338,7 +345,11 @@ export async function handle(req, env, ctx) {
       try {
         // Lấy danh sách sản phẩm từ Shopee
         const itemListPath = '/api/v2/product/get_item_list';
-        const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData);
+        const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
+          offset: 0,
+          page_size: 50,
+          item_status: ['NORMAL', 'BANNED', 'DELETED', 'UNLIST'] // ✅ LẤY TẤT CẢ STATUS
+        });
 
         const itemIds = itemListData.response?.item?.map(i => i.item_id) || [];
         
@@ -346,10 +357,12 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
 
-        // Lấy chi tiết sản phẩm
+        // Lấy chi tiết sản phẩm (tối đa 50 items/lần)
         const detailPath = '/api/v2/product/get_item_base_info';
         const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
-          item_id_list: itemIds.join(',')
+          item_id_list: itemIds.slice(0, 50).join(','), // ✅ LIMIT 50
+          need_tax_info: false,
+          need_complaint_policy: false
         });
 
         const items = detailData.response?.item_list || [];
@@ -398,7 +411,8 @@ export async function handle(req, env, ctx) {
           time_range_field: 'create_time',
           time_from: timeFrom,
           time_to: timeTo,
-          page_size: 100
+          page_size: 100,
+          order_status: 'READY_TO_SHIP' // ✅ THÊM STATUS ĐỂ FILTER
         });
 
         const orderSns = orderListData.response?.order_list?.map(o => o.order_sn) || [];
