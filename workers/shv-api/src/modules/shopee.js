@@ -541,6 +541,12 @@ export async function handle(req, env, ctx) {
 
     // Đồng bộ stock từ Shopee về website
     if (path === '/admin/shopee/sync-stock' && method === 'POST') {
+      // ✅ KIỂM TRA AUTH TRƯỚC
+      const authCheck = await adminOK(req, env);
+      if (!authCheck.ok) {
+        return json({ ok: false, error: 'unauthorized' }, { status: 401 }, req);
+      }
+
       try {
         const bodyData = await req.json();
         const shopId = bodyData.shop_id;
