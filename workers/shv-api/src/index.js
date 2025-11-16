@@ -94,6 +94,7 @@ export default {
 
     const url = new URL(req.url);
     const path = url.pathname;
+    const method = req.method;
 
     try {
       // ============================================
