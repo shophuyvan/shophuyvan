@@ -8,10 +8,31 @@
 <body>
   <div id="channelsRoot"></div>
 
-  <script src="/sidebar-layout.js"></script>
+  <script>console.log('[DEBUG 1] Before admin_real.js');</script>
+  <script src="/admin_real.js"></script>
+  <script>
+    console.log('[DEBUG 2] After admin_real.js');
+    console.log('[DEBUG 2] window.Admin exists:', !!window.Admin);
+    console.log('[DEBUG 2] window.Admin.req exists:', !!(window.Admin && window.Admin.req));
+    console.log('[DEBUG 2] window.Admin.token exists:', !!(window.Admin && window.Admin.token));
+  </script>
   
-  <!-- Shared utilities -->
+  <script>console.log('[DEBUG 3] Before sidebar-layout.js');</script>
+  <script src="/sidebar-layout.js"></script>
+  <script>console.log('[DEBUG 4] After sidebar-layout.js');</script>
+  
+  <script>console.log('[DEBUG 5] Before api-admin.js');</script>
   <script src="/_shared/api-admin.js" defer></script>
+  
+  <script>console.log('[DEBUG 6] Before channels.js');</script>
   <script src="/channels.js" defer></script>
+  
+  <script>
+    window.addEventListener('load', () => {
+      console.log('[DEBUG 7] Window loaded');
+      console.log('[DEBUG 7] window.Admin:', window.Admin);
+      console.log('[DEBUG 7] window.SHARED:', window.SHARED);
+    });
+  </script>
 </body>
 </html>

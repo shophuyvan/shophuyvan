@@ -210,17 +210,25 @@ if (lzStatus === 'success') {
 // Load shops with retry for Admin.req
   let loadRetries = 0;
   const tryLoadShops = () => {
+    console.log(`[Lazada][Retry ${loadRetries}] Checking dependencies...`);
+    console.log(`[Lazada][Retry ${loadRetries}] window.Admin:`, !!window.Admin);
+    console.log(`[Lazada][Retry ${loadRetries}] window.Admin.req:`, !!(window.Admin && window.Admin.req));
+    console.log(`[Lazada][Retry ${loadRetries}] window.SHARED:`, !!window.SHARED);
+    console.log(`[Lazada][Retry ${loadRetries}] window.SHARED.api:`, !!(window.SHARED && window.SHARED.api));
+    
     if (!window.Admin || !window.Admin.req || !window.SHARED || !window.SHARED.api) {
       if (loadRetries < 50) {
         loadRetries++;
         setTimeout(tryLoadShops, 100);
       } else {
         console.error('[Lazada] Dependencies not ready after 5s');
+        console.error('[Lazada] Final state - window.Admin:', window.Admin);
+        console.error('[Lazada] Final state - window.SHARED:', window.SHARED);
       }
       return;
     }
     
-    console.log('[Lazada] Dependencies ready after', loadRetries * 100, 'ms');
+    console.log('[Lazada] ✅ Dependencies ready after', loadRetries * 100, 'ms');
     loadLazadaShops();
   };
   
