@@ -591,9 +591,9 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
 
-        // 2️⃣ Lấy stock info từ Shopee (batch 20 items/lần để tránh subrequest limit)
+        // 2️⃣ Lấy stock info từ Shopee (batch 10 items/lần để tránh subrequest limit)
         const stockUpdates = [];
-        const BATCH_SIZE = 20; // ✅ GIẢM XUỐNG 20 để có buffer cho variants
+        const BATCH_SIZE = 10; // ✅ GIẢM XUỐNG 10 (an toàn hơn)
         
         for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
           const batch = allItemIds.slice(i, i + BATCH_SIZE);
@@ -615,28 +615,21 @@ export async function handle(req, env, ctx) {
           // Tạo Map để map nhanh model data
           const modelDataMap = new Map();
           
-          // Lấy models cho tất cả items có variants (parallel)
+          // Lấy models cho tất cả items có variants (SEQUENTIAL - tránh subrequest limit)
           if (itemsWithVariants.length > 0) {
-            const modelPromises = itemsWithVariants.map(async (item) => {
+            for (const item of itemsWithVariants) {
               try {
                 const modelPath = '/api/v2/product/get_model_list';
                 const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
                   item_id: item.item_id
                 });
                 
-                return {
-                  item_id: item.item_id,
-                  models: modelData.response?.model || []
-                };
+                modelDataMap.set(item.item_id, modelData.response?.model || []);
               } catch (err) {
                 console.error(`[Shopee Stock] Error getting models for ${item.item_id}:`, err.message);
-                return { item_id: item.item_id, models: [] };
+                modelDataMap.set(item.item_id, []);
               }
-            });
-            
-            // ✅ CHỜ TẤT CẢ MODEL CALLS XONG (nhưng vẫn giới hạn số lượng)
-            const modelResults = await Promise.all(modelPromises);
-            modelResults.forEach(r => modelDataMap.set(r.item_id, r.models));
+            }
           }
           
           // Process từng item
