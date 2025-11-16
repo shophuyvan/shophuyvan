@@ -2,7 +2,7 @@
 // Shopee API Integration Module
 
 import { json, corsHeaders } from '../lib/response.js';
-import { requireAuth } from '../lib/auth.js';
+import { adminOK } from '../lib/auth.js';
 
 /**
  * Shopee API Configuration
@@ -297,10 +297,10 @@ export async function handle(req, env, ctx) {
     // ADMIN ROUTES - Yêu cầu auth
     // ============================================
 
-    // Check admin authentication
-    const authCheck = await requireAuth(req, env);
-    if (!authCheck.ok) {
-      return json(authCheck, { status: 401 }, req);
+// Check admin authentication
+    const isAdmin = await adminOK(req, env);
+    if (!isAdmin) {
+      return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
     }
 
     // Lấy danh sách shops đã kết nối
