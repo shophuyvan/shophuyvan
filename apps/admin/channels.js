@@ -354,7 +354,7 @@ window.syncShopeeStock = async function(shopId) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-token': window.Admin.token
+          'x-token': window.Admin.token()
         },
         body: JSON.stringify({
           shop_id: shopId,
