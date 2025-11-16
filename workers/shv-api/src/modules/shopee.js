@@ -3,7 +3,6 @@
 
 import { json, corsHeaders } from '../lib/response.js';
 import { requireAuth } from '../lib/auth.js';
-import crypto from 'crypto';
 
 /**
  * Shopee API Configuration
@@ -26,9 +25,25 @@ const SHOPEE_CONFIG = {
 /**
  * Tạo chữ ký cho Shopee API request
  */
-function generateSignature(partnerId, path, timestamp, accessToken, shopId, partnerKey) {
+async function generateSignature(partnerId, path, timestamp, accessToken, shopId, partnerKey) {
   const baseString = `${partnerId}${path}${timestamp}${accessToken}${shopId}`;
-  return crypto.createHmac('sha256', partnerKey).update(baseString).digest('hex');
+  
+  // ✅ Cloudflare Workers sử dụng Web Crypto API
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(partnerKey);
+  const messageData = encoder.encode(baseString);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -47,7 +62,7 @@ async function callShopeeAPI(env, method, path, shopData, body = null) {
   const accessToken = shopData.access_token || '';
   const shopId = shopData.shop_id || '';
   
-  const sign = generateSignature(
+  const sign = await generateSignature(
     config.partnerId,
     path,
     timestamp,
@@ -159,7 +174,7 @@ export async function handle(req, env, ctx) {
 
       const authPath = '/api/v2/shop/auth_partner';
       const timestamp = Math.floor(Date.now() / 1000);
-      const sign = generateSignature(config.partnerId, authPath, timestamp, '', '', partnerKey);
+      const sign = await generateSignature(config.partnerId, authPath, timestamp, '', '', partnerKey);
 
       const authUrl = new URL(config.host + authPath);
       authUrl.searchParams.set('partner_id', config.partnerId);
@@ -191,7 +206,7 @@ export async function handle(req, env, ctx) {
         // Lấy access token từ code
         const tokenPath = '/api/v2/auth/token/get';
         const timestamp = Math.floor(Date.now() / 1000);
-        const sign = generateSignature(config.partnerId, tokenPath, timestamp, '', '', partnerKey);
+        const sign = await generateSignature(config.partnerId, tokenPath, timestamp, '', '', partnerKey);
 
         const tokenUrl = new URL(config.host + tokenPath);
         tokenUrl.searchParams.set('partner_id', config.partnerId);
