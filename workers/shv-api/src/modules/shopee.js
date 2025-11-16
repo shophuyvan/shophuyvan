@@ -57,6 +57,52 @@ async function generateSignature(partnerId, path, timestamp, accessToken, shopId
  * ✅ EXPORT để dùng trong cron job
  */
 export async function callShopeeAPI(env, method, path, shopData, params = null) {
+  const isTest = shopData.env === 'test';
+  const config = SHOPEE_CONFIG[shopData.env || 'live'];
+  const partnerKey = isTest ? env.SHOPEE_TEST_KEY : env.SHOPEE_LIVE_KEY;
+  
+  if (!partnerKey) {
+    throw new Error('Shopee partner key not configured');
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const accessToken = shopData.access_token || '';
+  const shopId = shopData.shop_id || '';
+  
+  const sign = await generateSignature(
+    config.partnerId,
+    path,
+    timestamp,
+    accessToken,
+    shopId,
+    partnerKey
+  );
+
+  const url = new URL(config.host + path);
+  url.searchParams.set('partner_id', config.partnerId);
+  url.searchParams.set('timestamp', timestamp);
+  url.searchParams.set('sign', sign);
+  url.searchParams.set('access_token', accessToken);
+  url.searchParams.set('shop_id', shopId);
+
+  const options = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  // ✅ XỬ LÝ PARAMS ĐÚNG CÁCH
+  if (method === 'GET' && params) {
+    // GET: params vào URL
+    Object.keys(params).forEach(key => {
+      url.searchParams.set(key, params[key]);
+    });
+  } else if ((method === 'POST' || method === 'PUT') && params) {
+    // POST/PUT: params vào body
+    options.body = JSON.stringify(params);
+  }
+
   console.log('[Shopee API] Request:', method, path);
   const response = await fetch(url.toString(), options);
   const data = await response.json();
@@ -495,7 +541,13 @@ export async function handle(req, env, ctx) {
 
     // ✅ THÊM: Đồng bộ TỒN KHO từ Shopee về Website
     if (path === '/admin/shopee/sync-stock' && method === 'POST') {
-      const body = await req.json();
+      let body;
+      try {
+        body = await req.json();
+      } catch (e) {
+        return json({ ok: false, error: 'invalid_json' }, { status: 400 }, req);
+      }
+      
       const shopId = body.shop_id;
 
       if (!shopId) {
