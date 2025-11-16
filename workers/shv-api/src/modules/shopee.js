@@ -593,7 +593,7 @@ export async function handle(req, env, ctx) {
 
         // 2️⃣ Lấy stock info từ Shopee (batch 10 items/lần để tránh subrequest limit)
         const stockUpdates = [];
-        const BATCH_SIZE = 10; // ✅ GIẢM XUỐNG 10 (an toàn hơn)
+        const BATCH_SIZE = 5; // ✅ GIẢM XUỐNG 5 (an toàn hơn)
         
         for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
           const batch = allItemIds.slice(i, i + BATCH_SIZE);
