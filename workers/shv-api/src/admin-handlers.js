@@ -510,13 +510,22 @@ export async function handleDeleteAdmin(request, env, adminId, currentAdmin) {
  * Middleware: Verify admin token and permissions
  */
 export async function verifyAdminAuth(request, env, requiredPermission = null) {
-  const authHeader = request.headers.get('Authorization');
+  // Support cả Authorization Bearer và x-token header
+  let token = null;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { error: 'Unauthorized', status: 401 };
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
   }
   
-  const token = authHeader.substring(7);
+  // Fallback: check x-token header (admin_real.js dùng)
+  if (!token) {
+    token = request.headers.get('x-token');
+  }
+  
+  if (!token) {
+    return { error: 'Unauthorized', status: 401 };
+  }
   const payload = await verifyToken(token);
   
   if (!payload) {
