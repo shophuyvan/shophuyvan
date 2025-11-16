@@ -406,14 +406,42 @@ export async function handle(req, env, ctx) {
           const items = detailData.response?.item_list || [];
           allItems.push(...items);
           
+          // ✅ DEBUG: Log response structure của batch đầu tiên
+          if (i === 0 && items.length > 0) {
+            console.log('[DEBUG] First batch response keys:', Object.keys(detailData.response || {}));
+            console.log('[DEBUG] First item keys:', Object.keys(items[0] || {}));
+          }
+          
           console.log(`[Shopee] Fetched details for batch ${Math.floor(i/50) + 1}: ${items.length} items`);
         }
         
         const items = allItems;
         
-        // ✅ DEBUG: Log 1 product mẫu để xem structure
+        // ✅ DEBUG: Log 3 products đầu tiên để xem structure
         if (items.length > 0) {
-          console.log('[DEBUG] Sample product from Shopee:', JSON.stringify(items[0], null, 2));
+          console.log('[DEBUG] Total items received:', items.length);
+          console.log('[DEBUG] Sample product #1:', JSON.stringify(items[0], null, 2));
+          
+          // Log thêm 2 products nữa nếu có
+          if (items.length > 1) {
+            console.log('[DEBUG] Sample product #2 (name only):', items[1].item_name || 'N/A');
+          }
+          if (items.length > 2) {
+            console.log('[DEBUG] Sample product #3 (name only):', items[2].item_name || 'N/A');
+          }
+          
+          // Log các fields quan trọng của product đầu tiên
+          const p = items[0];
+          console.log('[DEBUG] Product structure check:', {
+            has_item_id: !!p.item_id,
+            has_item_name: !!p.item_name,
+            has_item_sku: !!p.item_sku,
+            has_price_info: !!p.price_info,
+            has_stock_info: !!p.stock_info,
+            has_image: !!p.image,
+            has_description: !!p.description,
+            model_count: p.model?.length || 0
+          });
         }
         
         // ✅ Lưu products vào database của hệ thống
