@@ -234,10 +234,7 @@ export async function handle(req, env, ctx) {
     );
   }
 
-  // ==========================================
-  // LAZADA: Đồng bộ sản phẩm
-  // ==========================================
-  if (path === '/admin/channels/lazada/sync-products' && method === 'POST') {
+  if (path === '/admin/channels/lazada/sync-products' && (method === 'POST' || method === 'GET')) {
     const auth = await requireAdmin(req, env);
     if (auth.error) {
       return json(
@@ -247,8 +244,14 @@ export async function handle(req, env, ctx) {
       );
     }
 
-    const body = await req.json();
-    const shopId = body.shop_id;
+    // Support both POST (body) and GET (query param)
+    let shopId;
+    if (method === 'POST') {
+      const body = await req.json();
+      shopId = body.shop_id;
+    } else {
+      shopId = url.searchParams.get('shop_id');
+    }
 
     if (!shopId) {
       return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
