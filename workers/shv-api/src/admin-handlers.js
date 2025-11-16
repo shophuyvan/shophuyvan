@@ -526,14 +526,19 @@ export async function verifyAdminAuth(request, env, requiredPermission = null) {
   if (!token) {
     return { error: 'Unauthorized', status: 401 };
   }
-  const payload = await verifyToken(token);
   
-  if (!payload) {
+  // Decode token (base64 simple format: adminId:timestamp:random)
+  let adminId;
+  try {
+    const decoded = atob(token);
+    adminId = decoded.split(':')[0];
+  } catch (e) {
+    console.error('[verifyAdminAuth] Token decode error:', e);
     return { error: 'Invalid token', status: 401 };
   }
   
   // Get admin
-  const adminData = await env.SHV.get(`admin:${payload.id}`);
+  const adminData = await env.SHV.get(`admin:${adminId}`);
   if (!adminData) {
     return { error: 'Admin not found', status: 404 };
   }
