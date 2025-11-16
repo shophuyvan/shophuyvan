@@ -398,7 +398,9 @@ export async function handle(req, env, ctx) {
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
             item_id_list: batch.join(','),
             need_tax_info: false,
-            need_complaint_policy: false
+            need_complaint_policy: false,
+            need_stock_info: true,
+            need_price_info: true
           });
           
           const items = detailData.response?.item_list || [];
