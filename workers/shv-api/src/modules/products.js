@@ -955,7 +955,24 @@ async function upsertProduct(req, env) {
       console.log(`✅ Processed ${incomingVariants.length} variants`);
     }
 
-    // 6) Load lại full product để trả về
+    // 6) ✅ AUTO-UPDATE products.stock từ tổng variants.stock
+    const stockResult = await env.DB.prepare(`
+      SELECT COALESCE(SUM(stock), 0) as total_stock 
+      FROM variants 
+      WHERE product_id = ?
+    `).bind(productId).first();
+    
+    const totalStock = stockResult?.total_stock || 0;
+    
+    await env.DB.prepare(`
+      UPDATE products 
+      SET stock = ?, updated_at = ?
+      WHERE id = ?
+    `).bind(totalStock, now, productId).run();
+    
+    console.log(`✅ Auto-updated products.stock = ${totalStock} for product ${productId}`);
+
+    // 7) Load lại full product để trả về
     const saved = await env.DB.prepare(`SELECT * FROM products WHERE id = ?`).bind(productId).first();
     const savedVariants = await env.DB.prepare(`SELECT * FROM variants WHERE product_id = ?`).bind(productId).all();
     
