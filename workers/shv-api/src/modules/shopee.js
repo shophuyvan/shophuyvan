@@ -697,7 +697,202 @@ export async function handle(req, env, ctx) {
       }
     }
 
-    // Đồng bộ stock từ Shopee về website
+    // âœ… CẬP NHẬT TÊN & HÌNH ẢNH BIẾN THỂ CHO SẢN PHẨM ĐÃ SYNC
+    if (path === '/admin/shopee/update-variants-info' && method === 'POST') {
+      try {
+        const bodyData = await req.json();
+        const shopId = bodyData.shop_id;
+        
+        // Pagination params
+        const requestOffset = parseInt(bodyData.offset) || 0;
+        const requestLimit = Math.min(parseInt(bodyData.limit) || 20, 20);
+        
+        if (!shopId) {
+          return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
+        }
+
+        const shopData = await getShopData(env, shopId);
+        if (!shopData) {
+          return json({ ok: false, error: 'shop_not_found' }, { status: 404 }, req);
+        }
+
+        console.log('[Shopee Update] 🔄 Updating variant names & images for existing products...');
+        console.log('[Shopee Update] 📄 Request range:', requestOffset, '-', requestOffset + requestLimit);
+
+        // 1️⃣ Lấy danh sách item_ids ĐÃ SYNC từ DB
+        const existingItemsQuery = await env.DB.prepare(`
+          SELECT DISTINCT channel_item_id 
+          FROM channel_products 
+          WHERE channel = 'shopee'
+        `).all();
+        
+        const existingItemIds = existingItemsQuery.results.map(row => parseInt(row.channel_item_id));
+        
+        if (existingItemIds.length === 0) {
+          return json({ 
+            ok: true, 
+            total: 0,
+            message: 'No products found to update' 
+          }, {}, req);
+        }
+        
+        console.log(`[Shopee Update] 📦 Total existing products: ${existingItemIds.length}`);
+        
+        // Pagination: Chỉ xử lý items trong range
+        const itemsToProcess = existingItemIds.slice(requestOffset, requestOffset + requestLimit);
+        console.log(`[Shopee Update] 🎯 Processing ${itemsToProcess.length} items (${requestOffset}-${requestOffset + itemsToProcess.length}/${existingItemIds.length})`);
+        
+        if (itemsToProcess.length === 0) {
+          return json({ 
+            ok: true, 
+            total: existingItemIds.length,
+            processed: 0,
+            offset: requestOffset,
+            has_more: false,
+            message: 'No items in this range'
+          }, {}, req);
+        }
+
+        // 2️⃣ Lấy chi tiết từ Shopee (batch 10 items)
+        let allItems = [];
+        const BATCH_SIZE = 10;
+        
+        for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+          const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
+          
+          const detailPath = '/api/v2/product/get_item_base_info';
+          const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
+            item_id_list: batch.join(','),
+            need_tax_info: false,
+            need_complaint_policy: false
+          });
+          
+          const items = detailData.response?.item_list || [];
+          allItems.push(...items);
+          
+          console.log(`[Shopee Update] Batch ${Math.floor(i/BATCH_SIZE) + 1}: ${items.length} items fetched`);
+        }
+
+        // 3️⃣ Lấy variants info cho products có variants
+        console.log('[Shopee Update] 📋 Fetching variant names & images...');
+        
+        let updatedCount = 0;
+        
+        for (let item of allItems) {
+          try {
+            if (item.has_model == true || item.has_model === 1) {
+              // Gọi API get_model_list
+              const modelPath = '/api/v2/product/get_model_list';
+              const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
+                item_id: item.item_id
+              });
+              
+              const models = modelData.response?.model || [];
+              
+              // 4️⃣ Update từng variant
+              for (const model of models) {
+                // Lấy tên biến thể từ Shopee
+                const variantName = model.model_name || '';
+                
+                // Lấy hình ảnh biến thể (ưu tiên ảnh riêng, fallback sang ảnh product)
+                const variantImage = model.image?.image_url 
+                  || item.image?.image_url_list?.[0] 
+                  || '';
+                
+                if (!variantName && !variantImage) {
+                  continue; // Skip nếu không có gì để update
+                }
+                
+                // Tìm variant_id từ mapping
+                const mapping = await env.DB.prepare(`
+                  SELECT variant_id 
+                  FROM channel_products 
+                  WHERE channel = 'shopee' 
+                    AND channel_item_id = ? 
+                    AND channel_model_id = ?
+                  LIMIT 1
+                `).bind(Number(item.item_id), Number(model.model_id)).first();
+
+                if (mapping && mapping.variant_id) {
+                  // ✅ CHỈ UPDATE name và image
+                  await env.DB.prepare(`
+                    UPDATE variants 
+                    SET name = ?, image = ?, updated_at = ?
+                    WHERE id = ?
+                  `).bind(
+                    variantName || null, 
+                    variantImage || null, 
+                    Date.now(), 
+                    mapping.variant_id
+                  ).run();
+
+                  updatedCount++;
+                  
+                  console.log(`[Shopee Update] ✅ Updated variant ${mapping.variant_id}: name="${variantName}"`);
+                }
+              }
+              
+              // Delay để tránh rate limit
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+            } else {
+              // Product không có variants - update product image
+              const productImage = item.image?.image_url_list?.[0] || '';
+              
+              if (productImage) {
+                const mapping = await env.DB.prepare(`
+                  SELECT variant_id 
+                  FROM channel_products 
+                  WHERE channel = 'shopee' 
+                    AND channel_item_id = ?
+                  LIMIT 1
+                `).bind(Number(item.item_id)).first();
+
+                if (mapping && mapping.variant_id) {
+                  await env.DB.prepare(`
+                    UPDATE variants 
+                    SET image = ?, updated_at = ?
+                    WHERE id = ?
+                  `).bind(productImage, Date.now(), mapping.variant_id).run();
+
+                  updatedCount++;
+                  console.log(`[Shopee Update] ✅ Updated variant ${mapping.variant_id}: image updated`);
+                }
+              }
+            }
+            
+          } catch (err) {
+            console.error(`[Shopee Update] Error updating item ${item.item_id}:`, err.message);
+          }
+        }
+
+        console.log('[Shopee Update] ✅ Completed:', updatedCount, 'variants updated');
+
+        // Pagination response
+        const totalItems = existingItemIds.length;
+        const nextOffset = requestOffset + requestLimit;
+        const hasMore = nextOffset < totalItems;
+
+        return json({
+          ok: true,
+          total: totalItems,
+          processed: updatedCount,
+          offset: requestOffset,
+          next_offset: nextOffset,
+          has_more: hasMore,
+          message: `✅ Updated ${updatedCount} variants (${requestOffset + itemsToProcess.length}/${totalItems})`
+        }, {}, req);
+
+      } catch (e) {
+        console.error('[Shopee Update] ❌ Error:', e);
+        return json({
+          ok: false,
+          error: e.message || 'update_error'
+        }, { status: 500 }, req);
+      }
+    }
+
+    
     if (path === '/admin/shopee/sync-stock' && method === 'POST') {
       try {
         const bodyData = await req.json();

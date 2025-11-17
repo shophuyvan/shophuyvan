@@ -42,34 +42,36 @@ export function convertShopeeProductToSHV(shopeeProduct) {
   // Convert variants
   const variants = [];
   
-  // ✅ CHỈ lấy variants KHI has_model = true
   if (shopeeProduct.has_model === true && shopeeProduct.model_list?.length > 0) {
-    // Sản phẩm có biến thể
+ 
     shopeeProduct.model_list.forEach(model => {
+      // âœ… LẤY TÊN BIẾN THỂ: Ưu tiên model_name từ Shopee
+      const variantName = model.model_name 
+        || (model.tier_index ? getVariantName(shopeeProduct, model.tier_index) : baseProduct.name);
+      
+      // âœ… LẤY HÌNH ẢNH BIẾN THỂ: Ưu tiên ảnh riêng của variant, fallback sang ảnh product
+      const variantImage = model.image?.image_url || baseProduct.images[0] || '';
+      
       variants.push({
         // Shopee model info
         shopee_model_id: model.model_id,
         shopee_model_sku: model.model_sku,
         
-        // Variant details
-        name: model.tier_index ? getVariantName(shopeeProduct, model.tier_index) : baseProduct.name,
+        // âœ… Variant details - TÊN BIẾN THỂ TỪ SHOPEE
+        name: variantName,
         sku: model.model_sku || `SP-${shopeeProduct.item_id}-${model.model_id}`,
         
-        // ✅ Pricing (QUAN TRỌNG: Giá ở variants)
         price: model.price_info?.original_price || 0,
         compare_at_price: model.price_info?.current_price || 0,
         
-        // ✅ Stock (QUAN TRỌNG: Tồn kho ở variants)
         stock: model.stock_info_v2?.current_stock || 0,
-        
-        // ✅ Weight (QUAN TRỌNG: Cân nặng ở variants)
+       
         weight: shopeeProduct.weight || 0, // gram
         
         // Status
         status: model.stock_info_v2?.current_stock > 0 ? 'active' : 'out_of_stock',
         
-        // Media
-        image: model.image?.image_url || (baseProduct.images[0] || ''),
+        image: variantImage,
       });
     });
   } else {
