@@ -801,8 +801,14 @@ export async function handle(req, env, ctx) {
                 const models = modelDataMap.get(item.item_id) || [];
                 
                 for (const model of models) {
-                  const shopeeStock = model.stock_info_v2?.current_stock || 0;
+                  // ✅ FIX: Shopee API stock nằm trong stock_info_v2.summary_info
+                  const shopeeStock = model.stock_info_v2?.summary_info?.total_available_stock 
+                    || model.stock_info_v2?.current_stock 
+                    || model.normal_stock 
+                    || 0;
                   const shopeeModelId = model.model_id;
+                  
+                  console.log(`[Shopee Stock] Model ${shopeeModelId}: stock=${shopeeStock}`);
                   
 // 3️⃣ Tìm variant tương ứng trong D1
                   const mapping = await env.DB.prepare(`
@@ -846,7 +852,12 @@ export async function handle(req, env, ctx) {
                 }
               } else {
                 // Product không có variants - lấy stock từ stock_info_v2
-                const shopeeStock = item.stock_info_v2?.current_stock || 0;
+                const shopeeStock = item.stock_info_v2?.summary_info?.total_available_stock 
+                  || item.stock_info_v2?.current_stock 
+                  || item.normal_stock 
+                  || 0;
+                  
+                console.log(`[Shopee Stock] Item ${item.item_id}: stock=${shopeeStock}`);
 
                 const mapping = await env.DB.prepare(`
                   SELECT variant_id 
