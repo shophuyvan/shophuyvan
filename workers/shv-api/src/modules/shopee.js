@@ -814,14 +814,24 @@ export async function handle(req, env, ctx) {
                     LIMIT 1
                   `).bind(Number(item.item_id), Number(shopeeModelId)).first();
 
-                  
                   if (mapping && mapping.variant_id) {
-                    // 4️⃣ Update stock vào variants table
+                    const variantId = mapping.variant_id;
+
                     await env.DB.prepare(`
                       UPDATE variants 
                       SET stock = ?, updated_at = ?
                       WHERE id = ?
-                    `).bind(shopeeStock, Date.now(), mapping.variant_id).run();
+                    `).bind(shopeeStock, Date.now(), variantId).run();
+
+                    // [SHV] Cập nhật tổng tồn kho vào bảng products
+                    await env.DB.prepare(`
+                      UPDATE products 
+                      SET stock = (
+                        SELECT SUM(stock) FROM variants WHERE product_id = products.id
+                      )
+                      WHERE id = (SELECT product_id FROM variants WHERE id = ?)
+                    `).bind(variantId).run();
+
                     
                     stockUpdates.push({
                       variant_id: mapping.variant_id,
@@ -836,6 +846,8 @@ export async function handle(req, env, ctx) {
                 }
               } else {
                 // Product không có variants - lấy stock từ stock_info_v2
+                const shopeeStock = item.stock_info_v2?.current_stock || 0;
+
                 const mapping = await env.DB.prepare(`
                   SELECT variant_id 
                   FROM channel_products 
@@ -844,13 +856,22 @@ export async function handle(req, env, ctx) {
                   LIMIT 1
                 `).bind(Number(item.item_id)).first();
 
-                
                 if (mapping && mapping.variant_id) {
                   await env.DB.prepare(`
                     UPDATE variants 
                     SET stock = ?, updated_at = ?
                     WHERE id = ?
                   `).bind(shopeeStock, Date.now(), mapping.variant_id).run();
+
+                  // [SHV] Cập nhật tổng tồn kho vào bảng products
+                  await env.DB.prepare(`
+                    UPDATE products 
+                    SET stock = (
+                      SELECT SUM(stock) FROM variants WHERE product_id = products.id
+                    )
+                    WHERE id = (SELECT product_id FROM variants WHERE id = ?)
+                  `).bind(mapping.variant_id).run();
+
                   
                   stockUpdates.push({
                     variant_id: mapping.variant_id,
