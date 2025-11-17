@@ -55,6 +55,7 @@ async function generateSignature(partnerId, path, timestamp, accessToken, shopId
 /**
  * Gọi Shopee API
  * ✅ EXPORT để dùng trong cron job
+ * ✅ TỰ ĐỘNG REFRESH TOKEN khi hết hạn
  */
 export async function callShopeeAPI(env, method, path, shopData, params = null) {
   const isTest = shopData.env === 'test';
@@ -107,6 +108,32 @@ export async function callShopeeAPI(env, method, path, shopData, params = null) 
   const response = await fetch(url.toString(), options);
   const data = await response.json();
   
+  // ✅ KIỂM TRA TOKEN HẾT HẠN
+  if (data.error === 'invalid_acceess_token' || data.error === 'error_auth') {
+    console.log('[Shopee API] 🔄 Token expired, refreshing...');
+    
+    try {
+      // Gọi refresh token
+      const newTokenData = await refreshShopeeToken(env, shopData);
+      
+      // Cập nhật shopData với token mới
+      shopData.access_token = newTokenData.access_token;
+      shopData.refresh_token = newTokenData.refresh_token;
+      
+      // Lưu lại token mới vào KV
+      await saveShopData(env, shopData.shop_id, shopData);
+      
+      console.log('[Shopee API] ✅ Token refreshed, retrying request...');
+      
+      // GỌI LẠI API với token mới (RECURSIVE - chỉ 1 lần)
+      return await callShopeeAPI(env, method, path, shopData, params);
+      
+    } catch (refreshError) {
+      console.error('[Shopee API] ❌ Refresh token failed:', refreshError.message);
+      throw new Error('Token expired and refresh failed. Please reconnect Shopee shop.');
+    }
+  }
+  
   // ✅ CHỈ LOG ERROR, KHÔNG LOG SUCCESS RESPONSE (tiết kiệm log quota)
   if (!response.ok || data.error) {
     console.error('[Shopee API] Error Response:', data);
@@ -114,6 +141,55 @@ export async function callShopeeAPI(env, method, path, shopData, params = null) 
   }
 
   return data;
+}
+
+/**
+ * ✅ HÀM MỚI: Refresh Shopee Access Token
+ */
+async function refreshShopeeToken(env, shopData) {
+  const config = SHOPEE_CONFIG[shopData.env || 'live'];
+  const partnerKey = shopData.env === 'test' ? env.SHOPEE_TEST_KEY : env.SHOPEE_LIVE_KEY;
+  
+  const refreshPath = '/api/v2/auth/access_token/get';
+  const timestamp = Math.floor(Date.now() / 1000);
+  
+  // Sign với refresh_token thay vì access_token
+  const sign = await generateSignature(
+    config.partnerId,
+    refreshPath,
+    timestamp,
+    '',
+    shopData.shop_id,
+    partnerKey
+  );
+
+  const refreshUrl = new URL(config.host + refreshPath);
+  refreshUrl.searchParams.set('partner_id', config.partnerId);
+  refreshUrl.searchParams.set('timestamp', timestamp);
+  refreshUrl.searchParams.set('sign', sign);
+  refreshUrl.searchParams.set('shop_id', shopData.shop_id);
+
+  const response = await fetch(refreshUrl.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      refresh_token: shopData.refresh_token,
+      partner_id: parseInt(config.partnerId),
+      shop_id: parseInt(shopData.shop_id)
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || data.error || !data.access_token) {
+    throw new Error(data.message || 'Failed to refresh token');
+  }
+
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_in: data.expire_in
+  };
 }
 
 /**
@@ -351,18 +427,20 @@ export async function handle(req, env, ctx) {
       }
 
       try {
-        // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm từ Shopee
+        // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm CÒN HÀNG từ Shopee
         const itemListPath = '/api/v2/product/get_item_list';
         
         let allItemIds = [];
         let offset = 0;
         let hasNextPage = true;
         
-        // Loop để lấy hết tất cả products
+        console.log('[Shopee Sync] 📦 Fetching products with stock > 0 only...');
+        
+        // Loop để lấy hết tất cả products CÒN HÀNG
         while (hasNextPage) {
           const itemListData = await callShopeeAPI(env, 'GET', itemListPath, shopData, {
             offset: offset,
-            page_size: 50,
+            page_size: 30, // ✅ GIẢM xuống 30 để tránh timeout
             item_status: 'NORMAL'
           });
           
@@ -391,9 +469,9 @@ export async function handle(req, env, ctx) {
         
         console.log(`[Shopee] Total items to fetch details: ${allItemIds.length}`);
         
-        // ✅ Lấy chi tiết sản phẩm theo batch 20 items/lần (Shopee giới hạn)
+        // ✅ Lấy chi tiết sản phẩm theo batch 10 items/lần (GIẢM để tránh limit)
         let allItems = [];
-        const BATCH_SIZE = 20;
+        const BATCH_SIZE = 10; // ✅ GIẢM từ 20 xuống 10
         
         for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
           const batch = allItemIds.slice(i, i + BATCH_SIZE);
@@ -408,7 +486,22 @@ export async function handle(req, env, ctx) {
           });
           
           const items = detailData.response?.item_list || [];
-          allItems.push(...items);
+          
+          // ✅ FILTER: Chỉ lấy products CÓ STOCK > 0
+          const itemsWithStock = items.filter(item => {
+            if (item.has_model === true) {
+              // Sẽ check stock ở variants bên dưới
+              return true;
+            } else {
+              // Product không có variants - check stock ngay
+              const stock = item.stock_info_v2?.current_stock || 0;
+              return stock > 0;
+            }
+          });
+          
+          allItems.push(...itemsWithStock);
+          
+          console.log(`[Shopee] Batch ${Math.floor(i/BATCH_SIZE) + 1}: ${itemsWithStock.length}/${items.length} items with stock`);
           
           // ✅ DEBUG: Log response structure của batch đầu tiên
           if (i === 0 && items.length > 0) {
@@ -419,8 +512,11 @@ export async function handle(req, env, ctx) {
          console.log(`[Shopee] Fetched details for batch ${Math.floor(i/BATCH_SIZE) + 1}: ${items.length} items`);
         }
         
-        // ✅ BỔ SUNG: Lấy variants + giá + stock CHỈ cho products CÓ has_model = true
+        // ✅ TỐI ƯU: Lấy variants + giá + stock với DELAY để tránh rate limit
         console.log('[Shopee] Fetching variants, price & stock for products with variants...');
+        
+        let processedCount = 0;
+        const totalWithVariants = allItems.filter(i => i.has_model === true).length;
         
         for (let item of allItems) {
           try {
@@ -433,26 +529,35 @@ export async function handle(req, env, ctx) {
               });
               
               // Gắn variants vào item
-              item.model_list = modelData.response?.model || [];
+              const models = modelData.response?.model || [];
+              
+              // ✅ FILTER: Chỉ giữ variants có stock > 0
+              const modelsWithStock = models.filter(m => {
+                const stock = m.stock_info_v2?.current_stock || 0;
+                return stock > 0;
+              });
+              
+              item.model_list = modelsWithStock;
               item.price_info = modelData.response?.price_info || [];
               item.stock_info_v2 = modelData.response?.stock_info_v2 || {};
+              
+              processedCount++;
+              
+              // ✅ LOG ít hơn (mỗi 10 items)
+              if (processedCount % 10 === 0 || processedCount === totalWithVariants) {
+                console.log(`[Shopee] Progress: ${processedCount}/${totalWithVariants} products processed`);
+              }
+              
+              // ✅ DELAY nhỏ giữa các requests để tránh rate limit (50ms)
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
             } else {
-              // ❌ Product KHÔNG CÓ variants - Để trống
+              // Product KHÔNG CÓ variants - kiểm tra stock đã được filter ở trên
               item.model_list = [];
               item.price_info = [];
               item.stock_info_v2 = {};
             }
             
-            // Debug log cho item đầu tiên
-            if (allItems.indexOf(item) === 0) {
-              console.log('[DEBUG] First product:', {
-                item_id: item.item_id,
-                has_model: item.has_model,
-                model_count: item.model_list.length,
-                has_price_info: item.price_info.length > 0,
-                has_stock_info: !!item.stock_info_v2.stock_breakdown_by_location
-              });
-            }
           } catch (err) {
             console.error(`[Shopee] Error fetching models for item ${item.item_id}:`, err.message);
             // Tiếp tục với items khác nếu có lỗi
@@ -462,7 +567,17 @@ export async function handle(req, env, ctx) {
           }
         }
         
-        const items = allItems;
+        // ✅ FILTER CUỐI: Loại bỏ products không có variants nào còn hàng
+        const items = allItems.filter(item => {
+          if (item.has_model === true) {
+            return item.model_list.length > 0; // Có ít nhất 1 variant còn hàng
+          } else {
+            const stock = item.stock_info_v2?.current_stock || 0;
+            return stock > 0; // Product đơn phải có stock > 0
+          }
+        });
+        
+        console.log(`[Shopee] ✅ Final: ${items.length}/${allItems.length} products with stock > 0`);
         
         // ✅ DEBUG: Log 3 products đầu tiên để xem structure
         if (items.length > 0) {
