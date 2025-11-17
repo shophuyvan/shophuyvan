@@ -253,11 +253,18 @@ function showFlashSaleSection() {
     // Start countdown
     startCountdown(flashSale.end_time);
 
-    // Lấy chi tiết sản phẩm
+    // ✅ FIX: Lấy chi tiết sản phẩm CÓ TIMEOUT RIÊNG
     const productPromises = flashSale.products.map(async (fsProduct) => {
       try {
-        // Gọi API lấy thông tin chi tiết sản phẩm
-        const productData = await api(`/public/products/${fsProduct.product_id}`);
+        // Gọi API với timeout 10s
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const productData = await api(`/public/products/${fsProduct.product_id}`, {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         
         if (!productData || !productData.ok) {
           return null;

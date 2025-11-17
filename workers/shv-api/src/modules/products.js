@@ -537,7 +537,7 @@ async function listPublicProducts(req, env) {
         SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
       `).bind(id).all();
 
-      const product = {
+const product = {
         ...productResult,
         images: productResult.images ? JSON.parse(productResult.images) : [],
         variants: (variantsResult.results || []).map(v => ({
@@ -551,7 +551,11 @@ async function listPublicProducts(req, env) {
         }))
       };
 
-      full.push(product);
+      // ✅ Chỉ thêm sản phẩm còn hàng
+      const totalStock = product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      if (totalStock > 0) {
+        full.push(product);
+      }
     }
 
     // Tính giá từ variants
@@ -628,7 +632,11 @@ async function listPublicProductsFiltered(req, env) {
         }))
       };
 
-      full.push(product);
+      // ✅ Chỉ thêm sản phẩm còn hàng
+      const totalStock = product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      if (totalStock > 0) {
+        full.push(product);
+      }
     }
 
     // Tính giá từ variants
@@ -985,12 +993,22 @@ async function getBestsellers(req, env) {
     // Chỉ lấy sản phẩm active
     items = items.filter(p => p.status !== 0);
 
-    // 🔥 Nạp FULL từ KV để có sold
+    // 🔥 Nạp FULL từ KV để có sold + ✅ Filter còn hàng
     const full = [];
     for (const s of items) {
       const id = String(s.id || s.key || '');
       const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      full.push(p || s);
+      
+      if (!p) continue;
+      
+      // ✅ Kiểm tra tồn kho từ variants
+      const vars = Array.isArray(p.variants) ? p.variants : [];
+      const totalStock = vars.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      
+      // Chỉ thêm sản phẩm còn hàng
+      if (totalStock > 0) {
+        full.push(p);
+      }
     }
 
     // Sắp xếp theo sold (cao nhất trước)
@@ -1032,16 +1050,26 @@ async function getNewest(req, env) {
     // Chỉ lấy sản phẩm active
     items = items.filter(p => p.status !== 0);
 
-    // 🔥 Nạp FULL từ KV để có createdAt
+    // 🔥 Nạp FULL từ KV để có createdAt + ✅ Filter còn hàng
     const full = [];
     for (const s of items) {
       const id = String(s.id || s.key || '');
       const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      full.push(p || s);
+      
+      if (!p) continue;
+      
+      // ✅ Kiểm tra tồn kho từ variants
+      const vars = Array.isArray(p.variants) ? p.variants : [];
+      const totalStock = vars.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      
+      // Chỉ thêm sản phẩm còn hàng
+      if (totalStock > 0) {
+        full.push(p);
+      }
     }
 
     const now = Date.now();
-    const DAYS = 14; // Lấy sản phẩm trong 14 ngày gần đây
+    const DAYS = 3; // Lấy sản phẩm trong 2 ngày gần đây
 
     // Lọc sản phẩm mới (dựa vào createdAt)
     const newest = full.filter(p => {

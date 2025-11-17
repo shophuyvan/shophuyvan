@@ -343,14 +343,27 @@ async function loadNewest() {
 }
 
 // ==========================================
-// INIT - LOAD TẤT CẢ
+// INIT - LOAD TUẦN TỰ (SEQUENTIAL)
 // ==========================================
 (async function initTopProducts() {
-  // Load song song cả 2 sections
-  await Promise.all([
-    loadBestsellers(),
-    loadNewest()
-  ]);
+  // ✅ Load tuần tự để tránh timeout
+  console.log('[Top Products] Starting sequential load...');
+  
+  try {
+    await loadBestsellers();
+    console.log('[Top Products] ✅ Bestsellers loaded');
+  } catch (e) {
+    console.error('[Top Products] ❌ Bestsellers failed:', e);
+  }
+  
+  try {
+    await loadNewest();
+    console.log('[Top Products] ✅ Newest loaded');
+  } catch (e) {
+    console.error('[Top Products] ❌ Newest failed:', e);
+  }
+  
+  console.log('[Top Products] ✅ All sections loaded');
 })();
 
 console.log('✅ top-products-home.js loaded');
