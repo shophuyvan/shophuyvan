@@ -767,8 +767,8 @@ window.addEventListener('DOMContentLoaded', function() {
         sku: skuEl?.value?.trim() || '',
         price: Number(priceEl?.value || 0),
         price_sale: Number(priceSaleEl?.value || 0),
-        wholesale_price: Number(wholesaleEl?.value || 0),
-        cost: Number(costEl?.value || 0),
+        price_wholesale: Number(wholesaleEl?.value || 0),  // ✅ FIX: đổi từ wholesale_price
+        cost_price: Number(costEl?.value || 0),            // ✅ FIX: đổi từ cost
         weight: gramsOf(weightEl?.value),
         stock: Number(stockEl?.value || 0),
         image: thumb?.dataset?.original || thumb?.src || ''
