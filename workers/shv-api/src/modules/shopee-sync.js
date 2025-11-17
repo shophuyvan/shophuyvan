@@ -43,9 +43,9 @@ export function convertShopeeProductToSHV(shopeeProduct) {
   const variants = [];
   
   // ✅ CHỈ lấy variants KHI has_model = true
-  if (shopeeProduct.has_model === true && shopeeProduct.model?.length > 0) {
+  if (shopeeProduct.has_model === true && shopeeProduct.model_list?.length > 0) {
     // Sản phẩm có biến thể
-    shopeeProduct.model.forEach(model => {
+    shopeeProduct.model_list.forEach(model => {
       variants.push({
         // Shopee model info
         shopee_model_id: model.model_id,
