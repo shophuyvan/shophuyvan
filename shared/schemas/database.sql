@@ -38,15 +38,19 @@ CREATE TABLE IF NOT EXISTS products (
   images TEXT,                      -- JSON array: ["url1", "url2"]
   video TEXT,
   
-  -- Display settings
+    -- Display settings
   status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'draft')),
   on_website INTEGER DEFAULT 1,    -- 1 = hiển thị, 0 = ẩn
   on_mini INTEGER DEFAULT 1,
+
+  -- Tổng tồn kho (tự động tổng từ variants)
+  stock INTEGER DEFAULT 0,
   
   -- Timestamps
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
 
 CREATE INDEX idx_products_slug ON products(slug);
 CREATE INDEX idx_products_status ON products(status);
