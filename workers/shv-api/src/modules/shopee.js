@@ -416,6 +416,10 @@ export async function handle(req, env, ctx) {
     if (path === '/admin/shopee/sync-products' && method === 'POST') {
       const body = await req.json();
       const shopId = body.shop_id;
+      
+      // ✅ PAGINATION PARAMS
+      const requestOffset = parseInt(body.offset) || 0;
+      const requestLimit = Math.min(parseInt(body.limit) || 20, 20); // Max 20 products/request
 
       if (!shopId) {
         return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
@@ -427,6 +431,9 @@ export async function handle(req, env, ctx) {
       }
 
       try {
+        console.log('[Shopee Sync] 📦 Fetching NEW products only (skip existing)...');
+        console.log('[Shopee Sync] 📄 Request range:', requestOffset, '-', requestOffset + requestLimit);
+        
         // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm CÒN HÀNG từ Shopee
         const itemListPath = '/api/v2/product/get_item_list';
         
@@ -467,11 +474,62 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No products found' }, {}, req);
         }
         
-        console.log(`[Shopee] Total items to fetch details: ${allItemIds.length}`);
+        console.log(`[Shopee] Total items from Shopee: ${allItemIds.length}`);
         
-        // ✅ Lấy chi tiết sản phẩm theo batch 10 items/lần (GIẢM để tránh limit)
+        // ✅ FILTER: Loại bỏ products ĐÃ SYNC (đã có trong channel_products)
+        const existingItemIds = [];
+        
+        // Lấy danh sách shopee_item_id đã có trong DB
+        const existingItemsQuery = await env.DB.prepare(`
+          SELECT DISTINCT channel_item_id 
+          FROM channel_products 
+          WHERE channel = 'shopee'
+        `).all();
+        
+        existingItemsQuery.results.forEach(row => {
+          existingItemIds.push(parseInt(row.channel_item_id));
+        });
+        
+        console.log(`[Shopee] Existing products in DB: ${existingItemIds.length}`);
+        
+        // Filter: Chỉ giữ lại products CHƯA CÓ trong DB
+        const newItemIds = allItemIds.filter(id => !existingItemIds.includes(id));
+        
+        console.log(`[Shopee] NEW products to sync: ${newItemIds.length}/${allItemIds.length}`);
+        
+        if (newItemIds.length === 0) {
+          return json({ 
+            ok: true, 
+            total: allItemIds.length,
+            existing: existingItemIds.length,
+            new: 0,
+            message: 'No new products to sync. All products already exist.' 
+          }, {}, req);
+        }
+        
+        // ✅ PAGINATION: Chỉ xử lý items trong range requestOffset -> requestOffset+requestLimit
+        const itemsToProcess = newItemIds.slice(requestOffset, requestOffset + requestLimit);
+        console.log(`[Shopee Sync] 🎯 Processing ${itemsToProcess.length} NEW items (${requestOffset}-${requestOffset + itemsToProcess.length}/${newItemIds.length})`);
+        
+        if (itemsToProcess.length === 0) {
+          return json({ 
+            ok: true, 
+            total: allItemIds.length,
+            existing: existingItemIds.length,
+            new: newItemIds.length,
+            processed: 0,
+            offset: requestOffset,
+            has_more: false,
+            message: 'No items in this range'
+          }, {}, req);
+        }
+        
+        // ✅ Lấy chi tiết sản phẩm theo batch 10 items/lần
         let allItems = [];
-        const BATCH_SIZE = 10; // ✅ GIẢM từ 20 xuống 10
+        const BATCH_SIZE = 10;
+        
+        for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+          const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
         
         for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
           const batch = allItemIds.slice(i, i + BATCH_SIZE);
@@ -638,11 +696,22 @@ export async function handle(req, env, ctx) {
         
         console.log('[Shopee] Synced products:', savedProducts.length);
 
+        // ✅ PAGINATION RESPONSE
+        const totalNewItems = newItemIds.length;
+        const nextOffset = requestOffset + requestLimit;
+        const hasMore = nextOffset < totalNewItems;
+
         return json({
           ok: true,
-          total: savedProducts.length,
+          total: allItemIds.length,              // Tổng số items trên Shopee
+          existing: existingItemIds.length,      // Số đã có trong DB
+          new: totalNewItems,                    // Số products MỚI cần sync
+          processed: savedProducts.length,       // Số đã sync lần này
+          offset: requestOffset,                 // Offset hiện tại
+          next_offset: nextOffset,               // Offset lần sau
+          has_more: hasMore,                     // Còn products mới chưa sync?
           products: savedProducts,
-          message: `Synced ${savedProducts.length} products`
+          message: `✅ Synced ${savedProducts.length} NEW products (${requestOffset + savedProducts.length}/${totalNewItems} new, ${existingItemIds.length} existing)`
         }, {}, req);
 
       } catch (e) {
