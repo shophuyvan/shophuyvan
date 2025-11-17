@@ -105,7 +105,7 @@
   async function loadProducts() {
     try {
       // ✅ Gọi API theo danh mục
-      const r = await fetch(`https://shv-api.shophuyvan.workers.dev/public/products?category_slug=${slug}`);
+      const r = await fetch(`https://api.shophuyvan.vn/public/products?category_slug=${slug}`);
       const data = await r.json();
       const all = data.items || [];
 
