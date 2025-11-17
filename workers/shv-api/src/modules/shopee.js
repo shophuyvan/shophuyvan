@@ -888,6 +888,40 @@ export async function handle(req, env, ctx) {
               console.error(`[Shopee Stock] Error processing item ${item.item_id}:`, err.message);
             }
           }
+                }
+
+        // 5️⃣ Sau khi update variants, cập nhật tổng tồn kho vào bảng products
+        if (stockUpdates.length > 0) {
+          const variantIds = stockUpdates
+            .map(u => u.variant_id)
+            .filter(id => typeof id === 'number' || typeof id === 'string');
+
+          if (variantIds.length > 0) {
+            const placeholders = variantIds.map(() => '?').join(',');
+            const variantRows = await env.DB.prepare(`
+              SELECT DISTINCT product_id 
+              FROM variants 
+              WHERE id IN (${placeholders})
+            `).bind(...variantIds).all();
+
+            const productIds = (variantRows.results || []).map(r => r.product_id);
+            
+            if (productIds.length > 0) {
+              const productPlaceholders = productIds.map(() => '?').join(',');
+              await env.DB.prepare(`
+                UPDATE products
+                SET stock = (
+                  SELECT COALESCE(SUM(v.stock), 0)
+                  FROM variants v
+                  WHERE v.product_id = products.id
+                ),
+                updated_at = ?
+                WHERE id IN (${productPlaceholders})
+              `).bind(Date.now(), ...productIds).run();
+
+              console.log('[Shopee Stock Sync] 🔁 Updated products.stock for', productIds.length, 'products');
+            }
+          }
         }
 
         console.log('[Shopee Stock Sync] ✅ Completed:', stockUpdates.length, 'variants updated');
@@ -907,6 +941,7 @@ export async function handle(req, env, ctx) {
           updates: stockUpdates,
           message: `✅ Synced ${stockUpdates.length} variants (${requestOffset + stockUpdates.length}/${totalItems})`
         }, {}, req);
+
 
       } catch (e) {
         console.error('[Shopee Stock Sync] ❌ Error:', e);
