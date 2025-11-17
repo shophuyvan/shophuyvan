@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS products (
   -- ✅ Category
   category_slug TEXT,               -- Slug danh mục
   
+  -- ✅ METRICS (sold, rating, reviews)
+  sold INTEGER DEFAULT 0,           -- Số lượng đã bán
+  rating REAL DEFAULT 5.0,          -- Đánh giá trung bình (1.0 - 5.0)
+  rating_count INTEGER DEFAULT 0,  -- Số lượt đánh giá
+  
   -- ✅ SEO
   seo_title TEXT,
   seo_desc TEXT,
