@@ -530,9 +530,6 @@ export async function handle(req, env, ctx) {
         
         for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
           const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
-        
-        for (let i = 0; i < allItemIds.length; i += BATCH_SIZE) {
-          const batch = allItemIds.slice(i, i + BATCH_SIZE);
           
           const detailPath = '/api/v2/product/get_item_base_info';
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
