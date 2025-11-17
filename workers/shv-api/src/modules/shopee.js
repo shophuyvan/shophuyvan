@@ -565,7 +565,8 @@ export async function handle(req, env, ctx) {
         for (let item of allItems) {
           try {
             // ✅ KIỂM TRA has_model TRƯỚC KHI GỌI API
-            if (item.has_model === true) {
+            // Check if product has variants
+              if (item.has_model == true || item.has_model === 1) {
               // Gọi API get_model_list để lấy variants
               const modelPath = '/api/v2/product/get_model_list';
               const modelData = await callShopeeAPI(env, 'GET', modelPath, shopData, {
@@ -796,7 +797,7 @@ export async function handle(req, env, ctx) {
           for (const item of items) {
             try {
               // Check if product has variants
-              if (item.has_model === true) {
+              if (item.has_model == true || item.has_model === 1) {
                 const models = modelDataMap.get(item.item_id) || [];
                 
                 for (const model of models) {
@@ -811,7 +812,7 @@ export async function handle(req, env, ctx) {
                       AND channel_item_id = ? 
                       AND channel_model_id = ?
                     LIMIT 1
-                  `).bind(String(item.item_id), String(shopeeModelId)).first();
+                  .bind(Number(item.item_id), Number(shopeeModelId))
                   
                   if (mapping && mapping.variant_id) {
                     // 4️⃣ Update stock vào variants table
@@ -834,15 +835,14 @@ export async function handle(req, env, ctx) {
                 }
               } else {
                 // Product không có variants - lấy stock từ stock_info_v2
-                const shopeeStock = item.stock_info_v2?.current_stock || 0;
-                
                 const mapping = await env.DB.prepare(`
                   SELECT variant_id 
                   FROM channel_products 
                   WHERE channel = 'shopee' 
                     AND channel_item_id = ?
                   LIMIT 1
-                `).bind(String(item.item_id)).first();
+                `).bind(Number(item.item_id)).first();
+
                 
                 if (mapping && mapping.variant_id) {
                   await env.DB.prepare(`
