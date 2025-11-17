@@ -817,6 +817,7 @@ async function upsertProduct(req, env) {
     }
 
     // 5) Xử lý variants
+    // 5) Xử lý variants
     const incomingVariants = Array.isArray(incoming.variants) ? incoming.variants : [];
     
     if (incomingVariants.length > 0) {
@@ -825,76 +826,23 @@ async function upsertProduct(req, env) {
         SELECT * FROM variants WHERE product_id = ?
       `).bind(productId).all();
       
-      const existingMap = new Map();
+      // ✅ FIX: Map theo SKU thay vì ID để tránh duplicate
+      const existingMapBySKU = new Map();
+      const existingMapByID = new Map();
       (existingVariants.results || []).forEach(v => {
-        existingMap.set(v.id, v);
+        if (v.sku) existingMapBySKU.set(v.sku, v);
+        existingMapByID.set(v.id, v);
       });
 
       // Process từng variant
       for (const v of incomingVariants) {
-        const variantId = v.id ? Number(v.id) : null;
-        const oldVariant = variantId ? existingMap.get(variantId) : null;
-
-        // Chuẩn bị variant data
-        const variantData = {
-          product_id: productId,
-          sku: v.sku || `SKU-${productId}-${Date.now()}`,
-          name: v.name || v.title || 'Default',
-          price: Number(v.price || 0),
-          price_sale: v.price_sale ? Number(v.price_sale) : null,
-          price_wholesale: v.price_wholesale ? Number(v.price_wholesale) : null,
-          cost_price: v.cost_price ? Number(v.cost_price) : null,
-          price_silver: v.price_silver ? Number(v.price_silver) : null,
-          price_gold: v.price_gold ? Number(v.price_gold) : null,
-          price_diamond: v.price_diamond ? Number(v.price_diamond) : null,
-          stock: v.stock !== undefined ? Number(v.stock) : (oldVariant ? oldVariant.stock : 0),
-          weight: Number(v.weight || v.weight_gram || v.weight_grams || 0),
-          status: v.status || 'active',
-          image: v.image || null,
-          created_at: oldVariant ? oldVariant.created_at : now,
-          updated_at: now
-        };
-
-        if (oldVariant) {
-          // UPDATE existing variant
-          await env.DB.prepare(`
-            UPDATE variants SET
-              sku = ?, name = ?, price = ?, price_sale = ?,
-              price_wholesale = ?, cost_price = ?,
-              price_silver = ?, price_gold = ?, price_diamond = ?,
-              stock = ?, weight = ?, status = ?, image = ?,
-              updated_at = ?
-            WHERE id = ?
-          `).bind(
-            variantData.sku, variantData.name, variantData.price, variantData.price_sale,
-            variantData.price_wholesale, variantData.cost_price,
-            variantData.price_silver, variantData.price_gold, variantData.price_diamond,
-            variantData.stock, variantData.weight, variantData.status, variantData.image,
-            variantData.updated_at, variantId
-          ).run();
-        } else {
-          // INSERT new variant
-          await env.DB.prepare(`
-            INSERT INTO variants (
-              product_id, sku, name, price, price_sale,
-              price_wholesale, cost_price,
-              price_silver, price_gold, price_diamond,
-              stock, weight, status, image,
-              created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            variantData.product_id, variantData.sku, variantData.name,
-            variantData.price, variantData.price_sale,
-            variantData.price_wholesale, variantData.cost_price,
-            variantData.price_silver, variantData.price_gold, variantData.price_diamond,
-            variantData.stock, variantData.weight, variantData.status, variantData.image,
-            variantData.created_at, variantData.updated_at
-          ).run();
+        const incomingSKU = v.sku || `SKU-${productId}-${Date.now()}`;
+        
+        // ✅ Check theo SKU trước, rồi mới đến ID
+        let oldVariant = existingMapBySKU.get(incomingSKU);
+        if (!oldVariant && v.id) {
+          oldVariant = existingMapByID.get(Number(v.id));
         }
-      }
-      
-      console.log(`✅ Processed ${incomingVariants.length} variants`);
-    }
 
     // 6) Load lại full product để trả về
     const saved = await env.DB.prepare(`SELECT * FROM products WHERE id = ?`).bind(productId).first();
