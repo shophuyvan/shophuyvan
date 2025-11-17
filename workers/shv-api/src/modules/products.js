@@ -985,30 +985,70 @@ async function getBestsellers(req, env) {
     const url = new URL(req.url);
     const limit = Number(url.searchParams.get('limit') || '12');
 
-    // Lấy danh sách summary
-    let data = await listProducts(env);
-    let items = Array.isArray(data?.items) ? data.items.slice()
-               : Array.isArray(data) ? data.slice() : [];
+    console.log('[BESTSELLERS] 🚀 Query D1 with sold + stock...');
 
-    // Chỉ lấy sản phẩm active
-    items = items.filter(p => p.status !== 0);
+    // ✅ FIX: Query trực tiếp từ D1 với sold + stock check
+    const result = await env.DB.prepare(`
+      SELECT 
+        p.id, p.title, p.slug, p.images, p.category_slug,
+        p.status, p.sold, p.rating, p.rating_count,
+        COALESCE(SUM(v.stock), 0) as total_stock
+      FROM products p
+      LEFT JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active'
+      GROUP BY p.id
+      HAVING total_stock > 0
+      ORDER BY p.sold DESC, p.created_at DESC
+      LIMIT ?
+    `).bind(limit).all();
 
-    // 🔥 Nạp FULL từ KV để có sold + ✅ Filter còn hàng
+    const items = (result.results || []).map(p => {
+      const images = p.images ? JSON.parse(p.images) : [];
+      
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        category_slug: p.category_slug,
+        status: 1,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        rating_count: Number(p.rating_count || 0),
+        stock: Number(p.total_stock || 0)
+      };
+    });
+
+    // 🔥 Load FULL variants để tính giá
     const full = [];
-    for (const s of items) {
-      const id = String(s.id || s.key || '');
-      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      
-      if (!p) continue;
-      
-      // ✅ Kiểm tra tồn kho từ variants
-      const vars = Array.isArray(p.variants) ? p.variants : [];
-      const totalStock = vars.reduce((sum, v) => sum + Number(v.stock || 0), 0);
-      
-      // Chỉ thêm sản phẩm còn hàng
-      if (totalStock > 0) {
-        full.push(p);
-      }
+    for (const item of items) {
+      const productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE id = ?
+      `).bind(item.id).first();
+
+      if (!productResult) continue;
+
+      const variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ?
+      `).bind(item.id).all();
+
+      const product = {
+        ...productResult,
+        ...item,
+        images: item.images,
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      full.push(product);
     }
 
     // Sắp xếp theo sold (cao nhất trước)
@@ -1041,35 +1081,77 @@ async function getNewest(req, env) {
   try {
     const url = new URL(req.url);
     const limit = Number(url.searchParams.get('limit') || '12');
+    const DAYS = 14; // Lấy sản phẩm trong 14 ngày gần đây
 
-    // Lấy danh sách summary
-    let data = await listProducts(env);
-    let items = Array.isArray(data?.items) ? data.items.slice()
-               : Array.isArray(data) ? data.slice() : [];
+    console.log('[NEWEST] 🚀 Query D1 with created_at + stock...');
 
-    // Chỉ lấy sản phẩm active
-    items = items.filter(p => p.status !== 0);
+    const cutoffTime = Date.now() - (DAYS * 24 * 60 * 60 * 1000);
 
-    // 🔥 Nạp FULL từ KV để có createdAt + ✅ Filter còn hàng
+    // ✅ FIX: Query trực tiếp từ D1 với created_at + stock check
+    const result = await env.DB.prepare(`
+      SELECT 
+        p.id, p.title, p.slug, p.images, p.category_slug,
+        p.status, p.sold, p.rating, p.rating_count, p.created_at,
+        COALESCE(SUM(v.stock), 0) as total_stock
+      FROM products p
+      LEFT JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active' 
+        AND p.created_at >= ?
+      GROUP BY p.id
+      HAVING total_stock > 0
+      ORDER BY p.created_at DESC
+      LIMIT ?
+    `).bind(cutoffTime, limit).all();
+
+    const items = (result.results || []).map(p => {
+      const images = p.images ? JSON.parse(p.images) : [];
+      
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        category_slug: p.category_slug,
+        status: 1,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        rating_count: Number(p.rating_count || 0),
+        stock: Number(p.total_stock || 0),
+        created_at: p.created_at
+      };
+    });
+
+    // 🔥 Load FULL variants để tính giá
     const full = [];
-    for (const s of items) {
-      const id = String(s.id || s.key || '');
-      const p  = id ? (await getJSON(env, 'product:' + id, null)) : null;
-      
-      if (!p) continue;
-      
-      // ✅ Kiểm tra tồn kho từ variants
-      const vars = Array.isArray(p.variants) ? p.variants : [];
-      const totalStock = vars.reduce((sum, v) => sum + Number(v.stock || 0), 0);
-      
-      // Chỉ thêm sản phẩm còn hàng
-      if (totalStock > 0) {
-        full.push(p);
-      }
-    }
+    for (const item of items) {
+      const productResult = await env.DB.prepare(`
+        SELECT * FROM products WHERE id = ?
+      `).bind(item.id).first();
 
-    const now = Date.now();
-    const DAYS = 3; // Lấy sản phẩm trong 2 ngày gần đây
+      if (!productResult) continue;
+
+      const variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ?
+      `).bind(item.id).all();
+
+      const product = {
+        ...productResult,
+        ...item,
+        images: item.images,
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      full.push(product);
+    }
 
     // Lọc sản phẩm mới (dựa vào createdAt)
     const newest = full.filter(p => {
