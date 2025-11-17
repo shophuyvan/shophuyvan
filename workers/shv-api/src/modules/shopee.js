@@ -434,14 +434,14 @@ export async function handle(req, env, ctx) {
         console.log('[Shopee Sync] 📦 Fetching NEW products only (skip existing)...');
         console.log('[Shopee Sync] 📄 Request range:', requestOffset, '-', requestOffset + requestLimit);
         
-        // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm CÒN HÀNG từ Shopee
+        // ✅ PAGINATION: Lấy TẤT CẢ sản phẩm từ Shopee
         const itemListPath = '/api/v2/product/get_item_list';
         
         let allItemIds = [];
         let offset = 0;
         let hasNextPage = true;
         
-        console.log('[Shopee Sync] 📦 Fetching products with stock > 0 only...');
+        console.log('[Shopee Sync] 📦 Sync ALL products + ALL variants + SKU (stock sync separately)...');
         
         // Loop để lấy hết tất cả products CÒN HÀNG
         while (hasNextPage) {
@@ -572,16 +572,10 @@ export async function handle(req, env, ctx) {
                 item_id: item.item_id
               });
               
-              // Gắn variants vào item
+              // Gắn TẤT CẢ variants vào item (KHÔNG filter stock)
               const models = modelData.response?.model || [];
               
-              // ✅ FILTER: Chỉ giữ variants có stock > 0
-              const modelsWithStock = models.filter(m => {
-                const stock = m.stock_info_v2?.current_stock || 0;
-                return stock > 0;
-              });
-              
-              item.model_list = modelsWithStock;
+              item.model_list = models; // ✅ Sync TẤT CẢ variants
               item.price_info = modelData.response?.price_info || [];
               item.stock_info_v2 = modelData.response?.stock_info_v2 || {};
               
@@ -611,17 +605,10 @@ export async function handle(req, env, ctx) {
           }
         }
         
-        // ✅ FILTER CUỐI: Loại bỏ products không có variants nào còn hàng
-        const items = allItems.filter(item => {
-          if (item.has_model === true) {
-            return item.model_list.length > 0; // Có ít nhất 1 variant còn hàng
-          } else {
-            const stock = item.stock_info_v2?.current_stock || 0;
-            return stock > 0; // Product đơn phải có stock > 0
-          }
-        });
+        // ✅ KHÔNG FILTER - Sync TẤT CẢ products và variants (stock sync riêng sau)
+        const items = allItems;
         
-        console.log(`[Shopee] ✅ Final: ${items.length}/${allItems.length} products with stock > 0`);
+        console.log(`[Shopee] ✅ Final: ${items.length} products ready to sync (all variants + SKU included)`);
         
         // ✅ DEBUG: Log 3 products đầu tiên để xem structure
         if (items.length > 0) {
