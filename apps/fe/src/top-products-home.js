@@ -343,26 +343,112 @@ async function loadNewest() {
 }
 
 // ==========================================
+// LOAD SẢN PHẨM THEO DANH MỤC (SECTION GIỐNG "HÀNG MỚI RA MẮT")
+// ==========================================
+async function loadCategorySection(section) {
+  if (!section || !section.elementId) return;
+
+  const el = document.getElementById(section.elementId);
+  if (!el) {
+    console.warn('⚠️ Category section element not found:', section.elementId);
+    return;
+  }
+
+  try {
+    el.innerHTML = `
+      <div class="col-span-full text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600"></div>
+        <div class="text-gray-500 mt-2">Đang tải...</div>
+      </div>
+    `;
+
+    const limit = section.limit || 8;
+
+    // URL API cho danh mục – dùng endpoint cấu hình, dễ chỉnh sau này
+    const url = section.endpoint || `/products?category=${encodeURIComponent(section.category)}&limit=${limit}`;
+    const data = await api(url);
+
+    if (!data || !data.ok || !Array.isArray(data.items) || data.items.length === 0) {
+      console.log('ℹ️ Không có sản phẩm cho danh mục', section.category);
+      const sectionEl = el.closest('section');
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
+    }
+
+    const items = data.items;
+    const cardPromises = items.map((item) => productCard(item));
+    const cards = await Promise.all(cardPromises);
+    el.innerHTML = cards.join('');
+
+  } catch (error) {
+    console.error('❌ Lỗi load category section:', section, error);
+    el.innerHTML = '<div class="col-span-full text-center text-red-500 py-4">Không thể tải sản phẩm</div>';
+  }
+}
+
+// Danh sách section danh mục hiển thị trên trang chủ
+// endpoint: bạn có thể chỉnh cho khớp API thật (vd: /products?category_slug=...&limit=8)
+const HOME_CATEGORY_SECTIONS = [
+  {
+    title: 'Thiết Bị Điện Nước',
+    category: 'thiet-bi-dien-nuoc',
+    elementId: 'cat-thiet-bi-dien-nuoc',
+    limit: 8,
+    endpoint: '/products?category=thiet-bi-dien-nuoc&limit=8',
+  },
+  {
+    title: 'Nhà Cửa Đời Sống',
+    category: 'nha-cua-doi-song',
+    elementId: 'cat-nha-cua-doi-song',
+    limit: 8,
+    endpoint: '/products?category=nha-cua-doi-song&limit=8',
+  },
+  {
+    title: 'Hoá Chất Gia Dụng',
+    category: 'hoa-chat-gia-dung',
+    elementId: 'cat-hoa-chat-gia-dung',
+    limit: 8,
+    endpoint: '/products?category=hoa-chat-gia-dung&limit=8',
+  },
+  {
+    title: 'Dụng Cụ Tiện Ích',
+    category: 'dung-cu-tien-ich',
+    elementId: 'cat-dung-cu-tien-ich',
+    limit: 8,
+    endpoint: '/products?category=dung-cu-tien-ich&limit=8',
+  },
+];
+
+// ==========================================
 // INIT - LOAD TUẦN TỰ (SEQUENTIAL)
 // ==========================================
 (async function initTopProducts() {
-  // ✅ Load tuần tự để tránh timeout
-  console.log('[Top Products] Starting sequential load...');
-  
+  console.log('[Top Products] Starting sequential load.');
+
   try {
     await loadBestsellers();
     console.log('[Top Products] ✅ Bestsellers loaded');
   } catch (e) {
     console.error('[Top Products] ❌ Bestsellers failed:', e);
   }
-  
+
   try {
     await loadNewest();
     console.log('[Top Products] ✅ Newest loaded');
   } catch (e) {
     console.error('[Top Products] ❌ Newest failed:', e);
   }
-  
+
+  // Load lần lượt 4 danh mục
+  for (const section of HOME_CATEGORY_SECTIONS) {
+    try {
+      await loadCategorySection(section);
+      console.log('[Top Products] ✅ Category section loaded:', section.category);
+    } catch (e) {
+      console.error('[Top Products] ❌ Category section failed:', section, e);
+    }
+  }
+
   console.log('[Top Products] ✅ All sections loaded');
 })();
 
