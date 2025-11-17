@@ -172,7 +172,7 @@ async function listProducts(env) {
   console.log('[listProducts] 🚀 Đọc từ D1...');
   
   try {
-        // Query tất cả products (chỉ lấy summary fields)
+    // Query tất cả products (chỉ lấy summary fields)
     const products = await env.DB.prepare(`
       SELECT 
         id, title, slug, shortDesc, category_slug,
@@ -183,7 +183,6 @@ async function listProducts(env) {
       ORDER BY created_at DESC
     `).all();
 
-
     if (!products.results || products.results.length === 0) {
       console.log('[listProducts] ⚠️ Không có sản phẩm nào');
       return [];
@@ -191,42 +190,70 @@ async function listProducts(env) {
 
     console.log(`[listProducts] ✅ Tìm thấy ${products.results.length} sản phẩm`);
 
-        // Convert sang format summary (tương thích với code cũ)
-    const items = products.results.map(p => {
+    // 🔍 DEBUG: Query variants stock để so sánh
+    const debugStockInfo = [];
+
+    // Convert sang format summary (tương thích với code cũ)
+    const items = await Promise.all(products.results.map(async (p) => {
       // Parse JSON fields
       const images = p.images ? JSON.parse(p.images) : [];
+      
+      // 🔍 DEBUG: Query variants stock của product này
+      const variantsResult = await env.DB.prepare(`
+        SELECT id, sku, stock FROM variants WHERE product_id = ?
+      `).bind(p.id).all();
+      
+      const variants = variantsResult.results || [];
+      const variantsStockSum = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+      const productStock = Number(p.stock) || 0;
+      
+      // Log nếu có mismatch
+      if (productStock !== variantsStockSum) {
+        const debugInfo = {
+          product_id: p.id,
+          product_title: p.title,
+          product_stock: productStock,
+          variants_stock_sum: variantsStockSum,
+          variants: variants.map(v => ({ id: v.id, sku: v.sku, stock: v.stock })),
+          mismatch: true
+        };
+        console.log('[listProducts] ⚠️ STOCK MISMATCH:', debugInfo);
+        debugStockInfo.push(debugInfo);
+      } else {
+        console.log(`[listProducts] ✅ Product ${p.id}: stock=${productStock} (variants sum=${variantsStockSum})`);
+      }
       
       return {
         id: p.id,
         title: p.title,
-        name: p.title,
         slug: p.slug,
-        images: images,
-        category_slug: p.category_slug,
-        status: p.status === 'active' ? 1 : 0,
-
-        // ✅ Dữ liệu thực từ bảng products
-        sold: typeof p.sold === 'number' ? p.sold : 0,
-        rating: typeof p.rating === 'number' ? p.rating : 5.0,
-        rating_count: typeof p.rating_count === 'number' ? p.rating_count : 0,
-        stock: typeof p.stock === 'number' ? p.stock : 0,
-        
-        // Placeholder fields cho giá (giữ để tương thích code cũ)
-        price_display: 0,
-        compare_at_display: null,
-        price: 0,
-        
+        shortDesc: p.shortDesc || '',
+        category_slug: p.category_slug || '',
+        images,
+        status: p.status || 'active',
+        on_website: p.on_website || 0,
+        on_mini: p.on_mini || 0,
+        sold: p.sold || 0,
+        rating: p.rating || 5.0,
+        rating_count: p.rating_count || 0,
+        stock: p.stock || 0,
         created_at: p.created_at,
-        updated_at: p.updated_at
+        updated_at: p.updated_at,
+        // 🔍 DEBUG: Thêm debug info vào response
+        _debug_variants_stock: variantsStockSum,
+        _debug_stock_match: productStock === variantsStockSum
       };
-    });
+    }));
 
+    // Log tổng kết
+    if (debugStockInfo.length > 0) {
+      console.log(`[listProducts] 🚨 Found ${debugStockInfo.length} products with stock mismatch`);
+    }
 
     return items;
-
-  } catch (e) {
-    console.error('[listProducts] 💥 Lỗi D1:', e);
-    throw e;
+  } catch (error) {
+    console.error('[listProducts] ❌ Error:', error);
+    return [];
   }
 }
 
