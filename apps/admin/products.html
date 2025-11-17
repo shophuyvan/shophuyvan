@@ -222,6 +222,55 @@
   color: #666;
 }
 
+/* Tabs */
+.tabs {
+  background: white;
+  padding: 0 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tab {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: #1976d2;
+}
+
+.tab.active {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+  font-weight: 600;
+}
+
+.tab-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tab.active .tab-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -255,6 +304,24 @@
   </div>
 </div>
 
+<div class="tabs">
+  <button class="tab active" data-filter="all">
+    Tất Cả <span class="tab-badge" id="count-all">0</span>
+  </button>
+  <button class="tab" data-filter="active">
+    Đang Hoạt Động <span class="tab-badge" id="count-active">0</span>
+  </button>
+  <button class="tab" data-filter="low-stock">
+    Sắp Hết Hàng <span class="tab-badge" id="count-low">0</span>
+  </button>
+  <button class="tab" data-filter="out-of-stock">
+    Hết Hàng <span class="tab-badge" id="count-out">0</span>
+  </button>
+  <button class="tab" data-filter="hidden">
+    Đã Ẩn <span class="tab-badge" id="count-hidden">0</span>
+  </button>
+</div>
+
 <div id="bulk-actions" class="bulk-actions">
   <input type="checkbox" id="select-all"/>
   <span class="bulk-actions-text"><span id="selected-count">0</span> sản phẩm được chọn</span>
@@ -280,6 +347,8 @@ const $ = (s) => document.querySelector(s);
 
   let allProducts = [];
   let selectedIds = new Set();
+  let currentFilter = 'all'; // ✅ Tab hiện tại
+  const LOW_STOCK_THRESHOLD = 10; // ✅ Ngưỡng sắp hết hàng
 
   // ✅ CACHE SYSTEM
   const CACHE_KEY = 'admin_products_cache';
@@ -531,12 +600,32 @@ const $ = (s) => document.querySelector(s);
 
   function renderProducts() {
     const q = ($('#q')?.value || '').toLowerCase();
-    const filtered = allProducts.filter(p => {
+    
+    // ✅ Filter theo search + tab
+    let filtered = allProducts.filter(p => {
+      // Search filter
       const t = (p.title || p.name || '').toLowerCase();
       const slug = String(p.slug || '').toLowerCase();
       const sku = String(p.sku || '').toLowerCase();
-      return !q || t.includes(q) || slug.includes(q) || sku.includes(q);
+      const matchSearch = !q || t.includes(q) || slug.includes(q) || sku.includes(q);
+      
+      if (!matchSearch) return false;
+      
+      // Tab filter
+      const stock = Number(p.stockTotal || p.stock || 0);
+      const isActive = p.status !== 0 && (p.status === 'active' || p.status === 1);
+      
+      if (currentFilter === 'all') return true;
+      if (currentFilter === 'active') return isActive && stock > 0;
+      if (currentFilter === 'low-stock') return isActive && stock > 0 && stock <= LOW_STOCK_THRESHOLD;
+      if (currentFilter === 'out-of-stock') return stock === 0;
+      if (currentFilter === 'hidden') return !isActive;
+      
+      return true;
     });
+    
+    // ✅ Update counts
+    updateTabCounts();
     
     const totalEl = $('#total-count');
     if (totalEl) totalEl.textContent = filtered.length;
@@ -561,6 +650,40 @@ const $ = (s) => document.querySelector(s);
     });
     
     updateBulkActions();
+  }
+
+  function updateTabCounts() {
+    let countAll = 0;
+    let countActive = 0;
+    let countLow = 0;
+    let countOut = 0;
+    let countHidden = 0;
+    
+    allProducts.forEach(p => {
+      const stock = Number(p.stockTotal || p.stock || 0);
+      const isActive = p.status !== 0 && (p.status === 'active' || p.status === 1);
+      
+      countAll++;
+      
+      if (isActive && stock > 0) {
+        countActive++;
+        if (stock <= LOW_STOCK_THRESHOLD) countLow++;
+      }
+      
+      if (stock === 0) countOut++;
+      if (!isActive) countHidden++;
+    });
+    
+    const setCount = (id, val) => {
+      const el = $(id);
+      if (el) el.textContent = val;
+    };
+    
+    setCount('#count-all', countAll);
+    setCount('#count-active', countActive);
+    setCount('#count-low', countLow);
+    setCount('#count-out', countOut);
+    setCount('#count-hidden', countHidden);
   }
 
   function handleCheckboxChange(e) {
@@ -672,6 +795,20 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
 
   const searchInput = $('#q');
   if (searchInput) searchInput.addEventListener('input', renderProducts);
+
+  // ✅ Tab clicks
+  $$('.tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const filter = e.currentTarget.getAttribute('data-filter');
+      currentFilter = filter;
+      
+      // Update active tab
+      $$('.tab').forEach(t => t.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      
+      renderProducts();
+    });
+  });
 
   // ✅ Auto update cache time mỗi 10 giây
   setInterval(() => {
