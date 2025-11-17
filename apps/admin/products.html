@@ -488,10 +488,12 @@ const $ = (s) => document.querySelector(s);
           const stock = toNum(d.stock ?? d.inventory ?? d.quantity);
           const cost  = toNum(d.cost ?? d.cost_price ?? d.import_price ?? d.price_import ?? d.purchase_price);
           const price = toNum(d.price_sale ?? d.price);
+          const wholesale = toNum(d.price_wholesale ?? 0);
 
           p.stockTotal = stock;
           p.costImport = cost;
           p.importTotal = stock * cost;
+          p.wholesalePrice = wholesale; // ✅ THÊM: Giá sỉ
           if (!(p.salePrice > 0)) p.salePrice = price;
           p._hasStock = stock > 0;
         }
@@ -539,7 +541,9 @@ const $ = (s) => document.querySelector(s);
           <div class="card-title">${p.title || p.name || 'Không có tên'}</div>
           <div class="card-meta">
             <div>SKU: ${p.sku || p.slug || 'N/A'}</div>
+            <div>Danh mục: <b>${p.category || p.category_slug || 'Chưa phân loại'}</b></div>
             <div>Giá sale: <b>${formatPrice(priceSale)}</b></div>
+            <div>Giá sỉ: <b>${formatPrice(Number(p.wholesalePrice || 0))}</b></div>
             <div>Giá nhập: <b>${formatPrice(costImport)}</b></div>
             <div>Tồn kho: <b>${stockTotal.toLocaleString('vi-VN')}</b></div>
             <div>Tổng nhập: <b>${formatPrice(importTotal)}</b></div>
