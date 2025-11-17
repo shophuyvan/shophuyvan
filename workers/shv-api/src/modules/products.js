@@ -250,6 +250,16 @@ async function listProducts(env) {
       console.log(`[listProducts] 🚨 Found ${debugStockInfo.length} products with stock mismatch`);
     }
 
+    // 🔍 DEBUG: Log top 10 products để check
+    const top10 = items.slice(0, 10).map(item => ({
+      id: item.id,
+      title: item.title?.substring(0, 30),
+      product_stock: item.stock,
+      variants_stock: item._debug_variants_stock,
+      match: item._debug_stock_match
+    }));
+    console.log('[listProducts] 📊 Top 10 products stock:', JSON.stringify(top10, null, 2));
+
     return items;
   } catch (error) {
     console.error('[listProducts] ❌ Error:', error);
