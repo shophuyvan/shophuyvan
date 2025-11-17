@@ -394,28 +394,28 @@ const HOME_CATEGORY_SECTIONS = [
     category: 'thiet-bi-dien-nuoc',
     elementId: 'cat-thiet-bi-dien-nuoc',
     limit: 8,
-    endpoint: `https://shv-api.shophuyvan.workers.dev/public/products?category_slug=thiet-bi-dien-nuoc`,
+    endpoint: `https://api.shophuyvan.vn/public/products?category_slug=thiet-bi-dien-nuoc`,
   },
   {
     title: 'Nhà Cửa Đời Sống',
     category: 'nha-cua-doi-song',
     elementId: 'cat-nha-cua-doi-song',
     limit: 8,
-    endpoint: `https://shv-api.shophuyvan.workers.dev/public/products?category_slug=nha-cua-doi-song`,
+    endpoint: `https://api.shophuyvan.vn/public/products?category_slug=nha-cua-doi-song`,
   },
   {
     title: 'Hoá Chất Gia Dụng',
     category: 'hoa-chat-gia-dung',
     elementId: 'cat-hoa-chat-gia-dung',
     limit: 8,
-    endpoint: `https://shv-api.shophuyvan.workers.dev/public/products?category_slug=hoa-chat-gia-dung`,
+    endpoint: `https://api.shophuyvan.vn/public/products?category_slug=hoa-chat-gia-dung`,
   },
   {
     title: 'Dụng Cụ Tiện Ích',
     category: 'dung-cu-tien-ich',
     elementId: 'cat-dung-cu-tien-ich',
     limit: 8,
-    endpoint: `https://shv-api.shophuyvan.workers.dev/public/products?category_slug=dung-cu-tien-ich`,
+    endpoint: `https://api.shophuyvan.vn/public/products?category_slug=dung-cu-tien-ich`,
   },
 ];
 
