@@ -1078,6 +1078,7 @@ async function getBestsellers(req, env) {
 // PUBLIC: Get Newest (sản phẩm mới trong 14 ngày)
 // ===================================================================
 async function getNewest(req, env) {
+  const now = Date.now(); // ✅ THÊM DÒNG NÀY
   try {
     const url = new URL(req.url);
     const limit = Number(url.searchParams.get('limit') || '12');
