@@ -804,7 +804,7 @@ export async function handle(req, env, ctx) {
                   const shopeeStock = model.stock_info_v2?.current_stock || 0;
                   const shopeeModelId = model.model_id;
                   
-                  // 3️⃣ Tìm variant tương ứng trong D1
+// 3️⃣ Tìm variant tương ứng trong D1
                   const mapping = await env.DB.prepare(`
                     SELECT variant_id 
                     FROM channel_products 
@@ -812,7 +812,8 @@ export async function handle(req, env, ctx) {
                       AND channel_item_id = ? 
                       AND channel_model_id = ?
                     LIMIT 1
-                  .bind(Number(item.item_id), Number(shopeeModelId))
+                  `).bind(Number(item.item_id), Number(shopeeModelId)).first();
+
                   
                   if (mapping && mapping.variant_id) {
                     // 4️⃣ Update stock vào variants table
