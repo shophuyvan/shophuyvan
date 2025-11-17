@@ -542,21 +542,10 @@ export async function handle(req, env, ctx) {
           
           const items = detailData.response?.item_list || [];
           
-          // ✅ FILTER: Chỉ lấy products CÓ STOCK > 0
-          const itemsWithStock = items.filter(item => {
-            if (item.has_model === true) {
-              // Sẽ check stock ở variants bên dưới
-              return true;
-            } else {
-              // Product không có variants - check stock ngay
-              const stock = item.stock_info_v2?.current_stock || 0;
-              return stock > 0;
-            }
-          });
+          // ✅ KHÔNG FILTER Ở ĐÂY - Sẽ filter sau khi lấy variants
+          allItems.push(...items);
           
-          allItems.push(...itemsWithStock);
-          
-          console.log(`[Shopee] Batch ${Math.floor(i/BATCH_SIZE) + 1}: ${itemsWithStock.length}/${items.length} items with stock`);
+          console.log(`[Shopee] Batch ${Math.floor(i/BATCH_SIZE) + 1}: ${items.length} items fetched`);
           
           // ✅ DEBUG: Log response structure của batch đầu tiên
           if (i === 0 && items.length > 0) {
