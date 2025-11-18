@@ -182,6 +182,24 @@
     </div>
   </div>
 
+  <!-- ✅ BANNER ĐĂNG KÝ NHANH (ẨN KHI ĐÃ LOGIN) -->
+  <div id="quick-register-banner" style="display:none;">
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 border-b-4 border-blue-800">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="text-3xl">🚀</div>
+          <div>
+            <div class="text-white font-bold text-sm md:text-base">Mua sắm nhanh chóng không cần đăng ký!</div>
+            <div class="text-blue-100 text-xs md:text-sm">Tạo tài khoản chỉ trong 2 giây</div>
+          </div>
+        </div>
+        <button id="quick-register-btn" class="bg-white text-blue-600 px-4 py-2 md:px-6 md:py-2 rounded-lg font-bold text-sm md:text-base hover:bg-blue-50 transition-all whitespace-nowrap shadow-lg">
+          Tạo ngay
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Banner slider -->
   <section id="banner" class="max-w-7xl mx-auto px-3 md:px-4 py-4">
     <div id="banner-wrap" style="border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
@@ -389,6 +407,27 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <script type="module" src="/src/tracking.js?v=36"></script>
 <script>window.API_BASE="https://api.shophuyvan.vn";</script>
+
+<!-- ✅ QUICK REGISTER MODULE -->
+<script type="module">
+import { quickRegister } from './src/lib/quick-register.js';
+
+// Kiểm tra đã login chưa
+const token = localStorage.getItem('customer_token');
+const banner = document.getElementById('quick-register-banner');
+
+if (!token && banner) {
+  banner.style.display = 'block';
+  
+  document.getElementById('quick-register-btn')?.addEventListener('click', async () => {
+    try {
+      await quickRegister();
+    } catch (error) {
+      alert('❌ Lỗi: ' + error.message);
+    }
+  });
+}
+</script>
 <script>
 (function(){
   function toNum(x){

@@ -248,10 +248,14 @@
     <span>Hoặc</span>
   </div>
 
+  <!-- ✅ NÚT ĐĂNG KÝ NHANH -->
+  <button type="button" id="quick-register-btn" class="btn-login" style="background:#10b981;margin-bottom:16px;">
+    🚀 Tạo tài khoản nhanh (2 giây)
+  </button>
+
   <div class="register-link">
-    Chưa có tài khoản? <a href="/register.html">Đăng ký ngay</a>
+    Muốn đăng ký chi tiết? <a href="/register.html">Đăng ký đầy đủ</a>
   </div>
-</div>
 
 <script>
 (function() {
@@ -428,6 +432,124 @@
 
 })();
 </script>
+
+<!-- ✅ QUICK REGISTER SCRIPT -->
+<script type="module">
+const API_BASE = (window.API_BASE || 'https://api.shophuyvan.vn').replace(/\/+$/, '');
+
+document.getElementById('quick-register-btn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('quick-register-btn');
+  btn.disabled = true;
+  btn.textContent = 'Đang tạo tài khoản...';
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/quick-register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || 'Không thể tạo tài khoản');
+    }
+
+    // Lưu token
+    localStorage.setItem('customer_token', data.token);
+    localStorage.setItem('x-customer-token', data.token);
+    localStorage.setItem('x-token', data.token);
+    
+    if (data.customer) {
+      localStorage.setItem('customer_info', JSON.stringify(data.customer));
+    }
+
+    // Hiện popup
+    showQuickRegisterPopup(data.user);
+
+  } catch (error) {
+    alert('❌ Lỗi: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = '🚀 Tạo tài khoản nhanh (2 giây)';
+  }
+});
+
+function showQuickRegisterPopup(user) {
+  const popup = document.createElement('div');
+  popup.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="quick-register-popup">
+      <div style="background:white;border-radius:20px;padding:32px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.3s;">
+        
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:48px;margin-bottom:12px;">✅</div>
+          <h2 style="font-size:24px;font-weight:700;color:#111827;margin-bottom:8px;">Tài khoản đã được tạo!</h2>
+          <p style="color:#6b7280;font-size:14px;">Vui lòng lưu lại thông tin đăng nhập</p>
+        </div>
+
+        <div style="background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:20px;">
+          <div style="margin-bottom:16px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">📝 Tên đăng nhập</div>
+            <div style="font-size:20px;font-weight:700;color:#111827;font-family:monospace;" id="qr-username">${user.username}</div>
+          </div>
+          
+          <div style="margin-bottom:16px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">🔑 Mật khẩu</div>
+            <div style="font-size:20px;font-weight:700;color:#111827;font-family:monospace;" id="qr-password">${user.password}</div>
+          </div>
+
+          <div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">📧 Email tạm thời</div>
+            <div style="font-size:13px;color:#6b7280;word-break:break-all;">${user.email}</div>
+          </div>
+        </div>
+
+        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;border-radius:8px;margin-bottom:20px;">
+          <div style="font-size:13px;color:#92400e;">
+            ⚠️ <strong>Quan trọng:</strong> Vui lòng chụp màn hình hoặc ghi lại thông tin này!<br>
+            💡 Bạn có thể cập nhật email/SĐT trong phần <strong>Tài khoản của tôi</strong>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button onclick="copyQuickRegisterInfo('${user.username}', '${user.password}')" style="flex:1;padding:12px;background:#f3f4f6;border:2px solid #e5e7eb;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px;">
+            📋 Copy thông tin
+          </button>
+          <button onclick="window.location.href='/account.html'" style="flex:1;padding:12px;background:#f3f4f6;border:2px solid #e5e7eb;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px;">
+            👤 Tài khoản
+          </button>
+        </div>
+
+        <button onclick="window.location.href='/'" style="width:100%;padding:14px;background:#007bff;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:16px;">
+          🛍️ Tiếp tục mua sắm
+        </button>
+      </div>
+    </div>
+
+    <style>
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+  `;
+
+  document.body.appendChild(popup);
+}
+
+window.copyQuickRegisterInfo = (username, password) => {
+  const text = `Thông tin đăng nhập Shop Huy Vân\n\nTên đăng nhập: ${username}\nMật khẩu: ${password}\n\nVui lòng lưu lại!`;
+  
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ Đã copy thông tin!');
+  }).catch(() => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('✅ Đã copy thông tin!');
+  });
+};
+</script>
+
 <script src="https://admin.shophuyvan.vn/_shared/security.js"></script>
 </body>
 </html>

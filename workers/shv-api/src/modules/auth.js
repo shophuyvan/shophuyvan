@@ -68,6 +68,11 @@ export async function handle(req, env, ctx) {
     return customerMe(req, env);
   }
 
+  // ✅ QUICK REGISTER - Đăng ký nhanh 1 nút
+  if (path === '/auth/quick-register' && method === 'POST') {
+    return quickRegister(req, env);
+  }
+
   // ZALO MINIAPP: ACTIVATE PHONE
   if (path === '/auth/zalo/activate-phone' && method === 'POST') {
     return zaloActivatePhone(req, env);
@@ -81,6 +86,66 @@ export async function handle(req, env, ctx) {
   }
 
   return errorResponse('Route not found', 404, req);
+}
+
+// ===========================================
+// QUICK REGISTER - Đăng ký nhanh 1 nút
+// ===========================================
+async function quickRegister(req, env) {
+  try {
+    // Tạo username random: SHV + 6 chữ số
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const username = `SHV${randomNum}`;
+    
+    // Tạo password: Shv + 5 chữ số cuối
+    const password = `Shv${String(randomNum).slice(-5)}`;
+    
+    // Tạo customer ID
+    const customerId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    
+    // Hash password
+    const passwordHash = await sha256Hex(password);
+    
+    // Tạo customer object
+    const customer = {
+      id: customerId,
+      username: username,
+      full_name: `Khách hàng #${randomNum}`,
+      email: `guest_${Date.now()}@temp.shophuyvan.vn`,
+      phone: '',
+      customer_type: 'retail',
+      tier: 'retail',
+      password_hash: passwordHash,
+      is_quick_register: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Lưu vào KV
+    await putJSON(env, `customer:${customerId}`, customer);
+    await putJSON(env, `customer:email:${customer.email.toLowerCase()}`, customer);
+    
+    // Tạo token
+    const customerToken = await createCustomerToken(env, customerId);
+    
+    console.log('[QuickRegister] Created:', username);
+    
+    return json({
+      ok: true,
+      user: {
+        username: username,
+        password: password,
+        email: customer.email,
+        full_name: customer.full_name
+      },
+      token: customerToken,
+      customer: customer
+    }, {}, req);
+    
+  } catch (e) {
+    console.error('[QuickRegister Error]', e);
+    return errorResponse(e.message || 'Lỗi tạo tài khoản', 500, req);
+  }
 }
 
 // ===========================================

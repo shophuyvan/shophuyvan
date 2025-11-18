@@ -484,6 +484,61 @@
 
   <!-- Scripts -->
   <script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
+  
+  <!-- ✅ QUICK REGISTER - INTERCEPT ADD TO CART -->
+  <script type="module">
+  import { checkLoginBeforeAddCart } from './src/lib/quick-register.js';
+  
+  // Đợi DOM load xong
+  document.addEventListener('DOMContentLoaded', () => {
+    const addCartBtn = document.getElementById('btn-add-cart');
+    const buyNowBtn = document.getElementById('btn-buy-now');
+    
+    if (addCartBtn) {
+      // Lưu handler gốc nếu có
+      const originalAddToCart = window.addToCart;
+      
+      // Override click handler
+      addCartBtn.addEventListener('click', (e) => {
+        // Kiểm tra login
+        const isLoggedIn = checkLoginBeforeAddCart(() => {
+          // Callback: chạy sau khi tạo tài khoản hoặc bỏ qua
+          // Trigger lại event add to cart
+          if (originalAddToCart && typeof originalAddToCart === 'function') {
+            originalAddToCart();
+          } else {
+            // Fallback: dispatch custom event để ui-pdp.js xử lý
+            addCartBtn.dispatchEvent(new Event('click-after-login', { bubbles: true }));
+          }
+        });
+        
+        // Nếu chưa login, ngăn event mặc định
+        if (!isLoggedIn) {
+          e.stopPropagation();
+          e.preventDefault();
+          return false;
+        }
+      }, true); // Capture phase để chạy trước ui-pdp.js
+    }
+    
+    // Tương tự cho "Mua ngay"
+    if (buyNowBtn) {
+      buyNowBtn.addEventListener('click', (e) => {
+        const isLoggedIn = checkLoginBeforeAddCart(() => {
+          // Sau khi login/register, trigger lại
+          buyNowBtn.dispatchEvent(new Event('click-after-login', { bubbles: true }));
+        });
+        
+        if (!isLoggedIn) {
+          e.stopPropagation();
+          e.preventDefault();
+          return false;
+        }
+      }, true);
+    }
+  });
+  </script>
+  
   <script type="module" src="/src/ui-pdp.js?v=80"></script>
   <script type="module" src="/src/cart-badge-realtime.js?v=1"></script>
   <script type="module" src="/src/tracking.js?v=36"></script>
