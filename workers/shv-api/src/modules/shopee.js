@@ -1206,12 +1206,38 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No orders found' }, {}, req);
         }
 
-        // Lấy chi tiết đơn hàng
+// Lấy chi tiết đơn hàng
         console.log('[Shopee] Fetching order details for', orderSns.length, 'orders');
         console.log('[Shopee] Order SNs:', orderSns.slice(0, 5), '...'); // Log 5 đầu tiên
         
+        // ✅ FIX: Đúng endpoint Shopee V2
         const detailPath = '/api/v2/order/get_order_detail';
-        const detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, {
+        
+        // ✅ GỌI API THEO BATCH (max 50 orders/request)
+        const BATCH_SIZE = 50;
+        const allOrders = [];
+        
+        for (let i = 0; i < orderSns.length; i += BATCH_SIZE) {
+          const batch = orderSns.slice(i, i + BATCH_SIZE);
+          console.log(`[Shopee] Fetching batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} orders`);
+          
+          const detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, {
+            order_sn_list: batch,
+            response_optional_fields: [
+              'buyer_user_id',
+              'buyer_username', 
+              'item_list',
+              'recipient_address'
+            ]
+          });
+          
+          const batchOrders = detailData.response?.order_list || [];
+          allOrders.push(...batchOrders);
+          console.log(`[Shopee] Batch ${Math.floor(i/BATCH_SIZE) + 1}: Got ${batchOrders.length} orders`);
+        }
+        
+        console.log('[Shopee] Total orders retrieved:', allOrders.length);
+        const orders = allOrders;
           order_sn_list: orderSns
         });
 
