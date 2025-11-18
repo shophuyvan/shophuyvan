@@ -1221,10 +1221,39 @@ export async function handle(req, env, ctx) {
           const batch = orderSns.slice(i, i + BATCH_SIZE);
           console.log(`[Shopee] Fetching batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} orders`);
           
-          const detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, {
-            order_sn_list: batch.join(','),  // ✅ Convert array to comma-separated string
-            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address'  // ✅ String, not array
-          });
+          // ✅ LOG REQUEST PARAMS
+          const requestParams = {
+            order_sn_list: batch.join(','),
+            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address'
+          };
+          console.log('[Shopee Order] Request params:', JSON.stringify(requestParams));
+          
+          // ✅ THỬ CÁCH 1: String format (hiện tại)
+          console.log('[Shopee Order] Trying format: String');
+          let detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, requestParams);
+          
+          // ✅ LOG RESPONSE
+          console.log('[Shopee Order] Response:', JSON.stringify(detailData));
+          
+          // ✅ NẾU LỖI, THỬ CÁCH 2: Array format
+          if (detailData.error === 'error_not_found') {
+            console.log('[Shopee Order] String format failed, trying Array format...');
+            const requestParams2 = {
+              order_sn_list: batch,
+              response_optional_fields: [
+                'buyer_user_id',
+                'buyer_username',
+                'item_list',
+                'recipient_address',
+                'actual_shipping_fee',
+                'total_amount',
+                'payment_method'
+              ]
+            };
+            console.log('[Shopee Order] Request params (Array):', JSON.stringify(requestParams2));
+            detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, requestParams2);
+            console.log('[Shopee Order] Response (Array):', JSON.stringify(detailData));
+          }
           
           const batchOrders = detailData.response?.order_list || [];
           allOrders.push(...batchOrders);
