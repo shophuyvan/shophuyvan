@@ -23,7 +23,7 @@ const TOUR_CONFIG = {
     'cart-checkout': {
       target: '.checkout-btn, [href*="checkout"], button:contains("Thanh toán")',
       title: '💳 Bước 3: Thanh toán',
-      message: 'Kiểm tra lại đơn hàng và số lượng, sau đó bấm vào đây để thanh toán',
+      message: 'Kiểm tra lại đơn hàng và số lượng, sau đó bấm vào đây để đặt hàng',
       position: 'top',
       page: 'cart',
     },
@@ -114,19 +114,22 @@ export class ProductTour {
         #tour-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.75);
+          background: rgba(0, 0, 0, 0.85);
           z-index: 99998;
           animation: fadeIn 0.3s;
+          backdrop-filter: blur(2px);
         }
         
         .tour-spotlight {
           position: fixed;
           pointer-events: none;
-          border-radius: 8px;
-          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75),
-                      0 0 20px 5px rgba(255, 255, 255, 0.5);
+          border-radius: 12px;
+          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85),
+                      0 0 30px 10px rgba(59, 130, 246, 0.8),
+                      0 0 60px 20px rgba(59, 130, 246, 0.4);
           z-index: 99999;
           transition: all 0.3s ease;
+          border: 3px solid #3b82f6;
         }
         
         @keyframes fadeIn {
@@ -135,8 +138,18 @@ export class ProductTour {
         }
         
         @keyframes pulse {
-          0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 20px 5px rgba(255, 255, 255, 0.5); }
-          50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 30px 10px rgba(255, 255, 255, 0.8); }
+          0%, 100% { 
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 
+                        0 0 30px 10px rgba(59, 130, 246, 0.8),
+                        0 0 60px 20px rgba(59, 130, 246, 0.4);
+            transform: scale(1);
+          }
+          50% { 
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 
+                        0 0 40px 15px rgba(59, 130, 246, 1),
+                        0 0 80px 30px rgba(59, 130, 246, 0.6);
+            transform: scale(1.02);
+          }
         }
         
         .tour-spotlight {
@@ -174,6 +187,9 @@ export class ProductTour {
     this.tooltip = document.createElement('div');
     this.tooltip.id = 'tour-tooltip';
     this.tooltip.innerHTML = `
+      <!-- ✅ ARROW CHỈ VÀO TARGET -->
+      <div class="tour-arrow"></div>
+      
       <div class="tour-tooltip-content">
         <div class="tour-tooltip-header">
           <h3>${step.title}</h3>
@@ -198,6 +214,41 @@ export class ProductTour {
           z-index: 100001;
           max-width: 360px;
           animation: slideIn 0.3s ease-out;
+        }
+        
+        .tour-arrow {
+          position: absolute;
+          width: 0;
+          height: 0;
+          border: 20px solid transparent;
+        }
+        
+        .tour-arrow.arrow-bottom {
+          bottom: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          border-top-color: white;
+        }
+        
+        .tour-arrow.arrow-top {
+          top: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          border-bottom-color: white;
+        }
+        
+        .tour-arrow.arrow-left {
+          left: -40px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-right-color: white;
+        }
+        
+        .tour-arrow.arrow-right {
+          right: -40px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-left-color: white;
         }
         
         .tour-tooltip-content {
@@ -313,12 +364,13 @@ export class ProductTour {
     const rect = target.getBoundingClientRect();
     const tooltipRect = this.tooltip.getBoundingClientRect();
     
-    let top, left;
+    let top, left, arrowClass;
     
     switch (position) {
       case 'top':
         top = rect.top - tooltipRect.height - 20;
         left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+        arrowClass = 'arrow-bottom';
         break;
       case 'bottom':
         top = rect.bottom + 20;
@@ -350,6 +402,12 @@ export class ProductTour {
     
     this.tooltip.style.top = top + 'px';
     this.tooltip.style.left = left + 'px';
+    
+    // Set arrow direction
+    const arrow = this.tooltip.querySelector('.tour-arrow');
+    if (arrow && arrowClass) {
+      arrow.className = 'tour-arrow ' + arrowClass;
+    }
   }
 
   setupStepEvents(step, target) {
