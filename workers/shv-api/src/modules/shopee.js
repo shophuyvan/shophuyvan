@@ -1187,8 +1187,8 @@ export async function handle(req, env, ctx) {
 
         console.log('[Shopee] Sync orders for shop:', shopData.shop_id);
 
-        // ✅ Lấy danh sách đơn hàng trong 30 ngày qua - TẤT CẢ trạng thái
-        const timeFrom = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+        // ✅ Lấy danh sách đơn hàng trong 15 ngày qua (Shopee limit) - TẤT CẢ trạng thái
+        const timeFrom = Math.floor(Date.now() / 1000) - (15 * 24 * 60 * 60);
         const timeTo = Math.floor(Date.now() / 1000);
 
         const orderListPath = '/api/v2/order/get_order_list';
