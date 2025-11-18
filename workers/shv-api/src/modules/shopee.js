@@ -1206,12 +1206,12 @@ export async function handle(req, env, ctx) {
           return json({ ok: true, total: 0, message: 'No orders found' }, {}, req);
         }
 
-// Lấy chi tiết đơn hàng
+       // Lấy chi tiết đơn hàng
         console.log('[Shopee] Fetching order details for', orderSns.length, 'orders');
         console.log('[Shopee] Order SNs:', orderSns.slice(0, 5), '...'); // Log 5 đầu tiên
         
-        // ✅ FIX: Đúng endpoint Shopee V2 (có chữ s)
-        const detailPath = '/api/v2/order/get_order_details';
+        // ✅ ĐÚNG ENDPOINT: get_order_detail (KHÔNG có 's'), GET method
+        const detailPath = '/api/v2/order/get_order_detail';
         
         // ✅ GỌI API THEO BATCH (max 50 orders/request)
         const BATCH_SIZE = 50;
@@ -1221,48 +1221,11 @@ export async function handle(req, env, ctx) {
           const batch = orderSns.slice(i, i + BATCH_SIZE);
           console.log(`[Shopee] Fetching batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} orders`);
           
-          let detailData = null;
-          
-          // ✅ THỬ CÁCH 1: String format
-          try {
-            console.log('[Shopee Order] 🔄 Trying format 1: String (comma-separated)');
-            const requestParams1 = {
-              order_sn_list: batch.join(','),
-              response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address'
-            };
-            console.log('[Shopee Order] Request params (String):', JSON.stringify(requestParams1));
-            
-            detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, requestParams1);
-            console.log('[Shopee Order] ✅ String format SUCCESS');
-            
-          } catch (err1) {
-            console.log('[Shopee Order] ❌ String format FAILED:', err1.message);
-            
-            // ✅ THỬ CÁCH 2: Array format
-            try {
-              console.log('[Shopee Order] 🔄 Trying format 2: Array');
-              const requestParams2 = {
-                order_sn_list: batch,
-                response_optional_fields: [
-                  'buyer_user_id',
-                  'buyer_username',
-                  'item_list',
-                  'recipient_address',
-                  'actual_shipping_fee',
-                  'total_amount',
-                  'payment_method'
-                ]
-              };
-              console.log('[Shopee Order] Request params (Array):', JSON.stringify(requestParams2));
-              
-              detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, requestParams2);
-              console.log('[Shopee Order] ✅ Array format SUCCESS');
-              
-            } catch (err2) {
-              console.log('[Shopee Order] ❌ Array format FAILED:', err2.message);
-              throw new Error(`Both formats failed. String error: ${err1.message}, Array error: ${err2.message}`);
-            }
-          }
+          // ✅ THEO SHOPEE DOCS: GET method, comma-separated string
+          const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
+            order_sn_list: batch.join(','),
+            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address,actual_shipping_fee,total_amount,payment_method,order_status'
+          });
           
           const batchOrders = detailData.response?.order_list || [];
           allOrders.push(...batchOrders);
