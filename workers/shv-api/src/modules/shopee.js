@@ -1210,8 +1210,8 @@ export async function handle(req, env, ctx) {
         console.log('[Shopee] Fetching order details for', orderSns.length, 'orders');
         console.log('[Shopee] Order SNs:', orderSns.slice(0, 5), '...'); // Log 5 đầu tiên
         
-        // ✅ FIX: Đúng endpoint Shopee V2
-        const detailPath = '/api/v2/order/get_order_detail';
+        // ✅ FIX: Đúng endpoint Shopee V2 (có chữ s)
+        const detailPath = '/api/v2/order/get_order_details';
         
         // ✅ GỌI API THEO BATCH (max 50 orders/request)
         const BATCH_SIZE = 50;
