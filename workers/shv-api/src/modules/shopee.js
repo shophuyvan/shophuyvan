@@ -1238,12 +1238,6 @@ export async function handle(req, env, ctx) {
         
         console.log('[Shopee] Total orders retrieved:', allOrders.length);
         const orders = allOrders;
-          order_sn_list: orderSns
-        });
-
-        console.log('[Shopee] Order detail response keys:', Object.keys(detailData || {}));
-        const orders = detailData.response?.order_list || [];
-        console.log('[Shopee] Retrieved', orders.length, 'order details');
         
         // ✅ CHỈ LƯU ORDERS, KHÔNG TRỪ STOCK (stock sync từ Shopee)
         const savedOrders = [];
