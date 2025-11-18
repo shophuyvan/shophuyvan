@@ -1161,6 +1161,20 @@ export async function handle(req, env, ctx) {
     // Đồng bộ đơn hàng
     if (path === '/admin/shopee/sync-orders' && method === 'POST') {
       try {
+        const bodyData = await req.json();
+        const shopId = bodyData.shop_id;
+        
+        if (!shopId) {
+          return json({ ok: false, error: 'missing_shop_id' }, { status: 400 }, req);
+        }
+
+        const shopData = await getShopData(env, shopId);
+        if (!shopData) {
+          return json({ ok: false, error: 'shop_not_found' }, { status: 404 }, req);
+        }
+
+        console.log('[Shopee] Sync orders for shop:', shopData.shop_id);
+
         // Lấy danh sách đơn hàng trong 7 ngày qua
         const timeFrom = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
         const timeTo = Math.floor(Date.now() / 1000);
