@@ -1187,8 +1187,8 @@ export async function handle(req, env, ctx) {
 
         console.log('[Shopee] Sync orders for shop:', shopData.shop_id);
 
-        // Lấy danh sách đơn hàng trong 7 ngày qua
-        const timeFrom = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+        // ✅ Lấy danh sách đơn hàng trong 30 ngày qua - TẤT CẢ trạng thái
+        const timeFrom = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
         const timeTo = Math.floor(Date.now() / 1000);
 
         const orderListPath = '/api/v2/order/get_order_list';
@@ -1196,8 +1196,8 @@ export async function handle(req, env, ctx) {
           time_range_field: 'create_time',
           time_from: timeFrom,
           time_to: timeTo,
-          page_size: 100,
-          order_status: 'READY_TO_SHIP'
+          page_size: 100
+          // ✅ BỎ order_status để lấy TẤT CẢ trạng thái
         });
 
         const orderSns = orderListData.response?.order_list?.map(o => o.order_sn) || [];
