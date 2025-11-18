@@ -106,7 +106,19 @@ export async function callShopeeAPI(env, method, path, shopData, params = null) 
 
   console.log('[Shopee API] Request:', method, path);
   const response = await fetch(url.toString(), options);
-  const data = await response.json();
+  
+  // ✅ THÊM ERROR HANDLING KHI PARSE JSON
+  let data;
+  try {
+    const rawText = await response.text();
+    console.log('[Shopee API] Raw response (first 500 chars):', rawText.substring(0, 500));
+    data = JSON.parse(rawText);
+  } catch (parseError) {
+    console.error('[Shopee API] ❌ JSON parse error:', parseError.message);
+    console.error('[Shopee API] Response status:', response.status);
+    console.error('[Shopee API] Response headers:', Object.fromEntries(response.headers.entries()));
+    throw new Error(`Invalid JSON response from Shopee API: ${parseError.message}`);
+  }
   
   // ✅ KIỂM TRA TOKEN HẾT HẠN
   if (data.error === 'invalid_acceess_token' || data.error === 'error_auth') {
@@ -1195,12 +1207,17 @@ export async function handle(req, env, ctx) {
         }
 
         // Lấy chi tiết đơn hàng
+        console.log('[Shopee] Fetching order details for', orderSns.length, 'orders');
+        console.log('[Shopee] Order SNs:', orderSns.slice(0, 5), '...'); // Log 5 đầu tiên
+        
         const detailPath = '/api/v2/order/get_order_detail';
         const detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, {
           order_sn_list: orderSns
         });
 
+        console.log('[Shopee] Order detail response keys:', Object.keys(detailData || {}));
         const orders = detailData.response?.order_list || [];
+        console.log('[Shopee] Retrieved', orders.length, 'order details');
         
         // ✅ CHỈ LƯU ORDERS, KHÔNG TRỪ STOCK (stock sync từ Shopee)
         const savedOrders = [];
