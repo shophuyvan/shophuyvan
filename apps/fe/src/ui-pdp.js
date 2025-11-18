@@ -1010,6 +1010,10 @@ function openVariantModal(mode) {
     await addSelectedToCart(); // ✅ THÊM await
     closeModal();
     window.dispatchEvent(new Event('shv:cart-changed'));
+    
+    // ✅ TRIGGER CHO PRODUCT TOUR
+    document.dispatchEvent(new Event('cart-updated'));
+    
     showSuccessToast('✓ Đã thêm vào giỏ hàng');
   };
 

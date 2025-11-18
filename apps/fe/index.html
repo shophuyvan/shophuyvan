@@ -114,6 +114,15 @@
 
     <!-- ✅ THÊM NÚT TÀI KHOẢN -->
     <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 8px;">
+      <!-- ✅ NÚT HƯỚNG DẪN ĐẶT HÀNG -->
+      <button id="header-tour-btn" class="cart" aria-label="Hướng dẫn đặt hàng" title="Hướng dẫn đặt hàng" style="position: relative;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </button>
+      
       <a href="/login.html" id="header-user-btn" class="cart" aria-label="Tài khoản" style="position: relative;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -411,6 +420,24 @@ document.addEventListener('DOMContentLoaded', function(){
 <!-- ✅ QUICK REGISTER MODULE -->
 <script type="module">
 import { quickRegister } from './src/lib/quick-register.js';
+import { productTour } from './src/lib/product-tour.js';
+
+// Nút hướng dẫn ở header
+document.getElementById('header-tour-btn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  // Restart tour từ đầu
+  productTour.status.completed = false;
+  productTour.status.currentStep = null;
+  productTour.saveStatus();
+  
+  // Navigate về product nếu không phải ở product
+  if (!window.location.pathname.includes('product.html')) {
+    // Tìm sản phẩm đầu tiên để demo
+    window.location.href = '/product.html?id=1'; // Thay id phù hợp
+  } else {
+    productTour.start();
+  }
+});
 
 // Kiểm tra đã login chưa
 const token = localStorage.getItem('customer_token');

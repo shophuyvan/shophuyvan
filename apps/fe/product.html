@@ -483,7 +483,23 @@
   </div>
 
   <!-- Scripts -->
-  <script>window.API_BASE="https://shv-api.shophuyvan.workers.dev";</script>
+  <!-- Scripts -->
+  <script>window.API_BASE="https://api.shophuyvan.vn";</script>
+  
+  <!-- ✅ PRODUCT TOUR - Hướng dẫn đặt hàng -->
+  <script type="module">
+  import { productTour } from './src/lib/product-tour.js';
+  
+  // Lắng nghe sự kiện add to cart thành công
+  document.addEventListener('cart-updated', () => {
+    // Nếu đang ở step 1, chuyển sang step 2
+    if (productTour.currentStep === 'product-add-cart') {
+      setTimeout(() => {
+        productTour.next();
+      }, 500);
+    }
+  });
+  </script>
   
   <!-- ✅ QUICK REGISTER - INTERCEPT ADD TO CART -->
   <script type="module">

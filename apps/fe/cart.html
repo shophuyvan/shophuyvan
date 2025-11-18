@@ -516,6 +516,23 @@
 
     render();
   </script>
-  <script src="https://admin.shophuyvan.vn/_shared/security.js"></script>
+  <!-- Script chính -->
+<script type="module" src="/src/checkout.js?v=2"></script>
+
+<!-- ✅ PRODUCT TOUR - Step 3 -->
+<script type="module">
+import { productTour } from './src/lib/product-tour.js';
+
+// Resume tour nếu đang ở step 3
+document.addEventListener('DOMContentLoaded', () => {
+  if (productTour.status.currentStep === 'cart-checkout') {
+    setTimeout(() => {
+      productTour.resumeIfNeeded();
+    }, 1000);
+  }
+});
+</script>
+
+<script src="https://admin.shophuyvan.vn/_shared/security.js"></script>
 </body>
 </html>

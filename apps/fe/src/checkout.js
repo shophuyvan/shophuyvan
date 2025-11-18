@@ -1143,6 +1143,9 @@ $('place-order').addEventListener('click', async () => {
       if (ov) {
         if (oid) oid.textContent = String(parsedRes.id || '');
         ov.classList.remove('hidden');
+        
+        // ✅ TRIGGER CHO PRODUCT TOUR - Hoàn thành hướng dẫn
+        document.dispatchEvent(new Event('order-success'));
 
         // Button chuyển đến trang quản lý đơn
         const gotoOrders = () => { window.location.href = '/myorders'; };
