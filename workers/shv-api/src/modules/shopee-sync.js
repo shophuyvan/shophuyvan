@@ -447,15 +447,15 @@ export async function saveOrderToSHV(env, orderData) {
     // Tạo order_number unique
     const orderNumber = orderData.order_number || `SHOPEE-${orderData.shopee_order_sn}`;
     
-    // Insert hoặc Update order vào D1
+    // ✅ BỎ source và channel vì schema không có
     const orderResult = await env.DB.prepare(`
       INSERT INTO orders (
         order_number, status, payment_status, fulfillment_status,
         customer_name, customer_phone, customer_email,
         shipping_address, shipping_fee, discount, subtotal, total,
-        payment_method, customer_note, source, channel,
+        payment_method, customer_note,
         created_at, updated_at, items
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(order_number) DO UPDATE SET
         status = excluded.status,
         payment_status = excluded.payment_status,
@@ -481,8 +481,6 @@ export async function saveOrderToSHV(env, orderData) {
       orderData.total || 0,
       orderData.payment_method || 'other',
       orderData.customer_note || '',
-      orderData.source || 'shopee',
-      orderData.channel || 'shopee',
       orderData.created_at || now,
       now,
       JSON.stringify(orderData.items || [])
