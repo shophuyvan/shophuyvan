@@ -11,6 +11,12 @@ async function core(path, init = {}) {
   const base = (window.API_BASE || fallback).replace(/\/+$/,'');
   const url  = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 
+  // ✅ Tăng timeout cho products API (30s thay vì 10s)
+  let timeout = init.timeout || 10000;
+  if (/^\/(products|public\/products)/.test(path)) {
+    timeout = 30000; // 30s cho products API
+  }
+
   const headers = new Headers(init.headers || {});
 
 // Token đăng nhập khách/nhân viên (nếu có) – vẫn giữ để dùng cho các API khác
@@ -48,17 +54,36 @@ if (!/^\/(shipping|areas|orders\/(price|optimize|create))/.test(path)) {
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     body = JSON.stringify(body);
   }
-  const req = fetch(url, {
-  method: init.method || 'GET',
-  headers,
-  body,
-  credentials: 'omit',   // bỏ cookie để không bị CORS chặn
-  mode: 'cors'
-});
+const req = fetch(url, {
+    method: init.method || 'GET',
+    headers,
+    body,
+    credentials: 'omit',
+    mode: 'cors'
+  });
 
-  const res = await withTimeout(req, init.timeout || 10000);
-  if (res.status >= 500 && (init._retried!==true)) {
-    return await core(path, { ...init, _retried:true });
+  let res;
+  try {
+    res = await withTimeout(req, timeout);
+  } catch (err) {
+    // ✅ Retry cho network errors và timeout
+    const retryCount = init._retryCount || 0;
+    if (retryCount < 2) {
+      console.warn(`[API] Retry ${retryCount + 1}/2:`, path, err.message);
+      await new Promise(r => setTimeout(r, 1000 * (retryCount + 1))); // Exponential backoff
+      return await core(path, { ...init, _retryCount: retryCount + 1 });
+    }
+    throw err;
+  }
+
+  // ✅ Retry cho 5xx errors
+  if (res.status >= 500) {
+    const retryCount = init._retryCount || 0;
+    if (retryCount < 2) {
+      console.warn(`[API] Retry ${retryCount + 1}/2 (${res.status}):`, path);
+      await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+      return await core(path, { ...init, _retryCount: retryCount + 1 });
+    }
   }
   const ctype = res.headers.get('content-type') || '';
   if (ctype.includes('application/json')) return await res.json();
