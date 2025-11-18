@@ -206,6 +206,24 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_note TEXT,
   admin_note TEXT,
   
+  -- ✅ Shopee Shipping Info (THÊM MỚI)
+  tracking_number TEXT,
+  shipping_carrier TEXT,
+  
+  -- ✅ Shopee Financial Info (THÊM MỚI)
+  coin_used REAL DEFAULT 0,
+  voucher_code TEXT,
+  voucher_seller REAL DEFAULT 0,
+  voucher_shopee REAL DEFAULT 0,
+  commission_fee REAL DEFAULT 0,
+  service_fee REAL DEFAULT 0,
+  escrow_amount REAL DEFAULT 0,
+  buyer_paid_amount REAL DEFAULT 0,
+  
+  -- ✅ Shopee Logistics Detail (THÊM MỚI)
+  estimated_shipping_fee REAL DEFAULT 0,
+  actual_shipping_fee_confirmed REAL DEFAULT 0,
+  
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   

@@ -188,9 +188,23 @@ export function convertShopeeOrderToSHV(shopeeOrder) {
     // Notes
     customer_note: shopeeOrder.message_to_seller || '',
     
-    // Timestamps
-    created_at: shopeeOrder.create_time * 1000, // Convert to ms
-    updated_at: shopeeOrder.update_time * 1000,
+    // ✅ Shopee Shipping Info (MỚI)
+    tracking_number: shopeeOrder.tracking_number || null,
+    shipping_carrier: shopeeOrder.shipping_carrier || null,
+    
+    // ✅ Shopee Financial Info (MỚI)
+    coin_used: shopeeOrder.coin_offset || 0,
+    voucher_code: shopeeOrder.voucher_code || null,
+    voucher_seller: shopeeOrder.voucher_from_seller || 0,
+    voucher_shopee: shopeeOrder.voucher_from_shopee || 0,
+    commission_fee: shopeeOrder.commission_fee || 0,
+    service_fee: shopeeOrder.service_fee || 0,
+    escrow_amount: shopeeOrder.escrow_amount || 0,
+    buyer_paid_amount: shopeeOrder.buyer_paid_amount || 0,
+    
+    // ✅ Shopee Logistics Detail (MỚI)
+    estimated_shipping_fee: shopeeOrder.estimated_shipping_fee || 0,
+    actual_shipping_fee_confirmed: shopeeOrder.actual_shipping_fee_confirmed || 0,
     
     // Source
     source: 'shopee',
@@ -457,8 +471,12 @@ export async function saveOrderToSHV(env, orderData) {
         shipping_district, shipping_city, shipping_province, shipping_zipcode,
         shipping_fee, discount, subtotal, total,
         payment_method, customer_note,
+        tracking_number, shipping_carrier,
+        coin_used, voucher_code, voucher_seller, voucher_shopee,
+        commission_fee, service_fee, escrow_amount, buyer_paid_amount,
+        estimated_shipping_fee, actual_shipping_fee_confirmed,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(order_number) DO UPDATE SET
         status = excluded.status,
         payment_status = excluded.payment_status,
@@ -467,6 +485,18 @@ export async function saveOrderToSHV(env, orderData) {
         discount = excluded.discount,
         subtotal = excluded.subtotal,
         total = excluded.total,
+        tracking_number = excluded.tracking_number,
+        shipping_carrier = excluded.shipping_carrier,
+        coin_used = excluded.coin_used,
+        voucher_code = excluded.voucher_code,
+        voucher_seller = excluded.voucher_seller,
+        voucher_shopee = excluded.voucher_shopee,
+        commission_fee = excluded.commission_fee,
+        service_fee = excluded.service_fee,
+        escrow_amount = excluded.escrow_amount,
+        buyer_paid_amount = excluded.buyer_paid_amount,
+        estimated_shipping_fee = excluded.estimated_shipping_fee,
+        actual_shipping_fee_confirmed = excluded.actual_shipping_fee_confirmed,
         updated_at = excluded.updated_at
       RETURNING id
     `).bind(
@@ -492,6 +522,18 @@ export async function saveOrderToSHV(env, orderData) {
       orderData.total || 0,
       orderData.payment_method || 'other',
       orderData.customer_note || '',
+      orderData.tracking_number || null,
+      orderData.shipping_carrier || null,
+      orderData.coin_used || 0,
+      orderData.voucher_code || null,
+      orderData.voucher_seller || 0,
+      orderData.voucher_shopee || 0,
+      orderData.commission_fee || 0,
+      orderData.service_fee || 0,
+      orderData.escrow_amount || 0,
+      orderData.buyer_paid_amount || 0,
+      orderData.estimated_shipping_fee || 0,
+      orderData.actual_shipping_fee_confirmed || 0,
       orderData.created_at || now,
       now
     ).first();

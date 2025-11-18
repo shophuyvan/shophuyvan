@@ -1224,7 +1224,7 @@ export async function handle(req, env, ctx) {
           // ✅ THEO SHOPEE DOCS: GET method, comma-separated string
           const detailData = await callShopeeAPI(env, 'GET', detailPath, shopData, {
             order_sn_list: batch.join(','),
-            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address,actual_shipping_fee,total_amount,payment_method,order_status'
+            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address,actual_shipping_fee,total_amount,payment_method,order_status,shipping_carrier,estimated_shipping_fee,buyer_paid_amount,coin_offset,voucher_code,voucher_from_seller,voucher_from_shopee,escrow_amount,service_fee'
           });
           
           const batchOrders = detailData.response?.order_list || [];
