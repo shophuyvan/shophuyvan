@@ -686,7 +686,14 @@ async function listPublicProductsFiltered(req, env) {
     const out  = full.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
 
     console.log('[PRICE] listPublicProductsFiltered', { tier, in: items.length, out: out.length, cat: category, sample: { id: out[0]?.id, price: out[0]?.price_display } });
-    return json({ ok: true, items: out }, {}, req);
+    
+    // ✅ Thêm cache header 5 phút
+    return json({ ok: true, items: out }, { 
+      headers: { 
+        'cache-control': 'public, max-age=300, s-maxage=300',
+        'cdn-cache-control': 'max-age=300'
+      } 
+    }, req);
   } catch (e) {
     console.error('❌ Error:', e);
     return errorResponse(e, 500, req);

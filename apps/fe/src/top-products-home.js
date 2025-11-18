@@ -343,6 +343,27 @@ async function loadNewest() {
 }
 
 // ==========================================
+// INTERSECTION OBSERVER - LAZY LOAD HELPER
+// ==========================================
+function setupLazyLoad(section) {
+  const el = document.getElementById(section.elementId);
+  if (!el) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        loadCategorySection(section);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, {
+    rootMargin: '400px' // Load trước 400px khi scroll đến
+  });
+
+  observer.observe(el.closest('section') || el);
+}
+
+// ==========================================
 // LOAD SẢN PHẨM THEO DANH MỤC (SECTION GIỐNG "HÀNG MỚI RA MẮT")
 // ==========================================
 async function loadCategorySection(section) {
@@ -420,36 +441,38 @@ const HOME_CATEGORY_SECTIONS = [
 ];
 
 // ==========================================
-// INIT - LOAD TUẦN TỰ (SEQUENTIAL)
+// INIT - PARALLEL + LAZY LOAD (OPTIMIZED)
 // ==========================================
 (async function initTopProducts() {
-  console.log('[Top Products] Starting sequential load.');
+  console.log('[Top Products] Starting optimized load (Parallel + Lazy).');
 
   try {
-    await loadBestsellers();
-    console.log('[Top Products] ✅ Bestsellers loaded');
+    // ✅ BƯỚC 1: Load song song 4 sections ưu tiên (Bestsellers, Newest, 2 category đầu)
+    const prioritySections = HOME_CATEGORY_SECTIONS.slice(0, 2); // 2 category đầu
+    const lazySections = HOME_CATEGORY_SECTIONS.slice(2); // 2 category sau
+
+    await Promise.all([
+      loadBestsellers().catch(e => console.error('[Top Products] ❌ Bestsellers failed:', e)),
+      loadNewest().catch(e => console.error('[Top Products] ❌ Newest failed:', e)),
+      ...prioritySections.map(section => 
+        loadCategorySection(section).catch(e => 
+          console.error('[Top Products] ❌ Priority section failed:', section.category, e)
+        )
+      )
+    ]);
+
+    console.log('[Top Products] ✅ Priority sections loaded (parallel)');
+
+    // ✅ BƯỚC 2: Setup lazy load cho 2 category còn lại
+    lazySections.forEach(section => {
+      setupLazyLoad(section);
+      console.log('[Top Products] ⏳ Lazy load setup:', section.category);
+    });
+
+    console.log('[Top Products] ✅ All sections initialized');
   } catch (e) {
-    console.error('[Top Products] ❌ Bestsellers failed:', e);
+    console.error('[Top Products] ❌ Init error:', e);
   }
-
-  try {
-    await loadNewest();
-    console.log('[Top Products] ✅ Newest loaded');
-  } catch (e) {
-    console.error('[Top Products] ❌ Newest failed:', e);
-  }
-
-  // Load lần lượt 4 danh mục
-  for (const section of HOME_CATEGORY_SECTIONS) {
-    try {
-      await loadCategorySection(section);
-      console.log('[Top Products] ✅ Category section loaded:', section.category);
-    } catch (e) {
-      console.error('[Top Products] ❌ Category section failed:', section, e);
-    }
-  }
-
-  console.log('[Top Products] ✅ All sections loaded');
 })();
 
 console.log('✅ top-products-home.js loaded');
