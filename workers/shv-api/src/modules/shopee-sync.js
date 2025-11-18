@@ -447,15 +447,18 @@ export async function saveOrderToSHV(env, orderData) {
     // Tạo order_number unique
     const orderNumber = orderData.order_number || `SHOPEE-${orderData.shopee_order_sn}`;
     
-    // ✅ BỎ source và channel vì schema không có
+    // ✅ 1. INSERT ORDER (bỏ cột items)
     const orderResult = await env.DB.prepare(`
       INSERT INTO orders (
-        order_number, status, payment_status, fulfillment_status,
+        order_number, channel, channel_order_id,
+        status, payment_status, fulfillment_status,
         customer_name, customer_phone, customer_email,
-        shipping_address, shipping_fee, discount, subtotal, total,
+        shipping_name, shipping_phone, shipping_address,
+        shipping_district, shipping_city, shipping_province, shipping_zipcode,
+        shipping_fee, discount, subtotal, total,
         payment_method, customer_note,
-        created_at, updated_at, items
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(order_number) DO UPDATE SET
         status = excluded.status,
         payment_status = excluded.payment_status,
@@ -468,13 +471,21 @@ export async function saveOrderToSHV(env, orderData) {
       RETURNING id
     `).bind(
       orderNumber,
+      'shopee',
+      orderData.shopee_order_sn || '',
       orderData.status || 'pending',
       orderData.payment_status || 'pending',
       orderData.fulfillment_status || 'unfulfilled',
       orderData.customer?.name || '',
       orderData.customer?.phone || '',
       orderData.customer?.email || '',
-      JSON.stringify(orderData.shipping_address || {}),
+      orderData.shipping_address?.name || '',
+      orderData.shipping_address?.phone || '',
+      orderData.shipping_address?.address || '',
+      orderData.shipping_address?.district || '',
+      orderData.shipping_address?.city || '',
+      orderData.shipping_address?.province || '',
+      orderData.shipping_address?.zipcode || '',
       orderData.shipping_fee || 0,
       orderData.discount || 0,
       orderData.subtotal || 0,
@@ -482,15 +493,68 @@ export async function saveOrderToSHV(env, orderData) {
       orderData.payment_method || 'other',
       orderData.customer_note || '',
       orderData.created_at || now,
-      now,
-      JSON.stringify(orderData.items || [])
+      now
     ).first();
     
     const orderId = orderResult.id;
     
-    console.log('[Shopee Sync] Saved order to D1:', orderId, orderNumber);
+    // ✅ 2. INSERT ORDER_ITEMS
+    const items = orderData.items || [];
+    let itemCount = 0;
     
-    return { order_id: orderId, order_number: orderNumber };
+    for (const item of items) {
+      try {
+        // Tìm variant_id từ mapping
+        let variantId = null;
+        let productId = null;
+        
+        if (item.shopee_item_id && item.shopee_model_id) {
+          const mapping = await env.DB.prepare(`
+            SELECT product_id, variant_id 
+            FROM channel_products 
+            WHERE channel = 'shopee' 
+              AND channel_item_id = ? 
+              AND channel_model_id = ?
+            LIMIT 1
+          `).bind(Number(item.shopee_item_id), Number(item.shopee_model_id)).first();
+          
+          if (mapping) {
+            productId = mapping.product_id;
+            variantId = mapping.variant_id;
+          }
+        }
+        
+        await env.DB.prepare(`
+          INSERT INTO order_items (
+            order_id, product_id, variant_id,
+            sku, name, variant_name,
+            price, quantity, subtotal,
+            channel_item_id, channel_model_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          orderId,
+          productId,
+          variantId,
+          item.sku || '',
+          item.name || '',
+          item.variant_name || '',
+          item.price || 0,
+          item.quantity || 1,
+          item.subtotal || 0,
+          item.shopee_item_id ? String(item.shopee_item_id) : null,
+          item.shopee_model_id ? String(item.shopee_model_id) : null
+        ).run();
+        
+        itemCount++;
+        
+      } catch (itemErr) {
+        console.error('[Shopee Sync] Error saving order item:', itemErr.message);
+      }
+    }
+    
+    console.log('[Shopee Sync] Saved order to D1:', orderId, orderNumber, `(${itemCount} items)`);
+    
+    return { order_id: orderId, order_number: orderNumber, items: itemCount };
     
   } catch (error) {
     console.error('[Shopee Sync] Error saving order to D1:', error);
