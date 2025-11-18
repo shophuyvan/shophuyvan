@@ -1222,13 +1222,8 @@ export async function handle(req, env, ctx) {
           console.log(`[Shopee] Fetching batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} orders`);
           
           const detailData = await callShopeeAPI(env, 'POST', detailPath, shopData, {
-            order_sn_list: batch,
-            response_optional_fields: [
-              'buyer_user_id',
-              'buyer_username', 
-              'item_list',
-              'recipient_address'
-            ]
+            order_sn_list: batch.join(','),  // ✅ Convert array to comma-separated string
+            response_optional_fields: 'buyer_user_id,buyer_username,item_list,recipient_address'  // ✅ String, not array
           });
           
           const batchOrders = detailData.response?.order_list || [];
