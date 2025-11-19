@@ -388,7 +388,7 @@ const $ = (s) => document.querySelector(s);
   let totalPages = 1;
   let isLoading = false;
   let hasMoreData = true;
-  const PAGE_SIZE = 24;
+  let PAGE_SIZE = 24;  // ✅ Dùng let để có thể thay đổi
 
   // ✅ CACHE SYSTEM
   const CACHE_KEY = 'admin_products_cache';
