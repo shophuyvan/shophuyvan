@@ -887,7 +887,7 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
     });
   }
   
-  const nextPageBtn = $('#next-page');
+const nextPageBtn = $('#next-page');
   if (nextPageBtn) {
     nextPageBtn.addEventListener('click', () => {
       if (currentPage < totalPages) {
@@ -895,13 +895,6 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
         load(true);
       }
     });
-  }
-      clearCache();
-      currentPage = 1;
-      hasMoreData = true;
-      allProducts = [];
-      load(true);
-    };
   }
 
   const searchInput = $('#q');
