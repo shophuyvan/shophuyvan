@@ -1,5 +1,6 @@
 // apps/fe/src/lib/product-tour.js
 // Product Tour - Hướng dẫn đặt hàng từng bước
+console.log('[Tour] Loaded Fix v2 - Ready to start'); // Log kiểm tra phiên bản
 
 const TOUR_CONFIG = {
   storageKey: 'shv_tour_status',
@@ -13,12 +14,12 @@ const TOUR_CONFIG = {
       nextTrigger: 'wait-click',
     },
     'product-view-cart': {
-      target: '#btn-cart', // Đã sửa từ #header-cart-btn để khớp với ID thực tế trong product.html
+      target: '#btn-cart',
       title: '✅ Bước 2: Xem giỏ hàng',
       message: 'Tuyệt vời! Sản phẩm đã được thêm. Bấm vào đây để xem giỏ hàng',
       position: 'bottom-left',
       page: 'product',
-      autoNext: 5000, // Tự động sau 5s
+      nextTrigger: 'wait-click', // QUAN TRỌNG: Đợi click để lưu trạng thái trước khi chuyển trang
     },
     'cart-checkout': {
       target: '.checkout-btn, [href*="checkout"], button:contains("Thanh toán")',
@@ -71,7 +72,8 @@ export class ProductTour {
   }
 
   isProductPage() {
-    return window.location.pathname.includes('product.html');
+    // Sửa lỗi: Chấp nhận cả /product (không đuôi) và /product.html
+    return window.location.pathname.includes('/product');
   }
 
   start(stepId) {
@@ -517,9 +519,10 @@ export class ProductTour {
   }
 
   isCurrentPage(pageName) {
-    if (pageName === 'product') return window.location.pathname.includes('product.html');
-    if (pageName === 'cart') return window.location.pathname.includes('cart.html');
-    if (pageName === 'checkout') return window.location.pathname.includes('checkout.html');
+    const path = window.location.pathname;
+    if (pageName === 'product') return path.includes('/product');
+    if (pageName === 'cart') return path.includes('/cart');
+    if (pageName === 'checkout') return path.includes('/checkout');
     return false;
   }
 }
