@@ -192,7 +192,9 @@ class OrdersManager {
 
     // Other info
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
-    const rawSource = String(order.source || order.channel || order.platform || 'Web').toLowerCase();
+    // ✅ KHAI BÁO BIẾN source ĐỂ DÙNG HIỂN THỊ
+    const source = String(order.source || order.channel || order.platform || 'Web'); 
+    const rawSource = source.toLowerCase(); // Dùng source đã lấy để lowerCase
     const orderId = String(order.id || '');
     const orderStatus = String(order.status || 'pending').toLowerCase();
 
