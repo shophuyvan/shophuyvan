@@ -534,7 +534,7 @@ if (typeof window !== 'undefined') {
 
 // Auto-init
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  const initTour = () => {
     // FORCE START - Luôn chạy khi vào product page lần đầu
     if (productTour.isProductPage() && !productTour.status.completed) {
       setTimeout(() => {
@@ -545,5 +545,12 @@ if (typeof document !== 'undefined') {
       // Resume if in middle of tour
       productTour.resumeIfNeeded();
     }
-  });
+  };
+
+  // Kiểm tra nếu DOM đã load xong rồi thì chạy luôn, không chờ sự kiện nữa
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTour);
+  } else {
+    initTour();
+  }
 }
