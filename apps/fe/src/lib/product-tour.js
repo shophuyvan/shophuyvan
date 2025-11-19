@@ -535,9 +535,12 @@ if (typeof window !== 'undefined') {
 // Auto-init
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
-    // Auto start if first time
-    if (productTour.shouldAutoStart()) {
-      setTimeout(() => productTour.start(), 1500); // Delay 1.5s để page load xong
+    // FORCE START - Luôn chạy khi vào product page lần đầu
+    if (productTour.isProductPage() && !productTour.status.completed) {
+      setTimeout(() => {
+        console.log('[Tour] Starting tour...');
+        productTour.start();
+      }, 2000); // Delay 2s để DOM load đầy đủ
     } else {
       // Resume if in middle of tour
       productTour.resumeIfNeeded();
