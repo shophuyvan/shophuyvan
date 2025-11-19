@@ -588,7 +588,7 @@ const $ = (s) => document.querySelector(s);
     `;
   }
 
-  async function load(forceRefresh = false) {
+async function load(forceRefresh = false) {
     console.log('[Products] Loading page:', currentPage, forceRefresh ? '(force)' : '');
     
     if (isLoading) {
@@ -673,7 +673,6 @@ const $ = (s) => document.querySelector(s);
       isLoading = false;
     }
   }
-    
     if (isLoading) {
       console.log('[Products] Already loading, skip');
       return;
