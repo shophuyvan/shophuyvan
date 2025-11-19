@@ -122,63 +122,40 @@ const toNum = (x) => {
   return Number(x || 0);
 };
 // ==== Fallback cost map from Products (product/variant import_price) ====
-// Dùng helper toNum đã có sẵn trong file, KHÔNG khai báo thêm ở đây.
+// ✅ NEW: Dùng Summary API thay vì loop fetch
 
 const buildCostMap = async () => {
-  const plist = await Admin.tryPaths([
-    '/admin/products',
-    '/admin/product/list',
-    '/admin/products/list'
-  ]);
-  const prows = plist?.items || plist?.data || plist?.products || plist?.rows || plist?.list || [];
+  console.log('[Stats] 🚀 Building cost map...');
+  
+  // ✅ Dùng Summary API (1 request, có variants)
+  const products = await window.SHARED.api.getProductsSummary();
   const costMap = Object.create(null);
 
-  const fetchDetail = async (id) => {
-    try {
-      const detail = await Admin.tryPaths([
-        `/admin/products/get?id=${encodeURIComponent(id)}`,
-        `/admin/product/get?id=${encodeURIComponent(id)}`,
-        `/admin/products/detail?id=${encodeURIComponent(id)}`,
-        `/admin/product/detail?id=${encodeURIComponent(id)}`,
-        `/admin/product?id=${encodeURIComponent(id)}`
-      ]);
-      return detail?.item || detail?.data || detail || null;
-    } catch {
-      return null;
-    }
-  };
-
-  // duyệt danh sách sản phẩm -> lấy biến thể và đẩy vào costMap
-  for (const it of prows) {
-    const pid = it?.id || it?._id;
+  // Duyệt products (đã có variants)
+  for (const p of products) {
+    const pid = p?.id || p?._id;
     if (!pid) continue;
 
-    const p = await fetchDetail(pid);
-    if (!p) continue;
+    const variants = Array.isArray(p.variants) ? p.variants : [];
 
-    const variants = Array.isArray(p.variants) ? p.variants
-                  : Array.isArray(p.options)  ? p.options
-                  : Array.isArray(p.skus)     ? p.skus
-                  : [];
-
-    if (variants.length) {
+    if (variants.length > 0) {
+      // Map theo variant
       for (const v of variants) {
         const vid   = v.id || v._id || v.variant_id || v.sku_id || v.sku || v.code;
-        const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
-        if (vid) costMap[vid] = cost;                    // map theo variant id
+        const cost  = toNum(v.cost_price ?? v.cost ?? v.import_price ?? v.price_import ?? v.purchase_price);
+        if (vid) costMap[vid] = cost;
       }
     }
 
-    // map theo product id & title (phòng khi line không có variant)
-    const pcost = toNum(
-      p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price
-    );
+    // Map theo product id & title
+    const pcost = toNum(p.cost_price ?? p.cost ?? p.import_price ?? p.price_import ?? p.purchase_price);
     if (pid && pcost) costMap[pid] = pcost;
 
     const ptitle = (p.title || p.name || '').toLowerCase().trim();
     if (ptitle && pcost) costMap[ptitle] = pcost;
   }
 
+  console.log('[Stats] ✅ Cost map built:', Object.keys(costMap).length, 'entries');
   return costMap;
 };
 
@@ -366,56 +343,39 @@ this.statsData = {
 }
 async loadInventoryValue() {
     try {
-      const listRes = await Admin.tryPaths([
-        '/admin/products',
-        '/admin/product/list',
-        '/admin/products/list'
-      ]);
-      const items = listRes?.items || listRes?.data || listRes?.products || listRes?.rows || listRes?.list || [];
-      console.log('[Stats] products length:', items.length);
+      console.log('[Stats] 🚀 Loading inventory value...');
+      
+      // ✅ NEW: Dùng Summary API (1 request, có variants)
+      const items = await window.SHARED.api.getProductsSummary();
+      
+      if (!items || items.length === 0) {
+        console.warn('[Stats] No products found');
+        this.$('inventoryValue').textContent = '0đ';
+        return;
+      }
+      
+      console.log('[Stats] Processing', items.length, 'products...');
 
       const toNum = (x) => {
         if (typeof x === 'string') return Number(x.replace(/[^\d.-]/g, '')) || 0;
         return Number(x || 0);
       };
 
-      const fetchDetail = async (id) => {
-        try {
-          const detail = await Admin.tryPaths([
-            `/admin/products/get?id=${encodeURIComponent(id)}`,
-            `/admin/product/get?id=${encodeURIComponent(id)}`,
-            `/admin/products/detail?id=${encodeURIComponent(id)}`,
-            `/admin/product/detail?id=${encodeURIComponent(id)}`,
-            `/admin/product?id=${encodeURIComponent(id)}`
-          ]);
-          return detail?.item || detail?.data || detail || null;
-        } catch (e) {
-          console.warn('[Stats] detail not found for', id, e);
-          return null;
-        }
-      };
-
       let totalValue = 0;
 
-      for (const it of items) {
-        const id = it?.id || it?._id;
-        if (!id) continue;
-
-        const p = await fetchDetail(id);
-        if (!p) continue;
-
-        const variants = Array.isArray(p.variants) ? p.variants
-                      : Array.isArray(p.options)  ? p.options
-                      : Array.isArray(p.skus)     ? p.skus
-                      : [];
+      // ✅ Không cần fetchDetail nữa - đã có variants từ summary API
+      for (const p of items) {
+        const variants = Array.isArray(p.variants) ? p.variants : [];
 
         if (variants.length > 0) {
+          // Tính từ variants
           for (const v of variants) {
             const stock = toNum(v.stock ?? v.inventory ?? v.quantity);
-            const cost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
+            const cost  = toNum(v.cost_price ?? v.cost ?? v.import_price ?? v.price_import ?? v.purchase_price);
             totalValue += stock * cost;
           }
         } else {
+          // Fallback: không có variants
           const stock = toNum(p.stock ?? p.inventory ?? p.quantity);
           const cost  = toNum(p.cost ?? p.cost_price ?? p.import_price ?? p.price_import ?? p.purchase_price);
           totalValue += stock * cost;
@@ -423,13 +383,12 @@ async loadInventoryValue() {
       }
 
       this.$('inventoryValue').textContent = this.formatMoney(totalValue);
-      console.log('[Stats] Inventory value:', totalValue);
+      console.log('[Stats] ✅ Inventory value:', totalValue);
     } catch (error) {
       console.error('[Stats] Error loading inventory value:', error);
       this.$('inventoryValue').textContent = '0đ';
     }
   }
-
   // ==================== UPDATE UI ====================
   updateStats() {
     const totalOrders = this.statsData.orders || 0;

@@ -84,6 +84,11 @@ export async function handle(req, env, ctx) {
 
    // ===== ADMIN ROUTES =====
 
+  // Admin: Get ALL products with variants (NO pagination) - For stats/reports
+  if (path === '/admin/products/summary' && method === 'GET') {
+    return listAllProductsWithVariants(req, env);
+  }
+
   // Admin: Batch get products (POST with product_ids array)
   if (path === '/admin/products/batch' && method === 'POST') {
     return getProductsBatch(req, env);
@@ -825,43 +830,49 @@ async function listAdminProducts(req, env) {
 }
 
 // ===================================================================
-// ADMIN: Batch Get Products (Lấy nhiều products cùng lúc)
+// ADMIN: List ALL Products with Variants (NO Pagination - For Stats)
 // ===================================================================
 
-async function getProductsBatch(req, env) {
+async function listAllProductsWithVariants(req, env) {
   try {
-    const body = await readBody(req) || {};
-    const productIds = body.product_ids || body.ids || [];
+    console.log('[listAllProductsWithVariants] 🚀 Loading ALL products with variants...');
 
-    if (!Array.isArray(productIds) || productIds.length === 0) {
-      return json({
-        ok: false,
-        error: 'product_ids array is required'
-      }, { status: 400 }, req);
-    }
-
-    // Giới hạn tối đa 100 products mỗi request
-    const ids = productIds.slice(0, 100);
-    console.log('[getProductsBatch] 📦 Batch loading', ids.length, 'products');
-
-    // Query products
-    const placeholders = ids.map(() => '?').join(',');
+    // Query ALL products (no limit)
     const productsResult = await env.DB.prepare(`
-      SELECT * FROM products WHERE id IN (${placeholders})
-    `).bind(...ids).all();
+      SELECT 
+        id, title, slug, shortDesc, desc, category_slug,
+        images, keywords, faq, reviews, video,
+        status, on_website, on_mini,
+        sold, rating, rating_count, stock,
+        created_at, updated_at
+      FROM products
+      ORDER BY created_at DESC
+    `).all();
 
     const products = productsResult.results || [];
+    console.log(`[listAllProductsWithVariants] ✅ Found ${products.length} products`);
 
-    // Query variants cho tất cả products
-    // ✅ FIX: Check empty array
+    if (products.length === 0) {
+      return json({ 
+        ok: true, 
+        items: [],
+        total: 0
+      }, {}, req);
+    }
+
+    // Batch query ALL variants (1 query duy nhất)
+    const productIds = products.map(p => p.id);
+    
     let variantsResult = { results: [] };
-    if (ids.length > 0) {
+    if (productIds.length > 0) {
       variantsResult = await env.DB.prepare(`
         SELECT * FROM variants 
-        WHERE product_id IN (${placeholders})
+        WHERE product_id IN (${productIds.map(() => '?').join(',')})
         ORDER BY product_id, id ASC
-      `).bind(...ids).all();
+      `).bind(...productIds).all();
     }
+
+    console.log(`[listAllProductsWithVariants] ✅ Loaded ${variantsResult.results?.length || 0} variants`);
 
     // Group variants by product_id
     const variantsByProduct = {};
@@ -869,33 +880,74 @@ async function getProductsBatch(req, env) {
       if (!variantsByProduct[v.product_id]) {
         variantsByProduct[v.product_id] = [];
       }
-      variantsByProduct[v.product_id].push(v);
+      variantsByProduct[v.product_id].push({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        price: v.price,
+        price_sale: v.price_sale,
+        price_wholesale: v.price_wholesale,
+        cost_price: v.cost_price,
+        price_silver: v.price_silver,
+        price_gold: v.price_gold,
+        price_diamond: v.price_diamond,
+        stock: v.stock,
+        weight: v.weight,
+        status: v.status,
+        image: v.image
+      });
     });
 
     // Map products với variants
     const items = products.map(p => ({
-      ...p,
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      shortDesc: p.shortDesc || '',
+      desc: p.desc || '',
+      category_slug: p.category_slug || '',
       images: p.images ? JSON.parse(p.images) : [],
       keywords: p.keywords ? JSON.parse(p.keywords) : [],
       faq: p.faq ? JSON.parse(p.faq) : [],
       reviews: p.reviews ? JSON.parse(p.reviews) : [],
+      video: p.video || null,
+      status: p.status || 'active',
+      on_website: p.on_website || 0,
+      on_mini: p.on_mini || 0,
+      sold: p.sold || 0,
+      rating: p.rating || 5.0,
+      rating_count: p.rating_count || 0,
+      stock: p.stock || 0,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
       variants: variantsByProduct[p.id] || []
     }));
 
-    console.log(`[getProductsBatch] ✅ Loaded ${items.length} products with variants`);
+    console.log('[listAllProductsWithVariants] ✅ Completed');
 
-    return json({
-      ok: true,
+    return json({ 
+      ok: true, 
       items,
-      count: items.length
+      total: items.length,
+      has_variants: true
     }, {}, req);
 
+  } catch (e) {
+    console.error('[listAllProductsWithVariants] ❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// ADMIN: Batch Get Products (Lấy nhiều products cùng lúc)
+// ===================================================================
+
+async function getProductsBatch(req, env) {
   } catch (e) {
     console.error('[getProductsBatch] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
-
 // ===================================================================
 // ADMIN: Get Single Product
 // ===================================================================

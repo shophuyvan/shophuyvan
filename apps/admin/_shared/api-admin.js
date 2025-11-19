@@ -86,6 +86,34 @@ api.getProductDetail = async (id) => {
     }
   };
 
+  // ✅ NEW: Get ALL products with variants (cho stats/reports)
+  api.getProductsSummary = async () => {
+    console.log('[API] Loading products summary (all with variants)...');
+    
+    try {
+      const response = await fetch('https://api.shophuyvan.vn/admin/products/summary', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-token': window.Admin.token()
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (!result.ok) {
+        console.error('[API] Summary API error:', result.error);
+        return [];
+      }
+      
+      console.log('[API] ✅ Loaded', result.total, 'products with variants');
+      return result.items || [];
+    } catch (e) {
+      console.error('[API] getProductsSummary error:', e);
+      return [];
+    }
+  };
+
   // =======================
   // TMDT / TikTok Shop
   // =======================
