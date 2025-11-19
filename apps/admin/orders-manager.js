@@ -9,8 +9,9 @@ class OrdersManager {
     this.orders = []; // Chứa danh sách đã lọc theo trạng thái
     this.currentOrder = null;
     this.selectedOrders = new Set();
-    this.currentStatusFilter = 'all'; // Trạng thái lọc mặc định
-    this.productsCache = new Map(); // ✅ Cache sản phẩm để lấy ảnh variant
+    this.currentStatusFilter = 'all'; 
+    this.currentSourceFilter = 'all'; // ✅ Thêm biến lọc theo nguồn
+    this.productsCache = new Map(); 
   }
 
   // ==================== UTILITIES ====================
@@ -112,8 +113,9 @@ class OrdersManager {
       this.allOrders = response?.items || []; // Lưu vào allOrders
       Admin.toast(`✅ Tải xong ${this.allOrders.length} đơn hàng.`);
 
-      this.renderStatusTabs(); // Tạo các tab trạng thái
-      this.filterAndRenderOrders(); // Lọc và hiển thị theo trạng thái hiện tại
+      this.renderStatusTabs(); 
+      this.renderSourceFilter(); // ✅ Tạo dropdown lọc nguồn
+      this.filterAndRenderOrders();
 
     } catch (error) {
       console.error('[OrdersManager] Load orders error:', error);
@@ -190,9 +192,39 @@ class OrdersManager {
 
     // Other info
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
-    const source = String(order.source || order.channel || order.platform || 'Web');
+    const rawSource = String(order.source || order.channel || order.platform || 'Web').toLowerCase();
     const orderId = String(order.id || '');
     const orderStatus = String(order.status || 'pending').toLowerCase();
+
+// Badge Nguồn (Màu sắc nhận diện)
+    let sourceBadge = `<span style="background:#f3f4f6;color:#374151;padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid #d1d5db">Web</span>`;
+    if (rawSource.includes('shopee')) sourceBadge = `<span style="background:#fff0e6;color:#ee4d2d;padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid #ffcbb8">Shopee</span>`;
+    else if (rawSource.includes('lazada')) sourceBadge = `<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid #c7d2fe">Lazada</span>`;
+    else if (rawSource.includes('tiktok')) sourceBadge = `<span style="background:#18181b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">TikTok</span>`;
+    else if (rawSource.includes('zalo') || rawSource.includes('mini')) sourceBadge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid #93c5fd">Zalo</span>`;
+    else if (rawSource.includes('pos')) sourceBadge = `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid #fde68a">Tại quầy</span>`;
+
+    // Badge Trạng thái (Cập nhật đầy đủ theo SuperAI)
+    const statusMap = {
+      'pending': { text: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+      'confirmed': { text: 'Đã xác nhận', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+      
+      // Trạng thái vận chuyển
+      'pending pickup': { text: 'Chờ lấy hàng', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+      'shipping': { text: 'Chờ lấy hàng', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+      'picking': { text: 'Đang lấy', color: '#9333ea', bg: '#f3e8ff', border: '#e9d5ff' },
+      'delivering': { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+      'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+      
+      // Trạng thái lỗi/hoàn
+      'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+      'returning': { text: 'Đang hoàn', color: '#ea580c', bg: '#ffedd5', border: '#fed7aa' },
+      'returned': { text: 'Đã hoàn', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' },
+      'lost': { text: 'Thất lạc', color: '#000000', bg: '#e5e7eb', border: '#9ca3af' }
+    };
+    
+    const stInfo = statusMap[orderStatus] || { text: orderStatus, color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
+    const statusHTML = `<span style="background:${stInfo.bg};color:${stInfo.color};padding:4px 8px;border-radius:12px;font-weight:600;font-size:12px;border:1px solid ${stInfo.border};display:inline-block;white-space:nowrap">${stInfo.text}</span>`;
 
     // ✅ THÊM: Load ảnh variants
     const itemsWithImages = await Promise.all(items.map(async (item) => {
@@ -239,9 +271,13 @@ class OrdersManager {
               ${fullAddress ? `<div class="customer-address" style="font-size: 12px; color: #6b7280; margin-top: 4px;">📍 ${fullAddress}</div>` : ''}
             </div>
           </div>
-          <div class="order-meta">
-            <span class="order-id-badge">Đơn #${orderId.slice(-8)}</span>
-            <span class="order-date">${created}</span>
+          <div class="order-meta" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              ${sourceBadge}
+              <span class="order-id-badge" style="font-weight:bold;color:#333">#${orderId.slice(-8)}</span>
+            </div>
+            ${statusHTML}
+            <span class="order-date" style="font-size:11px;color:#888;margin-top:2px">${created}</span>
           </div>
         </div>
         <div class="order-card-body">
@@ -1106,18 +1142,105 @@ class OrdersManager {
     this.filterAndRenderOrders();
   }
 
-  filterAndRenderOrders() {
-    const filterKey = this.currentStatusFilter;
+  // ✅ 1. HÀM TẠO DROPDOWN LỌC KÊNH (Mới thêm)
+  renderSourceFilter() {
+    const toolbar = document.querySelector('.toolbar');
+    // Kiểm tra tránh tạo trùng lặp
+    if (!toolbar || document.getElementById('source-filter-select')) return;
 
-    if (filterKey === 'all') {
-      this.orders = [...this.allOrders]; // Hiển thị tất cả
+    // Tạo Container
+    const filterContainer = document.createElement('div');
+    filterContainer.style.display = 'flex';
+    filterContainer.style.alignItems = 'center';
+    filterContainer.style.gap = '8px';
+    filterContainer.style.marginLeft = 'auto';
+    filterContainer.style.marginRight = '12px';
+
+    // Label
+    const label = document.createElement('span');
+    label.textContent = 'Kênh bán: ';
+    label.style.fontWeight = '500';
+    label.style.fontSize = '14px';
+
+    // Select Box
+    const select = document.createElement('select');
+    select.id = 'source-filter-select';
+    select.className = 'btn';
+    select.style.padding = '8px 12px';
+    select.style.border = '1px solid #ccc';
+    select.style.height = '38px';
+    select.style.outline = 'none';
+
+    const sources = [
+      { value: 'all', text: 'Tất cả kênh' },
+      { value: 'website', text: '🌐 Website' },
+      { value: 'zalo', text: '📱 Zalo MiniApp' },
+      { value: 'shopee', text: '🟠 Shopee' },
+      { value: 'lazada', text: '🔵 Lazada' },
+      { value: 'tiktok', text: '🎵 TikTok' },
+      { value: 'pos', text: '🏪 Tại quầy' }
+    ];
+
+    sources.forEach(src => {
+      const opt = document.createElement('option');
+      opt.value = src.value;
+      opt.textContent = src.text;
+      select.appendChild(opt);
+    });
+
+    // Sự kiện Change
+    select.addEventListener('change', (e) => {
+      this.currentSourceFilter = e.target.value;
+      this.filterAndRenderOrders();
+    });
+
+    filterContainer.appendChild(label);
+    filterContainer.appendChild(select);
+
+    // Chèn vào trước nút Tải lại
+    const reloadBtn = document.getElementById('reload-orders');
+    if (reloadBtn) {
+      toolbar.insertBefore(filterContainer, reloadBtn);
     } else {
-      this.orders = this.allOrders.filter(order =>
-        String(order.status || 'unknown').toLowerCase() === filterKey
-      );
+      toolbar.appendChild(filterContainer);
     }
+  }
 
-    // Render lại danh sách đã lọc
+  // ✅ 2. HÀM LỌC LOGIC (Đã update)
+  filterAndRenderOrders() {
+    const statusKey = this.currentStatusFilter;
+    const sourceKey = this.currentSourceFilter;
+
+    this.orders = this.allOrders.filter(order => {
+      // A. LỌC TRẠNG THÁI
+      // Hỗ trợ cả status nội bộ (pending/confirmed) và status vận chuyển (picking/shipping...)
+      const rawStatus = String(order.status || 'unknown').toLowerCase();
+      
+      let statusMatch = false;
+      if (statusKey === 'all') {
+        statusMatch = true;
+      } else {
+        // Mapping đơn giản để các trạng thái tương đương nhau vẫn hiện
+        if (statusKey === 'shipping' && (rawStatus === 'shipping' || rawStatus === 'pending pickup')) statusMatch = true;
+        else if (rawStatus === statusKey) statusMatch = true;
+      }
+
+      // B. LỌC NGUỒN (SOURCE)
+      let rawSource = String(order.source || order.channel || order.platform || 'Web').toLowerCase();
+      let normalizedSource = 'website';
+
+      if (rawSource.includes('shopee')) normalizedSource = 'shopee';
+      else if (rawSource.includes('lazada')) normalizedSource = 'lazada';
+      else if (rawSource.includes('tiktok')) normalizedSource = 'tiktok';
+      else if (rawSource.includes('zalo') || rawSource.includes('mini')) normalizedSource = 'zalo';
+      else if (rawSource.includes('pos')) normalizedSource = 'pos';
+      else if (rawSource.includes('web')) normalizedSource = 'website';
+
+      const sourceMatch = sourceKey === 'all' || normalizedSource === sourceKey;
+
+      return statusMatch && sourceMatch;
+    });
+
     this.renderOrdersList();
   }
 
