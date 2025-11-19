@@ -46,13 +46,44 @@ window.API_BASE = 'https://api.shophuyvan.vn';
     return r?.items || r?.data || r?.products || r?.rows || r?.list || [];
   };
 
-    api.getProductDetail = async (id) => {
+api.getProductDetail = async (id) => {
     const r = await api.tryPaths([
       `/admin/product?id=${encodeURIComponent(id)}`,
       `/admin/product/detail?id=${encodeURIComponent(id)}`,
       `/admin/products/detail?id=${encodeURIComponent(id)}`
     ]);
     return r?.item || r?.data || r || null;
+  };
+
+  // ✅ NEW: Batch get products (lấy nhiều products cùng lúc)
+  api.getProductsBatch = async (productIds) => {
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      console.warn('[API] getProductsBatch: empty array');
+      return [];
+    }
+    
+    try {
+      const response = await fetch('https://api.shophuyvan.vn/admin/products/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-token': window.Admin.token()
+        },
+        body: JSON.stringify({ product_ids: productIds })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.ok) {
+        console.error('[API] Batch API error:', result.error);
+        return [];
+      }
+      
+      return result.items || [];
+    } catch (e) {
+      console.error('[API] getProductsBatch error:', e);
+      return [];
+    }
   };
 
   // =======================

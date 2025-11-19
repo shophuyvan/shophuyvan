@@ -82,9 +82,14 @@ export async function handle(req, env, ctx) {
     return getProductMetrics(req, env, id);
   }
 
-  // ===== ADMIN ROUTES =====
+   // ===== ADMIN ROUTES =====
 
-  // Admin: List all products
+  // Admin: Batch get products (POST with product_ids array)
+  if (path === '/admin/products/batch' && method === 'POST') {
+    return getProductsBatch(req, env);
+  }
+
+  // Admin: List all products (with pagination)
   // FIX: Handle both /admin/products AND /admin/products/list
   if ((path === '/admin/products' || path === '/admin/products/list') && method === 'GET') {
     return listAdminProducts(req, env);
@@ -701,7 +706,7 @@ async function listPublicProductsFiltered(req, env) {
 }
 
 // ===================================================================
-// ADMIN: List All Products
+// ADMIN: List All Products (WITH PAGINATION)
 // ===================================================================
 
 async function listAdminProducts(req, env) {
@@ -711,13 +716,177 @@ async function listAdminProducts(req, env) {
   // }
 
   try {
-    const list = await listProducts(env);
-    return json({ ok: true, items: list }, {}, req);
+    const url = new URL(req.url);
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '24')));
+    const offset = (page - 1) * limit;
+
+    console.log('[listAdminProducts] 📄 Page:', page, 'Limit:', limit, 'Offset:', offset);
+
+    // Query total count
+    const countResult = await env.DB.prepare(`
+      SELECT COUNT(*) as total FROM products
+    `).first();
+    
+    const total = countResult?.total || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Query paginated products với FULL data (bao gồm variants)
+    const productsResult = await env.DB.prepare(`
+      SELECT 
+        id, title, slug, shortDesc, desc, category_slug,
+        images, keywords, faq, reviews, video,
+        status, on_website, on_mini,
+        sold, rating, rating_count, stock,
+        created_at, updated_at
+      FROM products
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset).all();
+
+    const products = productsResult.results || [];
+    console.log(`[listAdminProducts] ✅ Found ${products.length}/${total} products`);
+
+    // Load variants cho từng product (batch query)
+    const productIds = products.map(p => p.id);
+    
+    const variantsResult = await env.DB.prepare(`
+      SELECT * FROM variants 
+      WHERE product_id IN (${productIds.map(() => '?').join(',')})
+      ORDER BY product_id, id ASC
+    `).bind(...productIds).all();
+
+    // Group variants by product_id
+    const variantsByProduct = {};
+    (variantsResult.results || []).forEach(v => {
+      if (!variantsByProduct[v.product_id]) {
+        variantsByProduct[v.product_id] = [];
+      }
+      variantsByProduct[v.product_id].push({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        price: v.price,
+        price_sale: v.price_sale,
+        price_wholesale: v.price_wholesale,
+        cost_price: v.cost_price,
+        stock: v.stock,
+        weight: v.weight,
+        status: v.status,
+        image: v.image
+      });
+    });
+
+    // Map products với variants
+    const items = products.map(p => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      shortDesc: p.shortDesc || '',
+      desc: p.desc || '',
+      category_slug: p.category_slug || '',
+      images: p.images ? JSON.parse(p.images) : [],
+      keywords: p.keywords ? JSON.parse(p.keywords) : [],
+      faq: p.faq ? JSON.parse(p.faq) : [],
+      reviews: p.reviews ? JSON.parse(p.reviews) : [],
+      video: p.video || null,
+      status: p.status || 'active',
+      on_website: p.on_website || 0,
+      on_mini: p.on_mini || 0,
+      sold: p.sold || 0,
+      rating: p.rating || 5.0,
+      rating_count: p.rating_count || 0,
+      stock: p.stock || 0,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      variants: variantsByProduct[p.id] || []
+    }));
+
+    return json({ 
+      ok: true, 
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    }, {}, req);
   } catch (e) {
+    console.error('[listAdminProducts] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
 
+// ===================================================================
+// ADMIN: Batch Get Products (Lấy nhiều products cùng lúc)
+// ===================================================================
+
+async function getProductsBatch(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const productIds = body.product_ids || body.ids || [];
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return json({
+        ok: false,
+        error: 'product_ids array is required'
+      }, { status: 400 }, req);
+    }
+
+    // Giới hạn tối đa 100 products mỗi request
+    const ids = productIds.slice(0, 100);
+    console.log('[getProductsBatch] 📦 Batch loading', ids.length, 'products');
+
+    // Query products
+    const placeholders = ids.map(() => '?').join(',');
+    const productsResult = await env.DB.prepare(`
+      SELECT * FROM products WHERE id IN (${placeholders})
+    `).bind(...ids).all();
+
+    const products = productsResult.results || [];
+
+    // Query variants cho tất cả products
+    const variantsResult = await env.DB.prepare(`
+      SELECT * FROM variants 
+      WHERE product_id IN (${placeholders})
+      ORDER BY product_id, id ASC
+    `).bind(...ids).all();
+
+    // Group variants by product_id
+    const variantsByProduct = {};
+    (variantsResult.results || []).forEach(v => {
+      if (!variantsByProduct[v.product_id]) {
+        variantsByProduct[v.product_id] = [];
+      }
+      variantsByProduct[v.product_id].push(v);
+    });
+
+    // Map products với variants
+    const items = products.map(p => ({
+      ...p,
+      images: p.images ? JSON.parse(p.images) : [],
+      keywords: p.keywords ? JSON.parse(p.keywords) : [],
+      faq: p.faq ? JSON.parse(p.faq) : [],
+      reviews: p.reviews ? JSON.parse(p.reviews) : [],
+      variants: variantsByProduct[p.id] || []
+    }));
+
+    console.log(`[getProductsBatch] ✅ Loaded ${items.length} products with variants`);
+
+    return json({
+      ok: true,
+      items,
+      count: items.length
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[getProductsBatch] ❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
 
 // ===================================================================
 // ADMIN: Get Single Product
@@ -778,6 +947,7 @@ async function getAdminProduct(req, env) {
     return errorResponse(e, 500, req);
   }
 }
+
 // ===================================================================
 // ADMIN: Upsert Product
 // ===================================================================

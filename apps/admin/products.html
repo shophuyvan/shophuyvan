@@ -350,6 +350,13 @@ const $ = (s) => document.querySelector(s);
   let currentFilter = 'all'; // ✅ Tab hiện tại
   const LOW_STOCK_THRESHOLD = 10; // ✅ Ngưỡng sắp hết hàng
 
+  // ✅ NEW: Lazy loading state
+  let currentPage = 1;
+  let totalPages = 1;
+  let isLoading = false;
+  let hasMoreData = true;
+  const PAGE_SIZE = 24;
+
   // ✅ CACHE SYSTEM
   const CACHE_KEY = 'admin_products_cache';
   const CACHE_TIME_KEY = 'admin_products_cache_time';
@@ -445,62 +452,50 @@ const $ = (s) => document.querySelector(s);
       ? (Number(x.replace(/[^\d.-]/g, '')) || 0)
       : (Number(x || 0));
 
+    // ✅ NEW: Dùng batch API thay vì loop từng item
+    console.log('[Products] Enriching', items.length, 'products...');
+    
+    // Step 1: Tính toán từ variants có sẵn (từ pagination API)
     for (const p of items) {
-      p.salePrice = toNum(p.price_sale || p.price);
-      p.costImport = toNum(p.cost || p.cost_price || p.import_price || p.price_import || p.purchase_price);
-      p.stockTotal = toNum(p.stock || p.inventory || p.quantity);
-      p.importTotal = p.stockTotal * p.costImport;
+      const vars = Array.isArray(p.variants) ? p.variants : [];
+      
+      if (vars.length > 0) {
+        // Đã có variants từ API pagination
+        let totalStock = 0;
+        let totalImport = 0;
+        let firstPrice = 0;
+        let firstWholesale = 0;
 
-      const needDetail = !(p.salePrice > 0 && (p.stockTotal > 0 || p.costImport > 0));
-      if (!needDetail) continue;
+        vars.forEach(v => {
+          const vStock = toNum(v.stock ?? v.inventory ?? v.quantity);
+          const vCost  = toNum(v.cost_price ?? v.cost ?? v.import_price ?? v.price_import ?? v.purchase_price);
+          const vPrice = toNum(v.price_sale ?? v.price);
+          const vWholesale = toNum(v.price_wholesale ?? 0);
+          
+          totalStock += vStock;
+          totalImport += vStock * vCost;
+          if (!firstPrice && vPrice > 0) firstPrice = vPrice;
+          if (!firstWholesale && vWholesale > 0) firstWholesale = vWholesale;
+        });
 
-      const id = p.id || p._id || p.key;
-      if (!id) continue;
-
-      try {
-        const d = await getProductDetail(id);
-        if (!d) continue;
-
-        const vars = Array.isArray(d.variants) ? d.variants
-                   : Array.isArray(d.options)  ? d.options
-                   : Array.isArray(d.skus)     ? d.skus : [];
-
-        if (vars.length > 0) {
-          let totalStock = 0;
-          let totalImport = 0;
-          let firstPrice = 0;
-
-          vars.forEach(v => {
-            const vStock = toNum(v.stock ?? v.inventory ?? v.quantity);
-            const vCost  = toNum(v.cost ?? v.cost_price ?? v.import_price ?? v.price_import ?? v.purchase_price);
-            const vPrice = toNum(v.price_sale ?? v.price);
-            totalStock += vStock;
-            totalImport += vStock * vCost;
-            if (!firstPrice && vPrice > 0) firstPrice = vPrice;
-          });
-
-          p.stockTotal = totalStock;
-          p.costImport = totalStock > 0 ? Math.floor(totalImport / Math.max(totalStock,1)) : (p.costImport || 0);
-          p.importTotal = totalImport;
-          p.salePrice = p.salePrice > 0 ? p.salePrice : firstPrice;
-          p._hasStock = totalStock > 0;
-        } else {
-          const stock = toNum(d.stock ?? d.inventory ?? d.quantity);
-          const cost  = toNum(d.cost ?? d.cost_price ?? d.import_price ?? d.price_import ?? d.purchase_price);
-          const price = toNum(d.price_sale ?? d.price);
-          const wholesale = toNum(d.price_wholesale ?? 0);
-
-          p.stockTotal = stock;
-          p.costImport = cost;
-          p.importTotal = stock * cost;
-          p.wholesalePrice = wholesale; // ✅ THÊM: Giá sỉ
-          if (!(p.salePrice > 0)) p.salePrice = price;
-          p._hasStock = stock > 0;
-        }
-      } catch (e) {
-        console.warn('[Products] enrich fail', id, e);
+        p.stockTotal = totalStock;
+        p.costImport = totalStock > 0 ? Math.floor(totalImport / Math.max(totalStock, 1)) : 0;
+        p.importTotal = totalImport;
+        p.salePrice = firstPrice;
+        p.wholesalePrice = firstWholesale;
+        p._hasStock = totalStock > 0;
+      } else {
+        // Fallback: không có variants
+        p.salePrice = toNum(p.price_sale || p.price);
+        p.costImport = toNum(p.cost || p.cost_price || p.import_price || p.price_import || p.purchase_price);
+        p.stockTotal = toNum(p.stock || p.inventory || p.quantity);
+        p.importTotal = p.stockTotal * p.costImport;
+        p.wholesalePrice = toNum(p.price_wholesale || 0);
+        p._hasStock = p.stockTotal > 0;
       }
     }
+    
+    console.log('[Products] ✅ Enriched', items.length, 'products');
     return items;
   }
 
@@ -562,30 +557,60 @@ const $ = (s) => document.querySelector(s);
 
   async function load(forceRefresh = false) {
     console.log('[Products] Loading products...', forceRefresh ? '(force)' : '(cache)');
+    
+    if (isLoading) {
+      console.log('[Products] Already loading, skip');
+      return;
+    }
+    
     try {
+      isLoading = true;
+      
       // ✅ Check cache trước (trừ khi force refresh)
-      if (!forceRefresh) {
+      if (!forceRefresh && currentPage === 1) {
         const cached = getCachedProducts();
         if (cached) {
           console.log('[Products] Using cached data:', cached.length, 'products');
           allProducts = cached;
           renderProducts();
+          isLoading = false;
           return;
         }
       }
       
-      // Load từ API
-      const r = await Admin.tryPaths(['/admin/products', '/admin/product/list', '/admin/products/list']);
+      // ✅ NEW: Load với pagination
+      const url = `/admin/products?page=${currentPage}&limit=${PAGE_SIZE}`;
+      console.log('[Products] Loading page:', currentPage, 'URL:', url);
+      
+      const r = await Admin.req(url);
       console.log('[Products] API Response:', r);
       
-      allProducts = r.items || r.data || r.products || [];
-      console.log('[Products] Total products:', allProducts.length);
+      if (!r || !r.ok) {
+        throw new Error('API request failed');
+      }
       
-      // ✅ Enrich data TRƯỚC KHI cache
-      await enrichProducts(allProducts);
+      const newItems = r.items || [];
       
-      // ✅ Lưu cache
-      setCachedProducts(allProducts);
+      // ✅ Update pagination info
+      if (r.pagination) {
+        totalPages = r.pagination.totalPages || 1;
+        hasMoreData = r.pagination.hasNext || false;
+        console.log('[Products] Pagination:', r.pagination);
+      }
+      
+      // ✅ Enrich data
+      await enrichProducts(newItems);
+      
+      // ✅ Append or replace products
+      if (currentPage === 1) {
+        allProducts = newItems;
+        // Lưu cache chỉ cho page 1
+        setCachedProducts(newItems);
+      } else {
+        allProducts = [...allProducts, ...newItems];
+      }
+      
+      console.log('[Products] Total loaded:', allProducts.length);
       
       renderProducts();
       
@@ -595,10 +620,13 @@ const $ = (s) => document.querySelector(s);
       });
       
       updateBulkActions();
+      
     } catch (error) {
       console.error('[Products] Load error:', error);
       const grid = $('#grid');
       if (grid) grid.innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+    } finally {
+      isLoading = false;
     }
   }
 
@@ -645,9 +673,14 @@ const $ = (s) => document.querySelector(s);
       return;
     }
     
-    grid.innerHTML = filtered.map(p => createProductCard(p)).join('');
-    console.log('[Products] Rendered', filtered.length, 'products');
+    const cardsHtml = filtered.map(p => createProductCard(p)).join('');
     
+    // ✅ NEW: Thêm loading indicator nếu đang load thêm
+    const loadingHtml = isLoading ? '<div class="loading" style="grid-column: 1/-1;">⏳ Đang tải thêm...</div>' : '';
+    
+    grid.innerHTML = cardsHtml + loadingHtml;
+    console.log('[Products] Rendered', filtered.length, 'products', hasMoreData ? '(có thêm)' : '(hết)');
+
     // Re-attach event listeners
     $$('.card-checkbox').forEach(cb => {
       cb.addEventListener('change', handleCheckboxChange);
@@ -793,9 +826,28 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
   if (reloadBtn) {
     reloadBtn.onclick = () => {
       clearCache();
+      currentPage = 1;
+      hasMoreData = true;
+      allProducts = [];
       load(true);
     };
   }
+
+  // ✅ NEW: Infinite scroll handler
+  let scrollTimeout;
+  window.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      const scrolledToBottom = scrollTop + clientHeight >= scrollHeight - 200;
+      
+      if (scrolledToBottom && hasMoreData && !isLoading) {
+        console.log('[Products] Scroll to bottom, loading more...');
+        currentPage++;
+        load(false);
+      }
+    }, 100);
+  });
 
   const searchInput = $('#q');
   if (searchInput) searchInput.addEventListener('input', renderProducts);
