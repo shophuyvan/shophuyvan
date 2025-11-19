@@ -322,8 +322,9 @@ window.syncShopeeProducts = async function(shopId) {
   try {
     const res = await window.SHARED.api.syncShopeeProducts(shopId);
     
-    if (res.ok) {
-      alert(`✅ Đồng bộ thành công ${res.total || 0} sản phẩm!\n\nBây giờ có thể đồng bộ tồn kho.`);
+if (res.ok) {
+      const msg = `✅ Đồng bộ hoàn tất!\n\n📊 Tổng: ${res.total || 0}\n✔️ Đã có: ${res.existing || 0}\n🆕 MỚI: ${res.new || 0}\n⚡ Đã sync: ${res.processed || 0}\n\n${res.has_more ? '⚠️ Còn ' + (res.new - res.processed) + ' sản phẩm. Click lại để tiếp tục.' : '✅ Đã sync hết!'}`;
+      alert(msg);
       location.reload();
     } else {
       alert('❌ Lỗi: ' + (res.error || 'unknown'));
