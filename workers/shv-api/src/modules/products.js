@@ -943,11 +943,73 @@ async function listAllProductsWithVariants(req, env) {
 // ===================================================================
 
 async function getProductsBatch(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    const productIds = body.product_ids || body.ids || [];
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return json({
+        ok: false,
+        error: 'product_ids array is required'
+      }, { status: 400 }, req);
+    }
+
+    // Giới hạn tối đa 100 products mỗi request
+    const ids = productIds.slice(0, 100);
+    console.log('[getProductsBatch] 📦 Batch loading', ids.length, 'products');
+
+    // Query products
+    const placeholders = ids.map(() => '?').join(',');
+    const productsResult = await env.DB.prepare(`
+      SELECT * FROM products WHERE id IN (${placeholders})
+    `).bind(...ids).all();
+
+    const products = productsResult.results || [];
+
+    // Query variants cho tất cả products
+    // ✅ FIX: Check empty array
+    let variantsResult = { results: [] };
+    if (ids.length > 0) {
+      variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants 
+        WHERE product_id IN (${placeholders})
+        ORDER BY product_id, id ASC
+      `).bind(...ids).all();
+    }
+
+    // Group variants by product_id
+    const variantsByProduct = {};
+    (variantsResult.results || []).forEach(v => {
+      if (!variantsByProduct[v.product_id]) {
+        variantsByProduct[v.product_id] = [];
+      }
+      variantsByProduct[v.product_id].push(v);
+    });
+
+    // Map products với variants
+    const items = products.map(p => ({
+      ...p,
+      images: p.images ? JSON.parse(p.images) : [],
+      keywords: p.keywords ? JSON.parse(p.keywords) : [],
+      faq: p.faq ? JSON.parse(p.faq) : [],
+      reviews: p.reviews ? JSON.parse(p.reviews) : [],
+      variants: variantsByProduct[p.id] || []
+    }));
+
+    console.log(`[getProductsBatch] ✅ Loaded ${items.length} products with variants`);
+
+    return json({
+      ok: true,
+      items,
+      count: items.length
+    }, {}, req);
+
   } catch (e) {
     console.error('[getProductsBatch] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
+
 // ===================================================================
 // ADMIN: Get Single Product
 // ===================================================================
