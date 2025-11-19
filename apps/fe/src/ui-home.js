@@ -153,7 +153,46 @@ function card(p){
 
     // R2 storage logic added for Cloudinary images
     const r2Url = (cloudinaryUrl) => {
-        const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
-        return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
-    };
+    const cloudinaryDomain = "https://res.cloudinary.com/dtemskptf/image/upload/";
+    return cloudinaryUrl.replace(cloudinaryDomain, "https://r2-cloud-storage.example.com/");
+};
+
+// =============================
+// SHV – ENABLE DRAG SCROLL
+// =============================
+(function () {
+    const wrapList = document.querySelectorAll('.product-horizontal-scroll');
+
+    wrapList.forEach(wrap => {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        wrap.addEventListener('mousedown', (e) => {
+            isDown = true;
+            wrap.classList.add('dragging');
+            startX = e.pageX - wrap.offsetLeft;
+            scrollLeft = wrap.scrollLeft;
+        });
+
+        wrap.addEventListener('mouseleave', () => {
+            isDown = false;
+            wrap.classList.remove('dragging');
+        });
+
+        wrap.addEventListener('mouseup', () => {
+            isDown = false;
+            wrap.classList.remove('dragging');
+        });
+
+        wrap.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - wrap.offsetLeft;
+            const walk = (x - startX) * 1.2; 
+            wrap.scrollLeft = scrollLeft - walk;
+        });
+    });
+})();
+
     

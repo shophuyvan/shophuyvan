@@ -461,3 +461,22 @@ footer iframe {
   margin-bottom: 16px;
   opacity: 0.5;
 }
+
+/* SHV – Highlight “Xem thêm →” */
+.home-see-more {
+  color: #0ea5e9 !important;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #0ea5e9;
+  background: #f0f9ff;
+  transition: all 0.25s;
+}
+
+.home-see-more:hover {
+  background: #0ea5e9;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(14,165,233,0.3);
+  transform: translateY(-2px);
+}
