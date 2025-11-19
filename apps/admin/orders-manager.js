@@ -212,13 +212,34 @@ class OrdersManager {
     else if (rawSource.includes('pos')) 
       sourceBadge = `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #fde68a;font-weight:600">POS</span>`;
 
-    // ✅ BADGE TRẠNG THÁI (Đầy đủ các trường hợp)
+    // ✅ BADGE TRẠNG THÁI (Đã map chuẩn Shopee)
     const statusMap = {
-      'pending': { text: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
-      'confirmed': { text: 'Đã xác nhận', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-      'shipping': { text: 'Chờ lấy hàng', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-      'pending pickup': { text: 'Chờ lấy hàng', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-      'picking': { text: 'Đang lấy', color: '#9333ea', bg: '#f3e8ff', border: '#e9d5ff' },
+      // Nhóm 1: Chờ xác nhận
+      'pending': { text: 'Chờ xác nhận', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+      'unpaid':  { text: 'Chờ thanh toán', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+
+      // Nhóm 2: Chờ lấy hàng (Processing)
+      'processing':     { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' }, // Màu cam nhạt
+      'confirmed':      { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
+      'ready_to_ship':  { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
+      'pending pickup': { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
+      'picking':        { text: 'Đang lấy hàng', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+
+      // Nhóm 3: Đang giao
+      'shipping':       { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+      'delivering':     { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+      'transporting':   { text: 'Đang trung chuyển', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+
+      // Nhóm 4: Hoàn thành
+      'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+      'completed': { text: 'Hoàn thành', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+      
+      // Nhóm 5: Hủy/Hoàn
+      'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+      'returning': { text: 'Đang hoàn', color: '#ea580c', bg: '#ffedd5', border: '#fed7aa' },
+      'returned':  { text: 'Đã hoàn tiền', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' },
+      'lost':      { text: 'Thất lạc', color: '#000000', bg: '#e5e7eb', border: '#9ca3af' }
+    };
       'delivering': { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
       'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
       'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -1087,22 +1108,15 @@ class OrdersManager {
       return counts;
     }, {});
 
-    // Danh sách các trạng thái muốn hiển thị (có thể tùy chỉnh)
-    // Dựa theo hình ảnh SuperAI của bạn và các trạng thái phổ biến
+    // Danh sách TAB chuẩn theo luồng Shopee/TMĐT
     const displayStatuses = [
       { key: 'all', name: 'Tất cả' },
-      // Các trạng thái SuperAI phổ biến (lấy key từ status_name webhook, viết thường)
-      { key: 'pending pickup', name: 'Chờ lấy hàng' }, // 'shipping' của chúng ta
-      { key: 'picking', name: 'Đang lấy hàng' },
-      { key: 'delivering', name: 'Đang giao' },
-      { key: 'delivered', name: 'Đã giao' },
-      { key: 'returning', name: 'Đang hoàn' },
-      { key: 'returned', name: 'Đã hoàn' },
-      { key: 'cancelled', name: 'Đã hủy' },
-      { key: 'lost', name: 'Thất lạc' },
-      // Thêm các trạng thái nội bộ nếu cần
-      { key: 'pending', name: 'Chờ xử lý (Nội bộ)' },
-      { key: 'confirmed', name: 'Đã xác nhận (Nội bộ)' },
+      { key: 'pending', name: 'Chờ xác nhận' },      // Đơn mới
+      { key: 'processing', name: 'Chờ lấy hàng' },    // Đã xác nhận/Đang xử lý (QUAN TRỌNG)
+      { key: 'shipping', name: 'Đang giao' },         // Đang đi giao
+      { key: 'delivered', name: 'Đã giao' },          // Giao thành công
+      { key: 'cancelled', name: 'Đã hủy' },           // Hủy
+      { key: 'returned', name: 'Trả hàng/Hoàn tiền' } // Hoàn
     ];
 
     let tabsHTML = '';
@@ -1198,17 +1212,46 @@ class OrdersManager {
     else toolbar.appendChild(filterContainer);
   }
 
-  // ✅ 2. HÀM LỌC LOGIC (Cập nhật)
+  // ✅ 2. HÀM LỌC LOGIC (Đã nâng cấp gom nhóm trạng thái)
   filterAndRenderOrders() {
     const statusKey = this.currentStatusFilter;
     const sourceKey = this.currentSourceFilter;
 
     this.orders = this.allOrders.filter(order => {
-      const rawStatus = String(order.status || 'unknown').toLowerCase();
+      const s = String(order.status || 'unknown').toLowerCase();
       let statusMatch = false;
-      if (statusKey === 'all') statusMatch = true;
-      else if (statusKey === 'shipping' && (rawStatus === 'shipping' || rawStatus === 'pending pickup')) statusMatch = true;
-      else if (rawStatus === statusKey) statusMatch = true;
+
+      if (statusKey === 'all') {
+        statusMatch = true;
+      } 
+      // Tab: Chờ xác nhận
+      else if (statusKey === 'pending') {
+        if (s === 'pending' || s === 'unpaid' || s === 'new') statusMatch = true;
+      }
+      // Tab: Chờ lấy hàng (Gồm: Processing, Confirmed, Picking, Ready_to_ship)
+      else if (statusKey === 'processing') {
+        if (s === 'processing' || s === 'confirmed' || s === 'picking' || s === 'ready_to_ship' || s === 'pending pickup') statusMatch = true;
+      }
+      // Tab: Đang giao
+      else if (statusKey === 'shipping') {
+        if (s === 'shipping' || s === 'delivering' || s === 'transporting') statusMatch = true;
+      }
+      // Tab: Đã giao
+      else if (statusKey === 'delivered') {
+        if (s === 'delivered' || s === 'completed' || s === 'finish') statusMatch = true;
+      }
+      // Tab: Trả hàng/Hoàn tiền
+      else if (statusKey === 'returned') {
+        if (s === 'returned' || s === 'returning' || s === 'refund') statusMatch = true;
+      }
+      // Tab: Đã hủy
+      else if (statusKey === 'cancelled') {
+        if (s === 'cancelled' || s === 'cancel') statusMatch = true;
+      }
+      // Fallback cho các trạng thái khác
+      else if (s === statusKey) {
+        statusMatch = true;
+      }
 
       let rawSource = String(order.source || order.channel || order.platform || 'Web').toLowerCase();
       let normalizedSource = 'website';
