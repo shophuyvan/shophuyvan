@@ -1508,3 +1508,15 @@ async function cancelOrderCustomer(req, env) {
     return json({ ok: false, error: e.message }, { status: 500 }, req);
   }
 }
+
+// ===================================================================
+// EXPORT ALIAS - Fix lỗi listOrdersAdmin is not defined
+// ===================================================================
+
+/**
+ * List Orders for Admin (D1 version)
+ * Export alias để tương thích với index.js
+ */
+export async function listOrdersAdmin(req, env) {
+  return listOrdersFromD1(req, env);
+}
