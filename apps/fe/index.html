@@ -319,7 +319,7 @@
 <section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
   <div class="section-head flex items-center justify-between">
     <h2 class="text-lg font-bold">Tất cả sản phẩm</h2>
-    <button id="load-more" class="section-more home-see-more">Xem thêm →</a>
+        <button id="load-more" class="section-more home-see-more">Xem thêm →</button>
   </div>
   <div id="all-products" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"></div>
 </section>
@@ -419,8 +419,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <!-- ✅ QUICK REGISTER MODULE -->
 <script type="module">
-import { quickRegister } from './src/lib/quick-register.js';
-import { productTour } from './src/lib/product-tour.js';
+import { quickRegister } from '/src/lib/quick-register.js';
+import { productTour } from '/src/lib/product-tour.js';
 
 // Nút hướng dẫn ở header
 document.getElementById('header-tour-btn')?.addEventListener('click', (e) => {
@@ -506,14 +506,14 @@ if (!token && banner) {
 <script type="module" src="/src/frontend.js?v=41"></script>
 <script type="module">
 // Import price functions
-import { pickPriceByCustomer, formatPriceByCustomer } from './src/lib/price.js';
+import { pickPriceByCustomer, formatPriceByCustomer } from '/src/lib/price.js';
 
 // Expose globally for use in frontend.js
 window.pickPriceByCustomer = pickPriceByCustomer;
 window.formatPriceByCustomer = formatPriceByCustomer;
 </script>
 <script>document.getElementById("mobile-menu-btn")?.addEventListener("click",()=>{document.getElementById("mobile-menu")?.classList.toggle("hidden");});</script>
-  <!-- SHV-CWV: generic lazyload safeguard -->
+    <!-- SHV-CWV: generic lazyload safeguard -->
   <script>
   (function(){
     try{
@@ -529,6 +529,46 @@ window.formatPriceByCustomer = formatPriceByCustomer;
     }catch(e){}
   })();
   </script>
+
+  <!-- SHV – Drag scroll for home carousels (PC) -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Áp dụng cho tất cả list ngang trên trang chủ
+    const lists = document.querySelectorAll('.product-horizontal-scroll, .shv-scroll-section');
+
+    lists.forEach(function (wrap) {
+      let isDown = false;
+      let startX = 0;
+      let scrollLeft = 0;
+
+      wrap.addEventListener('mousedown', function (e) {
+        isDown = true;
+        wrap.classList.add('dragging');
+        startX = e.pageX - wrap.offsetLeft;
+        scrollLeft = wrap.scrollLeft;
+      });
+
+      wrap.addEventListener('mouseleave', function () {
+        isDown = false;
+        wrap.classList.remove('dragging');
+      });
+
+      wrap.addEventListener('mouseup', function () {
+        isDown = false;
+        wrap.classList.remove('dragging');
+      });
+
+      wrap.addEventListener('mousemove', function (e) {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - wrap.offsetLeft;
+        const walk = (x - startX) * 1.2; // tốc độ kéo
+        wrap.scrollLeft = scrollLeft - walk;
+      });
+    });
+  });
+  </script>
+
 
 <script>
 // ==== REPLACE: bỏ modal cart, điều hướng về /cart.html ====
