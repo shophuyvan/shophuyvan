@@ -292,11 +292,44 @@
 </head>
 <body>
 <!-- Content will be wrapped by sidebar-layout.js -->
-<div class="toolbar">
-  <div class="toolbar-left">
-    <input id="q" class="input" placeholder="Tìm theo tiêu đề / slug / SKU"/>
-    <button class="btn" id="reload">🔄 Tải lại</button>
+<!-- ✅ Stats Bar -->
+<div style="background:white;padding:15px;border-radius:8px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+  <div style="display:flex;gap:24px;align-items:center;font-size:14px">
+    <div>
+      <strong style="color:#0ea5e9">Tổng:</strong> 
+      <span id="stat-total" style="font-size:18px;font-weight:600">-</span>
+    </div>
+    <div>
+      <strong style="color:#10b981">Còn hàng:</strong> 
+      <span id="stat-in-stock" style="font-size:18px;font-weight:600">-</span>
+    </div>
+    <div>
+      <strong style="color:#ef4444">Hết hàng:</strong> 
+      <span id="stat-out-stock" style="font-size:18px;font-weight:600">-</span>
+    </div>
   </div>
+</div>
+
+</div>
+  
+  <!-- ✅ Pagination Controls -->
+  <div style="display:flex;gap:12px;align-items:center">
+    <select id="items-per-page" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px">
+      <option value="12">12/trang</option>
+      <option value="24" selected>24/trang</option>
+      <option value="48">48/trang</option>
+      <option value="96">96/trang</option>
+    </select>
+    
+    <div id="pagination-info" style="font-size:14px;color:#666;white-space:nowrap">
+      Trang <span id="current-page">1</span>/<span id="total-pages">1</span>
+    </div>
+    
+    <button id="prev-page" class="btn" disabled style="padding:8px 12px">◀</button>
+    <button id="next-page" class="btn" style="padding:8px 12px">▶</button>
+  </div>
+  
+  <div class="stats">
   <div class="stats">
     <span>Tổng: <strong id="total-count">0</strong></span>
     <a href="./channels.html" class="btn" style="background:#7c3aed;color:white;border-color:#7c3aed">🛒 Quản lý kênh</a>
@@ -556,7 +589,90 @@ const $ = (s) => document.querySelector(s);
   }
 
   async function load(forceRefresh = false) {
-    console.log('[Products] Loading products...', forceRefresh ? '(force)' : '(cache)');
+    console.log('[Products] Loading page:', currentPage, forceRefresh ? '(force)' : '');
+    
+    if (isLoading) {
+      console.log('[Products] Already loading, skip');
+      return;
+    }
+    
+    try {
+      isLoading = true;
+      
+      // ✅ Get search query
+      const searchQuery = ($('#q')?.value || '').trim();
+      
+      // ✅ Build API URL with search
+      let url = `/admin/products?page=${currentPage}&limit=${PAGE_SIZE}`;
+      if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+      }
+      
+      console.log('[Products] API URL:', url);
+      
+      const r = await Admin.req(url);
+      console.log('[Products] API Response:', r);
+      
+      if (!r || !r.ok) {
+        throw new Error('API request failed');
+      }
+      
+      const newItems = r.items || [];
+      
+      // ✅ Update stats bar
+      if (r.stats) {
+        const statTotal = $('#stat-total');
+        const statInStock = $('#stat-in-stock');
+        const statOutStock = $('#stat-out-stock');
+        
+        if (statTotal) statTotal.textContent = r.stats.total || 0;
+        if (statInStock) statInStock.textContent = r.stats.in_stock || 0;
+        if (statOutStock) statOutStock.textContent = r.stats.out_of_stock || 0;
+      }
+      
+      // ✅ Update pagination info
+      if (r.pagination) {
+        totalPages = r.pagination.totalPages || 1;
+        hasMoreData = r.pagination.hasNext || false;
+        
+        const currentPageEl = $('#current-page');
+        const totalPagesEl = $('#total-pages');
+        const prevBtn = $('#prev-page');
+        const nextBtn = $('#next-page');
+        
+        if (currentPageEl) currentPageEl.textContent = currentPage;
+        if (totalPagesEl) totalPagesEl.textContent = totalPages;
+        if (prevBtn) prevBtn.disabled = !r.pagination.hasPrev;
+        if (nextBtn) nextBtn.disabled = !r.pagination.hasNext;
+        
+        console.log('[Products] Pagination:', r.pagination);
+      }
+      
+      // ✅ Enrich data
+      await enrichProducts(newItems);
+      
+      // ✅ Replace products (không append vì có pagination)
+      allProducts = newItems;
+      
+      console.log('[Products] Total loaded:', allProducts.length);
+      
+      renderProducts();
+      
+      // Re-attach event listeners
+      $$('.card-checkbox').forEach(cb => {
+        cb.addEventListener('change', handleCheckboxChange);
+      });
+      
+      updateBulkActions();
+      
+    } catch (error) {
+      console.error('[Products] Load error:', error);
+      const grid = $('#grid');
+      if (grid) grid.innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+    } finally {
+      isLoading = false;
+    }
+  }
     
     if (isLoading) {
       console.log('[Products] Already loading, skip');
@@ -822,9 +938,36 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
     });
   }
 
-  const reloadBtn = $('#reload');
-  if (reloadBtn) {
-    reloadBtn.onclick = () => {
+  // ✅ Pagination controls
+  const itemsPerPageEl = $('#items-per-page');
+  if (itemsPerPageEl) {
+    itemsPerPageEl.addEventListener('change', (e) => {
+      PAGE_SIZE = parseInt(e.target.value);
+      currentPage = 1;
+      clearCache();
+      load(true);
+    });
+  }
+  
+  const prevPageBtn = $('#prev-page');
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        load(true);
+      }
+    });
+  }
+  
+  const nextPageBtn = $('#next-page');
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        currentPage++;
+        load(true);
+      }
+    });
+  }
       clearCache();
       currentPage = 1;
       hasMoreData = true;
@@ -833,24 +976,26 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
     };
   }
 
-  // ✅ NEW: Infinite scroll handler
-  let scrollTimeout;
-  window.addEventListener('scroll', () => {
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
-      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-      const scrolledToBottom = scrollTop + clientHeight >= scrollHeight - 200;
-      
-      if (scrolledToBottom && hasMoreData && !isLoading) {
-        console.log('[Products] Scroll to bottom, loading more...');
-        currentPage++;
-        load(false);
-      }
-    }, 100);
-  });
-
   const searchInput = $('#q');
-  if (searchInput) searchInput.addEventListener('input', renderProducts);
+  if (searchInput) {
+    // ✅ Enter để search từ server
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        currentPage = 1;
+        clearCache();
+        load(true);
+      }
+    });
+    
+    // ✅ Nếu xóa hết text → load lại
+    searchInput.addEventListener('input', (e) => {
+      if (e.target.value.trim() === '') {
+        currentPage = 1;
+        clearCache();
+        load(true);
+      }
+    });
+  }
 
   // ✅ Tab clicks
   $$('.tab').forEach(tab => {

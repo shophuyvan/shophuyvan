@@ -715,28 +715,141 @@ async function listPublicProductsFiltered(req, env) {
 // ===================================================================
 
 async function listAdminProducts(req, env) {
-  // ⚠️ Tạm bỏ xác thực khi nạp dữ liệu
-  // if (!(await adminOK(req, env))) {
-  //   return errorResponse('Unauthorized', 401, req);
-  // }
-
   try {
     const url = new URL(req.url);
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '24')));
     const offset = (page - 1) * limit;
-
-    console.log('[listAdminProducts] 📄 Page:', page, 'Limit:', limit, 'Offset:', offset);
-
-    // Query total count
-    const countResult = await env.DB.prepare(`
-      SELECT COUNT(*) as total FROM products
-    `).first();
     
-    const total = countResult?.total || 0;
+    // ✅ NEW: Search parameter
+    const search = (url.searchParams.get('search') || url.searchParams.get('q') || '').trim();
+
+    console.log('[listAdminProducts] 📄 Page:', page, 'Limit:', limit, 'Search:', search || '(none)');
+
+    // ✅ NEW: Build WHERE clause for search
+    let whereClause = '';
+    let queryParams = [];
+    
+    if (search) {
+      whereClause = `WHERE (
+        title LIKE ? OR 
+        slug LIKE ? OR 
+        CAST(id AS TEXT) LIKE ?
+      )`;
+      const searchPattern = `%${search}%`;
+      queryParams = [searchPattern, searchPattern, searchPattern];
+    }
+
+    // ✅ Query stats với search filter
+    const statsResult = await env.DB.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN stock > 0 THEN 1 ELSE 0 END) as in_stock,
+        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock
+      FROM products
+      ${whereClause}
+    `).bind(...queryParams).first();
+
+    const total = statsResult?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
-    // Query paginated products với FULL data (bao gồm variants)
+    // ✅ Query paginated products với search
+    const productsQuery = `
+      SELECT 
+        id, title, slug, shortDesc, category_slug,
+        images, status, on_website, on_mini,
+        sold, rating, rating_count, stock,
+        created_at, updated_at
+      FROM products
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    const productsResult = await env.DB.prepare(productsQuery)
+      .bind(...queryParams, limit, offset)
+      .all();
+
+    const products = productsResult.results || [];
+    console.log(`[listAdminProducts] ✅ Found ${products.length}/${total} products`);
+
+    // Load variants cho products hiện tại (batch query)
+    const productIds = products.map(p => p.id);
+    
+    let variantsResult = { results: [] };
+    if (productIds.length > 0) {
+      const placeholders = productIds.map(() => '?').join(',');
+      variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants 
+        WHERE product_id IN (${placeholders})
+        ORDER BY product_id, id ASC
+      `).bind(...productIds).all();
+    }
+
+    // Group variants by product_id
+    const variantsByProduct = {};
+    (variantsResult.results || []).forEach(v => {
+      if (!variantsByProduct[v.product_id]) {
+        variantsByProduct[v.product_id] = [];
+      }
+      variantsByProduct[v.product_id].push({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        price: v.price,
+        price_sale: v.price_sale,
+        price_wholesale: v.price_wholesale,
+        cost_price: v.cost_price,
+        stock: v.stock,
+        weight: v.weight,
+        status: v.status,
+        image: v.image
+      });
+    });
+
+    // Map products với variants
+    const items = products.map(p => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      shortDesc: p.shortDesc || '',
+      category_slug: p.category_slug || '',
+      images: p.images ? JSON.parse(p.images) : [],
+      status: p.status || 'active',
+      on_website: p.on_website || 0,
+      on_mini: p.on_mini || 0,
+      sold: p.sold || 0,
+      rating: p.rating || 5.0,
+      rating_count: p.rating_count || 0,
+      stock: p.stock || 0,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      variants: variantsByProduct[p.id] || []
+    }));
+
+    return json({ 
+      ok: true, 
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      stats: {
+        total: statsResult?.total || 0,
+        in_stock: statsResult?.in_stock || 0,
+        out_of_stock: statsResult?.out_of_stock || 0
+      },
+      search: search || null
+    }, {}, req);
+  } catch (e) {
+    console.error('[listAdminProducts] ❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
     const productsResult = await env.DB.prepare(`
       SELECT 
         id, title, slug, shortDesc, desc, category_slug,
