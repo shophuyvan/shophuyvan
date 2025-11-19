@@ -307,6 +307,19 @@ class OrdersManager {
               <span class="label">Tổng tiền:</span>
               <span class="value price-total">${this.formatPrice(total)}</span>
             </div>
+
+            ${/* ✅ HIỂN THỊ DOANH THU THỰC TẾ (MỚI) */ 
+              (order.order_income && order.order_income.escrow_amount != null) ? `
+              <div class="detail-row" style="color:#ef4444; font-size:12px;">
+                <span class="label">Phí sàn:</span>
+                <span class="value">-${this.formatPrice((order.order_income.commission_fee||0) + (order.order_income.seller_transaction_fee||0) + (order.order_income.service_fee||0))}</span>
+              </div>
+              <div class="detail-row" style="color:#16a34a; font-weight:700; border-top:1px dashed #e5e7eb; margin-top:4px; padding-top:4px;">
+                <span class="label">Thực nhận:</span>
+                <span class="value">${this.formatPrice(order.order_income.escrow_amount)}</span>
+              </div>
+            ` : ''}
+
             ${provider ? `
               <div class="detail-row">
                 <span class="label">Vận chuyển:</span>
@@ -315,7 +328,7 @@ class OrdersManager {
             ` : ''}
             ${tracking ? `
               <div class="detail-row">
-                <span class="label">Tracking:</span>
+                <span class="label">Mã vận đơn:</span>
                 <span class="value tracking-code">${tracking}</span>
               </div>
             ` : ''}
