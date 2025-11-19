@@ -13,7 +13,7 @@ const TOUR_CONFIG = {
       nextTrigger: 'wait-click',
     },
     'product-view-cart': {
-      target: '#header-cart-btn',
+      target: '#btn-cart', // Đã sửa từ #header-cart-btn để khớp với ID thực tế trong product.html
       title: '✅ Bước 2: Xem giỏ hàng',
       message: 'Tuyệt vời! Sản phẩm đã được thêm. Bấm vào đây để xem giỏ hàng',
       position: 'bottom-left',
