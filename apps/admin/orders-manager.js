@@ -240,13 +240,6 @@ class OrdersManager {
       'returned':  { text: 'Đã hoàn tiền', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' },
       'lost':      { text: 'Thất lạc', color: '#000000', bg: '#e5e7eb', border: '#9ca3af' }
     };
-      'delivering': { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
-      'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-      'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-      'returning': { text: 'Đang hoàn', color: '#ea580c', bg: '#ffedd5', border: '#fed7aa' },
-      'returned': { text: 'Đã hoàn', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' },
-      'lost': { text: 'Thất lạc', color: '#000000', bg: '#e5e7eb', border: '#9ca3af' }
-    };
     
     const stInfo = statusMap[orderStatus] || { text: orderStatus, color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
     const statusHTML = `<span style="background:${stInfo.bg};color:${stInfo.color};padding:4px 8px;border-radius:12px;font-weight:600;font-size:12px;border:1px solid ${stInfo.border};display:inline-block;white-space:nowrap">${stInfo.text}</span>`;
