@@ -750,11 +750,15 @@ async function listAdminProducts(req, env) {
     // Load variants cho từng product (batch query)
     const productIds = products.map(p => p.id);
     
-    const variantsResult = await env.DB.prepare(`
-      SELECT * FROM variants 
-      WHERE product_id IN (${productIds.map(() => '?').join(',')})
-      ORDER BY product_id, id ASC
-    `).bind(...productIds).all();
+    // ✅ FIX: Check empty array
+    let variantsResult = { results: [] };
+    if (productIds.length > 0) {
+      variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants 
+        WHERE product_id IN (${productIds.map(() => '?').join(',')})
+        ORDER BY product_id, id ASC
+      `).bind(...productIds).all();
+    }
 
     // Group variants by product_id
     const variantsByProduct = {};
@@ -849,11 +853,15 @@ async function getProductsBatch(req, env) {
     const products = productsResult.results || [];
 
     // Query variants cho tất cả products
-    const variantsResult = await env.DB.prepare(`
-      SELECT * FROM variants 
-      WHERE product_id IN (${placeholders})
-      ORDER BY product_id, id ASC
-    `).bind(...ids).all();
+    // ✅ FIX: Check empty array
+    let variantsResult = { results: [] };
+    if (ids.length > 0) {
+      variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants 
+        WHERE product_id IN (${placeholders})
+        ORDER BY product_id, id ASC
+      `).bind(...ids).all();
+    }
 
     // Group variants by product_id
     const variantsByProduct = {};
