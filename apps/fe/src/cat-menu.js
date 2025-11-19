@@ -68,15 +68,24 @@ async function loadCategories(){
           // ✅ Xử lý response giống backend trả về
           const items = response?.items || response?.data || response?.categories || response;
           
-          if(Array.isArray(items) && items.length > 0){
+                    if(Array.isArray(items) && items.length > 0){
             // ✅ Sắp xếp theo order như admin
             const sorted = items.sort((a, b) => 
               (Number(a.order) || 0) - (Number(b.order) || 0)
             );
-            
-            window.CATEGORIES = sorted;
-            console.log('✅ Loaded categories:', sorted.length, 'from', path);
-            return sorted;
+
+            // ✅ Ẩn 4 danh mục không dùng trên menu ALL (lọc theo slug)
+            const blacklistSlugs = new Set([
+              'thiet-bi-dien-nuoc',
+              'nha-cua-doi-song',
+              'hoa-chat-gia-dung',
+              'dung-cu-tien-ich'
+            ]);
+            const filtered = sorted.filter(it => !blacklistSlugs.has(it.slug));
+
+            window.CATEGORIES = filtered;
+            console.log('✅ Loaded categories (filtered):', filtered.length, 'from', path);
+            return filtered;
           }
         }catch(err){
           console.warn('Failed to load from', path, err);

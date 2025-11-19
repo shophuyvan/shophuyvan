@@ -837,22 +837,37 @@ async function listAllProductsWithVariants(req, env) {
   try {
     console.log('[listAllProductsWithVariants] 🚀 Loading ALL products with variants...');
 
-    // Query ALL products (no limit)
-    const productsResult = await env.DB.prepare(`
+    // ✅ FIX: Query trực tiếp với JOIN thay vì map variables
+    const result = await env.DB.prepare(`
       SELECT 
-        id, title, slug, shortDesc, desc, category_slug,
-        images, keywords, faq, reviews, video,
-        status, on_website, on_mini,
-        sold, rating, rating_count, stock,
-        created_at, updated_at
-      FROM products
-      ORDER BY created_at DESC
+        p.id, p.title, p.slug, p.shortDesc, p.desc, p.category_slug,
+        p.images, p.keywords, p.faq, p.reviews, p.video,
+        p.status, p.on_website, p.on_mini,
+        p.sold, p.rating, p.rating_count, p.stock,
+        p.created_at, p.updated_at,
+        v.id as variant_id,
+        v.sku as variant_sku,
+        v.name as variant_name,
+        v.price as variant_price,
+        v.price_sale as variant_price_sale,
+        v.price_wholesale as variant_price_wholesale,
+        v.cost_price as variant_cost_price,
+        v.price_silver as variant_price_silver,
+        v.price_gold as variant_price_gold,
+        v.price_diamond as variant_price_diamond,
+        v.stock as variant_stock,
+        v.weight as variant_weight,
+        v.status as variant_status,
+        v.image as variant_image
+      FROM products p
+      LEFT JOIN variants v ON p.id = v.product_id
+      ORDER BY p.created_at DESC, v.id ASC
     `).all();
 
-    const products = productsResult.results || [];
-    console.log(`[listAllProductsWithVariants] ✅ Found ${products.length} products`);
+    const rows = result.results || [];
+    console.log(`[listAllProductsWithVariants] ✅ Found ${rows.length} rows (products + variants)`);
 
-    if (products.length === 0) {
+    if (rows.length === 0) {
       return json({ 
         ok: true, 
         items: [],
@@ -860,70 +875,63 @@ async function listAllProductsWithVariants(req, env) {
       }, {}, req);
     }
 
-    // Batch query ALL variants (1 query duy nhất)
-    const productIds = products.map(p => p.id);
+    // ✅ Group rows thành products với variants
+    const productsMap = new Map();
     
-    let variantsResult = { results: [] };
-    if (productIds.length > 0) {
-      variantsResult = await env.DB.prepare(`
-        SELECT * FROM variants 
-        WHERE product_id IN (${productIds.map(() => '?').join(',')})
-        ORDER BY product_id, id ASC
-      `).bind(...productIds).all();
-    }
-
-    console.log(`[listAllProductsWithVariants] ✅ Loaded ${variantsResult.results?.length || 0} variants`);
-
-    // Group variants by product_id
-    const variantsByProduct = {};
-    (variantsResult.results || []).forEach(v => {
-      if (!variantsByProduct[v.product_id]) {
-        variantsByProduct[v.product_id] = [];
+    rows.forEach(row => {
+      const productId = row.id;
+      
+      // Khởi tạo product nếu chưa có
+      if (!productsMap.has(productId)) {
+        productsMap.set(productId, {
+          id: row.id,
+          title: row.title,
+          slug: row.slug,
+          shortDesc: row.shortDesc || '',
+          desc: row.desc || '',
+          category_slug: row.category_slug || '',
+          images: row.images ? JSON.parse(row.images) : [],
+          keywords: row.keywords ? JSON.parse(row.keywords) : [],
+          faq: row.faq ? JSON.parse(row.faq) : [],
+          reviews: row.reviews ? JSON.parse(row.reviews) : [],
+          video: row.video || null,
+          status: row.status || 'active',
+          on_website: row.on_website || 0,
+          on_mini: row.on_mini || 0,
+          sold: row.sold || 0,
+          rating: row.rating || 5.0,
+          rating_count: row.rating_count || 0,
+          stock: row.stock || 0,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          variants: []
+        });
       }
-      variantsByProduct[v.product_id].push({
-        id: v.id,
-        sku: v.sku,
-        name: v.name,
-        price: v.price,
-        price_sale: v.price_sale,
-        price_wholesale: v.price_wholesale,
-        cost_price: v.cost_price,
-        price_silver: v.price_silver,
-        price_gold: v.price_gold,
-        price_diamond: v.price_diamond,
-        stock: v.stock,
-        weight: v.weight,
-        status: v.status,
-        image: v.image
-      });
+      
+      // Thêm variant nếu có
+      if (row.variant_id) {
+        const product = productsMap.get(productId);
+        product.variants.push({
+          id: row.variant_id,
+          sku: row.variant_sku,
+          name: row.variant_name,
+          price: row.variant_price,
+          price_sale: row.variant_price_sale,
+          price_wholesale: row.variant_price_wholesale,
+          cost_price: row.variant_cost_price,
+          price_silver: row.variant_price_silver,
+          price_gold: row.variant_price_gold,
+          price_diamond: row.variant_price_diamond,
+          stock: row.variant_stock,
+          weight: row.variant_weight,
+          status: row.variant_status,
+          image: row.variant_image
+        });
+      }
     });
 
-    // Map products với variants
-    const items = products.map(p => ({
-      id: p.id,
-      title: p.title,
-      slug: p.slug,
-      shortDesc: p.shortDesc || '',
-      desc: p.desc || '',
-      category_slug: p.category_slug || '',
-      images: p.images ? JSON.parse(p.images) : [],
-      keywords: p.keywords ? JSON.parse(p.keywords) : [],
-      faq: p.faq ? JSON.parse(p.faq) : [],
-      reviews: p.reviews ? JSON.parse(p.reviews) : [],
-      video: p.video || null,
-      status: p.status || 'active',
-      on_website: p.on_website || 0,
-      on_mini: p.on_mini || 0,
-      sold: p.sold || 0,
-      rating: p.rating || 5.0,
-      rating_count: p.rating_count || 0,
-      stock: p.stock || 0,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-      variants: variantsByProduct[p.id] || []
-    }));
-
-    console.log('[listAllProductsWithVariants] ✅ Completed');
+    const items = Array.from(productsMap.values());
+    console.log(`[listAllProductsWithVariants] ✅ Completed: ${items.length} products`);
 
     return json({ 
       ok: true, 
