@@ -1396,13 +1396,61 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     // Load initial data
     loadCampaigns();
   }
+  // ============================================================
+  // FANPAGE SYNC (TÍCH HỢP VÀO ADS)
+  // ============================================================
+
+  async function syncFanpages() {
+    const btn = document.getElementById('btnSyncFanpages');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang tải...';
+    }
+
+    try {
+      // 1. Gọi API lấy danh sách từ Facebook (dùng Token của Ads)
+      const r = await Admin.req('/admin/fanpages/fetch-facebook', { method: 'GET' });
+
+      if (r && r.ok && r.data) {
+        // 2. Tự động lưu tất cả Fanpage tìm thấy vào DB
+        let savedCount = 0;
+        for (const p of r.data) {
+            await Admin.req('/admin/fanpages', {
+                method: 'POST',
+                body: {
+                    page_id: p.id,
+                    name: p.name,
+                    access_token: p.access_token, // Token riêng của từng Page
+                    auto_reply_enabled: true,
+                    welcome_message: 'Xin chào! Shop Huy Vân có thể giúp gì cho bạn?'
+                }
+            });
+            savedCount++;
+        }
+        
+        toast(`✅ Đã đồng bộ thành công ${savedCount} Fanpage!`);
+        loadFanpages(); // Load lại bảng hiển thị
+      } else {
+        toast('⚠️ Không tìm thấy Fanpage nào. Hãy kiểm tra lại quyền đăng nhập.');
+      }
+    } catch (e) {
+      toast('❌ Lỗi đồng bộ: ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔄 Đồng bộ từ Facebook';
+      }
+    }
+  }
 
   // ============================================================
   // EXPORT PUBLIC API
   // ============================================================
 
-  window.FacebookAds = {
+window.FacebookAds = {
+    syncFanpages, // ✅ Thêm dòng này
     _initialized: false,
+    // ... các hàm khác giữ nguyên
     init: function() {
       if (this._initialized) {
         console.log('[FB Ads] Already initialized, skipping');

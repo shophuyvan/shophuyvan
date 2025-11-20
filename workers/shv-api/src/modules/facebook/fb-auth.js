@@ -254,8 +254,8 @@ if (tokenData.error) {
               window.opener.location.reload();
               window.close();
             } else {
-              // ✅ FIX: Trỏ về đúng domain Admin
-              window.location.href = 'https://admin.shophuyvan.vn/facebook/fanpages.html';
+              // ✅ FIX: Chuyển hướng về trang Ads chính sau khi login
+               window.location.href = 'https://admin.shophuyvan.vn/facebook/ads.html';
             }
           }, 3000);
         </script>

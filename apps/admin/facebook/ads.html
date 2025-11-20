@@ -517,14 +517,13 @@
       
       <hr/>
       
-      <h4>📄 Quản lý Fanpage</h4>
-      <p class="hint">Thêm và quản lý nhiều fanpage</p>
-      
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <input id="newFanpageName" class="input" placeholder="Tên Fanpage" style="flex:1;"/>
-        <input id="newFanpageId" class="input" placeholder="Page ID" style="flex:1;"/>
-        <button id="btnAddFanpage" class="btn green">➕ Thêm</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
+        <h4 style="margin:0;">📄 Danh sách Fanpage đã kết nối</h4>
+        <button id="btnSyncFanpages" class="btn primary" onclick="FacebookAds.syncFanpages()">
+          🔄 Đồng bộ từ Facebook
+        </button>
       </div>
+      <p class="hint">Hệ thống sẽ tự động lấy danh sách Fanpage từ tài khoản Facebook bạn đã đăng nhập ở trên.</p>
       
       <table class="fanpage-table">
         <thead>
