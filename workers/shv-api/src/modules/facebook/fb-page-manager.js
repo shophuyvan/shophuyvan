@@ -1,7 +1,7 @@
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
 import { readBody } from '../../lib/utils.js';
-import { getJSON } from '../../lib/kv.js'; // ✅ THÊM IMPORT
+import { getJSON, putJSON } from '../../lib/kv.js'; // ✅ Import thêm putJSON
 
 // Lấy danh sách Fanpage đã kết nối
 export async function listFanpages(req, env) {
@@ -39,6 +39,9 @@ export async function upsertFanpage(req, env) {
     if (!page_id || !access_token) return errorResponse('Thiếu page_id hoặc access_token', 400, req);
 
     const now = Date.now();
+    // ✅ QUAN TRỌNG: Lưu Token vào KV để Automation Worker đọc nhanh (không cần query DB)
+    await putJSON(env, `fb_token:${page_id}`, access_token);
+
     const exists = await env.DB.prepare('SELECT page_id FROM fanpages WHERE page_id = ?').bind(page_id).first();
 
     if (exists) {
@@ -106,9 +109,48 @@ export async function fetchPagesFromFacebook(req, env) {
     }
 
     // 3. Trả về danh sách
-    return json({ ok: true, data: uniquePages }, {}, req);
+   return json({ ok: true, data: uniquePages }, {}, req);
 
   } catch (e) {
     return errorResponse(e.message, 500, req);
   }
+}
+
+// ===================================================================
+// CÁC HÀM MỚI: QUẢN LÝ CẤU HÌNH AUTOMATION (Lưu trong KV)
+// ===================================================================
+
+// 3. Lấy cấu hình Automation của Page
+export async function getPageSettings(req, env) {
+  const url = new URL(req.url);
+  const pageId = url.searchParams.get('pageId');
+  
+  if (!pageId) return errorResponse('Missing pageId', 400, req);
+
+  // Mặc định cấu hình
+  const defaultSettings = {
+    enable_hide_phone: false,
+    enable_auto_reply: false,
+    reply_template: "Chào bạn, shop đã inbox báo giá chi tiết ạ! ❤️",
+    website_link: "https://shophuyvan.vn"
+  };
+
+  // Lấy từ KV
+  const settings = await getJSON(env, `config:fanpage:${pageId}`, defaultSettings);
+  return json({ ok: true, data: settings }, {}, req);
+}
+
+// 4. Lưu cấu hình Automation
+export async function savePageSettings(req, env) {
+  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+  
+  const body = await readBody(req);
+  const { pageId, settings } = body;
+
+  if (!pageId || !settings) return errorResponse('Invalid data', 400, req);
+
+  // Lưu vào KV
+  await putJSON(env, `config:fanpage:${pageId}`, settings);
+  
+  return json({ ok: true, message: 'Đã lưu cấu hình thành công' }, {}, req);
 }

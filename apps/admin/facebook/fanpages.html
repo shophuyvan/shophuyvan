@@ -58,11 +58,39 @@
   </div>
 
   <script src="./fanpages.js?v=2"></script>
+  <div id="modal-settings" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:white; padding:24px; border-radius:12px; width:400px; max-width:95%;">
+        <h3 style="margin-top:0; text-align:center;">Cấu Hình Tự Động</h3>
+        <input type="hidden" id="setting-page-id">
+        
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Tự động ẩn SĐT</span>
+            <input type="checkbox" id="toggle-hide-phone" style="transform:scale(1.5);">
+        </div>
+
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Tự động Reply & Inbox</span>
+            <input type="checkbox" id="toggle-auto-reply" style="transform:scale(1.5);">
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px; font-weight:600;">Mẫu trả lời Comment:</label>
+            <textarea id="input-reply-template" rows="3" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" placeholder="Chào bạn, shop đã inbox..."></textarea>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px; font-weight:600;">Link Web (trong Inbox):</label>
+            <input type="text" id="input-website-link" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" value="https://shophuyvan.vn">
+        </div>
+
+        <button id="btn-save-settings" class="btn primary" style="width:100%; margin-bottom:8px;">Lưu Cấu Hình</button>
+        <button onclick="document.getElementById('modal-settings').style.display='none'" class="btn" style="width:100%;">Đóng</button>
+    </div>
+  </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Khởi tạo layout admin
       if (window.AdminLayout) AdminLayout.init('Quản lý Fanpage');
-      // Khởi tạo logic fanpage
       if (window.FanpageManager) FanpageManager.init();
     });
   </script>

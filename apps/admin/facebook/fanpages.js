@@ -37,7 +37,7 @@
             </span>
           </div>
           <div class="actions">
-            <button class="btn-sm" onclick="alert('Tính năng đang phát triển')">⚙️ Cấu hình</button>
+            <button class="btn-sm" onclick="window.openSettings('${page.page_id}')">⚙️ Cấu hình</button>
           </div>
         </div>
       </div>
@@ -150,7 +150,58 @@
         document.getElementById('connectModal').style.display = 'flex';
         fetchPagesFromFacebook();
     },
-    loginFacebook,
+   loginFacebook,
     autoConnect
   };
+
+  // --- LOGIC SETTINGS MODAL ---
+  window.openSettings = async function(pageId) {
+    document.getElementById('setting-page-id').value = pageId;
+    document.getElementById('modal-settings').style.display = 'flex';
+    
+    // Reset UI
+    document.getElementById('toggle-hide-phone').checked = false;
+    document.getElementById('toggle-auto-reply').checked = false;
+    document.getElementById('input-reply-template').value = 'Đang tải...';
+
+    try {
+        const res = await Admin.req(`/admin/fanpages/settings?pageId=${pageId}`, { method: 'GET' });
+        if (res.ok && res.data) {
+            const s = res.data;
+            document.getElementById('toggle-hide-phone').checked = !!s.enable_hide_phone;
+            document.getElementById('toggle-auto-reply').checked = !!s.enable_auto_reply;
+            document.getElementById('input-reply-template').value = s.reply_template || '';
+            document.getElementById('input-website-link').value = s.website_link || 'https://shophuyvan.vn';
+        }
+    } catch (e) {
+        alert('Lỗi tải cấu hình: ' + e.message);
+    }
+  };
+
+  document.getElementById('btn-save-settings').addEventListener('click', async () => {
+    const pageId = document.getElementById('setting-page-id').value;
+    const settings = {
+        enable_hide_phone: document.getElementById('toggle-hide-phone').checked,
+        enable_auto_reply: document.getElementById('toggle-auto-reply').checked,
+        reply_template: document.getElementById('input-reply-template').value,
+        website_link: document.getElementById('input-website-link').value
+    };
+
+    try {
+        const res = await Admin.req('/admin/fanpages/settings', {
+            method: 'POST',
+            body: { pageId, settings }
+        });
+        
+        if (res.ok) {
+            alert('✅ Đã lưu cấu hình!');
+            document.getElementById('modal-settings').style.display = 'none';
+        } else {
+            alert('Lỗi: ' + (res.error || 'Unknown'));
+        }
+    } catch (e) {
+        alert('Lỗi kết nối');
+    }
+  });
+
 })();

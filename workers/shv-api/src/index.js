@@ -393,6 +393,15 @@ export default {
         return FBPageManager.fetchPagesFromFacebook(req, env);
       }
       
+      // Route cấu hình settings (Đặt trước route gốc để tránh conflict)
+      if (path === '/admin/fanpages/settings') {
+        const permCheck = await requirePermission(req, env, 'ads.edit');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+
+        if (method === 'GET') return FBPageManager.getPageSettings(req, env);
+        if (method === 'POST') return FBPageManager.savePageSettings(req, env);
+      }
+
       // Route list/upsert fanpage 
       if (path.startsWith('/admin/fanpages')) {
         const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
