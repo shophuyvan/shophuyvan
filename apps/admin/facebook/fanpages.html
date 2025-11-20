@@ -36,8 +36,19 @@
         <p style="font-size:13px; color:#666; margin-top:4px;">Hệ thống sẽ lấy Token tự động từ tài khoản Facebook của bạn.</p>
       </div>
       
+      <div style="margin-bottom: 12px;">
+        <button onclick="FanpageManager.loginFacebook()" class="btn primary" style="width: 100%; background: #1877f2;">
+          🔐 Đăng nhập / Cập nhật quyền Facebook
+        </button>
+        <p style="font-size:12px; color:#666; margin-top:4px; text-align: center;">
+          (Bấm vào đây nếu danh sách bên dưới trống hoặc không tìm thấy Page)
+        </p>
+      </div>
+
       <div id="fbPageList" style="flex: 1; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; min-height: 200px;">
-        <div class="loading">Đang tải danh sách từ Facebook...</div>
+        <div class="loading" style="text-align:center; padding:20px; color:#666;">
+          Vui lòng bấm nút Đăng nhập ở trên để lấy danh sách...
+        </div>
       </div>
       
       <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">

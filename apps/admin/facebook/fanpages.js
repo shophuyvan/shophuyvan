@@ -1,6 +1,7 @@
 (function() {
   const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || 'https://api.shophuyvan.vn';
 
+  // 1. Tải danh sách Fanpage đã lưu trong DB (Màn hình chính)
   async function loadFanpages() {
     const container = document.getElementById('fanpageList');
     if(!container) return;
@@ -20,7 +21,7 @@
   function renderList(items) {
     const container = document.getElementById('fanpageList');
     if (items.length === 0) {
-      container.innerHTML = '<div class="alert">Chưa có fanpage nào. Hãy bấm "Kết nối" để thêm!</div>';
+      container.innerHTML = '<div class="alert">Chưa có fanpage nào. Hãy bấm "Kết nối Fanpage Mới" để thêm!</div>';
       return;
     }
 
@@ -36,32 +37,93 @@
             </span>
           </div>
           <div class="actions">
-            <button class="btn" onclick="alert('Tính năng Cấu hình đang phát triển')">⚙️ Cấu hình</button>
-            <button class="btn" onclick="alert('Tính năng Lịch sử đang phát triển')">💬 Tin nhắn</button>
+            <button class="btn-sm" onclick="alert('Tính năng đang phát triển')">⚙️ Cấu hình</button>
           </div>
         </div>
       </div>
     `).join('');
   }
 
-  async function savePage() {
-    const pageId = document.getElementById('inputPageId').value.trim();
-    const token = document.getElementById('inputPageToken').value.trim();
+  // 2. Hàm Login Facebook (Giống hệt bên Ads)
+  async function loginFacebook() {
+    try {
+      const r = await Admin.req('/admin/facebook/oauth/authorize', { method: 'GET' });
+      if (r && r.ok && r.auth_url) {
+        // Mở popup
+        const width = 600;
+        const height = 700;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+        
+        const popup = window.open(
+          r.auth_url,
+          'FacebookOAuth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+        );
+        
+        // Lắng nghe kết quả
+        window.addEventListener('message', function handleOAuthCallback(event) {
+          if (event.data && event.data.type === 'FB_OAUTH_SUCCESS') {
+            window.removeEventListener('message', handleOAuthCallback);
+            if (popup) popup.close();
+            
+            alert('✅ Đăng nhập thành công! Đang tải danh sách Fanpage...');
+            // Tự động tải danh sách sau khi login xong
+            fetchPagesFromFacebook();
+          }
+        });
+      } else {
+        alert('❌ Lỗi: ' + (r.error || 'Không lấy được URL đăng nhập'));
+      }
+    } catch (e) {
+      alert('❌ Lỗi: ' + e.message);
+    }
+  }
 
-    if (!pageId || !token) return alert('Vui lòng nhập đủ Page ID và Token');
+  // 3. Lấy danh sách Page từ Facebook (Gọi sau khi Login)
+  async function fetchPagesFromFacebook() {
+    const container = document.getElementById('fbPageList');
+    container.innerHTML = '<div class="loading">Đang tải danh sách từ Facebook...</div>';
 
-    // Hiệu ứng loading nút lưu
-    const btn = event.target;
-    const oldText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Đang lưu...';
+    try {
+      const r = await Admin.req('/admin/fanpages/fetch-facebook', { method: 'GET' });
 
+      if (r && r.ok && r.data && r.data.length > 0) {
+        container.innerHTML = r.data.map(p => `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid #f3f4f6;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <img src="${p.picture?.data?.url || ''}" style="width:40px; height:40px; border-radius:50%;">
+              <div>
+                <div style="font-weight:600;">${p.name}</div>
+                <div style="font-size:11px; color:#666;">ID: ${p.id}</div>
+              </div>
+            </div>
+            <button class="btn-sm primary" onclick="FanpageManager.autoConnect('${p.id}', '${p.access_token}', '${p.name}')">
+              Kết nối
+            </button>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = `<div class="alert alert-warning" style="text-align:center;">
+          ⚠️ Không tìm thấy Fanpage nào.<br>
+          Hãy chắc chắn bạn đã bấm nút <b>"Đăng nhập Facebook"</b> ở trên và <b>Chọn Tất Cả Fanpage</b>.
+        </div>`;
+      }
+    } catch (e) {
+      container.innerHTML = `<div class="alert alert-error">Lỗi: ${e.message}</div>`;
+    }
+  }
+
+  // 4. Lưu kết nối vào DB
+  async function autoConnect(pageId, token, name) {
+    if(!confirm(`Bạn muốn kết nối Fanpage "${name}"?`)) return;
+    
     try {
       const r = await Admin.req('/admin/fanpages', {
         method: 'POST',
         body: {
           page_id: pageId,
-          name: 'New Fanpage', // Backend có thể tự lấy tên từ Graph API sau này
+          name: name,
           access_token: token,
           auto_reply_enabled: true,
           welcome_message: 'Xin chào! Shop Huy Vân có thể giúp gì cho bạn?'
@@ -69,89 +131,26 @@
       });
 
       if (r && r.ok) {
-        alert('✅ Kết nối thành công!');
+        alert(`✅ Đã kết nối "${name}" thành công!`);
         document.getElementById('connectModal').style.display = 'none';
-        // Reset form
-        document.getElementById('inputPageId').value = '';
-        document.getElementById('inputPageToken').value = '';
         loadFanpages();
       } else {
         alert('❌ Lỗi: ' + (r.error || 'Unknown error'));
       }
     } catch (e) {
-      alert('❌ Lỗi: ' + e.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = oldText;
+      alert('❌ Lỗi kết nối: ' + e.message);
     }
   }
 
+  // 5. Khởi tạo
   window.FanpageManager = {
     init: loadFanpages,
-    connectNewPage: async () => {
-      const modal = document.getElementById('connectModal');
-      const container = document.getElementById('fbPageList');
-      
-      modal.style.display = 'flex';
-      container.innerHTML = '<div class="loading">Đang kết nối Facebook...</div>';
-
-      try {
-        // Gọi API lấy danh sách page từ token hệ thống
-        const r = await Admin.req('/admin/fanpages/fetch-facebook', { method: 'GET' });
-
-        if (r && r.ok && r.data && r.data.length > 0) {
-          container.innerHTML = r.data.map(p => `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid #f3f4f6;">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <img src="${p.picture?.data?.url || ''}" style="width:40px; height:40px; border-radius:50%;">
-                <div>
-                  <div style="font-weight:600;">${p.name}</div>
-                  <div style="font-size:11px; color:#666;">ID: ${p.id}</div>
-                </div>
-              </div>
-              <button class="btn-sm primary" onclick="FanpageManager.autoConnect('${p.id}', '${p.access_token}', '${p.name}')">
-                Kết nối
-              </button>
-            </div>
-          `).join('');
-        } else {
-          container.innerHTML = `<div class="alert alert-warning">
-            Không tìm thấy Fanpage nào hoặc Token hết hạn.<br>
-            Vui lòng vào <b>Tab Quảng Cáo -> Cài Đặt -> Login Facebook</b> lại.
-          </div>`;
-        }
-      } catch (e) {
-        container.innerHTML = `<div class="alert alert-error">Lỗi: ${e.message}</div>`;
-      }
+    // Khi bấm mở modal, thử load danh sách luôn. Nếu rỗng thì hiện nút Login.
+    connectNewPage: () => {
+        document.getElementById('connectModal').style.display = 'flex';
+        fetchPagesFromFacebook();
     },
-
-    // Hàm lưu tự động khi bấm nút "Kết nối" trên danh sách
-    autoConnect: async (pageId, token, name) => {
-      if(!confirm(`Bạn muốn kết nối Fanpage "${name}"?`)) return;
-      
-      try {
-        const r = await Admin.req('/admin/fanpages', {
-          method: 'POST',
-          body: {
-            page_id: pageId,
-            name: name,
-            access_token: token,
-            auto_reply_enabled: true,
-            welcome_message: 'Xin chào! Shop Huy Vân có thể giúp gì cho bạn?'
-          }
-        });
-
-        if (r && r.ok) {
-          alert(`✅ Đã kết nối "${name}" thành công!`);
-          document.getElementById('connectModal').style.display = 'none';
-          loadFanpages(); // Load lại danh sách chính
-        } else {
-          alert('❌ Lỗi: ' + (r.error || 'Unknown error'));
-        }
-      } catch (e) {
-        alert('❌ Lỗi kết nối: ' + e.message);
-      }
-    },
-    savePage
+    loginFacebook,
+    autoConnect
   };
 })();
