@@ -393,8 +393,14 @@ export default {
       }
 
       // 2. Fanpage Manager (Admin UI gọi)
+      if (path === '/admin/fanpages/fetch-facebook' && method === 'GET') {
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+        return FBPageManager.fetchPagesFromFacebook(req, env);
+      }
+      
+      // Route list/upsert fanpage 
       if (path.startsWith('/admin/fanpages')) {
-        // Yêu cầu quyền truy cập (Tạm dùng quyền ads.view/edit hoặc tạo quyền mới)
         const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
         if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
 
@@ -404,11 +410,6 @@ export default {
         if (method === 'POST') {
           return FBPageManager.upsertFanpage(req, env);
         }
-      }
-      
-      // Route lấy danh sách Page từ Facebook (Để chọn kết nối)
-      if (path === '/admin/fanpages/fetch-facebook' && method === 'GET') {
-          return FBPageManager.fetchPagesFromFacebook(req, env);
       }
       
       // Facebook OAuth

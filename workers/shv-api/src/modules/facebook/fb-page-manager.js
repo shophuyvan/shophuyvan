@@ -95,7 +95,7 @@ export async function fetchPagesFromFacebook(req, env) {
         }
     }
 
-    // Lọc trùng lặp (nếu có)
+    // Lọc trùng lặp
     const uniquePages = Array.from(new Map(allPages.map(p => [p.id, p])).values());
 
     if (uniquePages.length === 0) {
