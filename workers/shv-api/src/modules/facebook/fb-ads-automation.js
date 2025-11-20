@@ -2,9 +2,9 @@
 // Facebook Ads Automation - Auto-pause, Budget scaling, Scheduling, A/B optimization
 // ===================================================================
 
-import { json, errorResponse } from '../lib/response.js';
-import { adminOK } from '../lib/auth.js';
-import { getJSON, putJSON } from '../lib/kv.js';
+import { json, errorResponse } from '../../lib/response.js';
+import { adminOK } from '../../lib/auth.js';
+import { getJSON, putJSON } from '../../lib/kv.js';
 
 /**
  * Main handler for automation routes

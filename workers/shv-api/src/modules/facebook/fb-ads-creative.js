@@ -2,9 +2,9 @@
 // Creative Management - Upload, Store, Bulk Ads Creation
 // ===================================================================
 
-import { json, errorResponse } from '../lib/response.js';
-import { adminOK } from '../lib/auth.js';
-import { getJSON, putJSON } from '../lib/kv.js';
+import { json, errorResponse } from '../../lib/response.js';
+import { adminOK } from '../../lib/auth.js';
+import { getJSON, putJSON } from '../../lib/kv.js';
 
 /**
  * Main handler for creative routes

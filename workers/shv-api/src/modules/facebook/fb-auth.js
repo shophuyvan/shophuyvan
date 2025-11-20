@@ -2,9 +2,10 @@
 // Facebook OAuth 2.0 Handler - Authorization Flow & Token Management
 // ===================================================================
 
-import { json, errorResponse } from '../lib/response.js';
-import { adminOK } from '../lib/auth.js';
-import { getJSON, putJSON } from '../lib/kv.js';
+import { json, errorResponse } from '../../lib/response.js';
+import { adminOK } from '../../lib/auth.js';
+import { getJSON, putJSON } from '../../lib/kv.js';
+import { readBody } from '../../lib/utils.js';
 
 /**
  * Main OAuth handler

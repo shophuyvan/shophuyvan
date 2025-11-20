@@ -2,9 +2,10 @@
 // Facebook Marketing API Integration - Auto Campaign & Ads Management
 // ===================================================================
 
-import { json, errorResponse } from '../lib/response.js';
-import { adminOK } from '../lib/auth.js';
-import { getJSON, putJSON } from '../lib/kv.js';
+import { json, errorResponse } from '../../lib/response.js';
+import { adminOK } from '../../lib/auth.js';
+import { getJSON, putJSON } from '../../lib/kv.js';
+import { readBody } from '../../lib/utils.js';
 
 /**
  * Main handler for Facebook Ads routes
