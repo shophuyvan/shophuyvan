@@ -750,13 +750,29 @@ function card(p){
 }
 
 // Events
-// Events: Tìm kiếm chuyển hướng
-function handleSearch() {
-  const query = searchInput ? searchInput.value.trim() : '';
-  if (query) window.location.href = `/?q=${encodeURIComponent(query)}`;
-}
-if (document.getElementById('searchGo')) document.getElementById('searchGo').addEventListener('click', handleSearch);
-if (searchInput) searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
+// ✅ FIX TÌM KIẾM: Dùng Event Delegation (Ủy quyền) để đảm bảo bắt được sự kiện click
+document.addEventListener('click', function(e) {
+  // Kiểm tra nếu bấm vào nút searchGo hoặc icon bên trong nó
+  const btn = e.target.closest('#searchGo');
+  if (btn) {
+    e.preventDefault();
+    const input = document.getElementById('shv-search');
+    const query = input ? input.value.trim() : '';
+    if (query) {
+      window.location.href = `/?q=${encodeURIComponent(query)}`;
+    }
+  }
+});
+
+// Bắt phím Enter
+document.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter' && e.target.id === 'shv-search') {
+    const query = e.target.value.trim();
+    if (query) {
+      window.location.href = `/?q=${encodeURIComponent(query)}`;
+    }
+  }
+});
 
 // ===================================================================
 // ✅ LOGIC MỚI: SLIDE TỰ ĐỘNG & SẢN PHẨM GIÁ RẺ
@@ -821,8 +837,10 @@ async function loadCheapProducts() {
       return;
     }
 
-    // ✅ FIX: Dùng hàm card() nội bộ, không dùng window.card()
-    wrap.innerHTML = cheapItems.map(p => card(p)).join('');
+    // ✅ FIX HIỂN THỊ: Bọc card vào thẻ div có chiều rộng cố định để không bị dẹp
+    wrap.innerHTML = cheapItems.map(p => 
+      `<div style="min-width: 170px; max-width: 170px; flex-shrink: 0;">${card(p)}</div>`
+    ).join('');
     
     // Kích hoạt Auto Slide
     window.initAutoSlide('cheap-products');
