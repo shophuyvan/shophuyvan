@@ -744,18 +744,109 @@ function card(p){
 }
 
 // Events
-loadMoreBtn?.addEventListener('click', loadAll);
-searchInput?.addEventListener('input', renderAll);
-filterInput?.addEventListener('input', renderAll);
+// Events: Tìm kiếm chuyển hướng
+function handleSearch() {
+  const query = searchInput ? searchInput.value.trim() : '';
+  if (query) window.location.href = `/?q=${encodeURIComponent(query)}`;
+}
+if (document.getElementById('searchGo')) document.getElementById('searchGo').addEventListener('click', handleSearch);
+if (searchInput) searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
 
+// ===================================================================
+// ✅ LOGIC MỚI: SLIDE TỰ ĐỘNG & SẢN PHẨM GIÁ RẺ
+// ===================================================================
+window.slideScroll = function(elementId, direction) {
+  const container = document.getElementById(elementId);
+  if (!container) return;
+  // Cuộn 5 sản phẩm (khoảng 900px hoặc tính theo width thẻ đầu tiên)
+  const itemWidth = container.firstElementChild ? container.firstElementChild.offsetWidth + 12 : 200;
+  container.scrollBy({ left: direction * itemWidth * 5, behavior: 'smooth' });
+};
+
+window.initAutoSlide = function(elementId) {
+  const container = document.getElementById(elementId);
+  if (!container) return;
+  
+  let timer;
+  const run = () => {
+    if (timer) clearInterval(timer);
+    timer = setInterval(() => {
+      // Nếu cuộn hết -> Quay về đầu
+      if (container.scrollLeft + container.clientWidth >= container.scrollWidth - 20) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        window.slideScroll(elementId, 1);
+      }
+    }, 5000); // 5 giây
+  };
+  
+  run();
+  container.addEventListener('mouseenter', () => clearInterval(timer));
+  container.addEventListener('mouseleave', run);
+};
+
+async function loadCheapProducts() {
+  const wrap = document.getElementById('cheap-products');
+  if (!wrap) return;
+
+  try {
+    // Lấy 100 sản phẩm để lọc
+    let data = await api('/products?limit=100'); 
+    let items = data.items || data.products || [];
+
+    // Lọc giá <= 15.000đ
+    let cheapItems = items.filter(p => {
+      const priceInfo = window.pickPriceByCustomer ? window.pickPriceByCustomer(p, null) : { base: 0 };
+      const price = priceInfo.base || 0;
+      return price > 0 && price <= 15000;
+    });
+
+    // Nếu ít quá, lấy top 15 giá thấp nhất
+    if (cheapItems.length < 5) {
+      cheapItems = items.sort((a, b) => {
+        const pa = (window.pickPriceByCustomer ? window.pickPriceByCustomer(a, null).base : 0);
+        const pb = (window.pickPriceByCustomer ? window.pickPriceByCustomer(b, null).base : 0);
+        return pa - pb;
+      }).slice(0, 15);
+    }
+
+    if (cheapItems.length === 0) {
+      wrap.parentElement.parentElement.style.display = 'none';
+      return;
+    }
+
+    wrap.innerHTML = cheapItems.map(p => window.card ? window.card(p) : '').join('');
+    
+    // Kích hoạt Auto Slide
+    window.initAutoSlide('cheap-products');
+    
+    // Hydrate (cập nhật đã bán/đánh giá)
+    if (window.hydrateSoldAndRating) window.hydrateSoldAndRating(cheapItems.map(p => p.id));
+    
+  } catch (e) {
+    console.error('[CHEAP] Error:', e);
+    wrap.parentElement.parentElement.style.display = 'none';
+  }
+}
+
+// --- INIT ---
 (async () => {
   try {
     await loadBanners(); 
     await loadCategories();
-    await loadFlashSale(); // ✅ THÊM
-    await loadBestsellers(); // ✅ THÊM
-    await loadNew();
-    await loadAll();
+    await loadFlashSale(); 
+    await loadBestsellers();
+    
+    // ✅ MỚI: Tải sản phẩm giá rẻ
+    await loadCheapProducts(); 
+    
+    // Kích hoạt slider cho các mục khác
+    if(window.initAutoSlide) {
+        window.initAutoSlide('flash-products');
+        window.initAutoSlide('best-products');
+    }
+
+    // THÊM: Lắng nghe sự kiện đăng nhập... (giữ nguyên đoạn dưới)
 
     // THÊM: Lắng nghe sự kiện đăng nhập từ cart-badge-realtime.js
     window.addEventListener('customer-info-loaded', () => {

@@ -86,7 +86,29 @@
     @media (min-width: 1024px) {
       .product-card-horizontal { width: 220px !important; min-width: 220px !important; }
     }
-        /* bỏ ẩn scrollbar cho PC – để dễ kéo */
+    
+    /* --- CSS Mới: Nút Xem Thêm Nổi Bật --- */
+    .home-see-more {
+      background: #d32f2f !important; /* Màu đỏ nổi bật */
+      color: white !important;
+      padding: 6px 16px !important;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 3px 6px rgba(211, 47, 47, 0.3);
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .home-see-more:hover {
+      background: #b71c1c !important;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 12px rgba(211, 47, 47, 0.4);
+    }
+
+    /* --- CSS Mới: Ẩn thanh cuộn cho Slider --- */
+    .shv-scroll-section::-webkit-scrollbar { display: none; }
+    .shv-scroll-section { -ms-overflow-style: none; scrollbar-width: none; scroll-behavior: smooth; }
 
   </style>
 </head>
@@ -141,12 +163,7 @@
 
   <div class="searchbar">
     <div class="wrap">
-      <button class="all" id="catBtn" data-cat-menu="1">ALL
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px">
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
-      <input id="shv-search" type="search" placeholder="Tìm kiếm sản phẩm, danh mục...">
+      <input id="shv-search" type="search" placeholder="Tìm tên sản phẩm, mã SKU..." style="border-radius: 8px 0 0 8px;">
       <button class="go" id="searchGo" aria-label="Tìm kiếm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"></circle>
@@ -245,6 +262,19 @@
     <div id="flash-products" class="shv-scroll-section product-horizontal-scroll"></div>
   </div>
 </section>
+<!-- SẢN PHẨM DƯỚI 10K -->
+<section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
+  <div class="section-head flex items-center justify-between mb-3">
+    <h2 class="text-lg font-bold" style="color: #d32f2f;">🔥 Săn Sale Dưới 10K</h2>
+    <a href="/search?price_max=10000" class="section-more home-see-more">Xem tất cả →</a>
+  </div>
+  <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
+    <button onclick="slideScroll('cheap-products', -1)" style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:10;background:rgba(255,255,255,0.9);border-radius:50%;width:32px;height:32px;box-shadow:0 2px 6px rgba(0,0,0,0.2);border:none;cursor:pointer;font-weight:bold;">‹</button>
+    <button onclick="slideScroll('cheap-products', 1)" style="position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:10;background:rgba(255,255,255,0.9);border-radius:50%;width:32px;height:32px;box-shadow:0 2px 6px rgba(0,0,0,0.2);border:none;cursor:pointer;font-weight:bold;">›</button>
+    
+    <div id="cheap-products" class="shv-scroll-section product-horizontal-scroll" style="display:flex; gap:12px; overflow-x:auto;"></div>
+  </div>
+</section>
 
 <!-- SẢN PHẨM BÁN CHẠY -->
 <section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
@@ -254,17 +284,6 @@
   </div>
   <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
     <div id="best-products" class="shv-scroll-section product-horizontal-scroll"></div>
-  </div>
-</section>
-
-<!-- HÀNG MỚI RA MẮT -->
-<section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
-  <div class="section-head flex items-center justify-between mb-3">
-    <h2 class="text-lg font-bold">🆕 Hàng mới ra mắt</h2>
-    <a href="/collections/new" class="section-more home-see-more">Xem thêm →</a>
-  </div>
-  <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
-    <div id="new-products" class="shv-scroll-section product-horizontal-scroll"></div>
   </div>
 </section>
 
@@ -310,15 +329,6 @@
   <div style="position:relative;margin:0 -12px;padding:0 12px;overflow:hidden;">
     <div id="cat-dung-cu-tien-ich" class="shv-scroll-section product-horizontal-scroll"></div>
   </div>
-</section>
-
-<!-- TẤT CẢ SẢN PHẨM (đang có sẵn) -->
-<section class="section mt-8 max-w-7xl mx-auto px-3 md:px-4">
-  <div class="section-head flex items-center justify-between">
-    <h2 class="text-lg font-bold">Tất cả sản phẩm</h2>
-        <button id="load-more" class="section-more home-see-more">Xem thêm →</button>
-  </div>
-  <div id="all-products" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"></div>
 </section>
 
 
