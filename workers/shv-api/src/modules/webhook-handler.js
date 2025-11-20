@@ -257,3 +257,89 @@ async function handleMiniShippingEvent(body, env, meta) {
   // Hiện tại CHỈ LOG, không update đơn,
   // vì vận chuyển đã được SuperAI cập nhật qua handleSuperAIWebhook.
 }
+
+// ===================================================================
+// FACEBOOK WEBHOOK HANDLER (Mới thêm)
+// ===================================================================
+
+import { handleFacebookAutomation } from './facebook/fb-automation.js'; // Chúng ta sẽ tạo file này ở bước sau
+
+export async function handleFacebookWebhook(req, env) {
+  const url = new URL(req.url);
+
+  // -----------------------------------------------------------------
+  // 1. XÁC THỰC (VERIFY TOKEN) - Facebook gọi GET để kiểm tra server
+  // -----------------------------------------------------------------
+  if (req.method === 'GET') {
+    const mode = url.searchParams.get('hub.mode');
+    const token = url.searchParams.get('hub.verify_token');
+    const challenge = url.searchParams.get('hub.challenge');
+
+    // Mã bí mật bạn tự đặt (khớp với lúc cài đặt trên FB Developer)
+    // Tạm thời hardcode hoặc lấy từ env
+    const VERIFY_TOKEN = env.FB_VERIFY_TOKEN || 'shophuyvan_secret_2025';
+
+    if (mode && token) {
+      if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('[Facebook] Webhook verified success!');
+        // QUAN TRỌNG: Phải trả về challenge dạng text thuần (không phải JSON)
+        return new Response(challenge, { status: 200 });
+      } else {
+        console.warn('[Facebook] Verification failed. Token mismatch.');
+        return new Response('Forbidden', { status: 403 });
+      }
+    }
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  // -----------------------------------------------------------------
+  // 2. NHẬN SỰ KIỆN (EVENT HANDLING) - Facebook gửi POST dữ liệu
+  // -----------------------------------------------------------------
+  if (req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+
+      // Kiểm tra xem event có phải từ 'page' không
+      if (body.object === 'page') {
+        
+        // Facebook có thể gửi nhiều entry cùng lúc
+        for (const entry of body.entry) {
+          const pageId = entry.id; // ID của Fanpage nhận tin
+
+          // --- TRƯỜNG HỢP 1: TIN NHẮN (MESSAGING) ---
+          if (entry.messaging) {
+            for (const event of entry.messaging) {
+              console.log('[Facebook] Inbox Event:', JSON.stringify(event));
+              // Gọi logic xử lý tin nhắn (sẽ code ở file fb-automation.js)
+              // await handleFacebookAutomation(env, 'message', event, pageId);
+            }
+          }
+
+          // --- TRƯỜNG HỢP 2: BÌNH LUẬN / FEED (CHANGES) ---
+          if (entry.changes) {
+            for (const event of entry.changes) {
+              // field = 'feed' là comment/post
+              if (event.field === 'feed') {
+                console.log('[Facebook] Feed Event:', JSON.stringify(event));
+                // Gọi logic xử lý comment (ẩn, reply...)
+                // await handleFacebookAutomation(env, 'feed', event, pageId);
+              }
+            }
+          }
+        }
+
+        // Luôn trả về 'EVENT_RECEIVED' ngay lập tức
+        return new Response('EVENT_RECEIVED', { status: 200 });
+      }
+
+      return new Response('Not a page event', { status: 404 });
+
+    } catch (e) {
+      console.error('[Facebook] Error processing webhook:', e);
+      // Vẫn trả về 200 để FB không gửi lại liên tục nếu lỗi code
+      return new Response('Error', { status: 200 });
+    }
+  }
+
+  return errorResponse('Method Not Allowed', 405, req);
+}

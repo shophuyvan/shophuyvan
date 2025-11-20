@@ -1,62 +1,105 @@
-import { json, errorResponse } from '../../lib/response.js'; // Lưu ý ../../
-import { readBody } from '../../lib/utils.js';
+// ===================================================================
+// modules/facebook/fb-automation.js
+// Xử lý tự động: Ẩn comment chứa SĐT, Auto Reply
+// ===================================================================
 
-// Xác thực Webhook (Facebook gọi GET để verify)
-export async function verifyWebhook(req, env) {
-  const url = new URL(req.url);
-  const mode = url.searchParams.get('hub.mode');
-  const token = url.searchParams.get('hub.verify_token');
-  const challenge = url.searchParams.get('hub.challenge');
+import { json } from '../../lib/response.js';
+import { getJSON } from '../../lib/kv.js';
 
-  // Token này bạn tự đặt trong phần cài đặt App Facebook
-  const VERIFY_TOKEN = env.FB_VERIFY_TOKEN || 'shv_fanpage_verify_123';
-
-  if (mode && token) {
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('WEBHOOK_VERIFIED');
-      return new Response(challenge, { status: 200 });
-    } else {
-      return new Response('Forbidden', { status: 403 });
-    }
+/**
+ * Hàm điều phối chính được gọi từ WebhookHandler
+ * @param {Object} env - Environment variables
+ * @param {String} type - 'feed' (comment) hoặc 'message' (inbox)
+ * @param {Object} event - Dữ liệu sự kiện từ Facebook
+ * @param {String} pageId - ID của Fanpage nhận sự kiện
+ */
+export async function handleFacebookAutomation(env, type, event, pageId) {
+  
+  // 1. Xử lý Comment (Feed)
+  if (type === 'feed') {
+    await processComment(env, event, pageId);
   }
-  return new Response('Bad Request', { status: 400 });
+
+  // 2. Xử lý Inbox (Message) - Sẽ làm ở giai đoạn sau
+  if (type === 'message') {
+    // await processMessage(env, event, pageId);
+    console.log('[Automation] Inbox message received (Logic pending)');
+  }
 }
 
-// Nhận sự kiện từ Facebook (Tin nhắn, Comment...)
-export async function handleWebhookEvent(req, env) {
+/**
+ * Xử lý logic cho Comment
+ */
+async function processComment(env, event, pageId) {
+  const item = event.value;
+  const verb = item.verb; // 'add', 'edited', 'remove'
+  
+  // Chỉ xử lý khi có comment mới hoặc comment được sửa
+  if (verb !== 'add' && verb !== 'edited') return;
+  
+  // Bỏ qua nếu là post của chính Page (tránh loop vô tận)
+  if (item.from.id === pageId) return;
+
+  const message = item.message || '';
+  const commentId = item.comment_id || item.post_id; // ID để thao tác ẩn/reply
+
+  console.log(`[Automation] Checking comment: "${message}" from user ${item.from.name}`);
+
+  // --- LOGIC 1: PHÁT HIỆN SỐ ĐIỆN THOẠI ---
+  const hasPhoneNumber = checkPhoneNumber(message);
+
+  if (hasPhoneNumber) {
+    console.log('[Automation] 🚨 DETECTED PHONE NUMBER! Hiding comment...');
+    await hideComment(env, commentId, pageId);
+  } else {
+    console.log('[Automation] Comment clean.');
+  }
+}
+
+/**
+ * Regex kiểm tra số điện thoại Việt Nam (đơn giản & hiệu quả)
+ * Bắt các dạng: 0912345678, 0912.345.678, 0912 345 678, +84...
+ */
+function checkPhoneNumber(text) {
+  // Regex bắt chuỗi số từ 9-12 ký tự, có thể chứa dấu cách hoặc chấm
+  const phoneRegex = /(\+84|0[3|5|7|8|9])+([0-9\s\.]){8,11}/g;
+  return phoneRegex.test(text);
+}
+
+/**
+ * Gọi API Facebook để ẩn Comment
+ */
+async function hideComment(env, commentId, pageId) {
   try {
-    const body = await readBody(req);
+    // Lấy Page Access Token từ KV hoặc Env (Tạm thời dùng ENV cho nhanh)
+    // Bạn cần đảm bảo FB_PAGE_ACCESS_TOKEN đã có trong file .dev.vars hoặc secrets
+    const pageAccessToken = env.FB_PAGE_ACCESS_TOKEN; 
     
-    if (body.object === 'page') {
-      // Trả về 200 OK ngay lập tức để Facebook không gửi lại
-      // Xử lý logic (async)
-      const entries = body.entry || [];
-      for (const entry of entries) {
-        const webhook_event = entry.messaging ? entry.messaging[0] : null;
-        if (webhook_event) {
-          // Chạy ngầm xử lý sự kiện (không await để response nhanh)
-          processEvent(webhook_event, env).catch(err => console.error('Process Event Error:', err));
-        }
-      }
-      return new Response('EVENT_RECEIVED', { status: 200 });
+    if (!pageAccessToken) {
+      console.error('[Automation] ❌ Missing FB_PAGE_ACCESS_TOKEN');
+      return;
     }
-    return new Response('Not a page event', { status: 404 });
-  } catch (e) {
-    console.error('Webhook Error:', e);
-    return new Response('Error', { status: 500 });
-  }
-}
 
-// Logic xử lý tin nhắn (Internal)
-async function processEvent(event, env) {
-  const senderPsid = event.sender.id;
-  console.log(`[FB-AUTO] Nhận event từ: ${senderPsid}`);
-
-  if (event.message && event.message.text) {
-    const text = event.message.text.toLowerCase();
-    console.log(`[FB-AUTO] Nội dung: ${text}`);
+    const url = `https://graph.facebook.com/v19.0/${commentId}`;
     
-    // TODO: Logic tự động trả lời sẽ viết ở đây (check DB fanpages xem có bật auto_reply không)
-    // Ví dụ: Nếu khách nhắn "giá", "tư vấn" -> Gửi tin nhắn trả lời mẫu
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        is_hidden: true,
+        access_token: pageAccessToken
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log(`[Automation] ✅ Successfully HIDDEN comment ${commentId}`);
+    } else {
+      console.error('[Automation] ❌ Failed to hide comment:', data);
+    }
+
+  } catch (e) {
+    console.error('[Automation] Exception calling FB API:', e);
   }
 }

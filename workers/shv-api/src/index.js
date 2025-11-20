@@ -380,16 +380,10 @@ export default {
       // ============================================
       // FACEBOOK ADS ROUTES (ƯU TIÊN CAO - ĐẶT SAU FLASH SALES)
       // ============================================
-	  // 1. Facebook Webhook (Public - Để Facebook gọi vào)
+	 // 1. Facebook Webhook (Public - Để Facebook gọi vào)
+      // Đã cập nhật để dùng WebhookHandler xử lý Verify & Event tập trung
       if (path === '/webhook/facebook') {
-        if (method === 'GET') {
-          // Facebook xác thực Webhook
-          return FBPageAuto.verifyWebhook(req, env);
-        }
-        if (method === 'POST') {
-          // Nhận sự kiện (Tin nhắn, Comment...)
-          return FBPageAuto.handleWebhookEvent(req, env);
-        }
+        return WebhookHandler.handleFacebookWebhook(req, env);
       }
 
       // 2. Fanpage Manager (Admin UI gọi)
