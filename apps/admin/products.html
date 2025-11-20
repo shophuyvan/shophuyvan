@@ -208,6 +208,7 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+
 .bulk-actions.show { display: flex; }
 
 .bulk-actions-text {
@@ -293,6 +294,20 @@
 <body>
 <!-- Content will be wrapped by sidebar-layout.js -->
 <!-- ✅ Stats Bar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <input type="text" id="q" class="input" placeholder="Tìm tên sản phẩm, mã SKU..." style="flex:1;">
+    
+    <select id="filter-select" class="input" style="width:auto;min-width:180px;">
+      <option value="">-- Tất cả sản phẩm --</option>
+      <option value="uncategorized">⚠️ Chưa có danh mục</option>
+      <option value="missing_price">⚠️ Chưa nhập giá bán</option>
+    </select>
+
+    <button id="btn-search" class="btn primary">🔍 Tìm kiếm</button>
+  </div>
+</div>
+
 <div style="background:white;padding:15px;border-radius:8px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
   <div style="display:flex;gap:24px;align-items:center;font-size:14px">
     <div>
@@ -309,16 +324,15 @@
     </div>
   </div>
 </div>
-
-</div>
   
   <!-- ✅ Pagination Controls -->
   <div style="display:flex;gap:12px;align-items:center">
     <select id="items-per-page" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px">
       <option value="12">12/trang</option>
-      <option value="24" selected>24/trang</option>
+      <option value="24">24/trang</option>
       <option value="48">48/trang</option>
       <option value="96">96/trang</option>
+      <option value="10000">Hiện tất cả</option>
     </select>
     
     <div id="pagination-info" style="font-size:14px;color:#666;white-space:nowrap">
@@ -388,7 +402,13 @@ const $ = (s) => document.querySelector(s);
   let totalPages = 1;
   let isLoading = false;
   let hasMoreData = true;
-  let PAGE_SIZE = 24;  // ✅ Dùng let để có thể thay đổi
+  
+  // ✅ FIX: Đọc page size từ LocalStorage, mặc định 24
+  let PAGE_SIZE = parseInt(localStorage.getItem('admin_product_page_size')) || 24;
+  
+  // Set value cho select box
+  const pageSizeSelect = document.getElementById('items-per-page');
+  if (pageSizeSelect) pageSizeSelect.value = PAGE_SIZE;
 
   // ✅ CACHE SYSTEM
   const CACHE_KEY = 'admin_products_cache';
@@ -599,14 +619,14 @@ async function load(forceRefresh = false) {
     try {
       isLoading = true;
       
-      // ✅ Get search query
+      // ✅ Get inputs
       const searchQuery = ($('#q')?.value || '').trim();
+      const filterValue = ($('#filter-select')?.value || '').trim();
       
-      // ✅ Build API URL with search
+      // ✅ Build API URL
       let url = `/admin/products?page=${currentPage}&limit=${PAGE_SIZE}`;
-      if (searchQuery) {
-        url += `&search=${encodeURIComponent(searchQuery)}`;
-      }
+      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+      if (filterValue) url += `&filter=${encodeURIComponent(filterValue)}`;
       
       console.log('[Products] API URL:', url);
       
@@ -871,8 +891,28 @@ Admin.toast(`Đã xóa ${success}/${selectedIds.size} sản phẩm`);
   if (itemsPerPageEl) {
     itemsPerPageEl.addEventListener('change', (e) => {
       PAGE_SIZE = parseInt(e.target.value);
+      // ✅ FIX: Lưu vào LocalStorage
+      localStorage.setItem('admin_product_page_size', PAGE_SIZE);
+      
       currentPage = 1;
       clearCache();
+      load(true);
+    });
+  }
+
+  // ✅ Filter & Search Button Events
+  const filterSelect = $('#filter-select');
+  if (filterSelect) {
+    filterSelect.addEventListener('change', () => {
+      currentPage = 1;
+      load(true); // Reload khi chọn bộ lọc
+    });
+  }
+
+  const btnSearch = $('#btn-search');
+  if (btnSearch) {
+    btnSearch.addEventListener('click', () => {
+      currentPage = 1;
       load(true);
     });
   }

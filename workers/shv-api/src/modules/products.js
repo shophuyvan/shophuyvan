@@ -721,24 +721,47 @@ async function listAdminProducts(req, env) {
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '24')));
     const offset = (page - 1) * limit;
     
-    // ✅ NEW: Search parameter
+    // ✅ NEW: Search & Filter parameters
     const search = (url.searchParams.get('search') || url.searchParams.get('q') || '').trim();
+    const filter = (url.searchParams.get('filter') || '').trim(); // uncategorized, missing_price
 
-    console.log('[listAdminProducts] 📄 Page:', page, 'Limit:', limit, 'Search:', search || '(none)');
+    console.log('[listAdminProducts] 📄 Page:', page, 'Limit:', limit, 'Search:', search, 'Filter:', filter);
 
-    // ✅ NEW: Build WHERE clause for search
-    let whereClause = '';
+    // ✅ NEW: Build Dynamic WHERE clause
+    let conditions = [];
     let queryParams = [];
-    
+
+    // 1. Search (Title, Slug, ID, OR SKU in variants)
     if (search) {
-      whereClause = `WHERE (
+      conditions.push(`(
         title LIKE ? OR 
         slug LIKE ? OR 
-        CAST(id AS TEXT) LIKE ?
-      )`;
-      const searchPattern = `%${search}%`;
-      queryParams = [searchPattern, searchPattern, searchPattern];
+        CAST(id AS TEXT) LIKE ? OR
+        id IN (SELECT product_id FROM variants WHERE sku LIKE ?)
+      )`);
+      const pattern = `%${search}%`;
+      queryParams.push(pattern, pattern, pattern, pattern);
     }
+
+    // 2. Filter: Uncategorized
+    if (filter === 'uncategorized') {
+      conditions.push(`(category_slug IS NULL OR category_slug = '')`);
+    }
+
+    // 3. Filter: Missing Price (Check variants max price is 0 or null)
+    if (filter === 'missing_price') {
+       conditions.push(`(
+         id IN (
+           SELECT product_id FROM variants 
+           GROUP BY product_id 
+           HAVING MAX(price) = 0 OR MAX(price) IS NULL
+         )
+         OR 
+         (stock > 0 AND NOT EXISTS (SELECT 1 FROM variants WHERE product_id = products.id))
+       )`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // ✅ Query stats với search filter
     const statsResult = await env.DB.prepare(`
