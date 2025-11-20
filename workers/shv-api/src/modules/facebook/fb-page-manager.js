@@ -1,6 +1,7 @@
-import { json, errorResponse } from '../../lib/response.js'; // Lưu ý ../../
+import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
 import { readBody } from '../../lib/utils.js';
+import { getJSON } from '../../lib/kv.js'; // ✅ THÊM IMPORT
 
 // Lấy danh sách Fanpage đã kết nối
 export async function listFanpages(req, env) {
@@ -63,13 +64,15 @@ export async function fetchPagesFromFacebook(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
 
   try {
-    // 1. Lấy Token hệ thống
-    const setting = await env.DB.prepare("SELECT value FROM settings WHERE path = 'facebook_ads'").first();
-    if (!setting || !setting.value) return errorResponse('Chưa cấu hình Facebook Ads.', 400, req);
+    // 1. ✅ Lấy Token từ KV (không phải D1)
+    const config = await getJSON(env, 'settings:facebook_ads', null);
+    
+    if (!config || !config.access_token) {
+      return errorResponse('Chưa đăng nhập Facebook. Vui lòng bấm nút "Đăng nhập Facebook" trước.', 400, req);
+    }
 
-    const config = JSON.parse(setting.value);
     const userAccessToken = config.access_token;
-    const userId = config.fb_user_id; // Lấy ID user đã lưu
+    const userId = config.user_id; // ✅ Sửa key từ fb_user_id → user_id
 
     if (!userAccessToken) return errorResponse('Thiếu Access Token. Vui lòng Login lại.', 400, req);
 
