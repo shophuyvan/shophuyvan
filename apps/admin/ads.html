@@ -497,6 +497,30 @@
     </div>
   </div>
 
+<!-- Token Status Widget (Sticky) -->
+<div id="tokenStatusWidget" style="position: fixed; bottom: 20px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 16px; min-width: 280px; z-index: 9999; display: none; border-left: 4px solid #3b82f6;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <h4 style="margin: 0; font-size: 14px; color: #111827;">🔑 Token Status</h4>
+    <button onclick="document.getElementById('tokenStatusWidget').style.display='none'" style="background: none; border: none; cursor: pointer; font-size: 18px; color: #6b7280;">×</button>
+  </div>
+  
+  <div id="tokenStatusContent" style="font-size: 13px; color: #374151;">
+    <div style="margin-bottom: 6px;">
+      <strong>User:</strong> <span id="widgetUserName">-</span>
+    </div>
+    <div style="margin-bottom: 6px;">
+      <strong>Expires:</strong> <span id="widgetExpireDate">-</span>
+    </div>
+    <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: #f3f4f6;" id="widgetCountdown">
+      ⏳ Calculating...
+    </div>
+    <div style="display: flex; gap: 6px;">
+      <button onclick="FacebookAds.loginFacebook()" style="flex: 1; padding: 6px 12px; background: #1877f2; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">🔄 Renew</button>
+      <button onclick="FacebookAds.checkTokenInfo()" style="flex: 1; padding: 6px 12px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 12px; cursor: pointer;">ℹ️ Details</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Logic đã được chuyển sang ads_real.js
 // File này chỉ còn phục vụ mục đích tham khảo cấu trúc HTML

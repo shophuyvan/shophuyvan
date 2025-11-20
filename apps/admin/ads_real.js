@@ -517,6 +517,9 @@ async function deleteCampaign(campaignId) {
       
       // Load danh sách fanpages
       loadFanpages();
+      
+      // Load token status widget
+      loadTokenStatusWidget();
     } catch (e) {
       console.error('Load settings error:', e);
     }
@@ -954,6 +957,87 @@ async function deleteCampaign(campaignId) {
   }
 
   // ============================================================
+  // TOKEN STATUS WIDGET
+  // ============================================================
+
+  async function loadTokenStatusWidget() {
+    try {
+      const r = await Admin.req('/admin/facebook/oauth/token-info', { method: 'GET' });
+      
+      const widget = document.getElementById('tokenStatusWidget');
+      if (!widget) return;
+      
+      if (r && r.ok && r.has_token) {
+        widget.style.display = 'block';
+        renderTokenWidget(r);
+        
+        // Auto-refresh mỗi 60s
+        setInterval(() => renderTokenWidget(r), 60000);
+      } else {
+        widget.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('[Token Widget] Load error:', e);
+    }
+  }
+
+  function renderTokenWidget(tokenInfo) {
+    const now = Date.now();
+    const expiresAt = new Date(tokenInfo.expires_at).getTime();
+    const daysLeft = Math.floor((expiresAt - now) / (1000 * 60 * 60 * 24));
+    const hoursLeft = Math.floor((expiresAt - now) / (1000 * 60 * 60));
+    
+    // Update user name
+    const userNameEl = document.getElementById('widgetUserName');
+    if (userNameEl) userNameEl.textContent = tokenInfo.user_name || 'Unknown';
+    
+    // Update expire date
+    const expireDateEl = document.getElementById('widgetExpireDate');
+    if (expireDateEl) {
+      expireDateEl.textContent = new Date(tokenInfo.expires_at).toLocaleDateString('vi-VN');
+    }
+    
+    // Update countdown với màu sắc
+    const countdownEl = document.getElementById('widgetCountdown');
+    const widget = document.getElementById('tokenStatusWidget');
+    
+    if (countdownEl && widget) {
+      let color, borderColor, icon, message;
+      
+      if (tokenInfo.is_expired || daysLeft < 0) {
+        color = '#fee2e2';
+        borderColor = '#dc2626';
+        icon = '🔴';
+        message = 'Token đã hết hạn! Vui lòng login lại.';
+      } else if (daysLeft < 7) {
+        color = '#fef3c7';
+        borderColor = '#f59e0b';
+        icon = '🟡';
+        message = `Token còn ${daysLeft} ngày! Nên renew sớm.`;
+      } else if (daysLeft < 30) {
+        color = '#dbeafe';
+        borderColor = '#3b82f6';
+        icon = '🟢';
+        message = `Token còn ${daysLeft} ngày`;
+      } else {
+        color = '#d1fae5';
+        borderColor = '#10b981';
+        icon = '🟢';
+        message = `Token còn ${daysLeft} ngày`;
+      }
+      
+      countdownEl.style.background = color;
+      countdownEl.innerHTML = `${icon} ${message}`;
+      widget.style.borderLeftColor = borderColor;
+    }
+  }
+
+  function dismissTokenWidget() {
+    const widget = document.getElementById('tokenStatusWidget');
+    if (widget) widget.style.display = 'none';
+  }
+
+  // ============================================================
   // INITIALIZATION
   // ============================================================
 
@@ -1058,7 +1142,9 @@ async function deleteCampaign(campaignId) {
     loadFanpages,
     addFanpage,
     deleteFanpage,
-    setDefaultFanpage
+    setDefaultFanpage,
+    loadTokenStatusWidget,
+    dismissTokenWidget
   };
 
   // Auto-init on DOM ready
