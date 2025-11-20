@@ -7,7 +7,8 @@
   // ✅ LOAD SECURITY SCRIPT
   (function loadSecurity() {
     const script = document.createElement('script');
-    script.src = './_shared/security.js?v=' + Date.now();
+    // ✅ Sửa thành đường dẫn tuyệt đối (từ gốc)
+    script.src = '/_shared/security.js?v=' + Date.now(); 
     script.async = false;
     document.head.appendChild(script);
   })();

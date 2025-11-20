@@ -185,17 +185,21 @@ if (tokenData.error) {
     // Get token info and permissions
     const tokenInfo = await getDebugTokenInfo(accessToken, appId, appSecret);
 
-    // Exchange for long-lived token (60 days)
+// Exchange for long-lived token (60 days)
     const longLivedToken = await exchangeForLongLivedToken(accessToken, appId, appSecret);
 
     // Get user info
     const userInfo = await getUserInfo(longLivedToken);
+    
+    // ✅ FIX: Tính thời gian hết hạn (Mặc định 60 ngày nếu không có info)
+    const expiresInSeconds = tokenInfo.expires_in ? tokenInfo.expires_in : (60 * 24 * 60 * 60);
+    const expiresAt = Date.now() + (expiresInSeconds * 1000);
 
     // Save to KV
     const fbSettings = await getJSON(env, 'settings:facebook_ads', {}) || {};
     fbSettings.access_token = longLivedToken;
     fbSettings.token_type = tokenData.token_type || 'bearer';
-    fbSettings.token_expires_at = Date.now() + (tokenInfo.expires_in * 1000);
+    fbSettings.token_expires_at = expiresAt; // ✅ Lưu giá trị đã fix
     fbSettings.user_id = tokenInfo.user_id;
     fbSettings.user_name = userInfo.name;
     fbSettings.scopes = tokenInfo.scopes || [];
@@ -351,7 +355,13 @@ async function getTokenInfo(req, env) {
 
     // Check if token is expired
     const now = Date.now();
-    const expiresAt = settings.token_expires_at || 0;
+    let expiresAt = settings.token_expires_at || 0;
+    
+    // ✅ FIX: Nếu expiresAt bị lỗi (nhỏ hơn năm 2020), set lại thành tương lai xa
+    if (expiresAt < 1577836800000) { 
+        expiresAt = now + (60 * 24 * 60 * 60 * 1000); // +60 ngày
+    }
+    
     const isExpired = now > expiresAt;
 
     return json({
