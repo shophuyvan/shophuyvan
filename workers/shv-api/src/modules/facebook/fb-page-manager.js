@@ -78,9 +78,12 @@ export async function fetchPagesFromFacebook(req, env) {
     }
 
     // 2. Gọi Graph API để lấy danh sách Page
-    // fields=access_token giúp lấy luôn Token riêng của từng Page
-    const fbRes = await fetch(`https://graph.facebook.com/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${userAccessToken}`);
+    // ✅ FIX: Dùng v19.0 và thêm fields tasks để check quyền
+    const fbRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,picture,tasks&limit=100&access_token=${userAccessToken}`);
     const fbData = await fbRes.json();
+
+    // Log để debug (xem Facebook trả về gì)
+    console.log('[FB Page Fetch] Data:', JSON.stringify(fbData));
 
     if (fbData.error) {
       console.error('FB API Error:', fbData.error);
