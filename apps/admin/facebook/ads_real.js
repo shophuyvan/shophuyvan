@@ -433,23 +433,6 @@ async function deleteCampaign(campaignId) {
       } else {
         toast('❌ ' + (r.error || 'Không thể tạo OAuth URL'));
       }
-      if (r && r.ok && r.auth_url) {
-        // Mở popup OAuth
-        const width = 600;
-        const height = 700;
-        const left = (screen.width - width) / 2;
-        const top = (screen.height - height) / 2;
-        
-        window.open(
-          r.auth_url,
-          'FacebookOAuth',
-          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
-        );
-        
-        toast('🔐 Đang mở cửa sổ Facebook Login...');
-      } else {
-        toast('❌ ' + (r.error || 'Không thể tạo OAuth URL'));
-      }
     } catch (e) {
       toast('❌ Lỗi: ' + e.message);
     }
@@ -1232,7 +1215,10 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     // Update expire date
     const expireDateEl = document.getElementById('widgetExpireDate');
     if (expireDateEl) {
-      expireDateEl.textContent = new Date(tokenInfo.expires_at).toLocaleDateString('vi-VN');
+      // Nếu expires_at quá xa (năm 2038+), hiển thị là Vĩnh viễn hoặc Dài hạn
+      const date = new Date(tokenInfo.expires_at);
+      const year = date.getFullYear();
+      expireDateEl.textContent = year > 2030 ? 'Dài hạn (Long-lived)' : date.toLocaleDateString('vi-VN');
     }
     
     // Update countdown với màu sắc
