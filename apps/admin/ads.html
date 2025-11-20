@@ -184,12 +184,62 @@
       <h3>Tạo bài đăng Fanpage (Dark Post)</h3>
       <p class="hint">Tạo một bài đăng ẩn để dùng cho quảng cáo.</p>
       
+      <label>📄 Chọn Fanpage đăng bài (có thể chọn nhiều)</label>
+      <div id="postFanpageSelector" style="max-height: 180px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+        <div class="loading">Đang tải danh sách fanpage...</div>
+      </div>
+      
       <label>Chọn 1 sản phẩm để lấy thông tin</label>
       <div id="postProductSelector" class="product-selector" style="max-height: 200px;">
         <div class="loading">Đang tải sản phẩm...</div>
       </div>
       
-      <label>Nội dung Caption (AI sẽ tự động điền vào đây)</label>
+      <hr style="margin: 16px 0;"/>
+      
+      <div style="background: #f0f9ff; border-left: 3px solid #0284c7; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #0369a1;">📷 Upload Ảnh/Video Custom (Tùy chọn)</h4>
+        <p style="margin: 0 0 12px 0; font-size: 12px; color: #0c4a6e;">Nếu không upload, hệ thống sẽ dùng ảnh từ sản phẩm</p>
+        
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="radio" name="mediaSource" value="product" checked style="width: 16px; height: 16px;"/>
+          <span style="font-size: 13px;">Dùng ảnh sản phẩm</span>
+        </label>
+        
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 6px;">
+          <input type="radio" name="mediaSource" value="custom" style="width: 16px; height: 16px;"/>
+          <span style="font-size: 13px;">Upload ảnh/video custom</span>
+        </label>
+        
+        <div id="customMediaUpload" style="display: none; margin-top: 12px;">
+          <label style="font-size: 13px; font-weight: 500;">Chọn file (JPG, PNG, MP4 - Max 10MB)</label>
+          <input type="file" id="postMediaFile" class="input" accept="image/jpeg,image/png,image/jpg,video/mp4" style="margin-top: 6px;"/>
+          
+          <div id="mediaPreview" style="margin-top: 12px; display: none;">
+            <img id="mediaPreviewImg" style="max-width: 100%; max-height: 200px; border-radius: 8px; display: none;"/>
+            <video id="mediaPreviewVideo" controls style="max-width: 100%; max-height: 200px; border-radius: 8px; display: none;"></video>
+          </div>
+          
+          <button id="btnUploadMedia" class="btn primary" style="margin-top: 8px; width: 100%;">📤 Upload lên Cloudinary</button>
+          <div id="uploadProgress" style="display: none; margin-top: 8px;">
+            <div style="width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+              <div id="uploadProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.3s;"></div>
+            </div>
+            <p id="uploadProgressText" style="font-size: 12px; color: #6b7280; margin-top: 4px; text-align: center;"></p>
+          </div>
+        </div>
+      </div>
+      
+      <label>Nội dung Caption</label>
+      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <button id="btnAICaption" class="btn" style="flex: 1; background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); color: white; border: none;">
+          🤖 AI Generate Caption
+        </button>
+        <select id="aiCaptionTone" class="input" style="flex: 0.8;">
+          <option value="casual">😊 Casual</option>
+          <option value="professional">💼 Professional</option>
+          <option value="sale">🔥 Sale-heavy</option>
+        </select>
+      </div>
       <textarea id="postCaption" class="input" rows="5" placeholder="Nội dung bài đăng..."></textarea>
       
       <label>Loại bài đăng</label>

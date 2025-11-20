@@ -31,6 +31,11 @@ export async function handle(req, env, ctx) {
     return createFanpagePost(req, env);
   }
 
+  // THÊM MỚI: AI Caption Generator
+  if (path === '/admin/facebook/ai/caption' && method === 'POST') {
+    return generateAICaption(req, env);
+  }
+
   // THÊM MỚI: Create A/B Test Campaign
   if (path === '/admin/facebook/campaigns/ab-test' && method === 'POST') {
     return createABTest(req, env);
@@ -375,6 +380,133 @@ async function listCampaigns(req, env) {
 
 
 // ===================================================================
+// THÊM MỚI: AI CAPTION GENERATOR
+// ===================================================================
+
+async function generateAICaption(req, env) {
+  if (!(await adminOK(req, env))) {
+    return errorResponse('Unauthorized', 401, req);
+  }
+
+  try {
+    const body = await req.json();
+    const {
+      product_name,
+      product_description,
+      price,
+      tone = 'casual'
+    } = body;
+
+    if (!product_name) {
+      return errorResponse('Thiếu product_name', 400, req);
+    }
+
+    // Template-based generation (nhanh, không cần API)
+    const priceStr = new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price || 0);
+
+    const templates = {
+      casual: `Hế lô! 👋
+
+Mình vừa tìm thấy món ${product_name} siêu xịn này nè! 
+
+${product_description ? product_description.substring(0, 100) + '...\n\n' : ''}💰 Giá chỉ: ${priceStr}
+
+Ai thích thì inbox mình nha! 💕
+
+#${product_name.replace(/\s+/g, '')} #shopping #deal`,
+
+      professional: `${product_name}
+
+${product_description ? product_description.substring(0, 150) + '...\n\n' : ''}📌 Thông tin sản phẩm:
+- Giá: ${priceStr}
+- Chất lượng cao, đảm bảo uy tín
+- Giao hàng toàn quốc
+- Hỗ trợ đổi trả trong 7 ngày
+
+📞 Liên hệ ngay để được tư vấn chi tiết!
+
+#${product_name.replace(/\s+/g, '')} #quality #authentic`,
+
+      sale: `🔥 FLASH SALE - SỐC GIÁ 🔥
+
+${product_name.toUpperCase()}
+
+${product_description ? '✨ ' + product_description.substring(0, 80) + '...\n\n' : ''}💥 GIÁ SỐC CHỈ: ${priceStr}
+⚡ GIẢM ĐẾN 50%!
+🎁 QUÀ TẶNG KÈM CỰC ĐÃ!
+⏰ SỐ LƯỢNG CÓ HẠN - MUA NGAY KẺO HẾT!
+
+👉 INBOX ĐẶT HÀNG NGAY HÔM NAY!
+
+#FlashSale #${product_name.replace(/\s+/g, '')} #GiảmGiá #Deal`
+    };
+
+    // Option 1: Template-based (fast)
+    let caption = templates[tone] || templates.casual;
+    
+    // Option 2: Claude AI (nếu có ANTHROPIC_API_KEY)
+    if (env.ANTHROPIC_API_KEY && env.USE_AI_CAPTION === 'true') {
+      try {
+        const aiPrompt = `Viết caption bài đăng Facebook bán hàng với thông tin sau:
+
+Tên sản phẩm: ${product_name}
+Mô tả: ${product_description}
+Giá: ${priceStr}
+Tone: ${tone === 'casual' ? 'thân mật, gần gũi' : tone === 'professional' ? 'chuyên nghiệp' : 'hào hứng, sale mạnh'}
+
+Yêu cầu:
+- Ngắn gọn, súc tích (max 200 từ)
+- Có emoji phù hợp
+- Kêu gọi hành động mua hàng
+- Hashtag phù hợp
+- Không dùng từ quá phóng đại`;
+
+        const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 500,
+            messages: [{
+              role: 'user',
+              content: aiPrompt
+            }]
+          })
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          if (aiData.content && aiData.content[0] && aiData.content[0].text) {
+            caption = aiData.content[0].text;
+          }
+        }
+      } catch (e) {
+        console.log('[AI Caption] Claude API error, fallback to template:', e.message);
+        // Fallback to template if AI fails
+      }
+    }
+
+    return json({
+      ok: true,
+      caption: caption,
+      tone: tone,
+      generated_at: new Date().toISOString()
+    }, {}, req);
+
+  } catch (e) {
+    console.error('[AI Caption] Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
 // THÊM MỚI: TÍNH NĂNG 1: AUTO POST TO FANPAGE
 
 async function createFanpagePost(req, env) {
@@ -388,35 +520,51 @@ async function createFanpagePost(req, env) {
       product_id,
       caption,
       post_type = 'single_image',
-      cta = 'SHOP_NOW'
+      cta = 'SHOP_NOW',
+      fanpage_ids = [], // Multi-fanpage support
+      custom_media_url = null, // Custom media support
+      media_type = null
     } = body;
 
     if (!product_id || !caption) {
       return errorResponse('Thiếu product_id hoặc caption', 400, req);
     }
-
-    const creds = await getFBCredentials(env);
-    if (!creds || !creds.page_id) {
-      return errorResponse('Chưa cấu hình Page ID', 400, req);
+    
+    if (!fanpage_ids || fanpage_ids.length === 0) {
+      return errorResponse('Vui lòng chọn ít nhất 1 fanpage', 400, req);
     }
 
-    const product = await getJSON(env, `product:${product_id}`, null);
+    const creds = await getFBCredentials(env);
+    if (!creds) {
+      return errorResponse('Chưa cấu hình credentials', 400, req);
+    }
+
+const product = await getJSON(env, `product:${product_id}`, null);
     if (!product) {
       return errorResponse('Không tìm thấy sản phẩm', 404, req);
     }
 
     const productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
-    let apiBody = {
-      message: caption,
-      call_to_action: {
-        type: cta,
-        value: { link: productUrl }
-      },
-      published: false, // <-- Quan trọng: Tạo Dark Post
-      access_token: creds.access_token
-    };
+    
+    // Quyết định media URL: custom hoặc từ product
+    const mediaUrl = custom_media_url || (product.images && product.images[0]) || 'https://shophuyvan.vn/placeholder.jpg';
+    
+    // Post to multiple fanpages
+    const results = [];
+    
+    for (const pageId of fanpage_ids) {
+      try {
+        let apiBody = {
+          message: caption,
+          call_to_action: {
+            type: cta,
+            value: { link: productUrl }
+          },
+          published: false, // Dark Post
+          access_token: creds.access_token
+        };
 
-    if (post_type === 'carousel' && product.images && product.images.length > 1) {
+        if (post_type === 'carousel' && !custom_media_url && product.images && product.images.length > 1) {
       // Để làm đúng, bạn cần:
       // 1. Upload từng ảnh (POST /{page-id}/photos, published=false) để lấy ID
       // 2. Gắn các ID đó vào attached_media
@@ -435,29 +583,56 @@ async function createFanpagePost(req, env) {
       delete apiBody.call_to_action;
       apiBody.link = productUrl; // Link chính cho carousel
 
-    } else {
-      // Single Image
-      apiBody.link = productUrl;
-      // Lấy ảnh đầu tiên, nếu không có thì dùng ảnh rỗng
-      const imageUrl = (product.images && product.images.length > 0) ? product.images[0] : 'https://shophuyvan.vn/placeholder.jpg';
-      apiBody.image_url = imageUrl;
+   } else {
+          // Single Image or Video
+          apiBody.link = productUrl;
+          
+          if (media_type === 'video') {
+            // Video upload cần process khác
+            apiBody.file_url = mediaUrl;
+            delete apiBody.call_to_action; // Video không support CTA trực tiếp
+          } else {
+            apiBody.image_url = mediaUrl;
+          }
+        }
+
+        const result = await callFacebookAPI(
+          `${pageId}/feed`,
+          'POST',
+          apiBody,
+          creds.access_token
+        );
+
+        if (result.error) {
+          results.push({
+            page_id: pageId,
+            success: false,
+            error: result.error.message
+          });
+        } else {
+          results.push({
+            page_id: pageId,
+            success: true,
+            post_id: result.id
+          });
+        }
+        
+      } catch (e) {
+        results.push({
+          page_id: pageId,
+          success: false,
+          error: e.message
+        });
+      }
     }
-
-    const result = await callFacebookAPI(
-      `${creds.page_id}/feed`, // Dùng /feed
-      'POST',
-      apiBody,
-      creds.access_token
-    );
-
-    if (result.error) {
-      return errorResponse(result.error, 400, req);
-    }
-
+    
+    const successCount = results.filter(r => r.success).length;
+    
     return json({
-      ok: true,
-      message: 'Tạo dark post thành công!',
-      post_id: result.id // Đây là post_id bạn cần
+      ok: successCount > 0,
+      message: `Đã đăng thành công ${successCount}/${fanpage_ids.length} fanpage`,
+      results: results,
+      post_ids: results.filter(r => r.success).map(r => r.post_id)
     }, {}, req);
 
   } catch (e) {

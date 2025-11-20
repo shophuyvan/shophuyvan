@@ -574,11 +574,242 @@ async function deleteCampaign(campaignId) {
   // THÊM MỚI: API CALLS CHO TÍNH NĂNG MỚI
   // ============================================================
 
+  async function loadFanpagesForPost() {
+    try {
+      const r = await Admin.req('/admin/facebook/fanpages', { method: 'GET' });
+      if (r && r.ok) {
+        fanpagesCache = r.fanpages || [];
+        renderFanpageSelector(fanpagesCache);
+      }
+    } catch (e) {
+      console.error('Load fanpages error:', e);
+    }
+  }
+
+  async function generateAICaption() {
+    const productId = document.querySelector('#postProductSelector input[type="radio"]:checked')?.value;
+    
+    if (!productId) {
+      toast('❌ Vui lòng chọn sản phẩm trước');
+      return;
+    }
+    
+    const product = productsCache.find(p => p.id === productId);
+    if (!product) {
+      toast('❌ Không tìm thấy thông tin sản phẩm');
+      return;
+    }
+    
+    const tone = document.getElementById('aiCaptionTone')?.value || 'casual';
+    const btn = document.getElementById('btnAICaption');
+    const captionEl = document.getElementById('postCaption');
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ AI đang viết...';
+    captionEl.value = '💭 Đang suy nghĩ...';
+    
+    try {
+      const r = await Admin.req('/admin/facebook/ai/caption', {
+        method: 'POST',
+        body: {
+          product_name: product.name,
+          product_description: product.description || product.short_description || '',
+          price: product.variants?.[0]?.price || 0,
+          tone: tone
+        }
+      });
+      
+      if (r && r.ok && r.caption) {
+        // Animate typing effect
+        captionEl.value = '';
+        const caption = r.caption;
+        let i = 0;
+        
+        const typeInterval = setInterval(() => {
+          if (i < caption.length) {
+            captionEl.value += caption[i];
+            i++;
+          } else {
+            clearInterval(typeInterval);
+          }
+        }, 20);
+        
+        toast('✅ AI đã tạo caption thành công!');
+      } else {
+        toast('❌ ' + (r.error || 'AI tạo caption thất bại'));
+        // Fallback to template
+        captionEl.value = generateTemplateCaption(product, tone);
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+      // Fallback to template
+      captionEl.value = generateTemplateCaption(product, tone);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🤖 AI Generate Caption';
+    }
+  }
+
+  function generateTemplateCaption(product, tone) {
+    const price = formatVND(product.variants?.[0]?.price || 0);
+    const name = product.name || 'Sản phẩm';
+    const desc = (product.description || product.short_description || '').substring(0, 100);
+    
+    const templates = {
+      casual: `Hế lô! 👋
+
+Mình vừa tìm thấy món ${name} siêu xịn này nè! 
+
+${desc ? desc + '...\n\n' : ''}💰 Giá chỉ: ${price}
+
+Ai thích thì inbox mình nha! 💕`,
+
+      professional: `${name}
+
+${desc ? desc + '...\n\n' : ''}📌 Thông tin sản phẩm:
+- Giá: ${price}
+- Chất lượng cao, uy tín
+- Giao hàng toàn quốc
+
+📞 Liên hệ ngay để được tư vấn chi tiết!`,
+
+      sale: `🔥 SIÊU SALE 🔥
+
+${name.toUpperCase()}
+
+${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
+⚡ SỐ LƯỢNG CÓ HẠN!
+🎁 MUA NGAY KẺO HẾT!
+
+👉 Inbox đặt hàng ngay hôm nay!`
+    };
+    
+    return templates[tone] || templates.casual;
+  }
+
+  async function uploadCustomMedia() {
+    const fileInput = document.getElementById('postMediaFile');
+    const file = fileInput?.files?.[0];
+    
+    if (!file) {
+      toast('❌ Vui lòng chọn file');
+      return;
+    }
+    
+    // Validate size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast('❌ File quá lớn (max 10MB)');
+      return;
+    }
+    
+    const btn = document.getElementById('btnUploadMedia');
+    const progress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang upload...';
+    progress.style.display = 'block';
+    
+    try {
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'shv_preset'); // Cần config trên Cloudinary
+      
+      // Simulate progress
+      let uploadProgress = 0;
+      const progressInterval = setInterval(() => {
+        uploadProgress += 10;
+        if (uploadProgress > 90) uploadProgress = 90;
+        progressBar.style.width = uploadProgress + '%';
+        progressText.textContent = `Uploading... ${uploadProgress}%`;
+      }, 200);
+      
+      const response = await fetch('https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/auto/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      clearInterval(progressInterval);
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const data = await response.json();
+      
+      // Save URL globally
+      window._uploadedMediaUrl = data.secure_url;
+      
+      progressBar.style.width = '100%';
+      progressText.textContent = '✅ Upload thành công!';
+      
+      // Show preview
+      const preview = document.getElementById('mediaPreview');
+      preview.style.display = 'block';
+      
+      if (file.type.startsWith('image/')) {
+        const img = document.getElementById('mediaPreviewImg');
+        img.src = data.secure_url;
+        img.style.display = 'block';
+        document.getElementById('mediaPreviewVideo').style.display = 'none';
+      } else {
+        const video = document.getElementById('mediaPreviewVideo');
+        video.src = data.secure_url;
+        video.style.display = 'block';
+        document.getElementById('mediaPreviewImg').style.display = 'none';
+      }
+      
+      toast('✅ Upload thành công!');
+      
+    } catch (e) {
+      progressBar.style.width = '0%';
+      progressText.textContent = '❌ Upload thất bại';
+      toast('❌ Upload thất bại: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📤 Upload lên Cloudinary';
+    }
+  }
+
+  function renderFanpageSelector(fanpages) {
+    const container = document.getElementById('postFanpageSelector');
+    if (!container) return;
+    
+    if (!fanpages || fanpages.length === 0) {
+      container.innerHTML = '<div class="alert">Chưa có fanpage nào. Vui lòng thêm fanpage ở tab Cài đặt.</div>';
+      return;
+    }
+    
+    const html = fanpages.map(fp => `
+      <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; cursor: pointer;">
+        <input type="checkbox" value="${fp.page_id}" ${fp.is_default ? 'checked' : ''} style="width: 18px; height: 18px;"/>
+        <div style="flex: 1;">
+          <strong>${fp.page_name}</strong>
+          ${fp.is_default ? '<span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 6px;">MẶC ĐỊNH</span>' : ''}
+        </div>
+      </label>
+    `).join('');
+    
+    container.innerHTML = html;
+  }
+
   async function createFanpagePost() {
     const productId = document.querySelector('#postProductSelector input[type="radio"]:checked')?.value;
     const caption = document.getElementById('postCaption')?.value;
     const postType = document.getElementById('postType')?.value;
     const cta = document.getElementById('postCTA')?.value;
+    
+    // Lấy các fanpage đã chọn
+    const selectedFanpages = [];
+    document.querySelectorAll('#postFanpageSelector input[type="checkbox"]:checked').forEach(cb => {
+      selectedFanpages.push(cb.value);
+    });
+    
+    // Lấy custom media URL nếu đã upload
+    const mediaSource = document.querySelector('input[name="mediaSource"]:checked')?.value;
+    const customMediaUrl = mediaSource === 'custom' ? window._uploadedMediaUrl : null;
 
     if (!productId) {
       toast('❌ Vui lòng chọn 1 sản phẩm');
@@ -586,6 +817,10 @@ async function deleteCampaign(campaignId) {
     }
     if (!caption) {
       toast('❌ Vui lòng nhập caption');
+      return;
+    }
+    if (selectedFanpages.length === 0) {
+      toast('❌ Vui lòng chọn ít nhất 1 fanpage');
       return;
     }
 
@@ -600,7 +835,10 @@ async function deleteCampaign(campaignId) {
           product_id: productId,
           caption: caption,
           post_type: postType,
-          cta: cta
+          cta: cta,
+          fanpage_ids: selectedFanpages,
+          custom_media_url: customMediaUrl, // Thêm custom media
+          media_type: customMediaUrl ? (customMediaUrl.includes('.mp4') ? 'video' : 'image') : null
         }
       });
 
@@ -1064,7 +1302,18 @@ async function deleteCampaign(campaignId) {
         }
         // Cập nhật: loadProducts khi mở tab create, autopost, hoặc abtest
         if (tab.dataset.tab === 'create' || tab.dataset.tab === 'autopost' || tab.dataset.tab === 'abtest') {
-          if(productsCache.length === 0) loadProducts();
+          // Load products nếu chưa có hoặc force reload
+          if(productsCache.length === 0) {
+            loadProducts();
+          } else {
+            // Re-render nếu đã có cache
+            renderProducts(productsCache);
+          }
+          
+          // Load fanpages for multi-select
+          if (tab.dataset.tab === 'autopost') {
+            loadFanpagesForPost();
+          }
         }
         if (tab.dataset.tab === 'settings') loadSettings();
       });
@@ -1102,6 +1351,55 @@ async function deleteCampaign(campaignId) {
     // THÊM MỚI: Button handlers (mới)
     const btnCreatePost = document.getElementById('btnCreatePost');
     if (btnCreatePost) btnCreatePost.onclick = createFanpagePost;
+    
+    const btnUploadMedia = document.getElementById('btnUploadMedia');
+    if (btnUploadMedia) btnUploadMedia.onclick = uploadCustomMedia;
+    
+    const btnAICaption = document.getElementById('btnAICaption');
+    if (btnAICaption) btnAICaption.onclick = generateAICaption;
+    
+    // Toggle custom media upload section
+    document.querySelectorAll('input[name="mediaSource"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const customSection = document.getElementById('customMediaUpload');
+        if (customSection) {
+          customSection.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        }
+      });
+    });
+    
+    // Preview file on select
+    const postMediaFile = document.getElementById('postMediaFile');
+    if (postMediaFile) {
+      postMediaFile.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const preview = document.getElementById('mediaPreview');
+        const img = document.getElementById('mediaPreviewImg');
+        const video = document.getElementById('mediaPreviewVideo');
+        
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            img.src = ev.target.result;
+            img.style.display = 'block';
+            video.style.display = 'none';
+            preview.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        } else if (file.type.startsWith('video/')) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            video.src = ev.target.result;
+            video.style.display = 'block';
+            img.style.display = 'none';
+            preview.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
     
     const btnCreateABTest = document.getElementById('btnCreateABTest');
     if (btnCreateABTest) btnCreateABTest.onclick = createABTest;
