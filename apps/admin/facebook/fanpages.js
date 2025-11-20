@@ -178,30 +178,49 @@
     }
   };
 
-  document.getElementById('btn-save-settings').addEventListener('click', async () => {
-    const pageId = document.getElementById('setting-page-id').value;
-    const settings = {
-        enable_hide_phone: document.getElementById('toggle-hide-phone').checked,
-        enable_auto_reply: document.getElementById('toggle-auto-reply').checked,
-        reply_template: document.getElementById('input-reply-template').value,
-        website_link: document.getElementById('input-website-link').value
-    };
+  // 6. Gán sự kiện (Chờ DOM load xong để tránh lỗi null)
+  function setupSettingsEvents() {
+    const btnSave = document.getElementById('btn-save-settings');
+    if (!btnSave) return; // An toàn nếu chưa render modal
 
-    try {
-        const res = await Admin.req('/admin/fanpages/settings', {
-            method: 'POST',
-            body: { pageId, settings }
-        });
-        
-        if (res.ok) {
-            alert('✅ Đã lưu cấu hình!');
-            document.getElementById('modal-settings').style.display = 'none';
-        } else {
-            alert('Lỗi: ' + (res.error || 'Unknown'));
+    // Xóa event cũ để tránh duplicate nếu chạy lại
+    const newBtn = btnSave.cloneNode(true);
+    btnSave.parentNode.replaceChild(newBtn, btnSave);
+
+    newBtn.addEventListener('click', async () => {
+        const pageId = document.getElementById('setting-page-id').value;
+        const settings = {
+            enable_hide_phone: document.getElementById('toggle-hide-phone').checked,
+            enable_auto_reply: document.getElementById('toggle-auto-reply').checked,
+            reply_template: document.getElementById('input-reply-template').value,
+            website_link: document.getElementById('input-website-link').value
+        };
+
+        try {
+            const res = await Admin.req('/admin/fanpages/settings', {
+                method: 'POST',
+                body: { pageId, settings }
+            });
+            
+            if (res.ok) {
+                alert('✅ Đã lưu cấu hình!');
+                document.getElementById('modal-settings').style.display = 'none';
+                // Reload lại list để cập nhật trạng thái ON/OFF
+                loadFanpages();
+            } else {
+                alert('Lỗi: ' + (res.error || 'Unknown'));
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
         }
-    } catch (e) {
-        alert('Lỗi kết nối');
-    }
-  });
+    });
+  }
+
+  // Tự động chạy setup khi DOM sẵn sàng
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupSettingsEvents);
+  } else {
+    setupSettingsEvents();
+  }
 
 })();
