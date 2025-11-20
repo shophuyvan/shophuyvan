@@ -30,19 +30,18 @@
   </div>
 
   <div id="connectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
-    <div style="background:white; padding:24px; border-radius:12px; width:400px; max-width:90%;">
-      <h3>Kết nối Fanpage</h3>
-      <p style="font-size:13px; color:#666; margin-bottom:16px;">Nhập ID và Token của Fanpage để hệ thống tự động trả lời tin nhắn.</p>
+    <div style="background:white; padding:24px; border-radius:12px; width:500px; max-width:95%; max-height: 80vh; display: flex; flex-direction: column;">
+      <div style="margin-bottom: 16px;">
+        <h3 style="margin:0;">Chọn Fanpage để kết nối</h3>
+        <p style="font-size:13px; color:#666; margin-top:4px;">Hệ thống sẽ lấy Token tự động từ tài khoản Facebook của bạn.</p>
+      </div>
       
-      <label>Page ID *</label>
-      <input id="inputPageId" class="input" placeholder="VD: 1000123456789"/>
-      
-      <label>Page Access Token *</label>
-      <input id="inputPageToken" class="input" placeholder="EAA..."/>
+      <div id="fbPageList" style="flex: 1; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; min-height: 200px;">
+        <div class="loading">Đang tải danh sách từ Facebook...</div>
+      </div>
       
       <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn" onclick="document.getElementById('connectModal').style.display='none'">Hủy</button>
-        <button class="btn primary" onclick="FanpageManager.savePage()">Lưu Kết Nối</button>
+        <button class="btn" onclick="document.getElementById('connectModal').style.display='none'">Đóng</button>
       </div>
     </div>
   </div>

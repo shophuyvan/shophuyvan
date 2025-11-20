@@ -406,6 +406,11 @@ export default {
         }
       }
       
+      // Route lấy danh sách Page từ Facebook (Để chọn kết nối)
+      if (path === '/admin/fanpages/fetch-facebook' && method === 'GET') {
+          return FBPageManager.fetchPagesFromFacebook(req, env);
+      }
+      
       // Facebook OAuth
       if (path.startsWith('/admin/facebook/oauth/')) {
         return FBAuth.handle(req, env, ctx);

@@ -58,3 +58,39 @@ export async function upsertFanpage(req, env) {
     return errorResponse(e.message, 500, req);
   }
 }
+// Lấy danh sách Fanpage từ tài khoản Facebook đang kết nối (OAuth)
+export async function fetchPagesFromFacebook(req, env) {
+  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+
+  try {
+    // 1. Lấy Token hệ thống từ bảng settings
+    const setting = await env.DB.prepare("SELECT value FROM settings WHERE path = 'facebook_ads'").first();
+    
+    if (!setting || !setting.value) {
+      return errorResponse('Chưa cấu hình Facebook Ads hoặc chưa đăng nhập Facebook trong Cài đặt.', 400, req);
+    }
+
+    const config = JSON.parse(setting.value);
+    const userAccessToken = config.access_token;
+
+    if (!userAccessToken) {
+      return errorResponse('Thiếu Access Token. Vui lòng vào tab Cài đặt -> Login Facebook lại.', 400, req);
+    }
+
+    // 2. Gọi Graph API để lấy danh sách Page
+    // fields=access_token giúp lấy luôn Token riêng của từng Page
+    const fbRes = await fetch(`https://graph.facebook.com/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${userAccessToken}`);
+    const fbData = await fbRes.json();
+
+    if (fbData.error) {
+      console.error('FB API Error:', fbData.error);
+      return errorResponse('Lỗi từ Facebook: ' + fbData.error.message, 400, req);
+    }
+
+    // 3. Trả về danh sách
+    return json({ ok: true, data: fbData.data || [] }, {}, req);
+
+  } catch (e) {
+    return errorResponse(e.message, 500, req);
+  }
+}
