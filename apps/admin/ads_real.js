@@ -404,6 +404,42 @@ async function deleteCampaign(campaignId) {
         const left = (screen.width - width) / 2;
         const top = (screen.height - height) / 2;
         
+        const popup = window.open(
+          r.auth_url,
+          'FacebookOAuth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+        );
+        
+        // Lắng nghe message từ OAuth callback
+        window.addEventListener('message', function handleOAuthCallback(event) {
+          if (event.data && event.data.type === 'FB_OAUTH_SUCCESS') {
+            window.removeEventListener('message', handleOAuthCallback);
+            if (popup) popup.close();
+            
+            // Auto-fill access token
+            const tokenField = document.getElementById('fbAccessToken');
+            if (tokenField && event.data.access_token) {
+              tokenField.value = event.data.access_token;
+              tokenField.readOnly = true;
+              toast('✅ Đã lấy access token từ Facebook');
+            }
+            
+            // Auto-save settings
+            setTimeout(saveSettings, 500);
+          }
+        });
+        
+        toast('🔐 Đang mở cửa sổ Facebook Login...');
+      } else {
+        toast('❌ ' + (r.error || 'Không thể tạo OAuth URL'));
+      }
+      if (r && r.ok && r.auth_url) {
+        // Mở popup OAuth
+        const width = 600;
+        const height = 700;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+        
         window.open(
           r.auth_url,
           'FacebookOAuth',
@@ -950,9 +986,12 @@ async function deleteCampaign(campaignId) {
       });
     });
 
-    // Button handlers
+    // Button handlers - Sử dụng addEventListener thay vì onclick
     const btnRefresh = document.getElementById('btnRefreshCampaigns');
-    if (btnRefresh) btnRefresh.onclick = loadCampaigns;
+    if (btnRefresh) {
+      btnRefresh.removeEventListener('click', loadCampaigns); // Remove old
+      btnRefresh.addEventListener('click', loadCampaigns);
+    }
 
     const btnTest = document.getElementById('btnTestConnection');
     if (btnTest) btnTest.onclick = testConnection;
@@ -995,7 +1034,15 @@ async function deleteCampaign(campaignId) {
   // ============================================================
 
   window.FacebookAds = {
-    init,
+    _initialized: false,
+    init: function() {
+      if (this._initialized) {
+        console.log('[FB Ads] Already initialized, skipping');
+        return;
+      }
+      this._initialized = true;
+      init();
+    },
     testConnection,
     loginFacebook,
     checkTokenInfo,
@@ -1018,9 +1065,18 @@ async function deleteCampaign(campaignId) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    init();
+    // Delay init để đảm bảo DOM sẵn sàng
+    setTimeout(init, 100);
   }
 
 })();
+
+// Force init nếu window load xong
+window.addEventListener('load', function() {
+  if (!window.FacebookAds._initialized) {
+    console.log('[FB Ads] Force re-init on window load');
+    window.FacebookAds.init();
+  }
+});
 
 console.log('✅ ads_real.js loaded');

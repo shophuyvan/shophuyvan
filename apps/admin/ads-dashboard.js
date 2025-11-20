@@ -452,12 +452,19 @@
   // INITIALIZATION
   // ============================================================
 
-  function init() {
+function init() {
     console.log('[Dashboard Analytics] Initializing...');
     
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
+    }
+
+    // Đảm bảo container tồn tại
+    const container = document.getElementById('dashboardContainer');
+    if (!container) {
+      console.error('[Dashboard] Container not found!');
+      return;
     }
 
     loadDashboardData();
