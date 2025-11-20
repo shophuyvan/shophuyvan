@@ -517,14 +517,37 @@ async function loadAll() {
 async function renderAll(){ if(!allWrap) return; 
   const q = (searchInput?.value || '').toLowerCase();
   const f = (filterInput?.value || '').toLowerCase();
+  
+  // ✅ FIX: Lấy tham số lọc giá từ URL (cho nút Xem thêm dưới 10K)
+  const urlParams = new URLSearchParams(window.location.search);
+  const priceMax = Number(urlParams.get('price_max')) || 0;
+
   const filtered = allCache.filter(p => {
     const t = (p.title||p.name||'').toLowerCase();
     const slug = String(p.slug||'').toLowerCase();
-    return (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
+    
+    // Logic tìm kiếm text
+    const matchText = (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
+    if (!matchText) return false;
+
+    // ✅ FIX: Logic lọc giá (nếu có price_max)
+    if (priceMax > 0) {
+      const priceInfo = pickPriceByCustomer(p, null) || {};
+      const price = priceInfo.base || 0;
+      // Nếu giá > priceMax hoặc giá = 0 thì ẩn
+      if (price === 0 || price > priceMax) return false;
+    }
+
+    return true;
   });
-  allWrap.innerHTML = filtered.map(card).join('');
-  await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
-  console.log('[PRICE] FE all', { tier: filtered?.[0]?.price_tier, price: filtered?.[0]?.price_display, n: filtered.length });
+
+  if (filtered.length === 0) {
+    allWrap.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;">Không tìm thấy sản phẩm nào phù hợp.</div>';
+  } else {
+    allWrap.innerHTML = filtered.map(p => card(p)).join('');
+    await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
+  }
+  console.log('[FILTER] Rendered:', filtered.length, 'items. Price Max:', priceMax);
 }
 
 function minVarPrice(p){
@@ -750,17 +773,37 @@ function card(p){
 }
 
 // Events
-// ✅ FIX TÌM KIẾM: Dùng Event Delegation (Ủy quyền) để đảm bảo bắt được sự kiện click
-document.addEventListener('click', function(e) {
-  // Kiểm tra nếu bấm vào nút searchGo hoặc icon bên trong nó
-  const btn = e.target.closest('#searchGo');
+// ==================================================
+// ✅ FIX FINAL: LOGIC TÌM KIẾM CHUYỂN TRANG
+// ==================================================
+function performSearch() {
+  const input = document.getElementById('shv-search');
+  const query = input ? input.value.trim() : '';
+  if (query) {
+    // Chuyển hướng về trang chủ với tham số q
+    window.location.assign('/?q=' + encodeURIComponent(query));
+  }
+}
+
+// Gán sự kiện trực tiếp vào window để đảm bảo không bị trôi
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('searchGo');
+  const input = document.getElementById('shv-search');
+
   if (btn) {
-    e.preventDefault();
-    const input = document.getElementById('shv-search');
-    const query = input ? input.value.trim() : '';
-    if (query) {
-      window.location.href = `/?q=${encodeURIComponent(query)}`;
-    }
+    btn.onclick = function(e) {
+      e.preventDefault(); // Chặn hành vi mặc định nếu có
+      performSearch();
+    };
+  }
+
+  if (input) {
+    input.onkeypress = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performSearch();
+      }
+    };
   }
 });
 
