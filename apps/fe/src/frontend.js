@@ -487,11 +487,17 @@ async function loadNew() {
 async function loadAll() {
   if (!allWrap || !loadMoreBtn) return;
 
-  const cat = new URL(location.href).searchParams.get('cat');
+  const params = new URL(location.href).searchParams;
+  const cat = params.get('cat');
+  const q = params.get('q'); // Lấy từ khóa tìm kiếm
+  
   const catParam = cat ? '&category=' + encodeURIComponent(cat) : '';
+  
+  // ✅ FIX: Nếu đang tìm kiếm, tải 500 sản phẩm để đảm bảo tìm thấy (thay vì 24)
+  const limit = q ? 500 : 24;
 
   // gọi public trước
-  let data = await api('/public/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
+  let data = await api('/public/products?limit=' + limit + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
 
   // fallback khi public lỗi/không có
   if (!data || data.ok === false) {
@@ -794,9 +800,9 @@ async function loadCheapProducts() {
     let data = await api('/products?limit=100'); 
     let items = data.items || data.products || [];
 
-    // Lọc giá <= 15.000đ
+    // ✅ FIX: Dùng hàm import trực tiếp, không dùng window.
     let cheapItems = items.filter(p => {
-      const priceInfo = window.pickPriceByCustomer ? window.pickPriceByCustomer(p, null) : { base: 0 };
+      const priceInfo = pickPriceByCustomer(p, null) || { base: 0 };
       const price = priceInfo.base || 0;
       return price > 0 && price <= 15000;
     });
@@ -804,8 +810,8 @@ async function loadCheapProducts() {
     // Nếu ít quá, lấy top 15 giá thấp nhất
     if (cheapItems.length < 5) {
       cheapItems = items.sort((a, b) => {
-        const pa = (window.pickPriceByCustomer ? window.pickPriceByCustomer(a, null).base : 0);
-        const pb = (window.pickPriceByCustomer ? window.pickPriceByCustomer(b, null).base : 0);
+        const pa = (pickPriceByCustomer(a, null) || { base: 0 }).base;
+        const pb = (pickPriceByCustomer(b, null) || { base: 0 }).base;
         return pa - pb;
       }).slice(0, 15);
     }
@@ -815,7 +821,8 @@ async function loadCheapProducts() {
       return;
     }
 
-    wrap.innerHTML = cheapItems.map(p => window.card ? window.card(p) : '').join('');
+    // ✅ FIX: Dùng hàm card() nội bộ, không dùng window.card()
+    wrap.innerHTML = cheapItems.map(p => card(p)).join('');
     
     // Kích hoạt Auto Slide
     window.initAutoSlide('cheap-products');
@@ -832,6 +839,13 @@ async function loadCheapProducts() {
 // --- INIT ---
 (async () => {
   try {
+    // ✅ FIX: Điền lại từ khóa vào ô tìm kiếm từ URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const qParam = urlParams.get('q');
+    if (qParam && searchInput) {
+      searchInput.value = qParam;
+    }
+
     await loadBanners(); 
     await loadCategories();
     await loadFlashSale(); 
