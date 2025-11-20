@@ -154,17 +154,19 @@
     autoConnect
   };
 
-  // --- LOGIC SETTINGS MODAL ---
+// --- LOGIC SETTINGS MODAL (FIXED) ---
+  
+  // 1. Hàm mở Modal
   window.openSettings = async function(pageId) {
     document.getElementById('setting-page-id').value = pageId;
     document.getElementById('modal-settings').style.display = 'flex';
     
-    // Reset UI
-    document.getElementById('toggle-hide-phone').checked = false;
-    document.getElementById('toggle-auto-reply').checked = false;
+    // Reset UI về trạng thái đang tải
     document.getElementById('input-reply-template').value = 'Đang tải...';
+    document.getElementById('input-website-link').value = '...';
 
     try {
+        // Gọi API lấy cấu hình
         const res = await Admin.req(`/admin/fanpages/settings?pageId=${pageId}`, { method: 'GET' });
         if (res.ok && res.data) {
             const s = res.data;
@@ -174,9 +176,55 @@
             document.getElementById('input-website-link').value = s.website_link || 'https://shophuyvan.vn';
         }
     } catch (e) {
-        alert('Lỗi tải cấu hình: ' + e.message);
+        console.error('Lỗi tải cấu hình:', e);
+        document.getElementById('input-reply-template').value = '';
     }
   };
+
+  // 2. Gắn sự kiện Click cho nút Lưu (Dùng Event Delegation để đảm bảo luôn chạy)
+  document.addEventListener('click', async (e) => {
+    // Kiểm tra: Nếu click vào đúng nút có ID là 'btn-save-settings'
+    if (e.target && e.target.id === 'btn-save-settings') {
+        const pageId = document.getElementById('setting-page-id').value;
+        
+        // Hiệu ứng Loading
+        const originalText = e.target.innerText;
+        e.target.innerText = 'Đang lưu...';
+        e.target.disabled = true;
+
+        // Lấy dữ liệu từ Form
+        const settings = {
+            enable_hide_phone: document.getElementById('toggle-hide-phone').checked,
+            enable_auto_reply: document.getElementById('toggle-auto-reply').checked,
+            reply_template: document.getElementById('input-reply-template').value,
+            website_link: document.getElementById('input-website-link').value
+        };
+
+        try {
+            // Gọi API Lưu
+            const res = await Admin.req('/admin/fanpages/settings', {
+                method: 'POST',
+                body: { pageId, settings }
+            });
+            
+            if (res.ok) {
+                alert('✅ Đã lưu cấu hình thành công!');
+                document.getElementById('modal-settings').style.display = 'none';
+                
+                // Reload danh sách để cập nhật trạng thái ON/OFF bên ngoài
+                if (typeof loadFanpages === 'function') loadFanpages();
+            } else {
+                alert('❌ Lỗi: ' + (res.error || 'Không lưu được'));
+            }
+        } catch (err) {
+            alert('❌ Lỗi kết nối: ' + err.message);
+        } finally {
+            // Trả lại trạng thái nút bấm
+            e.target.innerText = originalText;
+            e.target.disabled = false;
+        }
+    }
+  });
 
   // 6. Gán sự kiện (Chờ DOM load xong để tránh lỗi null)
   function setupSettingsEvents() {
