@@ -244,8 +244,8 @@ if (tokenData.error) {
             <strong>✅ Permissions:</strong><br>
             <pre>${tokenInfo.scopes.join('\n')}</pre>
           </div>
-          <p>Access token đã được lưu vào hệ thống. Bạn có thể quay lại trang Ads để sử dụng.</p>
-          <a href="/admin/ads.html">🚀 Quay lại trang Ads</a>
+          <p>Access token đã được lưu vào hệ thống. Bạn có thể quay lại trang Admin để sử dụng.</p>
+          <a href="https://admin.shophuyvan.vn/facebook/fanpages.html">🚀 Quay lại trang Quản lý Fanpage</a>
         </div>
         <script>
           // Auto close và reload parent window sau 3s
@@ -254,7 +254,8 @@ if (tokenData.error) {
               window.opener.location.reload();
               window.close();
             } else {
-              window.location.href = '/admin/ads.html';
+              // ✅ FIX: Trỏ về đúng domain Admin
+              window.location.href = 'https://admin.shophuyvan.vn/facebook/fanpages.html';
             }
           }, 3000);
         </script>
