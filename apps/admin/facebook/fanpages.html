@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang='vi'>
+<head>
+  <meta charset='utf-8'/>
+  <meta name='viewport' content='width=device-width,initial-scale=1'/>
+  <title>Quản lý Fanpage</title>
+  <link rel="stylesheet" href="../styles.css"/>
+  <script src="../admin_real.js"></script>
+  <script src="../sidebar-layout.js"></script>
+  <style>
+    .page-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 16px; }
+    .page-avatar { width: 64px; height: 64px; border-radius: 50%; background: #f3f4f6; object-fit: cover; }
+    .page-info { flex: 1; }
+    .page-name { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .page-meta { font-size: 13px; color: #6b7280; display: flex; gap: 12px; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-inactive { background: #f3f4f6; color: #6b7280; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="toolbar">
+      <h2>Danh sách Fanpage</h2>
+      <button class="btn primary" onclick="FanpageManager.connectNewPage()">➕ Kết nối Fanpage Mới</button>
+    </div>
+    
+    <div id="fanpageList" class="loading">Đang tải...</div>
+  </div>
+
+  <div id="connectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:white; padding:24px; border-radius:12px; width:400px; max-width:90%;">
+      <h3>Kết nối Fanpage</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:16px;">Nhập ID và Token của Fanpage để hệ thống tự động trả lời tin nhắn.</p>
+      
+      <label>Page ID *</label>
+      <input id="inputPageId" class="input" placeholder="VD: 1000123456789"/>
+      
+      <label>Page Access Token *</label>
+      <input id="inputPageToken" class="input" placeholder="EAA..."/>
+      
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn" onclick="document.getElementById('connectModal').style.display='none'">Hủy</button>
+        <button class="btn primary" onclick="FanpageManager.savePage()">Lưu Kết Nối</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./fanpages.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Khởi tạo layout admin
+      if (window.AdminLayout) AdminLayout.init('Quản lý Fanpage');
+      // Khởi tạo logic fanpage
+      if (window.FanpageManager) FanpageManager.init();
+    });
+  </script>
+</body>
+</html>

@@ -18,10 +18,14 @@ import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
 import * as FlashPricing from './modules/flash-pricing.js'; // ✅ API tính giá Flash Sale (FE + Mini)
-import * as FacebookAds from './modules/facebook-ads.js';
-import * as FacebookOAuth from './modules/facebook-oauth.js';
-import * as FacebookAdsAutomation from './modules/facebook-ads-automation.js';
-import * as FacebookAdsCreative from './modules/facebook-ads-creative.js';
+// ✅ FACEBOOK MODULES (Đã gom nhóm vào thư mục facebook/)
+import * as FBAuth from './modules/facebook/fb-auth.js';
+import * as FBAds from './modules/facebook/fb-ads.js';
+import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
+import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
+// ✅ FANPAGE MODULES (Mới)
+import * as FBPageManager from './modules/facebook/fb-page-manager.js';
+import * as FBPageAuto from './modules/facebook/fb-automation.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
 import { handleCartSync } from './modules/cart-sync-handler.js';
@@ -376,21 +380,46 @@ export default {
       // ============================================
       // FACEBOOK ADS ROUTES (ƯU TIÊN CAO - ĐẶT SAU FLASH SALES)
       // ============================================
+	  // 1. Facebook Webhook (Public - Để Facebook gọi vào)
+      if (path === '/webhook/facebook') {
+        if (method === 'GET') {
+          // Facebook xác thực Webhook
+          return FBPageAuto.verifyWebhook(req, env);
+        }
+        if (method === 'POST') {
+          // Nhận sự kiện (Tin nhắn, Comment...)
+          return FBPageAuto.handleWebhookEvent(req, env);
+        }
+      }
+
+      // 2. Fanpage Manager (Admin UI gọi)
+      if (path.startsWith('/admin/fanpages')) {
+        // Yêu cầu quyền truy cập (Tạm dùng quyền ads.view/edit hoặc tạo quyền mới)
+        const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+
+        if (method === 'GET') {
+          return FBPageManager.listFanpages(req, env);
+        }
+        if (method === 'POST') {
+          return FBPageManager.upsertFanpage(req, env);
+        }
+      }
       
-      // Facebook OAuth (phải đặt TRƯỚC tất cả /admin/facebook routes)
+      // Facebook OAuth
       if (path.startsWith('/admin/facebook/oauth/')) {
-        return FacebookOAuth.handle(req, env, ctx);
+        return FBAuth.handle(req, env, ctx);
       }
 
-      // Facebook Ads Automation (phải đặt trước /admin/facebook)
+      // Facebook Ads Automation
       if (path.startsWith('/admin/facebook/automation')) {
-        return FacebookAdsAutomation.handle(req, env, ctx);
+        return FBAdsAuto.handle(req, env, ctx);
       }
 
-      // Facebook Ads Creative (phải đặt trước /admin/facebook)
+      // Facebook Ads Creative
       if (path.startsWith('/admin/facebook/creatives') || 
           path.startsWith('/admin/facebook/ads/bulk-create')) {
-        return FacebookAdsCreative.handle(req, env, ctx);
+        return FBAdsCreative.handle(req, env, ctx);
       }
 
       // Facebook Ads Main Routes
@@ -399,8 +428,7 @@ export default {
         if (!permCheck.ok) {
           return json(permCheck, { status: permCheck.status }, req);
         }
-        
-        return FacebookAds.handle(req, env, ctx);
+        return FBAds.handle(req, env, ctx);
       }
 
       // ============================================
@@ -595,7 +623,7 @@ export default {
     console.log('[Cron] Scheduled trigger fired at:', new Date(event.scheduledTime).toISOString());
     
     // 1️⃣ Facebook Ads Automation (mỗi giờ)
-    await FacebookAdsAutomation.scheduledHandler(event, env, ctx);
+    await FBAdsAuto.scheduledHandler(event, env, ctx);
     
     // 2️⃣ Shopee Stock Sync (mỗi giờ)
     try {

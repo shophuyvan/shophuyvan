@@ -305,12 +305,22 @@
             Thống Kê
           </a>
 
-          <a href="/ads.html" class="admin-menu-item" data-page="ads">
+          <div class="admin-menu-section-title" style="margin-top: 12px;">Facebook Marketing</div>
+
+          <a href="/facebook/ads.html" class="admin-menu-item" data-page="fb-ads">
             <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
             </svg>
-            Quảng Cáo Facebook
+            Quảng Cáo
+          </a>
+
+          <a href="/facebook/fanpages.html" class="admin-menu-item" data-page="fb-fanpages">
+            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11l-5-5-5 5"/>
+            </svg>
+            Quản lý Fanpage
           </a>
 
           <a href="/shipping.html" class="admin-menu-item" data-page="shipping">
