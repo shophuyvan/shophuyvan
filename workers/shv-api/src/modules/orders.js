@@ -457,8 +457,7 @@ export async function handle(req, env, ctx) {
   const method = req.method;
 
   // PUBLIC
-  // PUBLIC
-  if (path === '/api/orders' && method === 'POST') return createOrder(req, env);
+  if (path === '/api/orders' && method === 'POST') return createOrder(req, env, ctx); // ✅ Truyền ctx vào
   if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
@@ -585,7 +584,7 @@ async function priceOrderPreview(req, env) {
 }
 
 
-async function createOrder(req, env) {
+async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
 
   // Check idempotency
   const idem = await idemGet(req, env);
@@ -729,6 +728,10 @@ async function createOrder(req, env) {
   list.unshift(order);
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
+
+  // [NEW] 🔥 BẮN ĐƠN SANG FACEBOOK CAPI (SERVER-SIDE)
+  // Không dùng await để tránh làm chậm phản hồi về FE
+  ctx.waitUntil(sendToFacebookCAPI(order, req, env));
 
   // ✅ FIX: CHỈ TRỪ STOCK CHO ĐỖN TỪ WEBSITE/MINI
   // Orders từ Shopee (có flag skip_stock_adjustment) KHÔNG TRỪ STOCK
@@ -1519,4 +1522,85 @@ async function cancelOrderCustomer(req, env) {
  */
 export async function listOrdersAdmin(req, env) {
   return listOrdersFromD1(req, env);
+}
+
+// ===================================================================
+// FACEBOOK CONVERSION API (CAPI) - SERVER SIDE TRACKING
+// ===================================================================
+
+async function sendToFacebookCAPI(order, req, env) {
+  try {
+    // 1. CẤU HÌNH (Điền Token và Pixel ID của bạn vào đây hoặc set trong .dev.vars/wrangler.toml)
+    const PIXEL_ID = env.FB_PIXEL_ID || '1974425449800007'; // Thay ID Pixel của bạn nếu khác
+    // 👇 DÁN MÃ TOKEN DÀI NGOẰNG VÀO GIỮA CẶP DẤU NHÁY ĐƠN DƯỚI ĐÂY 👇
+    const ACCESS_TOKEN = env.FB_ACCESS_TOKEN || 'EAAMFNp9k5J8BP1pJbzABrkZB53sX4szb62Of0iu5QMetb51Eab2jkaVioGxxyuB6LG3EjXwSjaxZAAifrSLRgjZAh1unL59fjXN7V9CFGZAdT2FjmNNDYnusZCIraTW0Gax8UkpbUkzANmpFmGnG4rCyIGa8urhUipM0Q6G0WOnfOfUD6lb2N5S1JScCsgK13UgZDZD'; 
+
+    // SỬA LẠI DÒNG 38 NHƯ SAU:
+    if (!PIXEL_ID || !ACCESS_TOKEN) {
+      console.warn('[CAPI] ⚠️ Chưa cấu hình Token/Pixel ID. Bỏ qua bắn đơn.');
+      return;
+    }
+
+    console.log('[CAPI] 🚀 Đang gửi sự kiện Purchase sang Facebook:', order.id);
+
+    // 2. Xử lý dữ liệu khách hàng (Hash SHA256 theo yêu cầu bảo mật của FB)
+    const email = order.customer?.email ? order.customer.email.trim().toLowerCase() : '';
+    const phone = order.customer?.phone ? order.customer.phone.replace(/\D/g, '') : ''; // Chỉ lấy số
+    
+    // Helper hash nhanh
+    const hash = async (text) => {
+      if (!text) return null;
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const userData = {
+      em: email ? await hash(email) : null,
+      ph: phone ? await hash(phone) : null,
+      client_ip_address: req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for'),
+      client_user_agent: req.headers.get('user-agent'),
+      // Nếu FE có gửi fbp/fbc trong cookie, có thể lấy thêm ở đây
+    };
+
+    // 3. Chuẩn bị Payload
+    const payload = {
+      data: [
+        {
+          event_name: 'Purchase',
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: 'website',
+          event_source_url: 'https://shophuyvan.vn',
+          event_id: order.id, // Quan trọng để Deduplication (Khử trùng lặp với Pixel)
+          user_data: userData,
+          custom_data: {
+            currency: 'VND',
+            value: Number(order.revenue || 0),
+            content_type: 'product',
+            content_ids: order.items.map(it => it.id || it.sku || it.product_id),
+            num_items: order.items.length,
+            order_id: order.id
+          }
+        }
+      ]
+    };
+
+    // 4. Gửi Request sang Facebook Graph API
+    const fbRes = await fetch(`https://graph.facebook.com/v19.0/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const fbData = await fbRes.json();
+    
+    if (fbData.events_received) {
+      console.log('[CAPI] ✅ Gửi thành công! FB Event ID:', order.id);
+    } else {
+      console.error('[CAPI] ❌ Lỗi gửi Facebook:', JSON.stringify(fbData));
+    }
+
+  } catch (e) {
+    console.error('[CAPI] Exception:', e);
+  }
 }
