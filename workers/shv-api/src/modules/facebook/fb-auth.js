@@ -66,9 +66,14 @@ async function getAuthorizationURL(req, env) {
 
     // CRITICAL: Request the correct permissions
     const permissions = [
-      'ads_management',        // Quản lý quảng cáo
-      'ads_read',              // Đọc dữ liệu quảng cáo
-      'business_management'    // Quản lý Business Manager
+      'ads_management',
+      'ads_read',
+      'business_management',
+      'pages_show_list',       // Xem danh sách Page
+      'pages_read_engagement', // Đọc tin nhắn/comment
+      'pages_manage_posts',    // Đăng bài
+      'pages_messaging',       // Chatbot
+      'public_profile'
     ].join(',');
 
     // Redirect URI (phải match với Facebook App settings)
@@ -191,9 +196,15 @@ if (tokenData.error) {
     // Get user info
     const userInfo = await getUserInfo(longLivedToken);
     
-    // ✅ FIX: Tính thời gian hết hạn (Mặc định 60 ngày nếu không có info)
-    const expiresInSeconds = tokenInfo.expires_in ? tokenInfo.expires_in : (60 * 24 * 60 * 60);
-    const expiresAt = Date.now() + (expiresInSeconds * 1000);
+    // ✅ FIX: Tính thời gian hết hạn (Ưu tiên expires_at chính xác từ Facebook)
+    let expiresAt;
+    if (tokenInfo.expires_at) {
+        expiresAt = tokenInfo.expires_at * 1000; // Facebook trả về giây -> đổi sang mili-giây
+    } else {
+        // Fallback: Nếu không có mốc thời gian, cộng thêm 60 ngày
+        const expiresInSeconds = tokenInfo.expires_in || (60 * 24 * 60 * 60);
+        expiresAt = Date.now() + (expiresInSeconds * 1000);
+    }
 
     // Save to KV
     const fbSettings = await getJSON(env, 'settings:facebook_ads', {}) || {};
