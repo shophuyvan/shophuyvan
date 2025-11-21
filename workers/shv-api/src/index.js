@@ -30,6 +30,15 @@ import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
 import { handleCartSync } from './modules/cart-sync-handler.js';
 import { printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './modules/shipping/waybill.js';
+import { 
+  getUnmappedSkus, 
+  getMappedSkus, 
+  getAutoMatchedSkus,
+  searchInternalSkus,
+  mapSkuManually,
+  unmapSku,
+  getMappingStats
+} from './modules/sku-mapping.js';
 
 /**
  * Tạo customer token đơn giản (base64 encoded)
@@ -150,6 +159,36 @@ export default {
         return channels.handle(req, env, ctx);
       }
 
+      // ============================================
+      // SKU MAPPING ROUTES
+      // ============================================
+      if (path === '/admin/sku-mapping/unmapped' && method === 'GET') {
+        return getUnmappedSkus(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/mapped' && method === 'GET') {
+        return getMappedSkus(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/auto-matched' && method === 'GET') {
+        return getAutoMatchedSkus(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/search' && method === 'GET') {
+        return searchInternalSkus(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/map' && method === 'POST') {
+        return mapSkuManually(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/unmap' && method === 'POST') {
+        return unmapSku(req, env);
+      }
+
+      if (path === '/admin/sku-mapping/stats' && method === 'GET') {
+        return getMappingStats(req, env);
+      }
 
       // ============================================
       // EXISTING ROUTES
