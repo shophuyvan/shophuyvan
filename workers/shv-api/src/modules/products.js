@@ -635,7 +635,7 @@ const product = {
 }
 
 // ===================================================================
-// PUBLIC: Search & List Products (SAFE MODE v6 - JS Price Calc)
+// PUBLIC: Search & List Products (SAFE MODE v7 - Fix 0đ Price)
 // ===================================================================
 async function listPublicProductsFiltered(req, env) {
   try {
@@ -655,21 +655,22 @@ async function listPublicProductsFiltered(req, env) {
     const limit = Math.min(50, Number(url.searchParams.get('limit') || '24'));
     const offset = (page - 1) * limit;
 
-    console.log(`[SEARCH SAFE] Q="${searchRaw}" Cat="${category}"`);
+    console.log(`[SEARCH v7] Q="${searchRaw}" Cat="${category}"`);
 
-    // 2. QUERY PRODUCTS (SQL Đơn giản - Không Join, Không Min/Max)
+    // 2. QUERY PRODUCTS
+    // ✅ QUAN TRỌNG: Đã thêm price và price_sale vào đây để dự phòng
     let sql = `
-      SELECT id, title, slug, images, category_slug, status, sold, rating, rating_count, created_at
+      SELECT id, title, slug, images, category_slug, status, sold, rating, rating_count, created_at,
+             price, price_sale
       FROM products
       WHERE status = 'active'
     `;
     const params = [];
 
     if (searchRaw) {
-       // Dùng tìm kiếm tương đối (LIKE) cho an toàn
        sql += ` AND (slug LIKE ? OR title LIKE ?)`;
-       // slugify đã được định nghĩa ở trên (Bước 2) nên gọi thoải mái
-       const s = slugify(searchRaw); 
+       // Dùng toSlug hoặc slugify có sẵn trong scope
+       const s = typeof slugify === 'function' ? slugify(searchRaw) : searchRaw; 
        params.push(`%${s}%`, `%${searchRaw}%`);
     }
 
@@ -681,7 +682,6 @@ async function listPublicProductsFiltered(req, env) {
     sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
-    // Chạy query Products
     const productRes = await env.DB.prepare(sql).bind(...params).all();
     const products = productRes.results || [];
 
@@ -689,71 +689,98 @@ async function listPublicProductsFiltered(req, env) {
       return json({ ok: true, items: [], pagination: { page, limit, count: 0 } }, {}, req);
     }
 
-    // 3. QUERY VARIANTS (Lấy variants của các sản phẩm tìm được)
+    // 3. QUERY VARIANTS
     const productIds = products.map(p => p.id);
-    
-    // Tạo chuỗi ?,?,? cho SQL IN
     const placeholders = productIds.map(() => '?').join(',');
     
+    // ✅ Bỏ điều kiện 'stock > 0' ở variants để đảm bảo lấy được giá kể cả khi hết hàng
     const variantRes = await env.DB.prepare(`
-      SELECT product_id, price, price_sale, stock, price_wholesale 
+      SELECT product_id, price, price_sale, stock 
       FROM variants 
-      WHERE product_id IN (${placeholders}) AND stock > 0
+      WHERE product_id IN (${placeholders})
     `).bind(...productIds).all();
     
     const allVariants = variantRes.results || [];
 
-    // 4. GHÉP DỮ LIỆU & TÍNH GIÁ BẰNG JS (An toàn tuyệt đối)
-    const tier = getCustomerTier(req); // Lấy hạng thành viên
+    // 4. TÍNH GIÁ (Logic: Tìm mọi cách để ra số > 0)
     const items = [];
 
     for (const p of products) {
-      // Lấy variants của sản phẩm này
+      // A. Thử tính từ Variants
       const pVariants = allVariants.filter(v => v.product_id === p.id);
       
-      // Tính tổng tồn kho
-      const totalStock = pVariants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      let finalPrice = 0;
+      let finalCompare = 0;
+      let totalStock = 0;
 
-      // Tạo object product tạm để dùng hàm tính giá chung (đồng bộ logic)
-      const tempProduct = { ...p, variants: pVariants };
-      const priceInfo = computeDisplayPrice(tempProduct, tier); // Hàm có sẵn trong file của bạn
+      // Logic tìm giá nhỏ nhất trong variants
+      if (pVariants.length > 0) {
+        let minPrice = 0;
+        let maxOriginal = 0;
 
-      // Chỉ hiển thị nếu có giá hoặc còn hàng (tuỳ logic shop)
-      if (priceInfo.price_display > 0 || totalStock > 0) {
-        const images = p.images ? JSON.parse(p.images) : [];
+        for (const v of pVariants) {
+          const reg = Number(v.price || 0);
+          const sale = Number(v.price_sale || 0);
+          const stock = Number(v.stock || 0);
+
+          // Giá bán thực tế của variant này
+          const realPrice = (sale > 0 && sale < reg) ? sale : reg;
+
+          if (realPrice > 0) {
+            if (minPrice === 0 || realPrice < minPrice) minPrice = realPrice;
+          }
+          if (reg > maxOriginal) maxOriginal = reg;
+          totalStock += stock;
+        }
         
-        items.push({
-          id: p.id,
-          title: p.title,
-          name: p.title,
-          slug: p.slug,
-          images: images,
-          image: images[0] || null,
-          category_slug: p.category_slug,
-          sold: Number(p.sold || 0),
-          rating: Number(p.rating || 5.0),
-          rating_count: Number(p.rating_count || 0),
-          stock: totalStock,
-          
-          // Giá hiển thị (lấy từ hàm chuẩn computeDisplayPrice)
-          price: priceInfo.price_display,
-          price_display: priceInfo.price_display,
-          compare_at_display: priceInfo.compare_at_display,
-          price_tier: priceInfo.price_tier,
-          
-          price_sale: 0 
-        });
+        finalPrice = minPrice;
+        finalCompare = (maxOriginal > minPrice) ? maxOriginal : 0;
       }
+
+      // B. BACKUP: Nếu Variant = 0 (hoặc không có variant), lấy từ Product gốc
+      if (finalPrice === 0) {
+        const pReg = Number(p.price || 0);
+        const pSale = Number(p.price_sale || 0);
+        
+        finalPrice = (pSale > 0 && pSale < pReg) ? pSale : pReg;
+        finalCompare = (pReg > finalPrice) ? pReg : 0;
+        
+        // Nếu không có variant, coi như stock product (nếu logic bạn có dùng stock ở product)
+        // Hoặc mặc định cho = 1 để hiện lên web
+        if (totalStock === 0) totalStock = 1; 
+      }
+
+      // C. Format Data
+      const images = p.images ? JSON.parse(p.images) : [];
+        
+      items.push({
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        image: images[0] || null,
+        category_slug: p.category_slug,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        rating_count: Number(p.rating_count || 0),
+        stock: totalStock,
+        
+        // ✅ KẾT QUẢ CUỐI CÙNG
+        price: finalPrice,
+        price_display: finalPrice,
+        compare_at_display: finalCompare > 0 ? finalCompare : null,
+        
+        price_tier: 'retail',
+        price_sale: 0
+      });
     }
 
     return json({ 
       ok: true, 
       items: items,
       pagination: { page, limit, count: items.length }
-    }, {
-      // Header chống cache quá lâu
-      headers: { 'cache-control': 'public, max-age=10' }
-    }, req);
+    }, { headers: { 'cache-control': 'public, max-age=5' } }, req);
 
   } catch (e) {
     console.error('[SEARCH ERROR]', e);

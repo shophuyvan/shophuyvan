@@ -1,3 +1,4 @@
+import './pixels.js'; // 🔥 THÊM DÒNG NÀY
 //location.replace('/'); // disabled redirect
 import { formatPrice } from './lib/price.js';
 

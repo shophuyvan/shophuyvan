@@ -126,4 +126,15 @@ const FB_PIXEL_ID = '1974425449800007';
   } catch (e) { 
     console.error('[Pixels] Global Error:', e); 
   }
+  // --- C. BẮT SỰ KIỆN TÙY CHỈNH TỪ CODE JS ---
+    // Khi checkout.js báo thành công -> Bắn Purchase
+    document.addEventListener('order-success', () => {
+        console.log('[Pixels] Event: Order Success -> Track Purchase');
+        if(window.fbq) {
+            // Lấy giá trị đơn hàng từ UI (nếu có) hoặc mặc định
+            const totalEl = document.getElementById('grand-total');
+            const val = totalEl ? Number(totalEl.innerText.replace(/\D/g,'')) : 0;
+            window.fbq('track', 'Purchase', { value: val, currency: 'VND' });
+        }
+    });
 })();

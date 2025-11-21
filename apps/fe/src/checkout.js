@@ -1,5 +1,6 @@
 // apps/fe/src/checkout.js
 // ====== IMPORT API ======
+import './pixels.js'; // 🔥 THÊM DÒNG NÀY (Để track InitiateCheckout, Purchase)
 import api from './lib/api.js';
 
 // ====== CẤU HÌNH & TIỆN ÍCH ======
