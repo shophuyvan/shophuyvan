@@ -5,10 +5,10 @@ import { json, corsHeaders } from '../lib/response.js';
 import { adminOK } from '../lib/auth.js';
 import { 
   convertShopeeProductToSHV, 
-  convertShopeeOrderToSHV,
-  saveProductToD1,
-  saveOrderToSHV
-} from './shopee-sync.js';
+  saveProductToD1 
+} from './shopee-sync.js'; // Giữ lại sync product tạm thời
+import { parseShopeeOrder } from '../core/order-core.js'; // ✅ NEW: Core Order
+import { getInternalSku } from '../core/sku-core.js';     // ✅ NEW: Core SKU
 
 /**
  * Shopee API Configuration
@@ -1233,32 +1233,86 @@ export async function handle(req, env, ctx) {
         }
         
         console.log('[Shopee] Total orders retrieved:', allOrders.length);
-        const orders = allOrders;
         
-        // ✅ CHỈ LƯU ORDERS, KHÔNG TRỪ STOCK (stock sync từ Shopee)
         const savedOrders = [];
-        
-        for (const order of orders) {
+
+        // ✅ CORE INTEGRATION: Xử lý batch SQL để tốc độ nhanh nhất
+        for (const rawOrder of allOrders) {
           try {
-            // Convert Shopee order -> SHV order schema
-            const orderData = convertShopeeOrderToSHV(order);
+            // 1. Parse bằng Order Core (Chuẩn hóa dữ liệu)
+            const coreOrder = parseShopeeOrder(rawOrder);
             
-            // ⚠️ QUAN TRỌNG: Đánh dấu đơn từ Shopee để KHÔNG TRỪ STOCK
-            orderData.source = 'shopee';
-            orderData.skip_stock_adjustment = true; // Flag để orders.js biết
-            
-            // Lưu vào KV (hoặc D1 nếu có)
-            const result = await saveOrderToSHV(env, orderData);
+            // 2. Insert/Update Order vào D1 (Trực tiếp, không qua trung gian)
+            const orderRes = await env.DB.prepare(`
+              INSERT INTO orders (
+                order_number, channel, channel_order_id,
+                customer_name, customer_phone,
+                shipping_name, shipping_phone, shipping_address,
+                shipping_city, shipping_district, shipping_province, shipping_zipcode,
+                subtotal, shipping_fee, total,
+                status, payment_method,
+                tracking_number, shipping_carrier,
+                coin_used, voucher_code,
+                estimated_shipping_fee, actual_shipping_fee_confirmed, buyer_paid_amount,
+                created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(order_number) DO UPDATE SET
+                status=excluded.status, 
+                updated_at=excluded.updated_at,
+                tracking_number=excluded.tracking_number,
+                shipping_carrier=excluded.shipping_carrier
+              RETURNING id
+            `).bind(
+              coreOrder.order_number, coreOrder.channel, coreOrder.channel_order_id,
+              coreOrder.customer_name, coreOrder.customer_phone,
+              coreOrder.shipping_name, coreOrder.shipping_phone, coreOrder.shipping_address,
+              coreOrder.shipping_city, coreOrder.shipping_district, coreOrder.shipping_province, coreOrder.shipping_zipcode,
+              coreOrder.subtotal, coreOrder.shipping_fee, coreOrder.total,
+              coreOrder.status, coreOrder.payment_method,
+              coreOrder.tracking_number, coreOrder.shipping_carrier,
+              coreOrder.coin_used, coreOrder.voucher_code,
+              coreOrder.estimated_shipping_fee, coreOrder.actual_shipping_fee_confirmed, coreOrder.buyer_paid_amount,
+              coreOrder.created_at, Date.now()
+            ).first();
+
+            const orderId = orderRes.id;
+
+            // 3. Insert Items (có mapping SKU)
+            if (coreOrder.items && coreOrder.items.length > 0) {
+              // Xóa items cũ để tránh duplicate khi update
+              await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderId).run();
+
+              for (const item of coreOrder.items) {
+                // ⚡ SKU Core: Tìm product_id/variant_id nội bộ
+                const skuMap = await getInternalSku(env, 'shopee', item.sku); // Tìm theo SKU sàn
+                
+                await env.DB.prepare(`
+                  INSERT INTO order_items (
+                    order_id, product_id, variant_id,
+                    sku, name, price, quantity, subtotal,
+                    channel_item_id, channel_model_id
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  orderId, 
+                  skuMap ? skuMap.product_id : null, 
+                  skuMap ? skuMap.variant_id : null,
+                  item.sku, item.name, item.price, item.quantity, (item.price * item.quantity),
+                  item.channel_item_id, item.channel_model_id
+                ).run();
+              }
+            }
+
             savedOrders.push({
-              order_id: result.order_id,
-              order_number: orderData.order_number,
-              total: orderData.total,
-              status: orderData.status
+              order_id: orderId,
+              order_number: coreOrder.order_number,
+              total: coreOrder.total,
+              status: coreOrder.status
             });
-            
-            console.log(`[Shopee] ✅ Saved order (NO stock adjustment): ${orderData.order_number}`);
+
+            console.log(`[Shopee] ✅ Synced: ${coreOrder.order_number} -> Status: ${coreOrder.status}`);
+
           } catch (err) {
-            console.error(`[Shopee] Error saving order ${order.order_sn}:`, err.message);
+            console.error(`[Shopee] Error saving order ${rawOrder.order_sn}:`, err.message);
           }
         }
         

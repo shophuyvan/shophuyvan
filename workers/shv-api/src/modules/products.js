@@ -3,7 +3,7 @@
 // Đường dẫn: workers/shv-api/src/modules/products.js
 // ===================================================================
 
-import { json, errorResponse } from '../lib/response.js';
+import { loadProductNormalized, normalizeProduct } from '../core/product-core.js';
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
@@ -137,54 +137,41 @@ export async function handle(req, env, ctx) {
  * Tính giá hiển thị từ variants để FE + Mini luôn có giá ở list (không phụ thuộc price cấp product).
  */
     function toSummary(product) {
-      // Tinh theo tier 'retail' de hien thi cong khai
-      const priced = computeDisplayPrice(product, 'retail'); // { price_display, compare_at_display }
-    
-      // FALLBACK: Neu variants khong co gia -> dung gia cap product (tuong thich cu)
-      let legacyPrice   = Number(priced.price_display || 0);
-      let legacyCompare = Number(priced.compare_at_display || 0);
+      // ✅ Dùng Core normalize nếu dữ liệu chưa chuẩn
+      // (Giúp đảm bảo variants, price_original, price_final luôn có)
+      const normalized = normalizeProduct(product);
       
-      if (legacyPrice === 0 && priced.no_variant) {
-        // Khong co variant -> lay gia truc tiep tu product (neu co)
-        legacyPrice = Number(product.price || product.price_sale || 0);
-        if (product.price && product.price_sale && product.price_sale < product.price) {
-          legacyCompare = Number(product.price);
-          legacyPrice = Number(product.price_sale);
-        }
-      }
-    
+      // Tính giá hiển thị theo 'retail' mặc định cho danh sách
+      const priced = computeDisplayPrice(normalized, 'retail');
+
       return {
-        id: product.id,
-        title: product.title || product.name || '',
-        name: product.title || product.name || '',
-        slug: product.slug || slugify(product.title || product.name || ''),
-        sku: product.sku || '',
-    
-        // Gia chuan dung cho UI moi
-        price_display: legacyPrice,
-        compare_at_display: legacyCompare > 0 ? legacyCompare : null,
-    
-        // Tuong thich UI cu (card/list dang doc product.price)
-        price: legacyPrice,
-        price_sale: 0, // bo dung; de 0 de tranh nham
-        price_wholesale: product.price_wholesale || 0,
-    
-        stock: product.stock || 0,
-        images: product.images || [],
-        category: product.category || '',
-        category_slug: product.category_slug || product.category || '',
-        status: (product.status === 0 ? 0 : 1),
-        weight_gram: product.weight_gram || 0,
-        weight_grams: product.weight_grams || 0,
-        weight: product.weight || 0,
-    
-       // THEM: Dong bo sold, rating, reviews
-        sold: Number(product.sold || product.sales || product.sold_count || 0),
-        rating: Number(product.rating || product.rating_avg || product.rating_average || 5.0),
-        rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0),
+        id: normalized.id,
+        title: normalized.name, // Core dùng 'name'
+        name: normalized.name,
+        slug: normalized.slug,
+        sku: normalized.variants?.[0]?.sku || '', // Lấy SKU đầu tiên làm đại diện
+
+        // Giá chuẩn từ Core + Tier calculation
+        price_display: priced.price_display,
+        compare_at_display: priced.compare_at_display,
+
+        // Legacy fields
+        price: priced.price_display, 
+        price_sale: 0,
+        price_wholesale: 0, // Sẽ tính lại ở frontend nếu user là đại lý
+
+        stock: normalized.stock_total,
+        images: normalized.images || [],
+        category: normalized.categories?.[0] || '', 
+        category_slug: normalized.categories?.[0] || '', // Tạm lấy cái đầu
+        status: 1,
         
-        // ✅ QUAN TRỌNG: Trả về variants để Frontend tính giá chính xác (Sỉ/Lẻ/Tier)
-        variants: product.variants || []
+        sold: Number(product.sold || 0),
+        rating: Number(product.rating || 5.0),
+        rating_count: Number(product.rating_count || 0),
+        
+        // ✅ QUAN TRỌNG: Trả về variants chuẩn từ Core
+        variants: normalized.variants || []
       };
     }
 
@@ -454,128 +441,41 @@ function computeDisplayPrice(product, tier) {
 
 
 // ===================================================================
-// PUBLIC: Get Product by ID
+// PUBLIC: Get Product by ID (CORE INTEGRATED)
 // ===================================================================
 
 async function getProductById(req, env, productId) {
   try {
-    console.log('[getProductById] 🔍 Tìm product:', productId);
+    console.log('[getProductById] 🔍 Loading from Core:', productId);
     
-    // Query product từ D1
-    const productResult = await env.DB.prepare(`
-      SELECT * FROM products WHERE id = ? OR slug = ?
-    `).bind(productId, productId).first();
+    // ✅ Dùng Core Engine: Tự động Cache KV + Chuẩn hóa Data + Tính Flash Sale
+    const product = await loadProductNormalized(env, productId);
 
-    if (!productResult) {
-      return json({ 
-        ok: false, 
-        error: 'Product not found' 
-      }, { status: 404 }, req);
+    if (!product) {
+      return json({ ok: false, error: 'Product not found' }, { status: 404 }, req);
     }
 
-    // Parse JSON fields
-    const product = {
-      ...productResult,
-      images: productResult.images ? JSON.parse(productResult.images) : [],
-      keywords: productResult.keywords ? JSON.parse(productResult.keywords) : [],
-      faq: productResult.faq ? JSON.parse(productResult.faq) : [],
-      reviews: productResult.reviews ? JSON.parse(productResult.reviews) : []
-    };
-
-    // Query variants của product này
-    const variantsResult = await env.DB.prepare(`
-      SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
-    `).bind(product.id).all();
-
-    product.variants = (variantsResult.results || []).map(v => ({
-      id: v.id,
-      sku: v.sku,
-      name: v.name,
-      price: v.price,
-      price_sale: v.price_sale,
-      price_wholesale: v.price_wholesale,
-      cost_price: v.cost_price,
-      price_silver: v.price_silver,
-      price_gold: v.price_gold,
-      price_diamond: v.price_diamond,
-      stock: v.stock,
-      weight: v.weight,
-      weight_gram: v.weight,
-      weight_grams: v.weight,
-      status: v.status,
-      image: v.image,
-      created_at: v.created_at,
-      updated_at: v.updated_at
-    }));
-
-    console.log(`[getProductById] ✅ Tìm thấy product với ${product.variants.length} variants`);
-
-    // ⚡ CHECK FLASH SALE
-    const flashSaleInfo = await getFlashSaleForProduct(env, product.id);
-    
-    // ✅ Apply Flash Sale cho variants
-    if (Array.isArray(product.variants)) {
-      product.variants = product.variants.map(v => {
-        let variant = { ...v };
-        
-        // ⚡ Apply Flash Sale discount
-        if (flashSaleInfo) {
-          variant = applyFlashSaleDiscount(variant, flashSaleInfo);
-        }
-        
-        return variant;
-      });
-    } else if (flashSaleInfo) {
-      // Product không có variants nhưng có Flash Sale
-      const basePrice = Number(product.price || product.price_sale || 0);
-      if (basePrice > 0) {
-        let flashPrice = basePrice;
-        
-        if (flashSaleInfo.discount_type === 'percent') {
-          flashPrice = Math.floor(basePrice * (1 - flashSaleInfo.discount_value / 100));
-        } else if (flashSaleInfo.discount_type === 'fixed') {
-          flashPrice = Math.max(0, basePrice - flashSaleInfo.discount_value);
-        }
-        
-        product.flash_sale = {
-          active: true,
-          price: flashPrice,
-          original_price: basePrice,
-          discount_percent: Math.round((basePrice - flashPrice) / basePrice * 100),
-          ends_at: flashSaleInfo.ends_at,
-          flash_sale_id: flashSaleInfo.flash_sale_id,
-          flash_sale_name: flashSaleInfo.flash_sale_name
-        };
-      }
-    }
-
+    // Tính giá hiển thị theo Tier khách hàng (Retail/Wholesale/Member)
     const tier = getCustomerTier(req);
     const priced = { ...product, ...computeDisplayPrice(product, tier) };
+    
     console.log('[PRICE] getProductById', { 
       id: productId, 
       tier, 
-      price: priced.price_display, 
-      compare_at: priced.compare_at_display,
-      flash_sale: flashSaleInfo ? 'active' : 'none'
+      price: priced.price_final || priced.price_display, 
+      source: 'CORE'
     });
     
-    // ✅ FIX: Trả về cả item và data để tương thích frontend
     return json({ 
       ok: true, 
-      item: priced,   // Dùng cho orders-manager.js
-      data: priced    // Dùng cho các endpoint khác
+      item: priced,   // Legacy support
+      data: priced    // Standard response
     }, {}, req);
   } catch (e) {
     console.error('[getProductById] ❌ Lỗi:', e);
     return errorResponse(e, 500, req);
   }
 }
-
-// ===================================================================
-// PUBLIC: List Products
-// ===================================================================
-
-async function listPublicProducts(req, env) {
   try {
     // Lấy danh sách summary
     const list = await listProducts(env);
