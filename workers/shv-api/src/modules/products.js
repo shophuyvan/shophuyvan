@@ -37,6 +37,11 @@ export async function handle(req, env, ctx) {
     return getNewest(req, env);
   }
 
+  // ✅ THÊM: Public API - Sản phẩm giá rẻ (cheap)
+  if (path === '/products/cheap' && method === 'GET') {
+    return getCheapProducts(req, env);
+  }
+
   // Public: Get product by ID (path param)
   if (path.startsWith('/products/') && method === 'GET') {
     const id = decodeURIComponent(path.split('/')[2] || '').trim();
@@ -1962,5 +1967,102 @@ async function getProductChannels(req, env, productId) {
   }
 }
 
-console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED + METRICS API');
+// ===================================================================
+// PUBLIC: Get Cheap Products (sản phẩm giá rẻ <= 15.000đ)
+// ===================================================================
+async function getCheapProducts(req, env) {
+  try {
+    const url = new URL(req.url);
+    const limit = Number(url.searchParams.get('limit') || '15');
+    const maxPrice = Number(url.searchParams.get('max_price') || '15000');
+
+    console.log('[CHEAP] 🚀 Query D1 with price <=', maxPrice);
+
+    // ✅ Query trực tiếp từ D1: variants có giá <= maxPrice VÀ còn hàng
+    const result = await env.DB.prepare(`
+      SELECT DISTINCT
+        p.id, p.title, p.slug, p.images, p.category_slug,
+        p.status, p.sold, p.rating, p.rating_count,
+        MIN(CASE WHEN v.price_sale > 0 AND v.price_sale < v.price THEN v.price_sale ELSE v.price END) as min_price,
+        COALESCE(SUM(v.stock), 0) as total_stock
+      FROM products p
+      INNER JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active'
+        AND v.stock > 0
+        AND (
+          (v.price_sale > 0 AND v.price_sale <= ?) 
+          OR (v.price_sale IS NULL AND v.price <= ?)
+          OR (v.price_sale = 0 AND v.price <= ?)
+        )
+      GROUP BY p.id
+      HAVING total_stock > 0 AND min_price > 0 AND min_price <= ?
+      ORDER BY min_price ASC, p.sold DESC
+      LIMIT ?
+    `).bind(maxPrice, maxPrice, maxPrice, maxPrice, limit).all();
+
+    const items = (result.results || []).map(p => {
+      const images = p.images ? JSON.parse(p.images) : [];
+      
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        category_slug: p.category_slug,
+        status: 1,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        rating_count: Number(p.rating_count || 0),
+        stock: Number(p.total_stock || 0),
+        min_price: Number(p.min_price || 0)
+      };
+    });
+
+    // 🔥 Load FULL variants để tính giá chính xác
+    const full = [];
+    for (const item of items) {
+      const variantsResult = await env.DB.prepare(`
+        SELECT * FROM variants WHERE product_id = ? AND stock > 0
+      `).bind(item.id).all();
+
+      const product = {
+        ...item,
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      full.push(product);
+    }
+
+    // Dùng toSummary để đồng bộ format với các API khác
+    const out = full.map(p => toSummary(p));
+
+    console.log('[CHEAP] ✅ Returned:', out.length, 'products (price <=', maxPrice, ')');
+    
+    return json({ 
+      ok: true, 
+      items: out,
+      max_price: maxPrice
+    }, { 
+      headers: { 
+        'cache-control': 'public, max-age=300, s-maxage=300',
+        'cdn-cache-control': 'max-age=300'
+      } 
+    }, req);
+
+  } catch (e) {
+    console.error('[CHEAP] ❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED + METRICS API + CHEAP PRODUCTS');
 // <<< Cuối file >>>

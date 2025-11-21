@@ -99,27 +99,93 @@
   // 👉 Hàm load sản phẩm
 (async () => {
   const params = new URLSearchParams(window.location.search);
-  const slug = params.get("c") || ""; // ví dụ ?c=nha-cua-doi-song
+  const slug = params.get("c") || params.get("category") || "";
+  const searchQuery = params.get("q") || "";
+  const priceMax = Number(params.get("price_max")) || 0;
+  const sortBy = params.get("sort") || "";
+  const flashSale = params.get("flash_sale") === "1";
   const PAGE_SIZE = 40;
+
+  // ✅ Cập nhật tiêu đề theo filter
+  let pageTitle = "Danh mục";
+  if (searchQuery) {
+    pageTitle = `Kết quả tìm kiếm: "${searchQuery}"`;
+  } else if (flashSale) {
+    pageTitle = "⚡ Flash Sale";
+  } else if (priceMax > 0) {
+    pageTitle = `Sản phẩm dưới ${priceMax.toLocaleString('vi-VN')}đ`;
+  } else if (sortBy === "bestseller") {
+    pageTitle = "🔥 Sản phẩm bán chạy";
+  } else if (slug) {
+    pageTitle = decodeURIComponent(slug).replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+  }
+  
+  $('#shv-h1').textContent = pageTitle;
+  $('#shv-bc-leaf').textContent = pageTitle;
+  document.title = pageTitle + ' • Shop Huy Vân';
 
   async function loadProducts() {
     try {
-      // ✅ Gọi API theo danh mục
-      const r = await fetch(`https://api.shophuyvan.vn/public/products?category_slug=${slug}`);
-      const data = await r.json();
-      const all = data.items || [];
+      // ✅ Xây dựng URL API theo filter
+      let apiUrl = 'https://api.shophuyvan.vn/public/products?limit=200';
+      
+      if (slug) {
+        apiUrl += `&category_slug=${encodeURIComponent(slug)}`;
+      }
 
-      // ✅ Render tổng số và sản phẩm
+      const r = await fetch(apiUrl);
+      const data = await r.json();
+      let all = data.items || [];
+
+      // ✅ Filter theo từ khóa tìm kiếm
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        all = all.filter(p => {
+          const title = (p.title || p.name || '').toLowerCase();
+          const sku = (p.sku || '').toLowerCase();
+          return title.includes(q) || sku.includes(q);
+        });
+      }
+
+      // ✅ Filter theo giá tối đa
+      if (priceMax > 0) {
+        all = all.filter(p => {
+          const vs = Array.isArray(p.variants) ? p.variants : [];
+          const prices = vs.map(v => Number(v.price_sale ?? v.price ?? 0)).filter(n => n > 0);
+          const minPrice = prices.length ? Math.min(...prices) : 0;
+          return minPrice > 0 && minPrice <= priceMax;
+        });
+      }
+
+      // ✅ Filter Flash Sale (nếu cần - tạm thời lấy SP giá rẻ)
+      if (flashSale) {
+        // TODO: Gọi API /flash-sales/active để lấy SP flash sale thực
+        // Tạm thời: hiển thị SP có giảm giá
+        all = all.filter(p => {
+          const vs = Array.isArray(p.variants) ? p.variants : [];
+          return vs.some(v => {
+            const sale = Number(v.price_sale || 0);
+            const orig = Number(v.price || 0);
+            return sale > 0 && orig > 0 && sale < orig;
+          });
+        });
+      }
+
+      // ✅ Sắp xếp theo bestseller
+      if (sortBy === "bestseller") {
+        all.sort((a, b) => (Number(b.sold) || 0) - (Number(a.sold) || 0));
+      }
+
+      // ✅ Render tổng số
       document.querySelector("#rs-total").textContent = all.length;
 
-      // Nếu không có sản phẩm
       if (!all.length) {
         document.querySelector("#rs-grid").innerHTML =
-          `<div class="p-4 text-gray-500">Không tìm thấy sản phẩm trong danh mục này.</div>`;
+          `<div class="p-4 text-gray-500 col-span-full text-center">Không tìm thấy sản phẩm phù hợp.</div>`;
         return;
       }
 
-      // ✅ Template sản phẩm (giá lấy từ variants)
+      // ✅ Template sản phẩm
       const tpl = (p) => {
         const img   = p.images?.[0] || IMG_FALLBACK;
         const title = p.title || 'Sản phẩm';
@@ -131,10 +197,18 @@
         const minOrig   = origVals.length ? Math.min(...origVals) : 0;
         const sold      = p.sold || 0;
 
+        // ✅ Hiển thị badge giảm giá
+        let discountBadge = '';
+        if (minOrig > 0 && minSale > 0 && minSale < minOrig) {
+          const percent = Math.round((1 - minSale / minOrig) * 100);
+          discountBadge = `<div class="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-lg font-bold">-${percent}%</div>`;
+        }
+
         return `
           <a href="/product.html?id=${p.id}" class="block border rounded-2xl overflow-hidden hover:shadow-md transition bg-white">
             <div class="relative aspect-[4/3] bg-gray-100">
-              <img src="${img}" class="absolute inset-0 w-full h-full object-cover" alt="${title}" />
+              <img src="${img}" class="absolute inset-0 w-full h-full object-cover" alt="${title}" loading="lazy" />
+              ${discountBadge}
             </div>
             <div class="p-3">
               <h3 class="line-clamp-2 text-sm mb-1 min-h-[36px]">${title}</h3>
@@ -148,7 +222,7 @@
         `;
       };
 
-      // ✅ Render sản phẩm ra grid
+      // ✅ Render sản phẩm
       document.querySelector("#rs-grid").innerHTML = all
         .slice(0, PAGE_SIZE)
         .map(tpl)
@@ -157,7 +231,7 @@
     } catch (e) {
       console.error("Load products failed", e);
       document.querySelector("#rs-grid").innerHTML =
-        `<div class="p-4 text-gray-500">Không tải được sản phẩm.</div>`;
+        `<div class="p-4 text-gray-500 col-span-full">Không tải được sản phẩm.</div>`;
     }
   }
 

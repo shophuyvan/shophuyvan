@@ -1,3 +1,5 @@
+import './pixels.js'; // 🔥 Thêm dòng này
+
 // === SHV perf helper ===
 /**
  * Chọn kích thước banner tối ưu theo device
@@ -56,8 +58,6 @@ import api from './lib/api.js';
 const bannerWrap  = document.getElementById('banner-wrap');
 const flashWrap   = document.getElementById('flash-products'); // ✅ THÊM
 const bestWrap    = document.getElementById('best-products'); // ✅ THÊM
-const newWrap     = document.getElementById('new-products');
-const allWrap     = document.getElementById('all-products');
 const loadMoreBtn = document.getElementById('load-more');
 const searchInput = document.getElementById('shv-search');
 const filterInput = document.getElementById('quick-filter');
@@ -447,109 +447,6 @@ async function loadCategories(){
   window.__CATS = cats;
 }
 
-// New arrivals (newest products)
-async function loadNew() {
-  if (!newWrap) return;
-
-  // Nếu top-products-home.js đã đăng ký thì bỏ qua hoàn toàn
-  if (window.__SHV_TOP_PRODUCTS_V2__) {
-    console.log('[NEWEST] Skip: handled by top-products-home.js');
-    return;
-  }
-
-  // ✅ Nếu đã có .shv-product-card (render bởi top-products-home.js) thì bỏ qua
-  if (newWrap.querySelector('.shv-product-card')) {
-    console.log('[NEWEST] Skip: already rendered by top-products-home.js');
-    return;
-  }
-
-
-  try {
-    let data = await api('/products/newest?limit=8');
-    let items = (data.items || data.products || data.data || []);
-
-    if (!items.length) {
-      newWrap.parentElement?.classList?.add('hidden');
-      return;
-    }
-
-    newWrap.parentElement?.classList?.remove('hidden');
-    newWrap.innerHTML = items.map(card).join('');
-    await hydrateSoldAndRating(items.map(p => p.id || p.key || '').filter(Boolean));
-    console.log('[NEWEST] Loaded:', items.length, 'products');
-  } catch (e) {
-    console.error('[NEWEST] Error:', e);
-    newWrap.parentElement?.classList?.add('hidden');
-  }
-}
-
-// All products with pagination
-async function loadAll() {
-  if (!allWrap || !loadMoreBtn) return;
-
-  const params = new URL(location.href).searchParams;
-  const cat = params.get('cat');
-  const q = params.get('q'); // Lấy từ khóa tìm kiếm
-  
-  const catParam = cat ? '&category=' + encodeURIComponent(cat) : '';
-  
-  // ✅ FIX: Nếu đang tìm kiếm, tải 500 sản phẩm để đảm bảo tìm thấy (thay vì 24)
-  const limit = q ? 500 : 24;
-
-  // gọi public trước
-  let data = await api('/public/products?limit=' + limit + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
-
-  // fallback khi public lỗi/không có
-  if (!data || data.ok === false) {
-    data = await api('/products?limit=24' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + catParam);
-  }
-
-  const items = data.items || data.products || data.data || [];
-  cursor = data.cursor || data.next || null;
-
-  allCache.push(...items);
-  renderAll();
-
-  loadMoreBtn.style.display = cursor ? 'inline-flex' : 'none';
-}
-
-
-async function renderAll(){ if(!allWrap) return; 
-  const q = (searchInput?.value || '').toLowerCase();
-  const f = (filterInput?.value || '').toLowerCase();
-  
-  // ✅ FIX: Lấy tham số lọc giá từ URL (cho nút Xem thêm dưới 10K)
-  const urlParams = new URLSearchParams(window.location.search);
-  const priceMax = Number(urlParams.get('price_max')) || 0;
-
-  const filtered = allCache.filter(p => {
-    const t = (p.title||p.name||'').toLowerCase();
-    const slug = String(p.slug||'').toLowerCase();
-    
-    // Logic tìm kiếm text
-    const matchText = (!q || t.includes(q) || slug.includes(q)) && (!f || t.includes(f));
-    if (!matchText) return false;
-
-    // ✅ FIX: Logic lọc giá (nếu có price_max)
-    if (priceMax > 0) {
-      const priceInfo = pickPriceByCustomer(p, null) || {};
-      const price = priceInfo.base || 0;
-      // Nếu giá > priceMax hoặc giá = 0 thì ẩn
-      if (price === 0 || price > priceMax) return false;
-    }
-
-    return true;
-  });
-
-  if (filtered.length === 0) {
-    allWrap.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;">Không tìm thấy sản phẩm nào phù hợp.</div>';
-  } else {
-    allWrap.innerHTML = filtered.map(p => card(p)).join('');
-    await hydrateSoldAndRating(filtered.map(p => p.id || p.key || '').filter(Boolean));
-  }
-  console.log('[FILTER] Rendered:', filtered.length, 'items. Price Max:', priceMax);
-}
-
 function minVarPrice(p){
   try{
     const vars = Array.isArray(p.variants)?p.variants:[];
@@ -772,16 +669,15 @@ function card(p){
   </a>`;
 }
 
-// Events
 // ==================================================
-// ✅ FIX FINAL: LOGIC TÌM KIẾM CHUYỂN TRANG
+// ✅ FIX: LOGIC TÌM KIẾM CHUYỂN TRANG CATEGORY
 // ==================================================
 function performSearch() {
   const input = document.getElementById('shv-search');
   const query = input ? input.value.trim() : '';
   if (query) {
-    // Chuyển hướng về trang chủ với tham số q
-    window.location.assign('/?q=' + encodeURIComponent(query));
+    // ✅ Chuyển đến trang category.html với tham số tìm kiếm
+    window.location.assign('/category.html?q=' + encodeURIComponent(query));
   }
 }
 
@@ -855,23 +751,20 @@ async function loadCheapProducts() {
   if (!wrap) return;
 
   try {
-    // Lấy 100 sản phẩm để lọc
-    let data = await api('/products?limit=100'); 
-    let items = data.items || data.products || [];
+    // ✅ GỌI API MỚI - Query trực tiếp từ DB, nhanh hơn 5-10x
+    let data = await api('/products/cheap?limit=15&max_price=15000'); 
+    let cheapItems = data.items || data.products || [];
 
-    // ✅ FIX: Dùng hàm import trực tiếp, không dùng window.
-    let cheapItems = items.filter(p => {
-      const priceInfo = pickPriceByCustomer(p, null) || { base: 0 };
-      const price = priceInfo.base || 0;
-      return price > 0 && price <= 15000;
-    });
-
-    // Nếu ít quá, lấy top 15 giá thấp nhất
-    if (cheapItems.length < 5) {
-      cheapItems = items.sort((a, b) => {
-        const pa = (pickPriceByCustomer(a, null) || { base: 0 }).base;
-        const pb = (pickPriceByCustomer(b, null) || { base: 0 }).base;
-        return pa - pb;
+    // Fallback: Nếu API mới chưa có, dùng cách cũ
+    if (cheapItems.length === 0) {
+      console.log('[CHEAP] API /products/cheap trả về rỗng, thử fallback...');
+      data = await api('/products?limit=50');
+      const items = data.items || data.products || [];
+      
+      cheapItems = items.filter(p => {
+        const priceInfo = pickPriceByCustomer(p, null) || { base: 0 };
+        const price = priceInfo.base || 0;
+        return price > 0 && price <= 15000;
       }).slice(0, 15);
     }
 
@@ -880,7 +773,7 @@ async function loadCheapProducts() {
       return;
     }
 
-    // ✅ FIX HIỂN THỊ: Bọc card vào thẻ div có chiều rộng cố định để không bị dẹp
+    // ✅ Render cards
     wrap.innerHTML = cheapItems.map(p => 
       `<div style="min-width: 170px; max-width: 170px; flex-shrink: 0;">${card(p)}</div>`
     ).join('');
@@ -890,6 +783,8 @@ async function loadCheapProducts() {
     
     // Hydrate (cập nhật đã bán/đánh giá)
     if (window.hydrateSoldAndRating) window.hydrateSoldAndRating(cheapItems.map(p => p.id));
+    
+    console.log('[CHEAP] ✅ Loaded:', cheapItems.length, 'products');
     
   } catch (e) {
     console.error('[CHEAP] Error:', e);
