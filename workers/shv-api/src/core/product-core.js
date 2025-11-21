@@ -10,6 +10,7 @@ import { getJSON, putJSON } from '../lib/kv.js';
 // 1. Lấy sản phẩm BASE từ D1 (chỉ 1 query duy nhất)
 // ------------------------------------------------
 export async function getBaseProduct(env, productId) {
+  // ✅ FIX: Thêm trường 'image' vào variants để frontend hiển thị đúng ảnh biến thể
   const sql = `
     SELECT p.*, 
       (SELECT json_group_array(json_object(
@@ -19,7 +20,9 @@ export async function getBaseProduct(env, productId) {
         'price', v.price,
         'price_sale', v.price_sale,
         'price_wholesale', v.price_wholesale,
-        'stock', v.stock
+        'stock', v.stock,
+        'image', v.image,
+        'weight', v.weight
       ))
       FROM variants v
       WHERE v.product_id = p.id
@@ -118,18 +121,31 @@ export function normalizeProduct(product) {
     images = [];
   }
 
+  // Parse JSON fields an toàn
+  const parseJsonField = (field) => {
+    try {
+      return typeof field === 'string' ? JSON.parse(field) : (field || []);
+    } catch { return []; }
+  };
+
   let final = {
     id: product.id,
-    // ✅ FIX: Lấy title từ DB (nếu thiếu thì lấy name)
     name: product.title || product.name || 'No Name',
     slug: product.slug,
     
-    // ✅ FIX: Thêm mô tả cho Frontend hiển thị
+    // Mô tả
     description: product.desc || product.description || '',
     short_description: product.shortDesc || product.short_description || '',
     
+    // ✅ FIX: Thêm Video
+    video: product.video || null,
+
+    // SEO
+    seo_title: product.seo_title || null,
+    seo_desc: product.seo_desc || null,
+    
     images: images,
-    categories: product.categories && typeof product.categories === 'string' ? JSON.parse(product.categories) : (product.categories || []),
+    categories: parseJsonField(product.categories),
     category_slug: product.category_slug || '',
     
     variants: product.variants || [],
@@ -139,13 +155,19 @@ export function normalizeProduct(product) {
     rating: Number(product.rating || 5.0),
     rating_count: Number(product.rating_count || 0),
 
+    // Giá (Core tính sẵn để tham khảo)
     price_original: priceInfo.priceOriginal,
     price_final: priceInfo.priceFinal,
     discount_percent: priceInfo.discountPercent,
 
     is_flash_sale: false,
     flash_price: product.flash_price || null,
-    flash_stock: product.flash_stock || null
+    flash_stock: product.flash_stock || null,
+    
+    // Extra data
+    keywords: parseJsonField(product.keywords),
+    faq: parseJsonField(product.faq),
+    reviews: parseJsonField(product.reviews)
   };
 
   // Áp flash sale
