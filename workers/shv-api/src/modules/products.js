@@ -2051,7 +2051,7 @@ async function getProductChannels(req, env, productId) {
 async function getHomeSections(req, env) {
   try {
     // 1. CẤU HÌNH CACHE KV
-    const CACHE_KEY = 'home_sections_data_v1';
+    const CACHE_KEY = 'home_sections_data_v2'; // Đổi key để clear cache cũ
     const CACHE_TTL = 300; // 5 phút
 
     // 2. KIỂM TRA CACHE
