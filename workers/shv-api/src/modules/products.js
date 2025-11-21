@@ -2062,62 +2062,101 @@ async function getHomeSections(req, env) {
 
     console.log('[HOME] 🚀 Cache Miss -> Querying D1 Parallel...');
 
-    // 3. PREPARE QUERIES (Query tối ưu lấy min_price từ variants)
-    // SQL Template để tái sử dụng
+    // 3. PREPARE QUERIES (Logic mới: Lấy variants riêng để tính giá chính xác)
     const sqlTemplate = (condition, orderBy, limit) => `
-      SELECT 
-        p.id, p.title, p.slug, p.images, p.category_slug,
-        p.status, p.sold, p.rating, p.rating_count,
-        MIN(COALESCE(NULLIF(v.price_sale, 0), v.price)) as min_price,
-        MAX(v.price) as max_original_price,
-        COALESCE(SUM(v.stock), 0) as total_stock
-      FROM products p
-      JOIN variants v ON p.id = v.product_id
-      WHERE p.status = 'active' AND v.stock > 0 ${condition ? 'AND ' + condition : ''}
-      GROUP BY p.id
+      SELECT id, title, slug, images, category_slug, status, sold, rating, rating_count
+      FROM products 
+      WHERE status = 'active' ${condition ? 'AND ' + condition : ''}
       ORDER BY ${orderBy}
       LIMIT ${limit}
     `;
 
-    // Định nghĩa 5 queries chạy song song
-    const pBestsellers = env.DB.prepare(sqlTemplate('', 'p.sold DESC', 10)).all();
-    const pDienNuoc = env.DB.prepare(sqlTemplate("p.category_slug = 'thiet-bi-dien-nuoc'", 'p.created_at DESC', 8)).all();
-    const pNhaCua = env.DB.prepare(sqlTemplate("p.category_slug = 'nha-cua-doi-song'", 'p.created_at DESC', 8)).all();
-    const pHoaChat = env.DB.prepare(sqlTemplate("p.category_slug = 'hoa-chat-gia-dung'", 'p.created_at DESC', 8)).all();
-    const pDungCu = env.DB.prepare(sqlTemplate("p.category_slug = 'dung-cu-tien-ich'", 'p.created_at DESC', 8)).all();
-
-    // 4. THỰC THI (Promise.all)
+    // Chạy 5 query song song lấy danh sách sản phẩm
     const [resBest, resDien, resNha, resHoa, resDung] = await Promise.all([
-      pBestsellers, pDienNuoc, pNhaCua, pHoaChat, pDungCu
+      env.DB.prepare(sqlTemplate('', 'sold DESC', 10)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'thiet-bi-dien-nuoc'", 'created_at DESC', 8)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'nha-cua-doi-song'", 'created_at DESC', 8)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'hoa-chat-gia-dung'", 'created_at DESC', 8)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'dung-cu-tien-ich'", 'created_at DESC', 8)).all()
     ]);
 
-    // 5. HELPER FORMAT DATA (Mapping raw DB row -> Frontend format)
-    const formatItems = (rows) => (rows || []).map(p => {
-      const images = p.images ? JSON.parse(p.images) : [];
-      return {
-        id: p.id,
-        title: p.title,
-        name: p.title,
-        slug: p.slug,
-        images: images,
-        image: images[0] || null,
-        category_slug: p.category_slug,
-        sold: Number(p.sold || 0),
-        rating: Number(p.rating || 5.0),
-        stock: Number(p.total_stock || 0),
-        // Format giá cho frontend (giả lập cấu trúc toSummary nhẹ)
-        price_display: Number(p.min_price || 0),
-        compare_at_display: Number(p.max_original_price) > Number(p.min_price) ? Number(p.max_original_price) : null,
-        price_tier: 'retail' // Mặc định retail cho home
-      };
-    });
+    // 4. GỘP ID VÀ LẤY VARIANTS (Để tính giá chuẩn xác từ bảng variants)
+    const allRows = [
+      ...(resBest.results || []), ...(resDien.results || []),
+      ...(resNha.results || []), ...(resHoa.results || []),
+      ...(resDung.results || [])
+    ];
+    const uniqueIds = [...new Set(allRows.map(p => p.id))];
+    
+    let allVariants = [];
+    if (uniqueIds.length > 0) {
+      const placeholders = uniqueIds.map(() => '?').join(',');
+      // ✅ Lấy đủ thông tin variants để trả về frontend
+      const vRes = await env.DB.prepare(`
+        SELECT id, product_id, sku, name, price, price_sale, stock 
+        FROM variants WHERE product_id IN (${placeholders})
+      `).bind(...uniqueIds).all();
+      allVariants = vRes.results || [];
+    }
+
+    // 5. FORMAT VÀ LỌC (Ẩn giá 0đ và hết hàng)
+    const parseNum = (x) => Number(String(x).replace(/[^0-9]/g, '')) || 0;
+
+    const processSection = (rows) => {
+      const result = [];
+      for (const p of (rows || [])) {
+        const pVars = allVariants.filter(v => v.product_id === p.id);
+        
+        let minPrice = 0;
+        let maxOriginal = 0;
+        let totalStock = 0;
+
+        if (pVars.length > 0) {
+          for (const v of pVars) {
+            const reg = parseNum(v.price);
+            const sale = parseNum(v.price_sale);
+            const stock = parseNum(v.stock);
+            const real = (sale > 0 && sale < reg) ? sale : reg;
+            
+            if (real > 0 && (minPrice === 0 || real < minPrice)) minPrice = real;
+            if (reg > maxOriginal) maxOriginal = reg;
+            totalStock += stock;
+          }
+        }
+        
+        // 🔥 ĐIỀU KIỆN LỌC: Ẩn nếu giá = 0 HOẶC hết hàng (theo yêu cầu)
+        if (minPrice <= 0 || totalStock <= 0) continue;
+
+        const images = p.images ? JSON.parse(p.images) : [];
+        
+        // Map lại variants với giá đã parse số (để frontend dùng)
+        const variantsParsed = pVars.map(v => ({
+           ...v, 
+           price: parseNum(v.price), 
+           price_sale: parseNum(v.price_sale) 
+        }));
+
+        result.push({
+          id: p.id, title: p.title, name: p.title, slug: p.slug,
+          images, image: images[0] || null,
+          category_slug: p.category_slug,
+          sold: Number(p.sold||0), rating: Number(p.rating||5),
+          stock: totalStock,
+          price_display: minPrice,
+          compare_at_display: maxOriginal > minPrice ? maxOriginal : null,
+          variants: variantsParsed, // ✅ Gửi variants xuống cho frontend
+          price_tier: 'retail'
+        });
+      }
+      return result;
+    };
 
     const responseData = {
-      bestsellers: formatItems(resBest.results),
-      cat_dien_nuoc: formatItems(resDien.results),
-      cat_nha_cua: formatItems(resNha.results),
-      cat_hoa_chat: formatItems(resHoa.results),
-      cat_dung_cu: formatItems(resDung.results)
+      bestsellers: processSection(resBest.results),
+      cat_dien_nuoc: processSection(resDien.results),
+      cat_nha_cua: processSection(resNha.results),
+      cat_hoa_chat: processSection(resHoa.results),
+      cat_dung_cu: processSection(resDung.results)
     };
 
     // 6. LƯU CACHE KV (background)
