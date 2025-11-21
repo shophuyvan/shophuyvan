@@ -37,6 +37,11 @@ export async function handle(req, env, ctx) {
     return getNewest(req, env);
   }
 
+  // ✅ THÊM: Public API - Home Sections (Gộp Bestseller + 4 Categories + Cache)
+  if (path === '/products/home-sections' && method === 'GET') {
+    return getHomeSections(req, env);
+  }
+
   // ✅ THÊM: Public API - Sản phẩm giá rẻ (cheap)
   if (path === '/products/cheap' && method === 'GET') {
     return getCheapProducts(req, env);
@@ -1963,6 +1968,107 @@ async function getProductChannels(req, env, productId) {
 
   } catch (e) {
     console.error('[getProductChannels] ❌ Error:', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+// ===================================================================
+// PUBLIC: Get Home Sections (Optimized: 1 Query Batch + KV Cache)
+// ===================================================================
+async function getHomeSections(req, env) {
+  try {
+    // 1. CẤU HÌNH CACHE KV
+    const CACHE_KEY = 'home_sections_data_v1';
+    const CACHE_TTL = 300; // 5 phút
+
+    // 2. KIỂM TRA CACHE
+    const cached = await getJSON(env, CACHE_KEY);
+    if (cached) {
+      return json({
+        ok: true,
+        source: 'cache',
+        data: cached
+      }, { 
+        headers: { 'x-cache-status': 'HIT' } 
+      }, req);
+    }
+
+    console.log('[HOME] 🚀 Cache Miss -> Querying D1 Parallel...');
+
+    // 3. PREPARE QUERIES (Query tối ưu lấy min_price từ variants)
+    // SQL Template để tái sử dụng
+    const sqlTemplate = (condition, orderBy, limit) => `
+      SELECT 
+        p.id, p.title, p.slug, p.images, p.category_slug,
+        p.status, p.sold, p.rating, p.rating_count,
+        MIN(COALESCE(NULLIF(v.price_sale, 0), v.price)) as min_price,
+        MAX(v.price) as max_original_price,
+        COALESCE(SUM(v.stock), 0) as total_stock
+      FROM products p
+      JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active' AND v.stock > 0 ${condition ? 'AND ' + condition : ''}
+      GROUP BY p.id
+      ORDER BY ${orderBy}
+      LIMIT ${limit}
+    `;
+
+    // Định nghĩa 5 queries chạy song song
+    const pBestsellers = env.DB.prepare(sqlTemplate('', 'p.sold DESC', 10)).all();
+    const pDienNuoc = env.DB.prepare(sqlTemplate("p.category_slug = 'thiet-bi-dien-nuoc'", 'p.created_at DESC', 8)).all();
+    const pNhaCua = env.DB.prepare(sqlTemplate("p.category_slug = 'nha-cua-doi-song'", 'p.created_at DESC', 8)).all();
+    const pHoaChat = env.DB.prepare(sqlTemplate("p.category_slug = 'hoa-chat-gia-dung'", 'p.created_at DESC', 8)).all();
+    const pDungCu = env.DB.prepare(sqlTemplate("p.category_slug = 'dung-cu-tien-ich'", 'p.created_at DESC', 8)).all();
+
+    // 4. THỰC THI (Promise.all)
+    const [resBest, resDien, resNha, resHoa, resDung] = await Promise.all([
+      pBestsellers, pDienNuoc, pNhaCua, pHoaChat, pDungCu
+    ]);
+
+    // 5. HELPER FORMAT DATA (Mapping raw DB row -> Frontend format)
+    const formatItems = (rows) => (rows || []).map(p => {
+      const images = p.images ? JSON.parse(p.images) : [];
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        image: images[0] || null,
+        category_slug: p.category_slug,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        stock: Number(p.total_stock || 0),
+        // Format giá cho frontend (giả lập cấu trúc toSummary nhẹ)
+        price_display: Number(p.min_price || 0),
+        compare_at_display: Number(p.max_original_price) > Number(p.min_price) ? Number(p.max_original_price) : null,
+        price_tier: 'retail' // Mặc định retail cho home
+      };
+    });
+
+    const responseData = {
+      bestsellers: formatItems(resBest.results),
+      cat_dien_nuoc: formatItems(resDien.results),
+      cat_nha_cua: formatItems(resNha.results),
+      cat_hoa_chat: formatItems(resHoa.results),
+      cat_dung_cu: formatItems(resDung.results)
+    };
+
+    // 6. LƯU CACHE KV (background)
+    // Lưu ý: Hàm putJSON cần await hoặc ctx.waitUntil nếu có
+    await putJSON(env, CACHE_KEY, responseData, CACHE_TTL);
+
+    console.log('[HOME] ✅ Done. Saved to Cache.');
+
+    return json({
+      ok: true,
+      source: 'database',
+      data: responseData
+    }, { 
+      headers: { 'x-cache-status': 'MISS' } 
+    }, req);
+
+  } catch (e) {
+    console.error('[HOME] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
