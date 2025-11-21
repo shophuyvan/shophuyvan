@@ -745,6 +745,9 @@ return Number(String(val).replace(/[^0-9]/g, '')) || 0;
         // Nhưng theo schema thì giá nằm hết ở variants
       }
 
+      // ✅ LỌC HIỂN THỊ: Nếu giá = 0 HOẶC tồn kho = 0 -> Bỏ qua, không hiển thị
+      if (minPrice <= 0 || totalStock <= 0) continue;
+
       const images = p.images ? JSON.parse(p.images) : [];
         
       items.push({
