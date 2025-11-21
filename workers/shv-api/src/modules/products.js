@@ -178,10 +178,13 @@ export async function handle(req, env, ctx) {
         weight_grams: product.weight_grams || 0,
         weight: product.weight || 0,
     
-        // THEM: Dong bo sold, rating, reviews
+       // THEM: Dong bo sold, rating, reviews
         sold: Number(product.sold || product.sales || product.sold_count || 0),
         rating: Number(product.rating || product.rating_avg || product.rating_average || 5.0),
-        rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0)
+        rating_count: Number(product.rating_count || product.reviews_count || product.review_count || 0),
+        
+        // ✅ QUAN TRỌNG: Trả về variants để Frontend tính giá chính xác (Sỉ/Lẻ/Tier)
+        variants: product.variants || []
       };
     }
 
