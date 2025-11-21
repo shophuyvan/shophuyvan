@@ -633,7 +633,7 @@ const product = {
 }
 
 // ===================================================================
-// PUBLIC: Search & List Products (Optimized SQL v2 - Fix Price & Search)
+// PUBLIC: Search & List Products (Optimized SQL v3 - Fix Zero Price)
 // ===================================================================
 async function listPublicProductsFiltered(req, env) {
   try {
@@ -649,27 +649,38 @@ async function listPublicProductsFiltered(req, env) {
                        url.searchParams.get('search') || 
                        url.searchParams.get('keyword') || '').trim();
     
-    // Chuyển từ khóa tìm kiếm về dạng slug (không dấu) để tìm chính xác hơn
-    // Ví dụ: "Máy Hút" -> "may-hut"
+    // Slugify từ khóa để tìm kiếm không dấu
     const searchSlug = searchRaw ? slugify(searchRaw) : '';
 
     const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
     const limit = Math.min(50, Number(url.searchParams.get('limit') || '24'));
     const offset = (page - 1) * limit;
 
-    console.log(`[SEARCH] 🚀 Q="${searchRaw}" (Slug="${searchSlug}") Cat="${category}" Page=${page}`);
+    console.log(`[SEARCH v3] 🚀 Q="${searchRaw}" Cat="${category}"`);
 
     // 1. BUILD SQL QUERY
-    // Fix logic giá: Lấy giá nhỏ nhất > 0
+    // ✅ FIX LOGIC GIÁ QUAN TRỌNG:
+    // - Dùng CAST(x AS INTEGER) để ép kiểu số
+    // - Trả về NULL nếu giá <= 0 (để hàm MIN bỏ qua số 0)
     let sql = `
       SELECT 
         p.id, p.title, p.slug, p.images, p.category_slug,
         p.status, p.sold, p.rating, p.rating_count,
-        MIN(CASE 
-          WHEN v.price_sale > 0 AND v.price_sale < v.price THEN v.price_sale 
-          ELSE v.price 
-        END) as real_min_price,
-        MAX(v.price) as max_original_price,
+        MIN(
+          CASE 
+            -- Nếu có giá sale hợp lệ (>0 và < giá gốc) -> lấy giá sale
+            WHEN CAST(v.price_sale AS INTEGER) > 0 AND CAST(v.price_sale AS INTEGER) < CAST(v.price AS INTEGER) 
+            THEN CAST(v.price_sale AS INTEGER)
+            
+            -- Nếu có giá gốc hợp lệ (>0) -> lấy giá gốc
+            WHEN CAST(v.price AS INTEGER) > 0 
+            THEN CAST(v.price AS INTEGER)
+            
+            -- Còn lại (0 hoặc null) -> Trả về NULL để hàm MIN không lấy số 0
+            ELSE NULL 
+          END
+        ) as real_min_price,
+        MAX(CAST(v.price AS INTEGER)) as max_original_price,
         COALESCE(SUM(v.stock), 0) as total_stock
       FROM products p
       JOIN variants v ON p.id = v.product_id
@@ -678,9 +689,8 @@ async function listPublicProductsFiltered(req, env) {
 
     const params = [];
 
-    // 2. FILTER: SEARCH (Tìm theo Slug hoặc Title)
+    // 2. FILTER: SEARCH
     if (searchSlug) {
-      // Logic: Tìm trong slug (để bắt tiếng Việt không dấu) HOẶC tìm trong title
       sql += ` AND (p.slug LIKE ? OR p.title LIKE ?)`;
       params.push(`%${searchSlug}%`, `%${searchRaw}%`);
     }
@@ -692,10 +702,9 @@ async function listPublicProductsFiltered(req, env) {
     }
 
     // 4. GROUP & SORT
-    // Group by ID để gộp variants
-    sql += ` GROUP BY p.id HAVING total_stock > 0 AND real_min_price > 0`;
+    // Chỉ lấy sản phẩm có giá > 0 (real_min_price IS NOT NULL)
+    sql += ` GROUP BY p.id HAVING total_stock > 0 AND real_min_price IS NOT NULL`;
     
-    // Sort logic
     sql += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
@@ -704,7 +713,7 @@ async function listPublicProductsFiltered(req, env) {
     const results = await env.DB.prepare(sql).bind(...params).all();
     const rows = results.results || [];
     
-    console.log(`[SEARCH] ⏱️ Found: ${rows.length} items (Time: ${Date.now() - start}ms)`);
+    console.log(`[SEARCH v3] ⏱️ Found: ${rows.length} items. Sample Price: ${rows[0]?.real_min_price}`);
 
     // 6. FORMAT DATA
     const items = rows.map(p => {
@@ -725,13 +734,13 @@ async function listPublicProductsFiltered(req, env) {
         rating_count: Number(p.rating_count || 0),
         stock: Number(p.total_stock || 0),
         
-        // ✅ FIX HIỂN THỊ GIÁ: Gán vào cả price và price_display
+        // Format giá chuẩn
         price: price, 
         price_display: price,
         compare_at_display: original > price ? original : null,
         
         price_tier: 'retail',
-        price_sale: 0 // Reset để frontend tự xử lý theo price_display
+        price_sale: 0
       };
     });
 
@@ -741,8 +750,7 @@ async function listPublicProductsFiltered(req, env) {
       pagination: {
         page,
         limit,
-        count: items.length,
-        search: searchRaw
+        count: items.length
       }
     }, { 
       headers: { 
