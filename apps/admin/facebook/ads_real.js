@@ -1286,6 +1286,10 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         if (tab.dataset.tab === 'creative' && window.FacebookAdsCreative) {
           FacebookAdsCreative.init();
         }
+        // [SHV] Kích hoạt Fanpage Hub
+        if (tab.dataset.tab === 'fanpage-hub' && window.FanpageManager) {
+          FanpageManager.init();
+        }
         // Cập nhật: loadProducts khi mở tab create, autopost, hoặc abtest
         if (tab.dataset.tab === 'create' || tab.dataset.tab === 'autopost' || tab.dataset.tab === 'abtest') {
           // Load products nếu chưa có hoặc force reload
@@ -1396,6 +1400,227 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     // Load initial data
     loadCampaigns();
   }
+  
+  // ============================================================
+  // FANPAGE MANAGER HUB (INTEGRATED FROM FANPAGES.JS)
+  // ============================================================
+  window.FanpageManager = {
+    init: async function() {
+      const container = document.getElementById('fanpageList');
+      if(!container) return;
+      try {
+        // Gọi API DB: /admin/fanpages
+        const r = await Admin.req('/admin/fanpages', { method: 'GET' });
+        if (r && r.ok) {
+          this.renderList(r.items || []);
+        } else {
+          container.innerHTML = '<div class="alert alert-error">Không thể tải danh sách (API Error)</div>';
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="alert alert-error">Lỗi kết nối: ${e.message}</div>`;
+      }
+    },
+    renderList: function(items) {
+      const container = document.getElementById('fanpageList');
+      if (items.length === 0) {
+        container.innerHTML = '<div class="alert">Chưa có fanpage nào. Hãy bấm "Kết nối Fanpage Mới" để thêm!</div>';
+        return;
+      }
+      container.innerHTML = items.map(page => `
+        <div class="page-card">
+          <div class="page-avatar">F</div>
+          <div class="page-info">
+            <div class="page-name">${page.name || 'Unnamed Page'}</div>
+            <div class="page-meta">
+              <span>ID: ${page.page_id}</span>
+              <span class="status-badge ${page.auto_reply_enabled ? 'status-active' : 'status-inactive'}">
+                ${page.auto_reply_enabled ? 'Auto Reply: ON' : 'Auto Reply: OFF'}
+              </span>
+            </div>
+            <div class="actions">
+              <button class="btn-sm" onclick="window.openSettings('${page.page_id}')">⚙️ Cấu hình</button>
+              <button class="btn-sm primary" onclick="FanpageManager.openPageHub('${page.page_id}', '${page.name || 'Unnamed Page'}')">
+                📘 Quản lý Fanpage
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    },
+    connectNewPage: () => {
+      document.getElementById('connectModal').style.display = 'flex';
+      FanpageManager.fetchPagesFromFacebook();
+    },
+    loginFacebook: async () => {
+      // Tái sử dụng hàm loginFacebook của Ads
+      await window.FacebookAds.loginFacebook(); 
+      setTimeout(() => FanpageManager.fetchPagesFromFacebook(), 2000);
+    },
+    fetchPagesFromFacebook: async () => {
+      const container = document.getElementById('fbPageList');
+      container.innerHTML = '<div class="loading">Đang tải danh sách từ Facebook...</div>';
+      try {
+        const r = await Admin.req('/admin/fanpages/fetch-facebook', { method: 'GET' });
+        if (r && r.ok && r.data && r.data.length > 0) {
+          container.innerHTML = r.data.map(p => `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid #f3f4f6;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div>
+                  <div style="font-weight:600;">${p.name}</div>
+                  <div style="font-size:11px; color:#666;">ID: ${p.id}</div>
+                </div>
+              </div>
+              <button class="btn-sm primary" onclick="FanpageManager.autoConnect('${p.id}', '${p.access_token}', '${p.name}')">Kết nối</button>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `<div class="alert alert-warning">Không tìm thấy Page. Hãy Đăng nhập lại.</div>`;
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="alert alert-error">Lỗi: ${e.message}</div>`;
+      }
+    },
+    autoConnect: async (pageId, token, name) => {
+      if(!confirm(`Bạn muốn kết nối Fanpage "${name}"?`)) return;
+      try {
+        const r = await Admin.req('/admin/fanpages', {
+          method: 'POST',
+          body: { page_id: pageId, name: name, access_token: token, auto_reply_enabled: true, welcome_message: 'Xin chào!' }
+        });
+        if (r && r.ok) {
+          alert(`✅ Đã kết nối "${name}" thành công!`);
+          document.getElementById('connectModal').style.display = 'none';
+          FanpageManager.init();
+        } else {
+          alert('❌ Lỗi: ' + (r.error || 'Unknown'));
+        }
+      } catch (e) { alert('❌ Lỗi kết nối: ' + e.message); }
+    },
+    openPageHub: (pageId, name) => {
+      const modal = document.getElementById('pageHubModal');
+      if (!modal) return;
+      document.getElementById('hubPageName').innerText = `${name} (${pageId})`;
+      modal.style.display = 'flex';
+      // Tab click handling for hub
+      document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
+      const first = document.querySelector('.hub-tab[data-hub="overview"]');
+      if(first) first.classList.add('active');
+      FanpageManager.renderOverview(pageId);
+
+      document.querySelectorAll('.hub-tab').forEach(tab => {
+         // Clone to remove old listeners
+         const newTab = tab.cloneNode(true);
+         tab.parentNode.replaceChild(newTab, tab);
+         newTab.onclick = () => {
+            document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
+            newTab.classList.add('active');
+            const key = newTab.getAttribute('data-hub');
+            if(key === 'overview') FanpageManager.renderOverview(pageId);
+            if(key === 'ads') FanpageManager.renderAds(pageId);
+            if(key === 'post') FanpageManager.renderPost(pageId);
+            if(key === 'autoreply') FanpageManager.renderAutoReply(pageId);
+         };
+      });
+    },
+    renderOverview: async (pageId) => {
+      const c = document.getElementById('hubContent');
+      c.innerHTML = 'Đang tải...';
+      try {
+        const res = await Admin.req(`/admin/facebook/page/overview?page_id=${pageId}`, { method: 'GET' });
+        if (!res.ok) { c.innerHTML = 'Lỗi tải tổng quan'; return; }
+        c.innerHTML = `
+          <h3>📌 Bài viết mới nhất</h3>
+          <pre style="background:#0b1120;color:#e5e7eb;padding:10px;border-radius:8px;overflow:auto;max-height:200px;">${JSON.stringify(res.data.posts || [], null, 2)}</pre>
+          <h3>📌 Chiến dịch Ads</h3>
+          <pre style="background:#0b1120;color:#e5e7eb;padding:10px;border-radius:8px;overflow:auto;max-height:200px;">${JSON.stringify(res.data.ads || [], null, 2)}</pre>
+        `;
+      } catch(e) { c.innerHTML = e.message; }
+    },
+    renderAds: async (pageId) => {
+      const c = document.getElementById('hubContent');
+      c.innerHTML = 'Đang tải Ads...';
+      try {
+         const r = await Admin.req(`/admin/facebook/ads/list?page_id=${pageId}`, { method: 'GET' });
+         c.innerHTML = `<h3>📣 Chiến dịch Quảng cáo</h3><pre style="background:#0b1120;color:#e5e7eb;padding:10px;">${JSON.stringify(r.items || [], null, 2)}</pre>`;
+      } catch(e) { c.innerHTML = e.message; }
+    },
+    renderPost: async (pageId) => {
+      document.getElementById('hubContent').innerHTML = `
+        <h3>📝 Đăng bài lên Fanpage</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:600px;">
+           <textarea id="hub-post-msg" placeholder="Nội dung..." style="width:100%;min-height:80px;padding:8px;border:1px solid #ccc;"></textarea>
+           <input id="hub-post-link" placeholder="Link..." style="width:100%;padding:8px;border:1px solid #ccc;">
+           <button class="btn primary" onclick="FanpageManager.submitPost('${pageId}')">Đăng bài</button>
+        </div>`;
+    },
+    submitPost: async (pageId) => {
+       const message = document.getElementById('hub-post-msg').value;
+       const link = document.getElementById('hub-post-link').value;
+       if(!message) return alert('Nhập nội dung!');
+       try {
+          const r = await Admin.req('/admin/facebook/posts/create', { method: 'POST', body: { page_id: pageId, message, link } });
+          if(r.ok) alert('✅ Đã đăng!'); else alert('❌ Lỗi: ' + r.error);
+       } catch(e) { alert('❌ ' + e.message); }
+    },
+    renderAutoReply: async (pageId) => {
+       const c = document.getElementById('hubContent');
+       c.innerHTML = 'Đang tải...';
+       try {
+         const res = await Admin.req(`/admin/fanpages/settings?pageId=${pageId}`, { method: 'GET' });
+         const s = res.data || {};
+         c.innerHTML = `
+           <h3>🤖 Cấu hình Auto Reply</h3>
+           <div style="margin-bottom:12px;"><label>Bật Auto Reply <input type="checkbox" id="hub-ar-enable" ${s.enable_auto_reply?'checked':''} style="transform:scale(1.5);margin-left:10px;"></label></div>
+           <div style="margin-bottom:12px;"><textarea id="hub-ar-tpl" style="width:100%;padding:8px;">${s.reply_template||''}</textarea></div>
+           <button class="btn primary" onclick="FanpageManager.saveAutoReply('${pageId}')">Lưu</button>
+         `;
+       } catch(e) { c.innerHTML = e.message; }
+    },
+    saveAutoReply: async (pageId) => {
+       const enable = document.getElementById('hub-ar-enable').checked;
+       const template = document.getElementById('hub-ar-tpl').value;
+       try {
+          await Admin.req('/admin/fanpages/settings', { method: 'POST', body: { pageId, settings: { enable_auto_reply: enable, reply_template: template } } });
+          alert('✅ Đã lưu!');
+       } catch(e) { alert('❌ ' + e.message); }
+    }
+  };
+
+  // Legacy support for Settings Modal
+  window.openSettings = async function(pageId) {
+    document.getElementById('setting-page-id').value = pageId;
+    document.getElementById('modal-settings').style.display = 'flex';
+    document.getElementById('input-reply-template').value = 'Đang tải...';
+    try {
+      const res = await Admin.req(`/admin/fanpages/settings?pageId=${pageId}`, { method: 'GET' });
+      if (res.ok && res.data) {
+         const s = res.data;
+         document.getElementById('toggle-hide-phone').checked = !!s.enable_hide_phone;
+         document.getElementById('toggle-auto-reply').checked = !!s.enable_auto_reply;
+         document.getElementById('input-reply-template').value = s.reply_template || '';
+         document.getElementById('input-website-link').value = s.website_link || '';
+      }
+    } catch(e) {}
+  };
+  
+  // Global listener for Save Settings button in Modal
+  document.addEventListener('click', async (e) => {
+    if (e.target && e.target.id === 'btn-save-settings') {
+       const pageId = document.getElementById('setting-page-id').value;
+       const settings = {
+          enable_hide_phone: document.getElementById('toggle-hide-phone').checked,
+          enable_auto_reply: document.getElementById('toggle-auto-reply').checked,
+          reply_template: document.getElementById('input-reply-template').value,
+          website_link: document.getElementById('input-website-link').value
+       };
+       try {
+          await Admin.req('/admin/fanpages/settings', { method: 'POST', body: { pageId, settings } });
+          alert('✅ Đã lưu cấu hình!');
+          document.getElementById('modal-settings').style.display = 'none';
+          if(window.FanpageManager) FanpageManager.init();
+       } catch(err) { alert('❌ Lỗi: ' + err.message); }
+    }
+  });
   // ============================================================
   // FANPAGE SYNC (TÍCH HỢP VÀO ADS)
   // ============================================================

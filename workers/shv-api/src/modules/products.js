@@ -1476,7 +1476,7 @@ async function getBestsellers(req, env) {
     const url = new URL(req.url);
     const limit = Number(url.searchParams.get('limit') || '12');
 
-    console.log('[BESTSELLERS] 🚀 Query D1 with sold + stock...');
+    console.log('[BESTSELLERS DEBUG] 🚀 Executing inside modules/products.js');
 
     // ✅ FIX: Query trực tiếp từ D1 với sold + stock check
     const result = await env.DB.prepare(`
@@ -1555,6 +1555,9 @@ async function getBestsellers(req, env) {
     // Dùng chung logic toSummary (giống /public/products) để đồng bộ giá
     const out = limited.map((p) => toSummary(p));
 
+    if (out.length > 0) {
+      console.log('[BESTSELLERS DEBUG] First item variants:', JSON.stringify(out[0].variants || []));
+    }
     console.log('[BESTSELLERS] Returned:', out.length, 'products');
     return json({ ok: true, items: out }, {}, req);
 
