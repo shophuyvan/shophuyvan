@@ -266,81 +266,6 @@ async function loadBestsellers() {
   }
 }
 
-// ==========================================
-// LOAD NEWEST PRODUCTS
-// ==========================================
-async function loadNewest() {
-  const newProductsEl = document.getElementById('new-products');
-
-  if (!newProductsEl) {
-    console.warn('⚠️ #new-products element not found');
-    return;
-  }
-
-  try {
-    // Loading state
-    newProductsEl.innerHTML = `
-      <div class="col-span-full text-center py-8">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600"></div>
-        <div class="text-gray-500 mt-2">Đang tải...</div>
-      </div>
-    `;
-
-    const data = await api('/products/newest?limit=8');
-
-    if (!data || !data.ok || !data.items || data.items.length === 0) {
-      console.log('ℹ️ Không có sản phẩm mới');
-      // Ẩn section
-      const section = newProductsEl.closest('section');
-      if (section) section.style.display = 'none';
-      return;
-    }
-
-    const items = data.items || [];
-
-    // Render sản phẩm
-    const cardPromises = items.map(async (item) => await productCard(item));
-    const cards = await Promise.all(cardPromises);
-    newProductsEl.innerHTML = cards.join('');
-
-    // ✅ Hydrate sold & rating từ API metrics
-    try {
-      const ids = items.map(p => p.id || p.key || '').filter(Boolean);
-      
-      if (ids.length > 0) {
-        const metricsRes = await api('/api/products/metrics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_ids: ids })
-        });
-
-        if (metricsRes?.ok && Array.isArray(metricsRes.metrics)) {
-          metricsRes.metrics.forEach(m => {
-            const soldEls = document.querySelectorAll(`.js-sold[data-id="${m.product_id}"]`);
-            soldEls.forEach(el => {
-              el.textContent = `Đã bán ${m.sold || 0}`;
-            });
-
-            const ratingEls = document.querySelectorAll(`.js-rating[data-id="${m.product_id}"]`);
-            ratingEls.forEach(el => {
-              el.textContent = `★ ${(m.rating || 5.0).toFixed(1)} (${m.rating_count || 0})`;
-            });
-          });
-
-          console.log('✅ Đã cập nhật metrics cho Sản phẩm mới:', metricsRes.metrics.length);
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Không thể load metrics Sản phẩm mới:', e);
-    }
-
-    console.log(`✅ Đã render ${items.length} sản phẩm mới`);
-
-  } catch (error) {
-    console.error('❌ Lỗi load newest products:', error);
-    newProductsEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-4">Không thể tải sản phẩm</div>';
-  }
-}
 
 // ==========================================
 // INTERSECTION OBSERVER - LAZY LOAD HELPER
@@ -467,24 +392,27 @@ async function loadCategorySectionFromCache(section) {
 }
 
 // ==========================================
-// INIT - OPTIMIZED (1 API call cho tất cả categories)
+// INIT - OPTIMIZED (SONG SONG)
 // ==========================================
 (async function initTopProducts() {
   console.log('[Top Products] Starting optimized load...');
 
   try {
-    // BƯỚC 1: Load Bestsellers + Newest (API riêng vì có logic sort khác)
-    await Promise.all([
-      loadBestsellers().catch(e => console.error('[Bestsellers] ❌', e)),
-      loadNewest().catch(e => console.error('[Newest] ❌', e)),
-    ]);
+    // BƯỚC 1: Load Bestsellers (bỏ Newest vì không còn section này)
+    loadBestsellers().catch(e => console.error('[Bestsellers] ❌', e));
 
-    // BƯỚC 2: Preload tất cả products 1 lần
-    await getAllProducts();
-
-    // BƯỚC 3: Render tất cả category sections từ cache
-    for (const section of HOME_CATEGORY_SECTIONS) {
-      await loadCategorySectionFromCache(section);
+    // BƯỚC 2: Load tất cả products + render categories SONG SONG
+    const allProducts = await getAllProducts();
+    
+    if (allProducts.length > 0) {
+      // Render tất cả categories SONG SONG (không chờ nhau)
+      await Promise.all(
+        HOME_CATEGORY_SECTIONS.map(section => 
+          loadCategorySectionFromCache(section).catch(e => 
+            console.error('[Category] ❌', section.category, e)
+          )
+        )
+      );
     }
 
     console.log('[Top Products] ✅ All sections loaded');
