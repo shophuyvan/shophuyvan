@@ -476,6 +476,9 @@ async function getProductById(req, env, productId) {
     return errorResponse(e, 500, req);
   }
 }
+
+// ✅ FIX: Khôi phục hàm bị thiếu
+async function listPublicProducts(req, env) {
   try {
     // Lấy danh sách summary
     const list = await listProducts(env);
