@@ -633,7 +633,7 @@ const product = {
 }
 
 // ===================================================================
-// PUBLIC: Search & List Products (Optimized SQL)
+// PUBLIC: Search & List Products (Optimized SQL v2 - Fix Price & Search)
 // ===================================================================
 async function listPublicProductsFiltered(req, env) {
   try {
@@ -645,23 +645,30 @@ async function listPublicProductsFiltered(req, env) {
                      url.searchParams.get('category_slug') ||
                      url.searchParams.get('c') || '';
     
-    // ✅ Thêm param Search (Frontend thường gửi q hoặc search)
-    const search = (url.searchParams.get('q') || 
-                    url.searchParams.get('search') || 
-                    url.searchParams.get('keyword') || '').trim().toLowerCase();
+    const searchRaw = (url.searchParams.get('q') || 
+                       url.searchParams.get('search') || 
+                       url.searchParams.get('keyword') || '').trim();
+    
+    // Chuyển từ khóa tìm kiếm về dạng slug (không dấu) để tìm chính xác hơn
+    // Ví dụ: "Máy Hút" -> "may-hut"
+    const searchSlug = searchRaw ? slugify(searchRaw) : '';
 
     const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
     const limit = Math.min(50, Number(url.searchParams.get('limit') || '24'));
     const offset = (page - 1) * limit;
 
-    console.log(`[SEARCH] 🚀 Request: Q="${search}" Cat="${category}" Page=${page}`);
+    console.log(`[SEARCH] 🚀 Q="${searchRaw}" (Slug="${searchSlug}") Cat="${category}" Page=${page}`);
 
-    // 1. BUILD SQL QUERY (Gộp Product + Variant Aggregation)
+    // 1. BUILD SQL QUERY
+    // Fix logic giá: Lấy giá nhỏ nhất > 0
     let sql = `
       SELECT 
         p.id, p.title, p.slug, p.images, p.category_slug,
         p.status, p.sold, p.rating, p.rating_count,
-        MIN(COALESCE(NULLIF(v.price_sale, 0), v.price)) as min_price,
+        MIN(CASE 
+          WHEN v.price_sale > 0 AND v.price_sale < v.price THEN v.price_sale 
+          ELSE v.price 
+        END) as real_min_price,
         MAX(v.price) as max_original_price,
         COALESCE(SUM(v.stock), 0) as total_stock
       FROM products p
@@ -671,22 +678,25 @@ async function listPublicProductsFiltered(req, env) {
 
     const params = [];
 
-    // 2. FILTER: SEARCH TEXT (Title or Slug)
-    if (search) {
-      // Tìm tương đối theo Title hoặc Slug
-      sql += ` AND (LOWER(p.title) LIKE ? OR p.slug LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
+    // 2. FILTER: SEARCH (Tìm theo Slug hoặc Title)
+    if (searchSlug) {
+      // Logic: Tìm trong slug (để bắt tiếng Việt không dấu) HOẶC tìm trong title
+      sql += ` AND (p.slug LIKE ? OR p.title LIKE ?)`;
+      params.push(`%${searchSlug}%`, `%${searchRaw}%`);
     }
 
     // 3. FILTER: CATEGORY
     if (category) {
-      // So sánh chính xác slug category
       sql += ` AND p.category_slug = ?`;
       params.push(category);
     }
 
-    // 4. SORT & PAGINATE
-    sql += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+    // 4. GROUP & SORT
+    // Group by ID để gộp variants
+    sql += ` GROUP BY p.id HAVING total_stock > 0 AND real_min_price > 0`;
+    
+    // Sort logic
+    sql += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
     // 5. EXECUTE QUERY
@@ -694,32 +704,34 @@ async function listPublicProductsFiltered(req, env) {
     const results = await env.DB.prepare(sql).bind(...params).all();
     const rows = results.results || [];
     
-    console.log(`[SEARCH] ⏱️ Query time: ${Date.now() - start}ms. Found: ${rows.length} items.`);
+    console.log(`[SEARCH] ⏱️ Found: ${rows.length} items (Time: ${Date.now() - start}ms)`);
 
-    // 6. FORMAT DATA (Chuẩn hóa output cho Frontend)
+    // 6. FORMAT DATA
     const items = rows.map(p => {
       const images = p.images ? JSON.parse(p.images) : [];
+      const price = Number(p.real_min_price || 0);
+      const original = Number(p.max_original_price || 0);
+
       return {
         id: p.id,
         title: p.title,
         name: p.title,
         slug: p.slug,
         images: images,
-        image: images[0] || null, // Ảnh đại diện
+        image: images[0] || null,
         category_slug: p.category_slug,
         sold: Number(p.sold || 0),
         rating: Number(p.rating || 5.0),
         rating_count: Number(p.rating_count || 0),
         stock: Number(p.total_stock || 0),
         
-        // Giá hiển thị (lấy từ min_price đã tính trong SQL)
-        price_display: Number(p.min_price || 0),
-        compare_at_display: Number(p.max_original_price) > Number(p.min_price) ? Number(p.max_original_price) : null,
-        price_tier: 'retail', // Mặc định retail
+        // ✅ FIX HIỂN THỊ GIÁ: Gán vào cả price và price_display
+        price: price, 
+        price_display: price,
+        compare_at_display: original > price ? original : null,
         
-        // Tương thích ngược (nếu frontend cũ còn dùng)
-        price: Number(p.min_price || 0),
-        price_sale: 0
+        price_tier: 'retail',
+        price_sale: 0 // Reset để frontend tự xử lý theo price_display
       };
     });
 
@@ -729,13 +741,13 @@ async function listPublicProductsFiltered(req, env) {
       pagination: {
         page,
         limit,
-        count: items.length
+        count: items.length,
+        search: searchRaw
       }
     }, { 
       headers: { 
-        // Cache kết quả tìm kiếm trong 60 giây để giảm tải DB
-        'cache-control': 'public, max-age=60, s-maxage=60',
-        'cdn-cache-control': 'max-age=60'
+        'cache-control': 'public, max-age=30, s-maxage=30',
+        'cdn-cache-control': 'max-age=30'
       } 
     }, req);
 
