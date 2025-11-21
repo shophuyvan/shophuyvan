@@ -695,7 +695,7 @@ async function listPublicProductsFiltered(req, env) {
     const placeholders = productIds.map(() => '?').join(',');
     
     const variantRes = await env.DB.prepare(`
-      SELECT product_id, price, price_sale, stock 
+      SELECT id, product_id, sku, name, price, price_sale, stock 
       FROM variants 
       WHERE product_id IN (${placeholders})
     `).bind(...productIds).all();
@@ -706,8 +706,8 @@ async function listPublicProductsFiltered(req, env) {
     const parseNum = (val) => {
       if (!val) return 0;
       if (typeof val === 'number') return val;
-      // Xử lý trường hợp giá lưu dạng "15,000" trong DB
-      return Number(String(val).replace(/[^0-9.]/g, '')) || 0;
+      // Xử lý trường hợp giá lưu dạng "15.000" hoặc "15,000"
+return Number(String(val).replace(/[^0-9]/g, '')) || 0;
     };
 
     // 5. GHÉP GIÁ VÀO SẢN PHẨM
@@ -758,7 +758,8 @@ async function listPublicProductsFiltered(req, env) {
         sold: Number(p.sold || 0),
         rating: Number(p.rating || 5.0),
         rating_count: Number(p.rating_count || 0),
-        stock: totalStock > 0 ? totalStock : Number(p.stock || 0), // Fallback cột stock ở products
+        stock: totalStock > 0 ? totalStock : Number(p.stock || 0),
+        variants: pVariants, // ✅ Trả về variants để Frontend tính giá
         
         // ✅ GIÁ CUỐI CÙNG
         price: minPrice,
