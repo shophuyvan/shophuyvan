@@ -9,6 +9,39 @@ import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
 import { json, errorResponse } from '../lib/response.js';
 
+// ✅ HELPER: Safe parse images (fix JSON.parse crash với URL string)
+function safeParseImages(imagesField) {
+  if (!imagesField) return [];
+  try {
+    const str = String(imagesField).trim();
+    // Check if it's JSON (starts with [ or {)
+    if (str.startsWith('[') || str.startsWith('{')) {
+      const parsed = JSON.parse(str);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    }
+    // If it's a URL string, wrap in array
+    return [str];
+  } catch (e) {
+    console.warn('[safeParseImages] Parse error:', e.message);
+    return [];
+  }
+}
+
+// ✅ HELPER: Safe parse JSON field (generic)
+function safeParseJSON(field, defaultValue = []) {
+  if (!field) return defaultValue;
+  try {
+    const str = String(field).trim();
+    if (str.startsWith('[') || str.startsWith('{')) {
+      return JSON.parse(str);
+    }
+    return defaultValue;
+  } catch (e) {
+    console.warn('[safeParseJSON] Parse error:', e.message);
+    return defaultValue;
+  }
+}
+
 /**
  * Main handler for all product routes
  */
@@ -207,7 +240,7 @@ async function listProducts(env) {
     // Convert sang format summary (tương thích với code cũ)
     const items = await Promise.all(products.results.map(async (p) => {
       // Parse JSON fields
-      const images = p.images ? JSON.parse(p.images) : [];
+      const images = safeParseImages(p.images);
       
       // 🔍 DEBUG: Query variants stock của product này
       const variantsResult = await env.DB.prepare(`
@@ -656,7 +689,7 @@ return Number(String(val).replace(/[^0-9]/g, '')) || 0;
       // ✅ LỌC HIỂN THỊ: Nếu giá = 0 HOẶC tồn kho = 0 -> Bỏ qua, không hiển thị
       if (minPrice <= 0 || totalStock <= 0) continue;
 
-      const images = p.images ? JSON.parse(p.images) : [];
+      const images = safeParseImages(p.images);
         
       items.push({
         id: p.id,
@@ -1399,13 +1432,7 @@ async function getBestsellers(req, env) {
     `).bind(limit).all();
 
     const items = (result.results || []).map(p => {
-      let images = [];
-      try {
-        images = p.images ? JSON.parse(p.images) : [];
-      } catch (e) {
-        // Nếu images là URL string thô, chuyển thành array
-        images = p.images ? [p.images] : [];
-      }
+      const images = safeParseImages(p.images);
       
       return {
         id: p.id,
@@ -1510,7 +1537,7 @@ async function getNewest(req, env) {
     `).bind(cutoffTime, limit).all();
 
     const items = (result.results || []).map(p => {
-      const images = p.images ? JSON.parse(p.images) : [];
+      const images = safeParseImages(p.images);
       
       return {
         id: p.id,
@@ -2044,7 +2071,7 @@ async function getHomeSections(req, env) {
         // 🔥 ĐIỀU KIỆN LỌC: Ẩn nếu giá = 0 HOẶC hết hàng (theo yêu cầu)
         if (minPrice <= 0 || totalStock <= 0) continue;
 
-        const images = p.images ? JSON.parse(p.images) : [];
+        const images = safeParseImages(p.images);
         
         // Map lại variants với giá đã parse số (để frontend dùng)
         const variantsParsed = pVars.map(v => ({
