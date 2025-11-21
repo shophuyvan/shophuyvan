@@ -2130,14 +2130,29 @@ async function getCheapProducts(req, env) {
     `).bind(maxPrice, maxPrice, maxPrice, maxPrice, limit).all();
 
     const items = (result.results || []).map(p => {
-      const images = p.images ? JSON.parse(p.images) : [];
+      // ✅ FIX: Safe parse - check if string starts with '[' or '{' before parsing
+      let images = [];
+      try {
+        if (p.images) {
+          const str = String(p.images).trim();
+          if (str.startsWith('[') || str.startsWith('{')) {
+            images = JSON.parse(str);
+          } else {
+            // If it's a URL string, wrap in array
+            images = [str];
+          }
+        }
+      } catch (e) {
+        console.warn('[CHEAP] Image parse error for product', p.id, ':', e.message);
+        images = [];
+      }
       
       return {
         id: p.id,
         title: p.title,
         name: p.title,
         slug: p.slug,
-        images: images,
+        images: Array.isArray(images) ? images : [images],
         category_slug: p.category_slug,
         status: 1,
         sold: Number(p.sold || 0),
