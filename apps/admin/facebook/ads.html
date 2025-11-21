@@ -525,95 +525,74 @@
   </div>
 
   <div id="tab-settings" class="tab-content">
-    <div class="card" style="background: #eff6ff; border-left: 4px solid #3b82f6; margin-bottom: 20px;">
-      <h3 style="color: #1e40af; margin-top: 0;">🔐 OAuth Authentication (Khuyên dùng)</h3>
-      <p style="margin-bottom: 15px; color: #1e40af;">
-        <strong>Bước 1:</strong> Nhập App ID + Secret bên dưới và lưu → <strong>Bước 2:</strong> Click "Login with Facebook"
-      </p>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button id="btnLoginFacebook" class="btn primary" style="background: #1877f2;">
-          🔐 Login with Facebook
-        </button>
-        <button id="btnCheckToken" class="btn">
-          🔑 Check Token Status
-        </button>
-        <button id="btnRevokeToken" class="btn" style="background: #dc2626; color: white;">
-          🗑️ Revoke Token
-        </button>
-      </div>
-      <p style="margin-top: 15px; font-size: 13px; color: #1e3a8a;">
-        ℹ️ <strong>Lợi ích OAuth:</strong> Token tự động với đầy đủ permissions (ads_management, ads_read, business_management). Token hợp lệ 60 ngày.
-      </p>
-    </div>
     
+    <div class="card" style="margin-bottom: 20px; border-left: 4px solid #10b981;">
+      <h3>🤖 Cấu hình Tự động (Áp dụng cho tất cả Fanpage)</h3>
+      <p class="hint">Cài đặt 1 lần - Áp dụng ngay cho toàn bộ Fanpage bên dưới.</p>
+      
+      <div class="row">
+        <div class="col">
+           <label style="font-weight: 600; display: flex; align-items: center;">
+             <input type="checkbox" id="global-hide-phone" style="width: 18px; height: 18px; margin-right: 8px;"> 
+             Tự động ẩn bình luận chứa SĐT
+           </label>
+        </div>
+        <div class="col">
+           <label style="font-weight: 600; display: flex; align-items: center;">
+             <input type="checkbox" id="global-auto-reply" style="width: 18px; height: 18px; margin-right: 8px;">
+             Tự động Reply Comment & Inbox
+           </label>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <label>Mẫu câu trả lời bình luận (Công khai)</label>
+        <input id="global-reply-template" class="input" placeholder="VD: Shop đã inbox bạn rồi ạ, bạn check tin nhắn chờ nhé! ❤️" />
+      </div>
+
+      <div style="margin-top: 12px;">
+        <label>Link Website (Gửi kèm trong Inbox)</label>
+        <input id="global-website-link" class="input" placeholder="https://shophuyvan.vn" value="https://shophuyvan.vn" />
+      </div>
+      
+      <button id="btnSaveSettings" class="btn green" style="margin-top: 15px; width: 100%;">💾 LƯU CẤU HÌNH CHUNG</button>
+    </div>
+
     <div class="card">
-      <h3>Cấu hình Facebook Pixel & Credentials</h3>
-      <p class="hint">Nhập thông tin từ Facebook Business Manager</p>
+      <h3>🔗 Kết nối Facebook & Danh sách Page</h3>
       
-      <label>Facebook App ID</label>
-      <div class="input-with-helper">
-        <input id="fbAppId" class="input" placeholder="123456789012345"/>
-        <a href="https://developers.facebook.com/apps" target="_blank" class="btn-helper">🔗 Lấy App ID</a>
+      <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border: 1px solid #bae6fd; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h4 style="margin: 0 0 5px 0; color: #0369a1;">Trạng thái kết nối</h4>
+            <div style="font-size: 13px; color: #0c4a6e;" id="connectionStatusText">Chưa kết nối</div>
+          </div>
+          <button id="btnLoginFacebook" class="btn primary" style="background: #1877f2;">🔐 Đăng nhập Facebook</button>
+        </div>
+        <input type="hidden" id="fbAccessToken">
+        <input type="hidden" id="fbAppId">
+        <input type="hidden" id="fbAppSecret">
+        <input type="hidden" id="fbAdAccountId">
       </div>
-      
-      <label>Facebook App Secret</label>
-      <div class="input-with-helper">
-        <input id="fbAppSecret" class="input" type="password" placeholder="abcdef..."/>
-        <a href="https://developers.facebook.com/apps" target="_blank" class="btn-helper">🔗 Lấy Secret</a>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h4 style="margin:0;">📄 Fanpage đã đồng bộ</h4>
+        <button id="btnSyncFanpages" class="btn primary" onclick="FacebookAds.syncFanpages()">🔄 Đồng bộ từ Facebook</button>
       </div>
-      
-      <label>Access Token (Long-lived) <span style="color: #10b981; font-size: 11px;">[Tự động từ OAuth]</span></label>
-      <div class="input-with-helper">
-        <input id="fbAccessToken" class="input" type="password" placeholder="Sẽ tự động lấy sau khi Login Facebook" readonly style="background: #f9faf
-		b;"/>
-        <a href="https://developers.facebook.com/tools/accesstoken" target="_blank" class="btn-helper">🔗 Hoặc nhập Manual</a>
-      </div>
-      <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-        💡 <strong>Khuyến nghị:</strong> Dùng OAuth ở trên thay vì nhập token manual. Token manual dễ thiếu permissions.
-      </p>
-      
-      <label>Ad Account ID</label>
-      <div class="input-with-helper">
-        <input id="fbAdAccountId" class="input" placeholder="act_123456789"/>
-        <a href="https://business.facebook.com/settings/ad-accounts" target="_blank" class="btn-helper">🔗 Business Manager</a>
-      </div>
-      
-      <hr/>
-      
-      <label>Facebook Pixel ID</label>
-      <div class="input-with-helper">
-        <input id="fbPixel" class="input" placeholder="123456789012345"/>
-        <a href="https://business.facebook.com/events-manager" target="_blank" class="btn-helper">🔗 Tạo Pixel</a>
-      </div>
-      
-      <hr/>
-      
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
-        <h4 style="margin:0;">📄 Danh sách Fanpage đã kết nối</h4>
-        <button id="btnSyncFanpages" class="btn primary" onclick="FacebookAds.syncFanpages()">
-          🔄 Đồng bộ từ Facebook
-        </button>
-      </div>
-      <p class="hint">Hệ thống sẽ tự động lấy danh sách Fanpage từ tài khoản Facebook bạn đã đăng nhập ở trên.</p>
-      
-      <table class="fanpage-table">
+
+      <table class="fanpage-table" style="width:100%; border-collapse:collapse; font-size:13px;">
         <thead>
-          <tr>
-            <th style="width:30px;">✔</th>
-            <th>Tên Fanpage</th>
-            <th>Page ID</th>
-            <th>Trạng thái</th>
-            <th style="width:120px;">Thao tác</th>
+          <tr style="background:#f9fafb; text-align:left;">
+            <th style="padding:10px; border:1px solid #e5e7eb;">Tên Fanpage</th>
+            <th style="padding:10px; border:1px solid #e5e7eb;">Page ID</th>
+            <th style="padding:10px; border:1px solid #e5e7eb; text-align:center;">Auto Reply</th>
+            <th style="padding:10px; border:1px solid #e5e7eb; text-align:center;">Thao tác</th>
           </tr>
         </thead>
         <tbody id="fanpageTableBody">
-          <tr>
-            <td colspan="5" style="text-align:center; color:#6b7280;">Chưa có fanpage nào. Thêm fanpage bên trên.</td>
-          </tr>
+          <tr><td colspan="4" style="text-align:center; padding:20px; color:#6b7280;">Vui lòng bấm "Đồng bộ" để tải danh sách...</td></tr>
         </tbody>
       </table>
-      
-      <button id="btnSaveSettings" class="btn primary" style="margin-top:16px; width:100%;">💾 Lưu cấu hình</button>
     </div>
   </div>
 

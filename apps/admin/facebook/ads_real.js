@@ -225,17 +225,38 @@ async function deleteCampaign(campaignId) {
   // ============================================================
 
   async function loadFanpages() {
-    showLoading('fanpageTableBody', 'Đang tải danh sách fanpage...');
+    const container = document.getElementById('fanpageTableBody');
+    if (!container) return;
+    
+    container.innerHTML = '<tr><td colspan="4" style="text-align:center;">⏳ Đang tải dữ liệu...</td></tr>';
+
     try {
-      const r = await Admin.req('/admin/facebook/fanpages', { method: 'GET' });
-      if (r && r.ok) {
-        fanpagesCache = r.fanpages || [];
-        renderFanpages(fanpagesCache);
+      // Lấy danh sách từ DB
+      const r = await Admin.req('/admin/fanpages', { method: 'GET' });
+      if (r && r.ok && r.items && r.items.length > 0) {
+        fanpagesCache = r.items;
+        
+        container.innerHTML = r.items.map(fp => `
+          <tr>
+            <td style="padding:10px; border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#111827;">${fp.name || 'Unnamed'}</div>
+            </td>
+            <td style="padding:10px; border:1px solid #e5e7eb; font-family:monospace;">${fp.page_id}</td>
+            <td style="padding:10px; border:1px solid #e5e7eb; text-align:center;">
+                <span style="background:${fp.auto_reply_enabled ? '#d1fae5' : '#f3f4f6'}; color:${fp.auto_reply_enabled ? '#065f46' : '#6b7280'}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">
+                    ${fp.auto_reply_enabled ? 'BẬT' : 'TẮT'}
+                </span>
+            </td>
+            <td style="padding:10px; border:1px solid #e5e7eb; text-align:center;">
+               <button class="btn-sm danger" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; cursor:pointer; padding:4px 8px; border-radius:4px;" onclick="FacebookAds.deleteFanpage('${fp.page_id}')">Xóa</button>
+            </td>
+          </tr>
+        `).join('');
       } else {
-        showError('fanpageTableBody', r.error || 'Không thể tải danh sách fanpage');
+        container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có Fanpage nào. Hãy bấm nút <b>"Đồng bộ từ Facebook"</b>.</td></tr>';
       }
     } catch (e) {
-      showError('fanpageTableBody', 'Lỗi: ' + e.message);
+      container.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi: ${e.message}</td></tr>`;
     }
   }
 
@@ -498,6 +519,18 @@ async function deleteCampaign(campaignId) {
         console.warn('[FB Ads] No settings found or invalid response');
       }
       
+      // Load Global Automation Settings
+      try {
+          const autoConfig = await Admin.req('/admin/settings/facebook_automation_global', { method: 'GET' });
+          if(autoConfig && autoConfig.value) {
+             const val = autoConfig.value;
+             if(document.getElementById('global-hide-phone')) document.getElementById('global-hide-phone').checked = val.enable_hide_phone;
+             if(document.getElementById('global-auto-reply')) document.getElementById('global-auto-reply').checked = val.enable_auto_reply;
+             if(document.getElementById('global-reply-template')) document.getElementById('global-reply-template').value = val.reply_template || '';
+             if(document.getElementById('global-website-link')) document.getElementById('global-website-link').value = val.website_link || 'https://shophuyvan.vn';
+          }
+      } catch(e) { console.log('No global settings yet'); }
+
       // Load danh sách fanpages
       loadFanpages();
       
@@ -509,41 +542,57 @@ async function deleteCampaign(campaignId) {
   }
 
   async function saveSettings() {
-    const settings = {
-      app_id: document.getElementById('fbAppId')?.value?.trim(),
-      app_secret: document.getElementById('fbAppSecret')?.value?.trim(),
-      access_token: document.getElementById('fbAccessToken')?.value?.trim(),
-      ad_account_id: document.getElementById('fbAdAccountId')?.value?.trim(),
-      page_id: document.getElementById('fbPageId')?.value?.trim(),
-      pixel_id: document.getElementById('fbPixel')?.value?.trim()
+    // 1. Lấy Cấu hình chung (Global)
+    const globalConfig = {
+      enable_hide_phone: document.getElementById('global-hide-phone')?.checked || false,
+      enable_auto_reply: document.getElementById('global-auto-reply')?.checked || false,
+      reply_template: document.getElementById('global-reply-template')?.value || '',
+      website_link: document.getElementById('global-website-link')?.value || ''
     };
-	
 
-    if (!settings.app_id || !settings.app_secret || !settings.access_token || !settings.ad_account_id) {
-      toast('❌ Vui lòng điền đầy đủ thông tin bắt buộc');
-      return;
-    }
+    // 2. Lấy Token Login (nếu có) để giữ session
+    const accessToken = document.getElementById('fbAccessToken')?.value?.trim();
 
     const btn = document.getElementById('btnSaveSettings');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Đang lưu...';
-    }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
 
     try {
-      const r = await Admin.req('/admin/settings/upsert', {
+      // A. Lưu vào Global Settings KV
+      await Admin.req('/admin/settings/upsert', {
         method: 'POST',
-        body: {
-          path: 'facebook_ads',
-          value: settings
-        }
+        body: { path: 'facebook_automation_global', value: globalConfig }
       });
 
-      if (r && r.ok) {
-        toast('✅ Đã lưu cấu hình');
-      } else {
-        toast('❌ ' + (r.error || 'Lưu thất bại'));
+      // B. Nếu có token thì lưu token (Optional)
+      if(accessToken) {
+         await Admin.req('/admin/settings/upsert', {
+            method: 'POST', 
+            body: { path: 'facebook_ads_token', value: { access_token: accessToken } }
+         });
       }
+
+      // C. Cập nhật hàng loạt cho các Fanpage đã có trong DB (để đồng bộ trạng thái)
+      const allPages = fanpagesCache || [];
+      for (const page of allPages) {
+         await Admin.req('/admin/fanpages', {
+            method: 'POST',
+            body: {
+               page_id: page.page_id,
+               name: page.name,
+               access_token: page.access_token, // Giữ nguyên token
+               auto_reply_enabled: globalConfig.enable_auto_reply,
+               reply_template: globalConfig.reply_template
+            }
+         });
+      }
+
+      toast('✅ Đã lưu cấu hình & Áp dụng cho toàn bộ Fanpage!');
+      
+      // Reload lại bảng để thấy trạng thái Auto Reply thay đổi
+      await loadFanpages();
+      
+      // Fake response object for compatibility
+      var r = { ok: true };
     } catch (e) {
       toast('❌ Lỗi: ' + e.message);
     } finally {
@@ -1637,24 +1686,27 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
       const r = await Admin.req('/admin/fanpages/fetch-facebook', { method: 'GET' });
 
       if (r && r.ok && r.data) {
-        // 2. Tự động lưu tất cả Fanpage tìm thấy vào DB
         let savedCount = 0;
+        // Lấy cấu hình chung hiện tại để áp dụng luôn cho page mới
+        const globalAuto = document.getElementById('global-auto-reply')?.checked || false;
+        
         for (const p of r.data) {
             await Admin.req('/admin/fanpages', {
                 method: 'POST',
                 body: {
                     page_id: p.id,
                     name: p.name,
-                    access_token: p.access_token, // Token riêng của từng Page
-                    auto_reply_enabled: true,
-                    welcome_message: 'Xin chào! Shop Huy Vân có thể giúp gì cho bạn?'
+                    access_token: p.access_token,
+                    auto_reply_enabled: globalAuto, // Áp dụng setting chung
+                    welcome_message: 'Xin chào!' 
                 }
             });
             savedCount++;
         }
+        toast(`✅ Đã đồng bộ ${savedCount} Fanpage!`);
         
-        toast(`✅ Đã đồng bộ thành công ${savedCount} Fanpage!`);
-        loadFanpages(); // Load lại bảng hiển thị
+        // QUAN TRỌNG: Tải lại bảng ngay lập tức
+        await loadFanpages(); 
       } else {
         toast('⚠️ Không tìm thấy Fanpage nào. Hãy kiểm tra lại quyền đăng nhập.');
       }

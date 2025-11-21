@@ -7,6 +7,7 @@ import { loadProductNormalized, normalizeProduct } from '../core/product-core.js
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
+import { json, errorResponse } from '../lib/response.js';
 
 /**
  * Main handler for all product routes
