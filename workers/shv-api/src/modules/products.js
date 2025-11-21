@@ -661,10 +661,11 @@ async function listPublicProductsFiltered(req, env) {
     console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}"`);
 
     // 2. QUERY PRODUCTS (Chuẩn theo file database.sql: KHÔNG SELECT PRICE)
+    // ✅ FIX: Lọc stock > 0 ngay trong SQL để tránh lỗi phân trang (pagination gap)
     let sql = `
       SELECT id, title, slug, images, category_slug, status, sold, rating, rating_count, created_at, stock
       FROM products
-      WHERE status = 'active'
+      WHERE status = 'active' AND stock > 0
     `;
     const params = [];
 
