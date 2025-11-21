@@ -194,6 +194,13 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_fee REAL DEFAULT 0,
   discount REAL DEFAULT 0,
   total REAL NOT NULL DEFAULT 0,
+    -- Phí giao dịch sàn (Shopee)
+  seller_transaction_fee REAL DEFAULT 0,
+
+  -- Thông tin shop trên sàn
+  shop_id TEXT,
+  shop_name TEXT,
+
   
   -- Status
   status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'shipped', 'completed', 'cancelled', 'returned')),
@@ -253,6 +260,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   price REAL NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
   subtotal REAL NOT NULL,
+  image TEXT,
   
   channel_item_id TEXT,
   channel_model_id TEXT,

@@ -53,13 +53,21 @@ async function pricePair(o, customerType = null) {
     customerType = customer?.customer_type || 'retail';
   }
   
-  // ✅ HÀM PHỤ: Lấy giá base từ object
+  // ✅ HÀM PHỤ: Lấy giá base từ object (Cập nhật mapping trường từ Core)
   function getBasePrice(obj) {
+    // 1. Thử lấy từ Core fields trước (price_final & price_original)
+    if (obj?.price_final > 0) {
+       const final = num(obj.price_final);
+       const original = num(obj.price_original);
+       return { base: final, original: original > final ? original : null };
+    }
+
+    // 2. Fallback Legacy fields (giữ logic cũ)
     const sale = num(obj?.sale_price ?? obj?.price_sale ?? obj?.sale ?? 0);
     const price = num(obj?.price ?? obj?.regular_price ?? obj?.base_price ?? 0);
     
-    if (sale > 0) {
-      return { base: sale, original: price > sale ? price : null };
+    if (sale > 0 && sale < price) {
+      return { base: sale, original: price };
     }
     if (price > 0) {
       return { base: price, original: null };
@@ -272,8 +280,15 @@ function imagesOf(p) {
 
 function videosOf(p) {
   const arr = [];
+  
+  // ✅ Ưu tiên trường 'video' chuẩn từ API Core (dạng chuỗi)
+  if (p?.video && typeof p.video === 'string') {
+    arr.push(p.video);
+  }
+
+  // Fallback các trường cũ
   if (Array.isArray(p?.videos)) arr.push(...p.videos);
-  if (p?.video) arr.unshift(p.video);
+  
   if (Array.isArray(p?.media)) {
     for (const m of p.media) {
       if (m && (m.type === 'video' || /\.mp4|\.webm|\.m3u8/i.test(String(m.src || m.url || '')))) {

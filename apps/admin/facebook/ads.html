@@ -445,42 +445,102 @@
 
   <!-- Tab: Settings -->
   <div id="tab-fanpage-hub" class="tab-content">
-    <style>
-      /* Fanpage Hub CSS */
-      .page-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 16px; }
-      .page-avatar { width: 64px; height: 64px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
-      .page-info { flex: 1; }
-      .page-name { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 4px; }
-      .page-meta { font-size: 13px; color: #6b7280; display: flex; gap: 12px; margin-bottom: 8px; }
-      .hub-tab { padding: 10px 16px; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 500; }
-      .hub-tab.active { border-bottom-color: #3b82f6; color: #3b82f6; }
-    </style>
+    <div class="row">
+      <div class="col" style="flex: 2;">
+        
+        <div class="card" style="margin-bottom: 20px;">
+          <div style="background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); padding: 15px; border-radius: 8px; color: white; margin-bottom: 15px;">
+             <h3 style="margin:0; color:white;">🔥 Viral Content Finder</h3>
+             <p style="margin:5px 0 0 0; opacity:0.9; font-size:13px;">Tìm kiếm nội dung hot trend để reup hoặc lấy ý tưởng.</p>
+          </div>
+          
+          <div style="display:flex; gap:10px;">
+             <input id="viralKeyword" class="input" placeholder="Nhập từ khóa (VD: Gia dụng thông minh, Thời trang...)" style="flex:1;">
+             <button class="btn primary" onclick="FanpageManager.searchViral()">🔍 Quét Big Data</button>
+          </div>
+          
+          <div style="margin-top:15px; display:flex; gap:10px;">
+             <label><input type="checkbox"> Lọc Video > 1M Views</label>
+             <label><input type="checkbox"> Lọc bài viết nhiều Share</label>
+          </div>
 
-    <div class="card">
-      <div class="toolbar">
-        <h2>Danh sách Fanpage đã kết nối</h2>
-        <button class="btn primary" onclick="FanpageManager.connectNewPage()">➕ Kết nối Fanpage Mới</button>
-      </div>
-      <div id="fanpageList" class="loading">Đang tải...</div>
-    </div>
+          <hr>
+          <div id="viralResults" style="min-height: 200px;">
+             <div style="text-align:center; color:#999; padding-top:40px;">
+                Kết quả tìm kiếm sẽ hiện ở đây...
+             </div>
+          </div>
+        </div>
 
-    <div id="connectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
-      <div style="background:white; padding:24px; border-radius:12px; width:500px; max-width:95%; max-height: 80vh; display: flex; flex-direction: column;">
-        <div style="margin-bottom: 16px;">
-          <h3 style="margin:0;">Chọn Fanpage để kết nối</h3>
-          <p style="font-size:13px; color:#666; margin-top:4px;">Hệ thống sẽ lấy danh sách từ Facebook của bạn.</p>
-        </div>
-        <div style="margin-bottom: 12px;">
-          <button onclick="FanpageManager.loginFacebook()" class="btn primary" style="width: 100%; background: #1877f2;">🔐 Đăng nhập / Cập nhật quyền Facebook</button>
-        </div>
-        <div id="fbPageList" style="flex: 1; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; min-height: 200px;">
-          <div class="loading" style="text-align:center; padding:20px; color:#666;">Vui lòng bấm nút Đăng nhập ở trên...</div>
-        </div>
-        <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
-          <button class="btn" onclick="document.getElementById('connectModal').style.display='none'">Đóng</button>
+        <div class="card">
+           <h3>📂 Kho Nội dung & Lên lịch</h3>
+           <div style="display:flex; gap:10px; margin-bottom:15px;">
+              <button class="btn primary" onclick="FanpageManager.openScheduler()">📅 Lập lịch đăng bài Đa kênh</button>
+              <button class="btn">✍️ Quản lý bài nháp</button>
+              <button class="btn">🤖 Auto-Spin Content (Tránh trùng lặp)</button>
+           </div>
+           
+           <table class="fanpage-table">
+              <thead>
+                 <tr>
+                    <th>Tiêu đề / Nội dung</th>
+                    <th>Trạng thái</th>
+                    <th>Nền tảng</th>
+                    <th>Lịch đăng</th>
+                 </tr>
+              </thead>
+              <tbody>
+                 <tr>
+                    <td>Review Nồi chiên không dầu...</td>
+                    <td><span style="color:orange">Chờ đăng</span></td>
+                    <td>Fanpage A, Group B</td>
+                    <td>20:00 Hôm nay</td>
+                 </tr>
+                 <tr>
+                    <td>Set đồ đi biển 2025...</td>
+                    <td><span style="color:green">Đã đăng</span></td>
+                    <td>All Pages</td>
+                    <td>09:00 Hôm qua</td>
+                 </tr>
+              </tbody>
+           </table>
         </div>
       </div>
+
+      <div class="col" style="flex: 1;">
+         <div class="card" style="margin-bottom: 20px;">
+            <h3>🚀 Seeding & Traffic</h3>
+            <p class="hint">Tăng tương tác ảo để mồi khách thật.</p>
+            
+            <label>Link bài viết cần Seeding</label>
+            <input id="seedingUrl" class="input" placeholder="https://facebook.com/posts/...">
+            
+            <label>Kịch bản Seeding</label>
+            <select class="input">
+               <option>Khen sản phẩm (Mồi chốt đơn)</option>
+               <option>Hỏi giá/Tư vấn (Tạo hiệu ứng đám đông)</option>
+               <option>Feedback có ảnh (Tăng uy tín)</option>
+            </select>
+            
+            <label>Số lượng comment</label>
+            <input type="range" min="10" max="100" value="20" oninput="this.nextElementSibling.value = this.value">
+            <output>20</output>
+            
+            <button id="btnStartSeeding" class="btn primary" style="width:100%; margin-top:15px;" onclick="FanpageManager.startSeeding()">🚀 Bắt đầu Seeding</button>
+            
+            <div id="seedingLog" style="background:#111; color:#0f0; padding:10px; border-radius:6px; margin-top:15px; height:150px; overflow-y:auto; font-family:monospace; font-size:11px;">
+               > Ready to seed...
+            </div>
+         </div>
+
+         <div class="card">
+            <h3>📢 Chia sẻ vào Group</h3>
+            <p class="hint">Auto share bài viết vào các nhóm chợ/rao vặt.</p>
+            <button class="btn" style="width:100%;">Cấu hình danh sách Nhóm</button>
+         </div>
+      </div>
     </div>
+  </div>
 
     <div id="pageHubModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; justify-content:center; align-items:center;">
       <div style="background:white; width:1000px; max-width:95%; max-height:90vh; display:flex; flex-direction:column; border-radius:12px; overflow:hidden;">
