@@ -1399,7 +1399,13 @@ async function getBestsellers(req, env) {
     `).bind(limit).all();
 
     const items = (result.results || []).map(p => {
-      const images = p.images ? JSON.parse(p.images) : [];
+      let images = [];
+      try {
+        images = p.images ? JSON.parse(p.images) : [];
+      } catch (e) {
+        // Nếu images là URL string thô, chuyển thành array
+        images = p.images ? [p.images] : [];
+      }
       
       return {
         id: p.id,
