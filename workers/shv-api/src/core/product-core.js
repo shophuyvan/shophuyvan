@@ -17,6 +17,8 @@ export async function getBaseProduct(env, productId) {
         'name', v.name,
         'sku', v.sku,
         'price', v.price,
+        'price_sale', v.price_sale,
+        'price_wholesale', v.price_wholesale,
         'stock', v.stock
       ))
       FROM variants v
@@ -55,16 +57,25 @@ export function computePrice(product) {
     };
   }
 
-  const prices = product.variants.map(v => Number(v.price || 0));
+  // Lấy giá từ variants (ưu tiên giá sale nếu có)
+  const prices = product.variants.map(v => {
+    const p = Number(v.price || 0);
+    const s = Number(v.price_sale || 0);
+    return (s > 0 && s < p) ? s : p;
+  });
+  
+  const originals = product.variants.map(v => Number(v.price || 0));
+
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
+  const maxOriginal = Math.max(...originals);
 
   return {
     minPrice,
     maxPrice,
-    priceOriginal: minPrice,
+    priceOriginal: maxOriginal > 0 ? maxOriginal : minPrice,
     priceFinal: minPrice,
-    discountPercent: 0
+    discountPercent: maxOriginal > minPrice ? Math.round((maxOriginal - minPrice) / maxOriginal * 100) : 0
   };
 }
 
@@ -99,15 +110,34 @@ export function normalizeProduct(product) {
   const stockTotal = computeStock(product);
   const priceInfo = computePrice(product);
 
+  // Parse images an toàn
+  let images = [];
+  try {
+    images = typeof product.images === 'string' ? JSON.parse(product.images) : (product.images || []);
+  } catch (e) {
+    images = [];
+  }
+
   let final = {
     id: product.id,
-    name: product.name,
+    // ✅ FIX: Lấy title từ DB (nếu thiếu thì lấy name)
+    name: product.title || product.name || 'No Name',
     slug: product.slug,
-    images: product.images ? JSON.parse(product.images) : [],
-    categories: product.categories ? JSON.parse(product.categories) : [],
+    
+    // ✅ FIX: Thêm mô tả cho Frontend hiển thị
+    description: product.desc || product.description || '',
+    short_description: product.shortDesc || product.short_description || '',
+    
+    images: images,
+    categories: product.categories && typeof product.categories === 'string' ? JSON.parse(product.categories) : (product.categories || []),
+    category_slug: product.category_slug || '',
+    
     variants: product.variants || [],
 
     stock_total: stockTotal,
+    sold: Number(product.sold || 0),
+    rating: Number(product.rating || 5.0),
+    rating_count: Number(product.rating_count || 0),
 
     price_original: priceInfo.priceOriginal,
     price_final: priceInfo.priceFinal,
@@ -128,7 +158,8 @@ export function normalizeProduct(product) {
 // 6. Lưu cache sản phẩm vào KV (siêu nhanh 1–2ms)
 // ------------------------------------------------
 export async function cacheProduct(env, productId, normalized) {
-  await putJSON(env, `product:${productId}`, normalized);
+  // Cache trong 10 phút (600s)
+  await putJSON(env, `product:${productId}`, normalized, 600);
   return true;
 }
 
