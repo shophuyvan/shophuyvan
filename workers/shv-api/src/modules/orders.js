@@ -906,6 +906,10 @@ async function listOrdersFromD1(req, env) {
         o.shipping_name, o.shipping_phone, o.shipping_address,
         o.shipping_district, o.shipping_city, o.shipping_province, o.shipping_zipcode,
         o.subtotal, o.shipping_fee, o.discount, o.total,
+        o.commission_fee, o.service_fee, o.seller_transaction_fee,
+        o.escrow_amount, o.buyer_paid_amount,
+        o.coin_used, o.voucher_seller, o.voucher_shopee,
+        o.shop_id, o.shop_name,
         o.payment_method, o.customer_note, o.admin_note,
         o.created_at, o.updated_at,
         oi.product_id, oi.variant_id, oi.sku, 
@@ -972,6 +976,20 @@ async function listOrdersFromD1(req, env) {
           discount: row.discount,
           revenue: row.total,
           
+          // ✅ Shopee financial details
+          commission_fee: row.commission_fee || 0,
+          service_fee: row.service_fee || 0,
+          seller_transaction_fee: row.seller_transaction_fee || 0,
+          escrow_amount: row.escrow_amount || 0,
+          buyer_paid_amount: row.buyer_paid_amount || 0,
+          coin_used: row.coin_used || 0,
+          voucher_seller: row.voucher_seller || 0,
+          voucher_shopee: row.voucher_shopee || 0,
+          
+          // ✅ Shop info
+          shop_id: row.shop_id,
+          shop_name: row.shop_name,
+          
           // Metadata
           source: row.channel,
           channel: row.channel,
@@ -997,7 +1015,7 @@ async function listOrdersFromD1(req, env) {
           price: row.price,
           qty: row.quantity,
           subtotal: row.item_subtotal,
-          image: row.image, // ✅ Image từ DB
+          image: row.image || null, // ✅ Image từ DB (đã có sau migration)
           // Shopee mapping
           shopee_item_id: row.channel_item_id,
           shopee_model_id: row.channel_model_id

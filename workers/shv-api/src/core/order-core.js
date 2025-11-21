@@ -49,7 +49,7 @@ export function mapOrderStatus(channel, status) {
 export function parseShopeeOrder(raw) {
   const status = mapOrderStatus('shopee', raw.order_status);
   
-  // Map Items
+ // Map Items
   const items = (raw.item_list || []).map(item => ({
     sku: item.model_sku || item.item_sku || `SHOPEE-${item.item_id}`,
     name: item.model_name || item.item_name,
@@ -60,12 +60,15 @@ export function parseShopeeOrder(raw) {
     channel_item_id: String(item.item_id),
     channel_model_id: String(item.model_id || '0'),
     
-    // Link ảnh (nếu có)
-    image: item.image_info ? item.image_info.image_url : null
+    // ✅ Link ảnh từ Shopee API
+    image: item.image_info?.image_url || null
   }));
 
   // Tính toán tài chính
   const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  
+  // ✅ Parse order_income nếu có (từ GetOrderIncome API)
+  const orderIncome = raw.order_income || {};
   
   return {
     // Core Fields
@@ -95,15 +98,25 @@ export function parseShopeeOrder(raw) {
     tracking_number: raw.tracking_number || '',
     shipping_carrier: raw.shipping_carrier || '',
     
-    coin_used: raw.coin_info?.coin_offset || 0,
+    // ✅ Financial details từ order_income
+    coin_used: orderIncome.coins || raw.coin_info?.coin_offset || 0,
     voucher_code: raw.voucher_code || '', 
-    voucher_seller: 0, // Cần logic bóc tách nếu Shopee trả về chi tiết
-    voucher_shopee: 0,
+    voucher_seller: orderIncome.voucher_from_seller || 0,
+    voucher_shopee: orderIncome.voucher_from_shopee || 0,
+    
+    commission_fee: orderIncome.commission_fee || 0,
+    service_fee: orderIncome.service_fee || 0,
+    seller_transaction_fee: orderIncome.seller_transaction_fee || 0,
+    
+    escrow_amount: orderIncome.escrow_amount || 0,
+    buyer_paid_amount: orderIncome.buyer_total_amount || raw.total_amount || 0,
     
     estimated_shipping_fee: raw.estimated_shipping_fee || 0,
     actual_shipping_fee_confirmed: raw.actual_shipping_fee_confirmed || 0,
-    
-    buyer_paid_amount: raw.escrow_amount || raw.total_amount || 0,
+
+    // ✅ Shop info (nếu có)
+    shop_id: raw.shop_id || null,
+    shop_name: raw.shop_name || null,
 
     // Status
     status: status,
