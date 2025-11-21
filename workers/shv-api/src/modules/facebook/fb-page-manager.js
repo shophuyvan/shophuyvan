@@ -116,41 +116,114 @@ export async function fetchPagesFromFacebook(req, env) {
   }
 }
 
-// ===================================================================
-// CÁC HÀM MỚI: QUẢN LÝ CẤU HÌNH AUTOMATION (Lưu trong KV)
-// ===================================================================
+// ==========================================================
+// 🚀 ROUTER FANPAGE HUB – THÊM NGAY CUỐI FILE
+// ==========================================================
 
-// 3. Lấy cấu hình Automation của Page
-export async function getPageSettings(req, env) {
+export async function handle(req, env, ctx) {
   const url = new URL(req.url);
-  const pageId = url.searchParams.get('pageId');
-  
-  if (!pageId) return errorResponse('Missing pageId', 400, req);
+  const path = url.pathname;
+  const method = req.method;
 
-  // Mặc định cấu hình
-  const defaultSettings = {
-    enable_hide_phone: false,
-    enable_auto_reply: false,
-    reply_template: "Chào bạn, shop đã inbox báo giá chi tiết ạ! ❤️",
-    website_link: "https://shophuyvan.vn"
-  };
+  // ======================
+  // 📌 ROUTES FANPAGE HUB
+  // ======================
 
-  // Lấy từ KV
-  const settings = await getJSON(env, `config:fanpage:${pageId}`, defaultSettings);
-  return json({ ok: true, data: settings }, {}, req);
+  // Danh sách fanpage
+  if (path === "/facebook/page/list" && method === "GET") {
+    return listFanpages(req, env);
+  }
+
+  // Thêm / sửa fanpage
+  if (path === "/facebook/page/upsert" && method === "POST") {
+    return upsertFanpage(req, env);
+  }
+
+  // Lấy danh sách page từ Facebook
+  if (path === "/facebook/page/fetch" && method === "GET") {
+    return fetchPagesFromFacebook(req, env);
+  }
+
+  // Page Info (header cho fb-page-detail.html)
+  if (path === "/facebook/page/info" && method === "GET") {
+    return getPageInfo(req, env);
+  }
+
+  // Page Overview
+  if (path === "/facebook/page/overview" && method === "GET") {
+    return getPageOverview(req, env);
+  }
+
+  // Page Settings (GET)
+  if (path === "/facebook/page/settings" && method === "GET") {
+    return getPageSettings(req, env);
+  }
+
+  // Lưu Settings (POST)
+  if (path === "/facebook/page/save-settings" && method === "POST") {
+    return savePageSettings(req, env);
+  }
+
+  // Không khớp route nào
+  return errorResponse("Fanpage route not found", 404, req);
 }
 
-// 4. Lưu cấu hình Automation
-export async function savePageSettings(req, env) {
-  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
-  
-  const body = await readBody(req);
-  const { pageId, settings } = body;
+// ==========================================================
+// 🎯 API MỚI CẦN THÊM VÀO ĐÂY – ĐẢM BẢO CÓ ĐỦ
+// ==========================================================
 
-  if (!pageId || !settings) return errorResponse('Invalid data', 400, req);
+// 1. Lấy thông tin Fanpage
+export async function getPageInfo(req, env) {
+  const url = new URL(req.url);
+  const pageId = url.searchParams.get("page_id");
+  if (!pageId) return errorResponse("Missing page_id", 400, req);
 
-  // Lưu vào KV
-  await putJSON(env, `config:fanpage:${pageId}`, settings);
-  
-  return json({ ok: true, message: 'Đã lưu cấu hình thành công' }, {}, req);
+  const row = await env.DB
+    .prepare("SELECT page_id, name, access_token FROM fanpages WHERE page_id = ?")
+    .bind(pageId)
+    .first();
+
+  if (!row) return errorResponse("Page not found", 404, req);
+
+  return json({
+    ok: true,
+    page: {
+      page_id: row.page_id,
+      name: row.name,
+      avatar: `https://graph.facebook.com/v19.0/${row.page_id}/picture?type=large`,
+      token_status: row.access_token ? "active" : "missing"
+    }
+  }, {}, req);
+}
+
+// 2. Tổng quan Fanpage
+export async function getPageOverview(req, env) {
+  const url = new URL(req.url);
+  const pageId = url.searchParams.get("page_id");
+  if (!pageId) return errorResponse("Missing page_id", 400, req);
+
+  const info = await env.DB
+    .prepare("SELECT access_token FROM fanpages WHERE page_id = ?")
+    .bind(pageId)
+    .first();
+
+  if (!info || !info.access_token)
+    return errorResponse("Missing page token", 400, req);
+
+  const token = info.access_token;
+
+  const postsRes = await fetch(
+    `https://graph.facebook.com/v19.0/${pageId}/posts?limit=5&access_token=${token}`
+  );
+  const posts = await postsRes.json();
+
+  const adsKV = await getJSON(env, `fb_ads_campaigns:${pageId}`, []);
+
+  return json({
+    ok: true,
+    data: {
+      posts: posts.data || [],
+      ads: adsKV || []
+    }
+  }, {}, req);
 }
