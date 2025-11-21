@@ -57,7 +57,31 @@
     </div>
   </div>
 
-  <script src="./fanpages.js?v=2"></script>
+    <script src="./fanpages.js?v=2"></script>
+
+  <!-- [SHV] Fanpage Hub Modal -->
+  <div id="pageHubModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; justify-content:center; align-items:center;">
+    <div style="background:white; width:1000px; max-width:95%; max-height:90vh; display:flex; flex-direction:column; border-radius:12px; overflow:hidden;">
+
+      <div style="padding:16px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="hubPageName" style="margin:0; font-size:20px;">Fanpage</h2>
+        <button class="btn" onclick="document.getElementById('pageHubModal').style.display='none'">✖ Đóng</button>
+      </div>
+
+      <div style="display:flex; border-bottom:1px solid #eee;">
+        <div class="hub-tab active" data-hub="overview" style="padding:10px 16px; cursor:pointer; border-bottom:3px solid #3b82f6;">📊 Tổng quan</div>
+        <div class="hub-tab" data-hub="ads" style="padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent;">📈 Quảng cáo</div>
+        <div class="hub-tab" data-hub="post" style="padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent;">📝 Đăng bài</div>
+        <div class="hub-tab" data-hub="autoreply" style="padding:10px 16px; cursor:pointer; border-bottom:3px solid transparent;">🤖 Auto Reply</div>
+      </div>
+
+      <div id="hubContent" style="padding:20px; overflow-y:auto; flex:1;">
+        Đang tải...
+      </div>
+
+    </div>
+  </div>
+
   <div id="modal-settings" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
     <div style="background:white; padding:24px; border-radius:12px; width:400px; max-width:95%;">
         <h3 style="margin-top:0; text-align:center;">Cấu Hình Tự Động</h3>
