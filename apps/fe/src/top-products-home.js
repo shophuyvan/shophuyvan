@@ -408,68 +408,86 @@ async function loadCategorySection(section) {
 }
 
 // Danh sách section danh mục hiển thị trên trang chủ
-// endpoint: bạn có thể chỉnh cho khớp API thật (vd: /products?category_slug=...&limit=8)
 const HOME_CATEGORY_SECTIONS = [
-  {
-    title: 'Thiết Bị Điện Nước',
-    category: 'thiet-bi-dien-nuoc',
-    elementId: 'cat-thiet-bi-dien-nuoc',
-    limit: 8,
-    endpoint: `/public/products?category_slug=thiet-bi-dien-nuoc`,
-  },
-  {
-    title: 'Nhà Cửa Đời Sống',
-    category: 'nha-cua-doi-song',
-    elementId: 'cat-nha-cua-doi-song',
-    limit: 8,
-    endpoint: `/public/products?category_slug=nha-cua-doi-song`,
-  },
-  {
-    title: 'Hoá Chất Gia Dụng',
-    category: 'hoa-chat-gia-dung',
-    elementId: 'cat-hoa-chat-gia-dung',
-    limit: 8,
-    endpoint: `/public/products?category_slug=hoa-chat-gia-dung`,
-  },
-  {
-    title: 'Dụng Cụ Tiện Ích',
-    category: 'dung-cu-tien-ich',
-    elementId: 'cat-dung-cu-tien-ich',
-    limit: 8,
-    endpoint: `/public/products?category_slug=dung-cu-tien-ich`,
-  },
+  { title: 'Thiết Bị Điện Nước', category: 'thiet-bi-dien-nuoc', elementId: 'cat-thiet-bi-dien-nuoc', limit: 8 },
+  { title: 'Nhà Cửa Đời Sống', category: 'nha-cua-doi-song', elementId: 'cat-nha-cua-doi-song', limit: 8 },
+  { title: 'Hoá Chất Gia Dụng', category: 'hoa-chat-gia-dung', elementId: 'cat-hoa-chat-gia-dung', limit: 8 },
+  { title: 'Dụng Cụ Tiện Ích', category: 'dung-cu-tien-ich', elementId: 'cat-dung-cu-tien-ich', limit: 8 },
 ];
 
-// ==========================================
-// INIT - PARALLEL + LAZY LOAD (OPTIMIZED)
-// ==========================================
-(async function initTopProducts() {
-  console.log('[Top Products] Starting optimized load (Parallel + Lazy).');
+// ✅ Cache sản phẩm để không gọi API nhiều lần
+let __allProductsCache = null;
+
+async function getAllProducts() {
+  if (__allProductsCache) return __allProductsCache;
+  
+  try {
+    const data = await api('/public/products?limit=200');
+    __allProductsCache = data?.items || [];
+    console.log('[Cache] ✅ Loaded', __allProductsCache.length, 'products');
+    return __allProductsCache;
+  } catch (e) {
+    console.error('[Cache] ❌ Failed to load products:', e);
+    return [];
+  }
+}
+
+// ✅ Load category section từ cache (không gọi API riêng)
+async function loadCategorySectionFromCache(section) {
+  if (!section || !section.elementId) return;
+
+  const el = document.getElementById(section.elementId);
+  if (!el) return;
 
   try {
-    // ✅ BƯỚC 1: Load song song 4 sections ưu tiên (Bestsellers, Newest, 2 category đầu)
-    const prioritySections = HOME_CATEGORY_SECTIONS.slice(0, 2); // 2 category đầu
-    const lazySections = HOME_CATEGORY_SECTIONS.slice(2); // 2 category sau
+    el.innerHTML = `<div class="col-span-full text-center py-4 text-gray-400">Đang tải...</div>`;
 
+    const allProducts = await getAllProducts();
+    
+    // Filter theo category_slug
+    const filtered = allProducts.filter(p => {
+      const cat = (p.category_slug || p.category || '').toLowerCase();
+      return cat === section.category.toLowerCase();
+    }).slice(0, section.limit || 8);
+
+    if (filtered.length === 0) {
+      const sectionEl = el.closest('section');
+      if (sectionEl) sectionEl.style.display = 'none';
+      return;
+    }
+
+    const cards = await Promise.all(filtered.map(item => productCard(item)));
+    el.innerHTML = cards.join('');
+    
+    console.log(`[Category] ✅ ${section.category}:`, filtered.length, 'products');
+  } catch (e) {
+    console.error('[Category] ❌', section.category, e);
+    el.innerHTML = '<div class="text-red-500 text-center py-4">Không thể tải</div>';
+  }
+}
+
+// ==========================================
+// INIT - OPTIMIZED (1 API call cho tất cả categories)
+// ==========================================
+(async function initTopProducts() {
+  console.log('[Top Products] Starting optimized load...');
+
+  try {
+    // BƯỚC 1: Load Bestsellers + Newest (API riêng vì có logic sort khác)
     await Promise.all([
-      loadBestsellers().catch(e => console.error('[Top Products] ❌ Bestsellers failed:', e)),
-      loadNewest().catch(e => console.error('[Top Products] ❌ Newest failed:', e)),
-      ...prioritySections.map(section => 
-        loadCategorySection(section).catch(e => 
-          console.error('[Top Products] ❌ Priority section failed:', section.category, e)
-        )
-      )
+      loadBestsellers().catch(e => console.error('[Bestsellers] ❌', e)),
+      loadNewest().catch(e => console.error('[Newest] ❌', e)),
     ]);
 
-    console.log('[Top Products] ✅ Priority sections loaded (parallel)');
+    // BƯỚC 2: Preload tất cả products 1 lần
+    await getAllProducts();
 
-    // ✅ BƯỚC 2: Setup lazy load cho 2 category còn lại
-    lazySections.forEach(section => {
-      setupLazyLoad(section);
-      console.log('[Top Products] ⏳ Lazy load setup:', section.category);
-    });
+    // BƯỚC 3: Render tất cả category sections từ cache
+    for (const section of HOME_CATEGORY_SECTIONS) {
+      await loadCategorySectionFromCache(section);
+    }
 
-    console.log('[Top Products] ✅ All sections initialized');
+    console.log('[Top Products] ✅ All sections loaded');
   } catch (e) {
     console.error('[Top Products] ❌ Init error:', e);
   }
