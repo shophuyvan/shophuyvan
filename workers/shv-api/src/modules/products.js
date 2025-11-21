@@ -632,94 +632,118 @@ const product = {
   }
 }
 
+// ===================================================================
+// PUBLIC: Search & List Products (Optimized SQL)
+// ===================================================================
 async function listPublicProductsFiltered(req, env) {
   try {
     const url = new URL(req.url);
+    
+    // Params
     const category = url.searchParams.get('category') ||
                      url.searchParams.get('cat') ||
                      url.searchParams.get('category_slug') ||
                      url.searchParams.get('c') || '';
-    const limit = Number(url.searchParams.get('limit') || '24');
-
-    // Lấy danh sách summary
-    let data  = await listProducts(env);
-    let items = Array.isArray(data?.items) ? data.items.slice()
-               : Array.isArray(data) ? data.slice() : [];
-
-    // Lọc theo category (nếu có)
-    if (category) {
-      const before = items.length;
-      items = items.filter(product => matchCategoryStrict(product, category));
-      console.log(`✅ Category "${category}": ${before} → ${items.length}`);
-    }
-
-    // Chỉ lấy sản phẩm active
-    items = items.filter(p => p.status !== 0);
-
-    // 🔥 Nạp FULL từ D1 cho các item hiển thị (sau filter)
-    const limited = items.slice(0, limit);
-    const full = [];
-    for (const s of limited) {
-      const id = Number(s.id);
-      if (!id) {
-        full.push(s);
-        continue;
-      }
-
-      // Query product + variants từ D1
-      const productResult = await env.DB.prepare(`
-        SELECT * FROM products WHERE id = ?
-      `).bind(id).first();
-
-      if (!productResult) {
-        full.push(s);
-        continue;
-      }
-
-      const variantsResult = await env.DB.prepare(`
-        SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
-      `).bind(id).all();
-
-      const product = {
-        ...productResult,
-        images: productResult.images ? JSON.parse(productResult.images) : [],
-        variants: (variantsResult.results || []).map(v => ({
-          id: v.id,
-          sku: v.sku,
-          name: v.name,
-          price: v.price,
-          price_sale: v.price_sale,
-          stock: v.stock,
-          weight: v.weight
-        }))
-      };
-
-      // ✅ Chỉ thêm sản phẩm còn hàng
-      const totalStock = product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
-      if (totalStock > 0) {
-        full.push(product);
-      }
-    }
-
-    // Tính giá từ variants
-    const tier = getCustomerTier(req);
-    const out  = full.map(p => ({ ...p, ...computeDisplayPrice(p, tier) }));
-
-    console.log('[PRICE] listPublicProductsFiltered', { tier, in: items.length, out: out.length, cat: category, sample: { id: out[0]?.id, price: out[0]?.price_display } });
     
-    // ✅ Thêm cache header 5 phút
-    return json({ ok: true, items: out }, { 
+    // ✅ Thêm param Search (Frontend thường gửi q hoặc search)
+    const search = (url.searchParams.get('q') || 
+                    url.searchParams.get('search') || 
+                    url.searchParams.get('keyword') || '').trim().toLowerCase();
+
+    const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
+    const limit = Math.min(50, Number(url.searchParams.get('limit') || '24'));
+    const offset = (page - 1) * limit;
+
+    console.log(`[SEARCH] 🚀 Request: Q="${search}" Cat="${category}" Page=${page}`);
+
+    // 1. BUILD SQL QUERY (Gộp Product + Variant Aggregation)
+    let sql = `
+      SELECT 
+        p.id, p.title, p.slug, p.images, p.category_slug,
+        p.status, p.sold, p.rating, p.rating_count,
+        MIN(COALESCE(NULLIF(v.price_sale, 0), v.price)) as min_price,
+        MAX(v.price) as max_original_price,
+        COALESCE(SUM(v.stock), 0) as total_stock
+      FROM products p
+      JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active' AND v.stock > 0
+    `;
+
+    const params = [];
+
+    // 2. FILTER: SEARCH TEXT (Title or Slug)
+    if (search) {
+      // Tìm tương đối theo Title hoặc Slug
+      sql += ` AND (LOWER(p.title) LIKE ? OR p.slug LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // 3. FILTER: CATEGORY
+    if (category) {
+      // So sánh chính xác slug category
+      sql += ` AND p.category_slug = ?`;
+      params.push(category);
+    }
+
+    // 4. SORT & PAGINATE
+    sql += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    // 5. EXECUTE QUERY
+    const start = Date.now();
+    const results = await env.DB.prepare(sql).bind(...params).all();
+    const rows = results.results || [];
+    
+    console.log(`[SEARCH] ⏱️ Query time: ${Date.now() - start}ms. Found: ${rows.length} items.`);
+
+    // 6. FORMAT DATA (Chuẩn hóa output cho Frontend)
+    const items = rows.map(p => {
+      const images = p.images ? JSON.parse(p.images) : [];
+      return {
+        id: p.id,
+        title: p.title,
+        name: p.title,
+        slug: p.slug,
+        images: images,
+        image: images[0] || null, // Ảnh đại diện
+        category_slug: p.category_slug,
+        sold: Number(p.sold || 0),
+        rating: Number(p.rating || 5.0),
+        rating_count: Number(p.rating_count || 0),
+        stock: Number(p.total_stock || 0),
+        
+        // Giá hiển thị (lấy từ min_price đã tính trong SQL)
+        price_display: Number(p.min_price || 0),
+        compare_at_display: Number(p.max_original_price) > Number(p.min_price) ? Number(p.max_original_price) : null,
+        price_tier: 'retail', // Mặc định retail
+        
+        // Tương thích ngược (nếu frontend cũ còn dùng)
+        price: Number(p.min_price || 0),
+        price_sale: 0
+      };
+    });
+
+    return json({ 
+      ok: true, 
+      items: items,
+      pagination: {
+        page,
+        limit,
+        count: items.length
+      }
+    }, { 
       headers: { 
-        'cache-control': 'public, max-age=300, s-maxage=300',
-        'cdn-cache-control': 'max-age=300'
+        // Cache kết quả tìm kiếm trong 60 giây để giảm tải DB
+        'cache-control': 'public, max-age=60, s-maxage=60',
+        'cdn-cache-control': 'max-age=60'
       } 
     }, req);
+
   } catch (e) {
-    console.error('❌ Error:', e);
+    console.error('[SEARCH] ❌ Error:', e);
     return errorResponse(e, 500, req);
   }
 }
-
 // ===================================================================
 // ADMIN: List All Products (WITH PAGINATION)
 // ===================================================================

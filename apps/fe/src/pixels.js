@@ -4,8 +4,8 @@
 
 (function(){
   try{
-    // Cache buster
-    const BUILD = String(Date.now()).substring(0, 8); // Lấy 8 số đầu cho gọn
+    // Cache buster cho UI PDP
+    const BUILD = String(Date.now()).substring(0, 8);
     const tag = document.querySelector('script[type="module"][src*="/src/ui-pdp.js"]');
     if(tag){
       const u = new URL(tag.getAttribute('src'), location.origin);
@@ -19,7 +19,7 @@
 
 import api from './lib/api.js';
 
-// 👇👇👇 ID PIXEL CỦA BẠN 👇👇👇
+// 👇 ID PIXEL CỦA BẠN
 const FB_PIXEL_ID = '1974425449800007'; 
 
 (async () => {
@@ -29,7 +29,6 @@ const FB_PIXEL_ID = '1974425449800007';
       const el = document.createElement('div'); 
       el.innerHTML = html.trim();
       const node = el.firstChild;
-      // Chèn vào đầu <head> để load sớm nhất
       if(document.head.firstChild) {
         document.head.insertBefore(node, document.head.firstChild);
       } else {
@@ -37,22 +36,24 @@ const FB_PIXEL_ID = '1974425449800007';
       }
     };
 
-    // 2. Lấy settings bổ sung từ API (nếu có GA, Zalo...)
+    // 2. Lấy settings bổ sung từ API (GA, Zalo)
     let settings = {};
     try {
       const r = await api.get('/public/settings');
       settings = (r && (r.settings || r)) || {};
     } catch (e) { 
-      // Lỗi API thì kệ, vẫn chạy FB Pixel cứng
-      console.warn('[Pixels] API settings failed, using hardcoded defaults');
+      console.warn('[Pixels] API settings failed, using defaults');
     }
     
     const { ga='', zl='' } = settings.ads || {};
 
-    // 3. FACEBOOK PIXEL (Luôn chạy với ID cứng)
+    // ============================================================
+    // 3. FACEBOOK PIXEL (CORE)
+    // ============================================================
     if (FB_PIXEL_ID) {
       console.log('[Pixels] Init FB:', FB_PIXEL_ID);
       
+      // Inject mã gốc FB
       inject(`<script>
         !function(f,b,e,v,n,t,s)
         {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -70,46 +71,55 @@ const FB_PIXEL_ID = '1974425449800007';
       /></noscript>
       `);
 
-      // 4. Tự động bắn event theo URL
+      // --- A. TRACKING THEO URL (Cơ bản) ---
       const path = location.pathname;
       
-      // Xem sản phẩm
       if (path.includes('/product')) { 
-        // Delay xíu để đợi load thông tin SP nếu cần
-        setTimeout(() => {
-            if(window.fbq) window.fbq('track', 'ViewContent');
-        }, 1000);
+        setTimeout(() => { if(window.fbq) window.fbq('track', 'ViewContent'); }, 1000);
       }
-      
-      // Xem giỏ hàng
       if (path.includes('/cart')) { 
         if(window.fbq) window.fbq('track', 'AddToCart'); 
       }
-      
-      // Mua thành công (Trang cảm ơn)
       if (path.includes('/checkout-success') || path.includes('/order-received')) {
-         // Lấy giá trị đơn hàng từ URL nếu có ?total=...
          const params = new URLSearchParams(location.search);
          const val = Number(params.get('total') || 0);
-         const curr = 'VND';
-         
-         if(window.fbq) {
-             if(val > 0) {
-                 window.fbq('track', 'Purchase', { value: val, currency: curr });
-             } else {
-                 window.fbq('track', 'Purchase');
-             }
-         }
+         if(window.fbq) window.fbq('track', 'Purchase', { value: val, currency: 'VND' });
       }
+
+      // --- B. TRACKING THEO HÀNH VI CLICK (Nâng cao - Mới thêm) ---
+      // Bắt sự kiện khi bấm nút Thêm giỏ / Mua ngay
+      document.addEventListener('click', (e) => {
+        // Tìm nút được bấm (hoặc cha của nó)
+        const btn = e.target.closest('button, a, .btn, [role="button"]'); 
+        if (!btn) return;
+
+        const text = (btn.innerText || '').toLowerCase();
+        const id = (btn.id || '').toLowerCase();
+        const href = (btn.getAttribute('href') || '').toLowerCase();
+
+        // Logic nhận diện nút
+        const isAddToCart = text.includes('thêm') && (text.includes('giỏ') || text.includes('cart')) || id.includes('add-to-cart');
+        const isBuyNow = text.includes('mua ngay') || text.includes('thanh toán') || href.includes('checkout');
+
+        if (isAddToCart && window.fbq) {
+            console.log('[Pixels] Track Click: AddToCart');
+            window.fbq('track', 'AddToCart');
+        }
+
+        if (isBuyNow && window.fbq) {
+            console.log('[Pixels] Track Click: InitiateCheckout');
+            window.fbq('track', 'InitiateCheckout');
+        }
+      });
     }
 
-    // 5. Google Analytics (Nếu có trong settings)
+    // 4. Google Analytics
     if (ga) {
       inject(`<script async src="https://www.googletagmanager.com/gtag/js?id=${ga}"></script>`);
       inject(`<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config','${ga}');</script>`);
     }
 
-    // 6. Zalo Pixel (Nếu có)
+    // 5. Zalo Pixel
     if (zl) {
       inject(`<script src="https://sp.zalo.me/plugins/sdk.js"></script>`);
     }
