@@ -276,7 +276,7 @@ export async function saveOrderToD1(env, order) {
     // Tuy nhiên, vì cần lấy ID của Order vừa tạo để insert Items, 
     // ta nên chạy lệnh Insert Order trước.
 
-    const result = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
+    let result = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
     
     if (!result || !result.id) {
         // Trường hợp update (ON CONFLICT DO UPDATE) có thể không trả về ID nếu không có thay đổi,
