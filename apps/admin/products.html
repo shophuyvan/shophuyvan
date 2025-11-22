@@ -1089,11 +1089,12 @@ const nextPageBtn = $('#next-page');
         btnExecuteClear.disabled = true;
         btnExecuteClear.textContent = '⏳ Đang xóa...';
 
-        const token = localStorage.getItem('admin_token');
+        // [FIXED] Dùng window.Admin.token() và header x-token
+        const token = window.Admin ? window.Admin.token() : localStorage.getItem('x-token');
         const res = await fetch('https://api.shophuyvan.vn/admin/cache/clear', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'x-token': token, // Sửa header thành x-token đúng chuẩn
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -1147,14 +1148,15 @@ const nextPageBtn = $('#next-page');
   }
     
     // ✅ Nếu xóa hết text → load lại
-    searchInput.addEventListener('input', (e) => {
-      if (e.target.value.trim() === '') {
-        currentPage = 1;
-        clearCache();
-        load(true);
-      }
-    });
-  }
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        if (e.target.value.trim() === '') {
+          currentPage = 1;
+          clearCache();
+          load(true);
+        }
+      });
+    }
 
   // ✅ Tab clicks
   $$('.tab').forEach(tab => {
