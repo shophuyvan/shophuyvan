@@ -127,9 +127,11 @@ function card(p){
   bannerStage.addEventListener('mouseleave', startBanner);
 
   // Products: prefer public endpoint, fallback to legacy
+  // [FIXED] Tăng limit=200 để hiện hết sản phẩm + Thêm timestamp v=... để xóa cache trình duyệt
   let data=null;
-  try{ data = await api('/public/products?limit=20'); }catch{}
-  if(!data){ try{ data = await api('/products?limit=20'); }catch{} }
+  const t = Date.now(); // Tạo mốc thời gian thực
+  try{ data = await api(`/public/products?limit=200&v=${t}`); }catch{}
+  if(!data){ try{ data = await api(`/products?limit=200&v=${t}`); }catch{} }
   const items = Array.isArray(data?.items)?data.items:[];
   grid.innerHTML = items.map(card).join('');
 })();
