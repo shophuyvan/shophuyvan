@@ -127,7 +127,8 @@ export default {
           path.startsWith('/admin/setup') ||
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
-          path.startsWith('/admin/roles')) {
+          path.startsWith('/admin/roles') ||
+          path.startsWith('/admin/cache')) {  // ✅ THÊM DÒNG NÀY
         return admin.handle(req, env, ctx);
       }
 	  	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
