@@ -606,32 +606,39 @@ async function listPublicProductsFiltered(req, env) {
     `;
     const params = [];
 
-    // [SMART SEARCH v2] Tìm kiếm thông minh (bất chấp dấu, bất chấp thứ tự từ)
+   // [FULL-SCOPE SEARCH] Tìm Tên + Slug + Danh mục + Mã SKU (Variant)
     if (searchRaw) {
-       // 1. Chuẩn hóa từ khóa của khách: Xóa dấu tiếng Việt -> Chữ thường -> Tách từ
+       // 1. Chuẩn hóa: "Máy Hút K185" -> "may hut k185"
        const normalize = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-       const rawNoAccent = normalize(searchRaw);
+       const cleanSearch = normalize(searchRaw);
        
-       // Tách thành mảng các từ: "nep day dien" -> ["nep", "day", "dien"]
-       const keywords = rawNoAccent.split(/[^a-z0-9]+/).filter(k => k.length > 0);
-
+       // 2. Tách từ khóa: ["may", "hut", "k185"]
+       let keywords = cleanSearch.split(/[^a-z0-9]+/).filter(k => k.length > 0);
+       
        if (keywords.length > 0) {
-         // Logic: Sản phẩm phải chứa TẤT CẢ các từ khóa này (AND)
-         // Ví dụ: slug phải chứa "nep" AND chứa "day" AND chứa "dien"
-         const searchConditions = keywords.map(() => `(slug LIKE ? OR title LIKE ?)`).join(' AND ');
+         // Logic: Sản phẩm phải thỏa mãn TẤT CẢ các từ khóa (AND)
+         // Mỗi từ khóa có thể nằm ở: Slug OR Title OR Category OR SKU (trong bảng variants)
+         // Dùng IN (...) để check SKU trong bảng variants
+         const searchConditions = keywords.map(() => `(
+           slug LIKE ? 
+           OR LOWER(title) LIKE ? 
+           OR category_slug LIKE ?
+           OR id IN (SELECT product_id FROM variants WHERE LOWER(sku) LIKE ?)
+         )`).join(' AND ');
          
          sql += ` AND (${searchConditions})`;
          
-         // Thêm params cho từng từ khóa (tìm trong slug HOẶC title)
+         // Nạp params: Mỗi từ khóa nạp 4 lần cho 4 điều kiện
          keywords.forEach(k => {
-           params.push(`%${k}%`, `%${k}%`); // k là từ không dấu (ví dụ: "nep")
+           const pattern = `%${k}%`;
+           params.push(pattern, pattern, pattern, pattern);
          });
          
-         console.log('[SMART SEARCH] Keywords:', keywords);
+         console.log('[FULL SEARCH] Keywords:', keywords);
        } else {
-         // Fallback nếu không tách được từ nào (tìm chính xác)
-         sql += ` AND (slug LIKE ? OR title LIKE ?)`;
-         params.push(`%${rawNoAccent}%`, `%${searchRaw}%`);
+         // Fallback: Tìm chính xác nếu không tách được từ
+         sql += ` AND (slug LIKE ? OR LOWER(title) LIKE ?)`;
+         params.push(`%${cleanSearch}%`, `%${searchRaw.toLowerCase()}%`);
        }
     }
 
