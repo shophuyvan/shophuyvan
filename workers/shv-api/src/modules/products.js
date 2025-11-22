@@ -1999,7 +1999,8 @@ async function getProductChannels(req, env, productId) {
 async function getHomeSections(req, env) {
   try {
     // 1. CẤU HÌNH CACHE KV
-    const CACHE_KEY = 'home_sections_data_v3'; // [FIXED] Up lên v3 để xóa cache cũ
+    // [FIXED] Đổi dấu '_' thành ':' để khớp với công cụ Xóa Cache trong Admin (home:*)
+    const CACHE_KEY = 'home:sections_data_v3'; 
     const CACHE_TTL = 300; // 5 phút
 
     // 2. KIỂM TRA CACHE
