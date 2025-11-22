@@ -254,15 +254,29 @@ renderOrdersList() {
               <span class="value price-total">${this.formatPrice(total)}</span>
             </div>
 
-            ${/* ✅ HIỂN THỊ DOANH THU THỰC TẾ (MỚI) */ 
-              (order.order_income && order.order_income.escrow_amount != null) ? `
-              <div class="detail-row" style="color:#ef4444; font-size:12px;">
-                <span class="label">Phí sàn:</span>
-                <span class="value">-${this.formatPrice((order.order_income.commission_fee||0) + (order.order_income.seller_transaction_fee||0) + (order.order_income.service_fee||0))}</span>
-              </div>
-              <div class="detail-row" style="color:#16a34a; font-weight:700; border-top:1px dashed #e5e7eb; margin-top:4px; padding-top:4px;">
-                <span class="label">Thực nhận:</span>
-                <span class="value">${this.formatPrice(order.order_income.escrow_amount)}</span>
+           ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE (D1 VERSION) */ 
+              (order.escrow_amount > 0 || order.commission_fee > 0) ? `
+              <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e5e7eb; font-size:12px;">
+                <div class="detail-row">
+                   <span class="label">Tổng sàn thu:</span>
+                   <span class="value">${this.formatPrice(order.buyer_paid_amount || order.total)}</span>
+                </div>
+                <div class="detail-row" style="color:#ef4444;">
+                  <span class="label">Phí cố định:</span>
+                  <span class="value">-${this.formatPrice(order.commission_fee || 0)}</span>
+                </div>
+                <div class="detail-row" style="color:#ef4444;">
+                  <span class="label">Phí dịch vụ:</span>
+                  <span class="value">-${this.formatPrice(order.service_fee || 0)}</span>
+                </div>
+                <div class="detail-row" style="color:#ef4444;">
+                   <span class="label">Phí thanh toán:</span>
+                   <span class="value">-${this.formatPrice(order.seller_transaction_fee || 0)}</span>
+                </div>
+                <div class="detail-row" style="color:#16a34a; font-weight:700; border-top:1px solid #f3f4f6; margin-top:4px; padding-top:4px; font-size:13px;">
+                  <span class="label">THỰC NHẬN:</span>
+                  <span class="value">${this.formatPrice(order.escrow_amount)}</span>
+                </div>
               </div>
             ` : ''}
 

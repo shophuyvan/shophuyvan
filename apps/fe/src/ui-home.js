@@ -24,10 +24,8 @@ function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   } catch { return u || noImage; }
 }
 
-const grid = document.querySelector('#grid');
-
-const bannerStage = document.querySelector('#banner-stage');
-const bannerDots = document.querySelector('#banner-dots');
+// [FIXED] Khai báo biến trước, gán giá trị sau khi DOM load để tránh lỗi null
+let grid, bannerStage, bannerDots;
 let banners = [], bIdx = 0, bTimer = null;
 
 function renderBanner(i){
@@ -103,7 +101,15 @@ function card(p){
   </a>`;
 }
 
-(async function init(){
+// [FIXED] Bọc toàn bộ logic vào sự kiện DOMContentLoaded
+document.addEventListener('DOMContentLoaded', async () => {
+  // Lúc này HTML đã có, query sẽ thành công
+  grid = document.querySelector('#grid');
+  bannerStage = document.querySelector('#banner-stage');
+  bannerDots = document.querySelector('#banner-dots');
+
+  if (!grid) return; // Nếu trang không có #grid thì dừng, tránh lỗi
+
   try{
     // Try multiple endpoints/shapes for settings → banners
     let bannersData = [];
@@ -132,9 +138,9 @@ function card(p){
   const t = Date.now(); // Tạo mốc thời gian thực
   try{ data = await api(`/public/products?limit=200&v=${t}`); }catch{}
   if(!data){ try{ data = await api(`/products?limit=200&v=${t}`); }catch{} }
-  const items = Array.isArray(data?.items)?data.items:[];
+const items = Array.isArray(data?.items)?data.items:[];
   grid.innerHTML = items.map(card).join('');
-})();
+}); // Đóng sự kiện DOMContentLoaded
 
 
 // SHV-CWV: lazyload & size images in grids

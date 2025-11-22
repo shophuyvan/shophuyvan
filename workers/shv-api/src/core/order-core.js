@@ -60,8 +60,8 @@ export function parseShopeeOrder(raw) {
     channel_item_id: String(item.item_id),
     channel_model_id: String(item.model_id || '0'),
     
-    // ✅ Link ảnh từ Shopee API
-    image: item.image_info?.image_url || null
+    // ✅ Link ảnh từ Shopee API (Thử nhiều nguồn)
+    image: item.image_info?.image_url || item.item_cover_image || item.image_url || (item.images ? item.images[0] : null) || null
   }));
 
   // Tính toán tài chính
