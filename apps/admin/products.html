@@ -289,6 +289,34 @@
     flex-direction: column;
   }
 }
+
+/* ✅ Cache Dropdown Styles */
+.cache-option-label {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.cache-option-label:hover {
+  background: #f3f4f6 !important;
+}
+
+.cache-option-label-all {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+  font-weight: 600;
+}
+
+.cache-option-label-all:hover {
+  background: #fef2f2 !important;
+}
 </style>
 </head>
 <body>
@@ -358,29 +386,29 @@
         <div style="padding:16px;">
           <div style="font-weight:600;margin-bottom:12px;color:#333;">Chọn Cache cần xóa:</div>
           
-          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+          <label class="cache-option-label">
             <input type="checkbox" class="cache-checkbox" value="product:" style="margin-right:8px;">
             <span>🛍️ Cache Sản phẩm (product:)</span>
           </label>
           
-          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+          <label class="cache-option-label">
             <input type="checkbox" class="cache-checkbox" value="home:" style="margin-right:8px;">
             <span>🏠 Cache Trang chủ (home:)</span>
           </label>
           
-          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+          <label class="cache-option-label">
             <input type="checkbox" class="cache-checkbox" value="cart:" style="margin-right:8px;">
             <span>🛒 Cache Giỏ hàng (cart:)</span>
           </label>
           
-          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+          <label class="cache-option-label">
             <input type="checkbox" class="cache-checkbox" value="category:" style="margin-right:8px;">
             <span>📂 Cache Danh mục (category:)</span>
           </label>
           
           <div style="border-top:1px solid #e5e7eb;margin:12px 0;"></div>
           
-          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;font-weight:600;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">
+          <label class="cache-option-label-all">
             <input type="checkbox" id="cache-select-all" style="margin-right:8px;">
             <span style="color:#dc2626;">⚠️ TẤT CẢ CACHE</span>
           </label>
