@@ -162,9 +162,9 @@ export function parseLazadaOrder(raw) {
     created_at: Date.parse(raw.created_at) || Date.now(),
     updated_at: Date.parse(raw.updated_at) || Date.now(),
     
-    //   items: [] // Sẽ được populate sau
-//   };
-// }
+    items: [] // Sẽ được populate sau
+  };
+}
 
 // 4. SAVE ORDER TO D1 (CORE FUNCTION)
 // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
