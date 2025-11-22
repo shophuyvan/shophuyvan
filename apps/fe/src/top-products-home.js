@@ -146,20 +146,8 @@ async function productCard(p) {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;
   }
   
-  // ✅ THÊM: Hiển thị text tier (giống Bán chạy)
-  const tierMap = {
-    'retail': { name: 'Thành viên thường', icon: '👤' },
-    'silver': { name: 'Thành viên bạc', icon: '🥈' },
-    'gold': { name: 'Thành viên vàng', icon: '🥇' },
-    'diamond': { name: 'Thành viên kim cương', icon: '💎' }
-  };
-  const tierInfo = tierMap[priceInfo.tier] || tierMap['retail'];
-  
-  // Chỉ hiển thị text tier cho khách lẻ có hạng (không phải retail và không phải sỉ)
+// Tier text tạm bỏ - giá đã tính sẵn từ API
   let tierText = '';
-  if (priceInfo.customer_type === 'retail' && priceInfo.tier !== 'retail') {
-    tierText = `<div style="font-size:11px;color:#059669;margin-top:4px;font-weight:600;">${tierInfo.name}</div>`;
-  }
 
   // Sold badge cho bestsellers (hiển thị nhỏ ở góc)
   const soldBadge = p.sold && p.sold > 0
