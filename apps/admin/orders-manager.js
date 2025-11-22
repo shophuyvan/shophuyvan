@@ -1235,12 +1235,55 @@ renderOrdersList() {
     this.renderOrdersList();
   }
 
+// ==================== REALTIME AUTO REFRESH ====================
+  
+  startAutoRefresh() {
+    // Tự động tải lại mỗi 30 giây
+    setInterval(async () => {
+      // Chỉ tải lại nếu người dùng đang ở Tab "Tất cả" hoặc "Chờ xác nhận" 
+      // và KHÔNG đang chọn dòng nào (để tránh mất tick chọn của họ)
+      if (this.selectedOrders.size > 0) return; 
+
+      console.log('[AutoRefresh] 🔄 Checking for new orders...');
+      try {
+        // Gọi API lấy danh sách mới
+        const response = await Admin.req('/api/orders', { method: 'GET' });
+        const newOrders = response?.items || [];
+        
+        // So sánh đơn giản: Nếu ID đơn mới nhất khác với đơn cũ -> Có đơn mới
+        const currentTopId = this.allOrders.length > 0 ? String(this.allOrders[0].id) : '';
+        const newTopId = newOrders.length > 0 ? String(newOrders[0].id) : '';
+        
+        // Hoặc so sánh tổng số lượng đơn
+        if (newTopId !== currentTopId || newOrders.length !== this.allOrders.length) {
+            console.log('[AutoRefresh] ⚡ Detected changes! Updating UI...');
+            this.allOrders = newOrders;
+            this.filterAndRenderOrders(); // Vẽ lại giao diện
+            
+            // Hiện thông báo nhỏ góc màn hình (Optional)
+            const notify = document.getElementById('auto-refresh-toast');
+            if (!notify) {
+                const div = document.createElement('div');
+                div.id = 'auto-refresh-toast';
+                div.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.2);animation:fadeIn 0.5s';
+                div.textContent = '⚡ Đã cập nhật đơn hàng mới';
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 3000);
+            }
+        }
+      } catch (e) {
+        console.warn('[AutoRefresh] Failed:', e);
+      }
+    }, 30000); // 30000ms = 30 giây
+  }
+
   // ==================== INIT ====================
 
   init() {
     this.loadOrders();
     this.wireGlobalEvents();
-    console.log('[OrdersManager] Initialized ✅ with Bulk Actions');
+    this.startAutoRefresh(); // ✅ KÍCH HOẠT AUTO REFRESH
+    console.log('[OrdersManager] Initialized ✅ with Bulk Actions & Auto Refresh');
   }
 
   wireGlobalEvents() {

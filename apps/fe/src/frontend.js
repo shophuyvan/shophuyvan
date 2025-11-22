@@ -703,15 +703,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Bắt phím Enter
-document.addEventListener('keypress', function(e) {
-  if (e.key === 'Enter' && e.target.id === 'shv-search') {
-    const query = e.target.value.trim();
-    if (query) {
-      window.location.href = `/?q=${encodeURIComponent(query)}`;
-    }
-  }
-});
+// [REMOVED] Đã xóa logic redirect sai. Việc tìm kiếm được xử lý bởi performSearch() bên trên.
 
 // ===================================================================
 // ✅ LOGIC MỚI: SLIDE TỰ ĐỘNG & SẢN PHẨM GIÁ RẺ
