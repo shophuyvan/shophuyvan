@@ -39,6 +39,6 @@ database_id = "d9c52d1d-bcb8-41c3-9324-5fa2d6c58560"
 # ============================================
 # CRON TRIGGERS FOR AUTOMATION
 # ============================================
-# Chạy automation tasks mỗi giờ vào phút 0
+# Chạy automation tasks mỗi 15 phút (phút thứ 0, 15, 30, 45 của mỗi giờ)
 [triggers]
-crons = ["0 * * * *"]
+crons = ["*/15 * * * *"]

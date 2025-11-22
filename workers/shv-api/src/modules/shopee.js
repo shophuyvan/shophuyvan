@@ -1334,7 +1334,7 @@ export async function handle(req, env, ctx) {
       }
     }
 
-    // Route không khớp
+ // Route không khớp
     return json({ ok: false, error: 'route_not_found' }, { status: 404 }, req);
 
   } catch (e) {
@@ -1344,4 +1344,40 @@ export async function handle(req, env, ctx) {
       error: String(e?.message || e)
     }, { status: 500 }, req);
   }
+}
+
+/**
+ * ✅ CRON JOB: Sync TẤT CẢ Shops (Orders + Stock)
+ */
+export async function syncAllShops(env) {
+  console.log('[Cron] 🚀 Starting syncAllShops...');
+  
+  const shops = await getAllShops(env);
+  const results = [];
+
+  for (const shop of shops) {
+    console.log(`[Cron] Processing Shop: ${shop.shop_id}`);
+    
+    try {
+      // 1. Sync Orders
+      const orderReq = new Request('https://api.shophuyvan.vn/admin/shopee/sync-orders', {
+        method: 'POST',
+        body: JSON.stringify({ shop_id: shop.shop_id })
+      });
+      await handle(orderReq, env, null);
+      
+      // 2. Sync Stock
+      const stockReq = new Request('https://api.shophuyvan.vn/admin/shopee/sync-stock', {
+        method: 'POST',
+        body: JSON.stringify({ shop_id: shop.shop_id, limit: 50 })
+      });
+      await handle(stockReq, env, null);
+
+      results.push({ shop_id: shop.shop_id, status: 'ok' });
+    } catch (e) {
+      console.error(`[Cron] ❌ Failed to sync Shop ${shop.shop_id}:`, e);
+      results.push({ shop_id: shop.shop_id, status: 'error', error: e.message });
+    }
+  }
+  return results;
 }

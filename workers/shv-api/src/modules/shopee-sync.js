@@ -167,12 +167,17 @@ export async function saveProductToD1(env, productData, variants) {
     // D. UPDATE CORE CACHE (Quan trọng!)
     // Gọi hàm loadProductNormalized với forceRefresh=true để cập nhật KV ngay lập tức
     // Giúp Frontend hiển thị giá/stock mới nhất
-    await loadProductNormalized(env, productId, true);
+    try {
+        await loadProductNormalized(env, productId, true);
+    } catch (cacheError) {
+        console.warn('[Shopee Sync] ⚠️ Failed to refresh cache, but DB saved ok:', cacheError);
+    }
     
     return { 
       product_id: productId, 
       variants: savedVariants.length,
-      variant_details: savedVariants
+      variant_details: savedVariants,
+      status: 'synced'
     };
     
   } catch (error) {

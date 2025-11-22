@@ -669,19 +669,30 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    console.log('[Cron] Scheduled trigger fired at:', new Date(event.scheduledTime).toISOString());
+    console.log('[Cron] ⏰ Scheduled trigger fired at:', new Date(event.scheduledTime).toISOString());
     
-    // 1️⃣ Facebook Ads Automation (mỗi giờ)
-    await FBAdsAuto.scheduledHandler(event, env, ctx);
-    
-    // 2️⃣ Shopee Stock Sync (mỗi giờ)
+    // 1️⃣ AUTO SYNC SHOPEE (ĐƠN HÀNG & TỒN KHO) - Quan trọng nhất
     try {
-      console.log('[Cron] 🔄 Starting Shopee stock sync...');
-      
-      // Lấy tất cả shops Shopee đã kết nối
-      const list = await env.SHV.list({ prefix: 'shopee:shop:' });
-      
-      for (const key of list.keys) {
+        // Import module shopee
+        const shopeeModule = await import('./modules/shopee.js');
+        console.log('[Cron] 🚀 Bắt đầu đồng bộ Shopee tự động...');
+
+        // Gọi hàm đồng bộ toàn bộ (được định nghĩa trong shopee.js)
+        // Hàm này sẽ tự lặp qua tất cả shop và kéo đơn/tồn kho về
+        const result = await shopeeModule.syncAllShops(env);
+        
+        console.log('[Cron] ✅ Kết quả đồng bộ Shopee:', JSON.stringify(result));
+    } catch (e) {
+        console.error('[Cron] ❌ Lỗi đồng bộ Shopee:', e);
+    }
+
+   // 2️⃣ Facebook Ads Automation (Chỉ chạy vào phút 0 của mỗi giờ để tiết kiệm resource)
+    const minutes = new Date(event.scheduledTime).getMinutes();
+    if (minutes === 0) {
+        await FBAdsAuto.scheduledHandler(event, env, ctx);
+    }
+  }
+};
         try {
           const data = await env.SHV.get(key.name);
           if (!data) continue;
