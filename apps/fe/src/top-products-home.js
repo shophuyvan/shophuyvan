@@ -210,6 +210,15 @@ async function loadHomeSections() {
 
     const data = res.data;
     console.log(`[Home] ✅ Đã tải xong (Source: ${res.source})`);
+    
+    // [DEBUG] In ra số lượng sản phẩm từng mục
+    console.table({
+      'Bán chạy': data.bestsellers?.length || 0,
+      'Điện nước': data.cat_dien_nuoc?.length || 0,
+      'Nhà cửa': data.cat_nha_cua?.length || 0,
+      'Hoá chất': data.cat_hoa_chat?.length || 0,
+      'Tiện ích': data.cat_dung_cu?.length || 0
+    });
 
     // 2. HÀM RENDER CHUNG
     const renderSection = async (container, items) => {

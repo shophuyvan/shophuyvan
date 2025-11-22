@@ -162,6 +162,179 @@ export function parseLazadaOrder(raw) {
     created_at: Date.parse(raw.created_at) || Date.now(),
     updated_at: Date.parse(raw.updated_at) || Date.now(),
     
-    items: [] // Sẽ được populate sau
-  };
+    //   items: [] // Sẽ được populate sau
+//   };
+// }
+
+// 4. SAVE ORDER TO D1 (CORE FUNCTION)
+// Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
+export async function saveOrderToD1(env, order) {
+  console.log('[ORDER-CORE] Saving order to D1:', order.order_number || order.id);
+
+  // 1. Chuẩn bị dữ liệu Order
+  const orderId = order.id || order.order_number; // ID dạng string/UUID
+  const now = Date.now();
+
+  // Map field từ Object sang SQL Column (Khớp 100% với database.sql)
+  const sqlOrder = `
+    INSERT INTO orders (
+      order_number, channel, channel_order_id,
+      customer_name, customer_phone, customer_email,
+      shipping_name, shipping_phone, shipping_address,
+      shipping_district, shipping_city, shipping_province, shipping_zipcode,
+      subtotal, shipping_fee, discount, total,
+      seller_transaction_fee, shop_id, shop_name,
+      status, payment_status, fulfillment_status, payment_method,
+      customer_note, admin_note,
+      tracking_number, shipping_carrier,
+      coin_used, voucher_code, voucher_seller, voucher_shopee,
+      commission_fee, service_fee, escrow_amount, buyer_paid_amount,
+      estimated_shipping_fee, actual_shipping_fee_confirmed,
+      created_at, updated_at
+    ) VALUES (
+      ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?,
+      ?, ?
+    )
+    ON CONFLICT(order_number) DO UPDATE SET
+      status = excluded.status,
+      updated_at = excluded.updated_at,
+      tracking_number = excluded.tracking_number,
+      shipping_carrier = excluded.shipping_carrier
+    RETURNING id;
+  `;
+
+  // Chuẩn bị tham số cho câu lệnh INSERT Order
+  const paramsOrder = [
+    String(order.order_number || order.id), 
+    String(order.channel || order.source || 'website'), 
+    String(order.channel_order_id || order.id || ''),
+    
+    String(order.customer?.name || order.customer_name || ''), 
+    String(order.customer?.phone || order.customer_phone || ''), 
+    String(order.customer?.email || order.customer_email || ''),
+    
+    String(order.shipping_name || order.customer?.name || ''), 
+    String(order.shipping_phone || order.customer?.phone || ''), 
+    String(order.shipping_address || order.address || ''), 
+    String(order.shipping_district || order.district || ''), 
+    String(order.shipping_city || order.city || ''), 
+    String(order.shipping_province || order.province || ''), 
+    String(order.shipping_zipcode || ''),
+
+    Number(order.subtotal || 0), 
+    Number(order.shipping_fee || 0), 
+    Number(order.discount || 0), 
+    Number(order.revenue || order.total || 0), // revenue là thực thu, total là tổng
+    
+    Number(order.seller_transaction_fee || 0),
+    String(order.shop_id || ''),
+    String(order.shop_name || ''),
+
+    String(order.status || 'pending').toLowerCase(), 
+    String(order.payment_status || 'pending'), 
+    String(order.fulfillment_status || 'unfulfilled'), 
+    String(order.payment_method || 'cod'),
+
+    String(order.note || order.customer_note || ''), 
+    String(order.admin_note || ''),
+
+    String(order.tracking_code || order.tracking_number || ''), 
+    String(order.shipping_provider || order.shipping_carrier || ''),
+
+    Number(order.coin_used || 0), 
+    String(order.voucher_code || ''), 
+    Number(order.voucher_seller || 0), 
+    Number(order.voucher_shopee || 0),
+
+    Number(order.commission_fee || 0), 
+    Number(order.service_fee || 0), 
+    Number(order.escrow_amount || 0), 
+    Number(order.buyer_paid_amount || 0),
+
+    Number(order.estimated_shipping_fee || 0), 
+    Number(order.actual_shipping_fee_confirmed || 0),
+
+    Number(order.createdAt || order.created_at || now), 
+    now
+  ];
+
+  try {
+    // 2. Thực hiện Transaction (Batch)
+    // D1 hiện chưa hỗ trợ transaction đầy đủ như SQL truyền thống, 
+    // nhưng hỗ trợ batch() để chạy nhiều lệnh cùng lúc.
+    // Tuy nhiên, vì cần lấy ID của Order vừa tạo để insert Items, 
+    // ta nên chạy lệnh Insert Order trước.
+
+    const result = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
+    
+    if (!result || !result.id) {
+        // Trường hợp update (ON CONFLICT DO UPDATE) có thể không trả về ID nếu không có thay đổi,
+        // hoặc trả về ID của row đã update.
+        // Ta cần select lại ID nếu insert fail (do đã tồn tại)
+        const existing = await env.DB.prepare("SELECT id FROM orders WHERE order_number = ?").bind(String(order.order_number || order.id)).first();
+        if (!existing) throw new Error("Failed to insert/get order ID");
+        result = existing;
+    }
+
+    const dbOrderId = result.id; // ID tự tăng (INTEGER) trong DB
+
+    // 3. Xử lý Order Items
+    // Xóa items cũ (để tránh duplicate khi update) và insert lại mới
+    const statements = [];
+    
+    statements.push(
+      env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
+    );
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    
+    for (const item of items) {
+      statements.push(
+        env.DB.prepare(`
+          INSERT INTO order_items (
+            order_id, product_id, variant_id,
+            sku, name, variant_name,
+            price, quantity, subtotal, image,
+            channel_item_id, channel_model_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          dbOrderId,
+          item.product_id || null, 
+          item.variant_id || item.id || null, // Ưu tiên variant_id nếu có
+          String(item.sku || item.id || ''), 
+          String(item.name || ''), 
+          String(item.variant || item.variant_name || ''),
+          Number(item.price || 0), 
+          Number(item.qty || item.quantity || 1), 
+          Number(item.price || 0) * Number(item.qty || item.quantity || 1), 
+          String(item.image || item.img || ''),
+          String(item.channel_item_id || ''), 
+          String(item.channel_model_id || '')
+        )
+      );
+    }
+
+    // Chạy batch insert items
+    if (statements.length > 0) {
+      await env.DB.batch(statements);
+    }
+
+    console.log('[ORDER-CORE] ✅ Saved successfully. DB ID:', dbOrderId);
+    return { ok: true, id: dbOrderId, order_number: orderId };
+
+  } catch (e) {
+    console.error('[ORDER-CORE] ❌ Save failed:', e);
+    return { ok: false, error: e.message };
+  }
 }

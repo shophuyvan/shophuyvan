@@ -11,6 +11,7 @@ import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
 import { applyVoucher, markVoucherUsed } from './vouchers.js'; // ✅ FIX: Thêm markVoucherUsed
+import { saveOrderToD1 } from '../core/order-core.js'; // ✅ NEW: Import Core để lưu vào D1
 
 // ===================================================================
 // Constants & Helpers
@@ -723,11 +724,25 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
     cod_amount: revenue
   };
 
-  // Save order
+  // Save order to KV (Legacy Backup)
   const list = await getJSON(env, 'orders:list', []);
   list.unshift(order);
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
+
+  // [NEW] 🚀 SAVE TO D1 DATABASE (CORE)
+  try {
+    console.log('[ORDER] Saving to D1 Database...');
+    const d1Result = await saveOrderToD1(env, order);
+    if (!d1Result.ok) {
+      console.error('[ORDER] ❌ Failed to save to D1:', d1Result.error);
+      // Không return lỗi để tránh chặn luồng đơn hàng, chỉ log lại
+    } else {
+      console.log('[ORDER] ✅ Saved to D1 successfully. ID:', d1Result.id);
+    }
+  } catch (e) {
+    console.error('[ORDER] ❌ Exception saving to D1:', e);
+  }
 
   // [NEW] 🔥 BẮN ĐƠN SANG FACEBOOK CAPI (SERVER-SIDE)
   // Không dùng await để tránh làm chậm phản hồi về FE
@@ -814,6 +829,13 @@ async function createOrderPublic(req, env) {
   list.unshift(order);
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
+
+  // [NEW] 🚀 SAVE TO D1 DATABASE (CORE)
+  try {
+    const d1Result = await saveOrderToD1(env, order);
+    if (!d1Result.ok) console.error('[ORDER-PUBLIC] Failed to save to D1:', d1Result.error);
+    else console.log('[ORDER-PUBLIC] Saved to D1 ID:', d1Result.id);
+  } catch (e) { console.error('[ORDER-PUBLIC] Exception D1:', e); }
 
   // ✅ CHỈ TRỪ STOCK CHO ĐƠN TỪ WEBSITE/MINI
   if (shouldAdjustStock(order.status) && !body.skip_stock_adjustment) {

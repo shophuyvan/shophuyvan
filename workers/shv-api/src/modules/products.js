@@ -2025,13 +2025,13 @@ async function getHomeSections(req, env) {
       LIMIT ${limit}
     `;
 
-    // Chạy 5 query song song lấy danh sách sản phẩm
+    // [FIXED] Tăng limit: Bán chạy (50), Danh mục (30) để khách lướt thoải mái
     const [resBest, resDien, resNha, resHoa, resDung] = await Promise.all([
-      env.DB.prepare(sqlTemplate('', 'sold DESC', 10)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'thiet-bi-dien-nuoc'", 'created_at DESC', 8)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'nha-cua-doi-song'", 'created_at DESC', 8)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'hoa-chat-gia-dung'", 'created_at DESC', 8)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'dung-cu-tien-ich'", 'created_at DESC', 8)).all()
+      env.DB.prepare(sqlTemplate('', 'sold DESC', 50)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'thiet-bi-dien-nuoc'", 'created_at DESC', 30)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'nha-cua-doi-song'", 'created_at DESC', 30)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'hoa-chat-gia-dung'", 'created_at DESC', 30)).all(),
+      env.DB.prepare(sqlTemplate("category_slug = 'dung-cu-tien-ich'", 'created_at DESC', 30)).all()
     ]);
 
     // 4. GỘP ID VÀ LẤY VARIANTS (Để tính giá chuẩn xác từ bảng variants)
