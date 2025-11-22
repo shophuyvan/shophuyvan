@@ -668,7 +668,7 @@ export default {
     }
   },
 
-  async scheduled(event, env, ctx) {
+async scheduled(event, env, ctx) {
     console.log('[Cron] ⏰ Scheduled trigger fired at:', new Date(event.scheduledTime).toISOString());
     
     // 1️⃣ AUTO SYNC SHOPEE (ĐƠN HÀNG & TỒN KHO) - Quan trọng nhất
@@ -693,47 +693,3 @@ export default {
     }
   }
 };
-        try {
-          const data = await env.SHV.get(key.name);
-          if (!data) continue;
-          
-          const shop = JSON.parse(data);
-          const shopId = shop.shop_id;
-          
-          console.log(`[Cron] Syncing stock for Shopee shop: ${shopId}`);
-          
-          // Gọi sync stock logic (tái sử dụng code từ endpoint)
-          const result = await syncShopeeStockForShop(env, shop);
-          
-          console.log(`[Cron] ✅ Shop ${shopId}: ${result.total} variants updated`);
-        } catch (err) {
-          console.error('[Cron] Error syncing shop:', key.name, err.message);
-        }
-      }
-      
-      console.log('[Cron] ✅ Shopee stock sync completed');
-    } catch (e) {
-      console.error('[Cron] ❌ Shopee stock sync failed:', e);
-    }
-  }
-};
-
-/**
- * 🔄 Helper function: Sync stock cho 1 shop Shopee
- * Tái sử dụng từ endpoint /admin/shopee/sync-stock
- */
-async function syncShopeeStockForShop(env, shopData) {
-  const shopId = shopData.shop_id;
-  
-  // Import callShopeeAPI từ shopee module
-  // (Cần export function này từ shopee.js)
-  
-  // Tạm thời return mock để không lỗi syntax
-  // TODO: Implement logic tương tự endpoint /admin/shopee/sync-stock
-  
-  return {
-    ok: true,
-    total: 0,
-    message: 'Cron job - implementation pending'
-  };
-}
