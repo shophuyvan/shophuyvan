@@ -794,79 +794,86 @@ async function listAdminProducts(req, env) {
     const total = statsResult?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
-    // ✅ Query paginated products với search
+// ✅ FIX: Query products + variants bằng JOIN (tránh D1 "too many SQL variables")
     const productsQuery = `
       SELECT 
-        id, title, slug, shortDesc, category_slug,
-        images, status, on_website, on_mini,
-        sold, rating, rating_count, stock,
-        created_at, updated_at
-      FROM products
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
+        p.id, p.title, p.slug, p.shortDesc, p.category_slug,
+        p.images, p.status, p.on_website, p.on_mini,
+        p.sold, p.rating, p.rating_count, p.stock,
+        p.created_at, p.updated_at,
+        v.id as variant_id,
+        v.sku as variant_sku,
+        v.name as variant_name,
+        v.price as variant_price,
+        v.price_sale as variant_price_sale,
+        v.price_wholesale as variant_price_wholesale,
+        v.cost_price as variant_cost_price,
+        v.stock as variant_stock,
+        v.weight as variant_weight,
+        v.status as variant_status,
+        v.image as variant_image
+      FROM products p
+      LEFT JOIN variants v ON p.id = v.product_id
+      ${whereClause ? whereClause.replace('WHERE', 'WHERE p.id IN (SELECT id FROM products ' + whereClause + ' ORDER BY created_at DESC LIMIT ' + limit + ' OFFSET ' + offset + ') AND') : ''}
+      ${!whereClause ? 'WHERE p.id IN (SELECT id FROM products ORDER BY created_at DESC LIMIT ' + limit + ' OFFSET ' + offset + ')' : ''}
+      ORDER BY p.created_at DESC, v.id ASC
     `;
     
     const productsResult = await env.DB.prepare(productsQuery)
-      .bind(...queryParams, limit, offset)
+      .bind(...queryParams)
       .all();
 
-    const products = productsResult.results || [];
-    console.log(`[listAdminProducts] ✅ Found ${products.length}/${total} products`);
+    const rows = productsResult.results || [];
+    console.log(`[listAdminProducts] ✅ Found ${rows.length} rows (products + variants)`);
 
-    // Load variants cho products hiện tại (batch query)
-    const productIds = products.map(p => p.id);
+    // ✅ Group rows thành products với variants
+    const productsMap = new Map();
     
-    let variantsResult = { results: [] };
-    if (productIds.length > 0) {
-      const placeholders = productIds.map(() => '?').join(',');
-      variantsResult = await env.DB.prepare(`
-        SELECT * FROM variants 
-        WHERE product_id IN (${placeholders})
-        ORDER BY product_id, id ASC
-      `).bind(...productIds).all();
-    }
-
-    // Group variants by product_id
-    const variantsByProduct = {};
-    (variantsResult.results || []).forEach(v => {
-      if (!variantsByProduct[v.product_id]) {
-        variantsByProduct[v.product_id] = [];
+    rows.forEach(row => {
+      const productId = row.id;
+      
+      // Khởi tạo product nếu chưa có
+      if (!productsMap.has(productId)) {
+        productsMap.set(productId, {
+          id: row.id,
+          title: row.title,
+          slug: row.slug,
+          shortDesc: row.shortDesc || '',
+          category_slug: row.category_slug || '',
+          images: row.images ? safeParseJSON(row.images, []) : [],
+          status: row.status || 'active',
+          on_website: row.on_website || 0,
+          on_mini: row.on_mini || 0,
+          sold: row.sold || 0,
+          rating: row.rating || 5.0,
+          rating_count: row.rating_count || 0,
+          stock: row.stock || 0,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          variants: []
+        });
       }
-      variantsByProduct[v.product_id].push({
-        id: v.id,
-        sku: v.sku,
-        name: v.name,
-        price: v.price,
-        price_sale: v.price_sale,
-        price_wholesale: v.price_wholesale,
-        cost_price: v.cost_price,
-        stock: v.stock,
-        weight: v.weight,
-        status: v.status,
-        image: v.image
-      });
+      
+      // Thêm variant nếu có
+      if (row.variant_id) {
+        const product = productsMap.get(productId);
+        product.variants.push({
+          id: row.variant_id,
+          sku: row.variant_sku,
+          name: row.variant_name,
+          price: row.variant_price,
+          price_sale: row.variant_price_sale,
+          price_wholesale: row.variant_price_wholesale,
+          cost_price: row.variant_cost_price,
+          stock: row.variant_stock,
+          weight: row.variant_weight,
+          status: row.variant_status,
+          image: row.variant_image
+        });
+      }
     });
 
-    // Map products với variants
-    const items = products.map(p => ({
-      id: p.id,
-      title: p.title,
-      slug: p.slug,
-      shortDesc: p.shortDesc || '',
-      category_slug: p.category_slug || '',
-      images: p.images ? JSON.parse(p.images) : [],
-      status: p.status || 'active',
-      on_website: p.on_website || 0,
-      on_mini: p.on_mini || 0,
-      sold: p.sold || 0,
-      rating: p.rating || 5.0,
-      rating_count: p.rating_count || 0,
-      stock: p.stock || 0,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-      variants: variantsByProduct[p.id] || []
-    }));
+    const items = Array.from(productsMap.values());
 
     return json({ 
       ok: true, 
