@@ -180,8 +180,8 @@ export function normalizeProduct(product) {
 // 6. Lưu cache sản phẩm vào KV (siêu nhanh 1–2ms)
 // ------------------------------------------------
 export async function cacheProduct(env, productId, normalized) {
-  // Cache trong 10 phút (600s)
-  await putJSON(env, `product:${productId}`, normalized, 600);
+  // Cache trong 2 phút (120s) để đồng bộ nhanh hơn
+  await putJSON(env, `product:${productId}`, normalized, 120);
   return true;
 }
 
@@ -190,6 +190,20 @@ export async function cacheProduct(env, productId, normalized) {
 // ------------------------------------------------
 export async function getCachedProduct(env, productId) {
   return await getJSON(env, `product:${productId}`, null);
+}
+
+// ------------------------------------------------
+// 7.1. Xóa cache sản phẩm (khi admin update)
+// ------------------------------------------------
+export async function invalidateProductCache(env, productId) {
+  try {
+    await env.KV.delete(`product:${productId}`);
+    console.log(`🗑️ Invalidated cache for product ${productId}`);
+    return true;
+  } catch (e) {
+    console.error(`❌ Failed to invalidate cache for product ${productId}:`, e);
+    return false;
+  }
 }
 
 // ------------------------------------------------

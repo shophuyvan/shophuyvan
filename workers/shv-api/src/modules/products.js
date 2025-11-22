@@ -3,7 +3,7 @@
 // Đường dẫn: workers/shv-api/src/modules/products.js
 // ===================================================================
 
-import { loadProductNormalized, normalizeProduct } from '../core/product-core.js';
+import { loadProductNormalized, normalizeProduct, invalidateProductCache } from '../core/product-core.js';
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
@@ -1348,6 +1348,9 @@ async function upsertProduct(req, env) {
     `).bind(totalStock, now, productId).run();
     
     console.log(`✅ Auto-updated products.stock = ${totalStock} for product ${productId}`);
+
+    // 6.5) ✅ XÓA CACHE KV để force reload từ D1
+    await invalidateProductCache(env, productId);
 
     // 7) Load lại full product để trả về
     const saved = await env.DB.prepare(`SELECT * FROM products WHERE id = ?`).bind(productId).first();
