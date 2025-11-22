@@ -24,25 +24,8 @@ function cloudify(u, t='w_800,dpr_auto,q_auto,f_auto') {
   } catch { return u || noImage; }
 }
 
-// [FIXED] Khai báo biến trước, gán giá trị sau khi DOM load để tránh lỗi null
-let grid, bannerStage, bannerDots;
-let banners = [], bIdx = 0, bTimer = null;
-
-function renderBanner(i){
-  if(!banners.length){ bannerStage.innerHTML = `<div class="w-full h-full grid place-items-center muted">Chưa có banner</div>`; return; }
-  bIdx = (i + banners.length) % banners.length;
-  const b = banners[bIdx];
-  bannerStage.innerHTML = `
-    <a href="${b.href||'#'}" target="${b.href ? '_blank' : '_self'}">
-      <img loading="lazy" class="w-full h-full object-cover" src="${cloudify(b.image,'w_1400,dpr_auto,q_auto,f_auto')}" alt="">
-    </a>`;
-  bannerDots.innerHTML = banners.map((_,k)=>`
-    <button data-k="${k}" class="w-2 h-2 rounded-full ${k===bIdx?'bg-rose-600':'bg-gray-300'}"></button>
-  `).join('');
-  [...bannerDots.children].forEach(el=>el.onclick=()=>{renderBanner(+el.dataset.k); startBanner();});
-}
-function startBanner(){ stopBanner(); if(banners.length>1) bTimer=setInterval(()=>renderBanner(bIdx+1),4000); }
-function stopBanner(){ if(bTimer) clearInterval(bTimer), bTimer=null; }
+// [CLEANED] Chỉ giữ lại grid sản phẩm, bỏ banner vì đã có frontend.js xử lý
+let grid;
 
 function card(p){
   const thumb = cloudify(p?.images?.[0]);
@@ -105,32 +88,10 @@ function card(p){
 document.addEventListener('DOMContentLoaded', async () => {
   // Lúc này HTML đã có, query sẽ thành công
   grid = document.querySelector('#grid');
-  bannerStage = document.querySelector('#banner-stage');
-  bannerDots = document.querySelector('#banner-dots');
 
   if (!grid) return; // Nếu trang không có #grid thì dừng, tránh lỗi
 
-  try{
-    // Try multiple endpoints/shapes for settings → banners
-    let bannersData = [];
-    try {
-      const s1 = await api('/public/settings');
-      const cfg = s1?.settings || s1 || {};
-      const val = cfg.banners || cfg?.value || [];
-      if (Array.isArray(val)) bannersData = val;
-    } catch {}
-    if (!bannersData.length) {
-      try {
-        const s2 = await api('/settings?key=banners');
-        const val = s2?.value || s2?.banners || [];
-        if (Array.isArray(val)) bannersData = val;
-      } catch {}
-    }
-    banners = Array.isArray(bannersData) ? bannersData : [];
-  }catch{ banners = []; }
-  renderBanner(0); startBanner();
-  bannerStage.addEventListener('mouseenter', stopBanner);
-  bannerStage.addEventListener('mouseleave', startBanner);
+  // [REMOVED] Xóa code xử lý banner bị lỗi, tập trung tải sản phẩm
 
   // Products: prefer public endpoint, fallback to legacy
   // [FIXED] Tăng limit=200 để hiện hết sản phẩm + Thêm timestamp v=... để xóa cache trình duyệt
