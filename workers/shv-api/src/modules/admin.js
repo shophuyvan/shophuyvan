@@ -162,6 +162,15 @@ export async function handle(req, env, ctx) {
       }
     }
 
+    // ✅ Cache Management
+    if (path === '/admin/cache/clear' && method === 'POST') {
+      const permCheck = await requirePermission(req, env, 'admins.manage_system');
+      if (!permCheck.ok) {
+        return json(permCheck, { status: permCheck.status }, req);
+      }
+      return await clearCache(req, env);
+    }
+
     // 404
     return json({ ok: false, error: 'Route not found' }, { status: 404 }, req);
   
@@ -1690,3 +1699,77 @@ export {
   updateCustomerTier,
   addPoints
 };
+
+// ===================================================================
+// CACHE MANAGEMENT
+// ===================================================================
+
+/**
+ * Clear cache by prefix
+ * POST /admin/cache/clear
+ * Body: { prefix: "product:", confirm: true }
+ */
+async function clearCache(req, env) {
+  try {
+    const body = await req.json();
+    const prefix = body.prefix;
+    const confirm = body.confirm;
+
+    // Validate
+    if (!prefix || typeof prefix !== 'string') {
+      return json({ 
+        ok: false, 
+        error: 'Prefix is required and must be a string' 
+      }, { status: 400 }, req);
+    }
+
+    if (!confirm) {
+      return json({ 
+        ok: false, 
+        error: 'Please set confirm: true to proceed',
+        warning: `This will delete all cache keys starting with: ${prefix}`
+      }, { status: 400 }, req);
+    }
+
+    console.log(`🗑️ [Clear Cache] Starting with prefix: ${prefix}`);
+
+    // List all keys with prefix
+    const keys = await env.KV.list({ prefix });
+    const totalKeys = keys.keys.length;
+
+    if (totalKeys === 0) {
+      return json({ 
+        ok: true, 
+        deleted: 0,
+        prefix,
+        message: 'No cache keys found with this prefix'
+      }, {}, req);
+    }
+
+    // Delete all keys
+    let deleted = 0;
+    for (const key of keys.keys) {
+      await env.KV.delete(key.name);
+      deleted++;
+    }
+
+    console.log(`✅ [Clear Cache] Deleted ${deleted} keys with prefix: ${prefix}`);
+
+    return json({ 
+      ok: true, 
+      deleted,
+      prefix,
+      message: `Successfully cleared ${deleted} cache keys`
+    }, {}, req);
+
+  } catch (e) {
+    console.error('❌ [Clear Cache] Error:', e);
+    return json({ 
+      ok: false, 
+      error: 'Failed to clear cache',
+      details: e.message 
+    }, { status: 500 }, req);
+  }
+}
+
+// <<< Cuối file >>>

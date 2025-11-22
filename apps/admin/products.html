@@ -347,6 +347,7 @@
   <div class="stats">
     <span>Tổng: <strong id="total-count">0</strong></span>
     <a href="./channels.html" class="btn" style="background:#7c3aed;color:white;border-color:#7c3aed">🛒 Quản lý kênh</a>
+    <button id="btn-clear-server-cache" class="btn danger" style="background:#ff6b35;border-color:#ff6b35">🗑️ Xóa Cache Server</button>
     <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
   </div>
 </div>
@@ -945,6 +946,54 @@ const nextPageBtn = $('#next-page');
         currentPage = 1;
         clearCache();
         load(true);
+      }
+    });
+  }
+
+  // ✅ Clear Server Cache Button
+  const btnClearServerCache = $('#btn-clear-server-cache');
+  if (btnClearServerCache) {
+    btnClearServerCache.addEventListener('click', async () => {
+      if (!confirm('⚠️ XÓA TOÀN BỘ CACHE SERVER?\n\nĐiều này sẽ:\n- Xóa cache tất cả sản phẩm trên server\n- Reload dữ liệu từ database\n- Ảnh hưởng đến FE, Mini App, API\n\nBạn có chắc chắn?')) {
+        return;
+      }
+      
+      try {
+        btnClearServerCache.disabled = true;
+        btnClearServerCache.textContent = '⏳ Đang xóa...';
+        
+        const token = localStorage.getItem('admin_token');
+        const res = await fetch('https://api.shophuyvan.vn/admin/cache/clear', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            prefix: 'product:',
+            confirm: true
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok) {
+          alert(`✅ THÀNH CÔNG!\n\nĐã xóa ${data.deleted} cache keys.\n\nDữ liệu sản phẩm sẽ được tải lại từ database.`);
+          
+          // Clear cache local
+          clearCache();
+          
+          // Reload trang
+          currentPage = 1;
+          load(true);
+        } else {
+          alert(`❌ LỖI: ${data.error || 'Không xóa được cache'}`);
+        }
+      } catch (e) {
+        alert(`❌ LỖI KẾT NỐI:\n${e.message}`);
+      } finally {
+        btnClearServerCache.disabled = false;
+        btnClearServerCache.textContent = '🗑️ Xóa Cache Server';
       }
     });
     
