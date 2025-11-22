@@ -3,6 +3,7 @@
 
 import { json, corsHeaders } from '../lib/response.js';
 import { sha256Hex, requirePermission } from '../lib/auth.js'; // ✅ THÊM requirePermission
+import { clearByPrefix } from '../lib/kv.js'; // ✅ THÊM clearByPrefix
 
 /**
  * Main admin handler
@@ -1730,25 +1731,8 @@ async function clearCache(req, env) {
 
     console.log(`🗑️ [Clear Cache] Starting with prefix: ${prefix}`);
 
-    // List all keys with prefix
-    const keys = await env.KV.list({ prefix });
-    const totalKeys = keys.keys.length;
-
-    if (totalKeys === 0) {
-      return json({ 
-        ok: true, 
-        deleted: 0,
-        prefix,
-        message: 'No cache keys found with this prefix'
-      }, {}, req);
-    }
-
-    // Delete all keys
-    let deleted = 0;
-    for (const key of keys.keys) {
-      await env.KV.delete(key.name);
-      deleted++;
-    }
+    // Clear all keys with prefix using lib/kv.js
+    const deleted = await clearByPrefix(env, prefix);
 
     console.log(`✅ [Clear Cache] Deleted ${deleted} keys with prefix: ${prefix}`);
 

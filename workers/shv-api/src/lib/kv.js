@@ -56,3 +56,50 @@ export async function deleteKey(env, key, opts = {}) {
     return false;
   }
 }
+
+/**
+ * List keys by prefix
+ * @param {object} env - Worker environment
+ * @param {string} prefix - Key prefix to search
+ * @param {object} opts - Options { ns: 'SHV'|'VANCHUYEN' }
+ * @returns {Promise<object>} KV list result
+ */
+export async function listKeys(env, prefix, opts = {}) {
+  try {
+    const kv = pickKV(env, prefix, opts.ns);
+    if (!kv?.list) throw new Error('KV binding not available');
+    return await kv.list({ prefix });
+  } catch (e) {
+    console.error('KV listKeys error:', prefix, e);
+    throw e;
+  }
+}
+
+/**
+ * Clear all keys with a specific prefix
+ * @param {object} env - Worker environment
+ * @param {string} prefix - Key prefix to clear
+ * @param {object} opts - Options { ns: 'SHV'|'VANCHUYEN' }
+ * @returns {Promise<number>} Number of deleted keys
+ */
+export async function clearByPrefix(env, prefix, opts = {}) {
+  try {
+    const keys = await listKeys(env, prefix, opts);
+    const totalKeys = keys.keys.length;
+    
+    if (totalKeys === 0) {
+      return 0;
+    }
+    
+    let deleted = 0;
+    for (const key of keys.keys) {
+      const success = await deleteKey(env, key.name, opts);
+      if (success) deleted++;
+    }
+    
+    return deleted;
+  } catch (e) {
+    console.error('KV clearByPrefix error:', prefix, e);
+    throw e;
+  }
+}
