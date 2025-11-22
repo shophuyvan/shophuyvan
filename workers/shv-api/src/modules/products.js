@@ -2051,44 +2051,60 @@ async function getHomeSections(req, env) {
       for (const p of (rows || [])) {
         const pVars = allVariants.filter(v => v.product_id === p.id);
         
-        let minPrice = 0;
-        let maxOriginal = 0;
         let totalStock = 0;
-
-        if (pVars.length > 0) {
-          for (const v of pVars) {
-            const reg = parseNum(v.price);
-            const sale = parseNum(v.price_sale);
-            const stock = parseNum(v.stock);
-            const real = (sale > 0 && sale < reg) ? sale : reg;
-            
-            if (real > 0 && (minPrice === 0 || real < minPrice)) minPrice = real;
-            if (reg > maxOriginal) maxOriginal = reg;
-            totalStock += stock;
-          }
-        }
         
-        // 🔥 ĐIỀU KIỆN LỌC: Ẩn nếu giá = 0 HOẶC hết hàng (theo yêu cầu)
-        if (minPrice <= 0 || totalStock <= 0) continue;
-
-        const images = safeParseImages(p.images);
+        // ✅ BUILD product object để dùng product-core
+        const productForCore = {
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          images: safeParseImages(p.images),
+          category_slug: p.category_slug,
+          sold: p.sold,
+          rating: p.rating,
+          rating_count: p.rating_count,
+          variants: pVars.map(v => ({
+            id: v.id,
+            product_id: v.product_id,
+            sku: v.sku,
+            name: v.name,
+            price: parseNum(v.price),
+            price_sale: parseNum(v.price_sale),
+            stock: parseNum(v.stock)
+          }))
+        };
         
-        // Map lại variants với giá đã parse số (để frontend dùng)
-        const variantsParsed = pVars.map(v => ({
-           ...v, 
-           price: parseNum(v.price), 
-           price_sale: parseNum(v.price_sale) 
-        }));
+        // ✅ DÙNG PRODUCT-CORE để tính giá chuẩn
+        const normalized = normalizeProduct(productForCore);
+        totalStock = normalized.stock_total;
+        
+        // 🔥 ĐIỀU KIỆN LỌC: Ẩn nếu giá = 0 HOẶC hết hàng
+        if (normalized.price_final <= 0 || totalStock <= 0) continue;
 
         result.push({
-          id: p.id, title: p.title, name: p.title, slug: p.slug,
-          images, image: images[0] || null,
-          category_slug: p.category_slug,
-          sold: Number(p.sold||0), rating: Number(p.rating||5),
+          id: normalized.id,
+          title: normalized.name,
+          name: normalized.name,
+          slug: normalized.slug,
+          images: normalized.images,
+          image: normalized.images[0] || null,
+          category_slug: normalized.category_slug,
+          sold: normalized.sold,
+          rating: normalized.rating,
+          rating_count: normalized.rating_count,
           stock: totalStock,
-          price_display: minPrice,
-          compare_at_display: maxOriginal > minPrice ? maxOriginal : null,
-          variants: variantsParsed, // ✅ Gửi variants xuống cho frontend
+          
+          // ✅ GIÁ TỪ PRODUCT-CORE (chuẩn 100%)
+          price: normalized.price_final,
+          price_display: normalized.price_final,
+          compare_at_display: normalized.price_original > normalized.price_final ? normalized.price_original : null,
+          discount_percent: normalized.discount_percent,
+          
+          // ✅ VIDEO từ Core
+          video: normalized.video,
+          
+          // ✅ Variants chuẩn
+          variants: normalized.variants,
           price_tier: 'retail'
         });
       }

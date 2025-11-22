@@ -120,29 +120,27 @@ async function productCard(p) {
   const id = p?.id || p?.key || '';
   const thumb = cloudify(p?.image || (Array.isArray(p?.images) ? p.images[0] : null));
 
-  // ✅ SỬA: Dùng pickPriceByCustomer để áp dụng giá tier
-  const priceInfo = await pickPriceByCustomer(p, null) || {};
-  const base = priceInfo.base || 0;
-  const original = priceInfo.original || null;
+  // ✅ DÙNG PRODUCT-CORE: Giá đã tính sẵn từ API
+  const priceDisplay = p.price_display || p.price_final || p.price || 0;
+  const priceOriginal = p.compare_at_display || p.price_original || null;
+  const discount = p.discount_percent || 0;
 
   let priceHtml = '';
 
-  if (base > 0) {
-    // ✅ GIÁ SALE + GIÁ GỐC (CÙNG DÒNG) - ĐỒNG NHẤT VỚI frontend.js
+  if (priceDisplay > 0) {
+    // ✅ GIÁ SALE + GIÁ GỐC (CÙNG DÒNG)
     priceHtml = `<div style="display:flex;align-items:baseline;gap:6px;">
-      <span style="font-size:16px;font-weight:700;color:#ef4444;">${formatPrice(base)}</span>`;
+      <span style="font-size:16px;font-weight:700;color:#ef4444;">${formatPrice(priceDisplay)}</span>`;
     
-    if (original && original > base) {
-      priceHtml += `<span style="font-size:13px;color:#9ca3af;text-decoration:line-through;">${formatPrice(original)}</span>`;
+    if (priceOriginal && priceOriginal > priceDisplay) {
+      priceHtml += `<span style="font-size:13px;color:#9ca3af;text-decoration:line-through;">${formatPrice(priceOriginal)}</span>`;
     }
     
     priceHtml += `</div>`;
     
-    // ✅ Badge "Giá sỉ" hoặc "-%discount" - LUÔN XUỐNG DÒNG RIÊNG
-    if (priceInfo.customer_type === 'wholesale' || priceInfo.customer_type === 'si') {
-      priceHtml += `<div style="margin-top:4px;"><span style="background:#4f46e5;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">Giá sỉ</span></div>`;
-    } else if (priceInfo.discount > 0) {
-      priceHtml += `<div style="margin-top:4px;"><span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${priceInfo.discount}%</span></div>`;
+    // ✅ Badge giảm giá - LUÔN XUỐNG DÒNG RIÊNG
+    if (discount > 0) {
+      priceHtml += `<div style="margin-top:4px;"><span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;">-${discount}%</span></div>`;
     }
   } else {
     priceHtml = `<div class="text-gray-400 text-xs">Liên hệ</div>`;

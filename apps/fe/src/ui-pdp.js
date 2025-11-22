@@ -446,162 +446,34 @@ async function renderPriceStock() {
   
   if (!priceSaleEl) return;
 
-  // ✅ Lấy thông tin customer
-  const customer = await getCustomerInfo();
-  const customerType = customer?.customer_type || 'retail';
-
-  const vs = variantsOf(PRODUCT).slice(0, 400);
-  let rendered = false;
-
-  // ⚡ CHECK FLASH SALE
-  let hasFlashSale = false;
-  let flashSaleInfo = null;
+  // ✅ DÙNG PRODUCT-CORE: Giá đã được tính sẵn từ API
+  const priceDisplay = PRODUCT.price_final || PRODUCT.price_display || PRODUCT.price || 0;
+  const priceOriginal = PRODUCT.price_original || PRODUCT.compare_at_display || 0;
+  const discount = PRODUCT.discount_percent || 0;
   
-  if (vs.length > 0 && vs[0].flash_sale?.active) {
-    hasFlashSale = true;
-    flashSaleInfo = vs[0].flash_sale;
-  } else if (PRODUCT.flash_sale?.active) {
-    hasFlashSale = true;
-    flashSaleInfo = PRODUCT.flash_sale;
-  }
-
-  if (vs.length) {
-  const pairs = await Promise.all(vs.map(v => pricePair(v, customerType)));
-
-  // ✅ GỌI API ĐỂ TÍNH GIÁ FLASH SALE - LUÔN GỌI CHO TẤT CẢ VARIANTS
-  const pricesPromises = vs.map(async (v) => {
-    const s = v?.flash_sale;
-    const val = Number(s?.discount_value ?? s?.value ?? 0);
-    const flash = (s?.active && val > 0)
-      ? { type: s?.discount_type || 'percent', value: val }
-      : null;
-    
-    // ⚡ FIX: Gọi API thay vì tính thủ công
-    const { final, strike } = await computeFinalPriceByVariant(v, flash);
-    return { final, strike };
-  });
+  console.log('[PDP] Price from Core:', { priceDisplay, priceOriginal, discount });
   
-  const prices = (await Promise.all(pricesPromises)).filter(x => x.final > 0);
-
-  if (prices.length) {
-    const mins = Math.min(...prices.map(x => x.final));
-    const maxs = Math.max(...prices.map(x => x.final));
-    const strikes = prices.map(x => x.strike).filter(Boolean);
-    const minStrike = strikes.length ? Math.min(...strikes) : 0;
-    const maxStrike = strikes.length ? Math.max(...strikes) : 0;
-
-    const baseText = mins === maxs
-      ? formatPrice(mins)
-      : `${formatPrice(mins)} - ${formatPrice(maxs)}`;
-
-    let badge = '';
-    if (hasFlashSale && flashSaleInfo) {
-      badge = `<span style="background:linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:800;animation:flash-pulse 1.5s infinite;">⚡ FLASH SALE</span>`;
-      if (!document.getElementById('flash-countdown-container')) {
-        const countdownHTML = `
-          <div id="flash-countdown-container" style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;background:#fff;border:2px solid #ff6b6b;padding:4px 12px;border-radius:8px;">
-            <span style="font-size:11px;font-weight:700;color:#ff6b6b;">KẾT THÚC SAU</span>
-            <span id="flash-countdown" style="font-size:13px;font-weight:800;color:#ff6b6b;font-family:monospace;"></span>
-          </div>
-        `;
-        priceSaleEl.insertAdjacentHTML('afterend', countdownHTML);
-        startCountdown(flashSaleInfo.ends_at, 'flash-countdown');
-      }
-    } else {
-      const firstPair = pairs[0] || {};
-      if (firstPair.isWholesale && firstPair.original) {
-        badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
-      } else if (firstPair.discount > 0) {
-        const tierIcons = { silver:'🥈', gold:'🥇', diamond:'💎' };
-        const icon = tierIcons[firstPair.tier] || '';
-        badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${firstPair.discount}%</span>`;
-      }
-    }
-
-    priceSaleEl.innerHTML = baseText + badge;
-
-    if (minStrike > 0 && maxStrike > 0 && maxStrike > mins) {
-      const origText = minStrike === maxStrike
-        ? formatPrice(minStrike)
-        : `${formatPrice(minStrike)} - ${formatPrice(maxStrike)}`;
-      if (priceOriginalEl) {
-        priceOriginalEl.textContent = origText;
-        priceOriginalEl.style.display = 'inline';
-      }
-    } else {
-      if (priceOriginalEl) priceOriginalEl.style.display = 'none';
-    }
-
-    rendered = true;
+  // Hiển thị giá
+  let badge = '';
+  if (discount > 0) {
+    badge = `<span style="background:#10b981;color:#fff;padding:4px 10px;border-radius:8px;font-size:12px;margin-left:8px;font-weight:700;">-${discount}%</span>`;
   }
-}
-
-
-  if (!rendered) {
-    const src = CURRENT || PRODUCT || null;
-    
-    // ⚡ CHECK: Có Flash Sale không?
-    let displayPrice = 0;
-    let originalPrice = null;
-    let badge = '';
-    
-    if (hasFlashSale && flashSaleInfo) {
-      // ✅ FIX: BẮT BUỘC gọi API tính giá Flash Sale
-      const flash = {
-        type: flashSaleInfo.discount_type || 'percent',
-        value: Number(flashSaleInfo.discount_value || 0)
-      };
-      
-      // 🔧 CRITICAL: Dùng CURRENT variant thay vì PRODUCT
-      const variantToUse = CURRENT || (variantsOf(PRODUCT)[0]) || src;
-      const { final, strike } = await computeFinalPriceByVariant(variantToUse, flash);
-      
-      displayPrice = final;
-      originalPrice = strike > final ? strike : null;
-      
-      // Thêm countdown
-      if (!document.getElementById('flash-countdown-container')) {
-        const countdownHTML = `
-          <div id="flash-countdown-container" style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;background:#fff;border:2px solid #ff6b6b;padding:4px 12px;border-radius:8px;">
-            <span style="font-size:11px;font-weight:700;color:#ff6b6b;">KẾT THÚC SAU</span>
-            <span id="flash-countdown" style="font-size:13px;font-weight:800;color:#ff6b6b;font-family:monospace;"></span>
-          </div>
-        `;
-        priceSaleEl.insertAdjacentHTML('afterend', countdownHTML);
-        startCountdown(flashSaleInfo.ends_at, 'flash-countdown');
-      }
-    } else {
-      const priceData = await pricePair(src || {}, customerType);
-      displayPrice = priceData.base;
-      originalPrice = priceData.original;
-      
-      if (priceData.isWholesale && originalPrice) {
-        badge = '<span style="background:#4f46e5;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">Giá sỉ</span>';
-      } else if (priceData.discount > 0) {
-        const tierIcons = { 'silver': '🥈', 'gold': '🥇', 'diamond': '💎' };
-        const icon = tierIcons[priceData.tier] || '';
-        badge = `<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;font-weight:700;">${icon} -${priceData.discount}%</span>`;
-      }
-    }
-    
-    priceSaleEl.innerHTML = formatPrice(displayPrice) + badge;
-    
-    if (originalPrice && originalPrice > displayPrice && priceOriginalEl) {
-      priceOriginalEl.textContent = formatPrice(originalPrice);
+  
+  priceSaleEl.innerHTML = formatPrice(priceDisplay) + badge;
+  
+  // Giá gạch ngang
+  if (priceOriginalEl) {
+    if (priceOriginal > 0 && priceOriginal > priceDisplay) {
+      priceOriginalEl.textContent = formatPrice(priceOriginal);
       priceOriginalEl.style.display = 'inline';
     } else {
-      if (priceOriginalEl) priceOriginalEl.style.display = 'none';
+      priceOriginalEl.style.display = 'none';
     }
   }
 
   // Stock display
   if (stockEl) {
-    let stk = 0;
-    if (vs.length) {
-      stk = vs.map(v => (v.stock || v.qty || v.quantity || 0)).reduce((a, b) => a + (+b || 0), 0);
-    } else {
-      stk = (PRODUCT.stock || PRODUCT.qty || PRODUCT.quantity || 0) || 0;
-    }
+    const stk = PRODUCT.stock_total || PRODUCT.stock || 0;
     
     if (stk > 0) {
       stockEl.textContent = 'Còn ' + stk + ' sản phẩm';
