@@ -346,8 +346,52 @@
   <div class="stats">
   <div class="stats">
     <span>Tổng: <strong id="total-count">0</strong></span>
-    <a href="./channels.html" class="btn" style="background:#7c3aed;color:white;border-color:#7c3aed">🛒 Quản lý kênh</a>
-    <button id="btn-clear-server-cache" class="btn danger" style="background:#ff6b35;border-color:#ff6b35">🗑️ Xóa Cache Server</button>
+<a href="./channels.html" class="btn" style="background:#7c3aed;color:white;border-color:#7c3aed">🛒 Quản lý kênh</a>
+    
+    <!-- ✅ DROPDOWN XÓA CACHE -->
+    <div style="position:relative;display:inline-block;">
+      <button id="btn-clear-cache-dropdown" class="btn danger" style="background:#ff6b35;border-color:#ff6b35">
+        🗑️ Xóa Cache Server ▼
+      </button>
+      
+      <div id="cache-dropdown-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:280px;z-index:1000;">
+        <div style="padding:16px;">
+          <div style="font-weight:600;margin-bottom:12px;color:#333;">Chọn Cache cần xóa:</div>
+          
+          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+            <input type="checkbox" class="cache-checkbox" value="product:" style="margin-right:8px;">
+            <span>🛍️ Cache Sản phẩm (product:)</span>
+          </label>
+          
+          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+            <input type="checkbox" class="cache-checkbox" value="home:" style="margin-right:8px;">
+            <span>🏠 Cache Trang chủ (home:)</span>
+          </label>
+          
+          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+            <input type="checkbox" class="cache-checkbox" value="cart:" style="margin-right:8px;">
+            <span>🛒 Cache Giỏ hàng (cart:)</span>
+          </label>
+          
+          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+            <input type="checkbox" class="cache-checkbox" value="category:" style="margin-right:8px;">
+            <span>📂 Cache Danh mục (category:)</span>
+          </label>
+          
+          <div style="border-top:1px solid #e5e7eb;margin:12px 0;"></div>
+          
+          <label style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:4px;transition:background 0.2s;font-weight:600;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">
+            <input type="checkbox" id="cache-select-all" style="margin-right:8px;">
+            <span style="color:#dc2626;">⚠️ TẤT CẢ CACHE</span>
+          </label>
+          
+          <button id="btn-execute-clear" class="btn primary" style="width:100%;margin-top:12px;background:#ef4444;border-color:#ef4444;">
+            🗑️ Xóa Cache Đã Chọn
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
   </div>
 </div>
@@ -950,18 +994,73 @@ const nextPageBtn = $('#next-page');
     });
   }
 
-  // ✅ Clear Server Cache Button
-  const btnClearServerCache = $('#btn-clear-server-cache');
-  if (btnClearServerCache) {
-    btnClearServerCache.addEventListener('click', async () => {
-      if (!confirm('⚠️ XÓA TOÀN BỘ CACHE SERVER?\n\nĐiều này sẽ:\n- Xóa cache tất cả sản phẩm trên server\n- Reload dữ liệu từ database\n- Ảnh hưởng đến FE, Mini App, API\n\nBạn có chắc chắn?')) {
+  // ✅ DROPDOWN XÓA CACHE
+  const btnDropdown = $('#btn-clear-cache-dropdown');
+  const dropdownMenu = $('#cache-dropdown-menu');
+  const selectAllCheckbox = $('#cache-select-all');
+  const cacheCheckboxes = document.querySelectorAll('.cache-checkbox');
+  const btnExecuteClear = $('#btn-execute-clear');
+
+  // Toggle dropdown
+  if (btnDropdown && dropdownMenu) {
+    btnDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Đóng dropdown khi click bên ngoài
+    document.addEventListener('click', (e) => {
+      if (!btnDropdown.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.style.display = 'none';
+      }
+    });
+  }
+
+  // Select All logic
+  if (selectAllCheckbox && cacheCheckboxes) {
+    selectAllCheckbox.addEventListener('change', (e) => {
+      cacheCheckboxes.forEach(cb => cb.checked = e.target.checked);
+    });
+
+    // Nếu tất cả checkbox được chọn thủ công → auto check "Select All"
+    cacheCheckboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const allChecked = Array.from(cacheCheckboxes).every(c => c.checked);
+        selectAllCheckbox.checked = allChecked;
+      });
+    });
+  }
+
+  // Execute clear cache
+  if (btnExecuteClear) {
+    btnExecuteClear.addEventListener('click', async () => {
+      const selectedPrefixes = Array.from(cacheCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      if (selectedPrefixes.length === 0) {
+        alert('⚠️ Vui lòng chọn ít nhất 1 loại cache để xóa');
         return;
       }
-      
+
+      const prefixNames = selectedPrefixes.map(p => {
+        const map = {
+          'product:': 'Sản phẩm',
+          'home:': 'Trang chủ',
+          'cart:': 'Giỏ hàng',
+          'category:': 'Danh mục'
+        };
+        return map[p] || p;
+      }).join(', ');
+
+      if (!confirm(`⚠️ XÓA CACHE?\n\nBạn sắp xóa cache:\n${prefixNames}\n\nĐiều này sẽ reload dữ liệu từ database.\n\nBạn có chắc chắn?`)) {
+        return;
+      }
+
       try {
-        btnClearServerCache.disabled = true;
-        btnClearServerCache.textContent = '⏳ Đang xóa...';
-        
+        btnExecuteClear.disabled = true;
+        btnExecuteClear.textContent = '⏳ Đang xóa...';
+
         const token = localStorage.getItem('admin_token');
         const res = await fetch('https://api.shophuyvan.vn/admin/cache/clear', {
           method: 'POST',
@@ -970,19 +1069,40 @@ const nextPageBtn = $('#next-page');
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            prefix: 'product:',
+            prefixes: selectedPrefixes,
             confirm: true
           })
         });
-        
+
         const data = await res.json();
-        
+
         if (data.ok) {
-          alert(`✅ THÀNH CÔNG!\n\nĐã xóa ${data.deleted} cache keys.\n\nDữ liệu sản phẩm sẽ được tải lại từ database.`);
+          let message = '✅ THÀNH CÔNG!\n\n';
           
+          if (data.results) {
+            data.results.forEach(r => {
+              const name = {
+                'product:': 'Sản phẩm',
+                'home:': 'Trang chủ',
+                'cart:': 'Giỏ hàng',
+                'category:': 'Danh mục'
+              }[r.prefix] || r.prefix;
+              
+              message += `${name}: ${r.deleted} keys\n`;
+            });
+            message += `\nTổng cộng: ${data.total_deleted} keys đã xóa`;
+          } else {
+            message += `Đã xóa ${data.deleted} cache keys`;
+          }
+
+          alert(message);
+
+          // Đóng dropdown
+          dropdownMenu.style.display = 'none';
+
           // Clear cache local
           clearCache();
-          
+
           // Reload trang
           currentPage = 1;
           load(true);
@@ -992,10 +1112,11 @@ const nextPageBtn = $('#next-page');
       } catch (e) {
         alert(`❌ LỖI KẾT NỐI:\n${e.message}`);
       } finally {
-        btnClearServerCache.disabled = false;
-        btnClearServerCache.textContent = '🗑️ Xóa Cache Server';
+        btnExecuteClear.disabled = false;
+        btnExecuteClear.textContent = '🗑️ Xóa Cache Đã Chọn';
       }
     });
+  }
     
     // ✅ Nếu xóa hết text → load lại
     searchInput.addEventListener('input', (e) => {

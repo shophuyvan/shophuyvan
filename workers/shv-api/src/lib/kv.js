@@ -103,3 +103,27 @@ export async function clearByPrefix(env, prefix, opts = {}) {
     throw e;
   }
 }
+
+/**
+ * Clear multiple prefixes at once
+ * @param {object} env - Worker environment
+ * @param {string[]} prefixes - Array of prefixes to clear
+ * @param {object} opts - Options { ns: 'SHV'|'VANCHUYEN' }
+ * @returns {Promise<object[]>} Array of results { prefix, deleted, error }
+ */
+export async function clearMultiplePrefixes(env, prefixes, opts = {}) {
+  const results = [];
+  
+  for (const prefix of prefixes) {
+    try {
+      const deleted = await clearByPrefix(env, prefix, opts);
+      results.push({ prefix, deleted, error: null });
+      console.log(`✅ [clearMultiplePrefixes] ${prefix}: ${deleted} keys deleted`);
+    } catch (e) {
+      results.push({ prefix, deleted: 0, error: e.message });
+      console.error(`❌ [clearMultiplePrefixes] ${prefix}: ${e.message}`);
+    }
+  }
+  
+  return results;
+}

@@ -3,7 +3,7 @@
 
 import { json, corsHeaders } from '../lib/response.js';
 import { sha256Hex, requirePermission } from '../lib/auth.js'; // ✅ THÊM requirePermission
-import { clearByPrefix } from '../lib/kv.js'; // ✅ THÊM clearByPrefix
+import { clearByPrefix, clearMultiplePrefixes } from '../lib/kv.js'; // ✅ THÊM clearByPrefix + clearMultiplePrefixes
 
 /**
  * Main admin handler
@@ -1711,13 +1711,14 @@ async function clearCache(req, env) {
   try {
     const body = await req.json();
     const prefix = body.prefix;
+    const prefixes = body.prefixes;
     const confirm = body.confirm;
 
-    // Validate
-    if (!prefix || typeof prefix !== 'string') {
+    // Validate: phải có prefix (string) hoặc prefixes (array)
+    if (!prefix && !prefixes) {
       return json({ 
         ok: false, 
-        error: 'Prefix is required and must be a string' 
+        error: 'Either prefix (string) or prefixes (array) is required' 
       }, { status: 400 }, req);
     }
 
@@ -1725,23 +1726,56 @@ async function clearCache(req, env) {
       return json({ 
         ok: false, 
         error: 'Please set confirm: true to proceed',
-        warning: `This will delete all cache keys starting with: ${prefix}`
+        warning: 'This will delete cache keys'
       }, { status: 400 }, req);
     }
 
-    console.log(`🗑️ [Clear Cache] Starting with prefix: ${prefix}`);
+    // ✅ CASE 1: Multiple prefixes (array)
+    if (prefixes && Array.isArray(prefixes)) {
+      if (prefixes.length === 0) {
+        return json({ 
+          ok: false, 
+          error: 'Prefixes array cannot be empty' 
+        }, { status: 400 }, req);
+      }
 
-    // Clear all keys with prefix using lib/kv.js
-    const deleted = await clearByPrefix(env, prefix);
+      console.log(`🗑️ [Clear Cache] Starting with ${prefixes.length} prefixes:`, prefixes);
 
-    console.log(`✅ [Clear Cache] Deleted ${deleted} keys with prefix: ${prefix}`);
+      const results = await clearMultiplePrefixes(env, prefixes);
+      const totalDeleted = results.reduce((sum, r) => sum + r.deleted, 0);
+      const hasErrors = results.some(r => r.error);
 
+      console.log(`✅ [Clear Cache] Deleted ${totalDeleted} keys across ${prefixes.length} prefixes`);
+
+      return json({ 
+        ok: !hasErrors,
+        results,
+        total_deleted: totalDeleted,
+        message: `Successfully cleared ${totalDeleted} cache keys across ${prefixes.length} prefixes`
+      }, {}, req);
+    }
+
+    // ✅ CASE 2: Single prefix (string) - backward compatible
+    if (prefix && typeof prefix === 'string') {
+      console.log(`🗑️ [Clear Cache] Starting with prefix: ${prefix}`);
+
+      const deleted = await clearByPrefix(env, prefix);
+
+      console.log(`✅ [Clear Cache] Deleted ${deleted} keys with prefix: ${prefix}`);
+
+      return json({ 
+        ok: true, 
+        deleted,
+        prefix,
+        message: `Successfully cleared ${deleted} cache keys`
+      }, {}, req);
+    }
+
+    // Invalid input
     return json({ 
-      ok: true, 
-      deleted,
-      prefix,
-      message: `Successfully cleared ${deleted} cache keys`
-    }, {}, req);
+      ok: false, 
+      error: 'Invalid input: prefix must be string or prefixes must be array' 
+    }, { status: 400 }, req);
 
   } catch (e) {
     console.error('❌ [Clear Cache] Error:', e);
