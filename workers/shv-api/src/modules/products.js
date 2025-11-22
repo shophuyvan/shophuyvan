@@ -606,12 +606,33 @@ async function listPublicProductsFiltered(req, env) {
     `;
     const params = [];
 
-    // Xử lý tìm kiếm
+    // [SMART SEARCH v2] Tìm kiếm thông minh (bất chấp dấu, bất chấp thứ tự từ)
     if (searchRaw) {
-       sql += ` AND (slug LIKE ? OR title LIKE ?)`;
-       // Tự xử lý slug tại chỗ để không phụ thuộc hàm bên ngoài
-       const s = searchRaw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-');
-       params.push(`%${s}%`, `%${searchRaw}%`);
+       // 1. Chuẩn hóa từ khóa của khách: Xóa dấu tiếng Việt -> Chữ thường -> Tách từ
+       const normalize = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+       const rawNoAccent = normalize(searchRaw);
+       
+       // Tách thành mảng các từ: "nep day dien" -> ["nep", "day", "dien"]
+       const keywords = rawNoAccent.split(/[^a-z0-9]+/).filter(k => k.length > 0);
+
+       if (keywords.length > 0) {
+         // Logic: Sản phẩm phải chứa TẤT CẢ các từ khóa này (AND)
+         // Ví dụ: slug phải chứa "nep" AND chứa "day" AND chứa "dien"
+         const searchConditions = keywords.map(() => `(slug LIKE ? OR title LIKE ?)`).join(' AND ');
+         
+         sql += ` AND (${searchConditions})`;
+         
+         // Thêm params cho từng từ khóa (tìm trong slug HOẶC title)
+         keywords.forEach(k => {
+           params.push(`%${k}%`, `%${k}%`); // k là từ không dấu (ví dụ: "nep")
+         });
+         
+         console.log('[SMART SEARCH] Keywords:', keywords);
+       } else {
+         // Fallback nếu không tách được từ nào (tìm chính xác)
+         sql += ` AND (slug LIKE ? OR title LIKE ?)`;
+         params.push(`%${rawNoAccent}%`, `%${searchRaw}%`);
+       }
     }
 
     // Xử lý danh mục
