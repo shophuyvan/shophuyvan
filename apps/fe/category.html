@@ -222,11 +222,57 @@
         `;
       };
 
-      // ✅ Render sản phẩm
-      document.querySelector("#rs-grid").innerHTML = all
-        .slice(0, PAGE_SIZE)
+            // ===========================
+      // SHV PAGINATION – PAGE_SIZE 20
+      // ===========================
+      const PAGE_SIZE = 20;
+
+      const total = all.length;
+      const totalPages = Math.ceil(total / PAGE_SIZE);
+
+      const currentPage = Number(params.get("page") || 1);
+
+      // Lấy sản phẩm theo trang
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = all.slice(start, start + PAGE_SIZE);
+
+      // Render sản phẩm của trang hiện tại
+      document.querySelector("#rs-grid").innerHTML = pageItems
         .map(tpl)
         .join("");
+
+      // ===========================
+      // Render phân trang
+      // ===========================
+      const pag = document.querySelector("#rs-pagination");
+      pag.innerHTML = "";
+
+      if (totalPages > 1) {
+        let html = `<div class="flex items-center gap-2">`;
+
+        // Prev
+        if (currentPage > 1) {
+          html += `<a href="?${params.toString().replace(/page=\d+/, "")}&page=${currentPage - 1}" class="px-3 py-1 border rounded-xl bg-white">«</a>`;
+        }
+
+        // Các trang
+        for (let i = 1; i <= totalPages; i++) {
+          html += `
+            <a href="?${params.toString().replace(/page=\d+/, "")}&page=${i}"
+              class="px-3 py-1 border rounded-xl ${i === currentPage ? 'bg-red-600 text-white border-red-600' : 'bg-white'}">
+              ${i}
+            </a>`;
+        }
+
+        // Next
+        if (currentPage < totalPages) {
+          html += `<a href="?${params.toString().replace(/page=\d+/, "")}&page=${currentPage + 1}" class="px-3 py-1 border rounded-xl bg-white">»</a>`;
+        }
+
+        html += `</div>`;
+        pag.innerHTML = html;
+      }
+
 
     } catch (e) {
       console.error("Load products failed", e);
