@@ -2045,22 +2045,31 @@ async function getHomeSections(req, env) {
 
     console.log('[HOME] 🚀 Cache Miss -> Querying D1 Parallel...');
 
-    // 3. PREPARE QUERIES (Logic mới: Lấy variants riêng để tính giá chính xác)
+// 3. PREPARE QUERIES - ✅ FILTER TRONG SQL (Chỉ lấy sản phẩm có giá & còn hàng)
     const sqlTemplate = (condition, orderBy, limit) => `
-      SELECT id, title, slug, images, category_slug, status, sold, rating, rating_count
-      FROM products 
-      WHERE status = 'active' ${condition ? 'AND ' + condition : ''}
+      SELECT DISTINCT p.id, p.title, p.slug, p.images, p.category_slug, 
+             p.status, p.sold, p.rating, p.rating_count
+      FROM products p
+      INNER JOIN variants v ON p.id = v.product_id
+      WHERE p.status = 'active' 
+        AND v.stock > 0
+        AND (
+          (v.price_sale > 0 AND v.price_sale < v.price) 
+          OR (v.price > 0)
+        )
+        ${condition ? 'AND ' + condition : ''}
+      GROUP BY p.id
       ORDER BY ${orderBy}
       LIMIT ${limit}
     `;
 
-    // [FIXED] Tăng limit: Bán chạy (50), Danh mục (30) để khách lướt thoải mái
+    // [FIXED] Tăng limit để đảm bảo đủ sản phẩm (đã filter trong SQL)
     const [resBest, resDien, resNha, resHoa, resDung] = await Promise.all([
-      env.DB.prepare(sqlTemplate('', 'sold DESC', 50)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'thiet-bi-dien-nuoc'", 'created_at DESC', 30)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'nha-cua-doi-song'", 'created_at DESC', 30)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'hoa-chat-gia-dung'", 'created_at DESC', 30)).all(),
-      env.DB.prepare(sqlTemplate("category_slug = 'dung-cu-tien-ich'", 'created_at DESC', 30)).all()
+      env.DB.prepare(sqlTemplate('', 'p.sold DESC', 50)).all(),
+      env.DB.prepare(sqlTemplate("p.category_slug = 'thiet-bi-dien-nuoc'", 'p.created_at DESC', 40)).all(),
+      env.DB.prepare(sqlTemplate("p.category_slug = 'nha-cua-doi-song'", 'p.created_at DESC', 40)).all(),
+      env.DB.prepare(sqlTemplate("p.category_slug = 'hoa-chat-gia-dung'", 'p.created_at DESC', 40)).all(),
+      env.DB.prepare(sqlTemplate("p.category_slug = 'dung-cu-tien-ich'", 'p.created_at DESC', 40)).all()
     ]);
 
     // 4. GỘP ID VÀ LẤY VARIANTS (Để tính giá chuẩn xác từ bảng variants)
@@ -2084,6 +2093,14 @@ async function getHomeSections(req, env) {
 
     // 5. FORMAT VÀ LỌC (Ẩn giá 0đ và hết hàng)
     const parseNum = (x) => Number(String(x).replace(/[^0-9]/g, '')) || 0;
+
+    // ✅ DEBUG: Log số lượng SAU SQL query
+    console.log('[HOME] 📊 Số lượng sau SQL query:');
+    console.log('  - Bestsellers:', resBest.results?.length || 0);
+    console.log('  - Điện nước:', resDien.results?.length || 0);
+    console.log('  - Nhà cửa:', resNha.results?.length || 0);
+    console.log('  - Hóa chất:', resHoa.results?.length || 0);
+    console.log('  - Tiện ích:', resDung.results?.length || 0);
 
     const processSection = (rows) => {
       const result = [];
@@ -2117,8 +2134,8 @@ async function getHomeSections(req, env) {
         const normalized = normalizeProduct(productForCore);
         totalStock = normalized.stock_total;
         
-        // 🔥 ĐIỀU KIỆN LỌC: Ẩn nếu giá = 0 HOẶC hết hàng
-        if (normalized.price_final <= 0 || totalStock <= 0) continue;
+       // ✅ ĐÃ FILTER TRONG SQL - Không cần filter lại ở đây
+        // (SQL đã đảm bảo chỉ lấy sản phẩm có giá & còn hàng)
 
         result.push({
           id: normalized.id,
@@ -2157,6 +2174,14 @@ async function getHomeSections(req, env) {
       cat_hoa_chat: processSection(resHoa.results),
       cat_dung_cu: processSection(resDung.results)
     };
+
+    // ✅ DEBUG: Log số lượng SAU khi process
+    console.log('[HOME] ✅ Số lượng SAU khi process (trả về frontend):');
+    console.log('  - Bestsellers:', responseData.bestsellers.length);
+    console.log('  - Điện nước:', responseData.cat_dien_nuoc.length);
+    console.log('  - Nhà cửa:', responseData.cat_nha_cua.length);
+    console.log('  - Hóa chất:', responseData.cat_hoa_chat.length);
+    console.log('  - Tiện ích:', responseData.cat_dung_cu.length);
 
     // 6. LƯU CACHE KV (background)
     // Lưu ý: Hàm putJSON cần await hoặc ctx.waitUntil nếu có
