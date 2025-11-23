@@ -612,8 +612,6 @@ const offset = (page - 1) * limit;
 
 console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (hasSearch=${hasSearch})`);
 
-    console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}"`);
-
     // 2. QUERY PRODUCTS (Chuẩn theo file database.sql: KHÔNG SELECT PRICE)
     // ✅ FIX: Lọc stock > 0 ngay trong SQL để tránh lỗi phân trang (pagination gap)
     let sql = `
@@ -666,9 +664,7 @@ console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (has
     }
 
     // ✅ SAU - Thêm sort bestseller:
-     const sortBy = url.searchParams.get('sort') || '';
-     
-     if (sortBy === 'bestseller') {
+    if (sortBy === 'bestseller') {
        sql += ` ORDER BY sold DESC, created_at DESC`;
      } else if (sortBy === 'price_asc') {
        sql += ` ORDER BY stock DESC, created_at DESC`; // Tạm sort theo stock vì giá ở variants
