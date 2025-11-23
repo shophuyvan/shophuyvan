@@ -2026,14 +2026,17 @@ async function getProductChannels(req, env, productId) {
 // ===================================================================
 async function getHomeSections(req, env) {
   try {
-    // 1. CẤU HÌNH CACHE KV
-    // [FIXED] Đổi dấu '_' thành ':' để khớp với công cụ Xóa Cache trong Admin (home:*)
-    const CACHE_KEY = 'home:sections_data_v3'; 
+    const CACHE_KEY = 'home-sections-v2';
     const CACHE_TTL = 300; // 5 phút
+    
+    // ✅ CHECK: Force refresh nếu có query param ?refresh=1
+    const url = new URL(req.url);
+    const forceRefresh = url.searchParams.get('refresh') === '1';
 
-    // 2. KIỂM TRA CACHE
-    const cached = await getJSON(env, CACHE_KEY);
-    if (cached) {
+    // 2. CHECK CACHE (bỏ qua nếu force refresh)
+    if (!forceRefresh) {
+      const cached = await getJSON(env, CACHE_KEY, null);
+      if (cached) {
       return json({
         ok: true,
         source: 'cache',
