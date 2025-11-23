@@ -60,6 +60,58 @@ const flashWrap   = document.getElementById('flash-products'); // ✅ THÊM
 const bestWrap    = document.getElementById('best-products'); // ✅ THÊM
 const loadMoreBtn = document.getElementById('load-more');
 const searchInput = document.getElementById('shv-search');
+
+// ==============================
+// SHV SEARCH – REALTIME (A)
+// ==============================
+
+// Chuyển tiếng Việt có dấu → không dấu
+function shvNormalize(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
+// Hàm lọc realtime trên FE
+async function shvSearchRealtime(keyword) {
+  const grid = document.querySelector('#best-products') || document.querySelector('#flash-products');
+
+  if (!grid) return;
+
+  const q = shvNormalize(keyword.trim());
+  if (!q) {
+    // load lại danh sách gốc (Bán chạy)
+    try {
+      const data = await api('/products/bestsellers?limit=8');
+      const items = data.items || data.products || data.data || [];
+      grid.innerHTML = items.map(card).join('');
+    } catch {}
+    return;
+  }
+
+  // Lấy danh sách sản phẩm FE từng load
+  let res = await api('/public/products?limit=200&q=' + encodeURIComponent(keyword));
+  let items = res.items || [];
+
+  // Normalize filter FE (nếu backend chưa match)
+  items = items.filter(p => {
+    const name = shvNormalize(p.name || p.title || '');
+    return name.includes(q);
+  });
+
+  grid.innerHTML = items.map(card).join('');
+}
+
+// Gõ tới đâu lọc tới đó
+if (searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    shvSearchRealtime(e.target.value);
+  });
+}
+
 const filterInput = document.getElementById('quick-filter');
 
 let cursor = null;
