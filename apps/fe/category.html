@@ -132,21 +132,15 @@
       if (slug) {
         apiUrl += `&category_slug=${encodeURIComponent(slug)}`;
       }
+      // ✅ FIX QUAN TRỌNG: Gửi từ khóa xuống Backend để tìm kiếm
+      if (searchQuery) {
+        apiUrl += `&q=${encodeURIComponent(searchQuery)}`;
+      }
 
       const r = await fetch(apiUrl);
       const data = await r.json();
       let all = data.items || [];
-
-      // ✅ Filter theo từ khóa tìm kiếm
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        all = all.filter(p => {
-          const title = (p.title || p.name || '').toLowerCase();
-          const sku = (p.sku || '').toLowerCase();
-          return title.includes(q) || sku.includes(q);
-        });
-      }
-
+     
       // ✅ Filter theo giá tối đa
       if (priceMax > 0) {
         all = all.filter(p => {
@@ -272,7 +266,6 @@
         html += `</div>`;
         pag.innerHTML = html;
       }
-
 
     } catch (e) {
       console.error("Load products failed", e);
