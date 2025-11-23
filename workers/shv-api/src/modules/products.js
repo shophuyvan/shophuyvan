@@ -2029,6 +2029,15 @@ async function getHomeSections(req, env) {
     const CACHE_KEY = 'home-sections-v2';
     const CACHE_TTL = 300; // 5 phút
     
+    // ✅ TEMPORARY: XÓA CACHE ĐỂ DEBUG - Bỏ comment sau khi debug xong
+    console.log('[HOME] 🗑️ FORCE DELETE CACHE for debugging...');
+    try {
+      await env.KV.delete(CACHE_KEY);
+    } catch (e) {
+      console.warn('[HOME] ⚠️ Could not delete cache:', e);
+    }
+    
+    
     // ✅ CHECK: Force refresh nếu có query param ?refresh=1
     const url = new URL(req.url);
     const forceRefresh = url.searchParams.get('refresh') === '1';
@@ -2046,6 +2055,7 @@ async function getHomeSections(req, env) {
         }, req);
       }
     }
+    
 
     console.log('[HOME] 🚀 Cache Miss -> Querying D1 Parallel...');
 
