@@ -26,6 +26,7 @@ import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
 import * as FBPageAuto from './modules/facebook/fb-automation.js';
+import * as SocialSync from './modules/social-video-sync/index-sync.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
 import { handleCartSync } from './modules/cart-sync-handler.js';
@@ -478,6 +479,19 @@ export default {
           return json(permCheck, { status: permCheck.status }, req);
         }
         return FBAds.handle(req, env, ctx);
+      }
+	  
+	  // ============================================
+      // SOCIAL VIDEO SYNC (TIKTOK REUP AUTO)
+      // ============================================
+      if (path.startsWith('/api/social-sync')) {
+        // Yêu cầu quyền ads.create hoặc ads.edit để sử dụng tính năng này
+        const permCheck = await requirePermission(req, env, 'ads.edit');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        
+        return SocialSync.handle(req, env, ctx);
       }
 
       // ============================================

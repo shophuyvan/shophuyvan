@@ -316,6 +316,14 @@
             Quảng Cáo
           </a>
 
+          <a href="/facebook-video-sync.html" class="admin-menu-item" data-page="facebook-video-sync">
+            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Auto Video Sync
+            <span style="background: #dc3545; color: white; font-size: 9px; padding: 2px 4px; border-radius: 4px; margin-left: auto;">NEW</span>
+          </a>
+
           <a href="/shipping.html" class="admin-menu-item" data-page="shipping">
             <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>

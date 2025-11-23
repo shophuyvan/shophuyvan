@@ -321,3 +321,60 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE INDEX idx_categories_slug ON categories(slug);
 CREATE INDEX idx_categories_parent ON categories(parent_id);
+
+-- ============================================
+-- SOCIAL VIDEO SYNC (TikTok → Facebook Auto)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS video_syncs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tiktok_url TEXT NOT NULL,
+  tiktok_video_id TEXT,
+  r2_path TEXT,
+  r2_url TEXT,
+  video_duration INTEGER,
+  file_size INTEGER,
+  brand_voice TEXT DEFAULT 'friendly',
+  status TEXT DEFAULT 'pending',
+  error_message TEXT,
+  created_by INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ai_generated_content (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_sync_id INTEGER NOT NULL,
+  version INTEGER DEFAULT 1,
+  caption TEXT,
+  hashtags TEXT,
+  video_analysis TEXT,
+  is_selected INTEGER DEFAULT 0,
+  is_edited INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (video_sync_id) REFERENCES video_syncs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS facebook_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_sync_id INTEGER NOT NULL,
+  ai_content_id INTEGER,
+  page_id TEXT NOT NULL,
+  post_id TEXT,
+  post_url TEXT,
+  status TEXT DEFAULT 'pending',
+  error_message TEXT,
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  published_at INTEGER,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (video_sync_id) REFERENCES video_syncs(id) ON DELETE CASCADE,
+  FOREIGN KEY (ai_content_id) REFERENCES ai_generated_content(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_syncs_status ON video_syncs(status);
+CREATE INDEX IF NOT EXISTS idx_video_syncs_created_by ON video_syncs(created_by);
+CREATE INDEX IF NOT EXISTS idx_facebook_posts_video_sync ON facebook_posts(video_sync_id);
+CREATE INDEX IF NOT EXISTS idx_ai_content_video_sync ON ai_generated_content(video_sync_id);

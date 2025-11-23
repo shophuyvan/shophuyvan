@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Video Auto Sync | Shop Huy Van</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+
+    <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a></li>
+        </ul>
+    </nav>
+
+    <aside class="main-sidebar sidebar-dark-primary elevation-4" id="sidebar-container">
+        </aside>
+
+    <div class="content-wrapper">
+        <div class="content-header">
+            <div class="container-fluid">
+                <h1 class="m-0">🤖 TikTok to Facebook Sync</h1>
+            </div>
+        </div>
+
+        <section class="content">
+            <div class="container-fluid">
+                
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">🔗 Bước 1: Nhập nguồn Video (Test API)</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>TikTok Video URL</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="tiktokUrl" 
+                                       placeholder="https://www.tiktok.com/@user/video/..." 
+                                       value="https://www.tiktok.com/@shophuyvan/video/735123456789">
+                                <div class="input-group-append">
+                                    <button class="btn btn-warning font-weight-bold" onclick="analyzeVideo()" id="btnAnalyze">
+                                        <i class="fas fa-bolt"></i> GỌI API TEST
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted">Hệ thống sẽ tải video về R2 (xóa logo) và dùng Gemini AI viết content.</small>
+                        </div>
+                        
+                        <div id="loadingArea" class="mt-3" style="display: none;">
+                            <div class="d-flex align-items-center text-primary">
+                                <div class="spinner-border spinner-border-sm mr-2"></div>
+                                <span>Đang xử lý... (Vui lòng đợi 5-10s)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card card-success" id="resultArea" style="display: none;">
+                    <div class="card-header">
+                        <h3 class="card-title">✅ Kết quả từ Server</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h5>Video Clean (R2)</h5>
+                                <video id="videoPreview" controls style="width: 100%; border-radius: 8px; background: #000;"></video>
+                                <div class="mt-2">
+                                    <span class="badge badge-info" id="fileSize">Size: 0 MB</span>
+                                    <a href="#" id="downloadLink" target="_blank" class="btn btn-sm btn-outline-secondary float-right">Tải về</a>
+                                </div>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h5>Gemini AI Generated</h5>
+                                <ul class="nav nav-tabs" id="aiTabs" role="tablist">
+                                    <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#verA">Version A</a></li>
+                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#verB">Version B</a></li>
+                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#verC">Version C</a></li>
+                                </ul>
+                                
+                                <div class="tab-content mt-3">
+                                    <div id="verA" class="tab-pane active">
+                                        <textarea class="form-control" rows="6" id="contentA"></textarea>
+                                    </div>
+                                    <div id="verB" class="tab-pane">
+                                        <textarea class="form-control" rows="6" id="contentB"></textarea>
+                                    </div>
+                                    <div id="verC" class="tab-pane">
+                                        <textarea class="form-control" rows="6" id="contentC"></textarea>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary btn-block" onclick="alert('Chức năng đăng bài sẽ kích hoạt ở Phase sau!')">
+                                        <i class="fab fa-facebook-f"></i> Đăng lên Fanpage
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+</div>
+
+<script src="sidebar-layout.js"></script>
+<script>
+// Hàm gọi API Test
+async function analyzeVideo() {
+    const url = document.getElementById('tiktokUrl').value;
+    if (!url) return alert('Vui lòng nhập link TikTok!');
+
+    // UI Update
+    document.getElementById('btnAnalyze').disabled = true;
+    document.getElementById('btnAnalyze').innerHTML = '<i class="fas fa-sync fa-spin"></i> Đang chạy...';
+    document.getElementById('loadingArea').style.display = 'block';
+    document.getElementById('resultArea').style.display = 'none';
+
+    try {
+        // Lấy token admin từ localStorage (đã có sẵn trong hệ thống admin của bạn)
+        const token = localStorage.getItem('admin_token'); 
+
+        const res = await fetch('https://api.shophuyvan.vn/api/social-sync/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ tiktokUrl: url })
+        });
+
+        const data = await res.json();
+
+        if (!data.success && !data.ok) { // Check cả success và ok tùy format trả về
+            throw new Error(data.error || 'Lỗi xử lý từ server');
+        }
+
+        // Render kết quả ra UI
+        renderResult(data);
+
+    } catch (e) {
+        alert('Lỗi: ' + e.message);
+        console.error(e);
+    } finally {
+        document.getElementById('btnAnalyze').disabled = false;
+        document.getElementById('btnAnalyze').innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
+        document.getElementById('loadingArea').style.display = 'none';
+    }
+}
+
+function renderResult(data) {
+    document.getElementById('resultArea').style.display = 'block';
+    
+    // 1. Video Preview
+    if (data.r2Url) {
+        const video = document.getElementById('videoPreview');
+        video.src = data.r2Url;
+        document.getElementById('downloadLink').href = data.r2Url;
+    }
+    
+    if (data.fileSize) {
+        document.getElementById('fileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    // 2. AI Content (Parse từ JSON trả về)
+    // Lưu ý: Cần khớp với cấu trúc trả về từ file ai-content-generator.js
+    const ai = data.aiContent || data.ai_content; 
+    
+    if (ai) {
+        document.getElementById('contentA').value = formatCaption(ai.versionA);
+        document.getElementById('contentB').value = formatCaption(ai.versionB);
+        document.getElementById('contentC').value = formatCaption(ai.versionC);
+    }
+}
+
+function formatCaption(ver) {
+    if (!ver) return '';
+    // Nếu ver là object {caption, hashtags}
+    if (typeof ver === 'object') {
+        return `${ver.caption}\n\n${(ver.hashtags || []).join(' ')}`;
+    }
+    return ver; // Nếu ver là string
+}
+</script>
+</body>
+</html>
