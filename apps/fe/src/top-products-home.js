@@ -202,7 +202,8 @@ async function loadHomeSections() {
 
   try {
     // 1. GỌI API DUY NHẤT
-    const res = await api('/products/home-sections');
+    // Force bypass cache bằng timestamp
+const res = await api(`/products/home-sections?v=${Date.now()}`);
     
     if (!res || !res.ok || !res.data) {
       throw new Error('API Data missing');
