@@ -159,8 +159,8 @@ export async function handle(req, env, ctx) {
     return deleteProduct(req, env);
   }
 
-  // ✅ TEMP: Sync Search Text (Mở tạm GET để chạy trên trình duyệt)
-  if (path === '/sync-data-now' && method === 'GET') {
+  // ✅ TEMP: Sync Search Text (Dùng đường dẫn con để tránh lỗi Router)
+  if (path === '/products/sync-search-now' && method === 'GET') {
     return syncSearchText(req, env);
   }
 
