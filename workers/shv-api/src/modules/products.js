@@ -591,9 +591,26 @@ async function listPublicProductsFiltered(req, env) {
                        url.searchParams.get('search') || 
                        url.searchParams.get('keyword') || '').trim();
     
-    const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
-    const limit = Math.min(50, Number(url.searchParams.get('limit') || '24'));
-    const offset = (page - 1) * limit;
+    // ✅ SAU - LIMIT linh hoạt:
+const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
+
+// ✅ NẾU CÓ TÌM KIẾM hoặc SORT BESTSELLER → Tăng limit lên 1000
+const hasSearch = searchRaw.length > 0;
+const sortBy = url.searchParams.get('sort') || '';
+const isBestseller = sortBy === 'bestseller';
+
+let limit;
+if (hasSearch || isBestseller) {
+  // Khi search/bestseller: Lấy TẤT CẢ để tìm chính xác
+  limit = Math.min(5000, Number(url.searchParams.get('limit') || '1000'));
+} else {
+  // Khi browse category bình thường: Giữ nguyên 24-50
+  limit = Math.min(200, Number(url.searchParams.get('limit') || '24'));
+}
+
+const offset = (page - 1) * limit;
+
+console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (hasSearch=${hasSearch})`);
 
     console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}"`);
 
@@ -648,8 +665,47 @@ async function listPublicProductsFiltered(req, env) {
       params.push(category);
     }
 
-    sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
+    // ✅ SAU - Thêm sort bestseller:
+const sortBy = url.searchParams.get('sort') || '';
+
+if (sortBy === 'bestseller') {
+  sql += ` ORDER BY sold DESC, created_at DESC`;
+} else if (sortBy === 'price_asc') {
+  sql += ` ORDER BY stock DESC, created_at DESC`; // Tạm sort theo stock vì giá ở variants
+} else {
+  sql += ` ORDER BY created_at DESC`;
+}
+
+sql += ` LIMIT ? OFFSET ?`;
+params.push(limit, offset);
+```
+
+---
+
+## 📝 GIẢI THÍCH LOGIC MỚI:
+
+### **1. LIMIT Linh Hoạt:**
+
+| Trường hợp | LIMIT | Lý do |
+|------------|-------|-------|
+| `/public/products` (browse) | 24-50 | Duyệt category thông thường |
+| `/public/products?q=...` (search) | **1000** | Tìm kiếm → Cần search TOÀN BỘ |
+| `/public/products?sort=bestseller` | **1000** | Bán chạy → Cần xem hết để sort đúng |
+| `/public/products?limit=5000` (admin) | 5000 | Admin xem tổng quan |
+
+### **2. Query Flow:**
+```
+User search "máy hút bụi"
+  ↓
+Backend query: LIMIT 1000 (thay vì 24)
+  ↓
+SQL WHERE: title LIKE '%may%' AND title LIKE '%hut%' AND title LIKE '%bui%'
+  ↓
+Filter: price > 0, stock > 0
+  ↓
+Return: Tất cả sản phẩm khớp từ khóa
+  ↓
+Frontend: Hiển thị với pagination (20/trang)
 
     // Chạy query Products
     const productRes = await env.DB.prepare(sql).bind(...params).all();
