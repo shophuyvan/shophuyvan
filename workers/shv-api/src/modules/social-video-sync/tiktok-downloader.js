@@ -1,40 +1,42 @@
 /**
- * TikTok Video Downloader
- * Downloads TikTok video without watermark and uploads to R2
+ * TikTok Video Downloader (Updated v2)
+ * Sử dụng TikWM API (JSON) thay cho SnapTik (HTML Scraping) để ổn định hơn
  */
 
 export async function downloadTikTokVideo(tiktokUrl, env) {
   try {
-    // Extract video ID from URL
-    const videoId = extractVideoId(tiktokUrl);
-    if (!videoId) {
-      throw new Error('Invalid TikTok URL');
-    }
+    // 1. Lấy Video ID để đặt tên file
+    const videoId = extractVideoId(tiktokUrl) || `tiktok_${Date.now()}`;
     
-    // Option 1: Use SnapTik API (free, no auth needed)
-    const downloadUrl = await getDownloadUrlFromSnapTik(tiktokUrl);
+    // 2. Lấy Link Download từ TikWM (API trả về JSON)
+    const downloadUrl = await getDownloadUrlFromTikWM(tiktokUrl);
     
-    // Download video
+    console.log(`[TikTok] Found download URL: ${downloadUrl}`);
+
+    // 3. Tải Video về Worker (Buffer)
     const videoResponse = await fetch(downloadUrl);
     if (!videoResponse.ok) {
-      throw new Error('Failed to download video');
+      throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
     }
     
     const videoBlob = await videoResponse.arrayBuffer();
     const videoSize = videoBlob.byteLength;
     
-    // Generate R2 path
+    // 4. Upload lên R2
+    // Cấu trúc: social-videos/YYYY/MM/videoId_timestamp.mp4
+    const now = new Date();
     const timestamp = Date.now();
-    const r2Path = `social-videos/${new Date().getFullYear()}/${new Date().getMonth() + 1}/${videoId}_${timestamp}.mp4`;
+    const r2Path = `social-videos/${now.getFullYear()}/${now.getMonth() + 1}/${videoId}_${timestamp}.mp4`;
     
-    // Upload to R2
     await env.SOCIAL_VIDEOS.put(r2Path, videoBlob, {
       httpMetadata: {
-        contentType: 'video/mp4'
+        contentType: 'video/mp4',
+        cacheControl: 'public, max-age=31536000'
       }
     });
     
-    // Generate public URL (if R2 bucket is public)
+    // 5. Generate Public URL
+    // Lưu ý: Đảm bảo bạn đã map domain social-videos.shophuyvan.vn vào R2 bucket trong Dash Cloudflare
     const r2Url = `https://social-videos.shophuyvan.vn/${r2Path}`;
     
     return {
@@ -42,8 +44,7 @@ export async function downloadTikTokVideo(tiktokUrl, env) {
       videoId,
       r2Path,
       r2Url,
-      fileSize: videoSize,
-      duration: null // Will be extracted by Gemini
+      fileSize: videoSize
     };
     
   } catch (error) {
@@ -53,53 +54,60 @@ export async function downloadTikTokVideo(tiktokUrl, env) {
 }
 
 /**
- * Extract video ID from TikTok URL
+ * Extract video ID (Hỗ trợ nhiều định dạng link)
  */
 function extractVideoId(url) {
-  // Support formats:
-  // https://www.tiktok.com/@user/video/1234567890
-  // https://vt.tiktok.com/ZSxxxxx/
-  // https://vm.tiktok.com/ZMxxxxx/
-  
-  const patterns = [
-    /\/video\/(\d+)/,
-    /\/v\/(\d+)/,
-    /vt\.tiktok\.com\/(\w+)/,
-    /vm\.tiktok\.com\/(\w+)/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
+  try {
+    // Case 1: Link video trực tiếp (tiktok.com/@user/video/123456)
+    const idMatch = url.match(/\/video\/(\d+)/);
+    if (idMatch) return idMatch[1];
+
+    // Case 2: Link rút gọn (vt.tiktok.com/ZS...) - TikWM tự xử lý được, nhưng ta lấy ID tạm
+    const shortMatch = url.match(/vt\.tiktok\.com\/(\w+)/);
+    if (shortMatch) return shortMatch[1];
+    
+    return null;
+  } catch (e) {
+    return null;
   }
-  
-  return null;
 }
 
 /**
- * Get download URL from SnapTik
- * This is a simplified version - production should handle more edge cases
+ * Get Clean Video URL using TikWM API
+ * Docs: https://www.tikwm.com/docs/
  */
-async function getDownloadUrlFromSnapTik(tiktokUrl) {
-  // SnapTik API endpoint (unofficial)
-  const apiUrl = 'https://snaptik.app/abc2.php';
+async function getDownloadUrlFromTikWM(tiktokUrl) {
+  const apiUrl = 'https://www.tikwm.com/api/';
   
   const formData = new FormData();
   formData.append('url', tiktokUrl);
-  formData.append('lang', 'en');
-  
+  formData.append('count', 12);
+  formData.append('cursor', 0);
+  formData.append('web', 1);
+  formData.append('hd', 1);
+
   const response = await fetch(apiUrl, {
     method: 'POST',
     body: formData
   });
+
+  const data = await response.json();
   
-  const html = await response.text();
-  
-  // Parse HTML to get download link (simplified - production needs better parsing)
-  const match = html.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
-  if (!match) {
-    throw new Error('Could not find download URL');
+  // TikWM trả về code: 0 là thành công
+  if (!data || data.code !== 0) {
+    throw new Error(`TikWM API Error: ${data.msg || 'Unknown error'}`);
   }
-  
-  return match[1];
+
+  // data.data.play là link mp4 không logo
+  if (!data.data || !data.data.play) {
+    throw new Error('TikWM did not return a video URL');
+  }
+
+  // Link của TikWM đôi khi là relative path, cần check
+  let videoUrl = data.data.play;
+  if (!videoUrl.startsWith('http')) {
+    videoUrl = `https://www.tikwm.com${videoUrl}`;
+  }
+
+  return videoUrl;
 }
