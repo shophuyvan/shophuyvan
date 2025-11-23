@@ -110,7 +110,7 @@
 
 <script src="sidebar-layout.js"></script>
 <script>
-// Hàm gọi API Test
+// Hàm gọi API Test (Đã sửa để nhận diện x-token)
 async function analyzeVideo() {
     const url = document.getElementById('tiktokUrl').value;
     if (!url) return alert('Vui lòng nhập link TikTok!');
@@ -123,35 +123,34 @@ async function analyzeVideo() {
     document.getElementById('resultArea').style.display = 'none';
 
     try {
-        // 🔍 FIX LỖI 401: Tự động dò tìm Token chính xác
-        let token = '';
-        
-        // Cách 1: Lấy từ object Admin global (nếu có)
-        if (window.Admin && typeof window.Admin.token === 'function') {
+        // 🔍 ƯU TIÊN LẤY x-token
+        let token = localStorage.getItem('x-token');
+
+        // Fallback: Nếu không có x-token mới tìm các tên khác
+        if (!token && window.Admin && typeof window.Admin.token === 'function') {
             token = window.Admin.token();
         }
-        
-        // Cách 2: Tìm trong localStorage với các tên phổ biến
-        if (!token) token = localStorage.getItem('token');
         if (!token) token = localStorage.getItem('admin_token');
-        if (!token) token = localStorage.getItem('shv_token'); // Tên thường dùng trong hệ thống SHV
-
+        
         if (!token) {
-            throw new Error('Không tìm thấy phiên đăng nhập! Vui lòng F5 hoặc đăng nhập lại.');
+            throw new Error('Không tìm thấy Token (x-token)! Vui lòng đăng nhập lại.');
         }
+
+        console.log('Using Token:', token); // Debug
 
         const res = await fetch('https://api.shophuyvan.vn/api/social-sync/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // Gửi token chuẩn
+                // Server của bạn hỗ trợ cả 2 cách, gửi cách này cho chuẩn
+                'Authorization': `Bearer ${token}`,
+                'x-token': token // Gửi kèm cả header này cho chắc chắn
             },
             body: JSON.stringify({ tiktokUrl: url })
         });
 
-        // Xử lý response
         if (res.status === 401) {
-            throw new Error('Phiên đăng nhập hết hạn hoặc không có quyền (401).');
+            throw new Error('Token hết hạn hoặc không hợp lệ (401).');
         }
 
         const data = await res.json();
