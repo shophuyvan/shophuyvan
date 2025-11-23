@@ -663,11 +663,6 @@ console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (has
        }
          
          console.log('[FULL SEARCH] Keywords:', keywords);
-       } else {
-         // Fallback: Tìm chính xác nếu không tách được từ
-         sql += ` AND (slug LIKE ? OR LOWER(title) LIKE ?)`;
-         params.push(`%${cleanSearch}%`, `%${searchRaw.toLowerCase()}%`);
-       }
     }
 
     // Xử lý danh mục
