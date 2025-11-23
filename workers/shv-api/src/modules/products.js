@@ -50,9 +50,21 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-  // ✅ ƯU TIÊN: Sync Search Text (Đặt ngay đầu để chặn trước khi vào logic ID)
-  if (path === '/products/sync-search-now' && method === 'GET') {
-    return syncSearchText(req, env);
+  // 🔍 DEBUG: Soi dữ liệu sản phẩm 1884
+  if (path === '/products/inspect' && method === 'GET') {
+    const id = url.searchParams.get('id');
+    const p = await env.DB.prepare(`SELECT id, title, status, stock, search_text FROM products WHERE id = ?`).bind(id).first();
+    const v = await env.DB.prepare(`SELECT id, sku, stock FROM variants WHERE product_id = ?`).bind(id).all();
+    
+    return json({ 
+      ok: true, 
+      product: p, 
+      variants: v.results,
+      check_search: {
+        keyword_match: p?.search_text?.includes('may hut'),
+        search_text_data: p?.search_text // Quan trọng: Xem cột này có dữ liệu chưa
+      }
+    }, {}, req);
   }
 
   // ===== PUBLIC ROUTES =====
