@@ -31,6 +31,10 @@ jobs:
         with:
           node-version: "20"
 
+      # ✅ THÊM BƯỚC NÀY: Cài đặt thư viện trong package.json (Google AI, JWT...)
+      - name: Install Dependencies
+        run: npm install
+
       - name: Install Wrangler
         run: npm i -g wrangler@3
 
