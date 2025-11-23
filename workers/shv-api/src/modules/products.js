@@ -3,7 +3,7 @@
 // Đường dẫn: workers/shv-api/src/modules/products.js
 // ===================================================================
 
-import { loadProductNormalized, normalizeProduct, invalidateProductCache, buildSearchText } from '../core/product-core.js';
+import { loadProductNormalized, normalizeProduct, invalidateProductCache, buildSearchText, normalizeVietnamese } from '../core/product-core.js';
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
@@ -628,9 +628,8 @@ console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (has
 
    // [FULL-SCOPE SEARCH] Tìm Tên + Slug + Danh mục + Mã SKU (Variant)
     if (searchRaw) {
-       // 1. Chuẩn hóa: "Máy Hút K185" -> "may hut k185"
-       const normalize = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-       const cleanSearch = normalize(searchRaw);
+       // 1. Chuẩn hóa: Dùng chung logic với Core để khớp 100% (xử lý cả chữ 'đ')
+       const cleanSearch = normalizeVietnamese(searchRaw);
        
        // 2. Tách từ khóa: ["may", "hut", "k185"]
        let keywords = cleanSearch.split(/[^a-z0-9]+/).filter(k => k.length > 0);
