@@ -2037,13 +2037,14 @@ async function getHomeSections(req, env) {
     if (!forceRefresh) {
       const cached = await getJSON(env, CACHE_KEY, null);
       if (cached) {
-      return json({
-        ok: true,
-        source: 'cache',
-        data: cached
-      }, { 
-        headers: { 'x-cache-status': 'HIT' } 
-      }, req);
+        return json({
+          ok: true,
+          source: 'cache',
+          data: cached
+        }, { 
+          headers: { 'x-cache-status': 'HIT' } 
+        }, req);
+      }
     }
 
     console.log('[HOME] 🚀 Cache Miss -> Querying D1 Parallel...');
