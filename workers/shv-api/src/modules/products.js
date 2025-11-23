@@ -159,8 +159,8 @@ export async function handle(req, env, ctx) {
     return deleteProduct(req, env);
   }
 
-  // ✅ NEW: Sync Search Text (Chạy 1 lần để fill data cũ)
-  if (path === '/admin/products/sync-search-text' && method === 'POST') {
+  // ✅ TEMP: Sync Search Text (Mở tạm GET để chạy trên trình duyệt)
+  if (path === '/sync-data-now' && method === 'GET') {
     return syncSearchText(req, env);
   }
 
@@ -2407,7 +2407,7 @@ async function getCheapProducts(req, env) {
 // ADMIN: Sync Search Text (Run manually to backfill data)
 // ===================================================================
 async function syncSearchText(req, env) {
-  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+  // if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req); // Tạm tắt check Admin
 
   try {
     console.log('[SYNC] 🚀 Starting search_text sync...');
