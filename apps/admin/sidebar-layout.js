@@ -541,6 +541,7 @@
         'banners': 'banners.view',
         'stats': 'stats.view',
         'ads': 'ads.view',
+        'facebook-video-sync': 'ads.view', // ✅ Thêm dòng này để hiện menu
         'shipping': 'shipping.view',
         'channels': 'channels.view',
         'admin-users': 'admins.view',
