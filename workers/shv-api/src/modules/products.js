@@ -676,8 +676,10 @@ console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (has
          console.log('[FULL SEARCH] Keywords:', keywords);
     }
 
-    // Xử lý danh mục
-    if (category) {
+    // ✅ FIX LOGIC: Ưu tiên Tìm kiếm toàn shop
+    // Nếu ĐANG TÌM (searchRaw có chữ) -> Bỏ qua lọc Category để không bị sót sản phẩm
+    // Nếu KHÔNG TÌM -> Mới lọc theo Category
+    if (category && !searchRaw) {
       sql += ` AND category_slug = ?`;
       params.push(category);
     }
