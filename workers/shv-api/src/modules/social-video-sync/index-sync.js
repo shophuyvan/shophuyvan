@@ -14,7 +14,7 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-  // Auth check
+  // Auth check - Bảo mật: Chỉ admin mới được gọi
   if (!(await adminOK(req, env))) {
     return errorResponse('Unauthorized', 401, req);
   }
@@ -56,7 +56,7 @@ async function handleSubmit(req, env) {
     // 1. Download TikTok video
     const videoData = await downloadTikTokVideo(tiktokUrl, env);
 
-    // 2. Save to database
+    // 2. Save to database (Lưu lịch sử)
     const now = Date.now();
     const insertResult = await env.DB.prepare(`
       INSERT INTO video_syncs 
@@ -84,6 +84,9 @@ async function handleSubmit(req, env) {
     const versions = ['versionA', 'versionB', 'versionC'];
     for (let i = 0; i < 3; i++) {
       const version = contents[versions[i]];
+      // Convert hashtags array to string for DB if needed, or keep as JSON
+      const hashtagsStr = Array.isArray(version.hashtags) ? JSON.stringify(version.hashtags) : version.hashtags;
+      
       await env.DB.prepare(`
         INSERT INTO ai_generated_content
         (video_sync_id, version, caption, hashtags, video_analysis, created_at)
@@ -92,7 +95,7 @@ async function handleSubmit(req, env) {
         syncId,
         i + 1,
         version.caption,
-        JSON.stringify(version.hashtags),
+        hashtagsStr,
         JSON.stringify(analysis),
         now
       ).run();
@@ -105,7 +108,7 @@ async function handleSubmit(req, env) {
 
     return json({
       ok: true,
-      syncId,
+      syncId, // Trả về ID để frontend dùng cho bước Publish
       videoUrl: videoData.r2Url,
       analysis,
       contents
