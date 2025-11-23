@@ -110,6 +110,7 @@
 
 <script src="sidebar-layout.js"></script>
 <script>
+<script>
 // Hàm gọi API Test (Đã sửa để nhận diện x-token)
 async function analyzeVideo() {
     const url = document.getElementById('tiktokUrl').value;
@@ -170,7 +171,61 @@ async function analyzeVideo() {
         btn.innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
         document.getElementById('loadingArea').style.display = 'none';
     }
+} // <--- ĐÃ THÊM DẤU ĐÓNG HÀM analyzeVideo Ở ĐÂY
+
+// Hàm hiển thị kết quả ra màn hình (Nằm ngoài hàm analyzeVideo)
+function renderResult(data) {
+    document.getElementById('resultArea').style.display = 'block';
+    
+    // 1. Video Preview
+    if (data.videoUrl || data.r2Url) {
+        const video = document.getElementById('videoPreview');
+        const url = data.videoUrl || data.r2Url;
+        video.src = url;
+        document.getElementById('downloadLink').href = url;
+        
+        // Tự động play video để check
+        video.load();
+    }
+    
+    // Hiển thị file size nếu có
+    if (data.fileSize) {
+        document.getElementById('fileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    // 2. AI Content (Xử lý linh hoạt cấu trúc trả về)
+    // Backend trả về: data.contents = { versionA: {...}, versionB: {...} }
+    const ai = data.contents || data.aiContent || {}; 
+    
+    if (ai.versionA) document.getElementById('contentA').value = formatCaption(ai.versionA);
+    if (ai.versionB) document.getElementById('contentB').value = formatCaption(ai.versionB);
+    if (ai.versionC) document.getElementById('contentC').value = formatCaption(ai.versionC);
 }
+
+// Hàm format caption + hashtags
+function formatCaption(ver) {
+    if (!ver) return '';
+    
+    let captionText = ver.caption || '';
+    let tagsText = '';
+
+    // Xử lý hashtag: có thể là mảng hoặc chuỗi
+    if (Array.isArray(ver.hashtags)) {
+        tagsText = ver.hashtags.join(' ');
+    } else if (typeof ver.hashtags === 'string') {
+        // Nếu AI trả về string JSON "[#tag1]" thì parse ra
+        try {
+            const parsed = JSON.parse(ver.hashtags);
+            if(Array.isArray(parsed)) tagsText = parsed.join(' ');
+            else tagsText = ver.hashtags;
+        } catch(e) {
+            tagsText = ver.hashtags;
+        }
+    }
+
+    return `${captionText}\n\n${tagsText}`;
+}
+</script>
 </script>
 </body>
 </html>
