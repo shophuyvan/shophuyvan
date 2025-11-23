@@ -2102,10 +2102,15 @@ async function getHomeSections(req, env) {
     console.log('  - Hóa chất:', resHoa.results?.length || 0);
     console.log('  - Tiện ích:', resDung.results?.length || 0);
 
-    const processSection = (rows) => {
+    const processSection = (sectionName, rows) => {
       const result = [];
+      console.log(`[HOME DEBUG] 🔍 Processing ${sectionName}: ${rows?.length || 0} sản phẩm`);
+      
       for (const p of (rows || [])) {
         const pVars = allVariants.filter(v => v.product_id === p.id);
+        
+        // ✅ DEBUG: Log số variants
+        console.log(`  📦 [${p.id}] "${p.title}" - ${pVars.length} variants`);
         
         let totalStock = 0;
         
@@ -2134,8 +2139,19 @@ async function getHomeSections(req, env) {
         const normalized = normalizeProduct(productForCore);
         totalStock = normalized.stock_total;
         
+        // ✅ DEBUG: Log giá và stock SAU normalize
+        console.log(`    💰 price_final: ${normalized.price_final}đ, stock_total: ${totalStock}, variants: ${normalized.variants?.length || 0}`);
+        
        // ✅ ĐÃ FILTER TRONG SQL - Không cần filter lại ở đây
         // (SQL đã đảm bảo chỉ lấy sản phẩm có giá & còn hàng)
+        
+        // ✅ DEBUG: Kiểm tra điều kiện trước khi push
+        if (normalized.price_final <= 0 || totalStock <= 0) {
+          console.log(`    ⚠️ BỊ LOẠI: price=${normalized.price_final}, stock=${totalStock}`);
+          continue;
+        }
+        
+        console.log(`    ✅ PASSED - Đã thêm vào kết quả`);
 
         result.push({
           id: normalized.id,
@@ -2168,11 +2184,11 @@ async function getHomeSections(req, env) {
     };
 
     const responseData = {
-      bestsellers: processSection(resBest.results),
-      cat_dien_nuoc: processSection(resDien.results),
-      cat_nha_cua: processSection(resNha.results),
-      cat_hoa_chat: processSection(resHoa.results),
-      cat_dung_cu: processSection(resDung.results)
+      bestsellers: processSection('BÁN CHẠY', resBest.results),
+      cat_dien_nuoc: processSection('ĐIỆN NƯỚC', resDien.results),
+      cat_nha_cua: processSection('NHÀ CỬA', resNha.results),
+      cat_hoa_chat: processSection('HÓA CHẤT', resHoa.results),
+      cat_dung_cu: processSection('TIỆN ÍCH', resDung.results)
     };
 
     // ✅ DEBUG: Log số lượng SAU khi process
@@ -2182,6 +2198,15 @@ async function getHomeSections(req, env) {
     console.log('  - Nhà cửa:', responseData.cat_nha_cua.length);
     console.log('  - Hóa chất:', responseData.cat_hoa_chat.length);
     console.log('  - Tiện ích:', responseData.cat_dung_cu.length);
+    
+    // ✅ DEBUG: Tổng hợp tỷ lệ sản phẩm bị loại
+    const totalQueried = (resBest.results?.length || 0) + (resDien.results?.length || 0) + 
+                         (resNha.results?.length || 0) + (resHoa.results?.length || 0) + 
+                         (resDung.results?.length || 0);
+    const totalReturned = responseData.bestsellers.length + responseData.cat_dien_nuoc.length +
+                          responseData.cat_nha_cua.length + responseData.cat_hoa_chat.length +
+                          responseData.cat_dung_cu.length;
+    console.log(`[HOME] 📊 TỔNG HỢP: Query ${totalQueried} → Trả về ${totalReturned} (Mất ${totalQueried - totalReturned})`);
 
     // 6. LƯU CACHE KV (background)
     // Lưu ý: Hàm putJSON cần await hoặc ctx.waitUntil nếu có
