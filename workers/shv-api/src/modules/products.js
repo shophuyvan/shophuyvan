@@ -50,6 +50,11 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
+  // ✅ ƯU TIÊN: Sync Search Text (Đặt ngay đầu để chặn trước khi vào logic ID)
+  if (path === '/products/sync-search-now' && method === 'GET') {
+    return syncSearchText(req, env);
+  }
+
   // ===== PUBLIC ROUTES =====
 
   // Public: Get single product by ID (query param)
@@ -157,11 +162,6 @@ export async function handle(req, env, ctx) {
   // Admin: Delete product
   if (path === '/admin/products/delete' && method === 'POST') {
     return deleteProduct(req, env);
-  }
-
-  // ✅ TEMP: Sync Search Text (Dùng đường dẫn con để tránh lỗi Router)
-  if (path === '/products/sync-search-now' && method === 'GET') {
-    return syncSearchText(req, env);
   }
 
   return errorResponse('Route not found', 404, req);
