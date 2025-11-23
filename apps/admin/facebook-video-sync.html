@@ -116,27 +116,47 @@ async function analyzeVideo() {
     if (!url) return alert('Vui lòng nhập link TikTok!');
 
     // UI Update
-    document.getElementById('btnAnalyze').disabled = true;
-    document.getElementById('btnAnalyze').innerHTML = '<i class="fas fa-sync fa-spin"></i> Đang chạy...';
+    const btn = document.getElementById('btnAnalyze');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> Đang xử lý...';
     document.getElementById('loadingArea').style.display = 'block';
     document.getElementById('resultArea').style.display = 'none';
 
     try {
-        // Lấy token admin từ localStorage (đã có sẵn trong hệ thống admin của bạn)
-        const token = localStorage.getItem('admin_token'); 
+        // 🔍 FIX LỖI 401: Tự động dò tìm Token chính xác
+        let token = '';
+        
+        // Cách 1: Lấy từ object Admin global (nếu có)
+        if (window.Admin && typeof window.Admin.token === 'function') {
+            token = window.Admin.token();
+        }
+        
+        // Cách 2: Tìm trong localStorage với các tên phổ biến
+        if (!token) token = localStorage.getItem('token');
+        if (!token) token = localStorage.getItem('admin_token');
+        if (!token) token = localStorage.getItem('shv_token'); // Tên thường dùng trong hệ thống SHV
+
+        if (!token) {
+            throw new Error('Không tìm thấy phiên đăng nhập! Vui lòng F5 hoặc đăng nhập lại.');
+        }
 
         const res = await fetch('https://api.shophuyvan.vn/api/social-sync/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}` // Gửi token chuẩn
             },
             body: JSON.stringify({ tiktokUrl: url })
         });
 
+        // Xử lý response
+        if (res.status === 401) {
+            throw new Error('Phiên đăng nhập hết hạn hoặc không có quyền (401).');
+        }
+
         const data = await res.json();
 
-        if (!data.success && !data.ok) { // Check cả success và ok tùy format trả về
+        if (!data.ok && !data.success) {
             throw new Error(data.error || 'Lỗi xử lý từ server');
         }
 
@@ -147,44 +167,10 @@ async function analyzeVideo() {
         alert('Lỗi: ' + e.message);
         console.error(e);
     } finally {
-        document.getElementById('btnAnalyze').disabled = false;
-        document.getElementById('btnAnalyze').innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
         document.getElementById('loadingArea').style.display = 'none';
     }
-}
-
-function renderResult(data) {
-    document.getElementById('resultArea').style.display = 'block';
-    
-    // 1. Video Preview
-    if (data.r2Url) {
-        const video = document.getElementById('videoPreview');
-        video.src = data.r2Url;
-        document.getElementById('downloadLink').href = data.r2Url;
-    }
-    
-    if (data.fileSize) {
-        document.getElementById('fileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
-    }
-
-    // 2. AI Content (Parse từ JSON trả về)
-    // Lưu ý: Cần khớp với cấu trúc trả về từ file ai-content-generator.js
-    const ai = data.aiContent || data.ai_content; 
-    
-    if (ai) {
-        document.getElementById('contentA').value = formatCaption(ai.versionA);
-        document.getElementById('contentB').value = formatCaption(ai.versionB);
-        document.getElementById('contentC').value = formatCaption(ai.versionC);
-    }
-}
-
-function formatCaption(ver) {
-    if (!ver) return '';
-    // Nếu ver là object {caption, hashtags}
-    if (typeof ver === 'object') {
-        return `${ver.caption}\n\n${(ver.hashtags || []).join(' ')}`;
-    }
-    return ver; // Nếu ver là string
 }
 </script>
 </body>
