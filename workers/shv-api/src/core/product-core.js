@@ -106,6 +106,44 @@ export function applyFlashSale(product) {
 }
 
 // ------------------------------------------------
+// 4.1. Hàm tiện ích: Bỏ dấu Tiếng Việt
+// ------------------------------------------------
+export function normalizeVietnamese(str) {
+  if (!str) return '';
+  str = String(str).toLowerCase();
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  str = str.replace(/đ/g, "d");
+  str = str.replace(/[^a-z0-9 ]/g, " "); // Bỏ ký tự đặc biệt
+  return str.replace(/\s+/g, ' ').trim();
+}
+
+// ------------------------------------------------
+// 4.2. Hàm tiện ích: Build Search Text (Title + Brand + Tags + SKU)
+// ------------------------------------------------
+export function buildSearchText(product) {
+  // Xử lý Tags (có thể là String JSON hoặc Array)
+  let tagStr = '';
+  try {
+    const tags = Array.isArray(product.tags) ? product.tags : JSON.parse(product.tags || '[]');
+    tagStr = tags.join(' ');
+  } catch (e) {}
+
+  // Xử lý SKU từ Variants
+  let skuStr = '';
+  if (Array.isArray(product.variants)) {
+    skuStr = product.variants.map(v => v.sku).join(' ');
+  }
+
+  const raw = `${product.title || product.name || ''} ${product.brand || ''} ${product.category_slug || ''} ${tagStr} ${skuStr}`;
+  return normalizeVietnamese(raw);
+}
+
+// ------------------------------------------------
 // 5. Chuẩn hóa sản phẩm thành 1 dạng duy nhất
 // ------------------------------------------------
 export function normalizeProduct(product) {
@@ -163,6 +201,11 @@ export function normalizeProduct(product) {
     is_flash_sale: false,
     flash_price: product.flash_price || null,
     flash_stock: product.flash_stock || null,
+
+    // Metadata & Search
+    brand: product.brand || '',
+    tags: parseJsonField(product.tags),
+    search_text: product.search_text || buildSearchText(product), // Nếu DB chưa có thì build luôn
     
     // Extra data
     keywords: parseJsonField(product.keywords),

@@ -3,7 +3,7 @@
 // Đường dẫn: workers/shv-api/src/modules/products.js
 // ===================================================================
 
-import { loadProductNormalized, normalizeProduct, invalidateProductCache } from '../core/product-core.js';
+import { loadProductNormalized, normalizeProduct, invalidateProductCache, buildSearchText } from '../core/product-core.js';
 import { adminOK } from '../lib/auth.js';
 import { getJSON, putJSON } from '../lib/kv.js';
 import { readBody } from '../lib/utils.js';
@@ -157,6 +157,11 @@ export async function handle(req, env, ctx) {
   // Admin: Delete product
   if (path === '/admin/products/delete' && method === 'POST') {
     return deleteProduct(req, env);
+  }
+
+  // ✅ NEW: Sync Search Text (Chạy 1 lần để fill data cũ)
+  if (path === '/admin/products/sync-search-text' && method === 'POST') {
+    return syncSearchText(req, env);
   }
 
   return errorResponse('Route not found', 404, req);
@@ -631,23 +636,31 @@ console.log(`[SEARCH v10] Q="${searchRaw}" Cat="${category}" Limit=${limit} (has
        let keywords = cleanSearch.split(/[^a-z0-9]+/).filter(k => k.length > 0);
        
        if (keywords.length > 0) {
-         // Logic: Sản phẩm phải thỏa mãn TẤT CẢ các từ khóa (AND)
-         // Mỗi từ khóa có thể nằm ở: Slug OR Title OR Category OR SKU (trong bảng variants)
-         // Dùng IN (...) để check SKU trong bảng variants
-         const searchConditions = keywords.map(() => `(
-           slug LIKE ? 
-           OR LOWER(title) LIKE ? 
-           OR category_slug LIKE ?
-           OR id IN (SELECT product_id FROM variants WHERE LOWER(sku) LIKE ?)
-         )`).join(' AND ');
+         // ✅ LOGIC MỚI: Ưu tiên SKU chính xác HOẶC tìm trong search_text
+         // Tier 1: SKU Match (Exact logic) -> id IN (...)
+         // Tier 2: Search Text Match -> search_text LIKE %k1% AND search_text LIKE %k2%
          
-         sql += ` AND (${searchConditions})`;
+         const textConditions = keywords.map(() => `search_text LIKE ?`).join(' AND ');
          
-         // Nạp params: Mỗi từ khóa nạp 4 lần cho 4 điều kiện
+         sql += ` AND (
+           id IN (SELECT product_id FROM variants WHERE LOWER(sku) = ?) 
+           OR 
+           (${textConditions})
+         )`;
+         
+         // Param cho SKU (lấy nguyên cụm tìm kiếm làm SKU để check ưu tiên)
+         params.push(cleanSearch); 
+         
+         // Params cho search_text
          keywords.forEach(k => {
-           const pattern = `%${k}%`;
-           params.push(pattern, pattern, pattern, pattern);
+           params.push(`%${k}%`);
          });
+         
+         console.log('[FULL SEARCH v2] Optimized using search_text');
+       } else {
+         sql += ` AND search_text LIKE ?`;
+         params.push(`%${cleanSearch}%`);
+       }
          
          console.log('[FULL SEARCH] Keywords:', keywords);
        } else {
@@ -1240,6 +1253,18 @@ async function upsertProduct(req, env) {
       category_slug: incoming.category_slug || null,
       seo_title: incoming.seo_title || null,
       seo_desc: incoming.seo_desc || null,
+      
+      // ✅ NEW FIELDS
+      brand: incoming.brand || '',
+      tags: incoming.tags ? JSON.stringify(incoming.tags) : '[]',
+      // Lưu tạm text cơ bản, Sync sẽ cập nhật full SKU sau
+      search_text: buildSearchText({
+        title: incoming.title || incoming.name,
+        brand: incoming.brand,
+        tags: incoming.tags,
+        category_slug: incoming.category_slug
+      }),
+
       keywords: incoming.keywords ? JSON.stringify(incoming.keywords) : '[]',
       faq: incoming.faq ? JSON.stringify(incoming.faq) : '[]',
       reviews: incoming.reviews ? JSON.stringify(incoming.reviews) : '[]',
@@ -1259,6 +1284,7 @@ async function upsertProduct(req, env) {
         UPDATE products SET
           title = ?, slug = ?, shortDesc = ?, desc = ?,
           category_slug = ?, seo_title = ?, seo_desc = ?,
+          brand = ?, tags = ?, search_text = ?,
           keywords = ?, faq = ?, reviews = ?,
           images = ?, video = ?, status = ?,
           on_website = ?, on_mini = ?, updated_at = ?
@@ -1266,6 +1292,7 @@ async function upsertProduct(req, env) {
       `).bind(
         productData.title, productData.slug, productData.shortDesc, productData.desc,
         productData.category_slug, productData.seo_title, productData.seo_desc,
+        productData.brand, productData.tags, productData.search_text,
         productData.keywords, productData.faq, productData.reviews,
         productData.images, productData.video, productData.status,
         productData.on_website, productData.on_mini, productData.updated_at,
@@ -1278,14 +1305,16 @@ async function upsertProduct(req, env) {
       const result = await env.DB.prepare(`
         INSERT INTO products (
           title, slug, shortDesc, desc, category_slug,
-          seo_title, seo_desc, keywords, faq, reviews,
+          seo_title, seo_desc, brand, tags, search_text,
+          keywords, faq, reviews,
           images, video, status, on_website, on_mini,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING id
       `).bind(
         productData.title, productData.slug, productData.shortDesc, productData.desc,
         productData.category_slug, productData.seo_title, productData.seo_desc,
+        productData.brand, productData.tags, productData.search_text,
         productData.keywords, productData.faq, productData.reviews,
         productData.images, productData.video, productData.status,
         productData.on_website, productData.on_mini,
@@ -2379,5 +2408,47 @@ async function getCheapProducts(req, env) {
   }
 }
 
-console.log('✅ products.js loaded - CATEGORY FILTER FIXED + FLASH SALE INTEGRATED + METRICS API + CHEAP PRODUCTS');
+// ===================================================================
+// ADMIN: Sync Search Text (Run manually to backfill data)
+// ===================================================================
+async function syncSearchText(req, env) {
+  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+
+  try {
+    console.log('[SYNC] 🚀 Starting search_text sync...');
+
+    // 1. Lấy tất cả products
+    const products = await env.DB.prepare(`SELECT * FROM products`).all();
+    const all = products.results || [];
+    let count = 0;
+
+    for (const p of all) {
+      // 2. Lấy variants của product đó để lấy SKU
+      const variants = await env.DB.prepare(`SELECT sku FROM variants WHERE product_id = ?`).bind(p.id).all();
+      
+      const productObj = {
+        ...p,
+        variants: variants.results || []
+      };
+
+      // 3. Build text
+      const newSearchText = buildSearchText(productObj);
+
+      // 4. Update lại DB
+      await env.DB.prepare(`UPDATE products SET search_text = ? WHERE id = ?`)
+        .bind(newSearchText, p.id)
+        .run();
+      
+      count++;
+      if (count % 50 === 0) console.log(`[SYNC] Processed ${count} products...`);
+    }
+
+    return json({ ok: true, message: `Synced ${count} products` }, {}, req);
+  } catch (e) {
+    console.error('[SYNC ERROR]', e);
+    return errorResponse(e, 500, req);
+  }
+}
+
+console.log('✅ products.js loaded - CATEGORY FILTER FIXED + SEARCH TEXT OPTIMIZED + SYNC API');
 // <<< Cuối file >>>
