@@ -357,6 +357,4 @@ async function createFacebookAd(
 // EXPORT HELPER (để index-sync.js gọi)
 // ===================================================================
 
-export { createAdsFromJob };
-
 console.log('✅ post-to-ad.js loaded');
