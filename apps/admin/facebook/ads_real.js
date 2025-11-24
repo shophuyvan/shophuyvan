@@ -1868,25 +1868,28 @@ init: function() {
         if(step === 4) this.loadFanpages();
     },
 
-    // STEP 1
-    // STEP 1
-    loadProducts: async function() {
+    // STEP 1: Tải sản phẩm (Hỗ trợ tìm kiếm Server-side)
+    loadProducts: async function(keyword = '') {
         const grid = document.getElementById('wiz-product-grid');
         if (!grid) return;
         
-        grid.innerHTML = '<div class="loading">⏳ Đang tải danh sách sản phẩm...</div>';
+        // Hiển thị loading
+        grid.innerHTML = '<div class="loading">⏳ Đang tìm kiếm...</div>';
         
         try {
-            // 1. Đổi API endpoint về chuẩn '/admin/products' và thêm limit
-            const r = await Admin.req('/admin/products?limit=100', { method: 'GET' });
+            // Xây dựng URL tìm kiếm (dùng tham số ?search= như trong products.js)
+            let url = '/admin/products?limit=20'; // Mặc định tải 20 cái cho nhẹ
+            if (keyword) {
+                url += `&search=${encodeURIComponent(keyword)}`;
+            }
+
+            // Gọi API
+            const r = await Admin.req(url, { method: 'GET' });
             
-            console.log('[Wizard] Products Response:', r); // Log để debug
+            // Xử lý dữ liệu trả về
+            const list = r.items || r.products || r.data || [];
 
-            // 2. Kiểm tra dữ liệu linh hoạt (chấp nhận cả r.products, r.data, r.items hoặc r.results)
-            const list = r.products || r.data || r.items || r.results || [];
-
-            if(r.ok && list.length > 0) {
-                this.productsCache = list; // Lưu cache để filter
+            if (r.ok && list.length > 0) {
                 this.renderProducts(list);
             } else {
                 grid.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Không tìm thấy sản phẩm nào.</div>';
@@ -1925,10 +1928,15 @@ init: function() {
         }).join('');
     },
 
+    // Xử lý tìm kiếm với Debounce (chờ 500ms mới gọi API)
     filterProducts: function(keyword) {
-        if(!this.productsCache) return;
-        const filtered = this.productsCache.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()));
-        this.renderProducts(filtered);
+        // Xóa timeout cũ nếu người dùng đang gõ tiếp
+        if (this.searchTimeout) clearTimeout(this.searchTimeout);
+
+        // Đặt timeout mới
+        this.searchTimeout = setTimeout(() => {
+            this.loadProducts(keyword);
+        }, 500);
     },
 
     selectProduct: function(id, el) {
