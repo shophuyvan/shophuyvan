@@ -1868,36 +1868,67 @@ init: function() {
         if(step === 4) this.loadFanpages();
     },
 
-    // STEP 1: Tải sản phẩm (Hỗ trợ tìm kiếm Server-side)
-    loadProducts: async function(keyword = '') {
+    // STEP 1: Tải sản phẩm (Server-side Search & Pagination)
+    loadProducts: async function(keyword = '', page = 1) {
         const grid = document.getElementById('wiz-product-grid');
         if (!grid) return;
         
         // Hiển thị loading
-        grid.innerHTML = '<div class="loading">⏳ Đang tìm kiếm...</div>';
+        grid.innerHTML = '<div class="loading">⏳ Đang tải...</div>';
         
         try {
-            // Xây dựng URL tìm kiếm (dùng tham số ?search= như trong products.js)
-            let url = '/admin/products?limit=20'; // Mặc định tải 20 cái cho nhẹ
+            // Xây dựng URL tìm kiếm
+            // Backend products.js dùng ?search= cho tìm kiếm và ?page= cho phân trang
+            let url = `/admin/products?limit=20&page=${page}`;
+            
             if (keyword) {
                 url += `&search=${encodeURIComponent(keyword)}`;
             }
+
+            console.log('[Wizard] Fetching products:', url);
 
             // Gọi API
             const r = await Admin.req(url, { method: 'GET' });
             
             // Xử lý dữ liệu trả về
             const list = r.items || r.products || r.data || [];
+            const total = r.pagination?.total || r.total || 0;
+            const totalPages = r.pagination?.totalPages || Math.ceil(total / 20) || 1;
 
             if (r.ok && list.length > 0) {
                 this.renderProducts(list);
+                this.renderPagination(page, totalPages, keyword);
             } else {
-                grid.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Không tìm thấy sản phẩm nào.</div>';
+                grid.innerHTML = '<div style="text-align:center; padding:40px; color:#666;">🔍 Không tìm thấy sản phẩm nào phù hợp.</div>';
+                // Xóa phân trang nếu không có kết quả
+                const pag = document.getElementById('wiz-pagination');
+                if(pag) pag.innerHTML = '';
             }
         } catch(e) { 
             console.error(e);
             grid.innerHTML = `<div style="color:red; text-align:center; padding:20px;">Lỗi tải sản phẩm: ${e.message}</div>`; 
         }
+    },
+
+    // Hàm hiển thị phân trang (Mới thêm)
+    renderPagination: function(currentPage, totalPages, keyword) {
+        let container = document.getElementById('wiz-pagination');
+        if (!container) {
+            // Tạo container nếu chưa có
+            container = document.createElement('div');
+            container.id = 'wiz-pagination';
+            container.style.cssText = 'display:flex; justify-content:center; gap:10px; margin-top:15px; align-items:center;';
+            document.getElementById('wiz-product-grid').after(container);
+        }
+
+        const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+        const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+
+        container.innerHTML = `
+            <button class="btn btn-sm" ${prevDisabled} onclick="AutoSyncWizard.loadProducts('${keyword}', ${currentPage - 1})">← Trước</button>
+            <span style="font-size:13px; color:#666;">Trang ${currentPage} / ${totalPages}</span>
+            <button class="btn btn-sm" ${nextDisabled} onclick="AutoSyncWizard.loadProducts('${keyword}', ${currentPage + 1})">Sau →</button>
+        `;
     },
 
     renderProducts: function(list) {
@@ -1935,7 +1966,8 @@ init: function() {
 
         // Đặt timeout mới
         this.searchTimeout = setTimeout(() => {
-            this.loadProducts(keyword);
+            // Khi tìm kiếm mới, luôn load từ trang 1
+            this.loadProducts(keyword, 1);
         }, 500);
     },
 

@@ -237,7 +237,11 @@
                     <button class="btn btn-sm" onclick="AutoSyncWizard.testAI()" style="background:#f3f4f6; border:1px solid #d1d5db; font-size:12px;">⚡ Check AI</button>
                 </div>
                 
-                <input type="text" class="input" placeholder="🔍 Tìm sản phẩm..." onkeyup="AutoSyncWizard.filterProducts(this.value)">
+                <div style="display:flex; gap:5px; margin-bottom:15px;">
+    <input type="text" id="wiz-search-input" class="input" placeholder="🔍 Nhập tên, SKU (Ví dụ: k243)..." 
+           onkeyup="if(event.key === 'Enter') AutoSyncWizard.filterProducts(this.value)" style="flex:1;">
+    <button class="btn primary" onclick="AutoSyncWizard.filterProducts(document.getElementById('wiz-search-input').value)">Tìm kiếm</button>
+</div>
                 <div id="wiz-product-grid" class="wiz-product-grid">
                     <div class="loading">Đang tải sản phẩm...</div>
                 </div>
