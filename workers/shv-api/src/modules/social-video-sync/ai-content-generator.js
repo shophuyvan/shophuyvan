@@ -7,9 +7,8 @@ export class GeminiContentGenerator {
     }
     this.genAI = new GoogleGenerativeAI(apiKey);
     
-    // Sử dụng model mới nhất để tránh lỗi 404
-    // gemini-1.5-flash là bản tối ưu cho tốc độ và chi phí hiện nay
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Cập nhật model name chuẩn
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
   }
 
   /**
