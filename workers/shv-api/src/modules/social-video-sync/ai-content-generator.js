@@ -8,7 +8,7 @@ export class GeminiContentGenerator {
     this.genAI = new GoogleGenerativeAI(apiKey);
     
     // Cập nhật model name chuẩn
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   }
 
   /**
