@@ -2054,7 +2054,7 @@ init: function() {
         };
     },
 
-// STEP 4: Load Fanpages cho Wizard
+// STEP 4: Load Fanpages (Phiên bản "Bao sân" + Debug)
     loadFanpages: async function() {
         const tbody = document.getElementById('wiz-fanpage-list');
         if (!tbody) return;
@@ -2062,32 +2062,34 @@ init: function() {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">⏳ Đang tải danh sách Page...</td></tr>';
         
         try {
-            // 1. Gọi API lấy danh sách Fanpage
+            // 1. Gọi API
             const r = await Admin.req('/admin/fanpages', { method: 'GET' });
             
-            // 2. Fix logic đọc dữ liệu: API trả về 'items' hoặc 'data' hoặc 'fanpages'
-            // Thêm fallback r.items (quan trọng nhất vì log của bạn trả về items)
-            const pages = r.items || r.data || r.fanpages || [];
-            
-            if(pages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Chưa có Fanpage nào. Vui lòng vào tab "Cài đặt" để thêm hoặc đồng bộ.</td></tr>';
+            console.log('🔥 API Fanpages Response:', r); // Debug log
+
+            // 2. Bắt mọi định dạng dữ liệu có thể
+            let pages = [];
+            if (Array.isArray(r)) pages = r;
+            else if (r.items && Array.isArray(r.items)) pages = r.items;
+            else if (r.fanpages && Array.isArray(r.fanpages)) pages = r.fanpages;
+            else if (r.data && Array.isArray(r.data)) pages = r.data;
+
+            // 3. Render
+            if (pages.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">⚠️ Không tìm thấy Fanpage nào. Hãy vào tab "Cài đặt" -> "Đồng bộ từ Facebook" trước.</td></tr>';
                 return;
             }
 
-            // 3. Auto assign variants round-robin
             const variants = this.jobData.variants || [];
             
             tbody.innerHTML = pages.map((p, i) => {
-                // Logic chia đều variants: Page 1->Ver1, Page 2->Ver2...
                 const vIndex = variants.length > 0 ? i % variants.length : 0;
-                
                 const opts = variants.map((v, vi) => 
                     `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
                 ).join('');
-                
                 const fallbackOpt = `<option value="0">Mặc định</option>`;
-
-                // Tên page có thể là p.name hoặc p.page_name tùy API
+                
+                // Lấy tên page (name hoặc page_name)
                 const pageName = p.name || p.page_name || 'Unnamed Page';
 
                 return `
@@ -2110,38 +2112,8 @@ init: function() {
             
         } catch(e) { 
             console.error(e);
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">Lỗi tải trang: ${e.message}</td></tr>`; 
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">❌ Lỗi JS: ${e.message}</td></tr>`; 
         }
-    },
-
-    bulkPublish: async function() {
-        const assignments = [];
-        document.querySelectorAll('.wiz-assign-check:checked').forEach(cb => {
-            const pageId = cb.dataset.page;
-            const vId = document.querySelector(`.wiz-assign-select[data-page="${pageId}"]`).value;
-            assignments.push({ fanpageId: pageId, variantId: parseInt(vId) });
-        });
-
-        if(assignments.length === 0) return alert('Chọn ít nhất 1 page!');
-        
-        const btn = document.getElementById('wiz-btn-publish');
-        btn.disabled = true; btn.innerHTML = '⏳ Đang đăng...';
-
-        try {
-            // 1. Save Assign
-            await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/assign-fanpages`, {
-                method: 'POST',
-                body: { assignments }
-            });
-            
-            // 2. Publish
-            const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/publish`, { method: 'POST' });
-            if(r.ok) {
-                this.renderResults(r.results);
-                this.goToStep(5);
-            } else { alert(r.error); }
-        } catch(e) { alert(e.message); }
-        finally { btn.disabled = false; btn.innerHTML = '🚀 Đăng bài ngay'; }
     },
 
     // STEP 5
