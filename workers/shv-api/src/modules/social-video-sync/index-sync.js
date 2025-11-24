@@ -59,6 +59,11 @@ export async function handle(req, env, ctx) {
     return getAutomationJob(req, env, jobId);
   }
 
+  // Test AI Connection (NEW)
+  if (path === '/api/auto-sync/test-ai' && method === 'GET') {
+    return testAIConnection(req, env);
+  }
+
   // STEP 3: Generate 5 AI Variants
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/generate-variants$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/generate-variants$/)[1]);
@@ -812,6 +817,28 @@ async function listAutomationJobs(req, env) {
 
   } catch (error) {
     return errorResponse(error.message, 500, req);
+  }
+}
+
+// ===================================================================
+// HELPER: Test AI Connection
+// ===================================================================
+
+async function testAIConnection(req, env) {
+  try {
+    if (!env.GEMINI_API_KEY) {
+      return json({ ok: false, error: "Chưa cấu hình GEMINI_API_KEY trong Worker" }, { status: 500 }, req);
+    }
+
+    const generator = new GeminiContentGenerator(env.GEMINI_API_KEY);
+    // Gửi prompt siêu ngắn để test
+    const result = await generator.model.generateContent("Say 'OK' if you receive this.");
+    const response = await result.response;
+    const text = response.text();
+
+    return json({ ok: true, message: text });
+  } catch (error) {
+    return json({ ok: false, error: error.message }, { status: 500 }, req);
   }
 }
 

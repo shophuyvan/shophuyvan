@@ -1878,12 +1878,26 @@ const AutoSyncWizard = {
     renderProducts: function(list) {
         const grid = document.getElementById('wiz-product-grid');
         grid.innerHTML = list.map(p => {
-            const img = (p.images && p.images[0]) || '/placeholder.jpg';
+            // 1. Xử lý ảnh: Hỗ trợ cả dạng mảng và dạng chuỗi JSON từ Database
+            let img = '/placeholder.jpg';
+            if (p.images) {
+                try {
+                    const parsed = typeof p.images === 'string' ? JSON.parse(p.images) : p.images;
+                    if (parsed && parsed.length > 0) img = parsed[0];
+                } catch (e) { img = p.images; }
+            }
+
+            // 2. Xử lý tên: Ưu tiên 'title' (theo DB), backup 'name'
+            const title = p.title || p.name || 'Sản phẩm chưa đặt tên';
+
+            // 3. Xử lý giá
+            const price = p.variants?.[0]?.price || p.price || 0;
+
             return `
                 <div class="wiz-card" onclick="AutoSyncWizard.selectProduct('${p.id}', this)">
                     <img src="${img}">
-                    <div style="font-weight:bold; font-size:13px; margin-top:5px;">${p.name}</div>
-                    <div style="color:#dc2626; font-size:12px;">${new Intl.NumberFormat('vi-VN').format(p.variants?.[0]?.price || 0)}đ</div>
+                    <div style="font-weight:bold; font-size:13px; margin-top:5px; height:36px; overflow:hidden;">${title}</div>
+                    <div style="color:#dc2626; font-size:12px;">${new Intl.NumberFormat('vi-VN').format(price)}đ</div>
                 </div>
             `;
         }).join('');

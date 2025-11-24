@@ -7,10 +7,9 @@ export class GeminiContentGenerator {
     }
     this.genAI = new GoogleGenerativeAI(apiKey);
     
-    // Sử dụng model 'gemini-1.5-flash' hoặc 'gemini-pro' (ổn định hơn)
-    // Lưu ý: Đôi khi cần chỉ định rõ version nếu model mới ra mắt
-    // Đổi sang gemini-pro (bản ổn định nhất hiện nay)
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+    // Sử dụng model mới nhất để tránh lỗi 404
+    // gemini-1.5-flash là bản tối ưu cho tốc độ và chi phí hiện nay
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   }
 
   /**
