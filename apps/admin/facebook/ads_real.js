@@ -1821,9 +1821,31 @@ const AutoSyncWizard = {
         id: null, productId: null, videoUrl: null, variants: [], fanpages: []
     },
 
-    init: function() {
+init: function() {
         console.log('Wizard Init');
         this.loadProducts();
+    },
+
+    // HÀM CHECK AI MỚI
+    testAI: async function() {
+        const btn = event.target;
+        const oldText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "⏳ Checking...";
+
+        try {
+            const r = await Admin.req('/api/auto-sync/test-ai', { method: 'GET' });
+            if (r.ok) {
+                alert(`✅ KẾT NỐI THÀNH CÔNG!\n\nGemini phản hồi: "${r.message}"`);
+            } else {
+                alert(`❌ LỖI KẾT NỐI:\n${r.error}`);
+            }
+        } catch (e) {
+            alert('❌ Lỗi hệ thống: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = oldText;
+        }
     },
 
     goToStep: function(step) {
