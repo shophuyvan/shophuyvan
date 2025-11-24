@@ -242,3 +242,38 @@ export async function getPageOverview(req, env) {
     }
   }, {}, req);
 }
+
+// ===================================================================
+// API MỚI: Lấy danh sách bài chờ đăng (Pending Posts)
+// Dùng cho tab "Kho nội dung & Lên lịch"
+// ===================================================================
+export async function getPendingPosts(req, env) {
+  // if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+
+  try {
+    // Join bảng assignments với variants để lấy nội dung
+    // Sửa lại: Bảng assignments là 'fanpage_assignments'
+    const query = `
+      SELECT 
+        fa.id, 
+        fa.fanpage_name, 
+        fa.status, 
+        fa.created_at,
+        cv.caption, 
+        cv.hashtags,
+        aj.product_name
+      FROM fanpage_assignments fa
+      JOIN content_variants cv ON fa.variant_id = cv.id
+      JOIN automation_jobs aj ON fa.job_id = aj.id
+      WHERE fa.status = 'pending'
+      ORDER BY fa.created_at DESC
+    `;
+
+    const results = await env.DB.prepare(query).all();
+
+    return json({ ok: true, items: results.results || [] }, {}, req);
+  } catch (e) {
+    console.error('[getPendingPosts] Error:', e);
+    return errorResponse(e.message, 500, req);
+  }
+}

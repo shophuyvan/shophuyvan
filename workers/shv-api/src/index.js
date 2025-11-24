@@ -443,9 +443,10 @@ export default {
         if (method === 'POST') return FBPageManager.savePageSettings(req, env);
       }
 
-      // Route list/upsert fanpage 
-      if (path.startsWith('/admin/fanpages')) {
-        const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
+      // ✅ API MỚI: Lấy bài chờ đăng
+      if (path === '/admin/fanpages/pending' && method === 'GET') {
+        return FBPageManager.getPendingPosts(req, env);
+      }
         if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
 
         if (method === 'GET') {

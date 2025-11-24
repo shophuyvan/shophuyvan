@@ -2082,33 +2082,25 @@ init: function() {
 
             const variants = this.jobData.variants || [];
             
-            tbody.innerHTML = pages.map((p, i) => {
-                const vIndex = variants.length > 0 ? i % variants.length : 0;
-                const opts = variants.map((v, vi) => 
-                    `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
-                ).join('');
-                const fallbackOpt = `<option value="0">Mặc định</option>`;
-                
-                // Lấy tên page (name hoặc page_name)
-                const pageName = p.name || p.page_name || 'Unnamed Page';
+            // Hàm xem trước nội dung (Mới)
+    showPreview: function(pageId, pageName) {
+        const select = document.querySelector(`.wiz-assign-select[data-page="${pageId}"]`);
+        const variantId = select ? parseInt(select.value) : 0;
+        const variant = this.jobData.variants.find(v => v.id === variantId);
 
-                return `
-                    <tr>
-                        <td style="padding:10px;">
-                            <div style="font-weight:bold">${pageName}</div>
-                            <div style="font-size:11px; color:#666">ID: ${p.page_id}</div>
-                        </td>
-                        <td style="padding:10px;">
-                            <select class="wiz-assign-select input" data-page="${p.page_id}" style="width:100%;">
-                                ${variants.length > 0 ? opts : fallbackOpt}
-                            </select>
-                        </td>
-                        <td style="padding:10px; text-align:center;">
-                            <input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked style="width:18px; height:18px; cursor:pointer;">
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+        if (!variant) return alert("Chưa có nội dung để xem.");
+
+        // Điền dữ liệu vào Modal
+        document.getElementById('previewPageName').innerText = pageName;
+        
+        // Xử lý hashtags
+        let tags = variant.hashtags;
+        if (typeof tags === 'string') try { tags = JSON.parse(tags); } catch(e){}
+        const tagStr = Array.isArray(tags) ? tags.join(' ') : tags;
+
+        document.getElementById('previewCaption').innerText = `${variant.caption}\n\n${tagStr}`;
+        document.getElementById('previewModal').style.display = 'flex';
+    },
             
         } catch(e) { 
             console.error(e);

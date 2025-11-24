@@ -299,14 +299,23 @@
                         <tr>
                             <th>Fanpage</th>
                             <th>Chọn Version</th>
-                            <th>Chọn đăng</th>
+                            <th style="width: 80px;">Xem thử</th> <th>Chọn đăng</th>
                         </tr>
                     </thead>
                     <tbody id="wiz-fanpage-list"></tbody>
                 </table>
+
+                <div style="background:#f0f9ff; padding:15px; border-radius:8px; margin-top:20px; border:1px solid #bae6fd;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span>🕒 <strong>Hẹn giờ đăng (Tùy chọn):</strong></span>
+                        <input type="datetime-local" id="wiz-schedule-time" class="input" style="width:200px;">
+                        <span style="font-size:12px; color:#666;">(Để trống = Đăng ngay)</span>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; margin-top:20px;">
                     <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
-                    <button class="btn green" id="wiz-btn-publish" onclick="AutoSyncWizard.bulkPublish()">🚀 Đăng bài ngay</button>
+                    <button class="btn green" id="wiz-btn-publish" onclick="AutoSyncWizard.bulkPublish()">🚀 Xác nhận & Đăng bài</button>
                 </div>
             </div>
 
@@ -766,5 +775,32 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+<div id="previewModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:3000; align-items:center; justify-content:center;">
+    <div style="background:white; width:500px; max-width:95%; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+        <div style="padding:12px 16px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:16px;">👁️ Xem trước bài đăng</h3>
+            <button onclick="document.getElementById('previewModal').style.display='none'" style="border:none; background:none; cursor:pointer; font-size:20px;">&times;</button>
+        </div>
+        
+        <div style="padding:16px; max-height:70vh; overflow-y:auto;">
+            <div style="display:flex; gap:10px; margin-bottom:12px;">
+                <div style="width:40px; height:40px; background:#eee; border-radius:50%;"></div> <div>
+                    <div style="font-weight:bold; font-size:14px;" id="previewPageName">Tên Fanpage</div>
+                    <div style="font-size:12px; color:#666;">Vừa xong · 🌎</div>
+                </div>
+            </div>
+            
+            <div id="previewCaption" style="font-size:14px; margin-bottom:10px; white-space:pre-line;">Nội dung bài viết...</div>
+            
+            <div style="background:#000; width:100%; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; color:white;">
+                [Video Player Placeholder]
+            </div>
+        </div>
+
+        <div style="padding:12px; border-top:1px solid #eee; text-align:right;">
+            <button class="btn" onclick="document.getElementById('previewModal').style.display='none'">Đóng</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
