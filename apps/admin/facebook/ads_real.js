@@ -1847,16 +1847,32 @@ const AutoSyncWizard = {
     },
 
     // STEP 1
+    // STEP 1
     loadProducts: async function() {
         const grid = document.getElementById('wiz-product-grid');
-        grid.innerHTML = '<div class="loading">Loading...</div>';
+        if (!grid) return;
+        
+        grid.innerHTML = '<div class="loading">⏳ Đang tải danh sách sản phẩm...</div>';
+        
         try {
-            const r = await Admin.req('/admin/products/list', { method: 'GET' });
-            if(r.ok && r.products) {
-                this.productsCache = r.products; // Save for filtering
-                this.renderProducts(r.products);
+            // 1. Đổi API endpoint về chuẩn '/admin/products' và thêm limit
+            const r = await Admin.req('/admin/products?limit=100', { method: 'GET' });
+            
+            console.log('[Wizard] Products Response:', r); // Log để debug
+
+            // 2. Kiểm tra dữ liệu linh hoạt (chấp nhận cả r.products, r.data, r.items hoặc r.results)
+            const list = r.products || r.data || r.items || r.results || [];
+
+            if(r.ok && list.length > 0) {
+                this.productsCache = list; // Lưu cache để filter
+                this.renderProducts(list);
+            } else {
+                grid.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Không tìm thấy sản phẩm nào.</div>';
             }
-        } catch(e) { grid.innerHTML = 'Err: ' + e.message; }
+        } catch(e) { 
+            console.error(e);
+            grid.innerHTML = `<div style="color:red; text-align:center; padding:20px;">Lỗi tải sản phẩm: ${e.message}</div>`; 
+        }
     },
 
     renderProducts: function(list) {
