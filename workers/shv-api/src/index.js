@@ -443,11 +443,18 @@ export default {
         if (method === 'POST') return FBPageManager.savePageSettings(req, env);
       }
 
-      // ✅ API MỚI: Lấy bài chờ đăng
+      // ✅ API MỚI: Lấy bài chờ đăng (Pending Posts)
       if (path === '/admin/fanpages/pending' && method === 'GET') {
+        // if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req); // Optional check
         return FBPageManager.getPendingPosts(req, env);
       }
-        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+
+      // Route list/upsert fanpage (Quản lý Fanpage chính)
+      if (path.startsWith('/admin/fanpages')) {
+        const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
 
         if (method === 'GET') {
           return FBPageManager.listFanpages(req, env);
