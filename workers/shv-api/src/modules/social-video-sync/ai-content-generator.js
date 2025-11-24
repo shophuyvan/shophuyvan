@@ -9,7 +9,8 @@ export class GeminiContentGenerator {
     
     // Sử dụng model 'gemini-1.5-flash' hoặc 'gemini-pro' (ổn định hơn)
     // Lưu ý: Đôi khi cần chỉ định rõ version nếu model mới ra mắt
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Đổi sang gemini-pro (bản ổn định nhất hiện nay)
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
   }
 
   /**
