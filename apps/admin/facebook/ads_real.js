@@ -239,7 +239,7 @@ async function deleteCampaign(campaignId) {
         container.innerHTML = r.items.map(fp => `
           <tr>
             <td style="padding:10px; border:1px solid #e5e7eb;">
-                <div style="font-weight:600; color:#111827;">${fp.name || 'Unnamed'}</div>
+                <div style="font-weight:600; color:#111827;">${fp.page_name || fp.name || 'Unnamed'}</div>
             </td>
             <td style="padding:10px; border:1px solid #e5e7eb; font-family:monospace;">${fp.page_id}</td>
             <td style="padding:10px; border:1px solid #e5e7eb; text-align:center;">
