@@ -2014,39 +2014,64 @@ init: function() {
         };
     },
 
-    // STEP 4
+// STEP 4: Load Fanpages cho Wizard
     loadFanpages: async function() {
         const tbody = document.getElementById('wiz-fanpage-list');
-        tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">⏳ Đang tải danh sách Page...</td></tr>';
         
         try {
-            // Reuse existing fanpage loader
+            // 1. Gọi API lấy danh sách Fanpage
             const r = await Admin.req('/admin/fanpages', { method: 'GET' });
-            const pages = r.items || [];
+            
+            // 2. Fix logic đọc dữ liệu: API trả về 'items' hoặc 'data' hoặc 'fanpages'
+            // Thêm fallback r.items (quan trọng nhất vì log của bạn trả về items)
+            const pages = r.items || r.data || r.fanpages || [];
             
             if(pages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3">Chưa có Fanpage.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Chưa có Fanpage nào. Vui lòng vào tab "Cài đặt" để thêm hoặc đồng bộ.</td></tr>';
                 return;
             }
 
-            // Auto assign variants round-robin
-            const variants = this.jobData.variants;
+            // 3. Auto assign variants round-robin
+            const variants = this.jobData.variants || [];
             
             tbody.innerHTML = pages.map((p, i) => {
-                const vIndex = i % variants.length;
+                // Logic chia đều variants: Page 1->Ver1, Page 2->Ver2...
+                const vIndex = variants.length > 0 ? i % variants.length : 0;
+                
                 const opts = variants.map((v, vi) => 
                     `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
                 ).join('');
                 
+                const fallbackOpt = `<option value="0">Mặc định</option>`;
+
+                // Tên page có thể là p.name hoặc p.page_name tùy API
+                const pageName = p.name || p.page_name || 'Unnamed Page';
+
                 return `
                     <tr>
-                        <td>${p.name}</td>
-                        <td><select class="wiz-assign-select input" data-page="${p.page_id}">${opts}</select></td>
-                        <td class="text-center"><input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked></td>
+                        <td style="padding:10px;">
+                            <div style="font-weight:bold">${pageName}</div>
+                            <div style="font-size:11px; color:#666">ID: ${p.page_id}</div>
+                        </td>
+                        <td style="padding:10px;">
+                            <select class="wiz-assign-select input" data-page="${p.page_id}" style="width:100%;">
+                                ${variants.length > 0 ? opts : fallbackOpt}
+                            </select>
+                        </td>
+                        <td style="padding:10px; text-align:center;">
+                            <input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked style="width:18px; height:18px; cursor:pointer;">
+                        </td>
                     </tr>
                 `;
             }).join('');
-        } catch(e) { tbody.innerHTML = 'Error loading pages'; }
+            
+        } catch(e) { 
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">Lỗi tải trang: ${e.message}</td></tr>`; 
+        }
     },
 
     bulkPublish: async function() {
