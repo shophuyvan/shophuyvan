@@ -483,8 +483,9 @@ export default {
 	  
 	  // ============================================
       // SOCIAL VIDEO SYNC (TIKTOK REUP AUTO)
+      // Hỗ trợ cả luồng cũ (/api/social-sync) và luồng mới (/api/auto-sync)
       // ============================================
-      if (path.startsWith('/api/social-sync')) {
+      if (path.startsWith('/api/social-sync') || path.startsWith('/api/auto-sync')) {
         // Yêu cầu quyền ads.create hoặc ads.edit để sử dụng tính năng này
         const permCheck = await requirePermission(req, env, 'ads.edit');
         if (!permCheck.ok) {

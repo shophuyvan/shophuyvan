@@ -611,6 +611,168 @@ async function deleteCampaign(campaignId) {
       }
     }
   }
+  
+  // ============================================================
+  // TIKTOK REUP & GEMINI INTEGRATION (MỚI)
+  // ============================================================
+
+
+  // 2. Gọi API Phân tích TikTok
+  async function analyzeTikTokVideo() {
+    const url = document.getElementById('tiktokUrl').value;
+    if (!url) return toast('❌ Vui lòng nhập link TikTok!');
+
+    const btn = document.getElementById('btnAnalyzeTikTok');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> Đang xử lý...';
+    document.getElementById('tiktokResultArea').style.display = 'none';
+
+    try {
+      const r = await Admin.req('/api/social-sync/submit', {
+        method: 'POST',
+        body: { tiktokUrl: url }
+      });
+
+      if (r && (r.ok || r.success)) {
+        renderTikTokResult(r);
+        window._currentSyncId = r.syncId; // Lưu ID để đăng
+        toast('✅ Phân tích thành công!');
+      } else {
+        throw new Error(r.error || 'Lỗi xử lý từ server');
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
+    }
+  }
+
+  // 3. Test Gemini
+  async function testGeminiConnection() {
+    const btn = document.getElementById('btnCheckGemini');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+    try {
+        const r = await Admin.req('/api/social-sync/test-ai', { method: 'GET' });
+        if (r && r.ok) {
+            alert('✅ Gemini hoạt động tốt!\nAI trả lời: ' + r.msg);
+        } else {
+            alert('❌ Gemini lỗi: ' + (r.msg || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('❌ Lỗi kết nối: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+  }
+
+  // 4. Render kết quả
+  let currentAiContent = {}; 
+
+  function renderTikTokResult(data) {
+    document.getElementById('tiktokResultArea').style.display = 'block';
+    
+    const videoUrl = data.videoUrl || data.r2Url;
+    if (videoUrl) {
+        const video = document.getElementById('tiktokPreview');
+        video.src = videoUrl;
+        document.getElementById('tiktokDownloadLink').href = videoUrl;
+        video.load();
+    }
+    if (data.fileSize) {
+        document.getElementById('tiktokFileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    currentAiContent = data.contents || data.aiContent || {};
+    window._currentAiVersion = 1; // Default version A
+    switchAiTab('A');
+  }
+
+  function switchAiTab(ver) {
+    ['A', 'B', 'C'].forEach(v => {
+        const el = document.getElementById(`tabAi${v}`);
+        if(el) el.classList.toggle('active', v === ver);
+    });
+
+    const mapVer = { 'A': 1, 'B': 2, 'C': 3 };
+    window._currentAiVersion = mapVer[ver]; 
+
+    const key = `version${ver}`;
+    const content = currentAiContent[key];
+    
+    if (content) {
+        let text = content.caption || '';
+        let tags = '';
+        if (Array.isArray(content.hashtags)) tags = content.hashtags.join(' ');
+        else tags = content.hashtags;
+        document.getElementById('aiContentPreview').value = `${text}\n\n${tags}`;
+    }
+  }
+
+  function loadFanpagesForTikTok() {
+    const select = document.getElementById('tiktokTargetPage');
+    if (!select || select.options.length > 1) return; 
+
+    // Load từ cache hoặc gọi API
+    if (fanpagesCache && fanpagesCache.length > 0) {
+        fanpagesCache.forEach(fp => {
+            const opt = document.createElement('option');
+            opt.value = fp.page_id;
+            opt.textContent = fp.name || fp.page_name;
+            select.appendChild(opt);
+        });
+    } else {
+        loadFanpages().then(() => loadFanpagesForTikTok());
+    }
+  }
+
+  // 5. Đăng lên Fanpage (CÔNG KHAI)
+  async function publishTikTokToPage() {
+    const pageId = document.getElementById('tiktokTargetPage').value;
+    const syncId = window._currentSyncId;
+    const version = window._currentAiVersion || 1;
+
+    if (!syncId) return toast('❌ Vui lòng phân tích video trước!');
+    if (!pageId) return toast('❌ Vui lòng chọn Fanpage!');
+
+    const btn = document.getElementById('btnPublishTikTok');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Đang đăng...';
+
+    try {
+        const r = await Admin.req('/api/social-sync/publish', {
+            method: 'POST',
+            body: {
+                syncId: syncId,
+                pageId: pageId,
+                selectedVersion: version,
+                published: true // ✅ Cờ hiệu báo đăng công khai
+            }
+        });
+
+        if (r && r.ok) {
+            toast('✅ Đăng thành công!');
+            if (r.postUrl) {
+                window.open(r.postUrl, '_blank');
+            } else {
+                alert('Đăng thành công! Post ID: ' + r.postId);
+            }
+        } else {
+            throw new Error(r.error || 'Đăng thất bại');
+        }
+    } catch (e) {
+        toast('❌ Lỗi: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fab fa-facebook-f"></i> Đăng Ngay (Công Khai)';
+    }
+  }
+  
   // ============================================================
   // THÊM MỚI: API CALLS CHO TÍNH NĂNG MỚI
   // ============================================================
@@ -1611,20 +1773,461 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
       }
     }
   }
-
+  
   // ============================================================
+  // TIKTOK REUP & GEMINI INTEGRATION
+  // ============================================================
+
+  // 1. Chuyển đổi tab con (Manual <-> Wizard)
+  function switchPostTab(tabName) {
+    // Reset active states
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+    
+    if (tabName === 'manual') {
+        // Tab 1: Manual
+        const btnManual = document.querySelectorAll('.sub-tab-btn')[0];
+        if(btnManual) btnManual.classList.add('active');
+        
+        const viewManual = document.getElementById('view-post-manual');
+        if(viewManual) viewManual.classList.add('active');
+        
+    } else if (tabName === 'wizard') {
+        // Tab 2: Wizard (Auto Sync)
+        const btnWizard = document.querySelectorAll('.sub-tab-btn')[1];
+        if(btnWizard) btnWizard.classList.add('active');
+        
+        const viewWizard = document.getElementById('view-post-wizard');
+        if(viewWizard) {
+            viewWizard.classList.add('active');
+            // Khởi tạo Wizard nếu chưa chạy
+            if(window.AutoSyncWizard && window.AutoSyncWizard.init) {
+                // Chỉ init nếu chưa có data (tránh reset khi user đang làm dở)
+                if(!window.AutoSyncWizard.jobData || !window.AutoSyncWizard.jobData.productId) {
+                    window.AutoSyncWizard.init();
+                }
+            }
+        }
+    } else {
+        console.warn('Unknown tab:', tabName);
+    }
+  }
+
+  // 2. Gọi API Phân tích TikTok
+  async function analyzeTikTokVideo() {
+    const url = document.getElementById('tiktokUrl').value;
+    if (!url) return toast('❌ Vui lòng nhập link TikTok!');
+
+    const btn = document.getElementById('btnAnalyzeTikTok');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> Đang xử lý...';
+    document.getElementById('tiktokResultArea').style.display = 'none';
+
+    try {
+      const r = await Admin.req('/api/social-sync/submit', {
+        method: 'POST',
+        body: { tiktokUrl: url }
+      });
+
+      if (r && (r.ok || r.success)) {
+        renderTikTokResult(r);
+        // Lưu syncId để dùng cho bước đăng
+        window._currentSyncId = r.syncId;
+        toast('✅ Phân tích thành công!');
+      } else {
+        throw new Error(r.error || 'Lỗi xử lý từ server');
+      }
+    } catch (e) {
+      toast('❌ Lỗi: ' + e.message);
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
+    }
+  }
+
+  // 3. Test Gemini
+  async function testGeminiConnection() {
+    const btn = document.getElementById('btnCheckGemini');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+    try {
+        const r = await Admin.req('/api/social-sync/test-ai', { method: 'GET' });
+        if (r && r.ok) {
+            alert('✅ Gemini hoạt động tốt!\nAI trả lời: ' + r.msg);
+        } else {
+            alert('❌ Gemini lỗi: ' + (r.msg || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('❌ Lỗi kết nối: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+  }
+
+  // 4. Render kết quả
+  let currentAiContent = {}; 
+
+  function renderTikTokResult(data) {
+    document.getElementById('tiktokResultArea').style.display = 'block';
+    
+    // Video
+    const videoUrl = data.videoUrl || data.r2Url;
+    if (videoUrl) {
+        const video = document.getElementById('tiktokPreview');
+        video.src = videoUrl;
+        document.getElementById('tiktokDownloadLink').href = videoUrl;
+        video.load();
+    }
+    if (data.fileSize) {
+        document.getElementById('tiktokFileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    // AI Content
+    currentAiContent = data.contents || data.aiContent || {};
+    window._currentAiVersion = 1; // Default version A
+    switchAiTab('A');
+  }
+
+  function switchAiTab(ver) {
+    ['A', 'B', 'C'].forEach(v => {
+        const el = document.getElementById(`tabAi${v}`);
+        if(el) el.classList.toggle('active', v === ver);
+    });
+
+    const mapVer = { 'A': 1, 'B': 2, 'C': 3 };
+    window._currentAiVersion = mapVer[ver]; // Update selected version
+
+    const key = `version${ver}`;
+    const content = currentAiContent[key];
+    
+    if (content) {
+        let text = content.caption || '';
+        let tags = '';
+        if (Array.isArray(content.hashtags)) tags = content.hashtags.join(' ');
+        else tags = content.hashtags;
+        
+        document.getElementById('aiContentPreview').value = `${text}\n\n${tags}`;
+    }
+  }
+
+  function loadFanpagesForTikTok() {
+    const select = document.getElementById('tiktokTargetPage');
+    if (!select || select.options.length > 1) return; 
+
+    if (fanpagesCache && fanpagesCache.length > 0) {
+        fanpagesCache.forEach(fp => {
+            const opt = document.createElement('option');
+            opt.value = fp.page_id;
+            opt.textContent = fp.name || fp.page_name; // Support both field names
+            select.appendChild(opt);
+        });
+    } else {
+        // Try to load if cache empty
+        loadFanpages().then(() => loadFanpagesForTikTok());
+    }
+  }
+
+  // 5. Đăng lên Fanpage (CÔNG KHAI)
+  async function publishTikTokToPage() {
+    const pageId = document.getElementById('tiktokTargetPage').value;
+    const syncId = window._currentSyncId;
+    const version = window._currentAiVersion || 1;
+
+    if (!syncId) return toast('❌ Vui lòng phân tích video trước!');
+    if (!pageId) return toast('❌ Vui lòng chọn Fanpage!');
+
+    const btn = document.getElementById('btnPublishTikTok');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Đang đăng...';
+
+    try {
+        const r = await Admin.req('/api/social-sync/publish', {
+            method: 'POST',
+            body: {
+                syncId: syncId,
+                pageId: pageId,
+                selectedVersion: version,
+                published: true // ✅ Cờ hiệu báo đăng công khai
+            }
+        });
+
+        if (r && r.ok) {
+            toast('✅ Đăng thành công!');
+            if (r.postUrl) {
+                window.open(r.postUrl, '_blank');
+            } else {
+                alert('Đăng thành công! Post ID: ' + r.postId);
+            }
+        } else {
+            throw new Error(r.error || 'Đăng thất bại');
+        }
+    } catch (e) {
+        toast('❌ Lỗi: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fab fa-facebook-f"></i> Đăng Ngay (Công Khai)';
+    }
+  }
+  
+  // ============================================================
+// AUTO SYNC WIZARD LOGIC (New Module)
+// ============================================================
+const AutoSyncWizard = {
+    currentStep: 1,
+    jobData: {
+        id: null, productId: null, videoUrl: null, variants: [], fanpages: []
+    },
+
+    init: function() {
+        console.log('Wizard Init');
+        this.loadProducts();
+    },
+
+    goToStep: function(step) {
+        // UI Switching
+        document.querySelectorAll('.wiz-content').forEach(el => el.classList.remove('active'));
+        document.getElementById(`wiz-step-${step}`).classList.add('active');
+        
+        // Indicators
+        for(let i=1; i<=5; i++) {
+            const el = document.getElementById(`wiz-step-${i}-ind`);
+            if(i < step) el.className = 'wizard-step completed';
+            else if(i === step) el.className = 'wizard-step active';
+            else el.className = 'wizard-step';
+        }
+        
+        this.currentStep = step;
+        
+        // Logic Trigger
+        if(step === 3 && this.jobData.variants.length === 0) this.generateVariants();
+        if(step === 4) this.loadFanpages();
+    },
+
+    // STEP 1
+    loadProducts: async function() {
+        const grid = document.getElementById('wiz-product-grid');
+        grid.innerHTML = '<div class="loading">Loading...</div>';
+        try {
+            const r = await Admin.req('/admin/products/list', { method: 'GET' });
+            if(r.ok && r.products) {
+                this.productsCache = r.products; // Save for filtering
+                this.renderProducts(r.products);
+            }
+        } catch(e) { grid.innerHTML = 'Err: ' + e.message; }
+    },
+
+    renderProducts: function(list) {
+        const grid = document.getElementById('wiz-product-grid');
+        grid.innerHTML = list.map(p => {
+            const img = (p.images && p.images[0]) || '/placeholder.jpg';
+            return `
+                <div class="wiz-card" onclick="AutoSyncWizard.selectProduct('${p.id}', this)">
+                    <img src="${img}">
+                    <div style="font-weight:bold; font-size:13px; margin-top:5px;">${p.name}</div>
+                    <div style="color:#dc2626; font-size:12px;">${new Intl.NumberFormat('vi-VN').format(p.variants?.[0]?.price || 0)}đ</div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    filterProducts: function(keyword) {
+        if(!this.productsCache) return;
+        const filtered = this.productsCache.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()));
+        this.renderProducts(filtered);
+    },
+
+    selectProduct: function(id, el) {
+        this.jobData.productId = id;
+        document.querySelectorAll('.wiz-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('wiz-btn-step1').disabled = false;
+    },
+
+    // STEP 2
+    processVideo: async function() {
+        const url = document.getElementById('wiz-tiktokUrl').value;
+        if(!url) return alert('Nhập link TikTok!');
+        
+        const btn = document.getElementById('wiz-btn-download');
+        btn.disabled = true; btn.innerHTML = '⏳ Đang xử lý...';
+        
+        try {
+            const r = await Admin.req('/api/auto-sync/jobs/create', {
+                method: 'POST',
+                body: { productId: this.jobData.productId, tiktokUrl: url }
+            });
+            
+            if(r.ok) {
+                this.jobData.id = r.jobId;
+                this.jobData.videoUrl = r.videoUrl;
+                
+                const vid = document.getElementById('wiz-player');
+                vid.src = r.videoUrl;
+                document.getElementById('wiz-video-preview').style.display = 'block';
+                document.getElementById('wiz-btn-step2').disabled = false;
+            } else { alert(r.error); }
+        } catch(e) { alert(e.message); }
+        finally { btn.disabled = false; btn.innerHTML = '⬇️ Tải & Phân tích'; }
+    },
+
+    // STEP 3
+    generateVariants: async function(force = false) {
+        if(!force && this.jobData.variants.length > 0) return;
+        
+        document.getElementById('wiz-ai-loading').classList.remove('hidden');
+        document.getElementById('wiz-ai-area').classList.add('hidden');
+        
+        try {
+            const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/generate-variants`, { method: 'POST' });
+            if(r.ok) {
+                this.jobData.variants = r.variants;
+                this.renderVariants();
+            }
+        } catch(e) { alert(e.message); }
+        finally {
+            document.getElementById('wiz-ai-loading').classList.add('hidden');
+            document.getElementById('wiz-ai-area').classList.remove('hidden');
+        }
+    },
+
+    renderVariants: function() {
+        const tabs = document.getElementById('wiz-ai-tabs');
+        tabs.innerHTML = this.jobData.variants.map((v, i) => 
+            `<div class="ai-tab ${i===0?'active':''}" onclick="AutoSyncWizard.switchVariant(${i}, this)">Version ${v.version} (${v.tone})</div>`
+        ).join('');
+        this.switchVariant(0, tabs.children[0]);
+    },
+
+    switchVariant: function(index, el) {
+        document.querySelectorAll('.ai-tab').forEach(t => t.classList.remove('active'));
+        if(el) el.classList.add('active');
+        
+        const v = this.jobData.variants[index];
+        document.getElementById('wiz-caption-edit').value = v.caption;
+        
+        let tags = v.hashtags;
+        if(typeof tags === 'string') try { tags = JSON.parse(tags); } catch(e){}
+        document.getElementById('wiz-hashtags').innerText = Array.isArray(tags) ? tags.join(' ') : tags;
+        document.getElementById('wiz-tone-badge').innerText = v.tone.toUpperCase();
+        
+        // Update logic: khi edit caption, cần lưu lại vào mảng variants
+        document.getElementById('wiz-caption-edit').onchange = (e) => {
+            this.jobData.variants[index].caption = e.target.value;
+        };
+    },
+
+    // STEP 4
+    loadFanpages: async function() {
+        const tbody = document.getElementById('wiz-fanpage-list');
+        tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+        
+        try {
+            // Reuse existing fanpage loader
+            const r = await Admin.req('/admin/fanpages', { method: 'GET' });
+            const pages = r.items || [];
+            
+            if(pages.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">Chưa có Fanpage.</td></tr>';
+                return;
+            }
+
+            // Auto assign variants round-robin
+            const variants = this.jobData.variants;
+            
+            tbody.innerHTML = pages.map((p, i) => {
+                const vIndex = i % variants.length;
+                const opts = variants.map((v, vi) => 
+                    `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
+                ).join('');
+                
+                return `
+                    <tr>
+                        <td>${p.name}</td>
+                        <td><select class="wiz-assign-select input" data-page="${p.page_id}">${opts}</select></td>
+                        <td class="text-center"><input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked></td>
+                    </tr>
+                `;
+            }).join('');
+        } catch(e) { tbody.innerHTML = 'Error loading pages'; }
+    },
+
+    bulkPublish: async function() {
+        const assignments = [];
+        document.querySelectorAll('.wiz-assign-check:checked').forEach(cb => {
+            const pageId = cb.dataset.page;
+            const vId = document.querySelector(`.wiz-assign-select[data-page="${pageId}"]`).value;
+            assignments.push({ fanpageId: pageId, variantId: parseInt(vId) });
+        });
+
+        if(assignments.length === 0) return alert('Chọn ít nhất 1 page!');
+        
+        const btn = document.getElementById('wiz-btn-publish');
+        btn.disabled = true; btn.innerHTML = '⏳ Đang đăng...';
+
+        try {
+            // 1. Save Assign
+            await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/assign-fanpages`, {
+                method: 'POST',
+                body: { assignments }
+            });
+            
+            // 2. Publish
+            const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/publish`, { method: 'POST' });
+            if(r.ok) {
+                this.renderResults(r.results);
+                this.goToStep(5);
+            } else { alert(r.error); }
+        } catch(e) { alert(e.message); }
+        finally { btn.disabled = false; btn.innerHTML = '🚀 Đăng bài ngay'; }
+    },
+
+    // STEP 5
+    renderResults: function(results) {
+        const div = document.getElementById('wiz-results');
+        div.innerHTML = results.map(r => `
+            <div style="display:flex; justify-content:space-between; padding:10px; border:1px solid #eee; margin-bottom:5px; border-radius:6px;">
+                <span>${r.fanpageName}</span>
+                ${r.success 
+                    ? `<a href="${r.postUrl}" target="_blank" style="color:green; font-weight:bold;">✅ Thành công</a>` 
+                    : `<span style="color:red;">❌ ${r.error}</span>`}
+            </div>
+        `).join('');
+        
+        // Auto-fill campaign name
+        document.getElementById('wiz-camp-name').value = `Ads Job #${this.jobData.id} - ${new Date().toLocaleDateString('vi-VN')}`;
+    },
+
+    createAds: async function() {
+        const name = document.getElementById('wiz-camp-name').value;
+        const budget = document.getElementById('wiz-budget').value;
+        
+        try {
+            const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/create-ads`, {
+                method: 'POST',
+                body: { campaignName: name, dailyBudget: parseInt(budget) }
+            });
+            if(r.ok) alert(r.message);
+            else alert(r.error);
+        } catch(e) { alert(e.message); }
+    }
+};
+
+// Export to global
+window.AutoSyncWizard = AutoSyncWizard;
+
+ // ============================================================
   // EXPORT PUBLIC API
   // ============================================================
 
-window.FacebookAds = {
-    syncFanpages, // ✅ Thêm dòng này
+  window.FacebookAds = {
+    syncFanpages,
     _initialized: false,
-    // ... các hàm khác giữ nguyên
     init: function() {
-      if (this._initialized) {
-        console.log('[FB Ads] Already initialized, skipping');
-        return;
-      }
+      if (this._initialized) { console.log('[FB Ads] Skipping re-init'); return; }
       this._initialized = true;
       init();
     },
@@ -1645,7 +2248,14 @@ window.FacebookAds = {
     deleteFanpage,
     setDefaultFanpage,
     loadTokenStatusWidget,
-    dismissTokenWidget
+    dismissTokenWidget,
+
+    // ✅ CÁC HÀM MỚI CHO TIKTOK
+    switchPostTab,
+    analyzeTikTokVideo,
+    testGeminiConnection,
+    switchAiTab,
+    publishTikTokToPage
   };
 
   // Auto-init on DOM ready

@@ -378,3 +378,252 @@ CREATE INDEX IF NOT EXISTS idx_video_syncs_status ON video_syncs(status);
 CREATE INDEX IF NOT EXISTS idx_video_syncs_created_by ON video_syncs(created_by);
 CREATE INDEX IF NOT EXISTS idx_facebook_posts_video_sync ON facebook_posts(video_sync_id);
 CREATE INDEX IF NOT EXISTS idx_ai_content_video_sync ON ai_generated_content(video_sync_id);
+
+-- ============================================
+-- AUTO VIDEO SYNC WORKFLOW (Product-based Marketing Automation)
+-- Wizard 5 bước: Product → Video → AI Content → Fanpages → Facebook Ads
+-- ============================================
+
+-- =============================================
+-- BẢNG 1: FANPAGES - Quản lý danh sách Fanpage
+-- =============================================
+CREATE TABLE IF NOT EXISTS fanpages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  -- Facebook Page Info
+  page_id TEXT UNIQUE NOT NULL,
+  page_name TEXT NOT NULL,
+  access_token TEXT,
+  
+  -- Auto Settings
+  auto_reply_enabled INTEGER DEFAULT 0,
+  auto_hide_phone INTEGER DEFAULT 0,
+  reply_template TEXT DEFAULT 'Shop đã inbox bạn rồi ạ, bạn check tin nhắn chờ nhé! ❤️',
+  website_link TEXT DEFAULT 'https://shophuyvan.vn',
+  
+  -- Status & Metadata
+  is_active INTEGER DEFAULT 1,
+  is_default INTEGER DEFAULT 0,
+  token_expires_at INTEGER,
+  
+  -- Statistics
+  total_posts INTEGER DEFAULT 0,
+  total_ads INTEGER DEFAULT 0,
+  last_post_at INTEGER,
+  
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_fanpages_page_id ON fanpages(page_id);
+CREATE INDEX idx_fanpages_is_active ON fanpages(is_active);
+
+-- =============================================
+-- BẢNG 2: AUTOMATION_JOBS - Workflow chính (5 steps)
+-- =============================================
+CREATE TABLE IF NOT EXISTS automation_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  -- STEP 1: Product Selection
+  product_id TEXT NOT NULL,
+  product_name TEXT,
+  product_slug TEXT,
+  product_url TEXT,
+  product_price REAL,
+  product_image TEXT,
+  
+  -- STEP 2: TikTok Video
+  tiktok_url TEXT,
+  tiktok_video_id TEXT,
+  video_r2_path TEXT,
+  video_r2_url TEXT,
+  video_file_size INTEGER,
+  video_duration INTEGER,
+  
+  -- Workflow Status
+  status TEXT DEFAULT 'draft' CHECK(status IN (
+    'draft',           -- Bước 1: Đã chọn product
+    'video_uploaded',  -- Bước 2: Đã tải video
+    'ai_generated',    -- Bước 3: AI đã tạo variants
+    'assigned',        -- Bước 4: Đã assign fanpages
+    'publishing',      -- Đang đăng bài
+    'published',       -- Bước 4: Đã đăng thành công
+    'completed',       -- Bước 5: Hoàn tất (có/không ads)
+    'failed'           -- Lỗi
+  )),
+  
+  current_step INTEGER DEFAULT 1, -- 1-5
+  
+  -- Results Summary
+  total_variants INTEGER DEFAULT 0,
+  total_fanpages_assigned INTEGER DEFAULT 0,
+  total_posts_published INTEGER DEFAULT 0,
+  total_posts_failed INTEGER DEFAULT 0,
+  
+  -- STEP 5: Campaign Info (optional)
+  campaign_id TEXT,
+  campaign_name TEXT,
+  
+  -- Error Tracking
+  error_message TEXT,
+  error_step INTEGER,
+  
+  -- Metadata
+  created_by INTEGER, -- Admin user ID
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+
+CREATE INDEX idx_automation_jobs_status ON automation_jobs(status);
+CREATE INDEX idx_automation_jobs_product ON automation_jobs(product_id);
+CREATE INDEX idx_automation_jobs_created ON automation_jobs(created_at);
+
+-- =============================================
+-- BẢNG 3: CONTENT_VARIANTS - AI tạo 5 phiên bản nội dung
+-- =============================================
+CREATE TABLE IF NOT EXISTS content_variants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  job_id INTEGER NOT NULL,
+  
+  -- Variant Info
+  version INTEGER NOT NULL CHECK(version BETWEEN 1 AND 5), -- 1-5
+  tone TEXT NOT NULL CHECK(tone IN (
+    'casual',       -- Gần gũi, thân thiện, emoji nhiều
+    'sale-heavy',   -- Sale mạnh, urgency, CAPS
+    'storytelling', -- Kể chuyện, review khách hàng
+    'professional', -- Chuyên gia, formal
+    'tips'          -- Mẹo vặt, hướng dẫn
+  )),
+  
+  -- Content
+  caption TEXT NOT NULL,
+  hashtags TEXT, -- JSON array: ["#tag1", "#tag2"]
+  cta TEXT,      -- Call-to-action
+  
+  -- Editing
+  is_edited INTEGER DEFAULT 0,
+  original_caption TEXT, -- Backup bản gốc nếu user edit
+  
+  created_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (job_id) REFERENCES automation_jobs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_content_variants_job ON content_variants(job_id);
+CREATE INDEX idx_content_variants_version ON content_variants(version);
+
+-- =============================================
+-- BẢNG 4: FANPAGE_ASSIGNMENTS - Mapping fanpage ↔ variant
+-- =============================================
+CREATE TABLE IF NOT EXISTS fanpage_assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  job_id INTEGER NOT NULL,
+  fanpage_id TEXT NOT NULL, -- page_id từ bảng fanpages
+  fanpage_name TEXT,
+  variant_id INTEGER NOT NULL,
+  
+  -- Publishing Status
+  status TEXT DEFAULT 'pending' CHECK(status IN (
+    'pending',      -- Chờ đăng
+    'publishing',   -- Đang đăng
+    'published',    -- Đã đăng thành công
+    'failed'        -- Đăng thất bại
+  )),
+  
+  -- Facebook Post Result
+  post_id TEXT,
+  post_url TEXT,
+  
+  -- Error Tracking
+  error_message TEXT,
+  retry_count INTEGER DEFAULT 0,
+  
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  published_at INTEGER,
+  
+  FOREIGN KEY (job_id) REFERENCES automation_jobs(id) ON DELETE CASCADE,
+  FOREIGN KEY (variant_id) REFERENCES content_variants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_fanpage_assignments_job ON fanpage_assignments(job_id);
+CREATE INDEX idx_fanpage_assignments_fanpage ON fanpage_assignments(fanpage_id);
+CREATE INDEX idx_fanpage_assignments_status ON fanpage_assignments(status);
+
+-- =============================================
+-- BẢNG 5: JOB_CAMPAIGNS - Facebook Ads từ Job (Optional - Step 5)
+-- =============================================
+CREATE TABLE IF NOT EXISTS job_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  job_id INTEGER NOT NULL,
+  
+  -- Campaign Info
+  fb_campaign_id TEXT,
+  fb_adset_id TEXT,
+  campaign_name TEXT NOT NULL,
+  
+  -- Budget & Targeting
+  daily_budget INTEGER NOT NULL, -- VND
+  target_url TEXT,
+  
+  targeting_config TEXT, -- JSON: {countries, age_min, age_max, interests}
+  
+  -- Status
+  status TEXT DEFAULT 'draft' CHECK(status IN (
+    'draft',
+    'creating',
+    'active',
+    'paused',
+    'failed'
+  )),
+  
+  -- Ads Created
+  total_ads INTEGER DEFAULT 0,
+  ads_data TEXT, -- JSON array: [{postId, adId, status}]
+  
+  error_message TEXT,
+  
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (job_id) REFERENCES automation_jobs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_job_campaigns_job ON job_campaigns(job_id);
+CREATE INDEX idx_job_campaigns_status ON job_campaigns(status);
+
+-- =============================================
+-- BẢNG 6: PRODUCT_VIRAL_VIDEOS - Lịch sử video đã dùng (Tránh trùng)
+-- =============================================
+CREATE TABLE IF NOT EXISTS product_viral_videos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  product_id TEXT NOT NULL,
+  job_id INTEGER,
+  
+  tiktok_url TEXT NOT NULL,
+  tiktok_video_id TEXT,
+  
+  -- Viral Metrics
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  viral_score INTEGER DEFAULT 0, -- Calculated score
+  
+  -- Usage Tracking
+  is_used INTEGER DEFAULT 0,
+  used_at INTEGER,
+  
+  created_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (job_id) REFERENCES automation_jobs(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_product_viral_videos_product ON product_viral_videos(product_id);
+CREATE INDEX idx_product_viral_videos_used ON product_viral_videos(is_used);
+CREATE INDEX idx_product_viral_videos_score ON product_viral_videos(viral_score DESC);

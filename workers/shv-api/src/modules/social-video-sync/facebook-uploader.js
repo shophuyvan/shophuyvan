@@ -4,10 +4,9 @@
  */
 export async function uploadToFacebookPage(pageId, videoUrl, caption, env) {
   try {
-    // 1. Lấy Page Access Token từ DB (Giả sử bạn đã lưu trong bảng facebook_pages)
-    // Nếu chưa có bảng này, bạn cần hardcode token tạm hoặc query từ bảng setting
+    // 1. Lấy Page Access Token từ bảng fanpages
     const pageData = await env.DB.prepare(
-      "SELECT access_token FROM facebook_pages WHERE page_id = ?"
+      "SELECT access_token FROM fanpages WHERE page_id = ?"
     ).bind(pageId).first();
 
     if (!pageData || !pageData.access_token) {
