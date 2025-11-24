@@ -2054,20 +2054,19 @@ init: function() {
         };
     },
 
-// STEP 4: Load Fanpages (Phiên bản "Bao sân" + Debug)
+// STEP 4: Load Fanpages (Đã sửa lỗi cú pháp & Thêm nút Xem thử)
     loadFanpages: async function() {
         const tbody = document.getElementById('wiz-fanpage-list');
         if (!tbody) return;
         
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">⏳ Đang tải danh sách Page...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">⏳ Đang tải danh sách Page...</td></tr>';
         
         try {
             // 1. Gọi API
             const r = await Admin.req('/admin/fanpages', { method: 'GET' });
-            
-            console.log('🔥 API Fanpages Response:', r); // Debug log
+            console.log('🔥 API Fanpages Response:', r);
 
-            // 2. Bắt mọi định dạng dữ liệu có thể
+            // 2. Xử lý dữ liệu đa dạng
             let pages = [];
             if (Array.isArray(r)) pages = r;
             else if (r.items && Array.isArray(r.items)) pages = r.items;
@@ -2076,13 +2075,48 @@ init: function() {
 
             // 3. Render
             if (pages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">⚠️ Không tìm thấy Fanpage nào. Hãy vào tab "Cài đặt" -> "Đồng bộ từ Facebook" trước.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">⚠️ Không tìm thấy Fanpage nào. Hãy vào tab "Cài đặt" -> "Đồng bộ từ Facebook" trước.</td></tr>';
                 return;
             }
 
             const variants = this.jobData.variants || [];
             
-            // Hàm xem trước nội dung (Mới)
+            tbody.innerHTML = pages.map((p, i) => {
+                const vIndex = variants.length > 0 ? i % variants.length : 0;
+                const opts = variants.map((v, vi) => 
+                    `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
+                ).join('');
+                const fallbackOpt = `<option value="0">Mặc định</option>`;
+                const pageName = p.name || p.page_name || 'Unnamed Page';
+
+                return `
+                    <tr>
+                        <td style="padding:10px;">
+                            <div style="font-weight:bold">${pageName}</div>
+                            <div style="font-size:11px; color:#666">ID: ${p.page_id}</div>
+                        </td>
+                        <td style="padding:10px;">
+                            <select class="wiz-assign-select input" data-page="${p.page_id}" style="width:100%;">
+                                ${variants.length > 0 ? opts : fallbackOpt}
+                            </select>
+                        </td>
+                        <td style="padding:10px; text-align:center;">
+                            <button class="btn-sm" onclick="AutoSyncWizard.showPreview('${p.page_id}', '${pageName}')" style="cursor:pointer; padding:4px 8px;">👁️ Xem</button>
+                        </td>
+                        <td style="padding:10px; text-align:center;">
+                            <input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked style="width:18px; height:18px; cursor:pointer;">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+        } catch(e) { 
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">❌ Lỗi JS: ${e.message}</td></tr>`; 
+        }
+    },
+
+    // Hàm xem trước nội dung (Đã tách ra đúng vị trí)
     showPreview: function(pageId, pageName) {
         const select = document.querySelector(`.wiz-assign-select[data-page="${pageId}"]`);
         const variantId = select ? parseInt(select.value) : 0;
@@ -2090,7 +2124,10 @@ init: function() {
 
         if (!variant) return alert("Chưa có nội dung để xem.");
 
-        // Điền dữ liệu vào Modal
+        // Check xem Modal có trong HTML chưa
+        const modal = document.getElementById('previewModal');
+        if(!modal) return alert('Thiếu HTML Modal Preview trong file ads.html');
+
         document.getElementById('previewPageName').innerText = pageName;
         
         // Xử lý hashtags
@@ -2099,15 +2136,8 @@ init: function() {
         const tagStr = Array.isArray(tags) ? tags.join(' ') : tags;
 
         document.getElementById('previewCaption').innerText = `${variant.caption}\n\n${tagStr}`;
-        document.getElementById('previewModal').style.display = 'flex';
+        modal.style.display = 'flex';
     },
-            
-        } catch(e) { 
-            console.error(e);
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">❌ Lỗi JS: ${e.message}</td></tr>`; 
-        }
-    },
-
     // STEP 5
     renderResults: function(results) {
         const div = document.getElementById('wiz-results');

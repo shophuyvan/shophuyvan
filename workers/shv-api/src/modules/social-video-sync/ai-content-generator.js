@@ -84,7 +84,7 @@ YÊU CẦU QUAN TRỌNG:
    - Độ dài khác nhau (ngắn/vừa/dài)
    - CTA khác nhau
 
-3. ĐỐI TƯỢNG: Nội trợ Việt Nam, 25-45 tuổi, quan tâm nấu ăn & chăm sóc nhà cửa
+3. ĐỐI TƯỢNG: Việt Nam, 25-45 tuổi, quan tâm nấu ăn & chăm sóc nhà cửa
 
 OUTPUT JSON THUẦN TÚY (không markdown, không code block):
 {
