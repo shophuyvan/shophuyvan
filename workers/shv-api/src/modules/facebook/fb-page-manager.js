@@ -8,19 +8,6 @@ export async function listFanpages(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
   
   try {
-    // Tạo bảng nếu chưa có (Code tạm, nên chạy migration riêng)
-    await env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS fanpages (
-        page_id TEXT PRIMARY KEY,
-        name TEXT,
-        access_token TEXT,
-        auto_reply_enabled INTEGER DEFAULT 0,
-        welcome_message TEXT,
-        created_at INTEGER,
-        updated_at INTEGER
-      )
-    `).run();
-
     const result = await env.DB.prepare('SELECT * FROM fanpages ORDER BY created_at DESC').all();
     return json({ ok: true, items: result.results || [] }, {}, req);
   } catch (e) {
@@ -28,7 +15,7 @@ export async function listFanpages(req, env) {
   }
 }
 
-// Thêm hoặc Cập nhật Fanpage
+// Thêm hoặc Cập nhật Fanpage (FIXED SCHEMA)
 export async function upsertFanpage(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
   
@@ -39,29 +26,57 @@ export async function upsertFanpage(req, env) {
     if (!page_id || !access_token) return errorResponse('Thiếu page_id hoặc access_token', 400, req);
 
     const now = Date.now();
-    // ✅ QUAN TRỌNG: Lưu Token vào KV để Automation Worker đọc nhanh (không cần query DB)
+    
+    // ✅ QUAN TRỌNG: Lưu Token vào KV để Automation Worker đọc nhanh
     await putJSON(env, `fb_token:${page_id}`, access_token);
 
+    // 2. Check tồn tại trong D1
     const exists = await env.DB.prepare('SELECT page_id FROM fanpages WHERE page_id = ?').bind(page_id).first();
 
     if (exists) {
+      // UPDATE (dùng tên cột chuẩn: page_name, reply_template)
       await env.DB.prepare(`
         UPDATE fanpages 
-        SET name = ?, access_token = ?, auto_reply_enabled = ?, welcome_message = ?, updated_at = ?
+        SET page_name = ?, access_token = ?, auto_reply_enabled = ?, 
+            reply_template = ?, updated_at = ?, is_active = 1
         WHERE page_id = ?
-      `).bind(name, access_token, auto_reply_enabled ? 1 : 0, welcome_message, now, page_id).run();
+      `).bind(
+        name, 
+        access_token, 
+        auto_reply_enabled ? 1 : 0, 
+        welcome_message || null, 
+        now, 
+        page_id
+      ).run();
     } else {
+      // INSERT (Thêm đầy đủ các trường mặc định)
       await env.DB.prepare(`
-        INSERT INTO fanpages (page_id, name, access_token, auto_reply_enabled, welcome_message, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(page_id, name, access_token, auto_reply_enabled ? 1 : 0, welcome_message, now, now).run();
+        INSERT INTO fanpages (
+          page_id, page_name, access_token, auto_reply_enabled, 
+          reply_template, website_link, is_active, 
+          created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        page_id, 
+        name, 
+        access_token, 
+        auto_reply_enabled ? 1 : 0, 
+        welcome_message || null, 
+        'https://shophuyvan.vn', // Default website
+        1, // is_active = true
+        now, 
+        now
+      ).run();
     }
 
     return json({ ok: true, page_id, message: 'Đã lưu cấu hình Fanpage' }, {}, req);
   } catch (e) {
+    console.error('[upsertFanpage] Error:', e);
     return errorResponse(e.message, 500, req);
   }
 }
+
 // Lấy danh sách Fanpage từ tài khoản Facebook đang kết nối (OAuth)
 export async function fetchPagesFromFacebook(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
