@@ -5,10 +5,30 @@ export class GeminiContentGenerator {
     if (!apiKey) {
       throw new Error("Missing GEMINI_API_KEY");
     }
+    
+    console.log("[Gemini] Initializing with API key length:", apiKey?.length);
     this.genAI = new GoogleGenerativeAI(apiKey);
     
     // Cập nhật model name chuẩn
-    this.model = this.genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
+    const modelName = "models/gemini-2.5-flash";
+    console.log("[Gemini] Using model:", modelName);
+    this.model = this.genAI.getGenerativeModel({ model: modelName });
+  }
+
+  /**
+   * Test connection với Gemini API
+   * @returns {Promise<string>} Message từ Gemini
+   */
+  async testConnection() {
+    try {
+      const result = await this.model.generateContent("Reply 'OK' if you can read this message.");
+      const response = await result.response;
+      const text = response.text();
+      return text;
+    } catch (error) {
+      console.error("[Gemini] Test connection error:", error);
+      throw new Error(`Gemini API test failed: ${error.message}`);
+    }
   }
 
   /**
@@ -101,9 +121,11 @@ OUTPUT JSON THUẦN TÚY (không markdown, không code block):
 }
 `;
 
+      console.log("[Gemini] Sending prompt, length:", prompt.length);
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       let text = response.text();
+      console.log("[Gemini] Received response, length:", text.length);
       
       // Clean markdown block nếu có
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
@@ -112,6 +134,11 @@ OUTPUT JSON THUẦN TÚY (không markdown, không code block):
 
     } catch (error) {
       console.error("[Gemini] Generate Error:", error);
+      console.error("[Gemini] Error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       
       // Fallback khi AI lỗi - 5 versions mặc định
       return {

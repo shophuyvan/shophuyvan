@@ -431,7 +431,10 @@ async function generateJobVariants(req, env, jobId) {
     const now = Date.now();
 
     // AI generate 5 variants
+    console.log("[Generate Variants] Initializing Gemini for job:", jobId);
     const generator = new GeminiContentGenerator(env.GEMINI_API_KEY);
+    
+    console.log("[Generate Variants] Analyzing video:", job.video_r2_url);
     const analysis = await generator.analyzeVideo(job.video_r2_url);
     
     const productInfo = {
@@ -441,7 +444,9 @@ async function generateJobVariants(req, env, jobId) {
       url: job.product_url
     };
 
+    console.log("[Generate Variants] Calling Gemini API for content generation...");
     const contents = await generator.generateFacebookContent(analysis, 'friendly', productInfo);
+    console.log("[Generate Variants] AI generation completed successfully");
 
     // Save 5 variants to content_variants table
     const versions = ['version1', 'version2', 'version3', 'version4', 'version5'];
@@ -499,13 +504,23 @@ async function generateJobVariants(req, env, jobId) {
 
   } catch (error) {
     console.error('[Auto Sync] Generate variants error:', error);
+    console.error('[Auto Sync] Error details:', {
+      jobId,
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     
     // Update job with error
-    await env.DB.prepare(`
-      UPDATE automation_jobs 
-      SET status = 'failed', error_message = ?, error_step = 3, updated_at = ?
-      WHERE id = ?
-    `).bind(error.message, Date.now(), jobId).run();
+    try {
+      await env.DB.prepare(`
+        UPDATE automation_jobs 
+        SET status = 'failed', error_message = ?, error_step = 3, updated_at = ?
+        WHERE id = ?
+      `).bind(error.message, Date.now(), jobId).run();
+    } catch (dbError) {
+      console.error('[Auto Sync] Failed to update job status:', dbError);
+    }
     
     return errorResponse(error.message, 500, req);
   }
@@ -826,19 +841,71 @@ async function listAutomationJobs(req, env) {
 
 async function testAIConnection(req, env) {
   try {
+    console.log("[Test AI] Starting connection test...");
+    
+    // Check 1: API Key exists
     if (!env.GEMINI_API_KEY) {
-      return json({ ok: false, error: "Chưa cấu hình GEMINI_API_KEY trong Worker" }, { status: 500 }, req);
+      console.error("[Test AI] Missing GEMINI_API_KEY");
+      return json({ 
+        ok: false, 
+        error: "Chưa cấu hình GEMINI_API_KEY trong Worker",
+        step: "check_api_key"
+      }, { status: 500 }, req);
     }
 
-    const generator = new GeminiContentGenerator(env.GEMINI_API_KEY);
-    // Gửi prompt siêu ngắn để test
-    const result = await generator.model.generateContent("Say 'OK' if you receive this.");
-    const response = await result.response;
-    const text = response.text();
+    console.log("[Test AI] API Key found, length:", env.GEMINI_API_KEY.length);
 
-    return json({ ok: true, message: text });
+    // Check 2: Initialize Generator
+    let generator;
+    try {
+      generator = new GeminiContentGenerator(env.GEMINI_API_KEY);
+      console.log("[Test AI] Generator initialized successfully");
+    } catch (error) {
+      console.error("[Test AI] Failed to initialize generator:", error);
+      return json({ 
+        ok: false, 
+        error: `Khởi tạo Generator thất bại: ${error.message}`,
+        step: "init_generator"
+      }, { status: 500 }, req);
+    }
+
+    // Check 3: Test Connection
+    let testResult;
+    try {
+      console.log("[Test AI] Calling testConnection()...");
+      testResult = await generator.testConnection();
+      console.log("[Test AI] Test successful, response:", testResult);
+    } catch (error) {
+      console.error("[Test AI] Connection test failed:", error);
+      return json({ 
+        ok: false, 
+        error: `Test kết nối thất bại: ${error.message}`,
+        step: "test_connection",
+        details: {
+          name: error.name,
+          message: error.message
+        }
+      }, { status: 500 }, req);
+    }
+
+    // Success
+    return json({ 
+      ok: true, 
+      message: "Gemini AI kết nối thành công!",
+      test_response: testResult,
+      api_key_length: env.GEMINI_API_KEY.length,
+      model: "models/gemini-2.5-flash",
+      timestamp: new Date().toISOString()
+    }, {}, req);
+
   } catch (error) {
-    return json({ ok: false, error: error.message }, { status: 500 }, req);
+    console.error("[Test AI] Unexpected error:", error);
+    return json({ 
+      ok: false, 
+      error: error.message,
+      step: "unexpected_error",
+      stack: error.stack
+    }, { status: 500 }, req);
   }
 }
 
