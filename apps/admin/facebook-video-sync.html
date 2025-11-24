@@ -6,7 +6,12 @@
     <title>Facebook Video Auto Sync | Shop Huy Van</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        .card-body video {
+            max-height: 400px;
+            background: #000;
+        }
+    </style>
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -18,7 +23,7 @@
     </nav>
 
     <aside class="main-sidebar sidebar-dark-primary elevation-4" id="sidebar-container">
-        </aside>
+    </aside>
 
     <div class="content-wrapper">
         <div class="content-header">
@@ -67,7 +72,7 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <h5>Video Clean (R2)</h5>
-                                <video id="videoPreview" controls style="width: 100%; border-radius: 8px; background: #000;"></video>
+                                <video id="videoPreview" controls style="width: 100%; border-radius: 8px;"></video>
                                 <div class="mt-2">
                                     <span class="badge badge-info" id="fileSize">Size: 0 MB</span>
                                     <a href="#" id="downloadLink" target="_blank" class="btn btn-sm btn-outline-secondary float-right">Tải về</a>
@@ -109,9 +114,9 @@
 </div>
 
 <script src="sidebar-layout.js"></script>
+
 <script>
-<script>
-// Hàm gọi API Test (Đã sửa để nhận diện x-token)
+// Hàm gọi API Test
 async function analyzeVideo() {
     const url = document.getElementById('tiktokUrl').value;
     if (!url) return alert('Vui lòng nhập link TikTok!');
@@ -124,10 +129,9 @@ async function analyzeVideo() {
     document.getElementById('resultArea').style.display = 'none';
 
     try {
-        // 🔍 ƯU TIÊN LẤY x-token
+        // 🔍 LOGIC DÒ TÌM TOKEN (x-token ưu tiên)
         let token = localStorage.getItem('x-token');
 
-        // Fallback: Nếu không có x-token mới tìm các tên khác
         if (!token && window.Admin && typeof window.Admin.token === 'function') {
             token = window.Admin.token();
         }
@@ -137,15 +141,14 @@ async function analyzeVideo() {
             throw new Error('Không tìm thấy Token (x-token)! Vui lòng đăng nhập lại.');
         }
 
-        console.log('Using Token:', token); // Debug
+        console.log('Using Token:', token);
 
         const res = await fetch('https://api.shophuyvan.vn/api/social-sync/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // Server của bạn hỗ trợ cả 2 cách, gửi cách này cho chuẩn
                 'Authorization': `Bearer ${token}`,
-                'x-token': token // Gửi kèm cả header này cho chắc chắn
+                'x-token': token
             },
             body: JSON.stringify({ tiktokUrl: url })
         });
@@ -171,9 +174,9 @@ async function analyzeVideo() {
         btn.innerHTML = '<i class="fas fa-bolt"></i> GỌI API TEST';
         document.getElementById('loadingArea').style.display = 'none';
     }
-} // <--- ĐÃ THÊM DẤU ĐÓNG HÀM analyzeVideo Ở ĐÂY
+}
 
-// Hàm hiển thị kết quả ra màn hình (Nằm ngoài hàm analyzeVideo)
+// Hàm hiển thị kết quả
 function renderResult(data) {
     document.getElementById('resultArea').style.display = 'block';
     
@@ -183,18 +186,15 @@ function renderResult(data) {
         const url = data.videoUrl || data.r2Url;
         video.src = url;
         document.getElementById('downloadLink').href = url;
-        
-        // Tự động play video để check
         video.load();
     }
     
-    // Hiển thị file size nếu có
+    // Hiển thị file size
     if (data.fileSize) {
         document.getElementById('fileSize').innerText = `Size: ${(data.fileSize / 1024 / 1024).toFixed(2)} MB`;
     }
 
-    // 2. AI Content (Xử lý linh hoạt cấu trúc trả về)
-    // Backend trả về: data.contents = { versionA: {...}, versionB: {...} }
+    // 2. AI Content
     const ai = data.contents || data.aiContent || {}; 
     
     if (ai.versionA) document.getElementById('contentA').value = formatCaption(ai.versionA);
@@ -202,18 +202,15 @@ function renderResult(data) {
     if (ai.versionC) document.getElementById('contentC').value = formatCaption(ai.versionC);
 }
 
-// Hàm format caption + hashtags
+// Hàm format caption
 function formatCaption(ver) {
     if (!ver) return '';
-    
     let captionText = ver.caption || '';
     let tagsText = '';
 
-    // Xử lý hashtag: có thể là mảng hoặc chuỗi
     if (Array.isArray(ver.hashtags)) {
         tagsText = ver.hashtags.join(' ');
     } else if (typeof ver.hashtags === 'string') {
-        // Nếu AI trả về string JSON "[#tag1]" thì parse ra
         try {
             const parsed = JSON.parse(ver.hashtags);
             if(Array.isArray(parsed)) tagsText = parsed.join(' ');
@@ -222,10 +219,8 @@ function formatCaption(ver) {
             tagsText = ver.hashtags;
         }
     }
-
     return `${captionText}\n\n${tagsText}`;
 }
-</script>
 </script>
 </body>
 </html>
