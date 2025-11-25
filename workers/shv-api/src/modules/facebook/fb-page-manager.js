@@ -15,67 +15,74 @@ export async function listFanpages(req, env) {
   }
 }
 
-// Thêm hoặc Cập nhật Fanpage (FIXED SCHEMA)
+// Thêm hoặc Cập nhật Fanpage (FIXED SCHEMA - FINAL V2)
 export async function upsertFanpage(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
   
   try {
     const body = await readBody(req);
-    const { page_id, name, access_token, auto_reply_enabled, welcome_message } = body;
+    // Lấy tất cả biến có thể có từ Frontend gửi lên (bao gồm cả reply_template và page_name)
+    const { page_id, name, page_name, access_token, auto_reply_enabled, welcome_message, reply_template } = body;
 
     if (!page_id) return errorResponse('Thiếu page_id', 400, req);
 
+    // Chuẩn hóa dữ liệu đầu vào
+    // Frontend có thể gửi 'name' hoặc 'page_name', ưu tiên cái nào có dữ liệu
+    const finalName = name || page_name || 'Unnamed Page';
+    // 'saveSettings' gửi 'reply_template', còn 'sync' gửi 'welcome_message'. Lấy cái nào có.
+    const finalTemplate = reply_template || welcome_message || null;
+    const isAutoReply = auto_reply_enabled ? 1 : 0;
     const now = Date.now();
 
-    // (Đã bỏ lưu KV thừa, Token được lưu trực tiếp vào bảng fanpages bên dưới)
-
-    // 2. Check tồn tại trong D1
+    // Kiểm tra tồn tại
     const exists = await env.DB.prepare('SELECT page_id FROM fanpages WHERE page_id = ?').bind(page_id).first();
 
-        if (exists) {
-          // UPDATE (dùng tên cột chuẩn: page_name, reply_template)
-          // Chỉ update access_token nếu có giá trị mới
-    const updateQuery = access_token 
-      ? `UPDATE fanpages 
-         SET page_name = ?, access_token = ?, auto_reply_enabled = ?, 
-             reply_template = ?, updated_at = ?, is_active = 1
-         WHERE page_id = ?`
-      : `UPDATE fanpages 
-         SET page_name = ?, auto_reply_enabled = ?, 
-             reply_template = ?, updated_at = ?, is_active = 1
-         WHERE page_id = ?`;
-    
-    const bindValues = access_token
-      ? [name, access_token, auto_reply_enabled ? 1 : 0, welcome_message || null, now, page_id]
-      : [name, auto_reply_enabled ? 1 : 0, welcome_message || null, now, page_id];
-    
-    await env.DB.prepare(updateQuery).bind(...bindValues).run();
-        } else {
-          // INSERT (Thêm đầy đủ các trường mặc định)
-          await env.DB.prepare(`
-            INSERT INTO fanpages (
-              page_id, page_name, access_token, auto_reply_enabled, 
-              reply_template, website_link, is_active, 
-              created_at, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
+    if (exists) {
+      // --- LOGIC UPDATE ---
+      // Nếu có access_token mới thì update cả token, nếu không thì giữ nguyên token cũ
+      let query = '';
+      let binds = [];
+
+      if (access_token) {
+        query = `UPDATE fanpages 
+                 SET page_name = ?, access_token = ?, auto_reply_enabled = ?, reply_template = ?, updated_at = ?, is_active = 1 
+                 WHERE page_id = ?`;
+        binds = [finalName, access_token, isAutoReply, finalTemplate, now, page_id];
+      } else {
+        query = `UPDATE fanpages 
+                 SET page_name = ?, auto_reply_enabled = ?, reply_template = ?, updated_at = ?, is_active = 1 
+                 WHERE page_id = ?`;
+        binds = [finalName, isAutoReply, finalTemplate, now, page_id];
+      }
+      
+      await env.DB.prepare(query).bind(...binds).run();
+    } else {
+      // --- LOGIC INSERT ---
+      await env.DB.prepare(`
+        INSERT INTO fanpages (
+          page_id, page_name, access_token, auto_reply_enabled, 
+          reply_template, website_link, is_active, 
+          created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
         page_id, 
-        name, 
-        access_token, 
-        auto_reply_enabled ? 1 : 0, 
-        welcome_message || null, 
-        'https://shophuyvan.vn', // Default website
-        1, // is_active = true
+        finalName, 
+        access_token || null, 
+        isAutoReply, 
+        finalTemplate, 
+        'https://shophuyvan.vn', // Default website link
+        1, // is_active
         now, 
         now
       ).run();
     }
 
-    return json({ ok: true, page_id, message: 'Đã lưu cấu hình Fanpage' }, {}, req);
+    return json({ ok: true, page_id, message: 'Đã lưu cấu hình Fanpage thành công' }, {}, req);
   } catch (e) {
     console.error('[upsertFanpage] Error:', e);
-    return errorResponse(e.message, 500, req);
+    // Trả về lỗi chi tiết để dễ debug nếu D1 báo lỗi constraints
+    return errorResponse('DB Error: ' + e.message, 500, req);
   }
 }
 

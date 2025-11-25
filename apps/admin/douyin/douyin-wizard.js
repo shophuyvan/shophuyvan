@@ -1,32 +1,29 @@
 // File: workers/shv-api/src/modules/social-video-sync/douyin-handler.js
 
-// ✅ FIX 1: Import thêm corsHeaders
-import { json, corsHeaders } from '../../lib/response.js'; 
+import { json } from '../../lib/response.js'; 
 
 /**
- * Hàm tạo ID ngắn gọn (Dùng nội bộ)
+ * Hàm tạo ID ngắn gọn
  */
 function generateId(prefix = 'vid') {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
 /**
- * Helper để trả về lỗi chuẩn format KÈM CORS HEADER
+ * Helper trả về lỗi chuẩn
+ * QUAN TRỌNG: Phải truyền req vào tham số thứ 3 của json()
  */
 function errorResponse(req, msg, status = 400) {
     return json(
         { ok: false, error: msg }, 
-        { 
-            status, 
-            headers: corsHeaders(req) // ✅ Luôn trả về CORS headers khi lỗi
-        }
+        { status }, 
+        req // ✅ FIX: Truyền req để lib/response.js tự tạo CORS headers
     );
 }
 
 /**
  * API: Phân tích Video Douyin (Bước 1)
  * POST /api/douyin/analyze
- * Body: { url, product_id }
  */
 export async function analyzeDouyinVideo(req, env) {
     try {
@@ -40,8 +37,7 @@ export async function analyzeDouyinVideo(req, env) {
         const videoId = generateId('douyin');
         const now = Date.now();
 
-        // 1. Lưu vào DB trạng thái "analyzing"
-        // Kiểm tra xem env.DB có tồn tại không trước khi gọi
+        // Kiểm tra DB connection
         if (!env.DB) {
             throw new Error('Database (env.DB) chưa được kết nối!');
         }
@@ -54,22 +50,19 @@ export async function analyzeDouyinVideo(req, env) {
         
         await stmt.bind(videoId, product_id || null, url, now, now).run();
 
-        // Return ngay ID để Frontend polling
+        // ✅ FIX: Truyền req vào tham số thứ 3
         return json({
             ok: true,      
-            success: true, // Support UI cũ
+            success: true, 
             data: {
                 video_id: videoId,
                 status: 'analyzing',
                 message: 'Đang phân tích video...'
             }
-        }, {
-            headers: corsHeaders(req) // ✅ Luôn trả về CORS headers khi thành công
-        });
+        }, {}, req); 
 
     } catch (e) {
         console.error('[Douyin] Analyze Error:', e);
-        // Trả về lỗi 500 kèm chi tiết để debug
         return errorResponse(req, 'Lỗi server: ' + e.message, 500);
     }
 }
@@ -80,7 +73,6 @@ export async function analyzeDouyinVideo(req, env) {
  */
 export async function getDouyinStatus(req, env) {
     try {
-        // Lấy ID từ URL
         const url = new URL(req.url);
         const id = url.pathname.split('/').pop();
         
@@ -92,10 +84,9 @@ export async function getDouyinStatus(req, env) {
         
         if (!video) return errorResponse(req, 'Video không tồn tại', 404);
 
-        // --- MOCK DATA START (Giả lập để test UI) ---
+        // --- MOCK DATA (Giả lập trả về kết quả sau 3s) ---
         const timeDiff = Date.now() - video.created_at;
         
-        // Sau 3 giây thì trả về kết quả giả
         if (video.status === 'analyzing' && timeDiff > 3000) {
             return json({
                 ok: true,
@@ -106,29 +97,28 @@ export async function getDouyinStatus(req, env) {
                     original_cover_url: 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video+Preview',
                     ai_analysis: {
                         product_name: "Sản phẩm Demo Douyin",
-                        key_selling_points: ["Tính năng 1", "Tính năng 2", "Giá tốt"],
+                        key_selling_points: ["Hàng nội địa Trung", "Giá rẻ", "Chất lượng cao"],
                         scripts: [
                             { 
                                 version: 1, 
                                 style: '🔥 TikTok Trend', 
-                                text: "Mẫu câu trend: Sản phẩm này đang hot rần rần trên TikTok..." 
+                                text: "Mọi người ơi, phát hiện ra một siêu phẩm cực hot..." 
                             },
                             { 
                                 version: 2, 
-                                style: '👨‍⚕️ Chuyên Gia', 
-                                text: "Góc nhìn chuyên gia: Đây là giải pháp tối ưu cho gia đình bạn..." 
+                                style: '👨‍⚕️ Review Chi Tiết', 
+                                text: "Trên tay mình là sản phẩm đang làm mưa làm gió..." 
                             },
                             { 
                                 version: 3, 
-                                style: '💰 Sale Sốc', 
-                                text: "Xả kho giá sốc! Chỉ còn vài xuất ưu đãi trong hôm nay..." 
+                                style: '💰 Chốt Đơn Gấp', 
+                                text: "Xả kho giá sốc chỉ trong livestream hôm nay..." 
                             }
                         ]
                     }
                 }
-            }, { headers: corsHeaders(req) });
+            }, {}, req); // ✅ FIX: Truyền req
         }
-        // --- MOCK DATA END ---
 
         // Parse JSON nếu có
         let aiAnalysis = null;
@@ -143,7 +133,7 @@ export async function getDouyinStatus(req, env) {
                 ...video,
                 ai_analysis: aiAnalysis
             }
-        }, { headers: corsHeaders(req) });
+        }, {}, req); // ✅ FIX: Truyền req
 
     } catch (e) {
         console.error('[Douyin] Get Status Error:', e);
