@@ -175,7 +175,7 @@ export async function handle(req, env, ctx) {
     return getPageOverview(req, env);
   }
 
-  // Page Settings (GET)
+ // Page Settings (GET)
   if (path === "/facebook/page/settings" && method === "GET") {
     return getPageSettings(req, env);
   }
@@ -185,8 +185,53 @@ export async function handle(req, env, ctx) {
     return savePageSettings(req, env);
   }
 
+  // Xóa Fanpage (DELETE) - MỚI THÊM
+  // Hỗ trợ cả 2 dạng URL: /facebook/page/delete?id=... hoặc pattern RESTful từ Router
+  if (method === "DELETE") {
+    // Lấy ID từ URL param hoặc parse từ path nếu cần
+    const urlId = url.searchParams.get("page_id"); 
+    // Nếu router bên ngoài truyền ID vào qua request.params (tùy implementation), ta xử lý ở đây.
+    // Tuy nhiên, để đơn giản, ta sẽ dùng hàm deleteFanpage xử lý logic ID.
+    return deleteFanpage(req, env);
+  }
+
   // Không khớp route nào
   return errorResponse("Fanpage route not found", 404, req);
+}
+
+// ==========================================================
+// HÀM XỬ LÝ DATABASE (CRUD)
+// ==========================================================
+
+// Xóa Fanpage khỏi D1 Database
+export async function deleteFanpage(req, env) {
+  if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
+
+  try {
+    const url = new URL(req.url);
+    // Cố gắng lấy ID từ nhiều nguồn (Query param hoặc Path extraction)
+    let pageId = url.searchParams.get("page_id"); 
+    
+    // Nếu không có trong query string, thử lấy từ path (ví dụ: /admin/facebook/fanpages/123456)
+    if (!pageId) {
+      const parts = url.pathname.split('/');
+      pageId = parts[parts.length - 1]; // Lấy phần cuối cùng
+    }
+
+    if (!pageId) return errorResponse("Missing page_id", 400, req);
+
+    // Thực thi lệnh xóa
+    const res = await env.DB.prepare('DELETE FROM fanpages WHERE page_id = ?').bind(pageId).run();
+
+    if (res.success) {
+      return json({ ok: true, message: 'Đã xóa fanpage thành công' }, {}, req);
+    } else {
+      return errorResponse('Lỗi khi xóa từ Database', 500, req);
+    }
+  } catch (e) {
+    console.error('[deleteFanpage] Error:', e);
+    return errorResponse(e.message, 500, req);
+  }
 }
 
 // ==========================================================

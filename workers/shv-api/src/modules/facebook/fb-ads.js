@@ -90,28 +90,8 @@ export async function handle(req, env, ctx) {
   }
 
   // ===== FANPAGE MANAGEMENT ROUTES =====
-  
-  // Get fanpages list
-  if (path === '/admin/facebook/fanpages' && method === 'GET') {
-    return listFanpages(req, env);
-  }
-
-  // Add new fanpage
-  if (path === '/admin/facebook/fanpages' && method === 'POST') {
-    return addFanpage(req, env);
-  }
-
-  // Delete fanpage
-  if (path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)$/) && method === 'DELETE') {
-    const fanpageId = path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)$/)[1];
-    return deleteFanpage(req, env, fanpageId);
-  }
-
-  // Set default fanpage
-  if (path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)\/default$/) && method === 'POST') {
-    const fanpageId = path.match(/^\/admin\/facebook\/fanpages\/([^\/]+)\/default$/)[1];
-    return setDefaultFanpage(req, env, fanpageId);
-  }
+  // Đã chuyển toàn bộ sang fb-page-manager.js (D1 Database)
+  // Các route cũ ở đây đã được vô hiệu hóa để tránh xung đột logic.
 
   // Create ad from single product
   if (path === '/admin/facebook/ads' && method === 'POST') {
@@ -327,12 +307,33 @@ async function listCampaigns(req, env) {
     });
     
     if (!creds || !creds.access_token) {
-      return json(
-        { ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' },
-        { status: 400 },
-        req
-      );
+      return json({ ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' }, { status: 400 }, req);
     }
+
+    // --- SELF-HEALING: Tự động lấy Ad Account ID nếu thiếu ---
+    if (!adAccountId) {
+      console.log('[FB Ads] Missing Ad Account ID, fetching from /me/adaccounts...');
+      const meAccounts = await callFacebookAPI('me/adaccounts', 'GET', { 
+        fields: 'account_id,id,name', 
+        access_token: creds.access_token 
+      });
+      
+      if (meAccounts && meAccounts.data && meAccounts.data.length > 0) {
+        // Lấy tài khoản đầu tiên tìm thấy
+        adAccountId = meAccounts.data[0].id; // id có dạng 'act_...'
+        console.log('[FB Ads] Auto-detected Ad Account:', adAccountId);
+        
+        // (Tùy chọn) Lưu lại vào DB để lần sau không phải fetch nữa
+        // await saveSetting(env, 'facebook_ads_token', { ...creds, ad_account_id: adAccountId });
+      } else {
+        return json({ 
+          ok: false, 
+          error: 'Không tìm thấy Tài khoản Quảng cáo nào. Vui lòng tạo tài khoản trên Facebook Business Manager.',
+          need_config: true 
+        }, { status: 400 }, req);
+      }
+    }
+    // ---------------------------------------------------------
 
     const result = await callFacebookAPI(
       `${adAccountId}/campaigns`,

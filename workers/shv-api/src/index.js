@@ -452,19 +452,18 @@ export default {
         return FBPageManager.getPendingPosts(req, env);
       }
 
-      // Route list/upsert fanpage (Quản lý Fanpage chính)
-      if (path.startsWith('/admin/fanpages')) {
+      // Route Quản lý Fanpage (Gom nhóm tất cả request liên quan Fanpage về Module D1)
+      // Xử lý cho cả 2 đường dẫn mà Frontend đang gọi:
+      // 1. /admin/fanpages (List/Add)
+      // 2. /admin/facebook/fanpages (Delete đang gọi cái này)
+      if (path.startsWith('/admin/fanpages') || path.startsWith('/admin/facebook/fanpages')) {
         const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
-        if (!permCheck.ok) {
-          return json(permCheck, { status: permCheck.status }, req);
-        }
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
 
-        if (method === 'GET') {
-          return FBPageManager.listFanpages(req, env);
-        }
-        if (method === 'POST') {
-          return FBPageManager.upsertFanpage(req, env);
-        }
+        // Chuyển hướng xử lý sang Module FBPageManager
+        if (method === 'GET') return FBPageManager.listFanpages(req, env);
+        if (method === 'POST') return FBPageManager.upsertFanpage(req, env);
+        if (method === 'DELETE') return FBPageManager.deleteFanpage(req, env);
       }
 
       // Facebook Page Manager routes (fetch from Facebook, page info, etc.)
