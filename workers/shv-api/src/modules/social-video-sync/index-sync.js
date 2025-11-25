@@ -938,18 +938,18 @@ async function testAIConnection(req, env) {
   }
 }
 
-// ===================================================================
-// NEW HANDLERS: SCHEDULER & GROUPS
-// ===================================================================
+     // ===================================================================
+     // NEW HANDLERS: SCHEDULER & GROUPS
+     // ===================================================================
+     
+     async function savePendingAssignments(req, env, jobId) {
+       try {
+         const body = await req.json();
+         const { scheduledTime } = body; // timestamp hoặc null
 
-async function savePendingAssignments(req, env, jobId) {
-  try {
-    const body = await req.json();
-    const { scheduledTime } = body; // timestamp hoặc null
-
-    // Update job status
+    // Update job status (Sử dụng 'assigned' vì DB không cho phép 'pending')
     await env.DB.prepare(`
-      UPDATE automation_jobs SET status = 'pending', updated_at = ? WHERE id = ?
+      UPDATE automation_jobs SET status = 'assigned', updated_at = ? WHERE id = ?
     `).bind(Date.now(), jobId).run();
 
     // Update assignments status
