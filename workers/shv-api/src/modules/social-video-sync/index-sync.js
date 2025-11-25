@@ -427,6 +427,7 @@ async function createAutomationJob(req, env) {
 
 async function getAutomationJob(req, env, jobId) {
   try {
+    // 1. Lấy thông tin Job
     const job = await env.DB.prepare(`
       SELECT * FROM automation_jobs WHERE id = ?
     `).bind(jobId).first();
@@ -434,6 +435,13 @@ async function getAutomationJob(req, env, jobId) {
     if (!job) {
       return json({ ok: false, error: 'Job not found' }, { status: 404 }, req);
     }
+
+    // 2. ✅ Lấy danh sách Fanpage đã gán cho Job này
+    const { results: assignments } = await env.DB.prepare(`
+      SELECT fanpage_name, status FROM fanpage_assignments WHERE job_id = ?
+    `).bind(jobId).all();
+
+    job.fanpages = assignments.map(a => a.fanpage_name); // Gán thêm mảng tên Fanpage
 
     return json({ ok: true, job }, {}, req);
 
@@ -972,20 +980,31 @@ async function testAIConnection(req, env) {
 
 async function handleFetchGroups(req, env) {
   try {
-    // Lấy token từ settings
+    // 1. Lấy Token
     const setting = await env.DB.prepare("SELECT value FROM settings WHERE path = 'facebook_ads_token'").first();
-    const tokenData = setting ? JSON.parse(setting.value) : null;
-    
+
+    if (!setting) return json({ ok: false, error: 'Chưa đăng nhập Facebook (Missing Token)' }, { status: 400 }, req);
+
+    let tokenData;
+    try {
+       tokenData = JSON.parse(setting.value);
+    } catch(e) { return json({ ok: false, error: 'Token lỗi định dạng' }, { status: 500 }, req); }
+
     if (!tokenData || !tokenData.access_token) {
-      return json({ ok: false, error: 'Chưa có Access Token' }, { status: 400 }, req);
+      return json({ ok: false, error: 'Access Token rỗng. Hãy đăng nhập lại.' }, { status: 400 }, req);
     }
 
-    const groups = await fetchGroupsFromFacebook(tokenData.access_token);
-    
-    // Lưu cache vào DB (optional, hoặc trả về luôn)
-    return json({ ok: true, groups }, {}, req);
+    // 2. Gọi Facebook API
+    // Lưu ý: Phải đảm bảo file fb-group-manager.js đã export đúng hàm fetchGroupsFromFacebook
+    const groupsData = await fetchGroupsFromFacebook(tokenData.access_token);
+
+    // 3. Chuẩn hóa dữ liệu trả về (đảm bảo luôn là array)
+    const items = Array.isArray(groupsData) ? groupsData : (groupsData.data || []);
+
+    return json({ ok: true, groups: items }, {}, req);
   } catch (error) {
-    return errorResponse(error.message, 500, req);
+    console.error('Fetch Groups Error:', error);
+    return errorResponse('Lỗi server: ' + error.message, 500, req);
   }
 }
 

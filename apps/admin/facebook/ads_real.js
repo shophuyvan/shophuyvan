@@ -1530,29 +1530,57 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
        }
     },
 
-    // 2. Mở Modal Cấu hình (Gọi API Group)
+    // 2. Mở Modal Cấu hình & Load thông tin
     openScheduler: async function(jobId) {
         document.getElementById('sched-job-id').value = jobId;
-        document.getElementById('modal-scheduler').style.display = 'flex';
-        
+        const modal = document.getElementById('modal-scheduler');
+        modal.style.display = 'flex';
+
         // Reset form
         document.getElementById('sched-time').value = '';
         document.getElementById('sched-share-msg').value = '';
-        
-        // Load danh sách Group từ Facebook
         const groupSelect = document.getElementById('sched-group-select');
-        groupSelect.innerHTML = '<option>⏳ Đang tải nhóm từ Facebook...</option>';
-        
+        groupSelect.innerHTML = '<option>⏳ Đang tải dữ liệu...</option>';
+
+        // --- ✅ PHẦN MỚI: HIỂN THỊ TÊN FANPAGE ---
+        // Tìm hoặc tạo vùng hiển thị thông báo Fanpage
+        let infoBox = document.getElementById('sched-fanpage-info');
+        if (!infoBox) {
+            infoBox = document.createElement('div');
+            infoBox.id = 'sched-fanpage-info';
+            infoBox.style.cssText = "background:#e0f2fe; color:#0369a1; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px; border:1px solid #bae6fd;";
+            // Chèn vào đầu modal body
+            const modalBody = modal.querySelector('div[style*="overflow-y:auto"]');
+            if(modalBody) modalBody.insertBefore(infoBox, modalBody.firstChild);
+        }
+        infoBox.innerHTML = '⏳ Đang lấy thông tin Job...';
+
         try {
-            const r = await Admin.req('/api/facebook/groups/fetch', { method: 'GET' });
-            if(r.ok && r.groups && r.groups.length > 0) {
-                groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
-                    r.groups.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
+            // A. Gọi API lấy chi tiết Job (để biết Fanpage nào)
+            const rJob = await Admin.req(`/api/auto-sync/jobs/${jobId}`, { method: 'GET' });
+
+            if(rJob.ok && rJob.job) {
+                const pages = rJob.job.fanpages || [];
+                const pageNames = pages.length > 0 ? pages.join(', ') : 'Chưa gán Fanpage nào';
+                infoBox.innerHTML = `<strong>📢 Bài viết này sẽ được đăng lên:</strong><br>👉 ${pageNames}`;
             } else {
-                groupSelect.innerHTML = '<option value="">❌ Không tìm thấy nhóm nào (Kiểm tra quyền Admin)</option>';
+                infoBox.innerHTML = '⚠️ Không lấy được thông tin Job.';
             }
+
+            // B. Gọi API lấy danh sách Group
+            const rGroups = await Admin.req('/api/facebook/groups/fetch', { method: 'GET' });
+
+            if(rGroups.ok && rGroups.groups && rGroups.groups.length > 0) {
+                groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
+                    rGroups.groups.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
+            } else {
+                groupSelect.innerHTML = '<option value="">⚠️ Không tìm thấy nhóm nào (hoặc lỗi token)</option>';
+            }
+
         } catch(e) {
-            groupSelect.innerHTML = '<option value="">❌ Lỗi tải nhóm</option>';
+            console.error(e);
+            infoBox.innerHTML = '❌ Lỗi kết nối: ' + e.message;
+            groupSelect.innerHTML = '<option value="">❌ Lỗi tải dữ liệu</option>';
         }
     },
 
