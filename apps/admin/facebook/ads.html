@@ -314,12 +314,9 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; margin-top:20px;">
-                <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn" id="wiz-btn-schedule" onclick="AutoSyncWizard.confirmPublish(true)" style="background:#f3f4f6; border:1px solid #ccc; color:#333;">📅 Hẹn giờ đăng</button>
-                    <button class="btn green" id="wiz-btn-publish" onclick="AutoSyncWizard.confirmPublish(false)">🚀 Đăng ngay lập tức</button>
-                </div>
-            </div>
+            <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
+            <button class="btn primary" id="wiz-btn-save" onclick="AutoSyncWizard.saveToRepository()">💾 Lưu vào Kho & Chờ lên lịch</button>
+        </div>
             </div>
 
             <div id="wiz-step-5" class="wiz-content">
@@ -580,29 +577,18 @@
            </div>
            
            <table class="fanpage-table">
-              <thead>
-                 <tr>
-                    <th>Tiêu đề / Nội dung</th>
-                    <th>Trạng thái</th>
-                    <th>Nền tảng</th>
-                    <th>Lịch đăng</th>
-                 </tr>
-              </thead>
-              <tbody>
-                 <tr>
-                    <td>Review Nồi chiên không dầu...</td>
-                    <td><span style="color:orange">Chờ đăng</span></td>
-                    <td>Fanpage A, Group B</td>
-                    <td>20:00 Hôm nay</td>
-                 </tr>
-                 <tr>
-                    <td>Set đồ đi biển 2025...</td>
-                    <td><span style="color:green">Đã đăng</span></td>
-                    <td>All Pages</td>
-                    <td>09:00 Hôm qua</td>
-                 </tr>
-              </tbody>
-           </table>
+          <thead>
+             <tr>
+                <th>ID / Sản phẩm</th>
+                <th>Video & Nội dung</th>
+                <th>Trạng thái</th>
+                <th style="text-align:center;">Thao tác</th>
+             </tr>
+          </thead>
+          <tbody id="repo-table-body">
+             <tr><td colspan="4" style="text-align:center; padding:20px;">Đang tải dữ liệu kho...</td></tr>
+          </tbody>
+       </table>
         </div>
       </div>
 
@@ -817,5 +803,48 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+<div id="modal-scheduler" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center;">
+    <div style="background:white; width:600px; max-width:95%; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+        <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:#f9fafb;">
+            <h3 style="margin:0;">⚙️ Cấu hình Phân phối</h3>
+            <button onclick="document.getElementById('modal-scheduler').style.display='none'" style="border:none; background:none; cursor:pointer; font-size:20px;">&times;</button>
+        </div>
+        
+        <div style="padding:20px; overflow-y:auto;">
+            <input type="hidden" id="sched-job-id">
+            
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-weight:bold; margin-bottom:8px;">⏰ Thời gian đăng bài</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="datetime-local" id="sched-time" class="input" style="flex:1;">
+                    <button class="btn" onclick="document.getElementById('sched-time').value=''" style="font-size:12px; background:#f3f4f6; color:#333;">Xóa (Đăng ngay)</button>
+                </div>
+                <p style="font-size:12px; color:#666; margin-top:5px;">* Nếu để trống ngày giờ, hệ thống sẽ đăng ngay sau khi bấm Lưu.</p>
+            </div>
+
+            <div style="background:#eff6ff; padding:15px; border-radius:8px; border:1px solid #bfdbfe;">
+                <label style="display:block; font-weight:bold; margin-bottom:8px; color:#1e40af;">📢 Seeding vào Group</label>
+                
+                <label style="font-size:13px; margin-bottom:5px; display:block;">Chọn nhóm:</label>
+                <select id="sched-group-select" class="input" style="width:100%; margin-bottom:10px;">
+                    <option value="">-- Chọn nhóm để share --</option>
+                </select>
+
+                <label style="font-size:13px; margin-bottom:5px; display:block;">Nội dung share (Caption):</label>
+                <div style="display:flex; gap:5px; margin-bottom:5px;">
+                    <input type="text" id="sched-share-msg" class="input" placeholder="Viết caption seeding..." style="flex:1;">
+                    <button class="btn primary" id="btn-ai-seed" onclick="FanpageManager.aiGroupCaption()">✨ AI Viết</button>
+                </div>
+            </div>
+        </div>
+
+        <div style="padding:15px; border-top:1px solid #eee; text-align:right; background:#f9fafb;">
+            <button class="btn" onclick="document.getElementById('modal-scheduler').style.display='none'" style="margin-right:10px;">Hủy</button>
+            <button class="btn green" onclick="FanpageManager.submitSchedule()">💾 Lưu & Kích hoạt</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
