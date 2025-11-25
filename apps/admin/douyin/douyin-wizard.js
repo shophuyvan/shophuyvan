@@ -1,6 +1,24 @@
-import { api } from '../../_shared/api-admin.js';
-
+// ✅ FIX: Load API từ Global (Shared Library) thay vì Import ES6
 let currentVideoId = null;
+
+// Hàm helper: Tự động lấy API từ window hoặc load file nếu chưa có
+async function getAdminApi() {
+    // 1. Nếu đã có sẵn trong window
+    if (window.SHARED && window.SHARED.api) return window.SHARED.api;
+
+    // 2. Nếu chưa có, tự động inject thẻ script để load
+    console.log('⏳ Auto-loading api-admin.js...');
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '../../_shared/api-admin.js'; // Đường dẫn lùi 2 cấp
+        script.onload = () => {
+            if (window.SHARED && window.SHARED.api) resolve(window.SHARED.api);
+            else reject(new Error('Loaded api-admin.js but SHARED.api is missing'));
+        };
+        script.onerror = () => reject(new Error('Failed to load api-admin.js'));
+        document.head.appendChild(script);
+    });
+}
 
 window.startAnalyze = async function() {
     const url = document.getElementById('douyin-url').value;
@@ -10,9 +28,12 @@ window.startAnalyze = async function() {
     showStep(2);
     
     try {
+        // ✅ Lấy API trước khi dùng
+        const api = await getAdminApi();
+
         // 1. Gọi API Analyze
         const res = await api.post('/api/douyin/analyze', { url });
-        if (!res.success) throw new Error(res.message);
+        if (!res.ok && !res.success) throw new Error(res.error || res.message); // Support cả 2 chuẩn response
 
         currentVideoId = res.data.video_id;
         console.log("Video ID:", currentVideoId);
@@ -21,10 +42,19 @@ window.startAnalyze = async function() {
         document.getElementById('loading-status').innerText = "Gemini đang dịch nội dung...";
         
         setTimeout(async () => {
+            const api = await getAdminApi(); // Lấy lại api trong scope này
             const statusRes = await api.get(`/api/douyin/${currentVideoId}`);
-            if (statusRes.data.status === 'waiting_approval') {
-                renderScripts(statusRes.data.ai_analysis.scripts);
-                showStep(3);
+            
+            // Check status và render (hỗ trợ cả mock data và real data)
+            if (statusRes && statusRes.data) {
+                if (statusRes.data.status === 'waiting_approval' || statusRes.data.ai_analysis) {
+                    // Nếu có script thì render
+                    const scripts = statusRes.data.ai_analysis?.scripts || [];
+                    if (scripts.length > 0) {
+                        renderScripts(scripts);
+                        showStep(3);
+                    }
+                }
             }
         }, 2000);
 
