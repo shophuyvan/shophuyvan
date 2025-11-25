@@ -497,7 +497,7 @@ async function deleteCampaign(campaignId) {
 
   async function loadSettings() {
     try {
-      const r = await Admin.req('/admin/settings/facebook_ads', { method: 'GET' });
+      const r = await Admin.req('/admin/settings/facebook_ads_token', { method: 'GET' });
       console.log('[FB Ads] loadSettings response:', r);
       
       if (r && r.ok && r.value) {

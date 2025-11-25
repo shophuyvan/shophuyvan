@@ -245,7 +245,7 @@ if (tokenData.error) {
           <h1>✅ Đăng nhập Facebook thành công!</h1>
           <div class="info">
             <strong>👤 User:</strong> ${userInfo.name}<br>
-            <strong>🔑 Token expires:</strong> ${new Date(fbSettings.token_expires_at).toLocaleString('vi-VN')}<br>
+            <strong>🔑 Token expires:</strong> ${new Date(expiresAt).toLocaleString('vi-VN')}<br>
             <strong>✅ Permissions:</strong><br>
             <pre>${tokenInfo.scopes.join('\n')}</pre>
           </div>
