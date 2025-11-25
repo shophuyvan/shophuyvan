@@ -1,13 +1,23 @@
 // File: workers/shv-api/src/modules/social-video-sync/douyin-handler.js
 
-import { json, error } from '../../lib/response.js';
-import { createId } from '../../lib/utils.js'; // Đảm bảo utils.js có hàm createId hoặc dùng uuid
+// 1. CHỈ IMPORT json, KHÔNG IMPORT error
+import { json } from '../../lib/response.js'; 
+
+// 2. BỎ IMPORT createId VÌ ĐÃ CÓ HÀM generateId BÊN DƯỚI
+// import { createId } from '../../lib/utils.js'; 
 
 /**
- * Hàm tạo ID ngắn gọn nếu utils chưa có
+ * Hàm tạo ID ngắn gọn (Dùng nội bộ)
  */
 function generateId(prefix = 'vid') {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+/**
+ * Helper để trả về lỗi chuẩn format (Thay thế cho hàm error bị thiếu)
+ */
+function errorResponse(msg, status = 400) {
+    return json({ ok: false, error: msg }, { status });
 }
 
 /**
@@ -21,14 +31,13 @@ export async function analyzeDouyinVideo(req, env) {
         const { url, product_id } = body;
 
         if (!url || (!url.includes('douyin.com') && !url.includes('tiktok.com'))) {
-            return error('Vui lòng nhập link Douyin/TikTok hợp lệ', 400);
+            return errorResponse('Vui lòng nhập link Douyin/TikTok hợp lệ', 400);
         }
 
         const videoId = generateId('douyin');
         const now = Date.now();
 
         // 1. Lưu vào DB trạng thái "analyzing"
-        // Lưu ý: Dùng prepare statement để tránh SQL Injection
         const stmt = env.DB.prepare(`
             INSERT INTO douyin_videos (
                 id, product_id, douyin_url, status, created_at, updated_at
@@ -37,12 +46,10 @@ export async function analyzeDouyinVideo(req, env) {
         
         await stmt.bind(videoId, product_id || null, url, now, now).run();
 
-        // 2. [TODO] Trigger Worker Queue / Cloud Run để tải video thật
-        // Tạm thời bỏ qua bước này để test giao diện trước
-
         // Return ngay ID để Frontend polling
         return json({
-            success: true,
+            success: true, // Giữ field này cho UI cũ nếu cần
+            ok: true,      // Chuẩn mới
             data: {
                 video_id: videoId,
                 status: 'analyzing',
@@ -52,7 +59,7 @@ export async function analyzeDouyinVideo(req, env) {
 
     } catch (e) {
         console.error('[Douyin] Analyze Error:', e);
-        return error('Lỗi server: ' + e.message, 500);
+        return errorResponse('Lỗi server: ' + e.message, 500);
     }
 }
 
@@ -62,27 +69,25 @@ export async function analyzeDouyinVideo(req, env) {
  */
 export async function getDouyinStatus(req, env) {
     try {
-        // Lấy ID từ URL (đã được parse ở admin.js hoặc index.js)
+        // Lấy ID từ URL
         const url = new URL(req.url);
         const id = url.pathname.split('/').pop();
         
         const video = await env.DB.prepare('SELECT * FROM douyin_videos WHERE id = ?').bind(id).first();
         
-        if (!video) return error('Video không tồn tại', 404);
+        if (!video) return errorResponse('Video không tồn tại', 404);
 
-        // --- MOCK DATA START ---
-        // Giả lập Gemini đã phân tích xong sau 3 giây (để test UI)
-        // Logic thực tế: Worker khác sẽ update DB, API này chỉ việc đọc DB
+        // --- MOCK DATA START (Giả lập để test UI) ---
         const timeDiff = Date.now() - video.created_at;
         
         if (video.status === 'analyzing' && timeDiff > 3000) {
-            // Giả vờ update DB thành công (chỉ trả về data giả, không update DB thật để test lại được)
             return json({
+                ok: true,
                 success: true,
                 data: {
                     ...video,
                     status: 'waiting_approval',
-                    original_cover_url: 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video+Preview', // Placeholder ảnh dọc
+                    original_cover_url: 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video+Preview',
                     ai_analysis: {
                         product_name: "Vòi sen tăng áp Inox 304",
                         key_selling_points: ["Áp lực nước mạnh 300%", "Tiết kiệm nước", "Chất liệu Inox bền bỉ"],
@@ -109,13 +114,14 @@ export async function getDouyinStatus(req, env) {
         }
         // --- MOCK DATA END ---
 
-        // Trả về data thực từ DB (nếu chưa xong hoặc đã xong thật)
+        // Parse JSON nếu có
         let aiAnalysis = null;
         try {
             if (video.ai_analysis_json) aiAnalysis = JSON.parse(video.ai_analysis_json);
         } catch (e) {}
 
         return json({ 
+            ok: true,
             success: true, 
             data: {
                 ...video,
@@ -125,6 +131,6 @@ export async function getDouyinStatus(req, env) {
 
     } catch (e) {
         console.error('[Douyin] Get Status Error:', e);
-        return error(e.message, 500);
+        return errorResponse(e.message, 500);
     }
 }
