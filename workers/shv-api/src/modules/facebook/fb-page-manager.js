@@ -23,7 +23,7 @@ export async function upsertFanpage(req, env) {
     const body = await readBody(req);
     const { page_id, name, access_token, auto_reply_enabled, welcome_message } = body;
 
-    if (!page_id || !access_token) return errorResponse('Thiếu page_id hoặc access_token', 400, req);
+    if (!page_id) return errorResponse('Thiếu page_id', 400, req);
 
     const now = Date.now();
 
@@ -32,31 +32,34 @@ export async function upsertFanpage(req, env) {
     // 2. Check tồn tại trong D1
     const exists = await env.DB.prepare('SELECT page_id FROM fanpages WHERE page_id = ?').bind(page_id).first();
 
-    if (exists) {
-      // UPDATE (dùng tên cột chuẩn: page_name, reply_template)
-      await env.DB.prepare(`
-        UPDATE fanpages 
-        SET page_name = ?, access_token = ?, auto_reply_enabled = ?, 
-            reply_template = ?, updated_at = ?, is_active = 1
-        WHERE page_id = ?
-      `).bind(
-        name, 
-        access_token, 
-        auto_reply_enabled ? 1 : 0, 
-        welcome_message || null, 
-        now, 
-        page_id
-      ).run();
-    } else {
-      // INSERT (Thêm đầy đủ các trường mặc định)
-      await env.DB.prepare(`
-        INSERT INTO fanpages (
-          page_id, page_name, access_token, auto_reply_enabled, 
-          reply_template, website_link, is_active, 
-          created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
+        if (exists) {
+          // UPDATE (dùng tên cột chuẩn: page_name, reply_template)
+          // Chỉ update access_token nếu có giá trị mới
+    const updateQuery = access_token 
+      ? `UPDATE fanpages 
+         SET page_name = ?, access_token = ?, auto_reply_enabled = ?, 
+             reply_template = ?, updated_at = ?, is_active = 1
+         WHERE page_id = ?`
+      : `UPDATE fanpages 
+         SET page_name = ?, auto_reply_enabled = ?, 
+             reply_template = ?, updated_at = ?, is_active = 1
+         WHERE page_id = ?`;
+    
+    const bindValues = access_token
+      ? [name, access_token, auto_reply_enabled ? 1 : 0, welcome_message || null, now, page_id]
+      : [name, auto_reply_enabled ? 1 : 0, welcome_message || null, now, page_id];
+    
+    await env.DB.prepare(updateQuery).bind(...bindValues).run();
+        } else {
+          // INSERT (Thêm đầy đủ các trường mặc định)
+          await env.DB.prepare(`
+            INSERT INTO fanpages (
+              page_id, page_name, access_token, auto_reply_enabled, 
+              reply_template, website_link, is_active, 
+              created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
         page_id, 
         name, 
         access_token, 
