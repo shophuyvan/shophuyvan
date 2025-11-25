@@ -1478,8 +1478,8 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
           const r = await Admin.req('/api/auto-sync/jobs?limit=50', { method: 'GET' });
           
           if(r.ok && r.jobs) {
-             // Lọc lấy các bài đang chờ hoặc đã hẹn giờ
-             const pendingJobs = r.jobs.filter(j => j.status === 'pending' || j.status === 'scheduled');
+            // ✅ FIX: Lọc lấy bài 'assigned' (Đã lưu kho) hoặc 'scheduled' (Đã lên lịch)
+            const pendingJobs = r.jobs.filter(j => j.status === 'assigned' || j.status === 'scheduled' || j.status === 'pending');
              
              if(pendingJobs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Kho trống. Hãy sang tab "Đăng bài" để tạo bài mới.</td></tr>';
