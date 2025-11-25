@@ -408,7 +408,7 @@ async function revokeToken(req, env) {
   }
 
   try {
-    const settings = await getJSON(env, 'settings:facebook_ads', null);
+    const settings = await getSetting(env, 'facebook_ads_token', null);
     
     if (!settings || !settings.access_token) {
       return json({
@@ -433,7 +433,7 @@ async function revokeToken(req, env) {
   settings.scopes = [];
   settings.updated_at = new Date().toISOString();
 
-  await setSetting(env, 'facebook_ads_token', settings);
+  await setSetting(env, 'facebook_ads_token', settings, 'Facebook Token Revoked');
 
     return json({
       ok: true,
