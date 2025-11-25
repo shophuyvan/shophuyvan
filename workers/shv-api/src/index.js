@@ -466,6 +466,15 @@ export default {
           return FBPageManager.upsertFanpage(req, env);
         }
       }
+
+      // Facebook Page Manager routes (fetch from Facebook, page info, etc.)
+      if (path.startsWith('/facebook/page/')) {
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        return FBPageManager.handle(req, env, ctx);
+      }
       
       // Facebook OAuth
       if (path.startsWith('/admin/facebook/oauth/')) {

@@ -3,11 +3,14 @@
 // Hàm load script thủ công (tránh dùng import tĩnh gây lỗi)
 async function loadScript(src) {
     return new Promise((resolve, reject) => {
+        // Kiểm tra xem script đã có trong DOM chưa
         if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        
         const s = document.createElement('script');
         s.src = src;
         s.onload = resolve;
-        s.onerror = reject;
+        // ✅ FIX: Trả về Error object rõ ràng thay vì Event object (gây ra lỗi undefined)
+        s.onerror = () => reject(new Error(`Không thể tải file: ${src}`)); 
         document.head.appendChild(s);
     });
 }
@@ -17,13 +20,20 @@ async function getAdminApi() {
     // 1. Đảm bảo Admin Core đã load (để có window.Admin)
     if (!window.Admin) {
         console.log('⏳ Loading admin-core.js...');
-        await loadScript('../../_shared/admin-core.js');
+        // ✅ FIX: Dùng đường dẫn tuyệt đối (bắt đầu bằng /) để tránh lỗi 404
+        await loadScript('/_shared/admin-core.js');
     }
 
     // 2. Đảm bảo API Shared đã load
     if (!window.SHARED || !window.SHARED.api) {
         console.log('⏳ Loading api-admin.js...');
-        await loadScript('../../_shared/api-admin.js');
+        // ✅ FIX: Dùng đường dẫn tuyệt đối
+        await loadScript('/_shared/api-admin.js');
+    }
+
+    // Kiểm tra lại lần cuối
+    if (!window.SHARED || !window.SHARED.api) {
+        throw new Error('Không tìm thấy window.SHARED.api sau khi tải script');
     }
 
     const api = window.SHARED.api;
@@ -32,12 +42,14 @@ async function getAdminApi() {
     // Mượn hàm window.Admin.req(url, method, body) của hệ thống cũ
     if (!api.post) {
         api.post = async (url, body) => {
+            if (!window.Admin) throw new Error('window.Admin chưa sẵn sàng');
             return await window.Admin.req(url, 'POST', body);
         };
     }
 
     if (!api.get) {
         api.get = async (url) => {
+            if (!window.Admin) throw new Error('window.Admin chưa sẵn sàng');
             return await window.Admin.req(url, 'GET');
         };
     }
@@ -73,27 +85,33 @@ window.startAnalyze = async function() {
         console.log("✅ Video ID:", currentVideoId);
 
         // 2. Polling trạng thái (Check mỗi 2 giây)
-        document.getElementById('loading-status').innerText = "Gemini đang dịch nội dung...";
+        const loadingStatus = document.getElementById('loading-status');
+        if(loadingStatus) loadingStatus.innerText = "Gemini đang dịch nội dung...";
         
         const checkStatus = async () => {
-            const statusRes = await api.get(`/api/douyin/${currentVideoId}`);
-            
-            if (statusRes && statusRes.data) {
-                // Nếu đã có kết quả phân tích
-                if (statusRes.data.status === 'waiting_approval' || statusRes.data.ai_analysis) {
-                    const scripts = statusRes.data.ai_analysis?.scripts || [];
-                    if (scripts.length > 0) {
-                        renderScripts(scripts);
-                        
-                        // Fill data vào preview
-                        if (statusRes.data.ai_analysis.product_name) {
-                            document.getElementById('product-name').innerText = statusRes.data.ai_analysis.product_name;
+            try {
+                const statusRes = await api.get(`/api/douyin/${currentVideoId}`);
+                
+                if (statusRes && statusRes.data) {
+                    // Nếu đã có kết quả phân tích (Mock hoặc Real)
+                    if (statusRes.data.status === 'waiting_approval' || (statusRes.data.ai_analysis && statusRes.data.ai_analysis.scripts)) {
+                        const scripts = statusRes.data.ai_analysis?.scripts || [];
+                        if (scripts.length > 0) {
+                            renderScripts(scripts);
+                            
+                            // Fill data vào preview
+                            if (statusRes.data.ai_analysis.product_name) {
+                                const prodNameEl = document.getElementById('product-name');
+                                if(prodNameEl) prodNameEl.innerText = statusRes.data.ai_analysis.product_name;
+                            }
+                            
+                            showStep(3);
+                            return; // Dừng polling
                         }
-                        
-                        showStep(3);
-                        return; // Dừng polling
                     }
                 }
+            } catch (err) {
+                console.warn('Polling error:', err);
             }
             // Nếu chưa xong, tiếp tục check sau 2s
             setTimeout(checkStatus, 2000);
@@ -103,7 +121,7 @@ window.startAnalyze = async function() {
 
     } catch (e) {
         console.error(e);
-        alert('Lỗi: ' + e.message);
+        alert('Lỗi: ' + (e.message || JSON.stringify(e)));
         showStep(1);
     }
 };
@@ -113,7 +131,7 @@ function renderScripts(scripts) {
     if (!container) return;
 
     container.innerHTML = scripts.map((s, idx) => `
-        <div class="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all" onclick="selectScript(this, \`${s.text.replace(/`/g, "\\`")}\`)">
+        <div class="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all" onclick="selectScript(this, \`${s.text.replace(/`/g, "\\`").replace(/"/g, "&quot;")}\`)">
             <div class="font-bold text-sm text-blue-600 mb-2 flex justify-between">
                 <span>${s.style}</span>
                 <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">v${s.version}</span>
@@ -155,7 +173,7 @@ function showStep(stepNum) {
         el.classList.add('border-transparent', 'text-gray-400');
         // Reset icon bg
         const badge = el.querySelector('span');
-        if(badge) badge.className = "w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold";
+        if(badge) badge.className = "w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold";
     });
 
     const activeInd = document.getElementById(`step-${stepNum}-ind`);
