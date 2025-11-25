@@ -1,4 +1,4 @@
-import { api } from '../_shared/api-admin.js'; [cite_start]// [cite: 5]
+import { api } from '../../_shared/api-admin.js';
 
 let currentVideoId = null;
 

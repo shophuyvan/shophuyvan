@@ -4,7 +4,7 @@
 
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
-import { getJSON, putJSON } from '../../lib/kv.js';
+import { getSetting, setSetting } from '../settings.js'; // ✅ Dùng Helper D1
 import { readBody } from '../../lib/utils.js';
 
 /**
@@ -53,8 +53,8 @@ async function getAuthorizationURL(req, env) {
   }
 
   try {
-    // Load Facebook App credentials
-    const settings = await getJSON(env, 'settings:facebook_ads', null) || {};
+    // Load Facebook App credentials từ D1
+    const settings = await getSetting(env, 'facebook_ads_token', {}) || {};
     const appId = settings.app_id || env.FB_APP_ID;
 
     if (!appId) {
@@ -158,8 +158,8 @@ async function handleOAuthCallback(req, env) {
   }
 
   try {
-    // Load Facebook App credentials
-    const settings = await getJSON(env, 'settings:facebook_ads', null) || {};
+   // Load Facebook App credentials từ D1
+    const settings = await getSetting(env, 'facebook_ads_token', {}) || {};
     const appId = settings.app_id || env.FB_APP_ID;
     const appSecret = settings.app_secret || env.FB_APP_SECRET;
 
@@ -206,17 +206,22 @@ if (tokenData.error) {
         expiresAt = Date.now() + (expiresInSeconds * 1000);
     }
 
-    // Save to KV
-    const fbSettings = await getJSON(env, 'settings:facebook_ads', {}) || {};
-    fbSettings.access_token = longLivedToken;
-    fbSettings.token_type = tokenData.token_type || 'bearer';
-    fbSettings.token_expires_at = expiresAt; // ✅ Lưu giá trị đã fix
-    fbSettings.user_id = tokenInfo.user_id;
-    fbSettings.user_name = userInfo.name;
-    fbSettings.scopes = tokenInfo.scopes || [];
-    fbSettings.updated_at = new Date().toISOString();
+    // ✅ LƯU TOKEN VÀO D1 (Bảng settings)
+  // Lấy setting hiện tại để giữ lại app_id/secret nếu có
+  const currentSettings = await getSetting(env, 'facebook_ads_token', {}) || {};
 
-    await putJSON(env, 'settings:facebook_ads', fbSettings);
+  const newSettings = {
+      ...currentSettings,
+      access_token: longLivedToken,
+      token_type: tokenData.token_type || 'bearer',
+      token_expires_at: expiresAt,
+      user_id: tokenInfo.user_id,
+      user_name: userInfo.name,
+      scopes: tokenInfo.scopes || [],
+      updated_at: new Date().toISOString()
+  };
+
+  await setSetting(env, 'facebook_ads_token', newSettings, 'Facebook Token (Auto Saved)');
 
     // Success response
     return new Response(
@@ -355,7 +360,7 @@ async function getTokenInfo(req, env) {
   }
 
   try {
-    const settings = await getJSON(env, 'settings:facebook_ads', null);
+    const settings = await getSetting(env, 'facebook_ads_token', null);
     
     if (!settings || !settings.access_token) {
       return json({
@@ -422,13 +427,13 @@ async function revokeToken(req, env) {
       console.warn('[OAuth] Cannot revoke token on Facebook:', e.message);
     }
 
-    // Clear token from KV
-    settings.access_token = null;
-    settings.token_expires_at = null;
-    settings.scopes = [];
-    settings.updated_at = new Date().toISOString();
+    // Clear token from D1
+  settings.access_token = null;
+  settings.token_expires_at = null;
+  settings.scopes = [];
+  settings.updated_at = new Date().toISOString();
 
-    await putJSON(env, 'settings:facebook_ads', settings);
+  await setSetting(env, 'facebook_ads_token', settings);
 
     return json({
       ok: true,

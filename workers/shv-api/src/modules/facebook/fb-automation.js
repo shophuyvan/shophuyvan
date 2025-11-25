@@ -4,39 +4,41 @@
 // ===================================================================
 
 import { json } from '../../lib/response.js';
-import { getJSON } from '../../lib/kv.js';
+// Đã xóa getJSON vì dùng trực tiếp D1
 
 /**
  * Hàm điều phối chính
  */
 export async function handleFacebookAutomation(env, type, event, pageId) {
-  // 1. Lấy Token
-  let pageToken = env.FB_PAGE_ACCESS_TOKEN;
-  const storedToken = await getJSON(env, `fb_token:${pageId}`);
-  if (storedToken) pageToken = storedToken;
+  try {
+    // 1. ✅ Lấy Token & Cấu hình trực tiếp từ bảng fanpages (D1)
+    // Không dùng KV config:fanpage:... nữa
+    const pageRow = await env.DB.prepare(`
+        SELECT access_token, auto_hide_phone, auto_reply_enabled, reply_template, website_link 
+        FROM fanpages 
+        WHERE page_id = ? AND is_active = 1
+    `).bind(pageId).first();
 
-  if (!pageToken) {
-    console.error(`[Automation] ❌ No Access Token for Page ID: ${pageId}`);
-    return;
-  }
+    if (!pageRow || !pageRow.access_token) {
+      console.error(`[Automation] ❌ Fanpage chưa được cấu hình hoặc Token rỗng: ${pageId}`);
+      return;
+    }
 
-  // 2. Lấy Cấu hình từ KV (Realtime Settings)
-  const settings = await getJSON(env, `config:fanpage:${pageId}`, {
-    enable_hide_phone: false,
-    enable_auto_reply: false,
-    reply_template: "Shop đã inbox ạ!",
-    website_link: "https://shophuyvan.vn"
-  });
+    // 2. Chuẩn bị config object từ dữ liệu D1
+    const config = {
+      enable_hide_phone: pageRow.auto_hide_phone === 1,
+      enable_auto_reply: pageRow.auto_reply_enabled === 1,
+      reply_messages: [pageRow.reply_template || "Shop đã inbox ạ!"],
+      website_url: pageRow.website_link || 'https://shophuyvan.vn'
+    };
 
-  const config = {
-    enable_hide_phone: settings.enable_hide_phone,
-    enable_auto_reply: settings.enable_auto_reply,
-    reply_messages: [settings.reply_template],
-    website_url: settings.website_link || 'https://shophuyvan.vn'
-  };
+    const pageToken = pageRow.access_token;
 
-  if (type === 'feed') {
-    await processComment(env, event, pageId, pageToken, config);
+    if (type === 'feed') {
+      await processComment(env, event, pageId, pageToken, config);
+    }
+  } catch(e) {
+    console.error(`[Automation] Error: ${e.message}`);
   }
 }
 

@@ -4,7 +4,7 @@
 
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
-import { getJSON, putJSON } from '../../lib/kv.js';
+import { getSetting } from '../settings.js'; // ✅ Dùng Helper D1
 import { readBody } from '../../lib/utils.js';
 
 /**
@@ -132,26 +132,27 @@ export async function handle(req, env, ctx) {
 // ===================================================================
 
 /**
- * Get Facebook credentials from KV
+ * Get Facebook credentials from D1 Settings
  */
 async function getFBCredentials(env) {
   try {
-    // Thử lấy từ KV với key 'settings:facebook_ads'
-    let settings = await getJSON(env, 'settings:facebook_ads', null);
-    
-    // Nếu không có, thử lấy từ key 'settings' với path facebook_ads
-    if (!settings) {
-      const allSettings = await getJSON(env, 'settings', null);
-      settings = allSettings?.facebook_ads || null;
-    }
-    
-    if (settings) {
-      console.log('[FB Ads] Loaded credentials from KV');
-      return settings;
+    // ✅ Lấy trực tiếp từ bảng settings (D1)
+    let settings = await getSetting(env, 'facebook_ads_token');
+
+    if (settings && settings.access_token) {
+      // Merge với env vars nếu thiếu app_id/secret trong DB
+      return {
+        app_id: settings.app_id || env.FB_APP_ID,
+        app_secret: settings.app_secret || env.FB_APP_SECRET,
+        access_token: settings.access_token,
+        ad_account_id: settings.ad_account_id || env.FB_AD_ACCOUNT_ID,
+        page_id: settings.page_id || env.FB_PAGE_ID,
+        pixel_id: env.FB_PIXEL_ID
+      };
     }
 
-    // Fallback to env vars
-    console.log('[FB Ads] Using fallback env vars');
+    // Fallback
+    console.log('[FB Ads] No D1 token found, using env vars');
     return {
       app_id: env.FB_APP_ID,
       app_secret: env.FB_APP_SECRET,
@@ -165,7 +166,6 @@ async function getFBCredentials(env) {
     return null;
   }
 }
-
 /**
  * Call Facebook Graph API with retry logic
  */
@@ -1793,7 +1793,7 @@ async function getAdStats(req, env, adId) {
  */
 async function validatePermissions(accessToken, env) {
   try {
-    const settings = await getJSON(env, 'settings:facebook_ads', null) || {};
+    const settings = await getSetting(env, 'facebook_ads_token', {}) || {};
     const appId = settings.app_id || env.FB_APP_ID;
     const appSecret = settings.app_secret || env.FB_APP_SECRET;
 
