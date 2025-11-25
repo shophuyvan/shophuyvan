@@ -23,6 +23,7 @@ import * as FBAuth from './modules/facebook/fb-auth.js';
 import * as FBAds from './modules/facebook/fb-ads.js';
 import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
 import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
+import { publishScheduledPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT MODULE HẸN GIỜ
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
 import * as FBPageAuto from './modules/facebook/fb-automation.js';
@@ -709,10 +710,15 @@ async scheduled(event, env, ctx) {
         console.error('[Cron] ❌ Lỗi đồng bộ Shopee:', e);
     }
 
-   // 2️⃣ Facebook Ads Automation (Chỉ chạy vào phút 0 của mỗi giờ để tiết kiệm resource)
+// 2️⃣ Facebook Ads Automation (Chỉ chạy vào phút 0 của mỗi giờ)
     const minutes = new Date(event.scheduledTime).getMinutes();
     if (minutes === 0) {
         await FBAdsAuto.scheduledHandler(event, env, ctx);
     }
+
+    // 3️⃣ FACEBOOK SCHEDULER (Chạy mỗi 15 phút theo Cron)
+    // Quét các bài hẹn giờ đã đến hạn để đăng
+    console.log('[Cron] ⏳ Checking scheduled posts...');
+    await publishScheduledPosts(env);
   }
 };

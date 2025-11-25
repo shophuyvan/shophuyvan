@@ -314,17 +314,32 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; margin-top:20px;">
-                    <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
-                    <button class="btn green" id="wiz-btn-publish" onclick="AutoSyncWizard.bulkPublish()">🚀 Xác nhận & Đăng bài</button>
+                <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" id="wiz-btn-schedule" onclick="AutoSyncWizard.confirmPublish(true)" style="background:#f3f4f6; border:1px solid #ccc; color:#333;">📅 Hẹn giờ đăng</button>
+                    <button class="btn green" id="wiz-btn-publish" onclick="AutoSyncWizard.confirmPublish(false)">🚀 Đăng ngay lập tức</button>
                 </div>
+            </div>
             </div>
 
             <div id="wiz-step-5" class="wiz-content">
-                <h3>🎉 Kết quả đăng bài</h3>
-                <div id="wiz-results" style="margin-bottom:20px;"></div>
-                
-                <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:15px; border-radius:8px;">
-                    <h4>⚡ Tạo Ads từ bài viết này?</h4>
+            <h3>🎉 Kết quả đăng bài</h3>
+            <div id="wiz-results" style="margin-bottom:20px;"></div>
+
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <h4>📢 Chia sẻ vào Nhóm (Seeding)</h4>
+                <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+                     <select id="wiz-group-select" class="input" style="flex:1;">
+                        <option value="">-- Đang tải nhóm... --</option>
+                     </select>
+                     <input type="text" id="wiz-share-msg" class="input" placeholder="Viết caption khi share..." style="flex:1;">
+                     <button class="btn primary" onclick="AutoSyncWizard.shareToGroup()">Chia sẻ ngay</button>
+                </div>
+                <div style="margin-top:5px; font-size:12px; color:#666;">* Chọn bài đã đăng thành công ở trên để share.</div>
+            </div>
+
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:15px; border-radius:8px;">
+                <h4>⚡ Tạo Ads từ bài viết này?</h4>
                     <div style="display:flex; gap:10px; margin-top:10px;">
                         <input type="text" id="wiz-camp-name" class="input" placeholder="Tên Campaign Ads..." style="flex:1;">
                         <input type="number" id="wiz-budget" class="input" value="50000" style="width:120px;">

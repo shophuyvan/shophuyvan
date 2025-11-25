@@ -2154,6 +2154,64 @@ init: function() {
         document.getElementById('wiz-camp-name').value = `Ads Job #${this.jobData.id} - ${new Date().toLocaleDateString('vi-VN')}`;
     },
 
+    // HÀM MỚI: Publish hoặc Schedule
+    confirmPublish: async function(isScheduled = false) {
+        const btn = document.getElementById(isScheduled ? 'btn-schedule' : 'btn-publish-now');
+        const oldText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Processing...';
+
+        let body = {};
+        let url = `/api/auto-sync/jobs/${this.jobData.id}/publish`; // Mặc định đăng ngay
+
+        if (isScheduled) {
+            const timeStr = document.getElementById('schedule-time-input').value;
+            if (!timeStr) {
+                alert('Vui lòng chọn ngày giờ!');
+                btn.disabled = false; btn.innerHTML = oldText;
+                return;
+            }
+            const scheduleTs = new Date(timeStr).getTime();
+            if (scheduleTs < Date.now()) {
+                alert('Thời gian hẹn phải ở tương lai!');
+                btn.disabled = false; btn.innerHTML = oldText;
+                return;
+            }
+            
+            // Đổi URL sang save-pending
+            url = `/api/auto-sync/jobs/${this.jobData.id}/save-pending`;
+            body = { scheduledTime: scheduleTs };
+        }
+
+        try {
+            const r = await Admin.req(url, {
+                method: 'POST',
+                body: body
+            });
+
+            if (r.ok) {
+                alert(r.message || 'Thành công!');
+                this.goToStep(5);
+                if (r.results) this.renderResults(r.results); // Nếu đăng ngay
+                else {
+                    // Nếu hẹn giờ
+                    document.getElementById('wiz-results').innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Đã lên lịch thành công!<br>
+                            Thời gian: ${new Date(body.scheduledTime).toLocaleString('vi-VN')}
+                        </div>`;
+                }
+            } else {
+                alert('Lỗi: ' + r.error);
+            }
+        } catch (e) {
+            alert('Lỗi hệ thống: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldText;
+        }
+    },
+
     createAds: async function() {
         const name = document.getElementById('wiz-camp-name').value;
         const budget = document.getElementById('wiz-budget').value;

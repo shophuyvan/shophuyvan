@@ -13,6 +13,8 @@ import { downloadTikTokVideo } from './tiktok-downloader.js';
 import { GeminiContentGenerator } from './ai-content-generator.js';
 import { uploadToFacebookPage } from './facebook-uploader.js';
 import { createAdsFromJob as createAdsFromJobImpl } from './post-to-ad.js';
+import { fetchGroupsFromFacebook, shareToGroup } from '../facebook/fb-group-manager.js';
+import { publishScheduledPosts } from '../facebook/fb-scheduler-handler.js';
 
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
@@ -93,6 +95,33 @@ export async function handle(req, env, ctx) {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/preview$/)[1]);
     return getPublishPreview(req, env, jobId);
   }
+
+  // --- NEW ROUTES FOR SCHEDULER & GROUPS ---
+
+  // Route: Lưu kho (Pending/Scheduled) thay vì đăng ngay
+  if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/save-pending$/) && method === 'POST') {
+    const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/save-pending$/)[1]);
+    return savePendingAssignments(req, env, jobId);
+  }
+
+  // Route: Cron Trigger (Gọi thủ công để test)
+  if (path === '/api/cron/trigger-schedule' && method === 'POST') {
+    const result = await publishScheduledPosts(env);
+    return json({ ok: true, result }, {}, req);
+  }
+
+  // Route: Lấy danh sách Groups từ Facebook
+  if (path === '/api/facebook/groups/fetch' && method === 'GET') {
+    return handleFetchGroups(req, env);
+  }
+
+  // Route: Share bài đã đăng vào Group
+  if (path.match(/^\/api\/auto-sync\/assignments\/(\d+)\/share-group$/) && method === 'POST') {
+    const assignId = parseInt(path.match(/^\/api\/auto-sync\/assignments\/(\d+)\/share-group$/)[1]);
+    return handleShareToGroup(req, env, assignId);
+  }
+
+  // ------------------------------------------
 
   // STEP 4: Bulk Publish to Fanpages
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/publish$/) && method === 'POST') {
@@ -906,6 +935,80 @@ async function testAIConnection(req, env) {
       step: "unexpected_error",
       stack: error.stack
     }, { status: 500 }, req);
+  }
+}
+
+// ===================================================================
+// NEW HANDLERS: SCHEDULER & GROUPS
+// ===================================================================
+
+async function savePendingAssignments(req, env, jobId) {
+  try {
+    const body = await req.json();
+    const { scheduledTime } = body; // timestamp hoặc null
+
+    // Update job status
+    await env.DB.prepare(`
+      UPDATE automation_jobs SET status = 'pending', updated_at = ? WHERE id = ?
+    `).bind(Date.now(), jobId).run();
+
+    // Update assignments status
+    // Nếu có scheduledTime -> set thời gian, status vẫn là 'pending' chờ Cron quét
+    await env.DB.prepare(`
+      UPDATE fanpage_assignments 
+      SET status = 'pending', scheduled_time = ?, updated_at = ?
+      WHERE job_id = ? AND status = 'pending'
+    `).bind(scheduledTime || null, Date.now(), jobId).run();
+
+    return json({ ok: true, message: scheduledTime ? 'Đã lên lịch đăng bài!' : 'Đã lưu vào kho chờ đăng!' }, {}, req);
+  } catch (error) {
+    return errorResponse(error.message, 500, req);
+  }
+}
+
+async function handleFetchGroups(req, env) {
+  try {
+    // Lấy token từ settings
+    const setting = await env.DB.prepare("SELECT value FROM settings WHERE path = 'facebook_ads_token'").first();
+    const tokenData = setting ? JSON.parse(setting.value) : null;
+    
+    if (!tokenData || !tokenData.access_token) {
+      return json({ ok: false, error: 'Chưa có Access Token' }, { status: 400 }, req);
+    }
+
+    const groups = await fetchGroupsFromFacebook(tokenData.access_token);
+    
+    // Lưu cache vào DB (optional, hoặc trả về luôn)
+    return json({ ok: true, groups }, {}, req);
+  } catch (error) {
+    return errorResponse(error.message, 500, req);
+  }
+}
+
+async function handleShareToGroup(req, env, assignId) {
+  try {
+    const body = await req.json();
+    const { groupId, message } = body;
+
+    // Lấy thông tin bài gốc
+    const assign = await env.DB.prepare("SELECT post_url FROM fanpage_assignments WHERE id = ?").bind(assignId).first();
+    if (!assign || !assign.post_url) return json({ ok: false, error: 'Bài viết chưa được đăng lên Page' }, { status: 400 }, req);
+
+    // Lấy token
+    const setting = await env.DB.prepare("SELECT value FROM settings WHERE path = 'facebook_ads_token'").first();
+    const token = JSON.parse(setting.value).access_token;
+
+    const result = await shareToGroup(groupId, assign.post_url, message || '', token);
+
+    // Log share
+    await env.DB.prepare(`
+      INSERT INTO group_shares (assignment_id, group_id, status, share_post_id, created_at, shared_at)
+      VALUES (?, ?, 'shared', ?, ?, ?)
+    `).bind(assignId, groupId, result.postId, Date.now(), Date.now()).run();
+
+    return json({ ok: true, result }, {}, req);
+  } catch (error) {
+    return errorResponse(error.message, 500, req);
   }
 }
 

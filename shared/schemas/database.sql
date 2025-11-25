@@ -544,6 +544,7 @@ CREATE TABLE IF NOT EXISTS fanpage_assignments (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   published_at INTEGER,
+  scheduled_time INTEGER DEFAULT NULL, -- ✅ [MỚI] Thêm dòng này
   
   FOREIGN KEY (job_id) REFERENCES automation_jobs(id) ON DELETE CASCADE,
   FOREIGN KEY (variant_id) REFERENCES content_variants(id) ON DELETE CASCADE
@@ -552,6 +553,8 @@ CREATE TABLE IF NOT EXISTS fanpage_assignments (
 CREATE INDEX idx_fanpage_assignments_job ON fanpage_assignments(job_id);
 CREATE INDEX idx_fanpage_assignments_fanpage ON fanpage_assignments(fanpage_id);
 CREATE INDEX idx_fanpage_assignments_status ON fanpage_assignments(status);
+-- ✅ [MỚI] Index cho tìm kiếm bài hẹn giờ
+CREATE INDEX idx_fanpage_assignments_scheduled ON fanpage_assignments(scheduled_time) WHERE status = 'pending' AND scheduled_time IS NOT NULL;
 
 -- =============================================
 -- BẢNG 5: JOB_CAMPAIGNS - Facebook Ads từ Job (Optional - Step 5)
@@ -627,3 +630,59 @@ CREATE TABLE IF NOT EXISTS product_viral_videos (
 CREATE INDEX idx_product_viral_videos_product ON product_viral_videos(product_id);
 CREATE INDEX idx_product_viral_videos_used ON product_viral_videos(is_used);
 CREATE INDEX idx_product_viral_videos_score ON product_viral_videos(viral_score DESC);
+
+-- =============================================
+-- BẢNG 7: FACEBOOK GROUPS - Quản lý nhóm & Share tự động
+-- =============================================
+CREATE TABLE IF NOT EXISTS facebook_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  group_id TEXT UNIQUE NOT NULL,
+  group_name TEXT NOT NULL,
+  privacy TEXT, -- 'PUBLIC', 'CLOSED', 'SECRET'
+  
+  -- User access
+  admin_user_id INTEGER,
+  can_post INTEGER DEFAULT 1,
+  
+  -- Auto settings
+  is_active INTEGER DEFAULT 1,
+  auto_share_enabled INTEGER DEFAULT 0,
+  
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_facebook_groups_active ON facebook_groups(is_active);
+
+-- =============================================
+-- BẢNG 8: GROUP_SHARES - Lịch sử share vào nhóm
+-- =============================================
+CREATE TABLE IF NOT EXISTS group_shares (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  assignment_id INTEGER NOT NULL, -- Link tới bài đăng gốc
+  group_id TEXT NOT NULL,
+  group_name TEXT,
+  
+  -- Share status
+  status TEXT DEFAULT 'pending' CHECK(status IN (
+    'pending',
+    'shared',
+    'failed'
+  )),
+  
+  -- Facebook post result
+  share_post_id TEXT,
+  share_url TEXT,
+  
+  error_message TEXT,
+  
+  created_at INTEGER NOT NULL,
+  shared_at INTEGER,
+  
+  FOREIGN KEY (assignment_id) REFERENCES fanpage_assignments(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_group_shares_assignment ON group_shares(assignment_id);
+CREATE INDEX idx_group_shares_status ON group_shares(status);
