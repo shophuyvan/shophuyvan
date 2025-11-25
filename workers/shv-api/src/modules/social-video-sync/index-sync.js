@@ -109,6 +109,10 @@ export async function handle(req, env, ctx) {
     const result = await publishScheduledPosts(env);
     return json({ ok: true, result }, {}, req);
   }
+  // ✅ FIX: Đăng ký route lấy danh sách Group
+  if (path === '/api/facebook/groups/fetch' && method === 'GET') {
+    return handleFetchGroups(req, env);
+  }
 
   // Route: Lấy danh sách Groups từ Facebook
   if (path === '/api/facebook/groups/fetch' && method === 'GET') {
