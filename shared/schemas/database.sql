@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS products (
   -- ✅ Media
   images TEXT,                      -- JSON array: ["url1", "url2"]
   video TEXT,
+  douyin_url TEXT,                  -- Link video gốc Douyin (New)
   
     -- Display settings
   status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'draft')),
@@ -686,3 +687,103 @@ CREATE TABLE IF NOT EXISTS group_shares (
 
 CREATE INDEX idx_group_shares_assignment ON group_shares(assignment_id);
 CREATE INDEX idx_group_shares_status ON group_shares(status);
+
+CREATE INDEX idx_group_shares_status ON group_shares(status);
+
+-- ============================================
+-- DOUYIN VIDEO LOCALIZATION (AI GLOBAL)
+-- Module: Tải video Douyin -> Dịch Script -> TTS -> Merge Video
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS douyin_videos (
+  id TEXT PRIMARY KEY, -- Sử dụng UUID string (VD: '550e8400-e29b...')
+  
+  product_id INTEGER,
+  
+  -- 1. Input Data
+  douyin_url TEXT NOT NULL,         -- Link gốc
+  original_video_url TEXT,          -- Link R2 (Raw video no watermark)
+  original_cover_url TEXT,          -- Ảnh bìa gốc
+  duration INTEGER DEFAULT 0,       -- Thời lượng (giây)
+  
+  -- 2. AI Analysis Data (JSON)
+  original_script_cn TEXT,          -- Script gốc tiếng Trung
+  ai_analysis_json TEXT,            -- Kết quả phân tích từ Gemini (Sản phẩm, Key points)
+  vietnamese_scripts_json TEXT,     -- Danh sách 3-5 kịch bản gợi ý (JSON Array)
+  
+  -- 3. User Configuration (Sau khi sửa)
+  selected_script_version INTEGER DEFAULT 1,
+  final_script_text TEXT,           -- Kịch bản chốt để đọc
+  
+  voice_model TEXT DEFAULT 'vi-VN-Standard-A', -- Mã giọng đọc
+  voice_speed REAL DEFAULT 1.0,     -- Tốc độ đọc (0.8 - 1.2)
+  voice_pitch REAL DEFAULT 0.0,     -- Cao độ
+  
+  background_music_mode TEXT DEFAULT 'keep_original' CHECK(background_music_mode IN ('keep_original', 'remove', 'replace')),
+  background_music_url TEXT,        -- Nếu mode = replace
+  
+  -- 4. Processing Status
+  status TEXT DEFAULT 'pending' CHECK(status IN (
+    'pending',           -- Mới tạo
+    'downloading',       -- Đang tải từ Douyin
+    'analyzing',         -- Đang gửi qua Gemini
+    'waiting_approval',  -- Chờ user duyệt script (Trạng thái dừng)
+    'rendering',         -- Đang ghép video (Cloud Run/FFmpeg)
+    'completed',         -- Hoàn thành
+    'failed'             -- Lỗi
+  )),
+  
+  progress INTEGER DEFAULT 0,       -- 0-100%
+  current_step TEXT,                -- 'gemini', 'tts', 'ffmpeg', 'upload'
+  
+  -- 5. Output
+  vietnamese_audio_url TEXT,        -- File âm thanh TTS
+  final_video_url TEXT,             -- File video thành phẩm trên R2
+  
+  -- 6. Error & Logs
+  error_message TEXT,
+  
+  -- 7. Metadata
+  created_at INTEGER NOT NULL,      -- Timestamp
+  updated_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_douyin_videos_status ON douyin_videos(status);
+CREATE INDEX idx_douyin_videos_product ON douyin_videos(product_id);
+CREATE INDEX idx_douyin_videos_created ON douyin_videos(created_at);
+
+-- Bảng Queue để Worker xử lý tuần tự (Tránh overload)
+CREATE TABLE IF NOT EXISTS douyin_queue_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_id TEXT NOT NULL,
+  
+  action TEXT NOT NULL CHECK(action IN ('download', 'analyze', 'render', 'publish')),
+  status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'completed', 'failed')),
+  
+  attempts INTEGER DEFAULT 0,       -- Số lần thử lại
+  last_attempt_at INTEGER,
+  
+  payload TEXT,                     -- JSON params bổ sung nếu cần
+  created_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (video_id) REFERENCES douyin_videos(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_douyin_queue_status ON douyin_queue_jobs(status);
+
+-- ============================================
+-- SYSTEM SETTINGS (Migration from KV to D1)
+-- Lưu cấu hình hệ thống, Token, API Key
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key_name TEXT UNIQUE NOT NULL,  -- VD: 'facebook_ads_token'
+  value_json TEXT,                -- Lưu JSON string
+  description TEXT,               -- Ghi chú
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key_name);

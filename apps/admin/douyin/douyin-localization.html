@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Douyin Video Localization - Shop Huy Vân</title>
+    <link href="./styles.css" rel="stylesheet"> <script src="https://cdn.tailwindcss.com"></script> 
+    <style>
+        .step-active { @apply border-blue-600 text-blue-600 font-bold; }
+        .step-done { @apply border-green-500 text-green-500; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <div id="sidebar-container" class="w-64 bg-white shadow-md hidden md:block"></div>
+
+        <div class="flex-1 overflow-y-auto p-8">
+            <h1 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span class="text-3xl">🎬</span> Douyin Global AI
+            </h1>
+
+            <div class="mb-8">
+                <div class="flex justify-between items-center border-b-2 border-gray-200">
+                    <div id="step-1-ind" class="py-2 px-4 border-b-2 border-transparent step-active">1. Nhập Link</div>
+                    <div id="step-2-ind" class="py-2 px-4 border-b-2 border-transparent">2. Phân tích AI</div>
+                    <div id="step-3-ind" class="py-2 px-4 border-b-2 border-transparent">3. Chọn Kịch bản</div>
+                    <div id="step-4-ind" class="py-2 px-4 border-b-2 border-transparent">4. Giọng đọc</div>
+                    <div id="step-5-ind" class="py-2 px-4 border-b-2 border-transparent">5. Kết quả</div>
+                </div>
+            </div>
+
+            <div id="step-1" class="wizard-step max-w-2xl mx-auto bg-white p-6 rounded shadow">
+                <label class="block mb-2 font-medium">Dán link video Douyin:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="douyin-url" class="flex-1 border p-2 rounded" placeholder="https://v.douyin.com/..." value="https://v.douyin.com/testing">
+                    <button onclick="startAnalyze()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                        Phân tích ngay 🚀
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">Hệ thống sẽ tự động tải video, xóa logo và dùng Gemini để dịch.</p>
+            </div>
+
+            <div id="step-2" class="wizard-step hidden max-w-2xl mx-auto text-center py-12">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 class="text-xl font-medium">AI đang làm việc...</h3>
+                <p class="text-gray-500" id="loading-status">Đang tải video không logo...</p>
+            </div>
+
+            <div id="step-3" class="wizard-step hidden max-w-4xl mx-auto grid grid-cols-2 gap-6">
+                <div class="bg-black rounded-lg aspect-[9/16] flex items-center justify-center text-white">
+                    [Video Player Placeholder]
+                </div>
+                <div class="bg-white p-6 rounded shadow">
+                    <h3 class="font-bold mb-4">Chọn kịch bản tiếng Việt:</h3>
+                    <div id="script-options" class="space-y-3 mb-4">
+                        </div>
+                    <textarea id="final-script" class="w-full h-32 border p-2 rounded" placeholder="Nội dung kịch bản chốt..."></textarea>
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="goToStep4()" class="bg-green-600 text-white px-6 py-2 rounded">Tiếp tục: Chọn giọng ➡️</button>
+                    </div>
+                </div>
+            </div>
+
+            </div>
+    </div>
+
+    <script type="module" src="./douyin/douyin-wizard.js"></script>
+    <script type="module" src="./sidebar-layout.js"></script> </body>
+</html>

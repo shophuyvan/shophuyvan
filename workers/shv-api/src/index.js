@@ -124,13 +124,14 @@ export default {
         return admin.handle(req, env, ctx);
       }
       
-      // Admin management routes
+      // Admin management routes & Douyin API
       if (path === '/admin/me' ||  // ✅ THÊM DÒNG NÀY
           path.startsWith('/admin/setup') ||
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
           path.startsWith('/admin/roles') ||
-          path.startsWith('/admin/cache')) {  // ✅ THÊM DÒNG NÀY
+          path.startsWith('/admin/cache') ||
+          path.startsWith('/api/douyin')) {  // ✅ THÊM DÒNG NÀY: Route cho Douyin
         return admin.handle(req, env, ctx);
       }
 	  	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU

@@ -1,7 +1,7 @@
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
 import { readBody } from '../../lib/utils.js';
-import { getJSON, putJSON } from '../../lib/kv.js'; // ✅ Import thêm putJSON
+import { getSetting } from '../settings.js'; // ✅ Chỉ dùng getSetting
 
 // Lấy danh sách Fanpage đã kết nối
 export async function listFanpages(req, env) {
@@ -26,9 +26,8 @@ export async function upsertFanpage(req, env) {
     if (!page_id || !access_token) return errorResponse('Thiếu page_id hoặc access_token', 400, req);
 
     const now = Date.now();
-    
-    // ✅ QUAN TRỌNG: Lưu Token vào KV để Automation Worker đọc nhanh
-    await putJSON(env, `fb_token:${page_id}`, access_token);
+
+    // (Đã bỏ lưu KV thừa, Token được lưu trực tiếp vào bảng fanpages bên dưới)
 
     // 2. Check tồn tại trong D1
     const exists = await env.DB.prepare('SELECT page_id FROM fanpages WHERE page_id = ?').bind(page_id).first();
@@ -82,8 +81,12 @@ export async function fetchPagesFromFacebook(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
 
   try {
-    // 1. ✅ Lấy Token từ KV (không phải D1)
-    const config = await getJSON(env, 'settings:facebook_ads', null);
+    // 1. ✅ Lấy Token từ bảng settings (D1)
+// Lưu ý: Key chuẩn là 'facebook_ads_token' (do frontend ads_real.js lưu)
+let config = await getSetting(env, 'facebook_ads_token');
+
+// Fallback: Nếu không có, thử key cũ
+if (!config) config = await getSetting(env, 'facebook_ads');
     
     if (!config || !config.access_token) {
       return errorResponse('Chưa đăng nhập Facebook. Vui lòng bấm nút "Đăng nhập Facebook" trước.', 400, req);

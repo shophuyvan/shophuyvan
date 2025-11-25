@@ -163,10 +163,31 @@ export async function handle(req, env, ctx) {
       }
     }
 
-    // ✅ Cache Management
+// ✅ Cache Management
     if (path === '/admin/cache/clear' && method === 'POST') {
       // TODO: Thêm permission check sau khi setup quyền phù hợp
       return await clearCache(req, env);
+    }
+
+    // ============================================
+    // DOUYIN LOCALIZATION (NEW)
+    // ============================================
+    if (path.startsWith('/api/douyin')) {
+      // Lazy load module Douyin để tối ưu cold start
+      const douyin = await import('./social-video-sync/douyin-handler.js');
+      
+      // Permission check (cần quyền Edit Ads)
+      const permCheck = await requirePermission(req, env, 'ads.edit');
+      if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+
+      if (path === '/api/douyin/analyze' && method === 'POST') {
+        return douyin.analyzeDouyinVideo(req, env);
+      }
+      
+      const statusMatch = path.match(/\/api\/douyin\/([^\/]+)$/); // GET /api/douyin/:id
+      if (statusMatch && method === 'GET') {
+        return douyin.getDouyinStatus(req, env);
+      }
     }
 
     // 404

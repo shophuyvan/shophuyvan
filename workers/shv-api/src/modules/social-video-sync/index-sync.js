@@ -8,7 +8,7 @@
  */
 
 import { json, errorResponse } from '../../lib/response.js';
-import { getJSON } from '../../lib/kv.js'; // ✅ Thêm dòng này để đọc KV
+import { getSetting } from '../settings.js'; // ✅ Dùng module chuẩn D1
 import { adminOK } from '../../lib/auth.js';
 import { downloadTikTokVideo } from './tiktok-downloader.js';
 import { GeminiContentGenerator } from './ai-content-generator.js';
@@ -982,23 +982,17 @@ async function testAIConnection(req, env) {
 
 async function handleFetchGroups(req, env) {
   try {
-    // 1. Lấy Token từ KV (Thay vì query bảng settings SQL không tồn tại)
-    // Ưu tiên key chuẩn do ads_real.js lưu
-    let tokenData = await getJSON(env, 'settings:facebook_ads_token');
-
-    // Fallback: Nếu không có, thử key cũ
-    if (!tokenData) {
-        tokenData = await getJSON(env, 'settings:facebook_ads');
-    }
+    // ✅ Dùng getSetting chuẩn (Lấy từ D1)
+    const tokenData = await getSetting(env, 'facebook_ads_token');
 
     if (!tokenData || !tokenData.access_token) {
-      return json({ ok: false, error: 'Chưa có Access Token. Vui lòng vào tab "Cài đặt" để đăng nhập Facebook.' }, { status: 400 }, req);
+      return json({ ok: false, error: 'Chưa có Access Token. Vui lòng vào Cài đặt -> Đăng nhập Facebook.' }, { status: 400 }, req);
     }
 
-    // 2. Gọi Facebook API
+    // Gọi Facebook API
     const groupsData = await fetchGroupsFromFacebook(tokenData.access_token);
 
-    // 3. Chuẩn hóa dữ liệu trả về (API Facebook trả về { data: [...] })
+    // Chuẩn hóa dữ liệu
     const items = Array.isArray(groupsData) ? groupsData : (groupsData.data || []);
 
     return json({ ok: true, groups: items }, {}, req);
@@ -1013,22 +1007,21 @@ async function handleShareToGroup(req, env, assignId) {
     const body = await req.json();
     const { groupId, message } = body;
 
-    // 1. Lấy thông tin bài gốc
+    // Lấy thông tin bài gốc
     const assign = await env.DB.prepare("SELECT post_url FROM fanpage_assignments WHERE id = ?").bind(assignId).first();
-    if (!assign || !assign.post_url) return json({ ok: false, error: 'Bài viết chưa được đăng lên Page (Chưa có link)' }, { status: 400 }, req);
+    if (!assign || !assign.post_url) return json({ ok: false, error: 'Bài viết chưa được đăng (Chưa có link)' }, { status: 400 }, req);
 
-    // 2. Lấy token từ KV
-    let tokenData = await getJSON(env, 'settings:facebook_ads_token');
-    if (!tokenData) tokenData = await getJSON(env, 'settings:facebook_ads');
+    // ✅ Dùng getSetting chuẩn
+    const tokenData = await getSetting(env, 'facebook_ads_token');
 
     if (!tokenData || !tokenData.access_token) {
         return json({ ok: false, error: 'Thiếu Access Token' }, { status: 400 }, req);
     }
 
-    // 3. Gọi API Share
+    // Gọi API Share
     const result = await shareToGroup(groupId, assign.post_url, message || '', tokenData.access_token);
 
-    // 4. Log kết quả share
+    // Log kết quả
     await env.DB.prepare(`
       INSERT INTO group_shares (assignment_id, group_id, status, share_post_id, created_at, shared_at)
       VALUES (?, ?, 'shared', ?, ?, ?)
