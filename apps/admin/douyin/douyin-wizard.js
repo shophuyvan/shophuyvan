@@ -1,146 +1,100 @@
 /* File: apps/admin/douyin/douyin-wizard.js */
 
-// Hàm load script thủ công
-async function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) return resolve();
-        
-        // Thử các đường dẫn tương đối và tuyệt đối
-        const paths = [
-            src, 
-            `../${src}`, 
-            `../../${src}`,
-            `/_shared/${src}`
-        ];
-        
-        // Hàm đệ quy để thử từng path
-        const tryPath = (index) => {
-            if (index >= paths.length) {
-                return reject(new Error(`Không thể tải file: ${src}`));
-            }
-            
-            const s = document.createElement('script');
-            s.src = paths[index];
-            s.onload = () => {
-                console.log(`✅ Loaded: ${paths[index]}`);
-                resolve();
-            };
-            s.onerror = () => {
-                s.remove(); // Xóa thẻ lỗi
-                tryPath(index + 1); // Thử path tiếp theo
-            };
-            document.head.appendChild(s);
-        };
-        
-        tryPath(0);
-    });
+// ==========================================
+// PHẦN 1: HÀM XỬ LÝ API & TOKEN ĐỘC LẬP
+// ==========================================
+
+// Hàm lấy Token chuẩn xác nhất
+function getAuthToken() {
+    // 1. Ưu tiên key bạn vừa cung cấp
+    let token = localStorage.getItem('xtoken');
+    
+    // 2. Nếu không có, tìm các key dự phòng khác
+    if (!token) token = localStorage.getItem('x-token');
+    if (!token) token = localStorage.getItem('admin_token');
+    if (!token) token = sessionStorage.getItem('xtoken');
+    
+    // 3. Nếu hệ thống cũ đã có window.Admin, thử lấy từ đó
+    if (!token && window.Admin && typeof window.Admin.token === 'function') {
+        token = window.Admin.token();
+    }
+    
+    return token;
 }
 
-// ✅ FIX: Tự tạo môi trường Admin giả lập (Polyfill)
-function ensureAdminEnv() {
-    if (!window.Admin) {
-        console.log('🛠️ Creating Admin Polyfill...');
-        window.Admin = {
-            // Lấy token từ localStorage (Thử các key phổ biến)
-            token: () => {
-                return localStorage.getItem('admin_token') || 
-                       localStorage.getItem('token') || 
-                       sessionStorage.getItem('admin_token') || '';
-            },
-            // Hàm gọi API chuẩn (Thay thế admin-core.js)
-            req: async (url, method = 'GET', body = null) => {
-                const token = window.Admin.token();
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'x-token': token,
-                    'Authorization': token ? `Bearer ${token}` : ''
-                };
-
-                // Xử lý URL (nếu chưa có domain)
-                const apiBase = 'https://api.shophuyvan.vn';
-                const fullUrl = url.startsWith('http') ? url : `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
-
-                const opts = { method, headers };
-                if (body && method !== 'GET') {
-                    opts.body = JSON.stringify(body);
-                }
-
-                const res = await fetch(fullUrl, opts);
-                const data = await res.json();
-                
-                // Chuẩn hóa lỗi
-                if (!res.ok && !data.ok && !data.success) {
-                    throw new Error(data.error || data.message || `Lỗi API (${res.status})`);
-                }
-                
-                return data;
-            },
-            toast: (msg) => console.log('Toast:', msg)
-        };
+// Hàm gọi API trực tiếp (Thay thế api-admin.js)
+async function callApi(endpoint, method = 'GET', body = null) {
+    const token = getAuthToken();
+    
+    if (!token) {
+        throw new Error('Không tìm thấy Token đăng nhập! Vui lòng đăng xuất và đăng nhập lại trang Admin.');
     }
+
+    // Xử lý URL
+    const apiBase = 'https://api.shophuyvan.vn';
+    const url = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'x-token': token // ✅ Header quan trọng nhất để xác thực
+    };
+
+    const options = { method, headers };
+    if (body && method !== 'GET') {
+        options.body = JSON.stringify(body);
+    }
+
+    console.log(`📡 API Request: ${method} ${url}`);
+    
+    const res = await fetch(url, options);
+    
+    // Xử lý lỗi 401 (Hết hạn session)
+    if (res.status === 401) {
+        throw new Error('Phiên đăng nhập hết hạn (401). Vui lòng F5 và đăng nhập lại.');
+    }
+
+    const data = await res.json();
+    
+    // Xử lý lỗi logic từ Server trả về
+    if (!res.ok && !data.ok && !data.success) {
+        throw new Error(data.error || data.message || `Lỗi Server (${res.status})`);
+    }
+
+    return data;
 }
 
-// Hàm lấy API Admin
-async function getAdminApi() {
-    // 1. Tạo môi trường Admin giả lập trước
-    ensureAdminEnv();
-
-    // 2. Load utils-admin.js (Optional - giúp tránh lỗi dependency)
-    try { await loadScript('_shared/utils-admin.js'); } catch(e) {}
-
-    // 3. Load api-admin.js (Quan trọng nhất)
-    if (!window.SHARED || !window.SHARED.api) {
-        console.log('⏳ Loading api-admin.js...');
-        await loadScript('_shared/api-admin.js');
-    }
-
-    if (!window.SHARED || !window.SHARED.api) {
-        throw new Error('Không thể tải window.SHARED.api. Kiểm tra lại kết nối mạng.');
-    }
-
-    const api = window.SHARED.api;
-
-    // 4. Vá lỗi hàm post/get nếu api-admin.js chưa có
-    if (!api.post) {
-        api.post = async (url, body) => window.Admin.req(url, 'POST', body);
-    }
-    if (!api.get) {
-        api.get = async (url) => window.Admin.req(url, 'GET');
-    }
-
-    return api;
-}
+// ==========================================
+// PHẦN 2: LOGIC WIZARD (UI/UX)
+// ==========================================
 
 let currentVideoId = null;
 
+// Hàm bắt đầu phân tích (Gắn vào nút bấm)
 window.startAnalyze = async function() {
     const urlInput = document.getElementById('douyin-url');
     const url = urlInput ? urlInput.value.trim() : '';
     
-    if (!url) return alert('Vui lòng nhập link!');
+    if (!url) return alert('Vui lòng nhập link Douyin/TikTok!');
 
-    // Chuyển sang Step 2
+    // Chuyển sang Step 2 (Loading)
     showStep(2);
     
     try {
-        // Lấy API (đã được vá lỗi)
-        const api = await getAdminApi();
-
         // 1. Gọi API Analyze
-        console.log('🚀 Sending request to:', '/api/douyin/analyze');
-        const res = await api.post('/api/douyin/analyze', { url });
+        console.log('🚀 Đang gửi yêu cầu phân tích...');
+        const res = await callApi('/api/douyin/analyze', 'POST', { url });
         
-        // Kiểm tra kết quả trả về (Hỗ trợ nhiều chuẩn response)
-        const data = res.data || res;
+        // Lấy Video ID an toàn
+        const data = res.data || res; // Support cả format {ok: true, data: ...} và {video_id: ...}
         const videoId = data.video_id || (res.success ? res.data?.video_id : null);
 
         if (!videoId) {
             console.error('API Response:', res);
-            throw new Error(res.error || res.message || 'Không nhận được Video ID từ server');
+            throw new Error('Server không trả về Video ID. Vui lòng thử lại.');
         }
 
         currentVideoId = videoId;
-        console.log("✅ Video ID:", currentVideoId);
+        console.log("✅ Nhận được Video ID:", currentVideoId);
 
         // 2. Polling trạng thái (Check mỗi 2 giây)
         const loadingStatus = document.getElementById('loading-status');
@@ -149,22 +103,22 @@ window.startAnalyze = async function() {
         let retryCount = 0;
         const checkStatus = async () => {
             try {
-                const statusRes = await api.get(`/api/douyin/${currentVideoId}`);
+                const statusRes = await callApi(`/api/douyin/${currentVideoId}`, 'GET');
                 console.log('Polling status:', statusRes);
                 
                 if (statusRes && statusRes.data) {
-                    const data = statusRes.data;
+                    const d = statusRes.data;
                     
-                    // Nếu đã có kết quả phân tích
-                    if (data.status === 'waiting_approval' || (data.ai_analysis && data.ai_analysis.scripts)) {
-                        const scripts = data.ai_analysis?.scripts || [];
+                    // Nếu đã có kết quả (Status xong HOẶC có data analysis)
+                    if (d.status === 'waiting_approval' || (d.ai_analysis && d.ai_analysis.scripts)) {
+                        const scripts = d.ai_analysis?.scripts || [];
                         if (scripts.length > 0) {
                             renderScripts(scripts);
                             
-                            // Fill data vào preview
-                            if (data.ai_analysis.product_name) {
+                            // Điền thông tin vào Preview
+                            if (d.ai_analysis.product_name) {
                                 const prodNameEl = document.getElementById('product-name');
-                                if(prodNameEl) prodNameEl.innerText = data.ai_analysis.product_name;
+                                if(prodNameEl) prodNameEl.innerText = d.ai_analysis.product_name;
                             }
                             
                             showStep(3);
@@ -173,13 +127,13 @@ window.startAnalyze = async function() {
                     }
                 }
             } catch (err) {
-                console.warn('Polling error:', err);
+                console.warn('Polling error (sẽ thử lại):', err.message);
                 retryCount++;
             }
             
-            // Dừng nếu thử quá 30 lần (60s)
+            // Timeout sau 60s
             if (retryCount > 30) {
-                alert('Quá thời gian chờ phản hồi từ AI. Vui lòng thử lại.');
+                alert('Quá thời gian chờ AI xử lý. Vui lòng thử lại sau.');
                 showStep(1);
                 return;
             }
@@ -192,17 +146,19 @@ window.startAnalyze = async function() {
 
     } catch (e) {
         console.error(e);
-        alert('Lỗi: ' + (e.message || JSON.stringify(e)));
+        alert('Lỗi: ' + e.message);
         showStep(1);
     }
 };
 
+// Hàm render danh sách kịch bản ra HTML
 function renderScripts(scripts) {
     const container = document.getElementById('script-options');
     if (!container) return;
 
     container.innerHTML = scripts.map((s, idx) => `
-        <div class="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all" onclick="selectScript(this, \`${(s.text || '').replace(/`/g, "\\`").replace(/"/g, "&quot;")}\`)">
+        <div class="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all" 
+             onclick="selectScript(this, \`${(s.text || '').replace(/`/g, "\\`").replace(/"/g, "&quot;")}\`)">
             <div class="font-bold text-sm text-blue-600 mb-2 flex justify-between">
                 <span>${s.style || 'Kịch bản ' + (idx+1)}</span>
                 <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">v${s.version || idx+1}</span>
@@ -211,13 +167,13 @@ function renderScripts(scripts) {
         </div>
     `).join('');
     
-    // Auto select first option
+    // Tự động chọn kịch bản đầu tiên
     const firstOption = container.firstElementChild;
     if (firstOption) selectScript(firstOption, scripts[0].text);
 }
 
+// Hàm chọn kịch bản (Highlight UI + Set value)
 window.selectScript = function(el, text) {
-    // Highlight UI
     document.querySelectorAll('#script-options > div').forEach(div => {
         div.classList.remove('bg-blue-50', 'border-blue-500', 'ring-1', 'ring-blue-500');
         div.classList.add('border-gray-200');
@@ -228,17 +184,17 @@ window.selectScript = function(el, text) {
         el.classList.add('bg-blue-50', 'border-blue-500', 'ring-1', 'ring-blue-500');
     }
 
-    // Set value
     const textarea = document.getElementById('final-script');
     if (textarea) textarea.value = text;
 }
 
+// Hàm chuyển bước Wizard
 function showStep(stepNum) {
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`step-${stepNum}`);
     if (target) target.classList.remove('hidden');
     
-    // Update Header Progress
+    // Update thanh tiến trình ở trên
     document.querySelectorAll('[id$="-ind"]').forEach(el => {
         el.classList.remove('step-active', 'text-blue-600', 'border-blue-600');
         el.classList.add('border-transparent', 'text-gray-400');
@@ -255,6 +211,6 @@ function showStep(stepNum) {
     }
 }
 
-// Expose functions globally
+// Export các hàm Global để HTML gọi được
 window.showStep = showStep;
 window.goToStep4 = () => alert('Đã chốt kịch bản! Tiếp theo sẽ làm phần TTS...');
