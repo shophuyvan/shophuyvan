@@ -17,29 +17,47 @@ async function loadScript(src) {
 
 // Hàm lấy API Admin và tự vá lỗi thiếu hàm post/get
 async function getAdminApi() {
+    // Helper: Thử tải script từ nhiều đường dẫn khác nhau
+    const tryLoad = async (filename) => {
+        // Danh sách các đường dẫn có thể xảy ra (Ưu tiên tương đối trước)
+        const paths = [
+            `../_shared/${filename}`,   // Lùi 1 cấp (Nếu ở /douyin/)
+            `../../_shared/${filename}`, // Lùi 2 cấp (Nếu ở /douyin/xxx/)
+            `/_shared/${filename}`      // Tuyệt đối từ gốc
+        ];
+
+        for (const path of paths) {
+            try {
+                if (document.querySelector(`script[src="${path}"]`)) return; // Đã load rồi
+                await loadScript(path);
+                return; // Load thành công, thoát vòng lặp
+            } catch (e) {
+                console.warn(`⚠️ Không tải được ${path}, thử đường dẫn tiếp theo...`);
+            }
+        }
+        throw new Error(`Không thể tìm thấy file ${filename} sau khi thử mọi đường dẫn.`);
+    };
+
     // 1. Đảm bảo Admin Core đã load (để có window.Admin)
     if (!window.Admin) {
         console.log('⏳ Loading admin-core.js...');
-        // ✅ FIX: Dùng đường dẫn tuyệt đối (bắt đầu bằng /) để tránh lỗi 404
-        await loadScript('/_shared/admin-core.js');
+        await tryLoad('admin-core.js');
     }
 
     // 2. Đảm bảo API Shared đã load
     if (!window.SHARED || !window.SHARED.api) {
         console.log('⏳ Loading api-admin.js...');
-        // ✅ FIX: Dùng đường dẫn tuyệt đối
-        await loadScript('/_shared/api-admin.js');
+        await tryLoad('api-admin.js');
     }
 
     // Kiểm tra lại lần cuối
     if (!window.SHARED || !window.SHARED.api) {
-        throw new Error('Không tìm thấy window.SHARED.api sau khi tải script');
+        throw new Error('Đã tải script nhưng không tìm thấy window.SHARED.api. Kiểm tra lại nội dung file api-admin.js');
     }
 
     const api = window.SHARED.api;
 
     // 3. ✅ VÁ LỖI: Thêm hàm get/post nếu chưa có
-    // Mượn hàm window.Admin.req(url, method, body) của hệ thống cũ
     if (!api.post) {
         api.post = async (url, body) => {
             if (!window.Admin) throw new Error('window.Admin chưa sẵn sàng');
