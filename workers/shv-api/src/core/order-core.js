@@ -329,10 +329,23 @@ async function enrichItemsWeight(env, items) {
     || ''
   ),
   
-  // ✅ Địa chỉ codes
-  String(addressCodes.province_code),
-  String(addressCodes.district_code),
-  String(addressCodes.ward_code),
+  // ✅ Địa chỉ codes - Ưu tiên từ customer nếu có
+  String(
+    order.customer?.province_code 
+    || order.receiver_province_code 
+    || addressCodes.province_code
+  ),
+  String(
+    order.customer?.district_code 
+    || order.receiver_district_code 
+    || addressCodes.district_code
+  ),
+  String(
+    order.customer?.commune_code 
+    || order.customer?.ward_code
+    || order.receiver_ward_code 
+    || addressCodes.ward_code
+  ),
   
     Number(order.subtotal || 0),
     Number(order.shipping_fee || 0), 
