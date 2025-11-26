@@ -1117,7 +1117,7 @@ async function upsertOrder(req, env) {
   // Kích hoạt khi: Trạng thái là 'processing' VÀ (Chưa có mã vận đơn HOẶC Mã bị hủy/lỗi/rỗng)
   const isConfirming = (
     newStatus === 'processing' && 
-    (!oldOrder.tracking_code || oldOrder.tracking_code === 'CANCELLED' || oldOrder.tracking_code === '')
+    (!oldOrder || !oldOrder.tracking_code || oldOrder.tracking_code === 'CANCELLED' || oldOrder.tracking_code === '')
   );
   
   console.log(`[ORDER-UPSERT] Status change: ${oldStatus} -> ${newStatus}. isConfirming=${isConfirming}`);
