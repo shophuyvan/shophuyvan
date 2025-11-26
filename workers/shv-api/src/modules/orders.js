@@ -796,9 +796,18 @@ async function createOrderPublic(req, env) {
   // [NEW] 🚀 SAVE TO D1 DATABASE (CORE)
   try {
     const d1Result = await saveOrderToD1(env, order);
-    if (!d1Result.ok) console.error('[ORDER-PUBLIC] Failed to save to D1:', d1Result.error);
-    else console.log('[ORDER-PUBLIC] Saved to D1 ID:', d1Result.id);
-  } catch (e) { console.error('[ORDER-PUBLIC] Exception D1:', e); }
+    if (!d1Result.ok) {
+      console.error('[ORDER-PUBLIC] Failed to save to D1:', d1Result.error);
+    } else {
+      console.log('[ORDER-PUBLIC] Saved to D1 ID:', d1Result.id);
+      
+      // ✅ FIX: GỬI THÔNG BÁO TELEGRAM KHI KHÁCH ĐẶT HÀNG
+      // (Thêm dòng này để điện thoại ting ting ngay lập tức)
+      ctx.waitUntil(sendOrderNotification(order, env, null));
+    }
+  } catch (e) { 
+    console.error('[ORDER-PUBLIC] Exception D1:', e); 
+  }
 
   // ✅ CHỈ TRỪ STOCK CHO ĐƠN TỪ WEBSITE/MINI
   if (shouldAdjustStock(order.status) && !body.skip_stock_adjustment) {
@@ -1075,12 +1084,22 @@ async function upsertOrder(req, env) {
   const index = list.findIndex(o => o.id === id);
 
   // Get old order data for status change detection
-  const oldOrder = index >= 0 ? list[index] : null;
-  const oldStatus = String(oldOrder?.status || '').toLowerCase();
+  // ✅ FIX: Lấy oldOrder kỹ càng hơn (Ưu tiên từ KV order chi tiết nếu list không có)
+  let oldOrder = index >= 0 ? list[index] : null;
+  if (!oldOrder) {
+    oldOrder = await getJSON(env, 'order:' + id, null);
+  }
+
+  const oldStatus = String(oldOrder?.status || 'pending').toLowerCase(); // Mặc định pending nếu không tìm thấy
   const newStatus = String(body.status || '').toLowerCase();
 
-  // ✅ FIX: Khi chuyển từ PENDING → PROCESSING, tự động tạo vận đơn
-  const isConfirming = (oldStatus === 'pending' && newStatus === 'processing');
+  // ✅ FIX: Logic xác nhận đơn (Pending/New/Unpaid -> Processing)
+  const isConfirming = (
+    (oldStatus === 'pending' || oldStatus === 'new' || oldStatus === 'unpaid') && 
+    newStatus === 'processing'
+  );
+  
+  console.log(`[ORDER-UPSERT] Status change: ${oldStatus} -> ${newStatus}. isConfirming=${isConfirming}`);
 
   // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
   const order = {
@@ -1119,9 +1138,40 @@ async function upsertOrder(req, env) {
   }
 
   // ✅ FIX: Auto-create waybill when admin confirms order
-  if (isConfirming && order.shipping_provider) {
-    try {
-      console.log('[ORDER-UPSERT] Admin xác nhận đơn, đang tạo vận đơn...');
+  // Thêm log để debug nếu shipping_provider bị thiếu
+  if (isConfirming) {
+    if (order.shipping_provider) {
+        try {
+          console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
+          const waybillResult = await autoCreateWaybill(order, env);
+
+          if (waybillResult.ok && waybillResult.carrier_code) {
+            order.tracking_code = waybillResult.carrier_code;
+            order.shipping_tracking = waybillResult.carrier_code;
+            order.superai_code = waybillResult.superai_code;
+            order.carrier_id = waybillResult.carrier_id;
+            order.status = ORDER_STATUS.PROCESSING; // Giữ processing, đợi shipper lấy mới qua shipping
+            order.waybill_data = waybillResult.raw;
+
+            // Lưu lại ngay thông tin vận đơn vào KV/List để hiển thị
+            await putJSON(env, 'order:' + id, order);
+            if (index >= 0) list[index] = order;
+            await putJSON(env, 'orders:list', list);
+            
+            // Đồng bộ lại D1 với mã vận đơn mới
+            await saveOrderToD1(env, order);
+
+            console.log('[ORDER-UPSERT] ✅ Đã tạo vận đơn SuperAI:', waybillResult.carrier_code);
+          } else {
+            console.warn('[ORDER-UPSERT] ⚠️ Tạo vận đơn thất bại:', waybillResult.message);
+          }
+        } catch (e) {
+          console.error('[ORDER-UPSERT] ❌ Lỗi code tạo vận đơn:', e.message);
+        }
+    } else {
+        console.warn('[ORDER-UPSERT] ⚠️ Không thể tạo vận đơn: Đơn hàng thiếu shipping_provider (NVC)');
+    }
+  }
       const waybillResult = await autoCreateWaybill(order, env);
 
       if (waybillResult.ok && waybillResult.carrier_code) {
