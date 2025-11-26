@@ -696,9 +696,12 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
     const d1Result = await saveOrderToD1(env, order);
     if (!d1Result.ok) {
       console.error('[ORDER] ❌ Failed to save to D1:', d1Result.error);
-      // Không return lỗi để tránh chặn luồng đơn hàng, chỉ log lại
     } else {
       console.log('[ORDER] ✅ Saved to D1 successfully. ID:', d1Result.id);
+      
+      // ✅ GỬI THÔNG BÁO TELEGRAM NGAY LẬP TỨC
+      // (Chỉ gửi khi lưu DB thành công)
+      sendOrderNotification(order, env, ctx);
     }
   } catch (e) {
     console.error('[ORDER] ❌ Exception saving to D1:', e);
@@ -1604,5 +1607,51 @@ async function sendToFacebookCAPI(order, req, env) {
 
   } catch (e) {
     console.error('[CAPI] Exception:', e);
+  }
+}
+
+// ===================================================================
+// NOTIFICATION SERVICE (TELEGRAM)
+// ===================================================================
+
+async function sendOrderNotification(order, env, ctx) {
+  // Format số tiền
+  const total = new Intl.NumberFormat('vi-VN').format(order.revenue || 0);
+  
+  // Nội dung tin nhắn
+  const message = 
+`📦 <b>ĐƠN HÀNG MỚI #${String(order.id).slice(-6).toUpperCase()}</b>
+👤 Khách: ${order.customer.name || 'Khách lẻ'}
+📞 SĐT: ${order.customer.phone || 'Không có'}
+💰 Tổng thu: <b>${total}đ</b>
+-----------------------
+${order.items.map(i => `- ${i.name} (x${i.qty})`).join('\n')}
+-----------------------
+📝 Ghi chú: ${order.note || 'Không'}`;
+
+  const promises = [];
+
+  // Gửi TELEGRAM
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+    promises.push(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: env.TELEGRAM_CHAT_ID,
+          text: message,
+          parse_mode: 'HTML'
+        })
+      }).then(r => console.log('[NOTIFY] Telegram status:', r.status))
+        .catch(e => console.error('[NOTIFY] Telegram error:', e))
+    );
+  }
+
+  // Chạy ngầm (không làm chậm phản hồi đơn hàng)
+  if (ctx && ctx.waitUntil) {
+    ctx.waitUntil(Promise.all(promises));
+  } else {
+    Promise.all(promises);
   }
 }
