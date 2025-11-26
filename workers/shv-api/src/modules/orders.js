@@ -1113,6 +1113,19 @@ async function upsertOrder(req, env) {
 
   const oldStatus = String(oldOrder?.status || 'pending').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
+  
+  // ✅ DEBUG: Log order data để kiểm tra
+  console.log('[ORDER-UPSERT] 📦 Order data:', JSON.stringify({
+    id: id,
+    shipping_province: order.shipping_province,
+    shipping_district: order.shipping_district,
+    shipping_city: order.shipping_city,
+    shipping_address: order.shipping_address,
+    receiver_province_code: order.receiver_province_code,
+    receiver_district_code: order.receiver_district_code,
+    items_count: order.items?.length || 0,
+    has_customer: !!order.customer
+  }, null, 2));
 
   // ✅ FIX: Logic xác nhận đơn (Đơn giản hóa để tránh lỗi)
   // Kích hoạt khi: Trạng thái là 'processing' VÀ (Chưa có mã vận đơn HOẶC Mã bị hủy/lỗi/rỗng)
