@@ -96,9 +96,10 @@ window.searchProducts = async function() {
   
   try {
     // Call products API
-    const data = await callApi(`/api/products?search=${encodeURIComponent(query)}&limit=20`);
+    // [SHV Fix] Đổi thành /admin/products để đúng chuẩn Backend
+    const data = await callApi(`/admin/products?search=${encodeURIComponent(query)}&limit=20`);
     
-    const products = data.products || [];
+    const products = data.items || data.products || [];
     renderProductGrid(products);
     
   } catch (error) {
