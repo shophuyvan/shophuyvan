@@ -1949,7 +1949,7 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
             id: null, productId: null, videoUrl: null, variants: [], fanpages: []
         },
      
-     nit: function() {
+     init: function() {
             console.log('Wizard Init');
             this.loadWizardProducts();
         },
@@ -2027,7 +2027,6 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         if(inputUrl && inputUrl.parentElement) {
             inputUrl.parentElement.after(uploadDiv);
         }
-    },
     },
 
     // STEP 1: Tải sản phẩm (Đổi tên để tránh trùng với hàm loadProducts bên ngoài)
