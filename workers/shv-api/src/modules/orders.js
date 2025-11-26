@@ -13,6 +13,7 @@ import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, canc
 import { applyVoucher, markVoucherUsed } from './vouchers.js';
 import { saveOrderToD1 } from '../core/order-core.js';
 import { getBaseProduct } from '../core/product-core.js'; // ✅ CORE: Dùng Product Core làm chuẩn
+import { lookupProvinceCode, lookupDistrictCode, chargeableWeightGrams } from './shipping/helpers.js';
 
 // ===================================================================
 // Constants & Helpers
@@ -1163,7 +1164,55 @@ async function upsertOrder(req, env) {
     // Không check cứng shipping_provider ở đây nữa để tránh lỗi logic nếu FE gửi thiếu
     try {
       console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
-          console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
+          
+          // ✅ VALIDATE & ENRICH trước khi tạo vận đơn
+          // 1. Validate province_code
+          if (!order.receiver_province_code && order.shipping_province) {
+            console.log('[ORDER-UPSERT] 🔄 Looking up province code for:', order.shipping_province);
+            order.receiver_province_code = await lookupProvinceCode(env, order.shipping_province);
+          }
+          
+          // 2. Validate district_code
+          if (!order.receiver_district_code && order.shipping_district && order.receiver_province_code) {
+            console.log('[ORDER-UPSERT] 🔄 Looking up district code for:', order.shipping_district);
+            order.receiver_district_code = await lookupDistrictCode(env, order.receiver_province_code, order.shipping_district);
+          }
+          
+          // 3. Fallback: Auto-fill province từ district (HCM: 760-783 → 79)
+          if (!order.receiver_province_code && order.receiver_district_code) {
+            const districtNum = parseInt(order.receiver_district_code);
+            if (districtNum >= 760 && districtNum <= 783) {
+              order.receiver_province_code = '79';
+              console.log('[ORDER-UPSERT] ✅ Auto-filled province_code=79 from district:', order.receiver_district_code);
+            }
+          }
+          
+          // 4. Validate weight
+          if (!order.total_weight_gram || order.total_weight_gram === 0) {
+            order.total_weight_gram = chargeableWeightGrams(order, order);
+            console.log('[ORDER-UPSERT] 📦 Calculated weight:', order.total_weight_gram, 'g');
+          }
+          
+          // 5. Log final data
+          console.log('[ORDER-UPSERT] 📋 Final order data for waybill:', {
+            receiver_province_code: order.receiver_province_code,
+            receiver_district_code: order.receiver_district_code,
+            total_weight_gram: order.total_weight_gram,
+            items_count: order.items?.length || 0
+          });
+          
+          // 6. Validate required fields
+          const missingFields = [];
+          if (!order.receiver_province_code) missingFields.push('receiver_province_code');
+          if (!order.receiver_district_code) missingFields.push('receiver_district_code');
+          if (!order.total_weight_gram || order.total_weight_gram === 0) missingFields.push('total_weight_gram');
+          
+          if (missingFields.length > 0) {
+            console.error('[ORDER-UPSERT] ❌ Missing required fields:', missingFields);
+            throw new Error('Thiếu thông tin: ' + missingFields.join(', '));
+          }
+          
+          console.log('[ORDER-UPSERT] ✅ Validation passed, calling SuperAI...');
           const waybillResult = await autoCreateWaybill(order, env);
 
           if (waybillResult.ok && waybillResult.carrier_code) {

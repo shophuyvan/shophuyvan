@@ -4,6 +4,8 @@
 // về format database nội bộ.
 // ===============================================
 
+import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
+
 // 1. MAP TRẠNG THÁI ĐƠN HÀNG
 // Chuyển đổi trạng thái sàn -> trạng thái nội bộ
 export function mapOrderStatus(channel, status) {
@@ -166,22 +168,88 @@ export function parseLazadaOrder(raw) {
   };
 }
 
-// 4. SAVE ORDER TO D1 (CORE FUNCTION)
-// Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
-export async function saveOrderToD1(env, order) {
-  console.log('[ORDER-CORE] Saving order to D1:', order.order_number || order.id);
+// 3.1. NORMALIZE ORDER ADDRESS - Chuẩn hóa địa chỉ đầy đủ
+async function normalizeOrderAddress(env, order) {
+  // Lấy province_code
+  let provinceCode = order.receiver_province_code || '';
+  if (!provinceCode && order.shipping_province) {
+    provinceCode = await lookupProvinceCode(env, order.shipping_province);
+  }
+  
+  // Lấy district_code
+  let districtCode = order.receiver_district_code || '';
+  if (!districtCode && order.shipping_district && provinceCode) {
+    districtCode = await lookupDistrictCode(env, provinceCode, order.shipping_district);
+  }
+  
+  // Fallback: Auto-fill province từ district (HCM: 760-783 → 79)
+  if (!provinceCode && districtCode) {
+    const districtNum = parseInt(districtCode);
+    if (districtNum >= 760 && districtNum <= 783) {
+      provinceCode = '79';
+    }
+  }
+  
+  return {
+    province_code: provinceCode || '',
+    district_code: districtCode || '',
+    ward_code: order.receiver_ward_code || order.receiver_commune_code || ''
+  };
+}
 
-  // 1. Chuẩn bị dữ liệu Order
-  const orderId = order.id || order.order_number; // ID dạng string/UUID
-  const now = Date.now();
+// 3.2. ENRICH ITEMS WITH WEIGHT - Bổ sung weight cho items từ variants
+async function enrichItemsWeight(env, items) {
+  const enriched = [];
+  
+  for (const item of items) {
+    let weight = Number(item.weight || item.weight_gram || 0);
+    
+    // Nếu item chưa có weight, query từ variants
+    if (weight === 0 && item.variant_id) {
+      try {
+        const variant = await env.DB.prepare(
+          'SELECT weight FROM variants WHERE id = ?'
+        ).bind(item.variant_id).first();
+        
+        if (variant && variant.weight) {
+          weight = Number(variant.weight);
+        }
+      } catch (e) {
+        console.warn('[ORDER-CORE] Failed to get weight for variant:', item.variant_id, e);
+      }
+    }
+    
+    enriched.push({ ...item, weight });
+  }
+  
+  return enriched;
+}
 
-  // Map field từ Object sang SQL Column (Khớp 100% với database.sql)
-  const sqlOrder = `
+  // 4. SAVE ORDER TO D1 (CORE FUNCTION)
+  // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
+  export async function saveOrderToD1(env, order) {
+    console.log('[ORDER-CORE] Saving order to D1:', order.order_number || order.id);
+  
+    // 1. Chuẩn bị dữ liệu Order
+    const orderId = order.id || order.order_number; // ID dạng string/UUID
+    const now = Date.now();
+    
+    // ✅ Normalize địa chỉ (thêm province_code, district_code)
+    const addressCodes = await normalizeOrderAddress(env, order);
+    console.log('[ORDER-CORE] Address codes:', addressCodes);
+    
+    // ✅ Enrich items với weight từ variants
+    const items = await enrichItemsWeight(env, Array.isArray(order.items) ? order.items : []);
+    console.log('[ORDER-CORE] Items with weight:', items.length);
+  
+    // Map field từ Object sang SQL Column (Khớp 100% với database.sql)
+    const sqlOrder = `
     INSERT INTO orders (
       order_number, channel, channel_order_id,
       customer_name, customer_phone, customer_email,
       shipping_name, shipping_phone, shipping_address,
       shipping_district, shipping_city, shipping_province, shipping_zipcode,
+      receiver_province_code, receiver_district_code, receiver_ward_code,
       subtotal, shipping_fee, discount, total, profit,
       seller_transaction_fee, shop_id, shop_name,
       status, payment_status, fulfillment_status, payment_method,
@@ -191,11 +259,12 @@ export async function saveOrderToD1(env, order) {
       commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
       created_at, updated_at
-   ) VALUES (
+  ) VALUES (
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
+      ?, ?, ?,
       ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
@@ -260,8 +329,12 @@ export async function saveOrderToD1(env, order) {
     || ''
   ),
   
+  // ✅ Địa chỉ codes
+  String(addressCodes.province_code),
+  String(addressCodes.district_code),
+  String(addressCodes.ward_code),
   
-    Number(order.subtotal || 0), 
+    Number(order.subtotal || 0),
     Number(order.shipping_fee || 0), 
     Number(order.discount || 0), 
     Number(order.revenue || order.total || 0), // revenue là thực thu, total là tổng
@@ -327,8 +400,7 @@ export async function saveOrderToD1(env, order) {
       env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
     );
 
-    const items = Array.isArray(order.items) ? order.items : [];
-    
+    // ✅ Sử dụng items đã enrich weight
     for (const item of items) {
       statements.push(
         env.DB.prepare(`
@@ -336,8 +408,9 @@ export async function saveOrderToD1(env, order) {
             order_id, product_id, variant_id,
             sku, name, variant_name,
             price, quantity, subtotal, image,
+            weight,
             channel_item_id, channel_model_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           dbOrderId,
           item.product_id || null, 
@@ -349,6 +422,7 @@ export async function saveOrderToD1(env, order) {
           Number(item.qty || item.quantity || 1), 
           Number(item.price || 0) * Number(item.qty || item.quantity || 1), 
           String(item.image || item.img || ''),
+          Number(item.weight || 0),
           String(item.channel_item_id || ''), 
           String(item.channel_model_id || '')
         )
