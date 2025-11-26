@@ -1084,16 +1084,15 @@ async function upsertOrder(req, env) {
   const index = list.findIndex(o => o.id === id);
 
   // Get old order data for status change detection
-  // ✅ FIX: Lấy oldOrder kỹ càng hơn (Ưu tiên từ KV order chi tiết nếu list không có)
   let oldOrder = index >= 0 ? list[index] : null;
   if (!oldOrder) {
     oldOrder = await getJSON(env, 'order:' + id, null);
   }
 
-  const oldStatus = String(oldOrder?.status || 'pending').toLowerCase(); // Mặc định pending nếu không tìm thấy
+  const oldStatus = String(oldOrder?.status || 'pending').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
 
-  // ✅ FIX: Logic xác nhận đơn (Pending/New/Unpaid -> Processing)
+  // ✅ Logic xác nhận đơn: Pending/New/Unpaid -> Processing
   const isConfirming = (
     (oldStatus === 'pending' || oldStatus === 'new' || oldStatus === 'unpaid') && 
     newStatus === 'processing'
@@ -1103,8 +1102,8 @@ async function upsertOrder(req, env) {
 
   // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
   const order = {
-    ...(oldOrder || {}), // ✅ QUAN TRỌNG: Giữ lại thông tin khách hàng, items cũ
-    ...body,             // Ghi đè giá/ship mới từ Admin gửi lên
+    ...(oldOrder || {}), 
+    ...body,             
     id,
     createdAt: (oldOrder && oldOrder.createdAt) ? oldOrder.createdAt : (body.createdAt || Date.now()),
     updated_at: Date.now()
@@ -1129,7 +1128,7 @@ async function upsertOrder(req, env) {
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
 
-  // ✅ MỚI: Đồng bộ ngay lập tức vào D1 để Admin và Khách hàng (My Orders) thấy giá mới
+  // ✅ Đồng bộ D1
   try {
     await saveOrderToD1(env, order);
     console.log('[ORDER-UPSERT] ✅ Synced to D1:', id);
@@ -1137,15 +1136,7 @@ async function upsertOrder(req, env) {
     console.error('[ORDER-UPSERT] ❌ D1 Sync Failed:', e);
   }
 
-  // ✅ FIX: Auto-create waybill when admin confirms order
-  // Thêm log để debug nếu shipping_provider bị thiếu
-  if (isConfirming) {
-    if (order.shipping_provider) {
-        try {
-          console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
-          // ... (phần code bên trên giữ nguyên)
-
-  // ✅ FIX: Auto-create waybill when admin confirms order
+  // ✅ Tự động tạo vận đơn SuperAI khi xác nhận
   if (isConfirming) {
     if (order.shipping_provider) {
         try {
@@ -1153,7 +1144,22 @@ async function upsertOrder(req, env) {
           const waybillResult = await autoCreateWaybill(order, env);
 
           if (waybillResult.ok && waybillResult.carrier_code) {
-            // ... (logic cập nhật đơn hàng thành công) ...
+            // Cập nhật thông tin vận đơn vào order
+            order.tracking_code = waybillResult.carrier_code;
+            order.shipping_tracking = waybillResult.carrier_code;
+            order.superai_code = waybillResult.superai_code;
+            order.carrier_id = waybillResult.carrier_id;
+            order.status = 'processing'; // Giữ trạng thái đang xử lý
+            order.waybill_data = waybillResult.raw;
+
+            // Lưu lại ngay thông tin vận đơn
+            await putJSON(env, 'order:' + id, order);
+            if (index >= 0) list[index] = order;
+            await putJSON(env, 'orders:list', list);
+            
+            // Đồng bộ lại D1
+            await saveOrderToD1(env, order);
+
             console.log('[ORDER-UPSERT] ✅ Đã tạo vận đơn SuperAI:', waybillResult.carrier_code);
           } else {
             console.warn('[ORDER-UPSERT] ⚠️ Tạo vận đơn thất bại:', waybillResult.message);
@@ -1166,14 +1172,7 @@ async function upsertOrder(req, env) {
     }
   }
 
-  // ✅ FIX: Handle voucher usage when order becomes completed
-  if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
-     // ...
-  }
-
-  // ... (các phần code tiếp theo giữ nguyên)
-
-  // ✅ FIX: Handle voucher usage when order becomes completed
+  // ✅ Handle voucher usage when order becomes completed
   if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
     console.log('[ORDER-UPSERT] Marking voucher as used:', order.voucher_code);
     try {
@@ -1183,15 +1182,14 @@ async function upsertOrder(req, env) {
     }
   }
 
-  // ✅ FIX: Add points when order is completed
+  // ✅ Add points when order is completed
   if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED) {
     const tierInfo = await addPointsToCustomer(order.customer, order.revenue, env);
     console.log('[ORDER-UPSERT] Tier update:', tierInfo);
   }
 
   return json({ ok: true, id: order.id, data: order }, {}, req);
-} // <--- THÊM DẤU NÀY VÀO
-
+}
 // ===================================================================
 // ADMIN: Delete Order
 // ===================================================================
