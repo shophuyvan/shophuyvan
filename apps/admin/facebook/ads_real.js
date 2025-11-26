@@ -2282,34 +2282,40 @@ init: function() {
         document.getElementById('wiz-camp-name').value = `Ads Job #${this.jobData.id} - ${new Date().toLocaleDateString('vi-VN')}`;
     },
 
-    // HÀM MỚI: Chỉ lưu vào kho (Pending)
-saveToRepository: async function() {
-    const btn = document.getElementById('wiz-btn-save');
-    const oldText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '⏳ Đang lưu kho...';
+    // HÀM MỚI: Lưu trọn bộ 5 Variants vào kho
+    saveToRepository: async function() {
+        const btn = document.getElementById('wiz-btn-save');
+        const oldText = btn ? btn.innerHTML : 'Lưu';
+        if(btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang lưu 5 versions...'; }
 
-    try {
-        // Gọi API lưu trạng thái pending (scheduledTime = null)
-        const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/save-pending`, {
-            method: 'POST',
-            body: { scheduledTime: null }
-        });
+        try {
+            // Gửi kèm variants để Backend cập nhật nội dung đã sửa
+            const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/save-pending`, {
+                method: 'POST',
+                body: { 
+                    scheduledTime: null,
+                    variants: this.jobData.variants // ✅ Gửi toàn bộ 5 bản nội dung về
+                }
+            });
 
-        if (r.ok) {
-            // Chuyển hướng sang Tab Quản lý Fanpage
-            alert('✅ Đã lưu vào Kho Nội dung! Hãy vào tab "Quản lý Fanpage" để lên lịch.');
-            document.querySelector('.tab[data-tab="fanpage-hub"]').click();
-        } else {
-            alert('Lỗi: ' + r.error);
+            if (r.ok) {
+                if(confirm('✅ Đã lưu thành công 5 phiên bản nội dung!\n\nBạn có muốn chuyển sang tab "Kho Nội dung" để quản lý ngay không?')) {
+                     const hubTab = document.querySelector('.tab[data-tab="fanpage-hub"]');
+                     if(hubTab) hubTab.click();
+                }
+                // Reset về bước 1
+                this.currentStep = 1;
+                this.goToStep(1);
+            } else {
+                alert('⚠️ Lỗi: ' + (r.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('❌ Lỗi hệ thống: ' + e.message);
+            console.error(e);
+        } finally {
+            if(btn) { btn.disabled = false; btn.innerHTML = oldText; }
         }
-    } catch (e) {
-        alert('Lỗi hệ thống: ' + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = oldText;
-    }
-},
+    },
 
     createAds: async function() {
         const name = document.getElementById('wiz-camp-name').value;

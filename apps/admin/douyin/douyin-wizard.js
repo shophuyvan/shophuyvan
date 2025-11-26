@@ -1,142 +1,169 @@
-// File: workers/shv-api/src/modules/social-video-sync/douyin-handler.js
+/* File: apps/admin/douyin/douyin-wizard.js */
 
-import { json } from '../../lib/response.js'; 
+// ==========================================
+// KHÔNG IMPORT BẤT CỨ CÁI GÌ Ở ĐÂY
+// ==========================================
 
-/**
- * Hàm tạo ID ngắn gọn
- */
-function generateId(prefix = 'vid') {
-  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
-
-/**
- * Helper trả về lỗi chuẩn
- * QUAN TRỌNG: Phải truyền req vào tham số thứ 3 của json()
- */
-function errorResponse(req, msg, status = 400) {
-    return json(
-        { ok: false, error: msg }, 
-        { status }, 
-        req // ✅ FIX: Truyền req để lib/response.js tự tạo CORS headers
-    );
-}
-
-/**
- * API: Phân tích Video Douyin (Bước 1)
- * POST /api/douyin/analyze
- */
-export async function analyzeDouyinVideo(req, env) {
-    try {
-        const body = await req.json();
-        const { url, product_id } = body;
-
-        if (!url || (!url.includes('douyin.com') && !url.includes('tiktok.com'))) {
-            return errorResponse(req, 'Vui lòng nhập link Douyin/TikTok hợp lệ', 400);
-        }
-
-        const videoId = generateId('douyin');
-        const now = Date.now();
-
-        // Kiểm tra DB connection
-        if (!env.DB) {
-            throw new Error('Database (env.DB) chưa được kết nối!');
-        }
-
-        const stmt = env.DB.prepare(`
-            INSERT INTO douyin_videos (
-                id, product_id, douyin_url, status, created_at, updated_at
-            ) VALUES (?, ?, ?, 'analyzing', ?, ?)
-        `);
-        
-        await stmt.bind(videoId, product_id || null, url, now, now).run();
-
-        // ✅ FIX: Truyền req vào tham số thứ 3
-        return json({
-            ok: true,      
-            success: true, 
-            data: {
-                video_id: videoId,
-                status: 'analyzing',
-                message: 'Đang phân tích video...'
-            }
-        }, {}, req); 
-
-    } catch (e) {
-        console.error('[Douyin] Analyze Error:', e);
-        return errorResponse(req, 'Lỗi server: ' + e.message, 500);
+// Hàm lấy Token chuẩn xác nhất
+function getAuthToken() {
+    let token = localStorage.getItem('xtoken');
+    if (!token) token = localStorage.getItem('x-token');
+    if (!token) token = localStorage.getItem('admin_token');
+    if (!token) token = sessionStorage.getItem('xtoken');
+    
+    // Nếu hệ thống cũ đã có window.Admin
+    if (!token && window.Admin && typeof window.Admin.token === 'function') {
+        token = window.Admin.token();
     }
+    return token;
 }
 
-/**
- * API: Lấy trạng thái xử lý (Polling)
- * GET /api/douyin/:id
- */
-export async function getDouyinStatus(req, env) {
+// Hàm gọi API trực tiếp
+async function callApi(endpoint, method = 'GET', body = null) {
+    const token = getAuthToken();
+    
+    if (!token) {
+        throw new Error('Không tìm thấy Token. Vui lòng đăng nhập lại Admin.');
+    }
+
+    const apiBase = 'https://api.shophuyvan.vn';
+    const url = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'x-token': token
+    };
+
+    const options = { method, headers };
+    if (body && method !== 'GET') {
+        options.body = JSON.stringify(body);
+    }
+
+    console.log(`📡 API Request: ${method} ${url}`);
+    
+    const res = await fetch(url, options);
+    const data = await res.json();
+    
+    if (!res.ok && !data.ok && !data.success) {
+        throw new Error(data.error || data.message || `Lỗi Server (${res.status})`);
+    }
+
+    return data;
+}
+
+// ==========================================
+// LOGIC UI WIZARD
+// ==========================================
+
+let currentVideoId = null;
+
+// Gán hàm vào window để HTML gọi được
+window.startAnalyze = async function() {
+    const urlInput = document.getElementById('douyin-url');
+    const url = urlInput ? urlInput.value.trim() : '';
+    
+    if (!url) return alert('Vui lòng nhập link Douyin/TikTok!');
+
+    showStep(2);
+    
     try {
-        const url = new URL(req.url);
-        const id = url.pathname.split('/').pop();
+        console.log('🚀 Đang gửi yêu cầu phân tích...');
+        const res = await callApi('/api/douyin/analyze', 'POST', { url });
         
-        if (!env.DB) {
-             throw new Error('Database (env.DB) chưa được kết nối!');
-        }
+        const data = res.data || res;
+        const videoId = data.video_id || (res.success ? res.data?.video_id : null);
 
-        const video = await env.DB.prepare('SELECT * FROM douyin_videos WHERE id = ?').bind(id).first();
-        
-        if (!video) return errorResponse(req, 'Video không tồn tại', 404);
+        if (!videoId) throw new Error('Không nhận được Video ID.');
 
-        // --- MOCK DATA (Giả lập trả về kết quả sau 3s) ---
-        const timeDiff = Date.now() - video.created_at;
+        currentVideoId = videoId;
+        console.log("✅ Video ID:", currentVideoId);
+
+        // Polling trạng thái
+        const loadingStatus = document.getElementById('loading-status');
+        if(loadingStatus) loadingStatus.innerText = "Gemini đang dịch nội dung...";
         
-        if (video.status === 'analyzing' && timeDiff > 3000) {
-            return json({
-                ok: true,
-                success: true,
-                data: {
-                    ...video,
-                    status: 'waiting_approval',
-                    original_cover_url: 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video+Preview',
-                    ai_analysis: {
-                        product_name: "Sản phẩm Demo Douyin",
-                        key_selling_points: ["Hàng nội địa Trung", "Giá rẻ", "Chất lượng cao"],
-                        scripts: [
-                            { 
-                                version: 1, 
-                                style: '🔥 TikTok Trend', 
-                                text: "Mọi người ơi, phát hiện ra một siêu phẩm cực hot..." 
-                            },
-                            { 
-                                version: 2, 
-                                style: '👨‍⚕️ Review Chi Tiết', 
-                                text: "Trên tay mình là sản phẩm đang làm mưa làm gió..." 
-                            },
-                            { 
-                                version: 3, 
-                                style: '💰 Chốt Đơn Gấp', 
-                                text: "Xả kho giá sốc chỉ trong livestream hôm nay..." 
+        let retryCount = 0;
+        const checkStatus = async () => {
+            try {
+                const statusRes = await callApi(`/api/douyin/${currentVideoId}`, 'GET');
+                if (statusRes && statusRes.data) {
+                    const d = statusRes.data;
+                    if (d.status === 'waiting_approval' || (d.ai_analysis && d.ai_analysis.scripts)) {
+                        const scripts = d.ai_analysis?.scripts || [];
+                        if (scripts.length > 0) {
+                            renderScripts(scripts);
+                            if (d.ai_analysis.product_name) {
+                                document.getElementById('product-name').innerText = d.ai_analysis.product_name;
                             }
-                        ]
+                            showStep(3);
+                            return; 
+                        }
                     }
                 }
-            }, {}, req); // ✅ FIX: Truyền req
-        }
-
-        // Parse JSON nếu có
-        let aiAnalysis = null;
-        try {
-            if (video.ai_analysis_json) aiAnalysis = JSON.parse(video.ai_analysis_json);
-        } catch (e) {}
-
-        return json({ 
-            ok: true,
-            success: true, 
-            data: {
-                ...video,
-                ai_analysis: aiAnalysis
+            } catch (err) { console.warn('Polling...', err.message); retryCount++; }
+            
+            if (retryCount > 30) {
+                alert('Quá thời gian chờ. Thử lại sau.');
+                showStep(1);
+                return;
             }
-        }, {}, req); // ✅ FIX: Truyền req
+            setTimeout(checkStatus, 2000);
+        };
+        setTimeout(checkStatus, 2000);
 
     } catch (e) {
-        console.error('[Douyin] Get Status Error:', e);
-        return errorResponse(req, e.message, 500);
+        console.error(e);
+        alert('Lỗi: ' + e.message);
+        showStep(1);
+    }
+};
+
+function renderScripts(scripts) {
+    const container = document.getElementById('script-options');
+    if (!container) return;
+    container.innerHTML = scripts.map((s, idx) => `
+        <div class="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all" 
+             onclick="selectScript(this, \`${(s.text || '').replace(/`/g, "\\`").replace(/"/g, "&quot;")}\`)">
+            <div class="font-bold text-sm text-blue-600 mb-2 flex justify-between">
+                <span>${s.style || 'Kịch bản ' + (idx+1)}</span>
+                <span class="text-xs bg-gray-100 text-gray-500 rounded">v${s.version || idx+1}</span>
+            </div>
+            <div class="text-sm text-gray-700 leading-relaxed">${s.text || ''}</div>
+        </div>
+    `).join('');
+    const firstOption = container.firstElementChild;
+    if (firstOption) selectScript(firstOption, scripts[0].text);
+}
+
+window.selectScript = function(el, text) {
+    document.querySelectorAll('#script-options > div').forEach(div => {
+        div.classList.remove('bg-blue-50', 'border-blue-500', 'ring-1', 'ring-blue-500');
+        div.classList.add('border-gray-200');
+    });
+    if (el) {
+        el.classList.remove('border-gray-200');
+        el.classList.add('bg-blue-50', 'border-blue-500', 'ring-1', 'ring-blue-500');
+    }
+    document.getElementById('final-script').value = text;
+}
+
+window.showStep = function(stepNum) {
+    document.querySelectorAll('.wizard-step').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById(`step-${stepNum}`);
+    if (target) target.classList.remove('hidden');
+    
+    // Update UI Progress bar (giữ nguyên logic cũ của bạn)
+    document.querySelectorAll('[id$="-ind"]').forEach(el => {
+        el.className = "flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-gray-400";
+        const badge = el.querySelector('span');
+        if(badge) badge.className = "w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold";
+    });
+    const activeInd = document.getElementById(`step-${stepNum}-ind`);
+    if (activeInd) {
+        activeInd.className = "flex items-center gap-2 border-b-2 px-4 py-2 step-active text-blue-600 border-blue-600";
+        const badge = activeInd.querySelector('span');
+        if(badge) badge.className = "w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold";
     }
 }
+
+window.goToStep4 = () => alert('Đã chốt kịch bản! Tiếp theo sẽ làm phần TTS...');

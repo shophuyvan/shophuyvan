@@ -956,26 +956,48 @@ async function testAIConnection(req, env) {
      // NEW HANDLERS: SCHEDULER & GROUPS
      // ===================================================================
      
-     async function savePendingAssignments(req, env, jobId) {
-       try {
-         const body = await req.json();
-         const { scheduledTime } = body; // timestamp hoặc null
+     // Cập nhật cả trạng thái Job và Nội dung 5 Variants
+async function savePendingAssignments(req, env, jobId) {
+  try {
+    const body = await req.json();
+    const { scheduledTime, variants } = body; // Lấy thêm variants
+    const now = Date.now();
 
-    // Update job status (Sử dụng 'assigned' vì DB không cho phép 'pending')
+    // 1. Cập nhật nội dung các Variants (nếu có gửi lên)
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      // Dùng transaction hoặc loop update
+      for (const v of variants) {
+        // Chuẩn hóa hashtags thành chuỗi JSON
+        const tagsStr = Array.isArray(v.hashtags) ? JSON.stringify(v.hashtags) : v.hashtags;
+        
+        // Update từng variant theo ID và Job ID
+        await env.DB.prepare(`
+          UPDATE content_variants 
+          SET caption = ?, hashtags = ?, is_edited = 1
+          WHERE id = ? AND job_id = ?
+        `).bind(v.caption, tagsStr, v.id, jobId).run();
+      }
+    }
+
+    // 2. Update job status
     await env.DB.prepare(`
       UPDATE automation_jobs SET status = 'assigned', updated_at = ? WHERE id = ?
-    `).bind(Date.now(), jobId).run();
+    `).bind(now, jobId).run();
 
-    // Update assignments status
-    // Nếu có scheduledTime -> set thời gian, status vẫn là 'pending' chờ Cron quét
+    // 3. Update assignments status (nếu có các lệnh đăng chờ sẵn)
     await env.DB.prepare(`
       UPDATE fanpage_assignments 
       SET status = 'pending', scheduled_time = ?, updated_at = ?
       WHERE job_id = ? AND status = 'pending'
-    `).bind(scheduledTime || null, Date.now(), jobId).run();
+    `).bind(scheduledTime || null, now, jobId).run();
 
-    return json({ ok: true, message: scheduledTime ? 'Đã lên lịch đăng bài!' : 'Đã lưu vào kho chờ đăng!' }, {}, req);
+    return json({ 
+      ok: true, 
+      message: 'Đã lưu thành công 5 phiên bản nội dung vào kho!' 
+    }, {}, req);
+
   } catch (error) {
+    console.error('[savePendingAssignments] Error:', error);
     return errorResponse(error.message, 500, req);
   }
 }
