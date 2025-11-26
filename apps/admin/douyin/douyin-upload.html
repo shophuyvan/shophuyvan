@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Douyin Upload - Shop Huy Vân</title>
+    <link href="/styles.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .step-active { 
+            color: #2563eb; 
+            border-color: #2563eb; 
+            font-weight: 700; 
+        }
+        .step-done { 
+            color: #16a34a; 
+            border-color: #16a34a; 
+        }
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            background: #f8fafc;
+            transition: all 0.3s;
+        }
+        .dropzone.dragover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .file-card {
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .file-card video {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: black;
+        }
+        .progress-bar {
+            height: 4px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s;
+        }
+        .product-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .product-card.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar-container" class="w-64 bg-white shadow-md hidden md:block"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto p-8">
+            <h1 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span class="text-3xl">🎬</span> Douyin Upload & AI Localization
+            </h1>
+
+            <!-- Progress Steps -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center border-b-2 border-gray-200">
+                    <div id="step-1-ind" class="py-2 px-4 border-b-2 border-transparent step-active">1. Chọn SP</div>
+                    <div id="step-2-ind" class="py-2 px-4 border-b-2 border-transparent">2. Upload</div>
+                    <div id="step-3-ind" class="py-2 px-4 border-b-2 border-transparent">3. Xác nhận</div>
+                    <div id="step-4-ind" class="py-2 px-4 border-b-2 border-transparent">4. Phân tích</div>
+                    <div id="step-5-ind" class="py-2 px-4 border-b-2 border-transparent">5. Chọn Script</div>
+                    <div id="step-6-ind" class="py-2 px-4 border-b-2 border-transparent">6. Render</div>
+                </div>
+            </div>
+
+            <!-- STEP 1: Select Product -->
+            <div id="step-1" class="wizard-step max-w-6xl mx-auto">
+                <div class="bg-white p-6 rounded shadow mb-4">
+                    <h2 class="text-xl font-bold mb-4">Bước 1: Chọn sản phẩm</h2>
+                    <div class="flex gap-4 mb-4">
+                        <input 
+                            type="text" 
+                            id="product-search" 
+                            class="flex-1 border p-2 rounded" 
+                            placeholder="Tìm kiếm tên, SKU (VD: K243)..."
+                        >
+                        <button onclick="searchProducts()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                            🔍 Tìm kiếm
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product Grid -->
+                <div id="product-grid" class="grid grid-cols-4 gap-4 mb-4">
+                    <!-- Products will be rendered here -->
+                </div>
+
+                <!-- Selected Product Summary -->
+                <div id="selected-summary" class="hidden bg-blue-50 border border-blue-200 p-4 rounded">
+                    <h3 class="font-bold mb-2">📦 Sản phẩm đã chọn:</h3>
+                    <div class="flex items-center gap-4">
+                        <img id="selected-product-image" src="" class="w-20 h-20 object-cover rounded">
+                        <div>
+                            <p class="font-bold" id="selected-product-name"></p>
+                            <p class="text-sm text-gray-600" id="selected-product-price"></p>
+                        </div>
+                        <button onclick="changeProduct()" class="ml-auto text-blue-600">🔄 Đổi SP</button>
+                    </div>
+                    <button onclick="goToStep2()" class="mt-4 w-full bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700">
+                        Tiếp tục: Upload Video ➡️
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: Upload Videos -->
+            <div id="step-2" class="wizard-step hidden max-w-4xl mx-auto bg-white p-6 rounded shadow">
+                <h2 class="text-xl font-bold mb-4">Bước 2: Upload hoặc nhập link video</h2>
+                
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-4 border-b">
+                    <button id="tab-upload" class="tab-btn px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-bold" onclick="switchTab('upload')">
+                        📤 Upload từ máy
+                    </button>
+                    <button id="tab-link" class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500" onclick="switchTab('link')">
+                        🔗 Nhập link Douyin
+                    </button>
+                </div>
+
+                <!-- Upload Section -->
+                <div id="upload-section" class="tab-content">
+                    <!-- Dropzone -->
+                    <div id="dropzone" class="dropzone p-12 rounded-lg text-center mb-4">
+                        <input type="file" id="file-input" multiple accept="video/mp4,video/mov,video/avi,video/webm" class="hidden">
+                        <label for="file-input" class="cursor-pointer">
+                            <div class="text-6xl mb-4">📹</div>
+                            <p class="text-lg font-medium mb-2">Kéo thả video vào đây hoặc click để chọn</p>
+                            <p class="text-sm text-gray-500">Max 10 videos | Mỗi file ≤ 50MB | Tổng ≤ 500MB</p>
+                            <p class="text-xs text-gray-400 mt-2">Hỗ trợ: MP4, MOV, AVI, WebM</p>
+                        </label>
+                    </div>
+
+                    <!-- File List -->
+                    <div id="uploaded-files" class="grid grid-cols-3 gap-4 mb-4">
+                        <!-- File cards will be rendered here -->
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex justify-between">
+                        <button onclick="clearAllFiles()" class="text-red-600 hover:text-red-700">
+                            ❌ Xóa tất cả
+                        </button>
+                        <button id="upload-btn" onclick="startUpload()" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700" disabled>
+                            📤 Upload (<span id="file-count">0</span> videos)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Link Section -->
+                <div id="link-section" class="tab-content hidden">
+                    <div id="link-inputs" class="space-y-2 mb-4">
+                        <input type="text" class="link-input w-full border p-2 rounded" placeholder="https://v.douyin.com/...">
+                    </div>
+                    <div class="flex justify-between">
+                        <button onclick="addLinkInput()" class="text-blue-600 hover:text-blue-700">
+                            ➕ Thêm link
+                        </button>
+                        <button onclick="submitLinks()" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                            🔗 Phân tích Links
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: Confirm Videos -->
+            <div id="step-3" class="wizard-step hidden max-w-6xl mx-auto">
+                <div class="bg-white p-6 rounded shadow">
+                    <h2 class="text-xl font-bold mb-4">Bước 3: Xác nhận video để phân tích</h2>
+                    <div id="video-review-grid" class="grid grid-cols-3 gap-4 mb-4">
+                        <!-- Video review cards -->
+                    </div>
+                    <button onclick="confirmAnalyze()" class="w-full bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700">
+                        🚀 Bắt đầu phân tích (<span id="selected-video-count">0</span> videos)
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 4: AI Analyzing -->
+            <div id="step-4" class="wizard-step hidden max-w-6xl mx-auto">
+                <div class="bg-white p-6 rounded shadow">
+                    <h2 class="text-xl font-bold mb-4 text-center">🤖 AI đang phân tích video...</h2>
+                    <div id="analyze-progress" class="space-y-4">
+                        <!-- Progress items -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5: Select Scripts (will implement next) -->
+            <div id="step-5" class="wizard-step hidden">
+                <p>Step 5: Script selection UI will be here</p>
+            </div>
+
+            <!-- STEP 6: Render (will implement next) -->
+            <div id="step-6" class="wizard-step hidden">
+                <p>Step 6: Render UI will be here</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="module" src="../sidebar-layout.js"></script>
+    <script src="./douyin-upload.js"></script>
+</body>
+</html>

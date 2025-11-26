@@ -17,6 +17,18 @@ import { createAdsFromJob as createAdsFromJobImpl } from './post-to-ad.js';
 import { fetchGroupsFromFacebook, shareToGroup } from '../facebook/fb-group-manager.js';
 import { publishScheduledPosts } from '../facebook/fb-scheduler-handler.js';
 
+// NEW: Douyin Upload handlers
+import { 
+  uploadDouyinVideos, 
+  getUploadedVideos 
+} from './douyin/upload-handler.js';
+import { 
+  batchAnalyzeVideos, 
+  getBatchStatus 
+} from './douyin/batch-analyzer.js';
+import { renderVideo } from './douyin/render-service.js';
+import { testTTSConnection, AVAILABLE_VOICES } from './douyin/tts-service.js';
+
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -148,6 +160,69 @@ export async function handle(req, env, ctx) {
   // Get all jobs (History/Dashboard)
   if (path === '/api/auto-sync/jobs' && method === 'GET') {
     return listAutomationJobs(req, env);
+  }
+
+  // ============================================================
+  // NEW: DOUYIN UPLOAD ROUTES
+  // ============================================================
+  
+  // Upload videos from computer
+  if (path === '/api/social/douyin/upload' && method === 'POST') {
+    return await uploadDouyinVideos(req, env);
+  }
+
+  // Get uploaded videos by product
+  if (path === '/api/social/douyin/uploads' && method === 'GET') {
+    return await getUploadedVideos(req, env);
+  }
+
+  // Batch analyze videos with AI
+  if (path === '/api/social/douyin/batch-analyze' && method === 'POST') {
+    return await batchAnalyzeVideos(req, env);
+  }
+
+  // Get batch analysis status
+  if (path === '/api/social/douyin/batch-status' && method === 'GET') {
+    return await getBatchStatus(req, env);
+  }
+
+  // Render video with Vietnamese voiceover
+  if (path === '/api/social/douyin/render' && method === 'POST') {
+    return await renderVideo(req, env);
+  }
+
+  // Test TTS connection
+  if (path === '/api/social/douyin/tts-test' && method === 'GET') {
+    const result = await testTTSConnection(env);
+    return json(result, {}, req);
+  }
+
+  // Get available Vietnamese voices
+  if (path === '/api/social/douyin/voices' && method === 'GET') {
+    return json({
+      ok: true,
+      voices: Object.values(AVAILABLE_VOICES)
+    }, {}, req);
+  }
+
+  // Health check for social video sync
+  if (path === '/api/social/health' && method === 'GET') {
+    return json({
+      ok: true,
+      service: 'social-video-sync',
+      version: '2.0',
+      features: [
+        'douyin-upload',
+        'douyin-link',
+        'tiktok-download',
+        'facebook-upload',
+        'ai-content-generation',
+        'batch-processing',
+        'tts-vietnamese',
+        'video-rendering'
+      ],
+      timestamp: new Date().toISOString()
+    }, {}, req);
   }
 
   return errorResponse('Route not found', 404, req);
