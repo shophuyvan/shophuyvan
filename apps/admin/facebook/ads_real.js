@@ -1977,7 +1977,13 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         },
      
         goToStep: function(step) {
-            // UI Switching
+        // Chặn nếu chưa có Job ID (chưa upload xong) mà muốn qua bước 3
+        if (step > 2 && !this.jobData.id) {
+            alert("⚠️ Vui lòng tải video lên hoặc nhập link TikTok và bấm nút 'Tải/Upload' trước!");
+            return;
+        }
+
+        // UI Switching
             document.querySelectorAll('.wiz-content').forEach(el => el.classList.remove('active'));
             document.getElementById(`wiz-step-${step}`).classList.add('active');
             
@@ -2018,8 +2024,9 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
             <div style="font-weight:bold; margin-bottom:10px; color:#666;">HOẶC: Tải video từ máy tính</div>
             <div style="display:flex; gap:10px; align-items:center;">
                 <input type="file" id="wiz-file-upload" accept="video/*" class="input" style="flex:1;">
-                <div style="font-size:12px; color:#999;">Max: 100MB (MP4)</div>
+                <button class="btn primary" onclick="AutoSyncWizard.processVideo()">⬆️ Upload Ngay</button>
             </div>
+            <div style="font-size:12px; color:#999; margin-top:5px;">Max: 100MB (MP4)</div>
         `;
         
         // Chèn vào sau ô nhập link TikTok
@@ -2165,9 +2172,9 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
 
                 // Dùng fetch trực tiếp vì Admin.req thường gửi JSON
                 const token = localStorage.getItem('admin_token') || ''; 
-                const res = await fetch('https://api.shophuyvan.vn/api/auto-sync/jobs/create-upload', {
+                const res = await fetch(API + '/api/auto-sync/jobs/create-upload', {
                     method: 'POST',
-                    headers: { 'x-token': token }, // Thêm auth header nếu cần
+                    headers: { 'x-token': token },
                     body: formData
                 });
                 r = await res.json();
