@@ -195,16 +195,18 @@ function normalizeOrderItems(items) {
 
     // ƯU TIÊN ảnh gửi từ FE/Mini
     const rawImage =
-      it.image ??
-      it.img ??
-      it.thumbnail ??
-      it.variant_image ??
-      it.product_image ??
-      (Array.isArray(it.images) && it.images.length ? it.images[0] : null) ??
-      (it.product && Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0] : null) ??
-      it.product?.image ??
-      it.product?.img ??
-      null;
+  it.image ??
+  it.img ??
+  it.thumbnail ??
+  it.variant_image ??
+  it.product_image ??
+  (Array.isArray(it.images) && it.images.length ? it.images[0] : null) ??
+  (it.product && Array.isArray(it.product.images) && it.product.images.length ? it.product.images[0] : null) ??
+  it.product?.image ??
+  it.product?.img ??
+  (variantFound?.image || null) ??
+  null;
+
 
     return {
       id: it.variant_id ?? it.id ?? it.sku ?? variantSku ?? null,
@@ -315,8 +317,9 @@ async function enrichItemsWithCostAndPrice(items, env) {
   const allProducts = await getJSON(env, 'products:list', []);
 
   for (const item of items) {
-    const variantId = item.id || item.sku;
-    if (!variantId) continue;
+    const variantId = item.variant_id || item.id || item.sku;
+    if (!variantId && !item.sku) continue;
+
 
     let variantFound = null;
     let productFound = null;

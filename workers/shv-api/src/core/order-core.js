@@ -225,13 +225,42 @@ export async function saveOrderToD1(env, order) {
     String(order.customer?.email || order.customer_email || ''),
     
     String(order.shipping_name || order.customer?.name || ''), 
-    String(order.shipping_phone || order.customer?.phone || ''), 
-    String(order.shipping_address || order.address || ''), 
-    String(order.shipping_district || order.district || ''), 
-    String(order.shipping_city || order.city || ''), 
-    String(order.shipping_province || order.province || ''), 
-    String(order.shipping_zipcode || ''),
-
+      String(order.shipping_phone || order.customer?.phone || ''), 
+      String(
+    order.shipping_address 
+    || order.address 
+    || order.customer?.address 
+    || order.shipping?.address 
+    || ''
+  ),
+  String(
+    order.shipping_district 
+    || order.district 
+    || order.customer?.district 
+    || order.shipping?.district 
+    || ''
+  ),
+  String(
+    order.shipping_city 
+    || order.city 
+    || order.customer?.city 
+    || order.shipping?.city 
+    || ''
+  ),
+  String(
+    order.shipping_province 
+    || order.province 
+    || order.customer?.province 
+    || order.shipping?.province 
+    || ''
+  ),
+  String(
+    order.shipping_zipcode 
+    || order.customer?.zipcode 
+    || ''
+  ),
+  
+  
     Number(order.subtotal || 0), 
     Number(order.shipping_fee || 0), 
     Number(order.discount || 0), 
