@@ -1940,61 +1940,64 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     }
   }
   
-  // ============================================================
-// AUTO SYNC WIZARD LOGIC (New Module)
-// ============================================================
-const AutoSyncWizard = {
-    currentStep: 1,
-    jobData: {
-        id: null, productId: null, videoUrl: null, variants: [], fanpages: []
-    },
-
-init: function() {
-        console.log('Wizard Init');
-        this.loadProducts();
-    },
-
-    // HÀM CHECK AI MỚI
-    testAI: async function() {
-        const btn = event.target;
-        const oldText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "⏳ Checking...";
-
-        try {
-            const r = await Admin.req('/api/auto-sync/test-ai', { method: 'GET' });
-            if (r.ok) {
-                alert(`✅ KẾT NỐI THÀNH CÔNG!\n\nGemini phản hồi: "${r.message}"`);
-            } else {
-                alert(`❌ LỖI KẾT NỐI:\n${r.error}`);
+      // ============================================================
+     / AUTO SYNC WIZARD LOGIC (New Module)
+     / ============================================================
+     onst AutoSyncWizard = {
+        currentStep: 1,
+        jobData: {
+            id: null, productId: null, videoUrl: null, variants: [], fanpages: []
+        },
+     
+     nit: function() {
+            console.log('Wizard Init');
+            this.loadWizardProducts();
+        },
+     
+        // HÀM CHECK AI MỚI
+        testAI: async function() {
+            const btn = event.target;
+            const oldText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "⏳ Checking...";
+     
+            try {
+                const r = await Admin.req('/api/auto-sync/test-ai', { method: 'GET' });
+                if (r.ok) {
+                    alert(`✅ KẾT NỐI THÀNH CÔNG!\n\nGemini phản hồi: "${r.message}"`);
+                } else {
+                    alert(`❌ LỖI KẾT NỐI:\n${r.error}`);
+                }
+            } catch (e) {
+                alert('❌ Lỗi hệ thống: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = oldText;
             }
-        } catch (e) {
-            alert('❌ Lỗi hệ thống: ' + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = oldText;
+        },
+     
+        goToStep: function(step) {
+            // UI Switching
+            document.querySelectorAll('.wiz-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`wiz-step-${step}`).classList.add('active');
+            
+            // Indicators
+            for(let i=1; i<=5; i++) {
+                const el = document.getElementById(`wiz-step-${i}-ind`);
+                if(i < step) el.className = 'wizard-step completed';
+                else if(i === step) el.className = 'wizard-step active';
+                else el.className = 'wizard-step';
+            }
+            
+            this.currentStep = step;
+            
+            // Logic Trigger
+        if(step === 2) {
+             // Đảm bảo DOM đã load xong mới render UI
+             setTimeout(() => this.renderUploadUI(), 100); 
         }
-    },
-
-    goToStep: function(step) {
-        // UI Switching
-        document.querySelectorAll('.wiz-content').forEach(el => el.classList.remove('active'));
-        document.getElementById(`wiz-step-${step}`).classList.add('active');
-        
-        // Indicators
-        for(let i=1; i<=5; i++) {
-            const el = document.getElementById(`wiz-step-${i}-ind`);
-            if(i < step) el.className = 'wizard-step completed';
-            else if(i === step) el.className = 'wizard-step active';
-            else el.className = 'wizard-step';
-        }
-        
-        this.currentStep = step;
-        
-        // Logic Trigger
-        if(step === 2) this.renderUploadUI(); // ✅ Chèn giao diện upload khi vào bước 2
         if(step === 3 && this.jobData.variants.length === 0) this.generateVariants();
-        if(step === 4) this.loadFanpages();
+        if(step === 4) this.loadFanpages(); // Đây là hàm loadFanpages của Wizard (Review Content)
     },
 
     // HÀM MỚI: Vẽ giao diện Upload File
@@ -2027,8 +2030,8 @@ init: function() {
     },
     },
 
-    // STEP 1: Tải sản phẩm (Server-side Search & Pagination)
-    loadProducts: async function(keyword = '', page = 1) {
+    // STEP 1: Tải sản phẩm (Đổi tên để tránh trùng với hàm loadProducts bên ngoài)
+    loadWizardProducts: async function(keyword = '', page = 1) {
         const grid = document.getElementById('wiz-product-grid');
         if (!grid) return;
         
@@ -2084,9 +2087,9 @@ init: function() {
         const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
 
         container.innerHTML = `
-            <button class="btn btn-sm" ${prevDisabled} onclick="AutoSyncWizard.loadProducts('${keyword}', ${currentPage - 1})">← Trước</button>
+            <button class="btn btn-sm" ${prevDisabled} onclick="AutoSyncWizard.loadWizardProducts('${keyword}', ${currentPage - 1})">← Trước</button>
             <span style="font-size:13px; color:#666;">Trang ${currentPage} / ${totalPages}</span>
-            <button class="btn btn-sm" ${nextDisabled} onclick="AutoSyncWizard.loadProducts('${keyword}', ${currentPage + 1})">Sau →</button>
+            <button class="btn btn-sm" ${nextDisabled} onclick="AutoSyncWizard.loadWizardProducts('${keyword}', ${currentPage + 1})">Sau →</button>
         `;
     },
 
@@ -2137,7 +2140,7 @@ init: function() {
         document.getElementById('wiz-btn-step1').disabled = false;
     },
 
-    // STEP 2 (Hỗ trợ cả TikTok Link và File Upload)
+    // STEP 2: Xử lý Video (TikTok hoặc Upload Local)
     processVideo: async function() {
         const urlInput = document.getElementById('wiz-tiktokUrl');
         const fileInput = document.getElementById('wiz-file-upload');
@@ -2145,6 +2148,69 @@ init: function() {
         const file = fileInput ? fileInput.files[0] : null;
 
         if(!url && !file) return alert('❌ Vui lòng nhập Link TikTok HOẶC chọn Video từ máy tính!');
+        
+        const btn = document.getElementById('wiz-btn-download');
+        const originalText = btn.innerHTML;
+        btn.disabled = true; 
+        
+        try {
+            let r;
+            
+            if (file) {
+                // CASE 1: Upload File Local
+                btn.innerHTML = '⏳ Đang upload video...';
+                const formData = new FormData();
+                formData.append('productId', this.jobData.productId);
+                formData.append('videoFile', file);
+
+                // Dùng fetch vì Admin.req mặc định gửi JSON
+                const token = localStorage.getItem('admin_token') || ''; 
+                // CHÚ Ý: Đổi đường dẫn API cho đúng với backend bạn đã sửa
+                const res = await fetch('https://api.shophuyvan.vn/api/auto-sync/jobs/create-upload', {
+                    method: 'POST',
+                    headers: { 'x-token': token }, 
+                    body: formData
+                });
+                r = await res.json();
+            } else {
+                // CASE 2: TikTok URL
+                btn.innerHTML = '⏳ Đang tải từ TikTok...';
+                r = await Admin.req('/api/auto-sync/jobs/create', {
+                    method: 'POST',
+                    body: { productId: this.jobData.productId, tiktokUrl: url }
+                });
+            }
+            
+            if(r.ok) {
+                this.jobData.id = r.jobId;
+                this.jobData.videoUrl = r.videoUrl;
+                
+                // Show preview player
+                const vid = document.getElementById('wiz-player');
+                if(vid) vid.src = r.videoUrl;
+                
+                const previewDiv = document.getElementById('wiz-video-preview');
+                if(previewDiv) previewDiv.style.display = 'block';
+                
+                // Enable nút Next
+                const nextBtn = document.getElementById('wiz-btn-step2');
+                if(nextBtn) nextBtn.disabled = false;
+                
+                // Khóa input lại
+                if(urlInput) urlInput.disabled = true;
+                if(fileInput) fileInput.disabled = true;
+
+            } else { 
+                alert('❌ Lỗi: ' + (r.error || 'Không xác định')); 
+            }
+        } catch(e) { 
+            alert('❌ Lỗi hệ thống: ' + e.message); 
+            console.error(e);
+        } finally { 
+            btn.disabled = false; 
+            btn.innerHTML = originalText; 
+        }
+    },
         
         const btn = document.getElementById('wiz-btn-download');
         const originalText = btn.innerHTML;
