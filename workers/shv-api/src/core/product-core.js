@@ -23,7 +23,7 @@ export async function getBaseProduct(env, productId) {
         'stock', v.stock,
         'image', v.image,
         'weight', v.weight,
-        'cost', v.cost  // ✅ Bổ sung giá vốn để tính lợi nhuận (Profit)
+        'cost', v.cost 
       ))
       FROM variants v
       WHERE v.product_id = p.id
