@@ -166,9 +166,14 @@ if (path === '/api/social-sync/history' && method === 'GET') {
     return listAutomationJobs(req, env);
   }
 
+  // Route: Product Search (Fix 404 & JSON Error in Douyin UI)
+  // Logic tương tự loadWizardProducts trong ads_real.js
+  if ((path === '/api/social/douyin/products' || path === '/api/products') && method === 'GET') {
+    return searchProducts(req, env);
+  }
+
   // ============================================================
   // NEW: DOUYIN UPLOAD ROUTES
-  // ============================================================
   
   // Upload videos from computer
   if (path === '/api/social/douyin/upload' && method === 'POST') {
@@ -1230,7 +1235,7 @@ async function handleShareToGroup(req, env, assignId) {
     const result = await shareToGroup(groupId, assign.post_url, message || '', tokenData.access_token);
 
     // Log kết quả
-    await env.DB.prepare(`
+   await env.DB.prepare(`
       INSERT INTO group_shares (assignment_id, group_id, status, share_post_id, created_at, shared_at)
       VALUES (?, ?, 'shared', ?, ?, ?)
     `).bind(assignId, groupId, result.postId, Date.now(), Date.now()).run();
@@ -1242,7 +1247,7 @@ async function handleShareToGroup(req, env, assignId) {
 }
 
 // ===================================================================
-// HELPER: Search Products (For UI Selection)
+// HELPER: Search Products (Adapted from ads_real.js logic)
 // ===================================================================
 
 async function searchProducts(req, env) {
@@ -1251,6 +1256,7 @@ async function searchProducts(req, env) {
     const search = url.searchParams.get('search') || '';
     const limit = parseInt(url.searchParams.get('limit') || '20');
 
+    // Query lấy sản phẩm + giá từ bảng variants (Logic chuẩn từ hệ thống)
     let query = `
       SELECT p.id, p.title, p.images, p.sku, v.price, v.price_sale
       FROM products p
@@ -1264,24 +1270,38 @@ async function searchProducts(req, env) {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    // Group by product ID to avoid duplicates from variants, pick first variant price
+    // Group để tránh lặp variants
     query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ?`;
     params.push(limit);
 
     const { results } = await env.DB.prepare(query).bind(...params).all();
 
-    // Format lại dữ liệu cho giống cấu trúc UI mong đợi
-    const products = results.map(p => ({
-      id: p.id,
-      title: p.title,
-      sku: p.sku,
-      price: p.price_sale || p.price || 0,
-      image: p.images ? JSON.parse(p.images)[0] : null
-    }));
+    // Format dữ liệu JSON an toàn để Frontend không bị lỗi Unexpected token
+    const products = results.map(p => {
+      // Logic xử lý ảnh giống ads_real.js
+      let image = null;
+      try {
+        if (p.images) {
+           const parsed = typeof p.images === 'string' ? JSON.parse(p.images) : p.images;
+           if (Array.isArray(parsed) && parsed.length > 0) image = parsed[0];
+        }
+      } catch (e) {
+        image = null; // Fallback an toàn
+      }
+
+      return {
+        id: p.id,
+        title: p.title,
+        sku: p.sku,
+        // Ưu tiên giá sale nếu có
+        price: p.price_sale || p.price || 0,
+        image: image || '/placeholder.jpg'
+      };
+    });
 
     return json({
       ok: true,
-      data: products // UI Douyin Upload dùng field 'data'
+      data: products // Trả về data chuẩn JSON
     }, {}, req);
 
   } catch (error) {
