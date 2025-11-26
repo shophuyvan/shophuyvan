@@ -616,9 +616,10 @@ class OrdersManager {
     Admin.toast('⏳ Đang xác nhận đơn hàng...');
 
     try {
+      // ✅ FIX: Dùng 'processing' (Chờ lấy hàng) để khớp với Constraint của Database
       const updatedOrder = {
         ...order,
-        status: 'confirmed'
+        status: 'processing' 
       };
 
       const res = await Admin.req('/admin/orders/upsert', {
@@ -1173,7 +1174,7 @@ class OrdersManager {
           method: 'POST',
           body: {
             id: order.id,
-            status: 'confirmed'
+            status: 'processing' // ✅ FIX: Đồng bộ trạng thái xử lý hàng loạt
           }
         });
 

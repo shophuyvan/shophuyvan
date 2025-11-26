@@ -1079,8 +1079,8 @@ async function upsertOrder(req, env) {
   const oldStatus = String(oldOrder?.status || '').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
 
-  // ✅ FIX: Khi admin chuyển PENDING → CONFIRMED, tự động tạo vận đơn
-  const isConfirming = (oldStatus === 'pending' && newStatus === 'confirmed');
+  // ✅ FIX: Khi chuyển từ PENDING → PROCESSING, tự động tạo vận đơn
+  const isConfirming = (oldStatus === 'pending' && newStatus === 'processing');
 
   // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
   const order = {
