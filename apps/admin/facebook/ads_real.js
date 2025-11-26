@@ -1943,7 +1943,7 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
       // ============================================================
      / AUTO SYNC WIZARD LOGIC (New Module)
      / ============================================================
-     onst AutoSyncWizard = {
+     const AutoSyncWizard = {
         currentStep: 1,
         jobData: {
             id: null, productId: null, videoUrl: null, variants: [], fanpages: []
@@ -2148,69 +2148,6 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         const file = fileInput ? fileInput.files[0] : null;
 
         if(!url && !file) return alert('❌ Vui lòng nhập Link TikTok HOẶC chọn Video từ máy tính!');
-        
-        const btn = document.getElementById('wiz-btn-download');
-        const originalText = btn.innerHTML;
-        btn.disabled = true; 
-        
-        try {
-            let r;
-            
-            if (file) {
-                // CASE 1: Upload File Local
-                btn.innerHTML = '⏳ Đang upload video...';
-                const formData = new FormData();
-                formData.append('productId', this.jobData.productId);
-                formData.append('videoFile', file);
-
-                // Dùng fetch vì Admin.req mặc định gửi JSON
-                const token = localStorage.getItem('admin_token') || ''; 
-                // CHÚ Ý: Đổi đường dẫn API cho đúng với backend bạn đã sửa
-                const res = await fetch('https://api.shophuyvan.vn/api/auto-sync/jobs/create-upload', {
-                    method: 'POST',
-                    headers: { 'x-token': token }, 
-                    body: formData
-                });
-                r = await res.json();
-            } else {
-                // CASE 2: TikTok URL
-                btn.innerHTML = '⏳ Đang tải từ TikTok...';
-                r = await Admin.req('/api/auto-sync/jobs/create', {
-                    method: 'POST',
-                    body: { productId: this.jobData.productId, tiktokUrl: url }
-                });
-            }
-            
-            if(r.ok) {
-                this.jobData.id = r.jobId;
-                this.jobData.videoUrl = r.videoUrl;
-                
-                // Show preview player
-                const vid = document.getElementById('wiz-player');
-                if(vid) vid.src = r.videoUrl;
-                
-                const previewDiv = document.getElementById('wiz-video-preview');
-                if(previewDiv) previewDiv.style.display = 'block';
-                
-                // Enable nút Next
-                const nextBtn = document.getElementById('wiz-btn-step2');
-                if(nextBtn) nextBtn.disabled = false;
-                
-                // Khóa input lại
-                if(urlInput) urlInput.disabled = true;
-                if(fileInput) fileInput.disabled = true;
-
-            } else { 
-                alert('❌ Lỗi: ' + (r.error || 'Không xác định')); 
-            }
-        } catch(e) { 
-            alert('❌ Lỗi hệ thống: ' + e.message); 
-            console.error(e);
-        } finally { 
-            btn.disabled = false; 
-            btn.innerHTML = originalText; 
-        }
-    },
         
         const btn = document.getElementById('wiz-btn-download');
         const originalText = btn.innerHTML;
