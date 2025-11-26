@@ -1992,8 +1992,39 @@ init: function() {
         this.currentStep = step;
         
         // Logic Trigger
+        if(step === 2) this.renderUploadUI(); // ✅ Chèn giao diện upload khi vào bước 2
         if(step === 3 && this.jobData.variants.length === 0) this.generateVariants();
         if(step === 4) this.loadFanpages();
+    },
+
+    // HÀM MỚI: Vẽ giao diện Upload File
+    renderUploadUI: function() {
+        const container = document.querySelector('#wiz-step-2 .card-body') || document.querySelector('#wiz-step-2');
+        if(!container) return;
+
+        // Kiểm tra nếu đã chèn rồi thì thôi
+        if(document.getElementById('wiz-upload-container')) return;
+
+        // Tạo vùng upload
+        const uploadDiv = document.createElement('div');
+        uploadDiv.id = 'wiz-upload-container';
+        uploadDiv.style.marginTop = '20px';
+        uploadDiv.style.paddingTop = '20px';
+        uploadDiv.style.borderTop = '1px dashed #eee';
+        uploadDiv.innerHTML = `
+            <div style="font-weight:bold; margin-bottom:10px; color:#666;">HOẶC: Tải video từ máy tính</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="file" id="wiz-file-upload" accept="video/*" class="input" style="flex:1;">
+                <div style="font-size:12px; color:#999;">Max: 100MB (MP4)</div>
+            </div>
+        `;
+        
+        // Chèn vào sau ô nhập link TikTok
+        const inputUrl = document.getElementById('wiz-tiktokUrl');
+        if(inputUrl && inputUrl.parentElement) {
+            inputUrl.parentElement.after(uploadDiv);
+        }
+    },
     },
 
     // STEP 1: Tải sản phẩm (Server-side Search & Pagination)
@@ -2106,31 +2137,74 @@ init: function() {
         document.getElementById('wiz-btn-step1').disabled = false;
     },
 
-    // STEP 2
+    // STEP 2 (Hỗ trợ cả TikTok Link và File Upload)
     processVideo: async function() {
-        const url = document.getElementById('wiz-tiktokUrl').value;
-        if(!url) return alert('Nhập link TikTok!');
+        const urlInput = document.getElementById('wiz-tiktokUrl');
+        const fileInput = document.getElementById('wiz-file-upload');
+        const url = urlInput ? urlInput.value.trim() : '';
+        const file = fileInput ? fileInput.files[0] : null;
+
+        if(!url && !file) return alert('❌ Vui lòng nhập Link TikTok HOẶC chọn Video từ máy tính!');
         
         const btn = document.getElementById('wiz-btn-download');
-        btn.disabled = true; btn.innerHTML = '⏳ Đang xử lý...';
+        const originalText = btn.innerHTML;
+        btn.disabled = true; 
+        btn.innerHTML = '⏳ Đang xử lý...';
         
         try {
-            const r = await Admin.req('/api/auto-sync/jobs/create', {
-                method: 'POST',
-                body: { productId: this.jobData.productId, tiktokUrl: url }
-            });
+            let r;
+            
+            if (file) {
+                // CASE 1: Upload File
+                btn.innerHTML = '⏳ Đang upload video (Vui lòng chờ)...';
+                const formData = new FormData();
+                formData.append('productId', this.jobData.productId);
+                formData.append('videoFile', file);
+
+                // Dùng fetch trực tiếp vì Admin.req thường gửi JSON
+                const token = localStorage.getItem('admin_token') || ''; 
+                const res = await fetch('https://api.shophuyvan.vn/api/auto-sync/jobs/create-upload', {
+                    method: 'POST',
+                    headers: { 'x-token': token }, // Thêm auth header nếu cần
+                    body: formData
+                });
+                r = await res.json();
+            } else {
+                // CASE 2: TikTok URL
+                btn.innerHTML = '⏳ Đang tải từ TikTok...';
+                r = await Admin.req('/api/auto-sync/jobs/create', {
+                    method: 'POST',
+                    body: { productId: this.jobData.productId, tiktokUrl: url }
+                });
+            }
             
             if(r.ok) {
                 this.jobData.id = r.jobId;
                 this.jobData.videoUrl = r.videoUrl;
                 
+                // Show preview
                 const vid = document.getElementById('wiz-player');
-                vid.src = r.videoUrl;
-                document.getElementById('wiz-video-preview').style.display = 'block';
-                document.getElementById('wiz-btn-step2').disabled = false;
-            } else { alert(r.error); }
-        } catch(e) { alert(e.message); }
-        finally { btn.disabled = false; btn.innerHTML = '⬇️ Tải & Phân tích'; }
+                if(vid) vid.src = r.videoUrl;
+                
+                const previewDiv = document.getElementById('wiz-video-preview');
+                if(previewDiv) previewDiv.style.display = 'block';
+                
+                const nextBtn = document.getElementById('wiz-btn-step2');
+                if(nextBtn) nextBtn.disabled = false;
+                
+                // Ẩn inputs để tránh sửa
+                if(urlInput) urlInput.disabled = true;
+                if(fileInput) fileInput.disabled = true;
+
+            } else { 
+                alert('❌ Lỗi: ' + (r.error || 'Không xác định')); 
+            }
+        } catch(e) { 
+            alert('❌ Lỗi hệ thống: ' + e.message); 
+        } finally { 
+            btn.disabled = false; 
+            btn.innerHTML = originalText; 
+        }
     },
 
     // STEP 3

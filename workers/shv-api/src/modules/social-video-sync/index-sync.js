@@ -51,9 +51,14 @@ export async function handle(req, env, ctx) {
   // NEW ROUTES - Auto Video Sync Workflow (5 bước)
   // ============================================================
   
-  // STEP 1 & 2: Create Job + Download Video
+  // STEP 1 & 2: Create Job + Download Video (TikTok URL)
   if (path === '/api/auto-sync/jobs/create' && method === 'POST') {
     return createAutomationJob(req, env);
+  }
+
+  // STEP 1 & 2: Create Job + Upload Video (File từ máy tính)
+  if (path === '/api/auto-sync/jobs/create-upload' && method === 'POST') {
+    return createJobFromUpload(req, env);
   }
 
   // Get job detail
@@ -894,6 +899,88 @@ async function listAutomationJobs(req, env) {
     return json({ ok: true, jobs: results, total: results.length }, {}, req);
 
   } catch (error) {
+    return errorResponse(error.message, 500, req);
+  }
+}
+
+// ===================================================================
+// NEW WORKFLOW - Create Job from File Upload
+// ===================================================================
+
+async function createJobFromUpload(req, env) {
+  try {
+    const formData = await req.formData();
+    const productId = formData.get('productId');
+    const file = formData.get('videoFile');
+
+    if (!productId || !file) {
+      return json({ ok: false, error: 'Thiếu sản phẩm hoặc file video' }, { status: 400 }, req);
+    }
+
+    const now = Date.now();
+
+    // 1. Lấy thông tin sản phẩm
+    const product = await env.DB.prepare(`
+      SELECT id, title, slug, shortDesc, images, category_slug
+      FROM products WHERE id = ?
+    `).bind(productId).first();
+
+    if (!product) return json({ ok: false, error: 'Product not found' }, { status: 404 }, req);
+
+    const variant = await env.DB.prepare(`
+      SELECT price, price_sale FROM variants 
+      WHERE product_id = ? AND status = 'active'
+      ORDER BY id LIMIT 1
+    `).bind(productId).first();
+    const productPrice = variant?.price_sale || variant?.price || 0;
+    const productUrl = `https://shophuyvan.vn/san-pham/${product.slug}`;
+    const productImage = product.images ? JSON.parse(product.images)[0] : null;
+
+    // 2. Upload Video lên R2
+    const fileName = `upload_${now}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+    const r2Path = `videos/${fileName}`;
+    
+    // Upload stream lên R2
+    await env.R2.put(r2Path, file.stream(), {
+      httpMetadata: { contentType: file.type }
+    });
+
+    const r2Url = `${env.R2_PUBLIC_URL}/${r2Path}`;
+
+    // 3. Tạo Job
+    const jobResult = await env.DB.prepare(`
+      INSERT INTO automation_jobs
+      (product_id, product_name, product_slug, product_url, product_price, product_image,
+       tiktok_url, video_r2_path, video_r2_url, video_file_size,
+       status, current_step, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'video_uploaded', 2, ?, ?)
+    `).bind(
+      productId,
+      product.title,
+      product.slug,
+      productUrl,
+      productPrice,
+      productImage,
+      'local_upload', // Đánh dấu là upload local
+      r2Path,
+      r2Url,
+      file.size,
+      now,
+      now
+    ).run();
+
+    return json({
+      ok: true,
+      jobId: jobResult.meta.last_row_id,
+      status: 'video_uploaded',
+      currentStep: 2,
+      videoUrl: r2Url,
+      fileSize: file.size,
+      product: { id: product.id, name: product.title }
+    }, {}, req);
+
+  } catch (error) {
+    console.error('[Auto Sync] Upload error:', error);
     return errorResponse(error.message, 500, req);
   }
 }

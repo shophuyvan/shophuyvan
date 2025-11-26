@@ -41,10 +41,25 @@ async function callApi(endpoint, method = 'GET', body = null) {
 
     console.log(`📡 API Request: ${method} ${url}`);
     
-    const res = await fetch(url, options);
-    const data = await res.json();
+    let res;
+    try {
+        res = await fetch(url, options);
+    } catch (netErr) {
+        // Bắt lỗi khi mạng rớt hoặc Server sập 500 không trả CORS
+        console.error("Fetch Error:", netErr);
+        throw new Error("Không thể kết nối Server (Lỗi CORS hoặc Server 500).");
+    }
+
+    let data;
+    try {
+        // Thử đọc JSON (nếu Server trả về HTML lỗi thì sẽ nhảy xuống catch)
+        data = await res.json();
+    } catch (jsonErr) {
+        throw new Error(`Lỗi Server (${res.status}): Phản hồi không phải JSON (Có thể lỗi code 500).`);
+    }
     
-    if (!res.ok && !data.ok && !data.success) {
+    // Kiểm tra logic lỗi từ API trả về
+    if (!res.ok || (data && !data.ok && !data.success)) {
         throw new Error(data.error || data.message || `Lỗi Server (${res.status})`);
     }
 
