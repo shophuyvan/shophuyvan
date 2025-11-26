@@ -21,13 +21,13 @@ import { publishScheduledPosts } from '../facebook/fb-scheduler-handler.js';
 import { 
   uploadDouyinVideos, 
   getUploadedVideos 
-} from './douyin/upload-handler.js';
+} from './douyin/douyin-upload-handler.js';
 import { 
   batchAnalyzeVideos, 
   getBatchStatus 
-} from './douyin/batch-analyzer.js';
-import { renderVideo } from './douyin/render-service.js';
-import { testTTSConnection, AVAILABLE_VOICES } from './douyin/tts-service.js';
+} from './douyin/douyin-batch-analyzer.js';
+import { renderVideo } from './douyin/douyin-render-service.js';
+import { testTTSConnection, AVAILABLE_VOICES } from './douyin/douyin-tts-service.js';
 
 export async function handle(req, env, ctx) {
   const url = new URL(req.url);
