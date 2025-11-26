@@ -419,7 +419,7 @@ export async function handle(req, env, ctx) {
 
   // PUBLIC
   if (path === '/api/orders' && method === 'POST') return createOrder(req, env, ctx); // ✅ Truyền ctx vào
-  if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env);
+  if (path === '/public/orders/create' && method === 'POST') return createOrderPublic(req, env, ctx); // ✅ Truyền ctx
   if (path === '/public/order-create' && method === 'POST') return createOrderLegacy(req, env);
   if (path === '/orders/my' && method === 'GET') return getMyOrders(req, env);
   if (path === '/orders/cancel' && method === 'POST') return cancelOrderCustomer(req, env);
@@ -692,19 +692,23 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
 
   // [NEW] 🚀 SAVE TO D1 DATABASE (CORE)
   try {
-    console.log('[ORDER] Saving to D1 Database...');
     const d1Result = await saveOrderToD1(env, order);
     if (!d1Result.ok) {
-      console.error('[ORDER] ❌ Failed to save to D1:', d1Result.error);
+      console.error('[ORDER-PUBLIC] Failed to save to D1:', d1Result.error);
     } else {
-      console.log('[ORDER] ✅ Saved to D1 successfully. ID:', d1Result.id);
+      console.log('[ORDER-PUBLIC] Saved to D1 ID:', d1Result.id);
       
-      // ✅ GỬI THÔNG BÁO TELEGRAM NGAY LẬP TỨC
-      // (Chỉ gửi khi lưu DB thành công)
-      sendOrderNotification(order, env, ctx);
+      // ✅ FIX: GỬI THÔNG BÁO TELEGRAM NGAY LẬP TỨC
+      // (Dùng ctx.waitUntil để không làm chậm phản hồi cho khách)
+      if (typeof ctx !== 'undefined' && ctx.waitUntil) {
+         ctx.waitUntil(sendOrderNotification(order, env, ctx));
+      } else {
+         // Fallback nếu không có ctx
+         sendOrderNotification(order, env, null);
+      }
     }
-  } catch (e) {
-    console.error('[ORDER] ❌ Exception saving to D1:', e);
+  } catch (e) { 
+    console.error('[ORDER-PUBLIC] Exception D1:', e); 
   }
 
   // [NEW] 🔥 BẮN ĐƠN SANG FACEBOOK CAPI (SERVER-SIDE)
@@ -732,7 +736,7 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
 // PUBLIC: Create Order (Alternative Endpoint)
 // ===================================================================
 
-async function createOrderPublic(req, env) {
+async function createOrderPublic(req, env, ctx) { // ✅ Nhận ctx
   const idem = await idemGet(req, env);
   if (idem.hit) return new Response(idem.body, { status: 200, headers: corsHeaders(req) });
 
@@ -802,8 +806,11 @@ async function createOrderPublic(req, env) {
       console.log('[ORDER-PUBLIC] Saved to D1 ID:', d1Result.id);
       
       // ✅ FIX: GỬI THÔNG BÁO TELEGRAM KHI KHÁCH ĐẶT HÀNG
-      // (Thêm dòng này để điện thoại ting ting ngay lập tức)
-      ctx.waitUntil(sendOrderNotification(order, env, null));
+      if (ctx && ctx.waitUntil) {
+        ctx.waitUntil(sendOrderNotification(order, env, ctx));
+      } else {
+        sendOrderNotification(order, env, null);
+      }
     }
   } catch (e) { 
     console.error('[ORDER-PUBLIC] Exception D1:', e); 
@@ -998,19 +1005,19 @@ async function listOrdersFromD1(req, env) {
         });
       }
       
-      // Add item to order (if exists)
-      if (row.variant_id) {
+      // ✅ FIX: Thêm item vào đơn (Chấp nhận cả item thiếu ID để không bị mất dòng)
+      if (row.variant_id || row.sku || row.product_id || row.item_name) {
         const order = ordersMap.get(orderId);
         order.items.push({
-          id: row.variant_id,
+          id: row.variant_id || row.sku || 'unknown',
           product_id: row.product_id,
-          sku: row.sku,
-          name: row.item_name,
+          sku: row.sku || '',
+          name: row.item_name || 'Sản phẩm',
           variant: row.variant_name || '',
-          price: row.price,
-          qty: row.quantity,
-          subtotal: row.item_subtotal,
-          image: row.image || null, // ✅ Image từ DB (đã có sau migration)
+          price: row.price || 0,
+          qty: row.quantity || 1,
+          subtotal: row.item_subtotal || 0,
+          image: row.image || null, // Nếu null sẽ được enrich ở bước sau
           // Shopee mapping
           shopee_item_id: row.channel_item_id,
           shopee_model_id: row.channel_model_id
@@ -1019,8 +1026,22 @@ async function listOrdersFromD1(req, env) {
     }
 
     const ordersWithItems = Array.from(ordersMap.values());
-    console.log('[ORDERS-D1] ✅ Loaded', ordersWithItems.length, 'orders with items in 1 query (30-50x faster)');
 
+    // ✅ FIX QUAN TRỌNG: Tự động tìm ảnh cho các đơn bị thiếu ảnh (Self-Healing)
+    if (ordersWithItems.length > 0) {
+      const tasks = ordersWithItems.map(async (order) => {
+        if (order.items && order.items.length > 0) {
+          const missingImage = order.items.some(i => !i.image);
+          if (missingImage) {
+            await enrichItemsWithCostAndPrice(order.items, env);
+          }
+        }
+      });
+      // Chạy song song nhưng chờ kết quả để trả về ảnh ngay lập tức
+      await Promise.all(tasks);
+    }
+
+    console.log('[ORDERS-D1] ✅ Loaded', ordersWithItems.length, 'orders');
     return json({ ok: true, items: ordersWithItems }, {}, req);
 
   } catch (error) {
@@ -1092,10 +1113,11 @@ async function upsertOrder(req, env) {
   const oldStatus = String(oldOrder?.status || 'pending').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
 
-  // ✅ Logic xác nhận đơn: Pending/New/Unpaid -> Processing
+  // ✅ FIX: Logic xác nhận đơn (Đơn giản hóa để tránh lỗi)
+  // Kích hoạt khi: Trạng thái là 'processing' VÀ (Chưa có mã vận đơn HOẶC Mã bị hủy/lỗi/rỗng)
   const isConfirming = (
-    (oldStatus === 'pending' || oldStatus === 'new' || oldStatus === 'unpaid') && 
-    newStatus === 'processing'
+    newStatus === 'processing' && 
+    (!oldOrder.tracking_code || oldOrder.tracking_code === 'CANCELLED' || oldOrder.tracking_code === '')
   );
   
   console.log(`[ORDER-UPSERT] Status change: ${oldStatus} -> ${newStatus}. isConfirming=${isConfirming}`);
@@ -1136,10 +1158,11 @@ async function upsertOrder(req, env) {
     console.error('[ORDER-UPSERT] ❌ D1 Sync Failed:', e);
   }
 
-  // ✅ Tự động tạo vận đơn SuperAI khi xác nhận
+ // ✅ Tự động tạo vận đơn SuperAI khi xác nhận
   if (isConfirming) {
-    if (order.shipping_provider) {
-        try {
+    // Không check cứng shipping_provider ở đây nữa để tránh lỗi logic nếu FE gửi thiếu
+    try {
+      console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
           console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
           const waybillResult = await autoCreateWaybill(order, env);
 
