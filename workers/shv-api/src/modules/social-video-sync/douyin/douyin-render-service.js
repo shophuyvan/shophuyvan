@@ -5,7 +5,7 @@
  */
 
 import { json } from '../../../lib/response.js';
-import { generateVietnameseVoiceover } from './tts-service.js';
+import { generateVietnameseVoiceover } from './douyin-tts-service.js';
 
 /**
  * API: Render Video with Voiceover
