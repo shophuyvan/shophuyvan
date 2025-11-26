@@ -1190,7 +1190,7 @@ async function upsertOrder(req, env) {
   }
 
   return json({ ok: true, id: order.id, data: order }, {}, req);
-}
+} // <--- THÊM DẤU NÀY VÀO
 
 // ===================================================================
 // ADMIN: Delete Order
