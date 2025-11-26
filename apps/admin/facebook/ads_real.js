@@ -1941,8 +1941,8 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
   }
   
       // ============================================================
-     / AUTO SYNC WIZARD LOGIC (New Module)
-     / ============================================================
+    // AUTO SYNC WIZARD LOGIC (New Module)
+    // ============================================================
      const AutoSyncWizard = {
         currentStep: 1,
         jobData: {
@@ -2418,14 +2418,14 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     }
 };
 
-// Export to global
-window.AutoSyncWizard = AutoSyncWizard;
-
- // ============================================================
-  // EXPORT PUBLIC API
-  // ============================================================
-
-  window.FacebookAds = {
+    // Export to global
+    window.AutoSyncWizard = AutoSyncWizard;
+    
+     // ============================================================
+      // EXPORT PUBLIC API
+      // ============================================================
+    
+      window.FacebookAds = {
     syncFanpages,
     _initialized: false,
     init: function() {
