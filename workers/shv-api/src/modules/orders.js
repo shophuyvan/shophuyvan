@@ -1190,9 +1190,6 @@ async function upsertOrder(req, env) {
         } catch (e) {
           console.error('[ORDER-UPSERT] ❌ Lỗi code tạo vận đơn:', e.message);
         }
-    } else {
-        console.warn('[ORDER-UPSERT] ⚠️ Không thể tạo vận đơn: Đơn hàng thiếu shipping_provider (NVC)');
-    }
   }
 
   // ✅ Handle voucher usage when order becomes completed
