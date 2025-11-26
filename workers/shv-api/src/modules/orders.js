@@ -1143,24 +1143,17 @@ async function upsertOrder(req, env) {
     if (order.shipping_provider) {
         try {
           console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
+          // ... (phần code bên trên giữ nguyên)
+
+  // ✅ FIX: Auto-create waybill when admin confirms order
+  if (isConfirming) {
+    if (order.shipping_provider) {
+        try {
+          console.log('[ORDER-UPSERT] 🟢 Admin xác nhận đơn, đang gọi SuperAI tạo vận đơn...');
           const waybillResult = await autoCreateWaybill(order, env);
 
           if (waybillResult.ok && waybillResult.carrier_code) {
-            order.tracking_code = waybillResult.carrier_code;
-            order.shipping_tracking = waybillResult.carrier_code;
-            order.superai_code = waybillResult.superai_code;
-            order.carrier_id = waybillResult.carrier_id;
-            order.status = ORDER_STATUS.PROCESSING; // Giữ processing, đợi shipper lấy mới qua shipping
-            order.waybill_data = waybillResult.raw;
-
-            // Lưu lại ngay thông tin vận đơn vào KV/List để hiển thị
-            await putJSON(env, 'order:' + id, order);
-            if (index >= 0) list[index] = order;
-            await putJSON(env, 'orders:list', list);
-            
-            // Đồng bộ lại D1 với mã vận đơn mới
-            await saveOrderToD1(env, order);
-
+            // ... (logic cập nhật đơn hàng thành công) ...
             console.log('[ORDER-UPSERT] ✅ Đã tạo vận đơn SuperAI:', waybillResult.carrier_code);
           } else {
             console.warn('[ORDER-UPSERT] ⚠️ Tạo vận đơn thất bại:', waybillResult.message);
@@ -1172,28 +1165,13 @@ async function upsertOrder(req, env) {
         console.warn('[ORDER-UPSERT] ⚠️ Không thể tạo vận đơn: Đơn hàng thiếu shipping_provider (NVC)');
     }
   }
-      const waybillResult = await autoCreateWaybill(order, env);
 
-      if (waybillResult.ok && waybillResult.carrier_code) {
-        order.tracking_code = waybillResult.carrier_code;
-        order.shipping_tracking = waybillResult.carrier_code;
-        order.superai_code = waybillResult.superai_code;
-        order.carrier_id = waybillResult.carrier_id;
-        order.status = ORDER_STATUS.SHIPPING;
-        order.waybill_data = waybillResult.raw;
-
-        await putJSON(env, 'order:' + id, order);
-        list[index] = order;
-        await putJSON(env, 'orders:list', list);
-
-        console.log('[ORDER-UPSERT] ✅ Đã tạo vận đơn:', waybillResult.carrier_code);
-      } else {
-        console.warn('[ORDER-UPSERT] ⚠️ Tạo vận đơn thất bại:', waybillResult.message);
-      }
-    } catch (e) {
-      console.error('[ORDER-UPSERT] ❌ Lỗi tạo vận đơn:', e.message);
-    }
+  // ✅ FIX: Handle voucher usage when order becomes completed
+  if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
+     // ...
   }
+
+  // ... (các phần code tiếp theo giữ nguyên)
 
   // ✅ FIX: Handle voucher usage when order becomes completed
   if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED && order.voucher_code) {
