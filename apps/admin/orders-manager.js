@@ -196,10 +196,12 @@ renderOrdersList() {
     const stInfo = statusMap[orderStatus] || { text: orderStatus, color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
     const statusHTML = `<span style="background:${stInfo.bg};color:${stInfo.color};padding:4px 8px;border-radius:12px;font-weight:600;font-size:12px;border:1px solid ${stInfo.border};display:inline-block;white-space:nowrap">${stInfo.text}</span>`;
 
-    // ✅ OPTIMIZED: Dùng trực tiếp item.image từ backend - không cần fetch
+   // ✅ OPTIMIZED: Dùng trực tiếp item.image từ backend (Product Core đã chuẩn hóa)
     const itemsHTML = items.map(item => {
-      let img = item.image || item.img || item.thumbnail || '';
-      img = img ? this.cloudify(img, 'w_80,h_80,q_auto,f_auto,c_fill') : this.getPlaceholderImage();
+      // Ưu tiên item.image chuẩn, fallback sang placeholder nếu null
+      let img = item.image || '';
+      // Xử lý ảnh Cloudinary để tối ưu tốc độ load
+      img = img ? this.cloudify(img, 'w_100,h_100,q_auto,f_auto,c_pad') : this.getPlaceholderImage();
       
       const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
       const variantName = item.variant ? String(item.variant) : '';
@@ -250,9 +252,26 @@ renderOrdersList() {
           </div>
           <div class="order-details-col">
             <div class="detail-row">
-              <span class="label">Tổng tiền:</span>
+              <span class="label">Tổng khách trả:</span>
               <span class="value price-total">${this.formatPrice(total)}</span>
             </div>
+
+            ${/* ✅ HIỂN THỊ LỢI NHUẬN (ADMIN ONLY - Order Core) */
+              (typeof order.profit !== 'undefined') ? `
+              <div style="margin-top:4px; padding:4px 0; border-top:1px dashed #eee; font-size:12px">
+                 <div class="detail-row">
+                   <span class="label text-gray-500">Doanh thu:</span>
+                   <span class="value font-medium">${this.formatPrice(order.revenue || total)}</span>
+                 </div>
+                 <div class="detail-row">
+                   <span class="label text-gray-500">Lợi nhuận:</span>
+                   <span class="value font-bold ${order.profit > 0 ? 'text-green-600' : 'text-red-500'}">
+                     ${this.formatPrice(order.profit)}
+                   </span>
+                 </div>
+              </div>
+              ` : ''
+            }
 
            ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE (D1 VERSION) */ 
               (order.escrow_amount > 0 || order.commission_fee > 0) ? `

@@ -182,7 +182,7 @@ export async function saveOrderToD1(env, order) {
       customer_name, customer_phone, customer_email,
       shipping_name, shipping_phone, shipping_address,
       shipping_district, shipping_city, shipping_province, shipping_zipcode,
-      subtotal, shipping_fee, discount, total,
+      subtotal, shipping_fee, discount, total, profit,
       seller_transaction_fee, shop_id, shop_name,
       status, payment_status, fulfillment_status, payment_method,
       customer_note, admin_note,
@@ -191,12 +191,12 @@ export async function saveOrderToD1(env, order) {
       commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
       created_at, updated_at
-    ) VALUES (
+   ) VALUES (
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
-      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?,
@@ -265,6 +265,7 @@ export async function saveOrderToD1(env, order) {
     Number(order.shipping_fee || 0), 
     Number(order.discount || 0), 
     Number(order.revenue || order.total || 0), // revenue là thực thu, total là tổng
+    Number(order.profit || 0), // ✅ Lưu lợi nhuận tính toán từ Product Core
     
     Number(order.seller_transaction_fee || 0),
     String(order.shop_id || ''),

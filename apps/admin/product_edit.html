@@ -515,6 +515,9 @@ window.delImg = (idx) => {
 function addVar(v = {}) {
   const box = document.createElement('div');
   box.className = 'card';
+  // ✅ FIX: Lưu variant ID vào dataset
+  if (v.id) box.dataset.id = v.id;
+  
   const variantImg = v.image ? optimizeCloudinaryUrl(v.image, { width: 200 }) : './no-image.svg';
   
   box.innerHTML = `
@@ -763,12 +766,13 @@ window.addEventListener('DOMContentLoaded', function() {
       const stockEl = g('[data-f="stock"]');
       
       return {
+        id: div.dataset.id || null, // ✅ FIX: Gửi kèm ID để Backend update đúng dòng (quan trọng cho SKU Core)
         name: nameEl?.value?.trim() || '',
         sku: skuEl?.value?.trim() || '',
         price: Number(priceEl?.value || 0),
         price_sale: Number(priceSaleEl?.value || 0),
-        price_wholesale: Number(wholesaleEl?.value || 0),  // ✅ FIX: đổi từ wholesale_price
-        cost_price: Number(costEl?.value || 0),            // ✅ FIX: đổi từ cost
+        price_wholesale: Number(wholesaleEl?.value || 0),
+        cost: Number(costEl?.value || 0), // ✅ FIX: Đồng bộ tên field 'cost' với Product Core
         weight: gramsOf(weightEl?.value),
         stock: Number(stockEl?.value || 0),
         image: thumb?.dataset?.original || thumb?.src || ''
@@ -841,7 +845,19 @@ window.addEventListener('DOMContentLoaded', function() {
     if (!(r && r.ok)) r = await Admin.req('/admin/product', { method: 'POST', body: payload });
     
     if (r && r.ok) {
-      toast('✅ Đã lưu');
+      toast('✅ Đã lưu. Đang xóa cache...');
+      
+      // ✅ FIX: Gọi API xóa cache để trang chủ cập nhật ngay lập tức
+      try {
+        const productId = state.id || r.id;
+        if (productId) {
+           await Admin.req('/admin/cache/clear', {
+             method: 'POST', 
+             body: { prefixes: [`product:${productId}`], confirm: true } 
+           });
+        }
+      } catch(e) { console.error('Auto clear cache failed', e); }
+
       if (!state.id && r.id) state.id = r.id;
       setTimeout(() => { location.href = './products.html?v=' + Date.now(); }, 600);
     } else {

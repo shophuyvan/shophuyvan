@@ -10,8 +10,9 @@ import { validate, SCH } from '../lib/validator.js';
 import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
-import { applyVoucher, markVoucherUsed } from './vouchers.js'; // ✅ FIX: Thêm markVoucherUsed
-import { saveOrderToD1 } from '../core/order-core.js'; // ✅ NEW: Import Core để lưu vào D1
+import { applyVoucher, markVoucherUsed } from './vouchers.js';
+import { saveOrderToD1 } from '../core/order-core.js';
+import { getBaseProduct } from '../core/product-core.js'; // ✅ CORE: Dùng Product Core làm chuẩn
 
 // ===================================================================
 // Constants & Helpers
@@ -306,91 +307,47 @@ async function adjustInventory(items, env, direction = -1) {
 }
 
 // ===================================================================
-// Cost Enrichment Helper (REFACTORED - DRY)
+// Cost Enrichment Helper (OPTIMIZED via Product Core)
 // ===================================================================
-/**
- * Enrich items with cost & price from product variants
- * Modifies items array in-place
- * ✅ Đồng thời map luôn ảnh biến thể → item.image (nếu chưa có)
- */
 async function enrichItemsWithCostAndPrice(items, env) {
-  const allProducts = await getJSON(env, 'products:list', []);
-
+  // Duyệt qua từng item và lấy dữ liệu trực tiếp từ D1 qua Product Core
+  // Không dùng vòng lặp KV chậm chạp nữa
   for (const item of items) {
-    const variantId = item.variant_id || item.id || item.sku;
-    if (!variantId && !item.sku) continue;
+    if (!item.product_id) continue;
 
+    try {
+      // 1. Gọi Product Core lấy base product + variants
+      const product = await getBaseProduct(env, item.product_id);
+      if (!product || !product.variants) continue;
 
-    let variantFound = null;
-    let productFound = null;
-
-    // Search all products for matching variant
-    for (const summary of allProducts) {
-      const product = await getJSON(env, 'product:' + summary.id, null);
-      if (!product || !Array.isArray(product.variants)) continue;
-
-      const variant = product.variants.find(v =>
-        String(v.id || v.sku || '') === String(variantId) ||
-        String(v.sku || '') === String(item.sku || '')
+      // 2. Tìm variant khớp
+      const variantId = item.variant_id || item.id;
+      const variant = product.variants.find(v => 
+        String(v.id) === String(variantId) || String(v.sku) === String(item.sku)
       );
 
       if (variant) {
-        variantFound = variant;
-        productFound = product;
-        break;
+        // ✅ Chuẩn hóa Giá bán (Ưu tiên giá sale nếu có trong core)
+        // Logic: Frontend gửi lên chỉ để tham khảo, Backend chốt giá cuối từ DB
+        const dbPrice = Number(variant.price_sale || variant.price || 0);
+        if (dbPrice > 0) item.price = dbPrice;
+
+        // ✅ Chuẩn hóa Giá vốn (Cost)
+        item.cost = Number(variant.price_wholesale || variant.cost || 0);
+
+        // ✅ Chuẩn hóa Ảnh (Image) - Lấy ảnh variant > ảnh product
+        const variantImage = variant.image;
+        const productImages = typeof product.images === 'string' ? JSON.parse(product.images) : (product.images || []);
+        const productImage = productImages[0] || null;
+        
+        item.image = variantImage || productImage || item.image || null;
+
+        console.log(`[ENRICH] ✅ Updated Item ${item.sku}: Price=${item.price}, Cost=${item.cost}, Img=${!!item.image}`);
       }
-    }
-
-    if (!variantFound) continue;
-
-    // ✅ Enforce variant price (always use variant price, not FE-sent price)
-    const priceKeys = ['price', 'sale_price', 'list_price', 'gia_ban'];
-    for (const key of priceKeys) {
-      if (variantFound[key] != null) {
-        item.price = Number(variantFound[key] || 0);
-        console.log('[ENRICH] ✅ Set price from variant:', { id: variantId, price: item.price });
-        break;
-      }
-    }
-
-    // Set cost if not provided by FE
-    if (!item.cost || item.cost === 0) {
-      const costKeys = ['cost', 'cost_price', 'import_price', 'gia_von', 'buy_price', 'price_import'];
-      for (const key of costKeys) {
-        if (variantFound[key] != null) {
-          item.cost = Number(variantFound[key] || 0);
-          console.log('[ENRICH] ✅ Set cost from variant:', { id: variantId, cost: item.cost });
-          break;
-        }
-      }
-    }
-
-    // ✅ NEW: map ảnh từ variant/product → item.image nếu chưa có
-    if (!item.image && !item.img && !item.thumbnail) {
-      const variantImage =
-        variantFound.image ||
-        variantFound.img ||
-        variantFound.thumbnail ||
-        (Array.isArray(variantFound.images) && variantFound.images.length
-          ? variantFound.images[0]
-          : null);
-
-      const productImage =
-        (productFound && Array.isArray(productFound.images) && productFound.images.length
-          ? productFound.images[0]
-          : null) ||
-        productFound?.image ||
-        productFound?.img ||
-        null;
-
-      const finalImage = variantImage || productImage || null;
-      if (finalImage) {
-        item.image = finalImage;
-        console.log('[ENRICH] ✅ Set image from variant/product:', { id: variantId });
-      }
+    } catch (e) {
+      console.error(`[ENRICH] ❌ Failed for product ${item.product_id}:`, e);
     }
   }
-
   return items;
 }
 
@@ -930,7 +887,7 @@ async function listOrdersFromD1(req, env) {
         o.customer_name, o.customer_phone, o.customer_email,
         o.shipping_name, o.shipping_phone, o.shipping_address,
         o.shipping_district, o.shipping_city, o.shipping_province, o.shipping_zipcode,
-        o.subtotal, o.shipping_fee, o.discount, o.total,
+        o.subtotal, o.shipping_fee, o.discount, o.total, o.profit,
         o.commission_fee, o.service_fee, o.seller_transaction_fee,
         o.escrow_amount, o.buyer_paid_amount,
         o.coin_used, o.voucher_seller, o.voucher_shopee,
@@ -1000,6 +957,7 @@ async function listOrdersFromD1(req, env) {
           shipping_fee: row.shipping_fee,
           discount: row.discount,
           revenue: row.total,
+          profit: row.profit, // ✅ Trả về lợi nhuận cho Admin
           
           // ✅ Shopee financial details
           commission_fee: row.commission_fee || 0,

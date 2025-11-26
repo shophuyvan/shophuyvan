@@ -1355,10 +1355,16 @@ async function upsertProduct(req, env) {
       for (const v of incomingVariants) {
         const incomingSKU = v.sku || `SKU-${productId}-${Date.now()}`;
         
-        // ✅ Check theo SKU trước, rồi mới đến ID
-        let oldVariant = existingMapBySKU.get(incomingSKU);
-        if (!oldVariant && v.id) {
+        // ✅ FIX: Ưu tiên check theo ID (Primary Key) trước để đảm bảo update đúng dòng
+        // (Giúp cập nhật tên/SKU chính xác mà không tạo dòng rác)
+        let oldVariant = null;
+        if (v.id) {
           oldVariant = existingMapByID.get(Number(v.id));
+        }
+        
+        // Fallback: Nếu không có ID (tạo mới) hoặc ID không khớp, mới thử tìm theo SKU
+        if (!oldVariant && incomingSKU) {
+          oldVariant = existingMapBySKU.get(incomingSKU);
         }
 
         // Chuẩn bị variant data
@@ -1369,7 +1375,8 @@ async function upsertProduct(req, env) {
           price: Number(v.price || 0),
           price_sale: v.price_sale ? Number(v.price_sale) : null,
           price_wholesale: v.price_wholesale ? Number(v.price_wholesale) : null,
-          cost_price: v.cost_price ? Number(v.cost_price) : null,
+          // ✅ FIX: Nhận cả 'cost' (chuẩn mới) và 'cost_price' (cũ)
+          cost_price: (v.cost !== undefined) ? Number(v.cost) : (v.cost_price ? Number(v.cost_price) : null),
           price_silver: v.price_silver ? Number(v.price_silver) : null,
           price_gold: v.price_gold ? Number(v.price_gold) : null,
           price_diamond: v.price_diamond ? Number(v.price_diamond) : null,
