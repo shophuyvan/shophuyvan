@@ -1110,6 +1110,39 @@ async function upsertOrder(req, env) {
   if (!oldOrder) {
     oldOrder = await getJSON(env, 'order:' + id, null);
   }
+  
+  // ✅ Nếu vẫn không có oldOrder trong KV, query từ D1
+  if (!oldOrder && id) {
+    try {
+      const dbOrder = await env.DB.prepare(`
+        SELECT * FROM orders WHERE order_number = ? OR id = ?
+      `).bind(id, id).first();
+      
+      if (dbOrder) {
+        // Parse items từ DB
+        const dbItems = await env.DB.prepare(`
+          SELECT * FROM order_items WHERE order_id = ?
+        `).bind(dbOrder.id).all();
+        
+        oldOrder = {
+          ...dbOrder,
+          items: dbItems.results || []
+        };
+        
+        console.log('[ORDER-UPSERT] 🔄 Loaded order from D1:', {
+          id: dbOrder.id,
+          order_number: dbOrder.order_number,
+          shipping_province: dbOrder.shipping_province,
+          shipping_district: dbOrder.shipping_district,
+          receiver_province_code: dbOrder.receiver_province_code,
+          receiver_district_code: dbOrder.receiver_district_code,
+          items_count: oldOrder.items.length
+        });
+      }
+    } catch (e) {
+      console.error('[ORDER-UPSERT] Failed to load from D1:', e);
+    }
+  }
 
  const oldStatus = String(oldOrder?.status || 'pending').toLowerCase();
   const newStatus = String(body.status || '').toLowerCase();
