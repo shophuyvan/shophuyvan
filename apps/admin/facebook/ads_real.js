@@ -2174,8 +2174,12 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
                 const token = localStorage.getItem('admin_token') || ''; 
                 const res = await fetch(API + '/api/auto-sync/jobs/create-upload', {
                     method: 'POST',
-                    headers: { 'x-token': token },
-                    body: formData
+                    headers: { 
+                        'x-token': token,
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: formData,
+                    credentials: 'include' // Quan trọng: Gửi kèm Cookie xác thực
                 });
                 r = await res.json();
             } else {
