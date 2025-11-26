@@ -2183,64 +2183,73 @@ init: function() {
     },
 
 // STEP 4: Load Fanpages (Đã sửa lỗi cú pháp & Thêm nút Xem thử)
-    loadFanpages: async function() {
-        const tbody = document.getElementById('wiz-fanpage-list');
-        if (!tbody) return;
+    // STEP 4: Review Nội dung (Thay thế hoàn toàn bảng Fanpage)
+    loadFanpages: function() {
+        const container = document.getElementById('wiz-fanpage-list');
+        if (!container) return;
+
+        // 1. Ẩn các thành phần không cần thiết (Date Picker, Headers cũ)
+        const step4 = document.getElementById('wiz-step-4');
+        if(step4) {
+            // Ẩn tất cả input date và label liên quan
+            const dates = step4.querySelectorAll('input[type="datetime-local"], input[type="date"]');
+            dates.forEach(el => {
+                const row = el.closest('.row') || el.parentElement;
+                if(row) row.style.display = 'none';
+            });
+            // Ẩn header bảng nếu có (thead)
+            const thead = step4.querySelector('thead');
+            if(thead) thead.style.display = 'none';
+        }
+
+        // 2. Render 5 phiên bản nội dung để review
+        const variants = this.jobData.variants || [];
         
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">⏳ Đang tải danh sách Page...</td></tr>';
+        if(variants.length === 0) {
+            container.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:red;">⚠️ Không có nội dung nào được tạo. Vui lòng quay lại Bước 3.</td></tr>`;
+            return;
+        }
+
+        // Thay vì vẽ bảng Fanpage, ta vẽ danh sách Textarea để sửa nội dung
+        // Lưu ý: Ta dùng thẻ tr/td vì container gốc là tbody
+        const html = variants.map((v, i) => `
+            <tr style="border-bottom: 10px solid #f9fafb;">
+                <td colspan="4" style="padding: 15px; background: #fff;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <strong style="color:#2563eb;">Version ${v.version} (${v.tone?.toUpperCase()})</strong>
+                        <span style="font-size:11px; background:#eee; padding:2px 6px; border-radius:4px;">ID: ${v.id}</span>
+                    </div>
+                    
+                    <textarea 
+                        class="input" 
+                        style="width:100%; height:80px; font-family:sans-serif; font-size:13px; border:1px solid #e5e7eb; border-radius:6px; padding:8px;"
+                        onchange="AutoSyncWizard.updateVariantContent(${i}, this.value)"
+                    >${v.caption}</textarea>
+                    
+                    <div style="margin-top:5px; font-size:12px; color:#666;">
+                        Hashtags: <span style="color:#059669;">${Array.isArray(v.hashtags) ? v.hashtags.join(' ') : v.hashtags}</span>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        container.innerHTML = html;
         
-        try {
-            // 1. Gọi API
-            const r = await Admin.req('/admin/fanpages', { method: 'GET' });
-            console.log('🔥 API Fanpages Response:', r);
+        // Thêm một dòng thông báo cuối cùng
+        const noteRow = document.createElement('tr');
+        noteRow.innerHTML = `
+            <td colspan="4" style="text-align:center; padding:20px; background:#f0fdf4;">
+                <div style="color:#166534; font-weight:bold;">✅ Đã tạo xong ${variants.length} phiên bản nội dung!</div>
+                <div style="font-size:13px; color:#15803d;">Bạn có thể chỉnh sửa nội dung ở trên, sau đó bấm nút "Lưu vào Kho" bên dưới.</div>
+            </td>
+        `;
+        container.appendChild(noteRow);
+    },
 
-            // 2. Xử lý dữ liệu đa dạng
-            let pages = [];
-            if (Array.isArray(r)) pages = r;
-            else if (r.items && Array.isArray(r.items)) pages = r.items;
-            else if (r.fanpages && Array.isArray(r.fanpages)) pages = r.fanpages;
-            else if (r.data && Array.isArray(r.data)) pages = r.data;
-
-            // 3. Render
-            if (pages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">⚠️ Không tìm thấy Fanpage nào. Hãy vào tab "Cài đặt" -> "Đồng bộ từ Facebook" trước.</td></tr>';
-                return;
-            }
-
-            const variants = this.jobData.variants || [];
-            
-            tbody.innerHTML = pages.map((p, i) => {
-                const vIndex = variants.length > 0 ? i % variants.length : 0;
-                const opts = variants.map((v, vi) => 
-                    `<option value="${v.id}" ${vi===vIndex ? 'selected':''}>Version ${v.version} (${v.tone})</option>`
-                ).join('');
-                const fallbackOpt = `<option value="0">Mặc định</option>`;
-                const pageName = p.name || p.page_name || 'Unnamed Page';
-
-                return `
-                    <tr>
-                        <td style="padding:10px;">
-                            <div style="font-weight:bold">${pageName}</div>
-                            <div style="font-size:11px; color:#666">ID: ${p.page_id}</div>
-                        </td>
-                        <td style="padding:10px;">
-                            <select class="wiz-assign-select input" data-page="${p.page_id}" style="width:100%;">
-                                ${variants.length > 0 ? opts : fallbackOpt}
-                            </select>
-                        </td>
-                        <td style="padding:10px; text-align:center;">
-                            <button class="btn-sm" onclick="AutoSyncWizard.showPreview('${p.page_id}', '${pageName}')" style="cursor:pointer; padding:4px 8px;">👁️ Xem</button>
-                        </td>
-                        <td style="padding:10px; text-align:center;">
-                            <input type="checkbox" class="wiz-assign-check" data-page="${p.page_id}" checked style="width:18px; height:18px; cursor:pointer;">
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-            
-        } catch(e) { 
-            console.error(e);
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">❌ Lỗi JS: ${e.message}</td></tr>`; 
+    // Hàm phụ trợ để cập nhật data khi user sửa text trên màn hình
+    updateVariantContent: function(index, newCaption) {
+        if(this.jobData.variants[index]) {
+            this.jobData.variants[index].caption = newCaption;
         }
     },
 

@@ -491,7 +491,7 @@ async function generateJobVariants(req, env, jobId) {
     const contents = await generator.generateFacebookContent(analysis, 'friendly', productInfo);
     console.log("[Generate Variants] AI generation completed successfully");
 
-    // Save 5 variants to content_variants table
+    // Save 5 variants to content_variants table (Logic An Toàn)
     const versions = ['version1', 'version2', 'version3', 'version4', 'version5'];
     const toneMap = {
       version1: 'casual',
@@ -503,8 +503,28 @@ async function generateJobVariants(req, env, jobId) {
 
     const variants = [];
     for (let i = 0; i < 5; i++) {
-      const version = contents[versions[i]];
-      const hashtagsStr = Array.isArray(version.hashtags) ? JSON.stringify(version.hashtags) : version.hashtags;
+      const key = versions[i];
+      // Fallback: Nếu AI không trả về key này, lấy key đầu tiên hoặc tạo nội dung rỗng để không bị lỗi loop
+      let versionData = contents[key];
+      
+      if (!versionData) {
+         // Thử fallback sang các key khác nếu AI trả về format lạ (vd: versionA, versionB)
+         const fallbackKey = Object.keys(contents)[i];
+         if(fallbackKey) versionData = contents[fallbackKey];
+      }
+
+      // Nếu vẫn không có, tạo dummy data để đảm bảo DB luôn có 5 dòng
+      if (!versionData) {
+          versionData = {
+              caption: `(AI chưa tạo được nội dung cho version này. Bạn hãy tự viết nhé!) \n\n${job.product_name}`,
+              hashtags: [],
+              tone: toneMap[key],
+              cta: 'Mua ngay'
+          };
+      }
+
+      const hashtagsStr = Array.isArray(versionData.hashtags) ? JSON.stringify(versionData.hashtags) : (versionData.hashtags || '[]');
+      const tone = versionData.tone || toneMap[key] || 'custom';
       
       const result = await env.DB.prepare(`
         INSERT INTO content_variants
@@ -513,20 +533,20 @@ async function generateJobVariants(req, env, jobId) {
       `).bind(
         jobId,
         i + 1,
-        version.tone || toneMap[versions[i]],
-        version.caption,
+        tone,
+        versionData.caption || '',
         hashtagsStr,
-        version.cta || '',
+        versionData.cta || '',
         now
       ).run();
 
       variants.push({
         id: result.meta.last_row_id,
         version: i + 1,
-        tone: version.tone || toneMap[versions[i]],
-        caption: version.caption,
-        hashtags: version.hashtags,
-        cta: version.cta
+        tone: tone,
+        caption: versionData.caption || '',
+        hashtags: Array.isArray(versionData.hashtags) ? versionData.hashtags : [],
+        cta: versionData.cta
       });
     }
 
