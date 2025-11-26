@@ -55,13 +55,17 @@ export async function handle(req, env, ctx) {
     return handleStatus(syncId, env, req);
   }
 
-  if (path === '/api/social-sync/history' && method === 'GET') {
+if (path === '/api/social-sync/history' && method === 'GET') {
     return handleHistory(req, env);
+  }
+
+  // Route: Product Search for UI (Fix 404 in Douyin Upload)
+  if (path === '/api/products' && method === 'GET') {
+    return searchProducts(req, env);
   }
 
   // ============================================================
   // NEW ROUTES - Auto Video Sync Workflow (5 bước)
-  // ============================================================
   
   // STEP 1 & 2: Create Job + Download Video (TikTok URL)
   if (path === '/api/auto-sync/jobs/create' && method === 'POST') {
@@ -1233,6 +1237,55 @@ async function handleShareToGroup(req, env, assignId) {
 
     return json({ ok: true, result }, {}, req);
   } catch (error) {
+    return errorResponse(error.message, 500, req);
+  }
+}
+
+// ===================================================================
+// HELPER: Search Products (For UI Selection)
+// ===================================================================
+
+async function searchProducts(req, env) {
+  try {
+    const url = new URL(req.url);
+    const search = url.searchParams.get('search') || '';
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+
+    let query = `
+      SELECT p.id, p.title, p.images, p.sku, v.price, v.price_sale
+      FROM products p
+      LEFT JOIN variants v ON p.id = v.product_id
+      WHERE 1=1
+    `;
+    let params = [];
+
+    if (search) {
+      query += ` AND (p.title LIKE ? OR p.sku LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // Group by product ID to avoid duplicates from variants, pick first variant price
+    query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ?`;
+    params.push(limit);
+
+    const { results } = await env.DB.prepare(query).bind(...params).all();
+
+    // Format lại dữ liệu cho giống cấu trúc UI mong đợi
+    const products = results.map(p => ({
+      id: p.id,
+      title: p.title,
+      sku: p.sku,
+      price: p.price_sale || p.price || 0,
+      image: p.images ? JSON.parse(p.images)[0] : null
+    }));
+
+    return json({
+      ok: true,
+      data: products // UI Douyin Upload dùng field 'data'
+    }, {}, req);
+
+  } catch (error) {
+    console.error('[Search Products] Error:', error);
     return errorResponse(error.message, 500, req);
   }
 }
