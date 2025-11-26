@@ -94,12 +94,21 @@ class OrdersManager {
     return { subtotal, shipping, discount, total };
   }
 
-  // ==================== RENDER ORDERS LIST ====================
-  
-renderOrdersList() {
-    const tbody = document.getElementById('list');
-    if (!tbody) return;
-
+      // ==================== RENDER ORDERS LIST ====================
+      
+    renderOrdersList() {
+        const tbody = document.getElementById('list');
+        if (!tbody) return;
+    
+        // ✅ FIX: Tự động chèn checkbox "Chọn tất cả" vào thead nếu chưa có
+        const theadFirstTh = document.querySelector('thead th:first-child');
+        if (theadFirstTh && !document.getElementById('select-all-orders')) {
+          theadFirstTh.innerHTML = `<input type="checkbox" id="select-all-orders" style="cursor:pointer">`;
+          // Gắn lại sự kiện cho checkbox vừa tạo
+          const newCb = document.getElementById('select-all-orders');
+          newCb.addEventListener('change', (event) => this.handleSelectAllChange(event));
+        }
+    
     // Reset trạng thái chọn khi tải lại danh sách
     this.selectedOrders.clear();
     this.updateBulkActionsToolbar();
@@ -317,32 +326,27 @@ renderOrdersList() {
             </div>
           </div>
           <div class="order-actions-col">
-            ${orderStatus === 'pending' ? `
+            ${(orderStatus === 'pending' || orderStatus === 'unpaid' || orderStatus === 'new') ? `
               <button class="btn btn-success" data-confirm="${orderId}" style="background-color:#10b981; color:white; border-color:#10b981;">
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
                 ✅ Xác nhận đơn
               </button>
-            ` : ''}
-            <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-              In Vận Đơn
-            </button>
-            <button class="btn btn-danger" data-cancel="${orderId}">
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              Hủy Vận Đơn
-            </button>
-            <button class="btn btn-danger" data-delete="${orderId}">
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-              </svg>
-              Xóa
-            </button>
+              <button class="btn" data-edit="${orderId}" style="background-color:#f59e0b; color:white; border-color:#f59e0b;">
+                ✏️ Sửa giá/Ship
+              </button>
+              <button class="btn btn-danger" data-cancel-order="${orderId}" style="background-color:#ef4444; color:white; border-color:#ef4444;">
+                🚫 Hủy đơn hàng
+              </button>
+            ` : `
+              <button class="btn btn-view" data-print="${orderId}" style="background-color:#007bff; color:white; border-color:#007bff;">
+                🖨️ In Vận Đơn
+              </button>
+              <button class="btn btn-danger" data-cancel="${orderId}">
+                🚫 Hủy Vận Đơn
+              </button>
+              <button class="btn btn-danger" data-delete="${orderId}">
+                🗑️ Xóa
+              </button>
+            `}
           </div>
         </div>
       </div>
@@ -449,11 +453,27 @@ renderOrdersList() {
       };
     });
 
-    // Nút "Hủy Vận Đơn" (thay cho "Xóa")
+    // Nút "Hủy Vận Đơn" (Shipping)
     document.querySelectorAll('[data-cancel]').forEach(btn => {
       btn.onclick = async () => {
         const id = btn.getAttribute('data-cancel');
-        await this.cancelWaybill(id); // Gọi hàm hủy mới
+        await this.cancelWaybill(id); 
+      };
+    });
+
+    // ✅ Nút "Hủy Đơn Hàng" (Order - Status Cancelled)
+    document.querySelectorAll('[data-cancel-order]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute('data-cancel-order');
+        await this.cancelOrder(id); // Hàm hủy đơn hàng (status)
+      };
+    });
+
+    // ✅ Nút "Sửa đơn hàng" (Giá/Ship)
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute('data-edit');
+        await this.editOrderPrice(id); // Hàm sửa giá
       };
     });
 
@@ -480,6 +500,100 @@ renderOrdersList() {
       };
     });
   } // <<< Kết thúc hàm wireOrderRowEvents
+
+// ==================== EDIT ORDER (PRICE/SHIP) ====================
+  
+  async editOrderPrice(orderId) {
+    const order = this.orders.find(o => String(o.id || '') === orderId);
+    if (!order) return;
+
+    const currentShip = Number(order.shipping_fee || 0);
+    const currentDiscount = Number(order.discount || 0);
+    const subtotal = Number(order.subtotal || 0);
+
+    // 1. Sửa Phí Ship (VNĐ)
+    const newShipStr = prompt(
+      `🚚 SỬA PHÍ VẬN CHUYỂN (VNĐ)\n\n` +
+      `- Nhập số tiền phí ship (ví dụ: 30000)\n` +
+      `- Nhập 0 nếu miễn phí ship`, 
+      currentShip
+    );
+    if (newShipStr === null) return;
+
+    // 2. Sửa Giảm Giá (VNĐ Cố Định)
+    const newDiscountStr = prompt(
+      `💰 SỬA GIẢM GIÁ TRỰC TIẾP (VNĐ)\n\n` +
+      `- Nhập số tiền muốn giảm (ví dụ: 20000 để giảm 20k)\n` +
+      `- Tổng tiền hàng hiện tại: ${this.formatPrice(subtotal)}\n` + 
+      `- KHÔNG nhập phần trăm (%)`, 
+      currentDiscount
+    );
+    if (newDiscountStr === null) return;
+
+    const newShip = Number(newShipStr.replace(/[^0-9]/g, '')); // Chỉ lấy số
+    const newDiscount = Number(newDiscountStr.replace(/[^0-9]/g, ''));
+
+    if (isNaN(newShip) || isNaN(newDiscount)) {
+      alert('❌ Vui lòng chỉ nhập số tiền (VNĐ)!');
+      return;
+    }
+
+    // Validate cơ bản
+    if (newDiscount > subtotal + newShip) {
+      alert('❌ Số tiền giảm giá không thể lớn hơn tổng đơn hàng!');
+      return;
+    }
+
+    Admin.toast('⏳ Đang cập nhật giá trị đơn hàng...');
+
+    try {
+      const res = await Admin.req('/admin/orders/upsert', {
+        method: 'POST',
+        body: {
+          id: orderId,
+          shipping_fee: newShip,
+          discount: newDiscount,
+          // Gửi thêm items để backend tính lại lợi nhuận nếu cần
+          items: order.items 
+        }
+      });
+
+      if (res.ok) {
+        Admin.toast(`✅ Đã cập nhật:\nShip: ${this.formatPrice(newShip)}\nGiảm: ${this.formatPrice(newDiscount)}`);
+        this.loadOrders(); 
+      } else {
+        alert('Lỗi cập nhật: ' + (res.message || 'Không rõ lỗi'));
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống: ' + e.message);
+    }
+  }
+
+  // ==================== CANCEL ORDER (STATUS) ====================
+  
+  async cancelOrder(orderId) {
+    if (!confirm(`Bạn chắc chắn muốn HỦY ĐƠN HÀNG ${orderId}?\n\nKhách hàng sẽ không nhận được hàng.`)) return;
+
+    Admin.toast('⏳ Đang hủy đơn hàng...');
+    try {
+      const res = await Admin.req('/admin/orders/upsert', {
+        method: 'POST',
+        body: {
+          id: orderId,
+          status: 'cancelled'
+        }
+      });
+
+      if (res.ok) {
+        Admin.toast('✅ Đã hủy đơn hàng thành công');
+        this.loadOrders();
+      } else {
+        alert('Lỗi hủy đơn: ' + res.message);
+      }
+    } catch (e) {
+      alert('Lỗi hệ thống: ' + e.message);
+    }
+  }
 
   // ==================== CONFIRM ORDER (NEW) ====================
   

@@ -1079,11 +1079,13 @@ async function upsertOrder(req, env) {
   // ✅ FIX: Khi admin chuyển PENDING → CONFIRMED, tự động tạo vận đơn
   const isConfirming = (oldStatus === 'pending' && newStatus === 'confirmed');
 
-  // Create/update order
+  // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
   const order = {
-    ...body,
+    ...(oldOrder || {}), // ✅ QUAN TRỌNG: Giữ lại thông tin khách hàng, items cũ
+    ...body,             // Ghi đè giá/ship mới từ Admin gửi lên
     id,
-    createdAt: body.createdAt || Date.now()
+    createdAt: (oldOrder && oldOrder.createdAt) ? oldOrder.createdAt : (body.createdAt || Date.now()),
+    updated_at: Date.now()
   };
 
   // Recalculate totals
@@ -1104,6 +1106,14 @@ async function upsertOrder(req, env) {
 
   await putJSON(env, 'orders:list', list);
   await putJSON(env, 'order:' + id, order);
+
+  // ✅ MỚI: Đồng bộ ngay lập tức vào D1 để Admin và Khách hàng (My Orders) thấy giá mới
+  try {
+    await saveOrderToD1(env, order);
+    console.log('[ORDER-UPSERT] ✅ Synced to D1:', id);
+  } catch (e) {
+    console.error('[ORDER-UPSERT] ❌ D1 Sync Failed:', e);
+  }
 
   // ✅ FIX: Auto-create waybill when admin confirms order
   if (isConfirming && order.shipping_provider) {
