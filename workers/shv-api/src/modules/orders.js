@@ -573,6 +573,14 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
   // Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
+  
+  // ✅ DEBUG: Log items để kiểm tra
+  console.log('[DEBUG] Items after enrich:', JSON.stringify(items.map(item => ({
+    sku: item.sku,
+    product_id: item.product_id,
+    variant_id: item.variant_id,
+    name: item.name
+  }))));
 
   // Calculate subtotal
   const subtotal = items.reduce((sum, item) =>
