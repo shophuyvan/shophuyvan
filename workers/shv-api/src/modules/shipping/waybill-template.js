@@ -1,63 +1,91 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill Template - Shopee SPX Clone Style (Responsive Fix)
+// Waybill Template - Shopee SPX Style (Fix 500 Error & Date NaN)
 // ===================================================================
 
 export function getWaybillHTML(data) {
-  const {
-    superaiCode,
-    logo,
-    sender,
-    receiver,
-    customer,
-    items,
-    order,
-    createdDate,
-    barcodeSrc,
-    store
-  } = data;
+  // 1. BẢO VỆ DỮ LIỆU ĐẦU VÀO (Tránh lỗi 500 do null/undefined)
+  const safeData = data || {};
+  const order = safeData.order || {};
+  const sender = safeData.sender || {};
+  const receiver = safeData.receiver || {};
+  const customer = safeData.customer || {};
+  const store = safeData.store || {};
+  
+  // Đảm bảo items luôn là mảng để không lỗi .map/.reduce
+  const items = Array.isArray(safeData.items) ? safeData.items : [];
 
-  // 1. Xử lý dữ liệu hiển thị
+  // 2. XỬ LÝ THÔNG TIN CƠ BẢN
   const carrierName = "SPX EXPRESS";
-  const trackingCode = order.tracking_code || order.carrier_code || superaiCode || 'N/A';
+  const trackingCode = order.tracking_code || order.carrier_code || safeData.superaiCode || 'N/A';
   
-  // 2. Tính tiền thu hộ (COD)
+  // Tính tiền thu hộ (COD) an toàn
   const isPaid = order.payment_status === 'paid';
-  const codAmount = isPaid ? 0 : Number((order.subtotal || 0) + (order.shipping_fee || 0) - (order.discount || 0) - (order.shipping_discount || 0));
+  const subtotal = Number(order.subtotal || 0);
+  const shipFee = Number(order.shipping_fee || 0);
+  const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+  const codAmount = isPaid ? 0 : Math.max(0, subtotal + shipFee - discount);
   const codDisplay = codAmount > 0 ? codAmount.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ';
-  
+
   const senderName = sender.name || store.name || 'SHOP HUY VÂN';
   const senderAddress = sender.address || store.address || '';
   const senderPhone = sender.phone || store.phone || '';
   
   const receiverName = receiver.name || customer.name || 'Khách lẻ';
-  const receiverAddress = receiver.address || customer.address || '';
+  // Ép kiểu về chuỗi để tránh lỗi .split()
+  const receiverAddress = String(receiver.address || customer.address || '');
   const receiverPhone = receiver.phone || customer.phone || '';
 
-  // 3. Lấy Quận/Huyện làm mã to
-  const districtName = (receiverAddress.split(',').slice(-2, -1)[0] || '').trim().toUpperCase() || 'HCM';
-
-  [cite_start]// 4. SỬA LỖI NGÀY THÁNG (NaN) [cite: 64]
-  let dateStr = '';
+  // 3. XỬ LÝ MÃ VÙNG (DISTRICT) AN TOÀN
+  // Nếu không tách được địa chỉ thì mặc định là HCM để không bị crash
+  let districtName = 'HCM';
   try {
-    // Ưu tiên dùng createdDate truyền vào, hoặc order.createdAt, hoặc thời điểm hiện tại
-    const rawDate = createdDate || order.createdAt || order.created_at || Date.now();
-    const dateObj = new Date(Number(rawDate) || rawDate); // Chấp nhận cả timestamp số và string
-    
-    if (!isNaN(dateObj.getTime())) {
-      const d = String(dateObj.getDate()).padStart(2, '0');
-      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const y = dateObj.getFullYear();
-      const h = String(dateObj.getHours()).padStart(2, '0');
-      const min = String(dateObj.getMinutes()).padStart(2, '0');
-      dateStr = `${d}-${m}-${y} ${h}:${min}`;
-    } else {
-      dateStr = new Date().toLocaleString('vi-VN');
+    if (receiverAddress.includes(',')) {
+      const parts = receiverAddress.split(',');
+      if (parts.length >= 2) {
+        districtName = parts[parts.length - 2].trim().toUpperCase();
+      }
     }
   } catch (e) {
-    dateStr = new Date().toLocaleString('vi-VN');
+    districtName = 'HCM';
   }
 
+  // 4. SỬA LỖI NGÀY THÁNG (NaN-NaN-NaN) TRIỆT ĐỂ
+  let dateStr = '';
+  try {
+    // Lấy timestamp: ưu tiên createdDate > order.createdAt > Hiện tại
+    let ts = safeData.createdDate || order.createdAt || order.created_at;
+    
+    // Nếu không có hoặc bằng 0 -> lấy giờ hiện tại
+    if (!ts) ts = Date.now();
+    
+    // Chuyển về đối tượng Date
+    const dateObj = new Date(Number(ts) || ts);
+    
+    // Kiểm tra hợp lệ
+    if (isNaN(dateObj.getTime())) {
+      throw new Error('Invalid Date');
+    }
+
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const y = dateObj.getFullYear();
+    const h = String(dateObj.getHours()).padStart(2, '0');
+    const min = String(dateObj.getMinutes()).padStart(2, '0');
+    dateStr = `${d}-${m}-${y} ${h}:${min}`;
+  } catch (e) {
+    // Fallback cuối cùng: Lấy giờ hệ thống
+    const now = new Date();
+    // Chỉnh múi giờ VN thủ công nếu server sai giờ
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    dateStr = `${d}-${m}-${y} ${h}:${min}`;
+  }
+
+  // 5. RENDER HTML
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -67,7 +95,7 @@ export function getWaybillHTML(data) {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
       font-family: Arial, Helvetica, sans-serif;
-      background: #ccc; /* Nền xám để dễ nhìn vùng giấy khi preview */
+      background: #ccc; 
       padding: 20px;
     }
     .page {
@@ -75,7 +103,6 @@ export function getWaybillHTML(data) {
       margin: 0 auto;
       border: 1px solid #000;
       position: relative;
-      /* FIX: Dùng max-width thay vì width cứng để linh hoạt */
       width: 100%;
       max-width: 100mm; 
       min-height: 150mm;
@@ -83,15 +110,13 @@ export function getWaybillHTML(data) {
       flex-direction: column;
     }
     
-    /* UTILS */
     .bold { font-weight: bold; }
-    .uppercase { text-transform: uppercase; }
     
-    /* HEADER SECTION */
+    /* HEADER */
     .header {
       display: flex;
       border-bottom: 2px solid #000;
-      height: 38mm; /* Tăng nhẹ chiều cao header */
+      height: 38mm;
     }
     .header-qr {
       width: 38mm;
@@ -114,7 +139,7 @@ export function getWaybillHTML(data) {
       justify-content: space-between;
     }
     .spx-logo {
-      font-size: 22px; [cite_start]/* [cite: 48, 49] */
+      font-size: 22px;
       font-weight: 900;
       color: #ee4d2d;
       font-style: italic;
@@ -124,14 +149,14 @@ export function getWaybillHTML(data) {
       margin-top: 2px;
     }
     .tracking-number {
-      font-size: 16px; [cite_start]/* [cite: 50] */
+      font-size: 16px;
       font-weight: bold;
       font-family: 'Courier New', monospace;
       letter-spacing: 0.5px;
       word-break: break-all;
     }
     .routing-code {
-      font-size: 16px; [cite_start]/* [cite: 51] */
+      font-size: 16px;
       font-weight: bold;
       border: 2px solid #000;
       padding: 3px 6px;
@@ -140,11 +165,11 @@ export function getWaybillHTML(data) {
       align-self: flex-start;
     }
 
-    /* ADDRESS SECTION */
+    /* ADDRESS */
     .address-section {
       display: flex;
       border-bottom: 2px solid #000;
-      flex-grow: 1; /* Cho phép giãn nếu nội dung dài */
+      flex-grow: 1;
     }
     .sender-col {
       width: 40%;
@@ -163,7 +188,7 @@ export function getWaybillHTML(data) {
       flex-direction: column;
     }
     .section-title {
-      font-size: 10px; [cite_start]/* [cite: 47, 55] */
+      font-size: 10px;
       font-weight: bold;
       margin-bottom: 3px;
       text-transform: uppercase;
@@ -172,26 +197,26 @@ export function getWaybillHTML(data) {
       position: absolute;
       top: 2mm;
       right: 2mm;
-      font-size: 24px; [cite_start]/* [cite: 57] To hơn để giống mẫu */
+      font-size: 24px;
       font-weight: bold;
       border: 2px solid #000;
       padding: 2px 8px;
     }
 
-    /* WARNING TEXT */
+    /* WARNING */
     .warning-text {
-      font-size: 10px; [cite_start]/* [cite: 59] */
+      font-size: 10px;
       padding: 1.5mm 2mm;
       border-bottom: 1px solid #000;
       font-style: italic;
       text-align: center;
     }
 
-    /* BODY: ITEMS & INSTRUCTIONS */
+    /* BODY */
     .body-section {
       display: flex;
       border-bottom: 2px solid #000;
-      flex-grow: 2; /* Chiếm phần lớn diện tích còn lại */
+      flex-grow: 2;
     }
     .items-list {
       flex: 1;
@@ -212,7 +237,7 @@ export function getWaybillHTML(data) {
       overflow: hidden;
     }
     .instructions {
-      width: 38mm; /* Cố định chiều rộng cột chỉ dẫn */
+      width: 38mm;
       padding: 2mm;
       font-size: 10px;
       display: flex;
@@ -225,13 +250,13 @@ export function getWaybillHTML(data) {
       margin-bottom: 3px;
       font-weight: bold;
       text-align: center;
-      font-size: 10px; [cite_start]/* [cite: 66] */
+      font-size: 10px;
     }
 
     /* FOOTER */
     .footer-section {
       display: flex;
-      height: 35mm; /* Chiều cao cố định cho footer */
+      height: 35mm;
     }
     .footer-left {
       flex: 1;
@@ -252,26 +277,14 @@ export function getWaybillHTML(data) {
       background: #fff;
     }
     .cod-value {
-      font-size: 22px; [cite_start]/* [cite: 69] To rõ */
+      font-size: 22px;
       font-weight: bold;
       margin-top: 5px;
     }
 
-    /* PRINT RESET - FIX LỖI KHOẢNG TRẮNG */
     @media print {
-      body { 
-        margin: 0; 
-        padding: 0; 
-        background: white; 
-      }
-      .page { 
-        /* QUAN TRỌNG: Full khổ giấy in */
-        width: 100%; 
-        max-width: none;
-        height: 100%; /* Fill chiều dọc */
-        border: none; 
-        margin: 0; 
-      }
+      body { margin: 0; padding: 0; background: white; }
+      .page { width: 100%; max-width: none; height: 100%; border: none; margin: 0; }
     }
   </style>
 </head>
@@ -302,7 +315,8 @@ export function getWaybillHTML(data) {
       <div class="receiver-col">
         <div class="section-title">Đến:</div>
         <div class="dest-code-large">${districtName}</div>
-        <div style="margin-top: 10mm;"> <div class="bold" style="font-size: 15px; margin-bottom: 3px;">${receiverName}</div>
+        <div style="margin-top: 10mm;">
+          <div class="bold" style="font-size: 15px; margin-bottom: 3px;">${receiverName}</div>
           <div style="margin-bottom: 3px;">${receiverAddress}</div>
           <div class="bold">SĐT: ${receiverPhone}</div>
         </div>
@@ -316,14 +330,14 @@ export function getWaybillHTML(data) {
     <div class="body-section">
       <div class="items-list">
         <div class="section-title">Nội dung hàng (Tổng SL: ${items.reduce((s,i)=>s+(Number(i.qty)||1),0)})</div>
-        ${items.map((item, idx) => `
+        ${items.length > 0 ? items.map((item, idx) => `
           <div class="item-row">
-            <div class="item-name">${idx + 1}. ${item.name}</div>
+            <div class="item-name">${idx + 1}. ${item.name || 'Sản phẩm'}</div>
             <div style="font-size: 10px; color: #333;">
                ${item.variant ? `PL: ${item.variant} | ` : ''} SL: ${item.qty || 1}
             </div>
           </div>
-        `).join('')}
+        `).join('') : '<div style="font-style:italic">Không có thông tin sản phẩm</div>'}
       </div>
       <div class="instructions">
         <div class="section-title">Chỉ dẫn giao hàng:</div>
@@ -358,7 +372,6 @@ export function getWaybillHTML(data) {
   </div>
   <script>
     window.onload = function() {
-      // Tự động in sau khi tải xong
       setTimeout(() => window.print(), 500);
     };
   </script>

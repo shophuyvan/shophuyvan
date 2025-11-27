@@ -117,10 +117,24 @@ function renderProductGrid(products) {
   }
   
   grid.innerHTML = products.map(product => {
-    // Fix: product.images đã là array từ API, không cần parse
-    const images = Array.isArray(product.images) ? product.images : 
-                   (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
-    const imageUrl = images[0] || '/no-image.svg';
+    // Fix: Xử lý 3 trường hợp: array, JSON string, hoặc URL string
+    let imageUrl = '/no-image.svg';
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      imageUrl = product.images[0];
+    } else if (typeof product.images === 'string') {
+      // Nếu là URL trực tiếp (bắt đầu bằng http)
+      if (product.images.startsWith('http')) {
+        imageUrl = product.images;
+      } else {
+        // Nếu là JSON string
+        try {
+          const parsed = JSON.parse(product.images);
+          imageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : '/no-image.svg';
+        } catch (e) {
+          imageUrl = '/no-image.svg';
+        }
+      }
+    }
     const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price || 0);
     
     return `
