@@ -823,16 +823,18 @@ async function listAdminProducts(req, env) {
     let conditions = [];
     let queryParams = [];
 
-    // 1. Search (Title, Slug, ID, OR SKU in variants)
+    // 1. Search - Dùng search_text đã normalize từ product-core
     if (search) {
+      // Normalize search keyword như product-core
+      const normalizedSearch = normalizeVietnamese(search);
+      
       conditions.push(`(
-        title LIKE ? OR 
-        slug LIKE ? OR 
-        CAST(id AS TEXT) LIKE ? OR
-        id IN (SELECT product_id FROM variants WHERE sku LIKE ?)
+        search_text LIKE ? OR 
+        CAST(id AS TEXT) LIKE ?
       )`);
-      const pattern = `%${search}%`;
-      queryParams.push(pattern, pattern, pattern, pattern);
+      const pattern = `%${normalizedSearch}%`;
+      const idPattern = `%${search}%`;
+      queryParams.push(pattern, idPattern);
     }
 
     // 2. Filter: Uncategorized
@@ -868,33 +870,73 @@ async function listAdminProducts(req, env) {
     const total = statsResult?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
-// ✅ FIX: Query products + variants bằng JOIN (tránh D1 "too many SQL variables")
-    const productsQuery = `
-      SELECT 
-        p.id, p.title, p.slug, p.shortDesc, p.category_slug,
-        p.images, p.status, p.on_website, p.on_mini,
-        p.sold, p.rating, p.rating_count, p.stock,
-        p.created_at, p.updated_at,
-        v.id as variant_id,
-        v.sku as variant_sku,
-        v.name as variant_name,
-        v.price as variant_price,
-        v.price_sale as variant_price_sale,
-        v.price_wholesale as variant_price_wholesale,
-        v.cost_price as variant_cost_price,
-        v.stock as variant_stock,
-        v.weight as variant_weight,
-        v.status as variant_status,
-        v.image as variant_image
-      FROM products p
-      LEFT JOIN variants v ON p.id = v.product_id
-      ${whereClause ? whereClause.replace('WHERE', 'WHERE p.id IN (SELECT id FROM products ' + whereClause + ' ORDER BY created_at DESC LIMIT ' + limit + ' OFFSET ' + offset + ') AND') : ''}
-      ${!whereClause ? 'WHERE p.id IN (SELECT id FROM products ORDER BY created_at DESC LIMIT ' + limit + ' OFFSET ' + offset + ')' : ''}
-      ORDER BY p.created_at DESC, v.id ASC
-    `;
+// ✅ FIX: Query products + variants đơn giản hơn, tận dụng search_text
+    let productsQuery = '';
+    let productsQueryParams = [];
+    
+    if (whereClause) {
+      // Có search/filter: Dùng subquery với alias rõ ràng
+      productsQuery = `
+        SELECT 
+          p.id, p.title, p.slug, p.shortDesc, p.category_slug,
+          p.images, p.status, p.on_website, p.on_mini,
+          p.sold, p.rating, p.rating_count, p.stock,
+          p.created_at, p.updated_at,
+          v.id as variant_id,
+          v.sku as variant_sku,
+          v.name as variant_name,
+          v.price as variant_price,
+          v.price_sale as variant_price_sale,
+          v.price_wholesale as variant_price_wholesale,
+          v.cost_price as variant_cost_price,
+          v.stock as variant_stock,
+          v.weight as variant_weight,
+          v.status as variant_status,
+          v.image as variant_image
+        FROM products p
+        LEFT JOIN variants v ON p.id = v.product_id
+        WHERE p.id IN (
+          SELECT p2.id FROM products p2
+          ${whereClause.replace(/\bproducts\./g, 'p2.')}
+          ORDER BY p2.created_at DESC
+          LIMIT ? OFFSET ?
+        )
+        ORDER BY p.created_at DESC, v.id ASC
+      `;
+      productsQueryParams = [...queryParams, limit, offset];
+    } else {
+      // Không có filter: Query trực tiếp
+      productsQuery = `
+        SELECT 
+          p.id, p.title, p.slug, p.shortDesc, p.category_slug,
+          p.images, p.status, p.on_website, p.on_mini,
+          p.sold, p.rating, p.rating_count, p.stock,
+          p.created_at, p.updated_at,
+          v.id as variant_id,
+          v.sku as variant_sku,
+          v.name as variant_name,
+          v.price as variant_price,
+          v.price_sale as variant_price_sale,
+          v.price_wholesale as variant_price_wholesale,
+          v.cost_price as variant_cost_price,
+          v.stock as variant_stock,
+          v.weight as variant_weight,
+          v.status as variant_status,
+          v.image as variant_image
+        FROM products p
+        LEFT JOIN variants v ON p.id = v.product_id
+        WHERE p.id IN (
+          SELECT id FROM products
+          ORDER BY created_at DESC
+          LIMIT ? OFFSET ?
+        )
+        ORDER BY p.created_at DESC, v.id ASC
+      `;
+      productsQueryParams = [limit, offset];
+    }
     
     const productsResult = await env.DB.prepare(productsQuery)
-      .bind(...queryParams)
+      .bind(...productsQueryParams)
       .all();
 
     const rows = productsResult.results || [];
