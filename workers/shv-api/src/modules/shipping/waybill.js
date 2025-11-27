@@ -344,7 +344,7 @@ console.log('[Waybill] 🔍 Address codes:', {
 });
 
 // Kiểm tra district code có trong danh sách hợp lệ
-const validHCMCDistricts = ['760', '761', '762', '763', '764', '765', '767', '770', '771', '772', '773', '774', '775', '776', '777', '778', '780', '781', '782', '783', '784', '785', '786', '787', '788'];
+const validHCMCDistricts = ['760', '761', '762', '763', '764', '765', '766', '767', '770', '771', '772', '773', '774', '775', '776', '777', '778', '780', '781', '782', '783', '784', '785', '786', '787', '788'];
 
 if (provinceCode === '79' && districtCode && !validHCMCDistricts.includes(districtCode)) {
   console.error('[Waybill] ❌ Mã quận/huyện không hợp lệ cho TP.HCM:', districtCode);
@@ -561,19 +561,24 @@ export async function printWaybill(req, env) {
    // ✅ 1. LUÔN lấy dữ liệu THẬT từ D1 (Source of Truth)
     console.log('[printWaybill] Fetching fresh data from D1 for code:', superaiCode);
       
-    // Tìm bằng Tracking Code trước, sau đó mới tìm bằng ID
-    // (Giúp tránh trường hợp tìm nhầm bằng ID cũ)
+       // ✅ VALIDATION: Chặn order_number format (32 ký tự UUID không dấu gạch)
+    if (superaiCode && superaiCode.length === 32 && !superaiCode.includes('-') && !superaiCode.includes('.')) {
+      console.warn('[printWaybill] ❌ Received order_number instead of superai_code:', superaiCode);
+      return errorResponse('Đơn hàng chưa có mã vận đơn. Vui lòng xác nhận đơn trước khi in.', 400, req);
+    }
+    
+    // Tìm bằng superai_code hoặc tracking_number (KHÔNG dùng id)
     const dbOrder = await env.DB.prepare(`
       SELECT * FROM orders 
-      WHERE tracking_number = ? OR superai_code = ? OR id = ?
-    `).bind(superaiCode, superaiCode, order.id || superaiCode).first();
-
-    if (dbOrder) {
-      // Lấy items từ D1
-      const dbItems = await env.DB.prepare(`
-        SELECT * FROM order_items WHERE order_id = ?
-      `).bind(dbOrder.id).all();
-
+      WHERE superai_code = ? OR tracking_number = ?
+    `).bind(superaiCode, superaiCode).first();
+    
+        if (dbOrder) {
+          // Lấy items từ D1
+          const dbItems = await env.DB.prepare(`
+            SELECT * FROM order_items WHERE order_id = ?
+          `).bind(dbOrder.id).all();
+    
       // Parse shipping_address JSON an toàn
       let shippingAddr = {};
       try {
