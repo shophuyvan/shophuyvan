@@ -1,6 +1,6 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill Template - Shopee SPX Style (A5 FULL PAGE - NO MARGIN)
+// Waybill Template - Shopee SPX Style (A5 FULL - FIXED QR CODE)
 // ===================================================================
 
 export function getWaybillHTML(data) {
@@ -60,26 +60,26 @@ export function getWaybillHTML(data) {
   <meta charset="utf-8">
   <title>In Vận Đơn - ${trackingCode}</title>
   <style>
-    /* RESET MẶC ĐỊNH CỦA TRÌNH DUYỆT */
+    /* RESET MẶC ĐỊNH */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
-    /* CẤU HÌNH TRANG IN (QUAN TRỌNG) */
+    /* CẤU HÌNH TRANG IN */
     @page {
-      size: A5;     /* Bắt buộc khổ A5 */
-      margin: 0;    /* Xóa lề máy in */
+      size: A5;     
+      margin: 0;    
     }
 
     body { 
       font-family: Arial, Helvetica, sans-serif;
       background: #fff;
-      width: 148mm; /* Chiều rộng chuẩn A5 */
-      height: 209mm; /* Chiều cao chuẩn A5 (trừ 1mm để tránh nhảy trang) */
+      width: 148mm; 
+      height: 209mm; 
     }
     
     .page {
       width: 100%;
       height: 100%;
-      border: 3px solid #000; /* Viền bao quanh sát lề */
+      border: 3px solid #000; 
       display: flex;
       flex-direction: column;
       position: relative;
@@ -95,13 +95,19 @@ export function getWaybillHTML(data) {
     }
     .header-qr {
       width: 55mm;
-      padding: 2mm;
+      padding: 1mm;
       border-right: 2px solid #000;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .header-qr img { width: 100%; height: auto; display: block; }
+    /* Đảm bảo ảnh QR luôn hiển thị */
+    .header-qr img { 
+      width: 100%; 
+      height: auto; 
+      display: block; 
+      max-height: 53mm;
+    }
     
     .header-info {
       flex: 1;
@@ -139,7 +145,7 @@ export function getWaybillHTML(data) {
     .address-section {
       display: flex;
       border-bottom: 3px solid #000;
-      flex-grow: 1; /* Tự giãn chiều cao */
+      flex-grow: 1; 
     }
     .sender-col {
       width: 38%;
@@ -187,7 +193,7 @@ export function getWaybillHTML(data) {
     .body-section {
       display: flex;
       border-bottom: 3px solid #000;
-      flex-grow: 2; /* Chiếm phần lớn diện tích */
+      flex-grow: 2; 
       min-height: 60mm;
     }
     .items-list {
@@ -261,14 +267,8 @@ export function getWaybillHTML(data) {
     }
 
     @media print {
-      body { 
-        width: 148mm; 
-        height: 209mm;
-      }
-      .page { 
-        border: 3px solid #000 !important;
-        margin: 0;
-      }
+      body { width: 148mm; height: 209mm; }
+      .page { border: 3px solid #000 !important; margin: 0; }
     }
   </style>
 </head>
@@ -277,7 +277,7 @@ export function getWaybillHTML(data) {
     
     <div class="header">
       <div class="header-qr">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(trackingCode)}" alt="QR">
+        <img src="https://quickchart.io/qr?text=${encodeURIComponent(trackingCode)}&size=300&ecLevel=M&margin=1" alt="QR" loading="eager">
       </div>
       <div class="header-info">
         <div class="spx-logo">SPX EXPRESS</div>
@@ -357,8 +357,8 @@ export function getWaybillHTML(data) {
   </div>
   <script>
     window.onload = function() {
-      // Tự động in
-      setTimeout(() => window.print(), 500);
+      // Tăng thời gian chờ lên 1.5 giây để ảnh QR tải xong
+      setTimeout(() => window.print(), 1500);
     };
   </script>
 </body>
