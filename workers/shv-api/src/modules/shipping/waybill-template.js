@@ -1,6 +1,6 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill HTML Template A6 - FULL PAGE BLACK & WHITE
+// Waybill Template - Shopee SPX Style (Black & White)
 // ===================================================================
 
 export function getWaybillHTML(data) {
@@ -17,9 +17,15 @@ export function getWaybillHTML(data) {
     store
   } = data;
 
-  const carrierName = order.carrier_name || order.shipping_provider || 'VẬN CHUYỂN';
+  const carrierName = order.carrier_name || order.shipping_provider || 'SHOP HUY VÂN';
   const trackingCode = order.tracking_code || order.carrier_code || superaiCode || 'N/A';
   const totalAmount = Number((order.subtotal || 0) + (order.shipping_fee || 0));
+  const senderName = sender.name || store.name || 'SHOP HUY VÂN';
+  const senderAddress = sender.address || store.address || '91/6 Liên Khu 5-11-12, Bình Trị Đông, Bình Tân, TPHCM';
+  const senderPhone = sender.phone || store.phone || '0909128999';
+  const receiverName = receiver.name || customer.name || 'Khách';
+  const receiverAddress = receiver.address || customer.address || '';
+  const receiverPhone = receiver.phone || customer.phone || '';
 
   return `<!DOCTYPE html>
 <html>
@@ -27,354 +33,335 @@ export function getWaybillHTML(data) {
   <meta charset="utf-8">
   <title>Vận đơn ${trackingCode}</title>
   <style>
-    :root {
-      /* === FONT SIZES === */
-      --font-carrier: 24px;
-      --font-tracking: 32px;
-      --font-section-title: 15px;
-      --font-info: 15px;
-      --font-phone: 18px;
-      --font-receiver-name: 20px;
-      --font-product-name: 13px;
-      --font-variant: 17px;
-      --font-qty-price: 16px;
-      --font-cod-title: 16px;
-      --font-cod-amount: 32px;
-      --font-footer: 14px;
-      --font-footer-bold: 16px;
-      
-      /* === SPACING === */
-      --page-padding: 5mm;
-      --section-margin: 3mm;
-      --section-padding: 3mm;
-      
-      /* === SIZES === */
-      --qr-size: 22mm;
-    }
-    
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body { 
-      font-family: 'Arial', 'Helvetica', sans-serif; 
-      background: #fff; 
-      padding: 0;
+      font-family: Arial, sans-serif;
+      background: white;
       margin: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      padding: 0;
     }
     
-    /* A6 SIZE - 105mm x 148mm (portrait) - FULL PAGE */
-    .page { 
-      width: 105mm; 
-      height: 148mm; 
-      background: white; 
-      padding: var(--page-padding);
-      position: relative;
-      overflow: hidden;
+    .page {
+      width: 100mm;
+      min-height: 150mm;
+      background: white;
       border: 3px solid #000;
-      display: flex;
-      flex-direction: column;
+      padding: 0;
+      margin: 0 auto;
     }
     
-    /* ====== HEADER: ĐƠN VỊ + MÃ + QR ====== */
-    .top-section {
+    /* HEADER - Logo + Tên ĐV + Barcode */
+    .header {
+      border-bottom: 2px solid #000;
+      padding: 3mm;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--section-margin);
-      padding-bottom: 3mm;
-      border-bottom: 4px solid #000;
-      flex-shrink: 0;
-    }
-    
-    .carrier-info {
-      flex: 1;
-      padding-right: 3mm;
+      align-items: center;
     }
     
     .carrier-name {
-      font-size: var(--font-carrier);
+      font-size: 20px;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 2px;
       letter-spacing: 1px;
     }
     
-    .tracking-code {
-      font-size: var(--font-tracking);
-      font-weight: bold;
-      letter-spacing: 2px;
-      font-family: 'Courier New', monospace;
-      margin-top: 2px;
-    }
-    
-    .qr-box {
-      flex-shrink: 0;
+    .barcode-section {
       text-align: center;
-      border: 3px solid #000;
-      padding: 2mm;
     }
     
-    .qr-box img {
-      width: var(--qr-size);
-      height: var(--qr-size);
-      display: block;
+    .barcode-section img {
+      height: 12mm;
+      margin-bottom: 1mm;
     }
     
-    /* ====== NGƯỜI GỬI ====== */
-    .sender-section {
-      border: 3px solid #000;
-      padding: var(--section-padding);
-      margin-bottom: var(--section-margin);
-      background: #f5f5f5;
-      flex-shrink: 0;
+    .barcode-text {
+      font-size: 10px;
+      font-family: 'Courier New', monospace;
     }
     
-    .section-title {
-      font-size: var(--font-section-title);
+    /* 2 CỘT: TỪ - ĐẾN */
+    .address-row {
+      display: flex;
+      border-bottom: 2px dashed #000;
+    }
+    
+    .address-col {
+      flex: 1;
+      padding: 3mm;
+      border-right: 2px dashed #000;
+    }
+    
+    .address-col:last-child {
+      border-right: none;
+    }
+    
+    .address-label {
+      font-size: 11px;
       font-weight: bold;
-      background: #000;
-      color: white;
-      padding: 2mm 3mm;
-      margin: calc(var(--section-padding) * -1) calc(var(--section-padding) * -1) 2mm;
+      margin-bottom: 2mm;
       text-transform: uppercase;
     }
     
-    .info-row {
-      font-size: var(--font-info);
-      line-height: 1.4;
-      margin-bottom: 2mm;
-    }
-    
-    .info-row strong {
-      font-weight: bold;
-    }
-    
-    .phone-number {
-      font-size: var(--font-phone);
-      font-weight: bold;
-      margin-top: 2mm;
-    }
-    
-    /* ====== NGƯỜI NHẬN ====== */
-    .receiver-section {
-      border: 4px solid #000;
-      padding: var(--section-padding);
-      margin-bottom: var(--section-margin);
-      background: #f5f5f5;
-      flex-shrink: 0;
-    }
-    
-    .receiver-name {
-      font-size: var(--font-receiver-name);
-      font-weight: bold;
-      margin-bottom: 2mm;
-    }
-    
-    .receiver-address {
-      font-size: var(--font-info);
-      line-height: 1.4;
-      margin-bottom: 2mm;
-    }
-    
-    .receiver-phone {
-      font-size: var(--font-phone);
-      font-weight: bold;
-    }
-    
-    /* ====== SẢN PHẨM - FLEXIBLE HEIGHT ====== */
-    .items-section {
-      border: 3px solid #000;
-      margin-bottom: var(--section-margin);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 35mm;
-      overflow: hidden;
-    }
-    
-    .items-table {
-      width: 100%;
-      border-collapse: collapse;
+    .address-name {
       font-size: 14px;
-    }
-    
-    .items-table th {
-      background: #000;
-      color: white;
-      padding: 2mm;
       font-weight: bold;
-      text-align: left;
-      font-size: 14px;
+      margin-bottom: 1mm;
     }
     
-    .items-table td {
-      padding: 2mm 1.5mm;
-      border-bottom: 2px solid #ddd;
-      vertical-align: top;
-    }
-    
-    .product-name {
-      font-size: var(--font-product-name);
-      color: #666;
+    .address-detail {
+      font-size: 12px;
       line-height: 1.3;
+      margin-bottom: 1mm;
     }
     
-    .variant-name {
-      font-size: var(--font-variant);
+    .address-phone {
+      font-size: 13px;
       font-weight: bold;
       margin-top: 1mm;
-      line-height: 1.3;
     }
     
-    .item-qty {
-      text-align: center;
-      font-weight: bold;
-      font-size: var(--font-qty-price);
+    /* SẢN PHẨM + QR */
+    .content-section {
+      display: flex;
+      border-bottom: 2px solid #000;
     }
     
-    .item-price {
-      text-align: right;
-      font-weight: bold;
-      font-size: var(--font-qty-price);
-      white-space: nowrap;
+    .items-col {
+      flex: 1;
+      padding: 3mm;
+      border-right: 2px solid #000;
     }
     
-    /* ====== TỔNG TIỀN - SUPER NỔI BẬT ====== */
-    .payment-section {
-      background: #000;
-      color: white;
-      padding: 4mm;
-      text-align: center;
-      margin-bottom: var(--section-margin);
-      border: 4px solid #000;
-      flex-shrink: 0;
-    }
-    
-    .payment-title {
-      font-size: var(--font-cod-title);
+    .items-title {
+      font-size: 12px;
       font-weight: bold;
       margin-bottom: 2mm;
       text-transform: uppercase;
     }
     
-    .payment-amount {
-      font-size: var(--font-cod-amount);
-      font-weight: bold;
-      letter-spacing: 2px;
-      font-family: 'Courier New', monospace;
-    }
-    
-    .payment-note {
-      font-size: 13px;
-      margin-top: 2mm;
-      opacity: 0.9;
-    }
-    
-    /* ====== FOOTER - ALWAYS AT BOTTOM ====== */
-    .footer {
-      text-align: center;
-      border-top: 3px solid #000;
-      padding-top: 3mm;
-      font-size: var(--font-footer);
-      flex-shrink: 0;
-    }
-    
-    .footer-line {
-      margin-bottom: 1.5mm;
+    .item-row {
+      font-size: 11px;
       line-height: 1.4;
+      margin-bottom: 2mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #ddd;
     }
     
-    .footer-bold {
+    .item-row:last-child {
+      border-bottom: none;
+    }
+    
+    .item-number {
       font-weight: bold;
-      font-size: var(--font-footer-bold);
+      margin-right: 1mm;
+    }
+    
+    .item-name {
+      color: #333;
+    }
+    
+    .item-variant {
+      font-weight: bold;
+      margin-top: 0.5mm;
+      color: #000;
+    }
+    
+    .item-meta {
+      font-size: 10px;
+      color: #666;
+      margin-top: 0.5mm;
+    }
+    
+    .qr-col {
+      width: 30mm;
+      padding: 3mm;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .qr-col img {
+      width: 25mm;
+      height: 25mm;
+      border: 2px solid #000;
+      padding: 1mm;
+    }
+    
+    /* NOTE SECTION */
+    .note-section {
+      padding: 2mm 3mm;
+      font-size: 10px;
+      line-height: 1.4;
+      border-bottom: 2px solid #000;
+      background: #f9f9f9;
+    }
+    
+    /* TỔNG TIỀN - TO NHƯ SPX */
+    .total-section {
+      padding: 4mm 3mm;
+      border-bottom: 2px solid #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .total-label {
+      font-size: 11px;
+      font-weight: bold;
+      text-align: right;
+    }
+    
+    .total-label-main {
+      font-size: 12px;
+      margin-bottom: 1mm;
+    }
+    
+    .total-label-sub {
+      font-size: 10px;
+      color: #666;
+    }
+    
+    .total-amount-box {
+      text-align: center;
+    }
+    
+    .total-amount {
+      font-size: 36px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    
+    .total-currency {
+      font-size: 14px;
+      font-weight: bold;
+      margin-top: 1mm;
+    }
+    
+    /* MÃ VẬN ĐƠN TO - GIỐNG SPX */
+    .tracking-section {
+      padding: 4mm 3mm;
+      text-align: center;
+      border-bottom: 2px solid #000;
+    }
+    
+    .tracking-code {
+      font-size: 32px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+    }
+    
+    /* FOOTER - ĐEN */
+    .footer {
+      background: #000;
+      color: white;
+      padding: 3mm;
+      text-align: center;
+    }
+    
+    .footer-text {
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 1mm;
     }
     
     @media print {
-      body { 
-        margin: 0; 
-        padding: 0; 
-        background: white; 
-      }
+      body { margin: 0; padding: 0; }
       .page { 
-        width: 105mm; 
-        height: 148mm; 
-        margin: 0; 
-        padding: var(--page-padding);
-        page-break-after: avoid;
+        width: 100mm;
         border: none;
+        margin: 0;
       }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <!-- TOP: ĐƠN VỊ VẬN CHUYỂN + MÃ VẬN ĐƠN + QR CODE -->
-    <div class="top-section">
-      <div class="carrier-info">
-        <div class="carrier-name">${carrierName}</div>
-        <div class="tracking-code">${trackingCode}</div>
+    
+    <!-- HEADER: TÊN ĐƠN VỊ + BARCODE -->
+    <div class="header">
+      <div class="carrier-name">${carrierName}</div>
+      <div class="barcode-section">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(trackingCode)}&code=Code128&multiplebarcodes=false&translate-esc=false&unit=Fit&dpi=96&imagetype=Gif&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0" alt="Barcode">
+        <div class="barcode-text">Mã vận đơn: ${trackingCode}</div>
       </div>
-      <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingCode)}" alt="QR">
+    </div>
+    
+    <!-- 2 CỘT: TỪ - ĐẾN -->
+    <div class="address-row">
+      <!-- TỪ -->
+      <div class="address-col">
+        <div class="address-label">Từ:</div>
+        <div class="address-name">${senderName}</div>
+        <div class="address-detail">${senderAddress}</div>
+        <div class="address-phone">SĐT: ${senderPhone}</div>
+      </div>
+      
+      <!-- ĐẾN -->
+      <div class="address-col">
+        <div class="address-label">Đến:</div>
+        <div class="address-name">${receiverName}</div>
+        <div class="address-detail">${receiverAddress}</div>
+        <div class="address-phone">SĐT: ${receiverPhone}</div>
       </div>
     </div>
-
-    <!-- NGƯỜI GỬI -->
-    <div class="sender-section">
-      <div class="section-title">👤 NGƯỜI GỬI</div>
-      <div class="info-row"><strong>${sender.name || store.name || 'SHOP HUY VÂN'}</strong></div>
-      <div class="info-row">${sender.address || store.address || '91/6 Liên Khu 5-11-12, Bình Trị Đông, Bình Tân, TPHCM'}</div>
-      <div class="phone-number">☎ ${sender.phone || store.phone || '0909128999'}</div>
+    
+    <!-- SẢN PHẨM + QR CODE -->
+    <div class="content-section">
+      <div class="items-col">
+        <div class="items-title">Nội dung hàng (Tổng SL sản phẩm: ${items.length})</div>
+        ${items.slice(0, 5).map((item, idx) => `
+          <div class="item-row">
+            <span class="item-number">${idx + 1}.</span>
+            <span class="item-name">${item.name || 'Sản phẩm'}</span>
+            ${item.variant ? `<div class="item-variant">${item.variant}</div>` : ''}
+            <div class="item-meta">SL: ${item.qty || 1} | Giá: ${Number(item.price || 0).toLocaleString('vi-VN')}₫</div>
+          </div>
+        `).join('')}
+        ${items.length > 5 ? `<div style="font-size:10px; color:#666; margin-top:2mm;">...và ${items.length - 5} sản phẩm khác</div>` : ''}
+      </div>
+      
+      <div class="qr-col">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(trackingCode)}" alt="QR">
+      </div>
     </div>
-
-    <!-- NGƯỜI NHẬN -->
-    <div class="receiver-section">
-      <div class="section-title">📦 NGƯỜI NHẬN</div>
-      <div class="receiver-name">${receiver.name || customer.name || 'Khách'}</div>
-      <div class="receiver-address">${receiver.address || customer.address || ''}</div>
-      <div class="receiver-phone">☎ ${receiver.phone || customer.phone || ''}</div>
+    
+    <!-- GHI CHÚ -->
+    <div class="note-section">
+      Kiểm tra kĩ tên sản phẩm và số chi tiết <strong>Mã vận đơn</strong> và <strong>Mã đơn hàng</strong>. 
+      Tiền thu từ <strong>Bên gửi/Shopee</strong> trước khi ký nhận và chỉ ký vào sổ sách 
+      (phần có chữ ký xác nhận của khách hàng)
     </div>
-
-    <!-- SẢN PHẨM - TỰ ĐỘNG MỞ RỘNG -->
-    <div class="items-section">
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="width: 55%">Sản phẩm</th>
-            <th style="width: 20%; text-align: center">SL</th>
-            <th style="width: 25%; text-align: right">Giá</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.slice(0, 5).map(item => `
-            <tr>
-              <td>
-                <div class="product-name">${item.name || 'Sản phẩm'}</div>
-                ${item.variant ? `<div class="variant-name">${item.variant}</div>` : ''}
-              </td>
-              <td class="item-qty">${item.qty || 1}</td>
-              <td class="item-price">${Number(item.price || 0).toLocaleString('vi-VN')}₫</td>
-            </tr>
-          `).join('')}
-          ${items.length > 5 ? `<tr><td colspan="3" style="text-align:center; font-size:12px; padding:2mm; color:#666; font-weight:bold">+ ${items.length - 5} sản phẩm khác</td></tr>` : ''}
-        </tbody>
-      </table>
-    </div>
-
+    
     <!-- TỔNG TIỀN -->
-    <div class="payment-section">
-      <div class="payment-title">💰 TỔNG TIỀN THU TỪ NGƯỜI NHẬN</div>
-      <div class="payment-amount">${totalAmount.toLocaleString('vi-VN')} ₫</div>
-      <div class="payment-note">(Thu hộ - COD)</div>
+    <div class="total-section">
+      <div class="total-label">
+        <div class="total-label-main">Khối lượng tới đa: ${(items.reduce((sum, item) => sum + (Number(item.qty || 1) * 400), 0) / 1000).toFixed(1)} kg</div>
+        <div class="total-label-sub">Chú ký người nhận<br>Xác nhận hàng nguyên vẹn, không móp/méo,<br>hàng đ</div>
+      </div>
+      <div class="total-amount-box">
+        <div class="total-amount">${totalAmount.toLocaleString('vi-VN')}</div>
+        <div class="total-currency">VND</div>
+      </div>
     </div>
-
+    
+    <!-- MÃ VẬN ĐƠN TO -->
+    <div class="tracking-section">
+      <div class="tracking-code">${trackingCode}</div>
+    </div>
+    
     <!-- FOOTER -->
     <div class="footer">
-      <div class="footer-line footer-bold">☎ Hotline: 0909128999 | 0933190000</div>
-      <div class="footer-line footer-bold">💬 Zalo: 0909128999</div>
-      <div class="footer-line footer-bold">🌐 shophuyvan.vn</div>
+      <div class="footer-text">Hotline khiếu nại và đổi trả sản phẩm | 0909128999</div>
+      <div class="footer-text">💬 Zalo: 0909128999 | 🌐 shophuyvan.vn</div>
     </div>
+    
   </div>
 
   <script>
