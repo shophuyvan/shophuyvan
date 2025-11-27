@@ -557,18 +557,69 @@ export async function printWaybill(req, env) {
     const superaiCode = body.superai_code;
     let order = body.order || {};
     
-    // ✅ Nếu admin không gửi order, tìm từ KV
-    if (!order.id || !order.items) {
-      console.log('[printWaybill] Order incomplete, searching KV...');
-      const list = await getJSON(env, 'orders:list', []);
-      const found = list.find(o => o.superai_code === superaiCode || o.shipping_tracking === superaiCode);
-      if (found && found.id) {
-        const fullOrder = await getJSON(env, 'order:' + found.id, null);
-        if (fullOrder) {
-          order = fullOrder;
-          console.log('[printWaybill] ✅ Found full order from KV');
+   // ✅ 1. LUÔN lấy dữ liệu THẬT từ D1 (Source of Truth)
+    console.log('[printWaybill] Fetching fresh data from D1...');
+      
+    const dbOrder = await env.DB.prepare(`
+      SELECT * FROM orders 
+      WHERE tracking_number = ? OR channel_order_id = ? OR id = ?
+    `).bind(superaiCode, superaiCode, order.id || '').first();
+
+    if (dbOrder) {
+      // Lấy items từ D1
+      const dbItems = await env.DB.prepare(`
+        SELECT * FROM order_items WHERE order_id = ?
+      `).bind(dbOrder.id).all();
+
+      // Parse shipping_address JSON an toàn
+      let shippingAddr = {};
+      try {
+        if (dbOrder.shipping_address && (dbOrder.shipping_address.startsWith('{') || dbOrder.shipping_address.startsWith('['))) {
+          shippingAddr = JSON.parse(dbOrder.shipping_address);
+        } else {
+          shippingAddr = { address: dbOrder.shipping_address || '' };
         }
-      }
+      } catch (e) { /* ignore */ }
+
+      // Build order object chuẩn từ DB
+      order = {
+        ...dbOrder,
+        id: dbOrder.id, 
+        
+        // Customer info chuẩn hóa
+        customer: {
+          name: dbOrder.customer_name,
+          phone: dbOrder.customer_phone,
+          address: shippingAddr.address || dbOrder.shipping_address || '',
+          province: dbOrder.shipping_province || '',
+          district: dbOrder.shipping_district || '',
+          ward: dbOrder.receiver_ward_code || '' 
+        },
+        
+        // Items chuẩn hóa
+        items: (dbItems.results || []).map(i => ({
+          name: i.name || i.item_name,
+          variant: i.variant_name,
+          qty: i.quantity,
+          price: i.price,
+          sku: i.sku
+        })),
+        
+        // Thông tin vận đơn
+        tracking_code: dbOrder.tracking_number,
+        shipping_provider: dbOrder.shipping_carrier,
+        
+        // Tài chính
+        revenue: dbOrder.total,
+        shipping_fee: dbOrder.shipping_fee,
+        cod: (dbOrder.payment_method === 'cod' || dbOrder.payment_method === 'COD') ? dbOrder.total : 0,
+        
+        created_at: dbOrder.created_at
+      };
+      console.log('[printWaybill] ✅ Loaded REAL data from D1');
+    } else {
+      console.warn('[printWaybill] ❌ Order not found in D1 for tracking:', superaiCode);
+      return errorResponse('Không tìm thấy đơn hàng trong Database', 404, req);
     }
 
     if (!superaiCode) {
@@ -604,8 +655,13 @@ export async function printWaybill(req, env) {
       district: 'Quận Bình Tân'
     };
     
-    const receiver = order.receiver || order.customer || {};
-    const customer = order.customer || {};
+    // Lấy thông tin người nhận từ order (đã chuẩn hóa ở bước 1)
+    const receiver = {
+        name: order.customer.name || 'Khách',
+        phone: order.customer.phone || '',
+        address: order.customer.address || ''
+    };
+    const customer = order.customer;
     const items = Array.isArray(order.items) ? order.items : [];
     
     const createdDate = order.createdAt ? new Date(Number(order.createdAt)).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
