@@ -449,7 +449,7 @@ async function enrichItemsWeight(env, items) {
         `).bind(
           dbOrderId,
           item.product_id || null, 
-          item.variant_id || item.id || null, // Ưu tiên variant_id nếu có
+          item.variant_id || null,  // ✅ Chỉ dùng variant_id, không fallback item.id
           String(item.sku || item.id || ''), 
           String(item.name || ''), 
           String(item.variant || item.variant_name || ''),
