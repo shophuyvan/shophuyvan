@@ -402,6 +402,7 @@ const rawItems = res?.items || [];
     selectedShipping = {
       provider: it.originalProvider,
       service_code: it.service_code,
+      option_id: it.option_id || '1', // Lưu thêm option_id (quan trọng cho SuperAI)
       fee: it.fee,
       eta: it.eta,
       name: it.name
@@ -1091,6 +1092,7 @@ $('place-order').addEventListener('click', async () => {
       cod_amount: codAmount,
       shipping_provider: selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
+      shipping_option_id: selectedShipping.option_id || '1', // Gửi option_id lên server
       shipping_name: selectedShipping.name || '',
       shipping_eta: selectedShipping.eta || '',
       totals: {

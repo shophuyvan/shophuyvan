@@ -494,12 +494,13 @@ export async function autoCreateWaybill(order, env) {
       value: totalValue, // Sửa: Giá trị đơn hàng (full)
       soc: order.soc || order.id || '',
       
-      payer: payer, // Sửa: '2' (Khách trả phí)
-      provider: await resolveCarrierCode(env, order.shipping_provider || 'vtp'), // ✅ Convert sang mã số
-      service_code: order.shipping_service || '', // Lấy từ đơn hàng khách đã chọn
-      config: String(order.allow_inspection === false ? '2' : '1'), // ✅ Map allow_inspection
+      payer: payer,
+      provider: await resolveCarrierCode(env, order.shipping_provider || 'vtp'),
+      service_code: order.shipping_service || '', // Dùng gói cước khách đã chọn
+      config: String(order.allow_inspection === false ? '2' : '1'),
       product_type: '2',
-      option_id: shipping.option_id || '1',
+      // ✅ QUAN TRỌNG: Dùng option_id từ đơn hàng (nếu có) thay vì mặc định
+      option_id: order.shipping_option_id || shipping.option_id || '1', 
       products: products,
       note: order.note || ''
     };

@@ -682,6 +682,7 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
     // ✅ FIX LỖI 1: Ưu tiên body (từ FE/Mini) trước
     shipping_provider: body.shipping_provider || shipping.provider || null,
     shipping_service: body.shipping_service || shipping.service_code || null,
+    shipping_option_id: body.shipping_option_id || '1', // Lưu option_id
     shipping_name: body.shipping_name || shipping.name || null,
     shipping_eta: body.shipping_eta || shipping.eta || null,
     // ✅ FIX LỖI 2: Lưu cân nặng từ FE/Mini vào order

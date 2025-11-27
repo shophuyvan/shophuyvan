@@ -150,8 +150,10 @@ class OrdersManager {
     // Ưu tiên lấy carrier_name (tên chính xác từ SuperAI trả về)
     const provider = String(order.carrier_name || order.shipping_provider || order.provider || order.shipping_name || '');
     
-    // Mã vận đơn (Tracking)
-    const tracking = String(order.tracking_code || order.carrier_code || order.shipping_tracking || '');
+    // Mã vận đơn (Tracking) - Chỉ lấy mã ngắn, bỏ qua UUID dài
+    let trackingRaw = String(order.tracking_code || order.carrier_code || order.shipping_tracking || '');
+    if (trackingRaw.length > 30) trackingRaw = ''; // Nếu là UUID thì ẩn đi
+    const tracking = trackingRaw;
     
     // Mã đơn hàng API (SuperAI Code)
     const superaiCode = String(order.superai_code || '');
