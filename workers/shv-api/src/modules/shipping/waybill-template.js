@@ -63,13 +63,13 @@ export function getWaybillHTML(data) {
       margin: 0 12px;
     }
     .header-code .main-code {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: bold;
       letter-spacing: 1px;
       color: #000;
     }
     .header-code .sub-text {
-      font-size: 12px;
+      font-size: 15px;
       color: #666;
       margin-top: 1px;
     }
@@ -264,17 +264,17 @@ export function getWaybillHTML(data) {
       text-align: center;
       border-top: 1px solid #ddd;
       padding-top: 4px;
-      font-size: 12px;
+      font-size: 15px;
     }
     .footer-note {
       color: #666;
       margin-bottom: 1px;
-      font-size: 12px;
+      font-size: 15px;
     }
     .hotline {
       font-weight: bold;
       color: #ff6b35;
-      font-size: 13px;
+      font-size: 18px;
     }
     
     @media print {

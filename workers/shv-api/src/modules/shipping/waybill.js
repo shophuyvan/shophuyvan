@@ -434,7 +434,7 @@ export async function autoCreateWaybill(order, env) {
     const shipping = settings.shipping || {};
     const store = settings.store || {};
 
-    const products = buildWaybillItems({}, order); // Dùng order object
+    const products = buildWaybillItems({}, order);
     const orderName = products.length > 0 ? products[0].name : 'Đơn hàng';
 
     // Lấy thông tin người nhận từ order
@@ -442,24 +442,68 @@ export async function autoCreateWaybill(order, env) {
     const receiverAddress = order.customer?.address || '';
     const receiverProvince = order.customer?.province || '';
     const receiverDistrict = order.customer?.district || '';
-    // ✅ Ưu tiên receiver_province_code từ order root, sau đó mới customer
     const receiverProvinceCode = order.receiver_province_code || order.customer?.province_code || '';
     const rawReceiverDistrictCode = order.receiver_district_code || order.customer?.district_code || '';
     const receiverDistrictCode = await validateDistrictCode(env, receiverProvinceCode || '79', rawReceiverDistrictCode, receiverDistrict);
     const receiverCommuneCode = order.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || '';
 
-// Tính toán các giá trị
     const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
-
-    // SỬA: Logic Phí (Theo yêu cầu của bạn: Khách trả phí)
-    // Payer = 2 (Khách trả phí)
-    // COD = Chỉ thu hộ tiền hàng (subtotal)
     const payer = '2';
     const totalCOD = Number(order.subtotal || 0);
-    // Giá trị đơn hàng (value) vẫn là tổng (revenue)
     const totalValue = Number(order.revenue || order.total || totalAmount || 0);
 
+    // ✅ BƯỚC 1: GỌI PRICING API ĐỂ LẤY DANH SÁCH CARRIERS
+    console.log('[autoCreateWaybill] 📊 Calling pricing API to find cheapest carrier...');
+    
+    const pricingPayload = {
+      sender_province: shipping.sender_province || store.province || '',
+      sender_district: shipping.sender_district || store.district || '',
+      receiver_province: receiverProvince,
+      receiver_district: receiverDistrict,
+      receiver_commune: (order.customer?.commune || order.customer?.ward || ''),
+      weight: totalWeight,
+      value: totalCOD
+    };
+
+    let selectedCarrier = null;
+    try {
+      const pricingData = await superFetch(env, '/v1/platform/orders/price', {
+        method: 'POST',
+        body: pricingPayload
+      });
+
+      // Parse carriers từ response
+      const carriers = (pricingData?.data?.services || pricingData?.data?.items || pricingData?.data || []);
+      
+      if (Array.isArray(carriers) && carriers.length > 0) {
+        // ✅ SORT THEO FEE TĂNG DẦN (RẺ NHẤT TRƯỚC)
+        const sortedCarriers = carriers
+          .map(c => ({
+            carrier_id: String(c.carrier_id || ''),
+            carrier_name: c.carrier_name || c.name || 'Unknown',
+            service_code: String(c.service_code || ''),
+            fee: Number(c.shipment_fee || c.fee || 0),
+            eta: c.estimated_delivery || c.eta || ''
+          }))
+          .filter(c => c.fee > 0) // Chỉ lấy carrier có fee hợp lệ
+          .sort((a, b) => a.fee - b.fee); // Sort tăng dần theo fee
+
+        if (sortedCarriers.length > 0) {
+          selectedCarrier = sortedCarriers[0]; // Chọn carrier RẺ NHẤT
+          console.log('[autoCreateWaybill] ✅ Selected CHEAPEST carrier:', {
+            name: selectedCarrier.carrier_name,
+            fee: selectedCarrier.fee,
+            eta: selectedCarrier.eta,
+            total_options: sortedCarriers.length
+          });
+        }
+      }
+    } catch (pricingError) {
+      console.warn('[autoCreateWaybill] ⚠️ Pricing API failed, using default carrier:', pricingError.message);
+    }
+
+    // ✅ BƯỚC 2: TẠO PAYLOAD VỚI CARRIER ĐÃ CHỌN
     const payload = {
       name: orderName,
       phone: receiverPhone,
@@ -490,17 +534,19 @@ export async function autoCreateWaybill(order, env) {
 
       weight_gram: totalWeight,
       weight: totalWeight,
-      cod: totalCOD, // Sửa: Thu hộ tiền hàng (subtotal)
-      value: totalValue, // Sửa: Giá trị đơn hàng (full)
+      cod: totalCOD,
+      value: totalValue,
       soc: order.soc || order.id || '',
       
       payer: payer,
-      provider: await resolveCarrierCode(env, order.shipping_provider || 'vtp'),
-      service_code: order.shipping_service || '', // Dùng gói cước khách đã chọn
+      
+      // ✅ DÙNG CARRIER ĐÃ CHỌN (RẺ NHẤT) THAY VÌ CỐ ĐỊNH
+      provider: selectedCarrier?.carrier_id || await resolveCarrierCode(env, order.shipping_provider || 'vtp'),
+      service_code: selectedCarrier?.service_code || order.shipping_service || '',
+      
       config: String(order.allow_inspection === false ? '2' : '1'),
       product_type: '2',
-      // ✅ QUAN TRỌNG: Dùng option_id từ đơn hàng (nếu có) thay vì mặc định
-      option_id: order.shipping_option_id || shipping.option_id || '1', 
+      option_id: order.shipping_option_id || shipping.option_id || '1',
       products: products,
       note: order.note || ''
     };
@@ -519,21 +565,21 @@ export async function autoCreateWaybill(order, env) {
 
     const isSuccess = data?.error === false && data?.data;
     
-    // ✅ LOG CHI TIẾT - Xem SuperAI trả về gì
     console.log('[autoCreateWaybill] 📊 SuperAI response data keys:', Object.keys(data?.data || {}));
     console.log('[autoCreateWaybill] 📋 Full response data:', JSON.stringify(data?.data, null, 2));
     
-    // Sá»¬A: Láº¥y 2 mÃ£ tracking riÃªng biá»‡t
     const carrier_code = data?.data?.carrier_code || data?.data?.code || null;
     const superai_code = data?.data?.superai_code || data?.data?.tracking || data?.data?.order_code || null;
     const carrier_id = data?.data?.carrier_id || null;
+    const carrier_name = data?.data?.carrier_name || selectedCarrier?.carrier_name || ''; // ✅ LẤY TÊN CARRIER
 
     if (isSuccess && (carrier_code || superai_code)) {
       return { 
         ok: true, 
-        carrier_code: carrier_code,     // Mã nhà vận chuyển (SPXVN...)
-        superai_code: superai_code,     // Mã SuperAI (CTOS...)
+        carrier_code: carrier_code,
+        superai_code: superai_code,
         carrier_id: carrier_id,
+        carrier_name: carrier_name, // ✅ TRẢ VỀ TÊN CARRIER
         provider: payload.provider, 
         raw: data.data 
       };
@@ -615,8 +661,10 @@ export async function printWaybill(req, env) {
         
        // Thông tin vận đơn
         tracking_code: dbOrder.tracking_number, 
+        carrier_code: dbOrder.tracking_number, // ✅ Mã tracking từ carrier
         superai_code: dbOrder.superai_code || dbOrder.tracking_number, // ✅ Lấy đúng cột superai_code
         shipping_provider: dbOrder.shipping_carrier,
+        carrier_name: dbOrder.shipping_carrier, // ✅ THÊM carrier_name cho template
         
         // Tài chính
         revenue: dbOrder.total,
