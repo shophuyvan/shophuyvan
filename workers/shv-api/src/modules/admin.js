@@ -172,7 +172,7 @@ export async function handle(req, env, ctx) {
     // ============================================
     // DOUYIN LOCALIZATION (NEW)
     // ============================================
-    if (path.startsWith('/api/douyin')) {
+    if (path.startsWith('/api/douyin') || path.startsWith('/api/social/douyin')) {
       // Lazy load module Douyin để tối ưu cold start
       const douyin = await import('./social-video-sync/douyin-handler.js');
       
@@ -180,11 +180,18 @@ export async function handle(req, env, ctx) {
       const permCheck = await requirePermission(req, env, 'ads.edit');
       if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
 
+      // POST /api/social/douyin/upload
+      if (path === '/api/social/douyin/upload' && method === 'POST') {
+        return douyin.uploadDouyinVideos(req, env);
+      }
+
+      // POST /api/douyin/analyze
       if (path === '/api/douyin/analyze' && method === 'POST') {
         return douyin.analyzeDouyinVideo(req, env);
       }
       
-      const statusMatch = path.match(/\/api\/douyin\/([^\/]+)$/); // GET /api/douyin/:id
+      // GET /api/douyin/:id
+      const statusMatch = path.match(/\/api\/douyin\/([^\/]+)$/);
       if (statusMatch && method === 'GET') {
         return douyin.getDouyinStatus(req, env);
       }

@@ -1,10 +1,7 @@
 // File: workers/shv-api/src/modules/social-video-sync/douyin-handler.js
 
-// 1. CHỈ IMPORT json, KHÔNG IMPORT error
+// Import cần thiết
 import { json } from '../../lib/response.js'; 
-
-// 2. BỎ IMPORT createId VÌ ĐÃ CÓ HÀM generateId BÊN DƯỚI
-// import { createId } from '../../lib/utils.js'; 
 
 /**
  * Hàm tạo ID ngắn gọn (Dùng nội bộ)
@@ -20,6 +17,95 @@ function errorResponse(msg, status = 400) {
     return json({ ok: false, error: msg }, { status });
 }
 
+/**
+ * API: Upload Videos từ máy tính
+ * POST /api/social/douyin/upload
+ * Body: FormData với files[] và product_id
+ */
+export async function uploadDouyinVideos(req, env) {
+    try {
+        const formData = await req.formData();
+        const productId = formData.get('product_id');
+        const files = formData.getAll('files');
+
+        if (!files || files.length === 0) {
+            return errorResponse('Vui lòng chọn ít nhất 1 video', 400);
+        }
+
+        console.log(`[Douyin Upload] 📤 Received ${files.length} files for product ${productId}`);
+
+        const uploadedVideos = [];
+        const now = Date.now();
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const videoId = generateId('dyup');
+            
+            // Đọc file content
+            const buffer = await file.arrayBuffer();
+            const size = buffer.byteLength;
+            const filename = file.name || `video_${i + 1}.mp4`;
+
+            console.log(`[Douyin Upload] ⚙️ Processing: ${filename} (${(size / 1024 / 1024).toFixed(2)} MB)`);
+
+            // Upload lên R2 storage
+            const r2Key = `douyin/uploads/${videoId}/${filename}`;
+            await env.R2_BUCKET.put(r2Key, buffer, {
+                httpMetadata: {
+                    contentType: file.type || 'video/mp4'
+                }
+            });
+
+            // Tạo public URL (sử dụng R2 public domain của bạn)
+            // TODO: Thay YOUR_R2_PUBLIC_DOMAIN bằng domain thật
+            const videoUrl = `https://pub-YOUR_R2_PUBLIC_ID.r2.dev/${r2Key}`;
+            
+            // TODO: Generate thumbnail (tạm thời dùng placeholder)
+            const thumbnailUrl = 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video';
+
+            // Lưu metadata vào D1
+            await env.DB.prepare(`
+                INSERT INTO douyin_videos (
+                    id, product_id, filename, file_size, video_url, thumbnail_url,
+                    status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+            `).bind(
+                videoId, 
+                productId || null, 
+                filename, 
+                size, 
+                videoUrl, 
+                thumbnailUrl,
+                now, 
+                now
+            ).run();
+
+            uploadedVideos.push({
+                video_id: videoId,
+                filename: filename,
+                size: size,
+                thumbnail_url: thumbnailUrl,
+                duration: 0, // TODO: Extract từ video metadata
+                status: 'uploaded'
+            });
+
+            console.log(`[Douyin Upload] ✅ Uploaded: ${videoId}`);
+        }
+
+        console.log(`[Douyin Upload] 🎉 All done! ${uploadedVideos.length} videos`);
+
+        return json({
+            ok: true,
+            success: true,
+            message: `Đã upload ${uploadedVideos.length} videos thành công`,
+            videos: uploadedVideos
+        });
+
+    } catch (e) {
+        console.error('[Douyin Upload] ❌ Error:', e);
+        return errorResponse('Lỗi upload: ' + e.message, 500);
+    }
+}
 /**
  * API: Phân tích Video Douyin (Bước 1)
  * POST /api/douyin/analyze
