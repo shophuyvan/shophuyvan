@@ -1223,13 +1223,16 @@ return `
       return;
     }
 
-    Admin.toast(`Đang xác nhận ${pendingOrders.length} đơn hàng...`);
+    Admin.toast(`Đang xác nhận ${pendingOrders.length} đơn hàng và tạo vận đơn...`);
 
     let successCount = 0;
     let failCount = 0;
+    let waybillCreated = 0;
+    let waybillFailed = 0;
 
     for (const order of pendingOrders) {
       try {
+        // BƯỚC 1: Đổi status
         console.log('[confirmSelectedOrders] Confirming order:', order.id);
         const res = await Admin.req('/admin/orders/upsert', {
           method: 'POST',
@@ -1244,6 +1247,24 @@ return `
         if (res.ok) {
           successCount++;
           this.selectedOrders.delete(String(order.id));
+          
+          // BƯỚC 2: Tạo vận đơn tự động
+          try {
+            console.log('[confirmSelectedOrders] Creating waybill for:', order.id);
+            
+            // Gọi WaybillCreator nếu có
+            if (window.waybillCreator && typeof window.waybillCreator.createWaybill === 'function') {
+              await window.waybillCreator.createWaybill(order);
+              waybillCreated++;
+              console.log('[confirmSelectedOrders] ✅ Waybill created for:', order.id);
+            } else {
+              console.warn('[confirmSelectedOrders] ⚠️ WaybillCreator not found');
+              waybillFailed++;
+            }
+          } catch (waybillError) {
+            console.error('[confirmSelectedOrders] ❌ Waybill creation failed for', order.id, ':', waybillError);
+            waybillFailed++;
+          }
         } else {
           failCount++;
           console.error('[confirmSelectedOrders] Failed for', order.id, ':', res);
@@ -1254,7 +1275,10 @@ return `
       }
     }
 
-    Admin.toast(`✅ Xác nhận thành công: ${successCount}, ❌ Thất bại: ${failCount}`);
+    Admin.toast(`✅ Xác nhận: ${successCount}, ❌ Thất bại: ${failCount} | 📦 Vận đơn: ${waybillCreated} thành công, ${waybillFailed} thất bại`);
+    
+    // Đợi 2 giây để vận đơn được tạo xong
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await this.loadOrders();
   }
 
@@ -1484,28 +1508,34 @@ return `
   }
 
   wireGlobalEvents() {
+    console.log('[wireGlobalEvents] Binding events...');
+    
     // Nút "Chọn tất cả"
     const selectAllCheckbox = document.getElementById('select-all-orders');
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener('change', (event) => this.handleSelectAllChange(event));
+      console.log('[wireGlobalEvents] ✅ Bound select-all-orders');
     }
 
     // Nút In hàng loạt
     const bulkPrintBtn = document.getElementById('bulk-print-btn');
     if (bulkPrintBtn) {
-      bulkPrintBtn.addEventListener('click', () => this.printSelectedOrders());
+      bulkPrintBtn.onclick = () => this.printSelectedOrders();
+      console.log('[wireGlobalEvents] ✅ Bound bulk-print-btn');
     }
 
     // Nút Hủy hàng loạt
     const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
     if (bulkCancelBtn) {
-      bulkCancelBtn.addEventListener('click', () => this.cancelSelectedOrders());
+      bulkCancelBtn.onclick = () => this.cancelSelectedOrders();
+      console.log('[wireGlobalEvents] ✅ Bound bulk-cancel-btn');
     }
 
     // Nút Xác nhận hàng loạt
     const bulkConfirmBtn = document.getElementById('bulk-confirm-btn');
     if (bulkConfirmBtn) {
-      bulkConfirmBtn.addEventListener('click', () => this.confirmSelectedOrders());
+      bulkConfirmBtn.onclick = () => this.confirmSelectedOrders();
+      console.log('[wireGlobalEvents] ✅ Bound bulk-confirm-btn');
     }
     // Reload button
     const reloadBtn = document.getElementById('reload-orders');
