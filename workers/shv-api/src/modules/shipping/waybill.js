@@ -450,7 +450,8 @@ export async function autoCreateWaybill(order, env) {
     const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
     const payer = '2';
-    const totalCOD = Number(order.subtotal || 0);
+    // ✅ FIX: COD phải bằng tổng tiền khách trả (bao gồm ship)
+    const totalCOD = Number(order.revenue || order.total || totalAmount || 0);
     const totalValue = Number(order.revenue || order.total || totalAmount || 0);
 
     // ✅ BƯỚC 1: GỌI PRICING API ĐỂ LẤY DANH SÁCH CARRIERS

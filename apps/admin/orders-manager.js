@@ -321,8 +321,6 @@ class OrdersManager {
               ` : ''
             }
 
-           ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE (D1 VERSION) */ 
-              (order.escrow_amount > 0 || order.commission_fee > 0) ? `
               <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e5e7eb; font-size:12px;">
                 <div class="detail-row">
                    <span class="label">Tổng sàn thu:</span>

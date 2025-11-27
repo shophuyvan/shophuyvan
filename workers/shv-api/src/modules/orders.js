@@ -926,7 +926,7 @@ async function listOrdersFromD1(req, env) {
         o.created_at, o.updated_at,
         oi.product_id, oi.variant_id, oi.sku, 
         oi.name as item_name, oi.variant_name, oi.image,
-        oi.price, oi.quantity, oi.subtotal as item_subtotal,
+        oi.price, oi.cost, oi.quantity, oi.subtotal as item_subtotal,
         oi.channel_item_id, oi.channel_model_id
       FROM orders o
       LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -1032,9 +1032,10 @@ async function listOrdersFromD1(req, env) {
           name: row.item_name || 'Sản phẩm',
           variant: row.variant_name || '',
           price: row.price || 0,
+          cost: row.cost || 0,
           qty: row.quantity || 1,
           subtotal: row.item_subtotal || 0,
-          image: row.image || null, // Nếu null sẽ được enrich ở bước sau
+          image: row.image || null,
           // Shopee mapping
           shopee_item_id: row.channel_item_id,
           shopee_model_id: row.channel_model_id
