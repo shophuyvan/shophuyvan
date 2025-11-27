@@ -793,39 +793,39 @@ export async function cancelWaybill(req, env) {
       }
     });
 
-    if (cancelRes.error === false || (cancelRes.data && cancelRes.data.success)) {
-      // 2. Cập nhật trạng thái trong KV
+    // 2. Kiểm tra kết quả (bao gồm cả trường hợp đã hủy trước đó)
+    const isSuccess = 
+      cancelRes.error === false || 
+      (cancelRes.data && cancelRes.data.success) ||
+      (cancelRes.error === true && cancelRes.message && 
+       (cancelRes.message.includes('đã ở trạng thái hủy') || 
+        cancelRes.message.includes('đã hủy') ||
+        cancelRes.message.includes('hủy trước đó')));
+
+    if (isSuccess) {
+      // 3. Cập nhật trạng thái trực tiếp vào D1
       try {
-        const list = await getJSON(env, 'orders:list', []);
-        let orderId = null;
-        
-        const index = list.findIndex(o => 
-          o.superai_code === superaiCode || 
-          o.tracking_code === superaiCode || 
-          o.shipping_tracking === superaiCode
+        const updateStmt = env.DB.prepare(
+          `UPDATE orders 
+           SET status = 'cancelled', 
+               tracking_number = 'CANCELLED',
+               updated_at = ?
+           WHERE superai_code = ?`
         );
         
-        if (index > -1) {
-          list[index].status = 'cancelled';
-          list[index].tracking_code = 'CANCELLED';
-          orderId = list[index].id;
-          await putJSON(env, 'orders:list', list);
-          
-          if (orderId) {
-            const order = await getJSON(env, 'order:' + orderId, null);
-            if (order) {
-              order.status = 'cancelled';
-              order.tracking_code = 'CANCELLED';
-              // FIX: Removed extra 'A'
-              await putJSON(env, 'order:' + orderId, order);
-            }
-          }
+        const result = await updateStmt.bind(Date.now(), superaiCode).run();
+        
+        if (result.meta.changes > 0) {
+          console.log(`[cancelWaybill] ✅ Đã cập nhật ${result.meta.changes} đơn hàng trong D1`);
+        } else {
+          console.warn('[cancelWaybill] ⚠️ Không tìm thấy đơn hàng với superai_code:', superaiCode);
         }
       } catch (e) {
-        console.warn('[cancelWaybill] Lỗi cập nhật KV, nhưng SuperAI đã hủy OK:', e.message);
+        console.error('[cancelWaybill] ❌ Lỗi cập nhật D1:', e.message);
+        return errorResponse('Hủy vận đơn thành công nhưng không cập nhật được database', 500, req);
       }
       
-      return json({ ok: true, message: 'Hủy thành công' }, {}, req);
+      return json({ ok: true, message: 'Hủy vận đơn thành công' }, {}, req);
     }
 
     return errorResponse(cancelRes.message || 'Lỗi từ SuperAI', 400, req);

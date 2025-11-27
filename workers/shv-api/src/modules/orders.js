@@ -1325,11 +1325,84 @@ async function deleteOrder(req, env) {
   const id = body.id;
   if (!id) return errorResponse('ID is required', 400, req);
 
-  const list = await getJSON(env, 'orders:list', []);
-  const newList = list.filter(order => order.id !== id);
-  await putJSON(env, 'orders:list', newList);
+  try {
+    // 1. Lấy thông tin đơn hàng từ D1 trước khi xóa
+    const orderStmt = env.DB.prepare(
+      `SELECT * FROM orders WHERE id = ? OR order_number = ?`
+    );
+    const orderResult = await orderStmt.bind(id, id).first();
 
-  return json({ ok: true, deleted: id }, {}, req);
+    if (!orderResult) {
+      return errorResponse('Order not found', 404, req);
+    }
+
+    // 2. Restore inventory nếu đơn hàng chưa hủy
+    const needRestoreStock = shouldAdjustStock(orderResult.status);
+    if (needRestoreStock) {
+      try {
+        // Lấy order items từ bảng order_items
+        const itemsStmt = env.DB.prepare(
+          `SELECT * FROM order_items WHERE order_id = ?`
+        );
+        const itemsResult = await itemsStmt.bind(orderResult.id).all();
+        
+        if (itemsResult.results && itemsResult.results.length > 0) {
+          const items = itemsResult.results.map(item => ({
+            id: item.variant_id,
+            product_id: item.product_id,
+            sku: item.sku,
+            name: item.name,
+            variant: item.variant_name || '',
+            qty: item.quantity,
+            price: item.price,
+            cost: item.cost || 0
+          }));
+          
+          // Restore inventory (+1 để tăng stock)
+          await adjustInventory(items, env, +1);
+          console.log(`[deleteOrder] ✅ Đã restore ${items.length} items vào kho`);
+        }
+      } catch (e) {
+        console.error('[deleteOrder] ⚠️ Lỗi restore inventory:', e.message);
+      }
+    }
+
+    // 3. Hủy vận đơn SuperAI nếu có
+    if (orderResult.superai_code) {
+      try {
+        await cancelWaybill({
+          body: JSON.stringify({ superai_code: orderResult.superai_code }),
+          headers: req.headers
+        }, env);
+        console.log(`[deleteOrder] ✅ Đã hủy vận đơn SuperAI: ${orderResult.superai_code}`);
+      } catch (e) {
+        console.warn('[deleteOrder] ⚠️ Không thể hủy vận đơn:', e.message);
+      }
+    }
+
+    // 4. Xóa order items trước
+    const deleteItemsStmt = env.DB.prepare(
+      `DELETE FROM order_items WHERE order_id = ?`
+    );
+    await deleteItemsStmt.bind(orderResult.id).run();
+
+    // 5. Xóa order khỏi D1
+    const deleteOrderStmt = env.DB.prepare(
+      `DELETE FROM orders WHERE id = ?`
+    );
+    const result = await deleteOrderStmt.bind(orderResult.id).run();
+
+    if (result.meta.changes > 0) {
+      console.log(`[deleteOrder] ✅ Đã xóa đơn hàng #${id} khỏi D1`);
+      return json({ ok: true, deleted: id, message: 'Đã xóa đơn hàng' }, {}, req);
+    } else {
+      return errorResponse('Không thể xóa đơn hàng', 500, req);
+    }
+
+  } catch (e) {
+    console.error('[deleteOrder] Exception:', e);
+    return errorResponse(e.message, 500, req);
+  }
 }
 
 // ===================================================================
