@@ -1277,7 +1277,7 @@ async function upsertOrder(req, env) {
             order.carrier_id = waybillResult.carrier_id;
             order.carrier_name = waybillResult.carrier_name; // ✅ THÊM DÒNG NÀY
             order.shipping_provider = waybillResult.carrier_name; // ✅ THÊM DÒNG NÀY
-            order.status = 'processing'; // Giữ trạng thái đang xử lý
+            order.status = 'processing';
             order.waybill_data = waybillResult.raw;
 
             // Lưu lại ngay thông tin vận đơn

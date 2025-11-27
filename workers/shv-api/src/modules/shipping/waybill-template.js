@@ -291,8 +291,8 @@ export function getWaybillHTML(data) {
         <img src="${logo}" alt="Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-size=%2216%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ELogo%3C/text%3E%3C/svg%3E'">
       </div>
       <div class="header-code">
-        <div class="main-code">${superaiCode}</div>
-        <div class="sub-text">Mã vận đơn</div>
+        <div class="main-code">${order.tracking_code || order.carrier_code || superaiCode}</div>
+<div class="sub-text">Mã vận đơn (${order.carrier_name || order.shipping_provider || ''})</div>
       </div>
       <div class="header-date">
         <div class="time">${createdDate.split(' ')[0]}</div>
@@ -303,7 +303,7 @@ export function getWaybillHTML(data) {
     <!-- BARCODE -->
     <div class="barcode-section">
       <img src="${barcodeSrc}" alt="Barcode" class="barcode-img" onerror="this.style.display='none'">
-      <div class="barcode-text">${superaiCode}</div>
+      <div class="barcode-text">${order.tracking_code || order.carrier_code || superaiCode}</div>
     </div>
 
     <!-- SENDER - SINGLE ROW -->
