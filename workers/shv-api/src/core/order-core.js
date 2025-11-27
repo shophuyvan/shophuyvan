@@ -428,6 +428,15 @@ async function enrichItemsWeight(env, items) {
 
     // ✅ Sử dụng items đã enrich weight
     for (const item of items) {
+      // ✅ DEBUG: Log item trước khi INSERT
+      console.log('[ORDER-CORE] Item to insert:', {
+        id: item.id,
+        product_id: item.product_id || null,
+        variant_id: item.variant_id || item.id || null,
+        sku: item.sku,
+        name: item.name
+      });
+      
       statements.push(
         env.DB.prepare(`
           INSERT INTO order_items (
