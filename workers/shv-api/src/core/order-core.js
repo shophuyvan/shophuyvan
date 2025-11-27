@@ -250,6 +250,7 @@ async function enrichItemsWeight(env, items) {
       shipping_name, shipping_phone, shipping_address,
       shipping_district, shipping_city, shipping_province, shipping_zipcode,
       receiver_province_code, receiver_district_code, receiver_ward_code,
+      total_weight_gram,
       subtotal, shipping_fee, discount, total, profit,
       seller_transaction_fee, shop_id, shop_name,
       status, payment_status, fulfillment_status, payment_method,
@@ -265,6 +266,7 @@ async function enrichItemsWeight(env, items) {
       ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?,
+      ?,
       ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
@@ -346,6 +348,9 @@ async function enrichItemsWeight(env, items) {
     || order.receiver_ward_code 
     || addressCodes.ward_code
   ),
+  
+  // ✅ Total weight
+  Number(order.total_weight_gram || order.totalWeightGram || 0),
   
     Number(order.subtotal || 0),
     Number(order.shipping_fee || 0), 
