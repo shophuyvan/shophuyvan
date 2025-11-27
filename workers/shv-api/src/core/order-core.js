@@ -170,16 +170,24 @@ export function parseLazadaOrder(raw) {
 
 // 3.1. NORMALIZE ORDER ADDRESS - Chuẩn hóa địa chỉ đầy đủ
 async function normalizeOrderAddress(env, order) {
-  // Lấy province_code
-  let provinceCode = order.receiver_province_code || '';
-  if (!provinceCode && order.shipping_province) {
-    provinceCode = await lookupProvinceCode(env, order.shipping_province);
+  // Lấy province_code - Ưu tiên customer.province_code, rồi receiver, rồi lookup từ text
+  let provinceCode = order.customer?.province_code || order.receiver_province_code || '';
+  
+  if (!provinceCode) {
+    const provinceName = order.shipping_province || order.customer?.province || '';
+    if (provinceName) {
+      provinceCode = await lookupProvinceCode(env, provinceName);
+    }
   }
   
-  // Lấy district_code
-  let districtCode = order.receiver_district_code || '';
-  if (!districtCode && order.shipping_district && provinceCode) {
-    districtCode = await lookupDistrictCode(env, provinceCode, order.shipping_district);
+  // Lấy district_code - Ưu tiên customer.district_code, rồi receiver, rồi lookup từ text
+  let districtCode = order.customer?.district_code || order.receiver_district_code || '';
+  
+  if (!districtCode && provinceCode) {
+    const districtName = order.shipping_district || order.customer?.district || '';
+    if (districtName) {
+      districtCode = await lookupDistrictCode(env, provinceCode, districtName);
+    }
   }
   
   // Fallback: Auto-fill province từ district (HCM: 760-783 → 79)
@@ -193,7 +201,7 @@ async function normalizeOrderAddress(env, order) {
   return {
     province_code: provinceCode || '',
     district_code: districtCode || '',
-    ward_code: order.receiver_ward_code || order.receiver_commune_code || ''
+    ward_code: order.customer?.commune_code || order.customer?.ward_code || order.receiver_ward_code || order.receiver_commune_code || ''
   };
 }
 
