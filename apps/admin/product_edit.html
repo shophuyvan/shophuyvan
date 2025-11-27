@@ -796,18 +796,13 @@ window.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    // Convert markdown to HTML trước khi lưu
+   // Convert markdown to HTML trước khi lưu
     const descRaw = descEl?.value?.trim() || '';
     const editorMode = $('#editorMode')?.value || 'markdown';
     const descToSave = editorMode === 'markdown' ? markdownToHTML(descRaw) : descRaw;
 
-     // Guard: nếu thiếu id và KHÔNG có ?create=1 thì chặn lưu (tránh “sửa” lạc sang “tạo mới”)
-    const urlParams = new URLSearchParams(location.search);
-    const isCreate = urlParams.get('create') === '1';
-    if (!isCreate && !state.id) {
-      alert('Thiếu ID sản phẩm. Vui lòng mở trang Sửa từ danh sách (có ?id=...) thay vì vào trực tiếp.');
-      return;
-    }
+    // ✅ FIX: Cho phép tạo mới sản phẩm mà không cần ?create=1
+    // API /admin/products/upsert tự động xử lý INSERT (không có id) hoặc UPDATE (có id)
    
     // ... truoc khi build payload
     // ✅ THÊM: Lấy thông tin kênh bán
