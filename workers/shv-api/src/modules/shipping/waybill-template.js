@@ -1,6 +1,6 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill Template - Shopee SPX Style (Black & White)
+// Waybill Template - Shopee SPX Clone Style
 // ===================================================================
 
 export function getWaybillHTML(data) {
@@ -17,353 +17,299 @@ export function getWaybillHTML(data) {
     store
   } = data;
 
-  const carrierName = order.carrier_name || order.shipping_provider || 'SHOP HUY VÂN';
+  // Xử lý dữ liệu hiển thị
+  const carrierName = "SPX EXPRESS"; // Cố định theo style Shopee
   const trackingCode = order.tracking_code || order.carrier_code || superaiCode || 'N/A';
-  const totalAmount = Number((order.subtotal || 0) + (order.shipping_fee || 0));
+  
+  // Tính tiền thu hộ (COD)
+  // Nếu đã thanh toán (payment_status = paid) -> COD = 0
+  const isPaid = order.payment_status === 'paid';
+  const codAmount = isPaid ? 0 : Number((order.subtotal || 0) + (order.shipping_fee || 0) - (order.discount || 0) - (order.shipping_discount || 0));
+  const codDisplay = codAmount > 0 ? codAmount.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ';
+  
   const senderName = sender.name || store.name || 'SHOP HUY VÂN';
-  const senderAddress = sender.address || store.address || '91/6 Liên Khu 5-11-12, Bình Trị Đông, Bình Tân, TPHCM';
-  const senderPhone = sender.phone || store.phone || '0909128999';
-  const receiverName = receiver.name || customer.name || 'Khách';
+  const senderAddress = sender.address || store.address || '';
+  const senderPhone = sender.phone || store.phone || '';
+  
+  const receiverName = receiver.name || customer.name || 'Khách lẻ';
   const receiverAddress = receiver.address || customer.address || '';
   const receiverPhone = receiver.phone || customer.phone || '';
+
+  // Lấy Quận/Huyện để làm mã to (Giả lập Routing Code của SPX)
+  const districtName = (receiverAddress.split(',').slice(-2, -1)[0] || '').trim().toUpperCase() || 'HCM';
+
+  // Ngày tạo đơn
+  const dateObj = createdDate ? new Date(createdDate) : new Date();
+  const dateStr = `${dateObj.getDate()}-${dateObj.getMonth() + 1}-${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}`;
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Vận đơn ${trackingCode}</title>
+  <title>Vận đơn SPX - ${trackingCode}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
     body { 
-      font-family: Arial, sans-serif;
-      background: white;
-      margin: 0;
-      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #eee;
+      padding: 20px;
     }
-    
     .page {
       width: 100mm;
       min-height: 150mm;
       background: white;
-      border: 3px solid #000;
-      padding: 0;
       margin: 0 auto;
+      border: 1px solid #000;
+      position: relative;
     }
     
-    /* HEADER - Logo + Tên ĐV + Barcode */
+    /* UTILS */
+    .bold { font-weight: bold; }
+    .uppercase { text-transform: uppercase; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .flex { display: flex; }
+    
+    /* HEADER SECTION: QR + LOGO + TRACKING */
     .header {
-      border-bottom: 2px solid #000;
-      padding: 3mm;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      border-bottom: 2px solid #000;
+      height: 35mm;
     }
-    
-    .carrier-name {
-      font-size: 20px;
+    .header-qr {
+      width: 35mm;
+      padding: 2mm;
+      border-right: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-qr img {
+      width: 100%;
+      height: auto;
+    }
+    .header-info {
+      flex: 1;
+      padding: 2mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .spx-logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: #ee4d2d; /* Shopee Orange */
+      font-style: italic;
+    }
+    .tracking-label {
+      font-size: 10px;
+      margin-top: 2px;
+    }
+    .tracking-number {
+      font-size: 18px;
       font-weight: bold;
-      text-transform: uppercase;
+      font-family: 'Courier New', monospace;
       letter-spacing: 1px;
     }
-    
-    .barcode-section {
-      text-align: center;
-    }
-    
-    .barcode-section img {
-      height: 12mm;
-      margin-bottom: 1mm;
-    }
-    
-    .barcode-text {
-      font-size: 10px;
-      font-family: 'Courier New', monospace;
-    }
-    
-    /* 2 CỘT: TỪ - ĐẾN */
-    .address-row {
-      display: flex;
-      border-bottom: 2px dashed #000;
-    }
-    
-    .address-col {
-      flex: 1;
-      padding: 3mm;
-      border-right: 2px dashed #000;
-    }
-    
-    .address-col:last-child {
-      border-right: none;
-    }
-    
-    .address-label {
-      font-size: 11px;
-      font-weight: bold;
-      margin-bottom: 2mm;
-      text-transform: uppercase;
-    }
-    
-    .address-name {
+    /* Routing code giả lập (HCB...) */
+    .routing-code {
       font-size: 14px;
       font-weight: bold;
-      margin-bottom: 1mm;
+      border: 2px solid #000;
+      padding: 2px 5px;
+      display: inline-block;
+      margin-top: 3px;
     }
-    
-    .address-detail {
-      font-size: 12px;
-      line-height: 1.3;
-      margin-bottom: 1mm;
-    }
-    
-    .address-phone {
-      font-size: 13px;
-      font-weight: bold;
-      margin-top: 1mm;
-    }
-    
-    /* SẢN PHẨM + QR */
-    .content-section {
+
+    /* ADDRESS SECTION */
+    .address-section {
       display: flex;
       border-bottom: 2px solid #000;
     }
-    
-    .items-col {
-      flex: 1;
-      padding: 3mm;
-      border-right: 2px solid #000;
+    .sender-col {
+      width: 40%;
+      padding: 2mm;
+      border-right: 1px solid #000;
+      font-size: 11px;
     }
-    
-    .items-title {
+    .receiver-col {
+      width: 60%;
+      padding: 2mm;
       font-size: 12px;
+      position: relative;
+    }
+    .section-title {
+      font-size: 10px;
       font-weight: bold;
-      margin-bottom: 2mm;
+      margin-bottom: 2px;
       text-transform: uppercase;
     }
-    
-    .item-row {
+    /* Big Destination Code (Giống QGV-P15...) */
+    .dest-code-large {
+      position: absolute;
+      top: 2mm;
+      right: 2mm;
+      font-size: 20px;
+      font-weight: bold;
+      border: 2px solid #000;
+      padding: 2px 5px;
+    }
+
+    /* WARNING TEXT */
+    .warning-text {
+      font-size: 9px;
+      padding: 1mm 2mm;
+      border-bottom: 1px solid #000;
+      font-style: italic;
+    }
+
+    /* CONTENT & INSTRUCTIONS */
+    .body-section {
+      display: flex;
+      border-bottom: 2px solid #000;
+      min-height: 40mm;
+    }
+    .items-list {
+      flex: 1;
+      padding: 2mm;
+      border-right: 1px solid #000;
       font-size: 11px;
-      line-height: 1.4;
-      margin-bottom: 2mm;
-      padding-bottom: 2mm;
-      border-bottom: 1px solid #ddd;
     }
-    
-    .item-row:last-child {
-      border-bottom: none;
+    .item-row {
+      margin-bottom: 3px;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 2px;
     }
-    
-    .item-number {
-      font-weight: bold;
-      margin-right: 1mm;
-    }
-    
-    .item-name {
-      color: #333;
-    }
-    
-    .item-variant {
-      font-weight: bold;
-      margin-top: 0.5mm;
-      color: #000;
-    }
-    
-    .item-meta {
+    .instructions {
+      width: 35mm;
+      padding: 2mm;
       font-size: 10px;
-      color: #666;
-      margin-top: 0.5mm;
+      display: flex;
+      flex-direction: column;
     }
-    
-    .qr-col {
-      width: 30mm;
-      padding: 3mm;
+    .instruction-box {
+      border: 1px solid #000;
+      padding: 2px;
+      margin-bottom: 2px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* FOOTER / COD */
+    .footer-section {
+      display: flex;
+    }
+    .footer-left {
+      flex: 1;
+      padding: 2mm;
+      border-right: 1px solid #000;
+      font-size: 10px;
+    }
+    .footer-right {
+      width: 40mm;
+      padding: 2mm;
       text-align: center;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
     }
-    
-    .qr-col img {
-      width: 25mm;
-      height: 25mm;
-      border: 2px solid #000;
-      padding: 1mm;
-    }
-    
-    /* NOTE SECTION */
-    .note-section {
-      padding: 2mm 3mm;
-      font-size: 10px;
-      line-height: 1.4;
-      border-bottom: 2px solid #000;
-      background: #f9f9f9;
-    }
-    
-    /* TỔNG TIỀN - TO NHƯ SPX */
-    .total-section {
-      padding: 4mm 3mm;
-      border-bottom: 2px solid #000;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .total-label {
+    .cod-label {
       font-size: 11px;
       font-weight: bold;
-      text-align: right;
+      margin-bottom: 2mm;
     }
-    
-    .total-label-main {
-      font-size: 12px;
-      margin-bottom: 1mm;
-    }
-    
-    .total-label-sub {
-      font-size: 10px;
-      color: #666;
-    }
-    
-    .total-amount-box {
-      text-align: center;
-    }
-    
-    .total-amount {
-      font-size: 36px;
+    .cod-value {
+      font-size: 20px;
       font-weight: bold;
-      font-family: 'Courier New', monospace;
-      letter-spacing: 1px;
-      line-height: 1;
     }
-    
-    .total-currency {
-      font-size: 14px;
-      font-weight: bold;
-      margin-top: 1mm;
-    }
-    
-    /* MÃ VẬN ĐƠN TO - GIỐNG SPX */
-    .tracking-section {
-      padding: 4mm 3mm;
-      text-align: center;
-      border-bottom: 2px solid #000;
-    }
-    
-    .tracking-code {
-      font-size: 32px;
-      font-weight: bold;
-      font-family: 'Courier New', monospace;
-      letter-spacing: 2px;
-    }
-    
-    /* FOOTER - ĐEN */
-    .footer {
-      background: #000;
-      color: white;
-      padding: 3mm;
-      text-align: center;
-    }
-    
-    .footer-text {
-      font-size: 13px;
-      font-weight: bold;
-      margin-bottom: 1mm;
-    }
-    
+
+    /* PRINT RESET */
     @media print {
-      body { margin: 0; padding: 0; }
-      .page { 
-        width: 100mm;
-        border: none;
-        margin: 0;
-      }
+      body { margin: 0; padding: 0; background: white; }
+      .page { width: 100mm; height: 150mm; border: none; margin: 0; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     
-    <!-- HEADER: TÊN ĐƠN VỊ + BARCODE -->
     <div class="header">
-      <div class="carrier-name">${carrierName}</div>
-      <div class="barcode-section">
-        <img src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(trackingCode)}&code=Code128&multiplebarcodes=false&translate-esc=false&unit=Fit&dpi=96&imagetype=Gif&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0" alt="Barcode">
-        <div class="barcode-text">Mã vận đơn: ${trackingCode}</div>
+      <div class="header-qr">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingCode)}" alt="QR">
+      </div>
+      <div class="header-info">
+        <div class="spx-logo">SPX EXPRESS</div>
+        <div>
+          <div class="tracking-label">Mã vận đơn:</div>
+          <div class="tracking-number">${trackingCode}</div>
+        </div>
+        <div class="routing-code">${districtName}-HUB</div>
       </div>
     </div>
-    
-    <!-- 2 CỘT: TỪ - ĐẾN -->
-    <div class="address-row">
-      <!-- TỪ -->
-      <div class="address-col">
-        <div class="address-label">Từ:</div>
-        <div class="address-name">${senderName}</div>
-        <div class="address-detail">${senderAddress}</div>
-        <div class="address-phone">SĐT: ${senderPhone}</div>
+
+    <div class="address-section">
+      <div class="sender-col">
+        <div class="section-title">Từ:</div>
+        <div class="bold">${senderName}</div>
+        <div>${senderAddress}</div>
+        <div class="bold">SĐT: ${senderPhone}</div>
       </div>
-      
-      <!-- ĐẾN -->
-      <div class="address-col">
-        <div class="address-label">Đến:</div>
-        <div class="address-name">${receiverName}</div>
-        <div class="address-detail">${receiverAddress}</div>
-        <div class="address-phone">SĐT: ${receiverPhone}</div>
+      <div class="receiver-col">
+        <div class="section-title">Đến:</div>
+        <div class="dest-code-large">${districtName}</div>
+        <div style="margin-top: 10mm;">
+          <div class="bold" style="font-size: 14px;">${receiverName}</div>
+          <div>${receiverAddress}</div>
+          <div class="bold">SĐT: ${receiverPhone}</div>
+        </div>
       </div>
     </div>
-    
-    <!-- SẢN PHẨM + QR CODE -->
-    <div class="content-section">
-      <div class="items-col">
-        <div class="items-title">Nội dung hàng (Tổng SL sản phẩm: ${items.length})</div>
-        ${items.slice(0, 5).map((item, idx) => `
+
+    <div class="warning-text">
+      *** Người gửi cam kết hàng hóa có đầy đủ hóa đơn, chứng từ theo quy định.
+    </div>
+
+    <div class="body-section">
+      <div class="items-list">
+        <div class="section-title">Nội dung hàng (Tổng SL: ${items.reduce((s,i)=>s+(i.qty||1),0)})</div>
+        ${items.map((item, idx) => `
           <div class="item-row">
-            <span class="item-number">${idx + 1}.</span>
-            <span class="item-name">${item.name || 'Sản phẩm'}</span>
-            ${item.variant ? `<div class="item-variant">${item.variant}</div>` : ''}
-            <div class="item-meta">SL: ${item.qty || 1} | Giá: ${Number(item.price || 0).toLocaleString('vi-VN')}₫</div>
+            <span class="bold">${idx + 1}. ${item.name}</span>
+            <br>
+            <span>${item.variant ? item.variant + ' | ' : ''}SL: ${item.qty || 1}</span>
           </div>
         `).join('')}
-        ${items.length > 5 ? `<div style="font-size:10px; color:#666; margin-top:2mm;">...và ${items.length - 5} sản phẩm khác</div>` : ''}
       </div>
-      
-      <div class="qr-col">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(trackingCode)}" alt="QR">
-      </div>
-    </div>
-    
-    <!-- GHI CHÚ -->
-    <div class="note-section">
-      Kiểm tra kĩ tên sản phẩm và số chi tiết <strong>Mã vận đơn</strong> và <strong>Mã đơn hàng</strong>. 
-      Tiền thu từ <strong>Bên gửi/Shopee</strong> trước khi ký nhận và chỉ ký vào sổ sách 
-      (phần có chữ ký xác nhận của khách hàng)
-    </div>
-    
-    <!-- TỔNG TIỀN -->
-    <div class="total-section">
-      <div class="total-label">
-        <div class="total-label-main">Khối lượng tới đa: ${(items.reduce((sum, item) => sum + (Number(item.qty || 1) * 400), 0) / 1000).toFixed(1)} kg</div>
-        <div class="total-label-sub">Chú ký người nhận<br>Xác nhận hàng nguyên vẹn, không móp/méo,<br>hàng đ</div>
-      </div>
-      <div class="total-amount-box">
-        <div class="total-amount">${totalAmount.toLocaleString('vi-VN')}</div>
-        <div class="total-currency">VND</div>
+      <div class="instructions">
+        <div class="section-title">Chỉ dẫn giao hàng:</div>
+        <div class="instruction-box">ĐỒNG KIỂM</div>
+        <div class="instruction-box">CHO THỬ HÀNG</div>
+        <div>
+          - Chuyển hoàn sau 3 lần phát<br>
+          - Lưu kho 24h dù KH từ chối<br>
+          - Gọi người gửi nếu không giao được
+        </div>
       </div>
     </div>
-    
-    <!-- MÃ VẬN ĐƠN TO -->
-    <div class="tracking-section">
-      <div class="tracking-code">${trackingCode}</div>
-    </div>
-    
-    <!-- FOOTER -->
-    <div class="footer">
-      <div class="footer-text">Hotline khiếu nại và đổi trả sản phẩm | 0909128999</div>
-      <div class="footer-text">💬 Zalo: 0909128999 | 🌐 shophuyvan.vn</div>
-    </div>
-    
-  </div>
 
+    <div class="footer-section">
+      <div class="footer-left">
+        <div class="bold">Ngày tạo: ${dateStr}</div>
+        <div style="margin-top: 5px;">Chữ ký người nhận:</div>
+        <div style="height: 15mm;"></div>
+        <div style="font-style:italic; font-size:9px;">Xác nhận hàng nguyên vẹn, không móp méo.</div>
+      </div>
+      <div class="footer-right">
+        <div class="cod-label">Tiền thu Người nhận:</div>
+        <div class="cod-value">${codDisplay}</div>
+      </div>
+    </div>
+    
+    <div style="padding: 2mm; font-size: 9px; text-align: center; border-top: 1px solid #000;">
+      Tuyển NV Giao hàng/ NV Bưu cục thu nhập hấp dẫn. Hotline: 1900 6885
+    </div>
+
+  </div>
   <script>
     window.onload = function() {
       setTimeout(() => window.print(), 500);
