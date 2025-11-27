@@ -470,11 +470,10 @@ class OrdersManager {
         const order = this.orders.find(o => String(o.id) === String(orderId));
         
         if (order) {
-           // Ưu tiên lấy mã SuperAI chuẩn (SGNS...), nếu không có thì lấy tracking_code
-           const codeToPrint = order.superai_code || order.tracking_code || order.shipping_tracking;
+           // ✅ CHỈ LẤY superai_code, KHÔNG fallback sang tracking_code (vì tracking_code có thể là order_number)
+           const codeToPrint = order.superai_code || order.tracking_number || '';
            this.printOrder(orderId, codeToPrint); // Truyền luôn mã vào hàm in
         } else {
-           alert('Không tìm thấy thông tin đơn hàng');
         }
       };
     });
@@ -955,8 +954,8 @@ class OrdersManager {
       return;
     }
 
-    // Fallback: Nếu codeToPrint chưa có (do gọi từ chỗ khác), tự tìm lại trong order
-    const superaiCode = codeToPrint || order.superai_code || order.tracking_code || order.shipping_tracking;
+    // ✅ CHỈ LẤY superai_code hoặc tracking_number, KHÔNG fallback sang tracking_code
+    const superaiCode = codeToPrint || order.superai_code || order.tracking_number || '';
 
     if (!superaiCode) {
       alert('Đơn hàng này chưa có Mã SuperAI (hoặc Mã Vận Đơn) để in.\nVui lòng bấm "Tạo Vận Đơn" trước.');
