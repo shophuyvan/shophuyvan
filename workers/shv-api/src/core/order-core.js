@@ -264,7 +264,7 @@ async function enrichItemsWeight(env, items) {
       status, payment_status, fulfillment_status, payment_method,
       customer_note, admin_note,
       tracking_number, shipping_carrier,
-      carrier_id, shipping_service_code, shipping_option_id, -- ✅ Thêm 3 cột mới
+      superai_code, carrier_id, shipping_service_code, shipping_option_id, -- ✅ Thêm superai_code
       coin_used, voucher_code, voucher_seller, voucher_shopee,
       commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
@@ -281,7 +281,7 @@ async function enrichItemsWeight(env, items) {
       ?, ?, ?, ?,
       ?, ?,
       ?, ?,
-      ?, ?, ?, -- ✅ Thêm 3 dấu hỏi cho 3 cột mới
+      ?, ?, ?, ?, -- ✅ Thêm 4 dấu hỏi cho 4 cột mới (superai_code + 3 cột cũ)
       ?, ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?,
@@ -291,7 +291,8 @@ async function enrichItemsWeight(env, items) {
       status = excluded.status,
       updated_at = excluded.updated_at,
       tracking_number = excluded.tracking_number,
-      shipping_carrier = excluded.shipping_carrier
+      shipping_carrier = excluded.shipping_carrier,
+      superai_code = excluded.superai_code
     RETURNING id;
   `;
 
@@ -383,7 +384,8 @@ async function enrichItemsWeight(env, items) {
     String(order.tracking_code || order.tracking_number || ''), 
     String(order.shipping_provider || order.shipping_carrier || ''),
     
-    // ✅ Map dữ liệu vào 3 cột mới
+    // ✅ Map dữ liệu vào 4 cột mới
+    String(order.superai_code || ''),
     String(order.carrier_id || ''),
     String(order.shipping_service || order.shipping_service_code || ''),
     String(order.shipping_option_id || '1'),
