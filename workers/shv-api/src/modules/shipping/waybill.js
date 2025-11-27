@@ -442,10 +442,11 @@ export async function autoCreateWaybill(order, env) {
     const receiverAddress = order.customer?.address || '';
     const receiverProvince = order.customer?.province || '';
     const receiverDistrict = order.customer?.district || '';
-    const receiverProvinceCode = order.customer?.province_code || '';
-    const rawReceiverDistrictCode = order.customer?.district_code || '';
+    // ✅ Ưu tiên receiver_province_code từ order root, sau đó mới customer
+    const receiverProvinceCode = order.receiver_province_code || order.customer?.province_code || '';
+    const rawReceiverDistrictCode = order.receiver_district_code || order.customer?.district_code || '';
     const receiverDistrictCode = await validateDistrictCode(env, receiverProvinceCode || '79', rawReceiverDistrictCode, receiverDistrict);
-    const receiverCommuneCode = (order.customer?.commune_code || order.customer?.ward_code || '');
+    const receiverCommuneCode = order.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || '';
 
 // Tính toán các giá trị
     const totalAmount = calculateOrderAmount(order, {});
