@@ -922,6 +922,7 @@ async function listOrdersFromD1(req, env) {
         o.coin_used, o.voucher_seller, o.voucher_shopee,
         o.shop_id, o.shop_name,
         o.payment_method, o.customer_note, o.admin_note,
+        o.tracking_number, o.superai_code, o.shipping_carrier, o.carrier_id,
         o.created_at, o.updated_at,
         oi.product_id, oi.variant_id, oi.sku, 
         oi.name as item_name, oi.variant_name, oi.image,
@@ -975,10 +976,16 @@ async function listOrdersFromD1(req, env) {
           customer_name: row.customer_name,
           phone: row.customer_phone,
           
-          // Shipping info
+         // Shipping info
           shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
           shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
           tracking_code: row.channel_order_id || '',
+          
+          // ✅ SuperAI shipping info
+          tracking_number: row.tracking_number || '',
+          superai_code: row.superai_code || '',
+          shipping_carrier: row.shipping_carrier || '',
+          carrier_id: row.carrier_id || '',
           
           // Financial
           items: [],
