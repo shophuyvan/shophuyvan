@@ -558,12 +558,14 @@ export async function printWaybill(req, env) {
     let order = body.order || {};
     
    // ✅ 1. LUÔN lấy dữ liệu THẬT từ D1 (Source of Truth)
-    console.log('[printWaybill] Fetching fresh data from D1...');
+    console.log('[printWaybill] Fetching fresh data from D1 for code:', superaiCode);
       
+    // Tìm bằng Tracking Code trước, sau đó mới tìm bằng ID
+    // (Giúp tránh trường hợp tìm nhầm bằng ID cũ)
     const dbOrder = await env.DB.prepare(`
       SELECT * FROM orders 
-      WHERE tracking_number = ? OR channel_order_id = ? OR id = ?
-    `).bind(superaiCode, superaiCode, order.id || '').first();
+      WHERE tracking_number = ? OR superai_code = ? OR id = ?
+    `).bind(superaiCode, superaiCode, order.id || superaiCode).first();
 
     if (dbOrder) {
       // Lấy items từ D1
@@ -627,23 +629,28 @@ export async function printWaybill(req, env) {
       return errorResponse('Missing superai_code', 400, req);
     }
 
-    // 1. Xác định mã để gửi lên SuperAI lấy token in
-    // Ưu tiên: superai_code > tracking_code > superaiCode (param)
-    // Lưu ý: SuperAI cần mã đơn hàng trên hệ thống của họ (thường là tracking_code hoặc mã đơn đã tạo)
+    // 1. Xác định mã Tracking Code CHUẨN để gửi lên SuperAI
+    // Ưu tiên: tracking_number (DB) > superaiCode (DB) > superaiCode (Input)
+    // Nếu mã là UUID dài (32 ký tự trở lên), coi như KHÔNG CÓ mã vận đơn
+    let validTrackingCode = dbOrder?.tracking_number || dbOrder?.superai_code || superaiCode;
     
-    const codeToGetToken = order.tracking_code || order.superai_code || superaiCode;
-
-    console.log('[printWaybill] Requesting token for code:', codeToGetToken);
-
-    if (!codeToGetToken || codeToGetToken.length > 50) { 
-       // Mã UUID dài thường là ID nội bộ, không phải mã vận đơn
-       return errorResponse('Đơn hàng chưa có mã vận đơn hợp lệ để in.', 400, req);
+    // Nếu mã tìm được quá dài (thường là UUID > 30 ký tự), thử tìm trong shipping_tracking
+    if (!validTrackingCode || validTrackingCode.length > 30) {
+       validTrackingCode = dbOrder?.shipping_tracking || '';
     }
+
+    // Nếu vẫn quá dài hoặc rỗng -> Báo lỗi ngay
+    if (!validTrackingCode || validTrackingCode.length > 30) {
+       console.warn('[printWaybill] Invalid tracking code found:', validTrackingCode);
+       return errorResponse('Đơn hàng chưa có mã vận đơn hợp lệ (Tracking Code) để in. Vui lòng kiểm tra lại trạng thái đơn.', 400, req);
+    }
+
+    console.log('[printWaybill] Requesting token for Valid Code:', validTrackingCode);
 
     const tokenRes = await superFetch(env, '/v1/platform/orders/token', {
       method: 'POST',
       body: {
-        code: [codeToGetToken]
+        code: [validTrackingCode]
       }
     });
     
