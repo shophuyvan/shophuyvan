@@ -606,7 +606,8 @@ export async function printWaybill(req, env) {
         })),
         
         // Thông tin vận đơn
-        tracking_code: dbOrder.tracking_number,
+        tracking_code: dbOrder.tracking_number, // Mã vận đơn (VD: 848...)
+        superai_code: dbOrder.tracking_number,  // Fallback tạm thời
         shipping_provider: dbOrder.shipping_carrier,
         
         // Tài chính
@@ -626,11 +627,23 @@ export async function printWaybill(req, env) {
       return errorResponse('Missing superai_code', 400, req);
     }
 
-    // 1. Lấy Print Token từ SuperAI để có barcode
+    // 1. Xác định mã để gửi lên SuperAI lấy token in
+    // Ưu tiên: superai_code > tracking_code > superaiCode (param)
+    // Lưu ý: SuperAI cần mã đơn hàng trên hệ thống của họ (thường là tracking_code hoặc mã đơn đã tạo)
+    
+    const codeToGetToken = order.tracking_code || order.superai_code || superaiCode;
+
+    console.log('[printWaybill] Requesting token for code:', codeToGetToken);
+
+    if (!codeToGetToken || codeToGetToken.length > 50) { 
+       // Mã UUID dài thường là ID nội bộ, không phải mã vận đơn
+       return errorResponse('Đơn hàng chưa có mã vận đơn hợp lệ để in.', 400, req);
+    }
+
     const tokenRes = await superFetch(env, '/v1/platform/orders/token', {
       method: 'POST',
       body: {
-        code: [superaiCode]
+        code: [codeToGetToken]
       }
     });
     
