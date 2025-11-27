@@ -1089,7 +1089,10 @@ return `
   // ==================== BULK PRINT ORDERS ====================
 
   async printSelectedOrders() {
+    console.log('[printSelectedOrders] Starting...');
     const selectedIds = Array.from(this.selectedOrders);
+    console.log('[printSelectedOrders] Selected IDs:', selectedIds);
+    
     if (selectedIds.length === 0) {
       alert('Vui lòng chọn ít nhất một đơn hàng để in.');
       return;
@@ -1097,8 +1100,11 @@ return `
 
     const superaiCodes = selectedIds.map(id => {
       const order = this.orders.find(o => String(o.id || '') === id);
+      console.log('[printSelectedOrders] Order:', id, order);
       return order?.superai_code || null;
     }).filter(Boolean);
+
+    console.log('[printSelectedOrders] SuperAI codes:', superaiCodes);
 
     if (superaiCodes.length === 0) {
       alert('Các đơn hàng đã chọn chưa có Mã Vận Đơn (SuperAI Code) để in.');
@@ -1108,20 +1114,25 @@ return `
     Admin.toast(`Đang lấy link in cho ${superaiCodes.length} vận đơn...`);
 
     try {
+      console.log('[printSelectedOrders] Calling API...');
       const res = await Admin.req('/shipping/print-bulk', {
         method: 'POST',
         body: {
-          superai_codes: superaiCodes // Gửi mảng mã SuperAI
+          superai_codes: superaiCodes
         }
       });
+
+      console.log('[printSelectedOrders] API response:', res);
 
       if (res.ok && res.print_url) {
         Admin.toast('✅ Đã lấy link in, đang mở...');
         window.open(res.print_url, '_blank');
       } else {
-        alert('Lỗi khi lấy link in hàng loạt: ' + (res.message || 'Không rõ lỗi'));
+        console.error('[printSelectedOrders] Error:', res);
+        alert('Lỗi khi lấy link in hàng loạt: ' + (res.message || res.error || 'Không rõ lỗi'));
       }
     } catch (e) {
+      console.error('[printSelectedOrders] Exception:', e);
       alert('Lỗi hệ thống khi in hàng loạt: ' + e.message);
     }
   }
@@ -1129,7 +1140,10 @@ return `
   // ==================== BULK CANCEL ORDERS ====================
 
   async cancelSelectedOrders() {
+    console.log('[cancelSelectedOrders] Starting...');
     const selectedIds = Array.from(this.selectedOrders);
+    console.log('[cancelSelectedOrders] Selected IDs:', selectedIds);
+    
     if (selectedIds.length === 0) {
       alert('Vui lòng chọn ít nhất một đơn hàng để hủy.');
       return;
@@ -1142,7 +1156,9 @@ return `
 
     const superaiCodesToCancel = ordersToCancel
                                   .map(o => o.superai_code)
-                                  .filter(Boolean); // Chỉ hủy những đơn đã có mã
+                                  .filter(Boolean);
+
+    console.log('[cancelSelectedOrders] SuperAI codes to cancel:', superaiCodesToCancel);
 
     if (superaiCodesToCancel.length === 0) {
       alert('Các đơn hàng đã chọn chưa có Mã Vận Đơn, không thể hủy hàng loạt.');
@@ -1156,21 +1172,25 @@ return `
     Admin.toast(`Đang gửi yêu cầu hủy ${superaiCodesToCancel.length} vận đơn...`);
 
     try {
+      console.log('[cancelSelectedOrders] Calling API...');
       const res = await Admin.req('/shipping/cancel-bulk', {
         method: 'POST',
         body: {
-          superai_codes: superaiCodesToCancel // Gửi mảng mã SuperAI
+          superai_codes: superaiCodesToCancel
         }
       });
 
+      console.log('[cancelSelectedOrders] API response:', res);
+
       if (res.ok) {
         Admin.toast(`✅ Đã hủy ${res.cancelled_count || superaiCodesToCancel.length} vận đơn thành công!`);
-        // Tải lại danh sách để cập nhật trạng thái
         this.loadOrders();
       } else {
-        alert('Lỗi khi hủy vận đơn hàng loạt: ' + (res.message || 'Không rõ lỗi'));
+        console.error('[cancelSelectedOrders] Error:', res);
+        alert('Lỗi khi hủy vận đơn hàng loạt: ' + (res.message || res.error || 'Không rõ lỗi'));
       }
     } catch (e) {
+      console.error('[cancelSelectedOrders] Exception:', e);
       alert('Lỗi hệ thống khi hủy hàng loạt: ' + e.message);
     }
   }
@@ -1178,17 +1198,21 @@ return `
   // ==================== BULK CONFIRM ORDERS ====================
 
   async confirmSelectedOrders() {
+    console.log('[confirmSelectedOrders] Starting...');
     const selectedIds = Array.from(this.selectedOrders);
+    console.log('[confirmSelectedOrders] Selected IDs:', selectedIds);
+    
     if (selectedIds.length === 0) {
       alert('Vui lòng chọn ít nhất một đơn hàng để xác nhận.');
       return;
     }
 
-    // Chỉ xác nhận đơn PENDING
     const pendingOrders = selectedIds.map(id => {
       const order = this.orders.find(o => String(o.id || '') === id);
       return order && String(order.status || '').toLowerCase() === 'pending' ? order : null;
     }).filter(Boolean);
+
+    console.log('[confirmSelectedOrders] Pending orders:', pendingOrders);
 
     if (pendingOrders.length === 0) {
       alert('Không có đơn hàng PENDING nào được chọn.');
@@ -1206,29 +1230,32 @@ return `
 
     for (const order of pendingOrders) {
       try {
+        console.log('[confirmSelectedOrders] Confirming order:', order.id);
         const res = await Admin.req('/admin/orders/upsert', {
           method: 'POST',
           body: {
             id: order.id,
-            status: 'processing' // ✅ FIX: Đồng bộ trạng thái xử lý hàng loạt
+            status: 'processing'
           }
         });
+
+        console.log('[confirmSelectedOrders] Response for', order.id, ':', res);
 
         if (res.ok) {
           successCount++;
           this.selectedOrders.delete(String(order.id));
         } else {
           failCount++;
+          console.error('[confirmSelectedOrders] Failed for', order.id, ':', res);
         }
       } catch (e) {
-        console.error('Confirm error:', e);
+        console.error('[confirmSelectedOrders] Exception for', order.id, ':', e);
         failCount++;
       }
     }
 
     Admin.toast(`✅ Xác nhận thành công: ${successCount}, ❌ Thất bại: ${failCount}`);
     await this.loadOrders();
-    this.updateBulkActionsToolbar();
   }
 
   // ==================== STATUS TABS & FILTERING ====================

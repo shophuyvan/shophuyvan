@@ -296,5 +296,58 @@ api.getProductDetail = async (id) => {
     return await res.json();
   };
 
+  // ==================== BULK ACTIONS API ====================
+  
+  api.bulkConfirmOrders = async (orderIds) => {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return { ok: false, error: 'empty_order_ids' };
+    }
+    
+    const res = await fetch('https://api.shophuyvan.vn/admin/orders/bulk-confirm', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ order_ids: orderIds })
+    });
+    
+    return await res.json();
+  };
+  
+  api.bulkPrintWaybills = async (superaiCodes) => {
+    if (!Array.isArray(superaiCodes) || superaiCodes.length === 0) {
+      return { ok: false, error: 'empty_superai_codes' };
+    }
+    
+    const res = await fetch('https://api.shophuyvan.vn/shipping/print-bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ superai_codes: superaiCodes })
+    });
+    
+    return await res.json();
+  };
+  
+  api.bulkCancelWaybills = async (superaiCodes) => {
+    if (!Array.isArray(superaiCodes) || superaiCodes.length === 0) {
+      return { ok: false, error: 'empty_superai_codes' };
+    }
+    
+    const res = await fetch('https://api.shophuyvan.vn/shipping/cancel-bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': window.Admin.token()
+      },
+      body: JSON.stringify({ superai_codes: superaiCodes })
+    });
+    
+    return await res.json();
+  };
+
   window.SHARED.api = api;
 })();
