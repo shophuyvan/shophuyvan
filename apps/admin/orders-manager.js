@@ -460,11 +460,20 @@ class OrdersManager {
       };
     });
 
-    // Nút "In Vận Đơn" (thay cho "Xem")
+// Nút "In Vận Đơn"
     document.querySelectorAll('[data-print]').forEach(btn => {
       btn.onclick = () => {
-        const id = btn.getAttribute('data-print');
-        this.printOrder(id); // Gọi hàm in mới
+        const orderId = btn.getAttribute('data-print');
+        // Tìm order object trong danh sách
+        const order = this.orders.find(o => String(o.id) === String(orderId));
+        
+        if (order) {
+           // Ưu tiên lấy mã SuperAI chuẩn (SGNS...), nếu không có thì lấy tracking_code
+           const codeToPrint = order.superai_code || order.tracking_code || order.shipping_tracking;
+           this.printOrder(orderId, codeToPrint); // Truyền luôn mã vào hàm in
+        } else {
+           alert('Không tìm thấy thông tin đơn hàng');
+        }
       };
     });
 
@@ -926,30 +935,32 @@ class OrdersManager {
     printWindow.document.close();
   }
 
-  // ==================== PRINT ORDER (NEW) ====================
+  // ==================== PRINT ORDER (FIXED) ====================
   
-  async printOrder(orderId) {
+  async printOrder(orderId, codeToPrint) {
     const order = this.orders.find(o => String(o.id || '') === orderId);
     if (!order) {
       alert('Không tìm thấy đơn hàng!');
       return;
     }
 
-    const superaiCode = order.superai_code || '';
+    // Fallback: Nếu codeToPrint chưa có (do gọi từ chỗ khác), tự tìm lại trong order
+    const superaiCode = codeToPrint || order.superai_code || order.tracking_code || order.shipping_tracking;
+
     if (!superaiCode) {
-      alert('Đơn hàng này chưa có Mã SuperAI để in. Vui lòng chờ hệ thống xử lý.');
+      alert('Đơn hàng này chưa có Mã SuperAI (hoặc Mã Vận Đơn) để in.\nVui lòng bấm "Tạo Vận Đơn" trước.');
       return;
     }
     
-    Admin.toast('Đang lấy template in vận đơn...');
+    Admin.toast(`Đang lấy bản in cho mã: ${superaiCode}...`);
     
     try {
-      // ✅ THÊM order vào body
+      // ✅ GỬI superai_code CHUẨN LÊN SERVER
       const res = await Admin.req('/shipping/print', {
         method: 'POST',
         body: {
-          superai_code: superaiCode,
-          order: order
+          superai_code: superaiCode, // Đây là chìa khóa quan trọng nhất
+          order: order // Gửi kèm order để backend có dữ liệu fallback nếu cần
         }
       });
 
