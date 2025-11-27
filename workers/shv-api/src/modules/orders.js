@@ -1037,19 +1037,10 @@ async function listOrdersFromD1(req, env) {
 
     const ordersWithItems = Array.from(ordersMap.values());
 
-    // ✅ FIX QUAN TRỌNG: Tự động tìm ảnh cho các đơn bị thiếu ảnh (Self-Healing)
-    if (ordersWithItems.length > 0) {
-      const tasks = ordersWithItems.map(async (order) => {
-        if (order.items && order.items.length > 0) {
-          const missingImage = order.items.some(i => !i.image);
-          if (missingImage) {
-            await enrichItemsWithCostAndPrice(order.items, env);
-          }
-        }
-      });
-      // Chạy song song nhưng chờ kết quả để trả về ảnh ngay lập tức
-      await Promise.all(tasks);
-    }
+   // ✅ ĐÃ FIX: Tắt tính năng tự động tìm ảnh (Self-Healing) ở danh sách
+    // Lý do: Đoạn code cũ chạy enrichItemsWithCostAndPrice cho 1000 đơn hàng cùng lúc
+    // gây ra lỗi 503 (CPU Exceeded) và treo Worker.
+    // Ảnh sẽ được hiển thị nếu đã có sẵn trong D1, không query lại từ Product Core tại đây.
 
     console.log('[ORDERS-D1] ✅ Loaded', ordersWithItems.length, 'orders');
     return json({ ok: true, items: ordersWithItems }, {}, req);
