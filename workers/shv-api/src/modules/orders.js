@@ -1275,6 +1275,8 @@ async function upsertOrder(req, env) {
             order.shipping_tracking = waybillResult.carrier_code;
             order.superai_code = waybillResult.superai_code;
             order.carrier_id = waybillResult.carrier_id;
+            order.carrier_name = waybillResult.carrier_name; // ✅ THÊM DÒNG NÀY
+            order.shipping_provider = waybillResult.carrier_name; // ✅ THÊM DÒNG NÀY
             order.status = 'processing'; // Giữ trạng thái đang xử lý
             order.waybill_data = waybillResult.raw;
 
