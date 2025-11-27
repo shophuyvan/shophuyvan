@@ -433,19 +433,19 @@ class OrdersManager {
       </div>
     `;
 
-    return `
+return `
       <tr class="order-row-desktop">
-        <td>
-          <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
+        <td style="width: 40px; vertical-align: top; padding-top: 20px;">
+          <input type="checkbox" class="order-checkbox" data-order-id="${orderId}" style="width: 18px; height: 18px; cursor: pointer;">
         </td>
         <td colspan="2">
           ${desktopCard}
         </td>
       </tr>
       <tr class="order-row-mobile">
-         <td>
-           <input type="checkbox" class="order-checkbox" data-order-id="${orderId}">
-         </td>
+        <td style="width: 40px; vertical-align: top; padding-top: 20px;">
+          <input type="checkbox" class="order-checkbox" data-order-id="${orderId}" style="width: 18px; height: 18px; cursor: pointer;">
+        </td>
         <td colspan="2">
           ${mobileCard}
         </td>
