@@ -264,6 +264,7 @@ async function enrichItemsWeight(env, items) {
       status, payment_status, fulfillment_status, payment_method,
       customer_note, admin_note,
       tracking_number, shipping_carrier,
+      carrier_id, shipping_service_code, shipping_option_id, -- ✅ Thêm 3 cột mới
       coin_used, voucher_code, voucher_seller, voucher_shopee,
       commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
@@ -280,6 +281,7 @@ async function enrichItemsWeight(env, items) {
       ?, ?, ?, ?,
       ?, ?,
       ?, ?,
+      ?, ?, ?, -- ✅ Thêm 3 dấu hỏi cho 3 cột mới
       ?, ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?,
@@ -380,8 +382,13 @@ async function enrichItemsWeight(env, items) {
 
     String(order.tracking_code || order.tracking_number || ''), 
     String(order.shipping_provider || order.shipping_carrier || ''),
+    
+    // ✅ Map dữ liệu vào 3 cột mới
+    String(order.carrier_id || ''),
+    String(order.shipping_service || order.shipping_service_code || ''),
+    String(order.shipping_option_id || '1'),
 
-    Number(order.coin_used || 0), 
+    Number(order.coin_used || 0),
     String(order.voucher_code || ''), 
     Number(order.voucher_seller || 0), 
     Number(order.voucher_shopee || 0),

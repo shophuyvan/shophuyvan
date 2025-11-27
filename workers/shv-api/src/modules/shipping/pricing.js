@@ -287,17 +287,21 @@ function normalizeShippingRates(data) {
     if (!rate) return;
     
     const fee = Number(
-  rate.shipment_fee ?? rate.fee ?? rate.price ?? rate.total_fee ?? rate.amount ?? 0
-);
-const eta = rate.estimated_delivery ?? rate.eta ?? rate.leadtime_text ?? rate.leadtime ?? '';
-const provider = rate.carrier_name ?? rate.provider ?? rate.carrier ?? rate.brand ?? rate.code ?? 'dvvc';
-const service_code = String(
-  rate.service_code ?? rate.service ?? rate.serviceId ?? rate.carrier_id ?? ''
-);
-const name = rate.name ?? rate.service_name ?? rate.display ?? (rate.carrier_name || 'Dịch vụ');
+      rate.shipment_fee ?? rate.fee ?? rate.price ?? rate.total_fee ?? rate.amount ?? 0
+    );
+    const eta = rate.estimated_delivery ?? rate.eta ?? rate.leadtime_text ?? rate.leadtime ?? '';
+    const provider = rate.carrier_name ?? rate.provider ?? rate.carrier ?? rate.brand ?? rate.code ?? 'dvvc';
+    const service_code = String(
+      rate.service_code ?? rate.service ?? rate.serviceId ?? rate.carrier_id ?? ''
+    );
+    // ✅ Lấy carrier_id chuẩn từ SuperAI
+    const carrier_id = String(rate.carrier_id || ''); 
+    
+    const name = rate.name ?? rate.service_name ?? rate.display ?? (rate.carrier_name || 'Dịch vụ');
     
     if (fee > 0) {
-      items.push({ provider, service_code, name, fee, eta });
+      // ✅ Trả về thêm carrier_id
+      items.push({ provider, service_code, carrier_id, name, fee, eta });
     }
   };
 

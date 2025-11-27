@@ -402,7 +402,8 @@ const rawItems = res?.items || [];
     selectedShipping = {
       provider: it.originalProvider,
       service_code: it.service_code,
-      option_id: it.option_id || '1', // Lưu thêm option_id (quan trọng cho SuperAI)
+      carrier_id: it.carrier_id, // ✅ Lưu carrier_id
+      option_id: '1', // Mặc định option 1 (nếu API có trả về option_id thì lấy từ it.option_id)
       fee: it.fee,
       eta: it.eta,
       name: it.name
@@ -1092,7 +1093,10 @@ $('place-order').addEventListener('click', async () => {
       cod_amount: codAmount,
       shipping_provider: selectedShipping.provider,
       shipping_service: selectedShipping.service_code,
-      shipping_option_id: selectedShipping.option_id || '1', // Gửi option_id lên server
+      // ✅ Gửi thông tin chuẩn xác để tạo vận đơn
+      carrier_id: selectedShipping.carrier_id, 
+      shipping_option_id: selectedShipping.option_id || '1',
+      
       shipping_name: selectedShipping.name || '',
       shipping_eta: selectedShipping.eta || '',
       totals: {

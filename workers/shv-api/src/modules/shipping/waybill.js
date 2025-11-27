@@ -145,23 +145,23 @@ export async function createWaybill(req, env) {
   value: Number(order.value || body.value || order.cod || body.cod || calculateOrderAmount(order, body) || 0),
   soc: body.soc || order.soc || '',
       
-      // Payer (REQUIRED) - '1' = Shop trả phí, '2' = Người nhận trả
-      payer: String(body.payer || order.payer || '1'),
+      payer: '2', // Khách trả phí (theo logic mới)
       
       // Service (REQUIRED)
-     // ✅ FIX LỖI 1: Ưu tiên từ order (đã lưu từ FE/Mini)
-      provider: (order.shipping_provider || ship.provider || body.provider || 'vtp').toLowerCase(),
-      service_code: order.shipping_service || ship.service_code || body.service_code || '',
+      // ✅ ƯU TIÊN DÙNG CARRIER ID ĐÃ LƯU (Chuẩn nhất)
+      provider: order.carrier_id || await resolveCarrierCode(env, order.shipping_provider || 'vtp'),
       
-// Config (REQUIRED) - '1' = Cho xem hàng, '2' = Không cho xem hàng
-      // ✅ Map allow_inspection: true -> '1', false -> '2'
-      config: String(body.config || (order.allow_inspection === false ? '2' : (order.allow_inspection === true ? '1' : '1'))),
+      // Dùng service_code từ đơn hàng
+      service_code: order.shipping_service || order.shipping_service_code || '',
+      
+      // Config (REQUIRED)
+      config: String(body.config || (order.allow_inspection === false ? '2' : '1')),
 
       // Product type (SuperAI)
       product_type: String(body.product_type || order.product_type || '2'),
       
-      // Option ID
-      option_id: shipping.option_id || '1',
+      // Option ID: Dùng option_id từ đơn hàng (nếu có)
+      option_id: order.shipping_option_id || shipping.option_id || '1',
       
       // Products (REQUIRED)
       products: products,
@@ -608,9 +608,9 @@ export async function printWaybill(req, env) {
           sku: i.sku
         })),
         
-        // Thông tin vận đơn
-        tracking_code: dbOrder.tracking_number, // Mã vận đơn (VD: 848...)
-        superai_code: dbOrder.tracking_number,  // Fallback tạm thời
+       // Thông tin vận đơn
+        tracking_code: dbOrder.tracking_number, 
+        superai_code: dbOrder.superai_code || dbOrder.tracking_number, // ✅ Lấy đúng cột superai_code
         shipping_provider: dbOrder.shipping_carrier,
         
         // Tài chính
@@ -631,19 +631,18 @@ export async function printWaybill(req, env) {
     }
 
     // 1. Xác định mã Tracking Code CHUẨN để gửi lên SuperAI
-    // Ưu tiên: tracking_number (DB) > superaiCode (DB) > superaiCode (Input)
-    // Nếu mã là UUID dài (32 ký tự trở lên), coi như KHÔNG CÓ mã vận đơn
-    let validTrackingCode = dbOrder?.tracking_number || dbOrder?.superai_code || superaiCode;
-    
-    // Nếu mã tìm được quá dài (thường là UUID > 30 ký tự), thử tìm trong shipping_tracking
-    if (!validTrackingCode || validTrackingCode.length > 30) {
-       validTrackingCode = dbOrder?.shipping_tracking || '';
-    }
+    // Ưu tiên: superai_code (Mới) > tracking_number (Cũ) > superaiCode (Input)
+    let validTrackingCode = dbOrder?.superai_code || dbOrder?.tracking_number || superaiCode;
 
-    // Nếu vẫn quá dài hoặc rỗng -> Báo lỗi ngay
-    if (!validTrackingCode || validTrackingCode.length > 30) {
-       console.warn('[printWaybill] Invalid tracking code found:', validTrackingCode);
-       return errorResponse('Đơn hàng chưa có mã vận đơn hợp lệ (Tracking Code) để in. Vui lòng kiểm tra lại trạng thái đơn.', 400, req);
+    // Chặn mã UUID dài (không phải mã vận đơn)
+    if (!validTrackingCode || validTrackingCode.length > 35) {
+       // Nếu mã hiện tại là UUID, thử tìm fallback
+       if (dbOrder?.tracking_number && dbOrder.tracking_number.length < 35) {
+           validTrackingCode = dbOrder.tracking_number;
+       } else {
+           console.warn('[printWaybill] Invalid tracking code found:', validTrackingCode);
+           return errorResponse('Đơn hàng chưa có mã vận đơn hợp lệ (SuperAI Code). Vui lòng tạo vận đơn lại.', 400, req);
+       }
     }
 
     console.log('[printWaybill] Requesting token for Valid Code:', validTrackingCode);
