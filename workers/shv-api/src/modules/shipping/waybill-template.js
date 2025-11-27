@@ -1,6 +1,6 @@
 // workers/shv-api/src/modules/shipping/waybill-template.js
 // ===================================================================
-// Waybill HTML Template A6 - Black & White Optimized V2
+// Waybill HTML Template A6 - FULL PAGE BLACK & WHITE
 // ===================================================================
 
 export function getWaybillHTML(data) {
@@ -27,7 +27,33 @@ export function getWaybillHTML(data) {
   <meta charset="utf-8">
   <title>Vận đơn ${trackingCode}</title>
   <style>
+    :root {
+      /* === FONT SIZES === */
+      --font-carrier: 24px;
+      --font-tracking: 32px;
+      --font-section-title: 15px;
+      --font-info: 15px;
+      --font-phone: 18px;
+      --font-receiver-name: 20px;
+      --font-product-name: 13px;
+      --font-variant: 17px;
+      --font-qty-price: 16px;
+      --font-cod-title: 16px;
+      --font-cod-amount: 32px;
+      --font-footer: 14px;
+      --font-footer-bold: 16px;
+      
+      /* === SPACING === */
+      --page-padding: 5mm;
+      --section-margin: 3mm;
+      --section-padding: 3mm;
+      
+      /* === SIZES === */
+      --qr-size: 22mm;
+    }
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     body { 
       font-family: 'Arial', 'Helvetica', sans-serif; 
       background: #fff; 
@@ -37,83 +63,87 @@ export function getWaybillHTML(data) {
       print-color-adjust: exact;
     }
     
-    /* A6 SIZE - 105mm x 148mm (portrait) */
+    /* A6 SIZE - 105mm x 148mm (portrait) - FULL PAGE */
     .page { 
       width: 105mm; 
       height: 148mm; 
       background: white; 
-      padding: 3mm;
+      padding: var(--page-padding);
       position: relative;
       overflow: hidden;
-      border: 2px solid #000;
+      border: 3px solid #000;
+      display: flex;
+      flex-direction: column;
     }
     
-    /* ====== HEADER: TÊN ĐƠN VỊ + MÃ VẬN ĐƠN + QR ====== */
+    /* ====== HEADER: ĐƠN VỊ + MÃ + QR ====== */
     .top-section {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 2mm;
-      padding-bottom: 1mm;
-      border-bottom: 3px solid #000;
+      margin-bottom: var(--section-margin);
+      padding-bottom: 3mm;
+      border-bottom: 4px solid #000;
+      flex-shrink: 0;
     }
     
     .carrier-info {
       flex: 1;
-      padding-right: 2mm;
+      padding-right: 3mm;
     }
     
     .carrier-name {
-      font-size: 20px;
+      font-size: var(--font-carrier);
       font-weight: bold;
       text-transform: uppercase;
       margin-bottom: 2px;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
     }
     
     .tracking-code {
-      font-size: 28px;
+      font-size: var(--font-tracking);
       font-weight: bold;
-      letter-spacing: 1.5px;
+      letter-spacing: 2px;
       font-family: 'Courier New', monospace;
-      margin-top: 1px;
+      margin-top: 2px;
     }
     
     .qr-box {
       flex-shrink: 0;
       text-align: center;
-      border: 2px solid #000;
+      border: 3px solid #000;
       padding: 2mm;
     }
     
     .qr-box img {
-      width: 18mm;
-      height: 18mm;
+      width: var(--qr-size);
+      height: var(--qr-size);
       display: block;
     }
     
     /* ====== NGƯỜI GỬI ====== */
     .sender-section {
-      border: 2px solid #000;
-      padding: 1.5mm;
-      margin-bottom: 1.5mm;
+      border: 3px solid #000;
+      padding: var(--section-padding);
+      margin-bottom: var(--section-margin);
       background: #f5f5f5;
+      flex-shrink: 0;
     }
     
     .section-title {
-      font-size: 13px;
+      font-size: var(--font-section-title);
       font-weight: bold;
       background: #000;
       color: white;
-      padding: 1mm 2mm;
-      margin: -1.5mm -1.5mm 1.5mm -1.5mm;
+      padding: 2mm 3mm;
+      margin: calc(var(--section-padding) * -1) calc(var(--section-padding) * -1) 2mm;
       text-transform: uppercase;
     }
     
     .info-row {
-      font-size: 13px;
-      line-height: 1.3;
-      margin-bottom: 1mm;
+      font-size: var(--font-info);
+      line-height: 1.4;
+      margin-bottom: 2mm;
     }
     
     .info-row strong {
@@ -121,135 +151,143 @@ export function getWaybillHTML(data) {
     }
     
     .phone-number {
-      font-size: 16px;
+      font-size: var(--font-phone);
       font-weight: bold;
-      margin-top: 1mm;
+      margin-top: 2mm;
     }
     
     /* ====== NGƯỜI NHẬN ====== */
     .receiver-section {
-      border: 3px solid #000;
-      padding: 1.5mm;
-      margin-bottom: 1.5mm;
+      border: 4px solid #000;
+      padding: var(--section-padding);
+      margin-bottom: var(--section-margin);
       background: #f5f5f5;
+      flex-shrink: 0;
     }
     
     .receiver-name {
-      font-size: 17px;
+      font-size: var(--font-receiver-name);
       font-weight: bold;
-      margin-bottom: 1mm;
+      margin-bottom: 2mm;
     }
     
     .receiver-address {
-      font-size: 13px;
-      line-height: 1.3;
-      margin-bottom: 1mm;
+      font-size: var(--font-info);
+      line-height: 1.4;
+      margin-bottom: 2mm;
     }
     
     .receiver-phone {
-      font-size: 16px;
+      font-size: var(--font-phone);
       font-weight: bold;
     }
     
-    /* ====== SẢN PHẨM ====== */
+    /* ====== SẢN PHẨM - FLEXIBLE HEIGHT ====== */
     .items-section {
-      border: 2px solid #000;
-      margin-bottom: 1.5mm;
-      max-height: 32mm;
+      border: 3px solid #000;
+      margin-bottom: var(--section-margin);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 35mm;
       overflow: hidden;
     }
     
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
+      font-size: 14px;
     }
     
     .items-table th {
       background: #000;
       color: white;
-      padding: 1mm;
+      padding: 2mm;
       font-weight: bold;
       text-align: left;
-      font-size: 12px;
+      font-size: 14px;
     }
     
     .items-table td {
-      padding: 1mm;
-      border-bottom: 1px solid #ddd;
+      padding: 2mm 1.5mm;
+      border-bottom: 2px solid #ddd;
       vertical-align: top;
     }
     
     .product-name {
-      font-size: 11px;
+      font-size: var(--font-product-name);
       color: #666;
-      line-height: 1.2;
+      line-height: 1.3;
     }
     
     .variant-name {
-      font-size: 15px;
+      font-size: var(--font-variant);
       font-weight: bold;
-      margin-top: 0.5mm;
-      line-height: 1.2;
+      margin-top: 1mm;
+      line-height: 1.3;
     }
     
     .item-qty {
       text-align: center;
       font-weight: bold;
-      font-size: 14px;
+      font-size: var(--font-qty-price);
     }
     
     .item-price {
       text-align: right;
       font-weight: bold;
-      font-size: 14px;
+      font-size: var(--font-qty-price);
+      white-space: nowrap;
     }
     
-    /* ====== TỔNG TIỀN - NỔI BẬT ====== */
+    /* ====== TỔNG TIỀN - SUPER NỔI BẬT ====== */
     .payment-section {
       background: #000;
       color: white;
-      padding: 2.5mm;
+      padding: 4mm;
       text-align: center;
-      margin-bottom: 1.5mm;
-      border: 3px solid #000;
+      margin-bottom: var(--section-margin);
+      border: 4px solid #000;
+      flex-shrink: 0;
     }
     
     .payment-title {
-      font-size: 13px;
+      font-size: var(--font-cod-title);
       font-weight: bold;
-      margin-bottom: 1mm;
+      margin-bottom: 2mm;
+      text-transform: uppercase;
     }
     
     .payment-amount {
-      font-size: 26px;
+      font-size: var(--font-cod-amount);
       font-weight: bold;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
       font-family: 'Courier New', monospace;
     }
     
     .payment-note {
-      font-size: 11px;
-      margin-top: 1mm;
+      font-size: 13px;
+      margin-top: 2mm;
       opacity: 0.9;
     }
     
-    /* ====== FOOTER ====== */
+    /* ====== FOOTER - ALWAYS AT BOTTOM ====== */
     .footer {
       text-align: center;
-      border-top: 2px solid #000;
-      padding-top: 1.5mm;
-      margin-top: 1.5mm;
-      font-size: 11px;
+      border-top: 3px solid #000;
+      padding-top: 3mm;
+      font-size: var(--font-footer);
+      flex-shrink: 0;
     }
     
     .footer-line {
-      margin-bottom: 0.5mm;
+      margin-bottom: 1.5mm;
+      line-height: 1.4;
     }
     
     .footer-bold {
       font-weight: bold;
-      font-size: 13px;
+      font-size: var(--font-footer-bold);
     }
     
     @media print {
@@ -262,7 +300,7 @@ export function getWaybillHTML(data) {
         width: 105mm; 
         height: 148mm; 
         margin: 0; 
-        padding: 3mm; 
+        padding: var(--page-padding);
         page-break-after: avoid;
         border: none;
       }
@@ -278,7 +316,7 @@ export function getWaybillHTML(data) {
         <div class="tracking-code">${trackingCode}</div>
       </div>
       <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackingCode)}" alt="QR">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingCode)}" alt="QR">
       </div>
     </div>
 
@@ -298,18 +336,18 @@ export function getWaybillHTML(data) {
       <div class="receiver-phone">☎ ${receiver.phone || customer.phone || ''}</div>
     </div>
 
-    <!-- SẢN PHẨM -->
+    <!-- SẢN PHẨM - TỰ ĐỘNG MỞ RỘNG -->
     <div class="items-section">
       <table class="items-table">
         <thead>
           <tr>
-            <th style="width: 60%">Sản phẩm</th>
+            <th style="width: 55%">Sản phẩm</th>
             <th style="width: 20%; text-align: center">SL</th>
-            <th style="width: 20%; text-align: right">Giá</th>
+            <th style="width: 25%; text-align: right">Giá</th>
           </tr>
         </thead>
         <tbody>
-          ${items.slice(0, 4).map(item => `
+          ${items.slice(0, 5).map(item => `
             <tr>
               <td>
                 <div class="product-name">${item.name || 'Sản phẩm'}</div>
@@ -319,7 +357,7 @@ export function getWaybillHTML(data) {
               <td class="item-price">${Number(item.price || 0).toLocaleString('vi-VN')}₫</td>
             </tr>
           `).join('')}
-          ${items.length > 4 ? `<tr><td colspan="3" style="text-align:center; font-size:10px; padding:1mm; color:#666">...và ${items.length - 4} sản phẩm khác</td></tr>` : ''}
+          ${items.length > 5 ? `<tr><td colspan="3" style="text-align:center; font-size:12px; padding:2mm; color:#666; font-weight:bold">+ ${items.length - 5} sản phẩm khác</td></tr>` : ''}
         </tbody>
       </table>
     </div>
@@ -334,8 +372,8 @@ export function getWaybillHTML(data) {
     <!-- FOOTER -->
     <div class="footer">
       <div class="footer-line footer-bold">☎ Hotline: 0909128999 | 0933190000</div>
-      <div class="footer-line">💬 Zalo: 0909128999</div>
-      <div class="footer-line">🌐 shophuyvan.vn</div>
+      <div class="footer-line footer-bold">💬 Zalo: 0909128999</div>
+      <div class="footer-line footer-bold">🌐 shophuyvan.vn</div>
     </div>
   </div>
 
