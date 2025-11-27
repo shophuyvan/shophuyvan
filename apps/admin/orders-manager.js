@@ -85,13 +85,25 @@ class OrdersManager {
   
   calculateOrderTotals(order) {
     const items = Array.isArray(order.items) ? order.items : [];
+    
+    // Tính doanh thu (chưa có ship)
     const subtotal = items.reduce((sum, item) => 
       sum + Number(item.price || 0) * Number(item.qty || 1), 0);
+    
+    // Tính giá vốn
+    const costTotal = items.reduce((sum, item) => 
+      sum + Number(item.cost || 0) * Number(item.qty || 1), 0);
+    
+    // Tính lợi nhuận
+    const profit = subtotal - costTotal;
+    
     const shipping = Number(order.shipping_fee || 0);
     const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+    
+    // Tổng khách phải trả
     const total = Math.max(0, subtotal + shipping - discount);
 
-    return { subtotal, shipping, discount, total };
+    return { subtotal, costTotal, profit, shipping, discount, total };
   }
 
       // ==================== RENDER ORDERS LIST ====================
@@ -132,7 +144,7 @@ class OrdersManager {
     const items = Array.isArray(order.items) ? order.items : [];
     
     // Totals
-    const { total } = this.calculateOrderTotals(order);
+    const { subtotal, costTotal, profit, shipping, discount, total } = this.calculateOrderTotals(order);
 
     // Customer info
     const customer = order.customer || {};
@@ -268,19 +280,39 @@ class OrdersManager {
           </div>
           <div class="order-details-col">
             <div class="detail-row">
+              <span class="label">Doanh thu:</span>
+              <span class="value">${this.formatPrice(subtotal)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Giá vốn:</span>
+              <span class="value">${this.formatPrice(costTotal)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Lợi nhuận:</span>
+              <span class="value" style="color: ${profit > 0 ? '#16a34a' : '#ef4444'}; font-weight: 600;">${this.formatPrice(profit)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Phí ship:</span>
+              <span class="value">${this.formatPrice(shipping)}</span>
+            </div>
+            <div class="detail-row">
               <span class="label">Tổng khách trả:</span>
               <span class="value price-total">${this.formatPrice(total)}</span>
             </div>
+            <div class="detail-row">
+              <span class="label">Đơn vị VC:</span>
+              <span class="value" style="font-size: 12px;">${order.carrier_name || order.shipping_carrier || 'Chưa có'}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Mã vận đơn:</span>
+              <span class="value tracking-code">${order.superai_code || order.tracking_number || order.tracking_code || 'Chưa tạo'}</span>
+            </div>
 
-            ${/* ✅ HIỂN THỊ LỢI NHUẬN (ADMIN ONLY - Order Core) */
+            ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE (GIỮ NGUYÊN) */
               (typeof order.profit !== 'undefined') ? `
               <div style="margin-top:4px; padding:4px 0; border-top:1px dashed #eee; font-size:12px">
                  <div class="detail-row">
-                   <span class="label text-gray-500">Doanh thu:</span>
-                   <span class="value font-medium">${this.formatPrice(order.revenue || total)}</span>
-                 </div>
-                 <div class="detail-row">
-                   <span class="label text-gray-500">Lợi nhuận:</span>
+                   <span class="label text-gray-500">Lợi nhuận Shopee:</span>
                    <span class="value font-bold ${order.profit > 0 ? 'text-green-600' : 'text-red-500'}">
                      ${this.formatPrice(order.profit)}
                    </span>
@@ -389,19 +421,35 @@ class OrdersManager {
         
         <div class="order-card-footer">
           <div class="order-info-row">
-            <span class="label">Tổng tiền:</span>
+            <span class="label">Doanh thu:</span>
+            <span class="value">${this.formatPrice(subtotal)}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="label">Giá vốn:</span>
+            <span class="value">${this.formatPrice(costTotal)}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="label">Lợi nhuận:</span>
+            <span class="value" style="color: ${profit > 0 ? '#16a34a' : '#ef4444'}; font-weight: 600;">${this.formatPrice(profit)}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="label">Phí ship:</span>
+            <span class="value">${this.formatPrice(shipping)}</span>
+          </div>
+          <div class="order-info-row">
+            <span class="label">Tổng khách trả:</span>
             <span class="value price">${this.formatPrice(total)}</span>
           </div>
           ${provider ? `
             <div class="order-info-row">
-              <span class="label">Vận chuyển:</span>
-              <span class="value">${provider}</span>
+              <span class="label">Đơn vị VC:</span>
+              <span class="value" style="font-size: 11px;">${provider}</span>
             </div>
           ` : ''}
           ${tracking ? `
             <div class="order-info-row">
               <span class="label">Mã vận đơn:</span>
-              <span class="value">${tracking}</span>
+              <span class="value" style="font-family: monospace; font-size: 10px;">${tracking}</span>
             </div>
           ` : ''}
           <div class="order-info-row">
@@ -1507,7 +1555,7 @@ return `
     console.log('[OrdersManager] Initialized ✅ with Bulk Actions & Auto Refresh');
   }
 
-  wireGlobalEvents() {
+ wireGlobalEvents() {
     console.log('[wireGlobalEvents] Binding events...');
     
     // Nút "Chọn tất cả"
@@ -1520,21 +1568,30 @@ return `
     // Nút In hàng loạt
     const bulkPrintBtn = document.getElementById('bulk-print-btn');
     if (bulkPrintBtn) {
-      bulkPrintBtn.onclick = () => this.printSelectedOrders();
+      bulkPrintBtn.onclick = (e) => {
+        e.preventDefault();
+        this.printSelectedOrders();
+      };
       console.log('[wireGlobalEvents] ✅ Bound bulk-print-btn');
     }
 
     // Nút Hủy hàng loạt
     const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
     if (bulkCancelBtn) {
-      bulkCancelBtn.onclick = () => this.cancelSelectedOrders();
+      bulkCancelBtn.onclick = (e) => {
+        e.preventDefault();
+        this.cancelSelectedOrders();
+      };
       console.log('[wireGlobalEvents] ✅ Bound bulk-cancel-btn');
     }
 
     // Nút Xác nhận hàng loạt
     const bulkConfirmBtn = document.getElementById('bulk-confirm-btn');
     if (bulkConfirmBtn) {
-      bulkConfirmBtn.onclick = () => this.confirmSelectedOrders();
+      bulkConfirmBtn.onclick = (e) => {
+        e.preventDefault();
+        this.confirmSelectedOrders();
+      };
       console.log('[wireGlobalEvents] ✅ Bound bulk-confirm-btn');
     }
     // Reload button
