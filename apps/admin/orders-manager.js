@@ -147,9 +147,14 @@ class OrdersManager {
     const fullAddress = [custAddress, custWard, custDistrict, custProvince].filter(Boolean).join(', ');
 
     // Shipping info
-    const provider = String(order.shipping_provider || order.provider || order.shipping_name || '');
-    const tracking = String(order.tracking_code || order.shipping_tracking || 
-                           order.ship_tracking || order.shipping?.tracking_code || '');
+    // Ưu tiên lấy carrier_name (tên chính xác từ SuperAI trả về)
+    const provider = String(order.carrier_name || order.shipping_provider || order.provider || order.shipping_name || '');
+    
+    // Mã vận đơn (Tracking)
+    const tracking = String(order.tracking_code || order.carrier_code || order.shipping_tracking || '');
+    
+    // Mã đơn hàng API (SuperAI Code)
+    const superaiCode = String(order.superai_code || '');
 
     // Other info
     const created = this.formatDate(order.created_at || order.createdAt || order.createdAtMs);
@@ -310,14 +315,24 @@ class OrdersManager {
 
             ${provider ? `
               <div class="detail-row">
-                <span class="label">Vận chuyển:</span>
-                <span class="value">${provider}</span>
+                <span class="label">ĐV Vận chuyển:</span>
+                <span class="value" style="font-weight:bold; color:#0284c7;">${provider}</span>
               </div>
             ` : ''}
+
+            ${superaiCode ? `
+              <div class="detail-row">
+                <span class="label">Mã đơn API:</span>
+                <span class="value" style="font-family:monospace; font-size:11px; background:#f3f4f6; padding:2px 4px; border-radius:4px;">
+                  ⚡ ${superaiCode}
+                </span>
+              </div>
+            ` : ''}
+
             ${tracking ? `
               <div class="detail-row">
                 <span class="label">Mã vận đơn:</span>
-                <span class="value tracking-code">${tracking}</span>
+                <span class="value tracking-code" style="font-weight:bold; font-size:13px; color:#000;">${tracking}</span>
               </div>
             ` : ''}
             <div class="detail-row">
