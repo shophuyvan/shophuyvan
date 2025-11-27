@@ -655,8 +655,17 @@ class OrdersManager {
 
       if (res.ok) {
         Admin.toast('✅ Đã xác nhận đơn hàng! Vận đơn đang được tạo...');
-        setTimeout(() => {
-          this.loadOrders();
+        setTimeout(async () => {
+          await this.loadOrders();
+          
+          // ✅ Reload currentOrder nếu modal đang mở
+          const modal = document.getElementById('modal-detail');
+          if (modal && modal.style.display !== 'none' && modal.dataset.orderId === orderId) {
+            const updatedOrder = this.orders.find(o => String(o.id) === orderId);
+            if (updatedOrder) {
+              this.showOrderDetail(updatedOrder);
+            }
+          }
         }, 2000);
       } else {
         alert('Lỗi khi xác nhận đơn hàng: ' + (res.message || 'Không rõ lỗi'));
