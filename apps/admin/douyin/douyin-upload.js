@@ -117,7 +117,9 @@ function renderProductGrid(products) {
   }
   
   grid.innerHTML = products.map(product => {
-    const images = JSON.parse(product.images || '[]');
+    // Fix: product.images đã là array từ API, không cần parse
+    const images = Array.isArray(product.images) ? product.images : 
+                   (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
     const imageUrl = images[0] || '/no-image.svg';
     const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price || 0);
     
