@@ -308,19 +308,8 @@ class OrdersManager {
               <span class="value tracking-code">${order.superai_code || order.tracking_number || order.tracking_code || 'Chưa tạo'}</span>
             </div>
 
-            ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE (GIỮ NGUYÊN) */
-              (typeof order.profit !== 'undefined') ? `
-              <div style="margin-top:4px; padding:4px 0; border-top:1px dashed #eee; font-size:12px">
-                 <div class="detail-row">
-                   <span class="label text-gray-500">Lợi nhuận Shopee:</span>
-                   <span class="value font-bold ${order.profit > 0 ? 'text-green-600' : 'text-red-500'}">
-                     ${this.formatPrice(order.profit)}
-                   </span>
-                 </div>
-              </div>
-              ` : ''
-            }
-
+            ${/* ✅ HIỂN THỊ CHI TIẾT TÀI CHÍNH SHOPEE CHỈ KHI CÓ DỮ LIỆU */
+              (order.escrow_amount > 0 || order.commission_fee > 0) ? `
               <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e5e7eb; font-size:12px;">
                 <div class="detail-row">
                    <span class="label">Tổng sàn thu:</span>
