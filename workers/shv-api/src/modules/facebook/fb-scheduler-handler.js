@@ -4,6 +4,147 @@
  */
 
 import { uploadToFacebookPage } from '../social-video-sync/facebook-uploader.js';
+import { json, errorResponse } from '../../lib/response.js';
+
+// --- 1. CẤU HÌNH KHUNG GIỜ VÀNG (Prime Time Slots) ---
+const PRIME_TIME_SLOTS = [
+  { start: 6, end: 8, label: 'Sáng sớm (6h-8h)' },
+  { start: 11.5, end: 13, label: 'Nghỉ trưa (11h30-13h)' },
+  { start: 17, end: 19, label: 'Tan tầm (17h-19h)' },
+  { start: 20, end: 22.5, label: 'Buổi tối (20h-22h30)' }
+];
+
+function getRandomTimeInSlot(slot) {
+  const now = new Date();
+  const startHour = Math.floor(slot.start);
+  const startMin = (slot.start % 1) * 60;
+  const endHour = Math.floor(slot.end);
+  const endMin = (slot.end % 1) * 60;
+
+  const totalMinStart = startHour * 60 + startMin;
+  const totalMinEnd = endHour * 60 + endMin;
+  const randomTotalMin = Math.floor(Math.random() * (totalMinEnd - totalMinStart + 1)) + totalMinStart;
+
+  const targetDate = new Date();
+  targetDate.setHours(Math.floor(randomTotalMin / 60));
+  targetDate.setMinutes(randomTotalMin % 60);
+  targetDate.setSeconds(0);
+  
+  if (targetDate < now) {
+      targetDate.setDate(targetDate.getDate() + 1);
+  }
+  return targetDate.getTime();
+}
+
+// --- 2. API LOGIC MỚI ---
+
+// API: Lập lịch hàng loạt (Batch Schedule)
+export async function scheduleBatchPosts(req, env) {
+  try {
+    const body = await req.json();
+    const { jobId } = body;
+
+    if (!jobId) return errorResponse('Missing jobId', 400, req);
+
+    // Lấy danh sách Fanpage đã assign
+    const { results: assignments } = await env.DB.prepare(`
+        SELECT * FROM fanpage_assignments WHERE job_id = ? AND status = 'pending'
+    `).bind(jobId).all();
+
+    if (!assignments.length) return errorResponse('Không có bài nào ở trạng thái pending để lên lịch', 400, req);
+
+    let scheduledCount = 0;
+    const now = Date.now();
+
+    for (let i = 0; i < assignments.length; i++) {
+        // Phân bổ lần lượt vào các slot
+        const slot = PRIME_TIME_SLOTS[i % PRIME_TIME_SLOTS.length];
+        const time = getRandomTimeInSlot(slot);
+
+        await env.DB.prepare(`
+            UPDATE fanpage_assignments 
+            SET status = 'scheduled', scheduled_time = ?, updated_at = ?
+            WHERE id = ?
+        `).bind(time, now, assignments[i].id).run();
+        
+        scheduledCount++;
+    }
+
+    // Update Job status
+    await env.DB.prepare(`
+        UPDATE automation_jobs SET status = 'scheduled', updated_at = ? WHERE id = ?
+    `).bind(now, jobId).run();
+
+    return json({ ok: true, count: scheduledCount, message: `Đã lên lịch tự động cho ${scheduledCount} bài viết` }, {}, req);
+  } catch (e) {
+    return errorResponse(e.message, 500, req);
+  }
+}
+
+// API: Lấy danh sách bài đã lên lịch (Filter Date)
+export async function getScheduledPosts(req, env) {
+    try {
+        const url = new URL(req.url);
+        const fromDate = url.searchParams.get('from'); 
+        const toDate = url.searchParams.get('to');
+        const status = url.searchParams.get('status');
+
+        let query = `
+            SELECT fa.*, j.product_name, j.product_image 
+            FROM fanpage_assignments fa
+            JOIN automation_jobs j ON fa.job_id = j.id
+            WHERE 1=1
+        `;
+        let params = [];
+
+        if (status) {
+            query += ` AND fa.status = ?`;
+            params.push(status);
+        } else {
+            query += ` AND fa.status IN ('scheduled', 'failed', 'published', 'pending')`;
+        }
+
+        if (fromDate) {
+            query += ` AND fa.scheduled_time >= ?`;
+            params.push(parseInt(fromDate));
+        }
+        
+        if (toDate) {
+            query += ` AND fa.scheduled_time <= ?`;
+            params.push(parseInt(toDate));
+        }
+
+        query += ` ORDER BY fa.scheduled_time ASC LIMIT 50`;
+
+        const { results } = await env.DB.prepare(query).bind(...params).all();
+        return json({ ok: true, posts: results }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
+
+// API: Retry bài đăng bị lỗi
+export async function retryFailedPost(req, env) {
+    try {
+        const { id } = await req.json(); // assignment_id
+        if (!id) return errorResponse('Missing ID', 400, req);
+
+        // Reset thời gian +5 phút để Cron Job quét lại
+        const nextTry = Date.now() + 5 * 60 * 1000; 
+
+        await env.DB.prepare(`
+            UPDATE fanpage_assignments 
+            SET status = 'scheduled', scheduled_time = ?, error_message = NULL, updated_at = ?
+            WHERE id = ?
+        `).bind(nextTry, Date.now(), id).run();
+
+        return json({ ok: true, message: 'Đã đưa bài viết vào hàng đợi thử lại' }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
+
+// --- 3. CRON JOB HANDLERS (Giữ nguyên logic cũ của bạn) ---
 
 export async function publishScheduledPosts(env) {
   const now = Date.now();

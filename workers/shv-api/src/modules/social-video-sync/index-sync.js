@@ -15,7 +15,12 @@ import { GeminiContentGenerator } from './ai-content-generator.js';
 import { uploadToFacebookPage } from './facebook-uploader.js';
 import { createAdsFromJob as createAdsFromJobImpl } from './post-to-ad.js';
 import { fetchGroupsFromFacebook, shareToGroup } from '../facebook/fb-group-manager.js';
-import { publishScheduledPosts } from '../facebook/fb-scheduler-handler.js';
+import { 
+  publishScheduledPosts, 
+  scheduleBatchPosts, 
+  getScheduledPosts, 
+  retryFailedPost 
+} from '../facebook/fb-scheduler-handler.js';
 
 // NEW: Douyin Upload handlers
 import { 
@@ -130,6 +135,40 @@ if (path === '/api/social-sync/history' && method === 'GET') {
   if (path === '/api/cron/trigger-schedule' && method === 'POST') {
     const result = await publishScheduledPosts(env);
     return json({ ok: true, result }, {}, req);
+  }
+
+  // --- NEW: SCHEDULER & BATCH ROUTES (TÍNH NĂNG MỚI) ---
+
+  // 1. Lên lịch hàng loạt (Batch Schedule)
+  if (path === '/api/facebook/posts/schedule-batch' && method === 'POST') {
+    return scheduleBatchPosts(req, env);
+  }
+
+  // 2. Lấy danh sách bài đã lên lịch (Filter Date)
+  if (path === '/api/facebook/posts/scheduled' && method === 'GET') {
+    return getScheduledPosts(req, env);
+  }
+
+  // 3. Retry bài lỗi
+  if (path === '/api/facebook/posts/retry' && method === 'POST') {
+    return retryFailedPost(req, env);
+  }
+
+  // 4. Lấy lịch sử Share Group
+  if (path === '/api/facebook/groups/share-history' && method === 'GET') {
+      const url = new URL(req.url);
+      const assignmentId = url.searchParams.get('assignmentId');
+      
+      if (!assignmentId) return errorResponse('Missing assignmentId', 400, req);
+
+      try {
+        const { results } = await env.DB.prepare(`
+            SELECT * FROM group_share_history WHERE assignment_id = ? ORDER BY created_at DESC
+        `).bind(assignmentId).all();
+        return json({ ok: true, history: results }, {}, req);
+      } catch (e) {
+        return errorResponse(e.message, 500, req);
+      }
   }
   // ✅ FIX: Đăng ký route lấy danh sách Group
   if (path === '/api/facebook/groups/fetch' && method === 'GET') {

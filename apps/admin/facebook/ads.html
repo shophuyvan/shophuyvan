@@ -537,11 +537,33 @@
 		  </div>
         
         <div class="card" style="margin-top:16px;">
-          <div class="toolbar">
+          <div class="toolbar" style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
             <h3 style="margin:0;">📝 Lịch Đăng Bài Fanpage (Scheduled Posts)</h3>
-            <button onclick="FanpageManager.loadScheduledPosts()" class="btn">🔄 Làm mới</button>
+            <div style="display:flex; gap:10px;">
+                <select id="filter-post-status" class="input" style="padding:5px;" onchange="FanpageManager.loadScheduledPosts()">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="scheduled">⏳ Đang chờ</option>
+                    <option value="published">✅ Đã đăng</option>
+                    <option value="failed">❌ Lỗi</option>
+                </select>
+                <button onclick="FanpageManager.loadScheduledPosts()" class="btn">🔄 Làm mới</button>
+            </div>
           </div>
-          <div id="scheduledPostsContainer" class="loading">Đang tải danh sách bài hẹn giờ...</div>
+          
+          <table class="fanpage-table" style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="padding:10px; border:1px solid #eee;">Thời gian</th>
+                    <th style="padding:10px; border:1px solid #eee;">Fanpage</th>
+                    <th style="padding:10px; border:1px solid #eee;">Nội dung / Sản phẩm</th>
+                    <th style="padding:10px; border:1px solid #eee;">Trạng thái</th>
+                    <th style="padding:10px; border:1px solid #eee; text-align:center;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody id="scheduledPostsContainer">
+                <tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
         </div>
         </div>
       </div>

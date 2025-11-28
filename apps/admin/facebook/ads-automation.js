@@ -584,71 +584,104 @@
        this.loadScheduledPosts(); // ✅ Thêm dòng này để load bảng khi khởi chạy
     },
 	
-	// 0. Tải danh sách bài hẹn giờ (NEW)
+	// 0. Tải danh sách bài hẹn giờ (Updated)
     loadScheduledPosts: async function() {
         const container = document.getElementById('scheduledPostsContainer');
+        const filterStatus = document.getElementById('filter-post-status')?.value || '';
+        
         if (!container) return;
         
-        container.innerHTML = '<div class="loading">⏳ Đang tải...</div>';
+        container.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
         
         try {
-            // Gọi API lấy danh sách Job (có lọc trạng thái nếu cần)
-            const r = await Admin.req('/api/auto-sync/jobs?limit=20', { method: 'GET' });
+            // Gọi API lấy danh sách bài đã lên lịch (API mới từ Backend)
+            let url = '/api/facebook/posts/scheduled';
+            if (filterStatus) url += `?status=${filterStatus}`;
             
-            if (r.ok && r.jobs) {
-                // Lọc ra các bài có hẹn giờ hoặc đã đăng
-                const posts = r.jobs.filter(j => j.scheduled_time || j.status === 'published');
-                
-                if (posts.length === 0) {
-                    container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Chưa có bài nào được hẹn giờ.</div>';
+            const r = await Admin.req(url, { method: 'GET' });
+            
+            if (r.ok && r.posts) {
+                if (r.posts.length === 0) {
+                    container.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">Không có bài viết nào.</td></tr>';
                     return;
                 }
 
-                container.innerHTML = `
-                    <table class="fanpage-table">
-                        <thead>
-                            <tr>
-                                <th>Bài viết / Sản phẩm</th>
-                                <th>Thời gian hẹn</th>
-                                <th>Trạng thái</th>
-                                <th>Kết quả / Link</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${posts.map(p => {
-                                const isPublished = p.status === 'published';
-                                const isFailed = p.status === 'failed';
-                                const time = p.scheduled_time ? new Date(p.scheduled_time).toLocaleString('vi-VN') : 'Đăng ngay';
-                                
-                                let statusBadge = '<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px;">⏳ Đang chờ</span>';
-                                if (isPublished) statusBadge = '<span style="background:#dcfce7; color:#16a34a; padding:2px 6px; border-radius:4px;">✅ Đã đăng</span>';
-                                if (isFailed) statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:4px;">❌ Lỗi</span>';
+                container.innerHTML = r.posts.map(p => {
+                    const time = new Date(p.scheduled_time).toLocaleString('vi-VN');
+                    let statusBadge = '';
+                    let actionBtn = '';
+                    let postLink = '';
 
-                                let action = '';
-                                if (isPublished && p.publish_url) { // Giả sử API trả về publish_url hoặc lấy từ assignments
-                                    action = `<a href="${p.publish_url}" target="_blank" style="color:#2563eb; text-decoration:none;">🔗 Xem bài viết</a>`;
-                                } else if (!isPublished && !isFailed) {
-                                    action = `<button class="btn-sm" onclick="FacebookAdsAutomation.testCron()">⚡ Kích hoạt ngay</button>`;
-                                }
+                    // Xử lý trạng thái và nút bấm
+                    if (p.status === 'published') {
+                        statusBadge = '<span style="background:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;">✅ Đã đăng</span>';
+                        if (p.post_url) {
+                            postLink = `<a href="${p.post_url}" target="_blank" style="display:block; font-size:11px; margin-top:4px; color:#2563eb;">🔗 Xem bài viết</a>`;
+                        }
+                    } else if (p.status === 'failed') {
+                        statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;">❌ Lỗi</span>';
+                        // Nút Retry cho bài lỗi
+                        actionBtn = `<button class="btn-sm" style="background:#fff; border:1px solid #dc2626; color:#dc2626; font-size:11px; cursor:pointer;" onclick="FanpageManager.retryPost(${p.id})">🔄 Thử lại</button>`;
+                    } else if (p.status === 'scheduled' || p.status === 'pending') {
+                        const isOverdue = new Date(p.scheduled_time) < new Date();
+                        statusBadge = `<span style="background:${isOverdue ? '#fff7ed' : '#dbeafe'}; color:${isOverdue ? '#c2410c' : '#1e40af'}; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;">${isOverdue ? '⚠️ Quá hạn' : '⏳ Đang chờ'}</span>`;
+                        // Nút đăng ngay nếu quá hạn hoặc muốn đăng sớm
+                        actionBtn = `<button class="btn-sm" style="background:#fff; border:1px solid #2563eb; color:#2563eb; font-size:11px; cursor:pointer;" onclick="FacebookAdsAutomation.testCron()">⚡ Đăng ngay</button>`;
+                    }
 
-                                return `
-                                    <tr>
-                                        <td>#${p.id} - ${p.product_name}</td>
-                                        <td>${time}</td>
-                                        <td>${statusBadge}</td>
-                                        <td>${action}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
+                    // Xử lý ảnh thumbnail
+                    const thumb = p.product_image || 'https://via.placeholder.com/40';
+
+                    return `
+                        <tr>
+                            <td style="font-size:13px; color:#374151;">${time}</td>
+                            <td style="font-weight:600; font-size:13px;">${p.fanpage_name || 'N/A'}</td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <img src="${thumb}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #eee;">
+                                    <div>
+                                        <div style="font-size:13px; font-weight:500;">${p.product_name || 'Sản phẩm #' + p.job_id}</div>
+                                        ${p.error_message ? `<div style="font-size:11px; color:#dc2626; margin-top:2px;">⚠️ ${p.error_message}</div>` : ''}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                ${statusBadge}
+                                ${postLink}
+                            </td>
+                            <td style="text-align:center;">
+                                ${actionBtn}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             } else {
-                container.innerHTML = '<div class="alert alert-error">Lỗi tải dữ liệu.</div>';
+                container.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu.</td></tr>';
             }
         } catch (e) {
             console.error(e);
-            container.innerHTML = `<div class="alert alert-error">Lỗi: ${e.message}</div>`;
+            container.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:red;">Lỗi kết nối: ${e.message}</td></tr>`;
+        }
+    },
+
+    // Hàm Retry (Thử lại bài lỗi) - Thêm mới vào FanpageManager
+    retryPost: async function(id) {
+        if (!confirm('Bạn có chắc muốn đưa bài viết này vào hàng đợi để thử lại không?')) return;
+        
+        try {
+            const r = await Admin.req('/api/facebook/posts/retry', { 
+                method: 'POST',
+                body: { id: id }
+            });
+            
+            if (r.ok) {
+                alert('✅ Đã cập nhật! Hệ thống sẽ thử đăng lại trong vài phút.');
+                this.loadScheduledPosts(); // Reload lại bảng
+            } else {
+                alert('❌ Lỗi: ' + r.error);
+            }
+        } catch (e) {
+            alert('❌ Lỗi kết nối: ' + e.message);
         }
     },
     
@@ -960,8 +993,8 @@
         try {
             const r = await Admin.req('/api/facebook/groups/scheduled', { method: 'GET' });
             
-            if (!r.ok || !r.posts) {
-                throw new Error(r.error || 'Không tải được danh sách');
+            if (!r || !r.ok || !r.posts) {
+                throw new Error((r && r.error) || 'Không tải được danh sách');
             }
             
             const posts = r.posts;
