@@ -717,15 +717,10 @@
             } else {
                 groupSelect.innerHTML = '<option value="">⚠️ Lỗi tải danh sách nhóm</option>';
             }
-                groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
-                    rGroups.groups.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
-            } else {
-                groupSelect.innerHTML = '<option value="">⚠️ Không tìm thấy nhóm nào (hoặc lỗi token)</option>';
-            }
         } catch(e) {
             console.error(e);
-            infoBox.innerHTML = '❌ Lỗi kết nối: ' + e.message;
-            groupSelect.innerHTML = '<option value="">❌ Lỗi tải dữ liệu</option>';
+            if (infoBox) infoBox.innerHTML = '❌ Lỗi kết nối: ' + e.message;
+            if (groupSelect) groupSelect.innerHTML = '<option value="">❌ Lỗi tải dữ liệu</option>';
         }
     },
 
