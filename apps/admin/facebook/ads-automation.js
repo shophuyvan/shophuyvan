@@ -644,7 +644,16 @@
 
     // 2. Mở Modal Cấu hình & Load thông tin
     openScheduler: async function(jobId) {
-        document.getElementById('sched-job-id').value = jobId;
+        if (!jobId) {
+            console.error('❌ Lỗi: openScheduler được gọi nhưng thiếu jobId');
+            alert('Lỗi: Không tìm thấy ID bài viết!');
+            return;
+        }
+        
+        // Gán jobId vào input ẩn để dùng sau này
+        const hiddenInput = document.getElementById('sched-job-id');
+        if (hiddenInput) hiddenInput.value = jobId;
+        
         const modal = document.getElementById('modal-scheduler');
         modal.style.display = 'flex';
 
@@ -691,9 +700,23 @@
                 infoBox.innerHTML = '⚠️ Không lấy được thông tin Job.';
             }
 
-            // B. Gọi API lấy danh sách Group
+            // B. Gọi API lấy danh sách Group (Thêm log debug)
+            console.log('[Automation] Fetching groups...');
             const rGroups = await Admin.req('/api/facebook/groups/fetch', { method: 'GET' });
-            if(rGroups.ok && rGroups.groups && rGroups.groups.length > 0) {
+            
+            if(rGroups && rGroups.ok && rGroups.groups) {
+                // Xử lý cả trường hợp rGroups.groups là mảng hoặc object {data: []}
+                const list = Array.isArray(rGroups.groups) ? rGroups.groups : (rGroups.groups.data || []);
+                
+                if (list.length > 0) {
+                    groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
+                        list.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
+                } else {
+                    groupSelect.innerHTML = '<option value="">⚠️ Không tìm thấy nhóm nào (Token chưa có quyền)</option>';
+                }
+            } else {
+                groupSelect.innerHTML = '<option value="">⚠️ Lỗi tải danh sách nhóm</option>';
+            }
                 groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
                     rGroups.groups.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
             } else {
@@ -729,7 +752,14 @@
 
     // 4. Lưu & Kích hoạt Lịch
     submitSchedule: async function() {
+        // ✅ FIX: Lấy jobId và kiểm tra kỹ
         const jobId = document.getElementById('sched-job-id').value;
+        
+        if (!jobId || jobId === 'undefined') {
+            alert('❌ Lỗi: Không tìm thấy ID bài viết (Job ID bị thiếu). Vui lòng tải lại trang.');
+            return;
+        }
+
         const timeStr = document.getElementById('sched-time').value;
         const groupId = document.getElementById('sched-group-select').value;
         const fanpageId = document.getElementById('sched-fanpage-select')?.value; // Lấy Fanpage ID nếu có chọn
@@ -745,13 +775,31 @@
         btn.disabled = true; btn.innerText = '⏳ Đang lưu...';
 
         try {
-            // Bước 1: Lưu lịch đăng bài
-            const r1 = await Admin.req(`/api/auto-sync/jobs/${jobId}/save-pending`, {
-                method: 'POST',
-                body: { scheduledTime: scheduledTime }
-            });
+            let r1;
+            
+            // LOGIC MỚI: Nếu không chọn giờ -> Đăng ngay (Publish)
+            if (!scheduledTime) {
+                // Kiểm tra xem đã chọn Fanpage chưa
+                if (!fanpageId) throw new Error('Vui lòng chọn Fanpage để đăng ngay!');
 
-            if(!r1.ok) throw new Error(r1.error || 'Lỗi lưu lịch');
+                // 1. Gán Fanpage vào Job trước (nếu chưa gán)
+                await Admin.req(`/api/auto-sync/jobs/${jobId}/assign-fanpages`, {
+                    method: 'POST',
+                    body: { assignments: [{ fanpageId: fanpageId, variantId: 1 }] } // Mặc định variant 1 hoặc lấy từ UI nếu có
+                });
+
+                // 2. Gọi lệnh Đăng Ngay
+                btn.innerText = '🚀 Đang đăng...';
+                r1 = await Admin.req(`/api/auto-sync/jobs/${jobId}/publish`, { method: 'POST' });
+            } else {
+                // Nếu có chọn giờ -> Lưu pending (như cũ)
+                r1 = await Admin.req(`/api/auto-sync/jobs/${jobId}/save-pending`, {
+                    method: 'POST',
+                    body: { scheduledTime: scheduledTime }
+                });
+            }
+
+            if(!r1.ok) throw new Error(r1.error || 'Lỗi xử lý');
 
             // Bước 2: Thông báo
             let msg = '✅ Đã lưu cấu hình thành công!';
