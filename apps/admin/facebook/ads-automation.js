@@ -1007,8 +1007,6 @@
             
             const posts = r.posts || [];
             
-            const posts = r.posts;
-            
             if (posts.length === 0) {
                 container.innerHTML = '<div style="text-align:center; padding:40px; color:#999;">📭 Chưa có bài nào được lên lịch</div>';
                 return;
