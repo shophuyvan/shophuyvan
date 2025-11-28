@@ -60,6 +60,12 @@ window.Admin = (function(){
     // unify ok/data so callers can check
     if (data && data.ok===undefined) data.ok = res.ok;
     data = data || { ok: res.ok, status: res.status };
+    
+    // Nếu response không ok và chưa có error message, thêm vào
+    if (!data.ok && !data.error) {
+      data.error = `HTTP ${res.status}: ${res.statusText || 'Request failed'}`;
+    }
+    
     return data;
   }
 
