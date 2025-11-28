@@ -2284,44 +2284,45 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     },
 
 // STEP 4: Load Fanpages (Đã sửa lỗi cú pháp & Thêm nút Xem thử)
-    // STEP 4: Review Nội dung (Thay thế hoàn toàn bảng Fanpage)
+   // STEP 4: Review Nội dung (Có checkbox chọn phiên bản)
     loadFanpages: function() {
         const container = document.getElementById('wiz-fanpage-list');
         if (!container) return;
 
-        // 1. Ẩn các thành phần không cần thiết (Date Picker, Headers cũ)
+        // 1. Ẩn các thành phần thừa cũ
         const step4 = document.getElementById('wiz-step-4');
         if(step4) {
-            // Ẩn tất cả input date và label liên quan
             const dates = step4.querySelectorAll('input[type="datetime-local"], input[type="date"]');
-            dates.forEach(el => {
-                const row = el.closest('.row') || el.parentElement;
-                if(row) row.style.display = 'none';
-            });
-            // Ẩn header bảng nếu có (thead)
+            dates.forEach(el => { const row = el.closest('.row'); if(row) row.style.display = 'none'; });
             const thead = step4.querySelector('thead');
             if(thead) thead.style.display = 'none';
         }
 
-        // 2. Render 5 phiên bản nội dung để review
+        // 2. Render danh sách Variants
         const variants = this.jobData.variants || [];
         
         if(variants.length === 0) {
-            container.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:red;">⚠️ Không có nội dung nào được tạo. Vui lòng quay lại Bước 3.</td></tr>`;
+            container.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:red;">⚠️ Không có nội dung. Vui lòng quay lại Bước 3.</td></tr>`;
             return;
         }
 
-        // Thay vì vẽ bảng Fanpage, ta vẽ danh sách Textarea để sửa nội dung
-        // Lưu ý: Ta dùng thẻ tr/td vì container gốc là tbody
+        // Render với Checkbox
         const html = variants.map((v, i) => `
             <tr style="border-bottom: 10px solid #f9fafb;">
                 <td colspan="4" style="padding: 15px; background: #fff;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <strong style="color:#2563eb;">Version ${v.version} (${v.tone?.toUpperCase()})</strong>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <input type="checkbox" class="wiz-ver-select" id="wiz-check-${i}" data-index="${i}" checked style="width:18px; height:18px; cursor:pointer;">
+                            
+                            <label for="wiz-check-${i}" style="cursor:pointer; margin:0;">
+                                <strong style="color:#2563eb;">Version ${v.version} (${v.tone?.toUpperCase()})</strong>
+                            </label>
+                        </div>
                         <span style="font-size:11px; background:#eee; padding:2px 6px; border-radius:4px;">ID: ${v.id}</span>
                     </div>
                     
                     <textarea 
+                        id="wiz-area-${i}"
                         class="input" 
                         style="width:100%; height:80px; font-family:sans-serif; font-size:13px; border:1px solid #e5e7eb; border-radius:6px; padding:8px;"
                         onchange="AutoSyncWizard.updateVariantContent(${i}, this.value)"
@@ -2336,12 +2337,11 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
 
         container.innerHTML = html;
         
-        // Thêm một dòng thông báo cuối cùng
+        // Note
         const noteRow = document.createElement('tr');
         noteRow.innerHTML = `
-            <td colspan="4" style="text-align:center; padding:20px; background:#f0fdf4;">
-                <div style="color:#166534; font-weight:bold;">✅ Đã tạo xong ${variants.length} phiên bản nội dung!</div>
-                <div style="font-size:13px; color:#15803d;">Bạn có thể chỉnh sửa nội dung ở trên, sau đó bấm nút "Lưu vào Kho" bên dưới.</div>
+            <td colspan="4" style="text-align:center; padding:15px; background:#f0fdf4; border-top:1px solid #dcfce7;">
+                <div style="color:#15803d; font-weight:bold;">👉 Hướng dẫn: Tích chọn các Version bạn muốn dùng, sau đó bấm "Lưu vào kho".</div>
             </td>
         `;
         container.appendChild(noteRow);
@@ -2392,35 +2392,45 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         document.getElementById('wiz-camp-name').value = `Ads Job #${this.jobData.id} - ${new Date().toLocaleDateString('vi-VN')}`;
     },
 
-    // HÀM MỚI: Lưu trọn bộ 5 Variants vào kho
+    // HÀM MỚI: Lưu các Version ĐƯỢC CHỌN vào kho
     saveToRepository: async function() {
         const btn = document.getElementById('wiz-btn-save');
         const oldText = btn ? btn.innerHTML : 'Lưu';
-        if(btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang lưu 5 versions...'; }
+        
+        // 1. Lọc các phiên bản được check
+        const checkboxes = document.querySelectorAll('.wiz-ver-select:checked');
+        if (checkboxes.length === 0) {
+            alert("⚠️ Vui lòng tích chọn ít nhất 1 phiên bản để lưu!");
+            return;
+        }
+
+        const selectedVariants = [];
+        checkboxes.forEach(cb => {
+            const idx = parseInt(cb.dataset.index);
+            // Lấy nội dung mới nhất từ Textarea (đề phòng chưa onchange kịp)
+            const textarea = document.getElementById(`wiz-area-${idx}`);
+            const variantData = this.jobData.variants[idx];
+            
+            if (variantData && textarea) {
+                variantData.caption = textarea.value; // Cập nhật text mới nhất
+                selectedVariants.push(variantData);
+            }
+        });
+
+        if(btn) { btn.disabled = true; btn.innerHTML = `⏳ Đang lưu ${selectedVariants.length} versions...`; }
 
         try {
-            // ✅ FIX: Thu thập lại dữ liệu mới nhất từ các ô Textarea trên màn hình (nếu đang ở bước 4)
-            // Vì người dùng có thể sửa text mà chưa trigger sự kiện onchange kịp
-            const textareas = document.querySelectorAll('#wiz-fanpage-list textarea');
-            if (textareas.length > 0 && this.jobData.variants.length > 0) {
-                textareas.forEach((ta, index) => {
-                     // Tìm variant tương ứng theo index hiển thị
-                     if (this.jobData.variants[index]) {
-                         this.jobData.variants[index].caption = ta.value;
-                     }
-                });
-            }
-
-            // Gửi kèm variants để Backend cập nhật nội dung đã sửa
+            // 2. Gửi API
             const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/save-pending`, {
                 method: 'POST',
                 body: { 
                     scheduledTime: null,
-                    variants: this.jobData.variants // ✅ Gửi toàn bộ 5 bản nội dung về
+                    variants: selectedVariants // ✅ Chỉ gửi danh sách đã chọn
                 }
             });
+
             if (r.ok) {
-                if(confirm('✅ Đã lưu thành công 5 phiên bản nội dung!\n\nBạn có muốn chuyển sang tab "Kho Nội dung" để quản lý ngay không?')) {
+                if(confirm(`✅ Đã lưu thành công ${selectedVariants.length} phiên bản!\n\nBạn có muốn chuyển sang tab "Kho Nội dung" để quản lý ngay không?`)) {
                      const hubTab = document.querySelector('.tab[data-tab="fanpage-hub"]');
                      if(hubTab) hubTab.click();
                 }

@@ -9,6 +9,7 @@
   const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || 'https://api.shophuyvan.vn';
   let automationRules = [];
   let scheduledCampaigns = [];
+  let availableFanpages = []; // ✅ NEW: Lưu danh sách Fanpage
 
   // ============================================================
   // UTILITIES
@@ -43,9 +44,29 @@
     }
   }
 
-  // ============================================================
+ // ============================================================
   // API CALLS
   // ============================================================
+
+  // ✅ NEW: Hàm tải danh sách Fanpage từ Backend
+  async function loadFanpages() {
+    try {
+      const r = await Admin.req('/api/facebook/pages/list', { method: 'GET' });
+      if (r && r.ok) {
+        availableFanpages = r.pages || [];
+        console.log('[Automation] Loaded fanpages:', availableFanpages.length);
+        // Nếu có phần tử select trong DOM, render ngay
+        renderFanpageSelectOptions();
+        return true;
+      } else {
+        console.warn('Không tải được danh sách Fanpage');
+        return false;
+      }
+    } catch (e) {
+      console.error('Lỗi tải Fanpage:', e);
+      return false;
+    }
+  }
 
   async function loadAutomationRules() {
     try {
@@ -183,6 +204,24 @@
   // ============================================================
   // RENDER FUNCTIONS
   // ============================================================
+
+  // ✅ NEW: Hàm render danh sách Fanpage vào thẻ Select hoặc Div
+  function renderFanpageSelectOptions(targetId = 'fanpageSelect') {
+    const container = document.getElementById(targetId);
+    if (!container) return;
+
+    if (!availableFanpages || availableFanpages.length === 0) {
+      container.innerHTML = '<option value="">-- Chưa có Fanpage kết nối --</option>';
+      return;
+    }
+
+    // Render dạng Options cho thẻ <select>
+    const optionsHTML = availableFanpages.map(page => 
+      `<option value="${page.page_id}">${page.page_name}</option>`
+    ).join('');
+
+    container.innerHTML = `<option value="">-- Chọn Fanpage đăng bài --</option>` + optionsHTML;
+  }
 
   function renderAutomationRules(rules) {
     const container = document.getElementById('automationRulesContainer');
@@ -523,6 +562,7 @@
     
     loadAutomationRules();
     loadScheduledCampaigns();
+    loadFanpages(); // ✅ NEW: Tải Fanpage ngay khi vào trang
     attachAutomationEvents();
   }
 
@@ -534,6 +574,9 @@
     init,
     loadRules: loadAutomationRules,
     loadSchedules: loadScheduledCampaigns,
+    loadFanpages, // ✅ Public hàm này
+    renderFanpages: renderFanpageSelectOptions, // ✅ Public hàm render
+    getFanpages: () => availableFanpages, // ✅ Getter lấy data
     createRule: createAutomationRule,
     deleteRule: deleteAutomationRule,
     toggleRule: toggleAutomationRule,
