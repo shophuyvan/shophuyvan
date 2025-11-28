@@ -50,15 +50,14 @@ export async function uploadDouyinVideos(req, env) {
 
             // Upload lên R2 storage
             const r2Key = `douyin/uploads/${videoId}/${filename}`;
-            await env.R2_BUCKET.put(r2Key, buffer, {
+            await env.SOCIAL_VIDEOS.put(r2Key, buffer, {
                 httpMetadata: {
                     contentType: file.type || 'video/mp4'
                 }
             });
 
-            // Tạo public URL (sử dụng R2 public domain của bạn)
-            // TODO: Thay YOUR_R2_PUBLIC_DOMAIN bằng domain thật
-            const videoUrl = `https://pub-YOUR_R2_PUBLIC_ID.r2.dev/${r2Key}`;
+            // Tạo public URL từ custom domain
+            const videoUrl = `https://social-videos.shophuyvan.vn/${r2Key}`;
             
             // TODO: Generate thumbnail (tạm thời dùng placeholder)
             const thumbnailUrl = 'https://via.placeholder.com/300x533/000000/FFFFFF/?text=Video';
