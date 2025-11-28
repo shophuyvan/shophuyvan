@@ -522,6 +522,16 @@ export default {
       // API: Lấy danh sách scheduled posts
       if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
         try {
+          // Kiểm tra xem bảng có tồn tại không
+          const tableCheck = await env.DB.prepare(`
+            SELECT name FROM sqlite_master WHERE type='table' AND name='scheduled_group_posts'
+          `).first();
+          
+          if (!tableCheck) {
+            // Bảng chưa tồn tại, trả về mảng rỗng thay vì lỗi
+            return json({ ok: true, posts: [] }, req);
+          }
+          
           const url = new URL(req.url);
           const fanpage_id = url.searchParams.get('fanpage_id');
           const status = url.searchParams.get('status');

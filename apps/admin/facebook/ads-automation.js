@@ -991,11 +991,21 @@
         container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">⏳ Đang tải...</div>';
         
         try {
+            // Kiểm tra Admin.req có tồn tại không
+            if (!window.Admin || typeof Admin.req !== 'function') {
+                throw new Error('Admin.req không tồn tại. Kiểm tra admin_real.js đã load chưa.');
+            }
+            
             const r = await Admin.req('/api/facebook/groups/scheduled', { method: 'GET' });
             
-            if (!r || !r.ok || !r.posts) {
+            // Debug: Log response để xem cấu trúc
+            console.log('[loadScheduledGroupPosts] Response:', r);
+            
+            if (!r || !r.ok) {
                 throw new Error((r && r.error) || 'Không tải được danh sách');
             }
+            
+            const posts = r.posts || [];
             
             const posts = r.posts;
             
