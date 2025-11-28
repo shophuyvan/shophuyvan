@@ -1020,16 +1020,25 @@ async function createJobFromUpload(req, env) {
     const productUrl = `https://shophuyvan.vn/san-pham/${product.slug}`;
     const productImage = product.images ? JSON.parse(product.images)[0] : null;
 
-    // 2. Upload Video lên R2
+   // 2. Upload Video lên R2
+    // ✅ FIX: Gọi đúng tên biến binding "SOCIAL_VIDEOS" như trong wrangler.toml
+    const bucket = env.SOCIAL_VIDEOS;
+    
+    if (!bucket) {
+        throw new Error('LỖI CẤU HÌNH: Không tìm thấy biến env.SOCIAL_VIDEOS. Hãy kiểm tra wrangler.toml!');
+    }
+
     const fileName = `upload_${now}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
     const r2Path = `videos/${fileName}`;
     
     // Upload stream lên R2
-    await env.R2.put(r2Path, file.stream(), {
+    await bucket.put(r2Path, file.stream(), {
       httpMetadata: { contentType: file.type }
     });
 
-    const r2Url = `${env.R2_PUBLIC_URL}/${r2Path}`;
+    // Lấy Public URL (Kiểm tra env.R2_PUBLIC_URL hoặc env.PUBLIC_R2_URL)
+    const publicDomain = env.R2_PUBLIC_URL || env.PUBLIC_R2_URL || 'https://pub-r2.shophuyvan.vn';
+    const r2Url = `${publicDomain}/${r2Path}`;
 
     // 3. Tạo Job
     const jobResult = await env.DB.prepare(`
