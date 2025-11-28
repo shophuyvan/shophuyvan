@@ -2132,10 +2132,11 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         // Xóa timeout cũ nếu người dùng đang gõ tiếp
         if (this.searchTimeout) clearTimeout(this.searchTimeout);
 
-        // Đặt timeout mới
+       // Đặt timeout mới
         this.searchTimeout = setTimeout(() => {
             // Khi tìm kiếm mới, luôn load từ trang 1
-            this.loadProducts(keyword, 1);
+            // ✅ FIX: Gọi đúng hàm loadWizardProducts
+            this.loadWizardProducts(keyword, 1);
         }, 500);
     },
 
@@ -2171,11 +2172,20 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
                 formData.append('videoFile', file);
 
                 // Dùng fetch trực tiếp vì Admin.req thường gửi JSON
-                const token = localStorage.getItem('admin_token') || ''; 
+                // ✅ FIX: Ưu tiên lấy x-token chuẩn
+                let token = localStorage.getItem('x-token');
+                
+                // Fallback: Nếu không thấy trong localStorage thì thử lấy từ biến global Admin
+                if (!token && window.Admin && typeof window.Admin.token === 'function') {
+                    token = window.Admin.token();
+                }
+
+                console.log('[Wizard] Upload Token:', token ? 'OK' : 'Missing');
+
                 const res = await fetch(API + '/api/auto-sync/jobs/create-upload', {
                     method: 'POST',
                     headers: { 
-                        'x-token': token,
+                        'x-token': token, // Header quan trọng nhất
                         'Authorization': 'Bearer ' + token
                     },
                     body: formData,
