@@ -275,18 +275,27 @@ function renderFileList() {
   if (state.uploadedFiles.length === 0) {
     container.innerHTML = '';
     uploadBtn.disabled = true;
+    if (fileCount) fileCount.innerText = '0'; // ✅ FIX: Check null
     return;
   }
   
-  container.innerHTML = state.uploadedFiles.map((item, idx) => `
+  container.innerHTML = state.uploadedFiles.map((item, index) => `
     <div class="file-card">
-      <video src="${item.preview}" class="w-full"></video>
+      <video src="${item.preview}" controls></video>
       <div class="p-3">
         <p class="text-sm font-medium truncate">${item.file.name}</p>
-        <p class="text-xs text-gray-500">${(item.file.size / (1024 * 1024)).toFixed(1)} MB</p>
-        <button onclick="removeFile(${idx})" class="text-red-600 text-xs mt-1">❌ Xóa</button>
+        <p class="text-xs text-gray-500">${(item.file.size / 1024 / 1024).toFixed(2)} MB</p>
+        ${item.status === 'pending' ? `
+          <button onclick="removeFile(${index})" class="text-red-600 text-xs mt-2">🗑️ Xóa</button>
+        ` : ''}
+        ${item.status === 'uploading' ? `
+          <div class="text-xs text-blue-600 mt-2">⏳ Đang upload...</div>
+        ` : ''}
+        ${item.status === 'uploaded' ? `
+          <div class="text-xs text-green-600 mt-2">✅ Đã upload</div>
+        ` : ''}
       </div>
-      ${item.status === 'uploading' ? `
+      ${item.progress !== undefined ? `
         <div class="progress-bar">
           <div class="progress-bar-fill" style="width: ${item.progress || 0}%"></div>
         </div>
@@ -295,7 +304,7 @@ function renderFileList() {
   `).join('');
   
   uploadBtn.disabled = false;
-  fileCount.innerText = state.uploadedFiles.length;
+  if (fileCount) fileCount.innerText = state.uploadedFiles.length; // ✅ FIX: Check null
 }
 
 window.removeFile = function(index) {
