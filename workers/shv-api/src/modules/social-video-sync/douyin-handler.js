@@ -99,7 +99,7 @@ export async function uploadDouyinVideos(req, env) {
             success: true,
             message: `Đã upload ${uploadedVideos.length} videos thành công`,
             videos: uploadedVideos
-        });
+        }, {}, req);
 
     } catch (e) {
         console.error('[Douyin Upload] ❌ Error:', e);
@@ -132,16 +132,15 @@ export async function analyzeDouyinVideo(req, env) {
         
         await stmt.bind(videoId, product_id || null, url, now, now).run();
 
-        // Return ngay ID để Frontend polling
         return json({
-            success: true, // Giữ field này cho UI cũ nếu cần
-            ok: true,      // Chuẩn mới
+            success: true,
+            ok: true,
             data: {
                 video_id: videoId,
                 status: 'analyzing',
                 message: 'Đang phân tích video...'
             }
-        });
+        }, {}, req);
 
     } catch (e) {
         console.error('[Douyin] Analyze Error:', e);
@@ -196,7 +195,7 @@ export async function getDouyinStatus(req, env) {
                         ]
                     }
                 }
-            });
+            }, {}, req);
         }
         // --- MOCK DATA END ---
 
@@ -213,7 +212,7 @@ export async function getDouyinStatus(req, env) {
                 ...video,
                 ai_analysis: aiAnalysis
             }
-        });
+        }, {}, req);
 
     } catch (e) {
         console.error('[Douyin] Get Status Error:', e);
