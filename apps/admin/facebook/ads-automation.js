@@ -581,6 +581,75 @@
   window.FanpageManager = {
     init: function() {
        this.loadRepository();
+       this.loadScheduledPosts(); // ✅ Thêm dòng này để load bảng khi khởi chạy
+    },
+	
+	// 0. Tải danh sách bài hẹn giờ (NEW)
+    loadScheduledPosts: async function() {
+        const container = document.getElementById('scheduledPostsContainer');
+        if (!container) return;
+        
+        container.innerHTML = '<div class="loading">⏳ Đang tải...</div>';
+        
+        try {
+            // Gọi API lấy danh sách Job (có lọc trạng thái nếu cần)
+            const r = await Admin.req('/api/auto-sync/jobs?limit=20', { method: 'GET' });
+            
+            if (r.ok && r.jobs) {
+                // Lọc ra các bài có hẹn giờ hoặc đã đăng
+                const posts = r.jobs.filter(j => j.scheduled_time || j.status === 'published');
+                
+                if (posts.length === 0) {
+                    container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Chưa có bài nào được hẹn giờ.</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="fanpage-table">
+                        <thead>
+                            <tr>
+                                <th>Bài viết / Sản phẩm</th>
+                                <th>Thời gian hẹn</th>
+                                <th>Trạng thái</th>
+                                <th>Kết quả / Link</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${posts.map(p => {
+                                const isPublished = p.status === 'published';
+                                const isFailed = p.status === 'failed';
+                                const time = p.scheduled_time ? new Date(p.scheduled_time).toLocaleString('vi-VN') : 'Đăng ngay';
+                                
+                                let statusBadge = '<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px;">⏳ Đang chờ</span>';
+                                if (isPublished) statusBadge = '<span style="background:#dcfce7; color:#16a34a; padding:2px 6px; border-radius:4px;">✅ Đã đăng</span>';
+                                if (isFailed) statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:4px;">❌ Lỗi</span>';
+
+                                let action = '';
+                                if (isPublished && p.publish_url) { // Giả sử API trả về publish_url hoặc lấy từ assignments
+                                    action = `<a href="${p.publish_url}" target="_blank" style="color:#2563eb; text-decoration:none;">🔗 Xem bài viết</a>`;
+                                } else if (!isPublished && !isFailed) {
+                                    action = `<button class="btn-sm" onclick="FacebookAdsAutomation.testCron()">⚡ Kích hoạt ngay</button>`;
+                                }
+
+                                return `
+                                    <tr>
+                                        <td>#${p.id} - ${p.product_name}</td>
+                                        <td>${time}</td>
+                                        <td>${statusBadge}</td>
+                                        <td>${action}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                container.innerHTML = '<div class="alert alert-error">Lỗi tải dữ liệu.</div>';
+            }
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = `<div class="alert alert-error">Lỗi: ${e.message}</div>`;
+        }
     },
     
     // 1. Tải danh sách bài trong kho (Pending & Scheduled)
