@@ -2399,6 +2399,18 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
         if(btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang lưu 5 versions...'; }
 
         try {
+            // ✅ FIX: Thu thập lại dữ liệu mới nhất từ các ô Textarea trên màn hình (nếu đang ở bước 4)
+            // Vì người dùng có thể sửa text mà chưa trigger sự kiện onchange kịp
+            const textareas = document.querySelectorAll('#wiz-fanpage-list textarea');
+            if (textareas.length > 0 && this.jobData.variants.length > 0) {
+                textareas.forEach((ta, index) => {
+                     // Tìm variant tương ứng theo index hiển thị
+                     if (this.jobData.variants[index]) {
+                         this.jobData.variants[index].caption = ta.value;
+                     }
+                });
+            }
+
             // Gửi kèm variants để Backend cập nhật nội dung đã sửa
             const r = await Admin.req(`/api/auto-sync/jobs/${this.jobData.id}/save-pending`, {
                 method: 'POST',
@@ -2407,7 +2419,6 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
                     variants: this.jobData.variants // ✅ Gửi toàn bộ 5 bản nội dung về
                 }
             });
-
             if (r.ok) {
                 if(confirm('✅ Đã lưu thành công 5 phiên bản nội dung!\n\nBạn có muốn chuyển sang tab "Kho Nội dung" để quản lý ngay không?')) {
                      const hubTab = document.querySelector('.tab[data-tab="fanpage-hub"]');
