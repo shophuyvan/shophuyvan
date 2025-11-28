@@ -14,7 +14,12 @@ import { downloadTikTokVideo } from './tiktok-downloader.js';
 import { GeminiContentGenerator } from './ai-content-generator.js';
 import { uploadToFacebookPage } from './facebook-uploader.js';
 import { createAdsFromJob as createAdsFromJobImpl } from './post-to-ad.js';
-import { fetchGroupsFromFacebook, shareToGroup } from '../facebook/fb-group-manager.js';
+import { 
+  fetchGroupsFromFacebook, 
+  shareToGroup, 
+  saveScheduledGroupPost,    // ✅ Import hàm lưu lịch
+  getScheduledGroupPosts     // ✅ Import hàm lấy danh sách
+} from '../facebook/fb-group-manager.js';
 import { 
   publishScheduledPosts, 
   scheduleBatchPosts, 
@@ -272,6 +277,44 @@ if (path === '/api/social-sync/history' && method === 'GET') {
       timestamp: new Date().toISOString()
     }, {}, req);
   }
+  
+  // ===================================================================
+  // NEW: GROUP SCHEDULING ROUTES (Đăng ký tại đây)
+  // ===================================================================
+
+  // 1. Lưu lịch đăng vào nhóm
+  if (path === '/api/facebook/groups/schedule' && method === 'POST') {
+    try {
+      const body = await req.json();
+      // Validate cơ bản
+      if (!body.fanpage_id || !body.group_ids || body.group_ids.length === 0) {
+         return errorResponse('Thiếu thông tin Fanpage hoặc Group', 400, req);
+      }
+      
+      const id = await saveScheduledGroupPost(env, body);
+      return json({ ok: true, id, message: 'Đã lên lịch share vào nhóm thành công' }, {}, req);
+    } catch (e) {
+      return errorResponse('Lỗi lưu lịch nhóm: ' + e.message, 500, req);
+    }
+  }
+
+  // 2. Lấy danh sách lịch đăng nhóm
+  if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
+    try {
+      const url = new URL(req.url);
+      const status = url.searchParams.get('status');
+      
+      const posts = await getScheduledGroupPosts(env, { status });
+      return json({ ok: true, posts }, {}, req);
+    } catch (e) {
+      return errorResponse('Lỗi lấy danh sách nhóm: ' + e.message, 500, req);
+    }
+  }
+
+  // --- Kết thúc đoạn chèn ---
+  
+  return errorResponse('Route not found', 404, req); // Dòng này giữ nguyên ở cuối hàm
+}
 
   return errorResponse('Route not found', 404, req);
 }
