@@ -50,7 +50,7 @@ export async function handle(req, env, ctx) {
   }
 
   // ============================================================
-  // LEGACY ROUTES (Giữ nguyên để không break code cũ)
+  // LEGACY ROUTES
   // ============================================================
   if (path === '/api/social-sync/submit' && method === 'POST') {
     return handleSubmit(req, env);
@@ -65,107 +65,84 @@ export async function handle(req, env, ctx) {
     return handleStatus(syncId, env, req);
   }
 
-if (path === '/api/social-sync/history' && method === 'GET') {
+  if (path === '/api/social-sync/history' && method === 'GET') {
     return handleHistory(req, env);
   }
 
-  // Route: Product Search for UI (Fix 404 in Douyin Upload)
   if (path === '/api/products' && method === 'GET') {
     return searchProducts(req, env);
   }
 
   // ============================================================
-  // NEW ROUTES - Auto Video Sync Workflow (5 bước)
-  
-  // STEP 1 & 2: Create Job + Download Video (TikTok URL)
+  // NEW ROUTES - Auto Video Sync
+  // ============================================================
   if (path === '/api/auto-sync/jobs/create' && method === 'POST') {
     return createAutomationJob(req, env);
   }
 
-  // STEP 1 & 2: Create Job + Upload Video (File từ máy tính)
   if (path === '/api/auto-sync/jobs/create-upload' && method === 'POST') {
     return createJobFromUpload(req, env);
   }
 
-  // Get job detail
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/) && method === 'GET') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/)[1]);
     return getAutomationJob(req, env, jobId);
   }
 
-  // Test AI Connection (NEW)
   if (path === '/api/auto-sync/test-ai' && method === 'GET') {
     return testAIConnection(req, env);
   }
 
-  // STEP 3: Generate 5 AI Variants
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/generate-variants$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/generate-variants$/)[1]);
     return generateJobVariants(req, env, jobId);
   }
 
-  // Get variants for a job
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/variants$/) && method === 'GET') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/variants$/)[1]);
     return getJobVariants(req, env, jobId);
   }
 
-  // Edit variant caption
   if (path.match(/^\/api\/auto-sync\/variants\/(\d+)$/) && method === 'PATCH') {
     const variantId = parseInt(path.match(/^\/api\/auto-sync\/variants\/(\d+)$/)[1]);
     return updateVariant(req, env, variantId);
   }
 
-  // STEP 4: Assign Fanpages
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/assign-fanpages$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/assign-fanpages$/)[1]);
     return assignFanpages(req, env, jobId);
   }
 
-  // Get preview before publish
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/preview$/) && method === 'GET') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/preview$/)[1]);
     return getPublishPreview(req, env, jobId);
   }
 
-  // --- NEW ROUTES FOR SCHEDULER & GROUPS ---
-
-  // Route: Lưu kho (Pending/Scheduled) thay vì đăng ngay
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/save-pending$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/save-pending$/)[1]);
     return savePendingAssignments(req, env, jobId);
   }
 
-  // Route: Cron Trigger (Gọi thủ công để test)
   if (path === '/api/cron/trigger-schedule' && method === 'POST') {
     const result = await publishScheduledPosts(env);
     return json({ ok: true, result }, {}, req);
   }
 
-  // --- NEW: SCHEDULER & BATCH ROUTES (TÍNH NĂNG MỚI) ---
-
-  // 1. Lên lịch hàng loạt (Batch Schedule)
   if (path === '/api/facebook/posts/schedule-batch' && method === 'POST') {
     return scheduleBatchPosts(req, env);
   }
 
-  // 2. Lấy danh sách bài đã lên lịch (Filter Date)
   if (path === '/api/facebook/posts/scheduled' && method === 'GET') {
     return getScheduledPosts(req, env);
   }
 
-  // 3. Retry bài lỗi
   if (path === '/api/facebook/posts/retry' && method === 'POST') {
     return retryFailedPost(req, env);
   }
 
-  // 4. Lấy lịch sử Share Group
   if (path === '/api/facebook/groups/share-history' && method === 'GET') {
-      const url = new URL(req.url);
       const assignmentId = url.searchParams.get('assignmentId');
-      
       if (!assignmentId) return errorResponse('Missing assignmentId', 400, req);
-
       try {
         const { results } = await env.DB.prepare(`
             SELECT * FROM group_share_history WHERE assignment_id = ? ORDER BY created_at DESC
@@ -175,122 +152,59 @@ if (path === '/api/social-sync/history' && method === 'GET') {
         return errorResponse(e.message, 500, req);
       }
   }
-  // ✅ FIX: Đăng ký route lấy danh sách Group
+
   if (path === '/api/facebook/groups/fetch' && method === 'GET') {
     return handleFetchGroups(req, env);
   }
 
-  // Route: Lấy danh sách Groups từ Facebook
-  if (path === '/api/facebook/groups/fetch' && method === 'GET') {
-    return handleFetchGroups(req, env);
-  }
-
-  // Route: Share bài đã đăng vào Group
   if (path.match(/^\/api\/auto-sync\/assignments\/(\d+)\/share-group$/) && method === 'POST') {
     const assignId = parseInt(path.match(/^\/api\/auto-sync\/assignments\/(\d+)\/share-group$/)[1]);
     return handleShareToGroup(req, env, assignId);
   }
 
-  // ------------------------------------------
-
-  // STEP 4: Bulk Publish to Fanpages
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/publish$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/publish$/)[1]);
     return bulkPublishJob(req, env, jobId);
   }
 
-  // STEP 5: Create Ads from Job (Optional)
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/create-ads$/) && method === 'POST') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/create-ads$/)[1]);
     return createAdsFromJob(req, env, jobId);
   }
 
-  // Get all jobs (History/Dashboard)
   if (path === '/api/auto-sync/jobs' && method === 'GET') {
     return listAutomationJobs(req, env);
   }
 
-  // Route: Product Search (Fix 404 & JSON Error in Douyin UI)
-  // Logic tương tự loadWizardProducts trong ads_real.js
   if ((path === '/api/social/douyin/products' || path === '/api/products') && method === 'GET') {
     return searchProducts(req, env);
   }
 
-  // ============================================================
-  // NEW: DOUYIN UPLOAD ROUTES
-  
-  // Upload videos from computer
-  if (path === '/api/social/douyin/upload' && method === 'POST') {
-    return await uploadDouyinVideos(req, env);
-  }
-
-  // Get uploaded videos by product
-  if (path === '/api/social/douyin/uploads' && method === 'GET') {
-    return await getUploadedVideos(req, env);
-  }
-
-  // Batch analyze videos with AI
-  if (path === '/api/social/douyin/batch-analyze' && method === 'POST') {
-    return await batchAnalyzeVideos(req, env);
-  }
-
-  // Get batch analysis status
-  if (path === '/api/social/douyin/batch-status' && method === 'GET') {
-    return await getBatchStatus(req, env);
-  }
-
-  // Render video with Vietnamese voiceover
-  if (path === '/api/social/douyin/render' && method === 'POST') {
-    return await renderVideo(req, env);
-  }
-
-  // Test TTS connection
+  // DOUYIN ROUTES
+  if (path === '/api/social/douyin/upload' && method === 'POST') return await uploadDouyinVideos(req, env);
+  if (path === '/api/social/douyin/uploads' && method === 'GET') return await getUploadedVideos(req, env);
+  if (path === '/api/social/douyin/batch-analyze' && method === 'POST') return await batchAnalyzeVideos(req, env);
+  if (path === '/api/social/douyin/batch-status' && method === 'GET') return await getBatchStatus(req, env);
+  if (path === '/api/social/douyin/render' && method === 'POST') return await renderVideo(req, env);
   if (path === '/api/social/douyin/tts-test' && method === 'GET') {
     const result = await testTTSConnection(env);
     return json(result, {}, req);
   }
-
-  // Get available Vietnamese voices
   if (path === '/api/social/douyin/voices' && method === 'GET') {
-    return json({
-      ok: true,
-      voices: Object.values(AVAILABLE_VOICES)
-    }, {}, req);
+    return json({ ok: true, voices: Object.values(AVAILABLE_VOICES) }, {}, req);
   }
 
-  // Health check for social video sync
   if (path === '/api/social/health' && method === 'GET') {
-    return json({
-      ok: true,
-      service: 'social-video-sync',
-      version: '2.0',
-      features: [
-        'douyin-upload',
-        'douyin-link',
-        'tiktok-download',
-        'facebook-upload',
-        'ai-content-generation',
-        'batch-processing',
-        'tts-vietnamese',
-        'video-rendering'
-      ],
-      timestamp: new Date().toISOString()
-    }, {}, req);
+    return json({ ok: true, service: 'social-video-sync', version: '2.0', timestamp: new Date().toISOString() }, {}, req);
   }
 
-  // ===================================================================
-  // NEW: GROUP SCHEDULING ROUTES
-  // ===================================================================
-
-  // 1. Lưu lịch đăng vào nhóm
+  // --- NEW: GROUP SCHEDULING ROUTES ---
   if (path === '/api/facebook/groups/schedule' && method === 'POST') {
     try {
       const body = await req.json();
-      // Validate cơ bản
       if (!body.fanpage_id || !body.group_ids || body.group_ids.length === 0) {
          return errorResponse('Thiếu thông tin Fanpage hoặc Group', 400, req);
       }
-      
       const id = await saveScheduledGroupPost(env, body);
       return json({ ok: true, id, message: 'Đã lên lịch share vào nhóm thành công' }, {}, req);
     } catch (e) {
@@ -298,12 +212,10 @@ if (path === '/api/social-sync/history' && method === 'GET') {
     }
   }
 
-  // 2. Lấy danh sách lịch đăng nhóm
   if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
     try {
       const url = new URL(req.url);
       const status = url.searchParams.get('status');
-      
       const posts = await getScheduledGroupPosts(env, { status });
       return json({ ok: true, posts }, {}, req);
     } catch (e) {
@@ -313,6 +225,7 @@ if (path === '/api/social-sync/history' && method === 'GET') {
 
   return errorResponse('Route not found', 404, req);
 }
+
 // ===================================================================
 // LEGACY: SUBMIT - Download video & generate AI content (3 versions)
 // ===================================================================
