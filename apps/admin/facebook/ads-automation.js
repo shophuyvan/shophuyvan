@@ -48,7 +48,7 @@
   // API CALLS
   // ============================================================
 
-  // ✅ NEW: Hàm tải danh sách Fanpage từ Backend (API Chuẩn)
+ // ✅ NEW: Hàm tải danh sách Fanpage từ Backend (API Chuẩn)
   async function loadFanpages() {
     try {
       // Gọi API chuẩn /admin/fanpages (do fb-page-manager.js xử lý)
@@ -58,7 +58,12 @@
         // Map dữ liệu từ 'items' (backend chuẩn)
         availableFanpages = r.items || r.pages || [];
         console.log('[Automation] Loaded Fanpages:', availableFanpages.length);
-        renderFanpageSelectOptions();
+        
+        // Render vào tab Automation (mặc định)
+        renderFanpageSelectOptions('fanpageSelect');
+        // ✅ QUAN TRỌNG: Render ngay vào Modal Scheduler nếu đang mở
+        renderFanpageSelectOptions('sched-fanpage-select');
+        
         return true;
       } else {
         console.warn('[Automation] Không tải được danh sách Fanpage:', r.error);
@@ -643,17 +648,17 @@
         const modal = document.getElementById('modal-scheduler');
         modal.style.display = 'flex';
 
-        // --- ✅ LOGIC HIỂN THỊ FANPAGE (Tận dụng hàm loadFanpages có sẵn trong file này) ---
+        // --- ✅ LOGIC HIỂN THỊ FANPAGE (Đã sửa đổi) ---
         const fanpageSelect = document.getElementById('sched-fanpage-select');
         if (fanpageSelect) {
-             // Kiểm tra biến availableFanpages (biến cục bộ của file ads-automation.js)
-             if (availableFanpages && availableFanpages.length > 0) {
-                 renderFanpageSelectOptions('sched-fanpage-select');
-             } else {
-                 fanpageSelect.innerHTML = '<option>⏳ Đang tải danh sách...</option>';
-                 await loadFanpages(); // Gọi hàm loadFanpages của file này
-                 renderFanpageSelectOptions('sched-fanpage-select');
-             }
+             // Nếu chưa có dữ liệu, hiện loading và gọi tải
+             if (!availableFanpages || availableFanpages.length === 0) {
+                 fanpageSelect.innerHTML = '<option value="">⏳ Đang tải danh sách...</option>';
+                 await loadFanpages(); 
+             } 
+             // Nếu đã có (hoặc vừa tải xong), render ngay
+             // Lưu ý: loadFanpages ở trên đã gọi render, nhưng gọi lại ở đây để chắc chắn
+             renderFanpageSelectOptions('sched-fanpage-select');
         }
         // -----------------------------------------------------------------------
 
