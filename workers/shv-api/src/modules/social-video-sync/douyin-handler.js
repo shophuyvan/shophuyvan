@@ -65,12 +65,13 @@ export async function uploadDouyinVideos(req, env) {
             // Lưu metadata vào D1
             await env.DB.prepare(`
                 INSERT INTO douyin_videos (
-                    id, product_id, filename, file_size, video_url, thumbnail_url,
-                    status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+                    id, product_id, douyin_url, filename, file_size, video_url, thumbnail_url,
+                    status, source_type, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', 'upload', ?, ?)
             `).bind(
                 videoId, 
-                productId || null, 
+                productId || null,
+                '', // douyin_url = empty string (vì upload từ máy, không phải link)
                 filename, 
                 size, 
                 videoUrl, 

@@ -316,6 +316,11 @@ window.startUpload = async function() {
     return;
   }
   
+  // Disable upload button
+  const uploadBtn = document.getElementById('upload-btn');
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '⏳ Đang upload...';
+  
   try {
     // Prepare FormData
     const formData = new FormData();
@@ -324,13 +329,34 @@ window.startUpload = async function() {
     state.uploadedFiles.forEach(item => {
       formData.append('files', item.file);
       item.status = 'uploading';
+      item.progress = 0;
     });
     
     renderFileList();
     
-    // Upload
+    // Upload với progress simulation
     console.log('📤 Uploading videos...');
+    
+    // Simulate progress (vì FormData upload không track được chính xác)
+    const progressInterval = setInterval(() => {
+      state.uploadedFiles.forEach(item => {
+        if (item.status === 'uploading' && item.progress < 90) {
+          item.progress = Math.min(90, item.progress + Math.random() * 10);
+        }
+      });
+      renderFileList();
+    }, 300);
+    
     const data = await callApi('/api/social/douyin/upload', 'POST', formData, true);
+    
+    clearInterval(progressInterval);
+    
+    // Set 100% progress
+    state.uploadedFiles.forEach(item => {
+      item.status = 'uploaded';
+      item.progress = 100;
+    });
+    renderFileList();
     
     console.log('✅ Upload success:', data);
     
@@ -344,16 +370,25 @@ window.startUpload = async function() {
       selected: true
     }));
     
-    // Go to confirm step
-    showStep(3);
-    renderVideoReview();
+    // Wait a bit to show 100% then go to next step
+    setTimeout(() => {
+      showStep(3);
+      renderVideoReview();
+    }, 500);
     
   } catch (error) {
     console.error('Upload error:', error);
     alert('Lỗi upload: ' + error.message);
     
-    state.uploadedFiles.forEach(item => item.status = 'pending');
+    state.uploadedFiles.forEach(item => {
+      item.status = 'error';
+      item.progress = 0;
+    });
     renderFileList();
+    
+    // Re-enable button
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = `📤 Upload (<span id="file-count">${state.uploadedFiles.length}</span> videos)`;
   }
 };
 
