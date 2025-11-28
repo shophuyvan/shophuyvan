@@ -23,7 +23,8 @@ import * as FBAuth from './modules/facebook/fb-auth.js';
 import * as FBAds from './modules/facebook/fb-ads.js';
 import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
 import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
-import { publishScheduledPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT MODULE HẸN GIỜ
+import { publishScheduledGroupPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT HẸN GIỜ CHO GROUPS
+import * as FBGroupManager from './modules/facebook/fb-group-manager.js'; // ✅ IMPORT GROUP MANAGER
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
 import * as FBPageAuto from './modules/facebook/fb-automation.js';
@@ -479,6 +480,69 @@ export default {
       // Facebook OAuth
       if (path.startsWith('/admin/facebook/oauth/')) {
         return FBAuth.handle(req, env, ctx);
+      }
+
+      // ============================================
+      // FACEBOOK GROUPS ROUTES (MỚI THÊM)
+      // ============================================
+      
+      // API: Lấy danh sách groups từ Facebook  
+      if (path === '/api/facebook/groups/fetch' && method === 'GET') {
+        try {
+          // Lấy tất cả fanpages có token
+          const { results: pages } = await env.DB.prepare(`
+            SELECT page_id, access_token FROM fanpages WHERE access_token IS NOT NULL LIMIT 1
+          `).all();
+          
+          if (!pages || pages.length === 0) {
+            return json({ ok: false, error: 'Không tìm thấy fanpage nào có token' }, req);
+          }
+          
+          // Lấy groups từ Facebook API
+          const groups = await FBGroupManager.fetchGroupsFromFacebook(pages[0].access_token);
+          return json({ ok: true, groups }, req);
+        } catch (error) {
+          console.error('[Groups Fetch Error]', error);
+          return json({ ok: false, error: error.message }, req);
+        }
+      }
+      
+      // API: Lưu scheduled group post
+      if (path === '/api/facebook/groups/schedule' && method === 'POST') {
+        try {
+          const body = await req.json();
+          const postId = await FBGroupManager.saveScheduledGroupPost(env, body);
+          return json({ ok: true, success: true, postId }, req);
+        } catch (error) {
+          console.error('[Schedule Group Post Error]', error);
+          return json({ ok: false, error: error.message }, req);
+        }
+      }
+      
+      // API: Lấy danh sách scheduled posts
+      if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
+        try {
+          const url = new URL(req.url);
+          const fanpage_id = url.searchParams.get('fanpage_id');
+          const status = url.searchParams.get('status');
+          
+          const posts = await FBGroupManager.getScheduledGroupPosts(env, { fanpage_id, status });
+          return json({ ok: true, posts }, req);
+        } catch (error) {
+          console.error('[Get Scheduled Posts Error]', error);
+          return json({ ok: false, error: error.message }, req);
+        }
+      }
+      
+      // API: Manual trigger để publish scheduled group posts (cho testing)
+      if (path === '/api/facebook/groups/publish-scheduled' && method === 'POST') {
+        try {
+          const result = await publishScheduledGroupPosts(env);
+          return json({ ok: true, ...result }, req);
+        } catch (error) {
+          console.error('[Publish Scheduled Error]', error);
+          return json({ ok: false, error: error.message }, req);
+        }
       }
 
       // Facebook Ads Automation

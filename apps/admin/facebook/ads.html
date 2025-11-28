@@ -632,6 +632,22 @@
             <p class="hint">Auto share bài viết vào các nhóm chợ/rao vặt.</p>
             <button class="btn" style="width:100%;">Cấu hình danh sách Nhóm</button>
          </div>
+
+         <div class="card" style="margin-top: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+               <h3 style="margin:0;">📋 Bài đăng đã lên lịch vào Group</h3>
+               <button class="btn primary" onclick="FanpageManager.loadScheduledGroupPosts()" style="font-size:13px;">
+                  🔄 Làm mới
+               </button>
+            </div>
+            <p class="hint">Danh sách các bài đã lên lịch để tự động share vào Groups.</p>
+            
+            <div id="scheduled-group-posts-list" style="margin-top:15px;">
+               <div style="text-align:center; padding:40px; color:#999;">
+                  ⏳ Đang tải danh sách...
+               </div>
+            </div>
+         </div>
       </div>
     </div>
   </div>
@@ -784,6 +800,27 @@ document.addEventListener('DOMContentLoaded', function() {
     AdminLayout.init('Quảng cáo Facebook');
   }
 });
+
+// ✅ Auto load scheduled group posts khi vào tab Fanpage Manager
+document.addEventListener('DOMContentLoaded', function() {
+  // Đợi 1 giây để đảm bảo các module đã load xong
+  setTimeout(() => {
+    if (window.FanpageManager && typeof FanpageManager.loadScheduledGroupPosts === 'function') {
+      FanpageManager.loadScheduledGroupPosts();
+    }
+  }, 1000);
+  
+  // Auto refresh mỗi 30 giây
+  setInterval(() => {
+    const container = document.getElementById('scheduled-group-posts-list');
+    if (container && container.offsetParent !== null) { // Chỉ refresh khi element đang hiển thị
+      if (window.FanpageManager && typeof FanpageManager.loadScheduledGroupPosts === 'function') {
+        FanpageManager.loadScheduledGroupPosts();
+      }
+    }
+  }, 30000); // 30 giây
+});
+
 </script>
 <div id="previewModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:3000; align-items:center; justify-content:center;">
     <div style="background:white; width:500px; max-width:95%; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.2);">

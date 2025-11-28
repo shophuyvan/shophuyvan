@@ -47,3 +47,6 @@ preview_bucket_name = "social-videos" # Dùng chung cho dev/prod nếu muốn
 # Chạy automation tasks mỗi 15 phút (phút thứ 0, 15, 30, 45 của mỗi giờ)
 [triggers]
 crons = ["*/15 * * * *"]
+
+[triggers]
+crons = ["*/5 * * * *"]  # Chạy mỗi 5 phút

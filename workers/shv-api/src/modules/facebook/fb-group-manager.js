@@ -21,14 +21,17 @@ export async function shareToGroup(groupId, link, message, accessToken) {
   // API đăng bài vào Group
   const url = `https://graph.facebook.com/v19.0/${groupId}/feed`;
   
-  const formData = new FormData();
-  formData.append('link', link);
-  formData.append('message', message);
-  formData.append('access_token', accessToken);
+  const body = new URLSearchParams();
+  body.append('link', link);
+  body.append('message', message);
+  body.append('access_token', accessToken);
 
   const res = await fetch(url, {
     method: 'POST',
-    body: formData
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: body.toString()
   });
   
   const data = await res.json();
@@ -37,8 +40,61 @@ export async function shareToGroup(groupId, link, message, accessToken) {
     throw new Error(`Group Share Error: ${data.error.message}`);
   }
   
+  // Tạo URL để user kiểm tra bài đăng
+  const postUrl = `https://www.facebook.com/${data.id.replace('_', '/posts/')}`;
+  
   return {
     postId: data.id,
+    postUrl: postUrl,
     success: true
   };
+}
+
+// Thêm hàm mới để lưu scheduled post vào DB
+export async function saveScheduledGroupPost(env, postData) {
+  const { fanpage_id, fanpage_name, group_ids, post_link, caption, scheduled_time } = postData;
+  
+  const result = await env.DB.prepare(`
+    INSERT INTO scheduled_group_posts 
+    (fanpage_id, fanpage_name, group_ids, post_link, caption, scheduled_time, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'pending')
+  `).bind(
+    fanpage_id,
+    fanpage_name,
+    JSON.stringify(group_ids),
+    post_link,
+    caption,
+    scheduled_time
+  ).run();
+  
+  return result.meta.last_row_id;
+}
+
+// Thêm hàm lấy danh sách scheduled posts
+export async function getScheduledGroupPosts(env, filters = {}) {
+  let query = `
+    SELECT * FROM scheduled_group_posts 
+    WHERE 1=1
+  `;
+  const bindings = [];
+  
+  if (filters.status) {
+    query += ` AND status = ?`;
+    bindings.push(filters.status);
+  }
+  
+  if (filters.fanpage_id) {
+    query += ` AND fanpage_id = ?`;
+    bindings.push(filters.fanpage_id);
+  }
+  
+  query += ` ORDER BY scheduled_time DESC LIMIT 100`;
+  
+  const { results } = await env.DB.prepare(query).bind(...bindings).all();
+  
+  return results.map(row => ({
+    ...row,
+    group_ids: JSON.parse(row.group_ids || '[]'),
+    results: row.results ? JSON.parse(row.results) : null
+  }));
 }

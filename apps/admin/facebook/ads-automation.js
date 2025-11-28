@@ -778,8 +778,11 @@
                 const list = Array.isArray(rGroups.groups) ? rGroups.groups : (rGroups.groups.data || []);
                 
                 if (list.length > 0) {
-                    groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share --</option>' + 
+                    groupSelect.innerHTML = '<option value="">-- Chọn nhóm để share (có thể chọn nhiều) --</option>' + 
                         list.map(g => `<option value="${g.id}">${g.name} (${g.privacy || 'Group'})</option>`).join('');
+                    // ✅ QUAN TRỌNG: Bật multiple select
+                    groupSelect.setAttribute('multiple', 'true');
+                    groupSelect.style.height = '120px';
                 } else {
                     groupSelect.innerHTML = '<option value="">⚠️ Không tìm thấy nhóm nào (Token chưa có quyền)</option>';
                 }
@@ -825,8 +828,10 @@
         }
 
         const timeStr = document.getElementById('sched-time').value;
-        const groupId = document.getElementById('sched-group-select').value;
-        const fanpageId = document.getElementById('sched-fanpage-select')?.value; // Lấy Fanpage ID nếu có chọn
+        const groupSelect = document.getElementById('sched-group-select');
+        const selectedGroups = Array.from(groupSelect.selectedOptions).map(opt => opt.value);
+        const fanpageId = document.getElementById('sched-fanpage-select')?.value;
+        const caption = document.getElementById('sched-share-msg')?.value || '';
 
         let scheduledTime = null;
         if(timeStr) {
@@ -849,7 +854,7 @@
                 // 1. Gán Fanpage vào Job trước (nếu chưa gán)
                 await Admin.req(`/api/auto-sync/jobs/${jobId}/assign-fanpages`, {
                     method: 'POST',
-                    body: { assignments: [{ fanpageId: fanpageId, variantId: 1 }] } // Mặc định variant 1 hoặc lấy từ UI nếu có
+                    body: { assignments: [{ fanpageId: fanpageId, variantId: 1 }] }
                 });
 
                 // 2. Gọi lệnh Đăng Ngay
@@ -865,13 +870,40 @@
 
             if(!r1.ok) throw new Error(r1.error || 'Lỗi xử lý');
 
+            // ✅ LOGIC MỚI: Xử lý share vào Groups
+            if (selectedGroups.length > 0 && scheduledTime) {
+                // Lấy link bài viết từ Job (giả sử có API này)
+                const jobDetail = await Admin.req(`/api/auto-sync/jobs/${jobId}`, { method: 'GET' });
+                const postLink = jobDetail.job?.video_r2_url || `https://shophuyvan.vn/product/${jobId}`;
+                
+                // Lưu scheduled group post
+                btn.innerText = '📢 Đang lưu lịch share vào Group...';
+                const r2 = await Admin.req('/api/facebook/groups/schedule', {
+                    method: 'POST',
+                    body: {
+                        fanpage_id: fanpageId,
+                        fanpage_name: document.getElementById('sched-fanpage-select').selectedOptions[0]?.text,
+                        group_ids: selectedGroups,
+                        post_link: postLink,
+                        caption: caption,
+                        scheduled_time: scheduledTime
+                    }
+                });
+                
+                if (!r2.ok) {
+                    console.warn('[Group Schedule] Failed:', r2.error);
+                }
+            }
+
             // Bước 2: Thông báo
             let msg = '✅ Đã lưu cấu hình thành công!';
-            if (scheduledTime) msg += '\n⏰ Hệ thống sẽ tự động đăng vào giờ đã hẹn.';
-            else msg += '\n🚀 Hệ thống sẽ xử lý đăng ngay bây giờ.';
-
-            if (groupId) {
-                 msg += `\n📢 Đã ghi nhận lệnh share vào Group.`;
+            if (scheduledTime) {
+                msg += '\n⏰ Hệ thống sẽ tự động đăng vào giờ đã hẹn.';
+                if (selectedGroups.length > 0) {
+                    msg += `\n📢 Đã lên lịch share vào ${selectedGroups.length} nhóm.`;
+                }
+            } else {
+                msg += '\n🚀 Hệ thống sẽ xử lý đăng ngay bây giờ.';
             }
 
             alert(msg);
@@ -914,6 +946,116 @@
           btn.disabled = false; btn.innerHTML = '🚀 Bắt đầu Seeding';
           document.getElementById('seedingLog').innerHTML += `<div style="font-size:11px; margin-top:4px; color:#10b981;">✅ [${new Date().toLocaleTimeString()}] Done: ${url}</div>`;
        }, 2000);
+    },
+    
+    // ============================================
+    // HÀM MỚI: Load danh sách scheduled group posts
+	// ============================================
+    loadScheduledGroupPosts: async function() {
+        const container = document.getElementById('scheduled-group-posts-list');
+        if (!container) return;
+        
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">⏳ Đang tải...</div>';
+        
+        try {
+            const r = await Admin.req('/api/facebook/groups/scheduled', { method: 'GET' });
+            
+            if (!r.ok || !r.posts) {
+                throw new Error(r.error || 'Không tải được danh sách');
+            }
+            
+            const posts = r.posts;
+            
+            if (posts.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:40px; color:#999;">📭 Chưa có bài nào được lên lịch</div>';
+                return;
+            }
+            
+            container.innerHTML = posts.map(post => {
+                const scheduledDate = new Date(post.scheduled_time).toLocaleString('vi-VN');
+                const statusColors = {
+                    pending: 'background:#fef3c7; color:#92400e; border:1px solid #fbbf24',
+                    publishing: 'background:#dbeafe; color:#1e40af; border:1px solid #60a5fa',
+                    published: 'background:#d1fae5; color:#065f46; border:1px solid #34d399',
+                    failed: 'background:#fee2e2; color:#991b1b; border:1px solid #f87171'
+                };
+                const statusLabels = {
+                    pending: '⏳ Đang chờ',
+                    publishing: '🚀 Đang đăng',
+                    published: '✅ Đã đăng',
+                    failed: '❌ Thất bại'
+                };
+                
+                let resultHtml = '';
+                if (post.results && post.results.length > 0) {
+                    const successCount = post.results.filter(r => r.success).length;
+                    const totalCount = post.results.length;
+                    
+                    resultHtml = `
+                        <div style="margin-top:12px; padding:12px; background:#f9fafb; border-radius:8px;">
+                            <div style="font-size:13px; font-weight:600; margin-bottom:8px;">
+                                📊 Kết quả: ${successCount}/${totalCount} nhóm thành công
+                            </div>
+                            <div style="max-height:150px; overflow-y:auto;">
+                                ${post.results.map(r => `
+                                    <div style="display:flex; align-items:center; gap:8px; padding:6px; border-bottom:1px solid #e5e7eb; font-size:12px;">
+                                        <span>${r.success ? '✅' : '❌'}</span>
+                                        <span style="color:#6b7280; flex:1;">Group ${r.groupId}</span>
+                                        ${r.postUrl ? `<a href="${r.postUrl}" target="_blank" style="color:#2563eb; text-decoration:none;">🔗 Xem</a>` : ''}
+                                        ${r.error ? `<span style="color:#dc2626; font-size:11px;">(${r.error})</span>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:12px;">
+                            <div style="flex:1;">
+                                <div style="font-size:15px; font-weight:600; color:#111827; margin-bottom:4px;">
+                                    ${post.fanpage_name || 'N/A'}
+                                </div>
+                                <div style="font-size:13px; color:#6b7280;">
+                                    🕐 ${scheduledDate}
+                                </div>
+                            </div>
+                            <span style="padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap; ${statusColors[post.status]}">
+                                ${statusLabels[post.status]}
+                            </span>
+                        </div>
+                        
+                        <div style="font-size:13px; color:#374151; margin-bottom:8px;">
+                            <div style="margin-bottom:4px;">
+                                <strong>🔗 Link:</strong> 
+                                <a href="${post.post_link}" target="_blank" style="color:#2563eb; text-decoration:none; word-break:break-all;">
+                                    ${post.post_link}
+                                </a>
+                            </div>
+                            <div style="margin-bottom:4px;">
+                                <strong>📝 Caption:</strong> ${post.caption || 'Không có'}
+                            </div>
+                            <div>
+                                <strong>👥 Số nhóm:</strong> ${post.group_ids.length} nhóm
+                            </div>
+                        </div>
+                        
+                        ${resultHtml}
+                        
+                        ${post.error_message ? `
+                            <div style="margin-top:12px; padding:8px; background:#fee2e2; border-radius:6px; font-size:12px; color:#991b1b;">
+                                ⚠️ <strong>Lỗi:</strong> ${post.error_message}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('[Load Scheduled Posts Error]', error);
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#dc2626;">❌ Lỗi: ${error.message}</div>`;
+        }
     }
   };
 
@@ -932,7 +1074,8 @@
     deleteRule: deleteAutomationRule,
     toggleRule: toggleAutomationRule,
     createSchedule: createCampaignSchedule,
-    testCron: testCronExecution
+    testCron: testCronExecution,
+    loadScheduledGroupPosts: FanpageManager.loadScheduledGroupPosts // ✅ HÀM MỚI
   };
 
 })();
