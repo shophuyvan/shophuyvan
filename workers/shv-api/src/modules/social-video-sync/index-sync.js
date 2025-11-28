@@ -277,9 +277,9 @@ if (path === '/api/social-sync/history' && method === 'GET') {
       timestamp: new Date().toISOString()
     }, {}, req);
   }
-  
+
   // ===================================================================
-  // NEW: GROUP SCHEDULING ROUTES (Đăng ký tại đây)
+  // NEW: GROUP SCHEDULING ROUTES
   // ===================================================================
 
   // 1. Lưu lịch đăng vào nhóm
@@ -311,14 +311,8 @@ if (path === '/api/social-sync/history' && method === 'GET') {
     }
   }
 
-  // --- Kết thúc đoạn chèn ---
-  
-  return errorResponse('Route not found', 404, req); // Dòng này giữ nguyên ở cuối hàm
-}
-
   return errorResponse('Route not found', 404, req);
 }
-
 // ===================================================================
 // LEGACY: SUBMIT - Download video & generate AI content (3 versions)
 // ===================================================================
