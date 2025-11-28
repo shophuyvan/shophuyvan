@@ -44,9 +44,6 @@ preview_bucket_name = "social-videos" # Dùng chung cho dev/prod nếu muốn
 # ============================================
 # CRON TRIGGERS FOR AUTOMATION
 # ============================================
-# Chạy automation tasks mỗi 15 phút (phút thứ 0, 15, 30, 45 của mỗi giờ)
+# Chạy automation tasks mỗi 5 phút
 [triggers]
-crons = ["*/15 * * * *"]
-
-[triggers]
-crons = ["*/5 * * * *"]  # Chạy mỗi 5 phút
+crons = ["*/5 * * * *"]
