@@ -81,8 +81,8 @@ export async function scheduleBatchPosts(req, env) {
   }
 }
 
-// API: Lấy danh sách bài Group đã lên lịch
-export async function getScheduledGroupPosts(req, env) {
+// API: Lấy danh sách bài đã lên lịch (Fanpage Scheduler)
+export async function getScheduledPosts(req, env) {
     try {
         const url = new URL(req.url);
         const fromDate = url.searchParams.get('from'); 
@@ -90,7 +90,9 @@ export async function getScheduledGroupPosts(req, env) {
         const status = url.searchParams.get('status');
 
         let query = `
-            SELECT * FROM scheduled_group_posts
+            SELECT fa.*, j.product_name, j.product_image 
+            FROM fanpage_assignments fa
+            JOIN automation_jobs j ON fa.job_id = j.id
             WHERE 1=1
         `;
         let params = [];

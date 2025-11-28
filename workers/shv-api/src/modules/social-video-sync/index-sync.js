@@ -23,7 +23,7 @@ import {
 import { 
   publishScheduledPosts, 
   scheduleBatchPosts, 
-  getScheduledGroupPosts, 
+  getScheduledPosts, 
   retryFailedPost 
 } from '../facebook/fb-scheduler-handler.js';
 
