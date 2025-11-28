@@ -144,6 +144,23 @@ export async function retryFailedPost(req, env) {
     }
 }
 
+// API: Lấy danh sách bài Group đã lên lịch
+export async function getScheduledGroupPosts(req, env) {
+    try {
+        const { getScheduledGroupPosts: getFromGroupManager } = await import('./fb-group-manager.js');
+        
+        const url = new URL(req.url);
+        const filters = {
+            status: url.searchParams.get('status'),
+            fanpage_id: url.searchParams.get('fanpage_id')
+        };
+        
+        const posts = await getFromGroupManager(env, filters);
+        return json({ ok: true, posts }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
 // --- 3. CRON JOB HANDLERS (Giữ nguyên logic cũ của bạn) ---
 
 export async function publishScheduledPosts(env) {
