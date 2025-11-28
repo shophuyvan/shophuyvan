@@ -142,46 +142,6 @@ export async function retryFailedPost(req, env) {
     }
 }
 
-// API: Lấy danh sách bài Group đã lên lịch
-export async function getScheduledGroupPosts(req, env) {
-    try {
-        const url = new URL(req.url);
-        const fromDate = url.searchParams.get('from'); 
-        const toDate = url.searchParams.get('to');
-        const status = url.searchParams.get('status');
-
-        let query = `
-            SELECT * FROM scheduled_group_posts
-            WHERE 1=1
-        `;
-        let params = [];
-
-        if (status) {
-            query += ` AND status = ?`;
-            params.push(status);
-        } else {
-            query += ` AND status IN ('scheduled', 'failed', 'published', 'pending')`;
-        }
-
-        if (fromDate) {
-            query += ` AND scheduled_time >= ?`;
-            params.push(parseInt(fromDate));
-        }
-        
-        if (toDate) {
-            query += ` AND scheduled_time <= ?`;
-            params.push(parseInt(toDate));
-        }
-
-        query += ` ORDER BY scheduled_time ASC LIMIT 50`;
-
-        const { results } = await env.DB.prepare(query).bind(...params).all();
-        return json({ ok: true, posts: results }, {}, req);
-    } catch (e) {
-        return errorResponse(e.message, 500, req);
-    }
-}
-
 // --- 3. CRON JOB HANDLERS (Giữ nguyên logic cũ của bạn) ---
 
 export async function publishScheduledPosts(env) {
