@@ -13,8 +13,8 @@ function generateId(prefix = 'vid') {
 /**
  * Helper để trả về lỗi chuẩn format (Thay thế cho hàm error bị thiếu)
  */
-function errorResponse(msg, status = 400) {
-    return json({ ok: false, error: msg }, { status });
+function errorResponse(msg, status = 400, req = null) {
+    return json({ ok: false, error: msg }, { status }, req);
 }
 
 /**
@@ -29,7 +29,7 @@ export async function uploadDouyinVideos(req, env) {
         const files = formData.getAll('files');
 
         if (!files || files.length === 0) {
-            return errorResponse('Vui lòng chọn ít nhất 1 video', 400);
+            return errorResponse('Vui lòng chọn ít nhất 1 video', 400, req);
         }
 
         console.log(`[Douyin Upload] 📤 Received ${files.length} files for product ${productId}`);
@@ -103,7 +103,7 @@ export async function uploadDouyinVideos(req, env) {
 
     } catch (e) {
         console.error('[Douyin Upload] ❌ Error:', e);
-        return errorResponse('Lỗi upload: ' + e.message, 500);
+        return errorResponse('Lỗi upload: ' + e.message, 500, req);
     }
 }
 /**
@@ -117,7 +117,7 @@ export async function analyzeDouyinVideo(req, env) {
         const { url, product_id } = body;
 
         if (!url || (!url.includes('douyin.com') && !url.includes('tiktok.com'))) {
-            return errorResponse('Vui lòng nhập link Douyin/TikTok hợp lệ', 400);
+            return errorResponse('Vui lòng nhập link Douyin/TikTok hợp lệ', 400, req);
         }
 
         const videoId = generateId('douyin');
@@ -145,7 +145,7 @@ export async function analyzeDouyinVideo(req, env) {
 
     } catch (e) {
         console.error('[Douyin] Analyze Error:', e);
-        return errorResponse('Lỗi server: ' + e.message, 500);
+        return errorResponse('Lỗi server: ' + e.message, 500, req);
     }
 }
 
@@ -161,7 +161,7 @@ export async function getDouyinStatus(req, env) {
         
         const video = await env.DB.prepare('SELECT * FROM douyin_videos WHERE id = ?').bind(id).first();
         
-        if (!video) return errorResponse('Video không tồn tại', 404);
+        if (!video) return errorResponse('Video không tồn tại', 404, req);
 
         // --- MOCK DATA START (Giả lập để test UI) ---
         const timeDiff = Date.now() - video.created_at;
@@ -217,6 +217,6 @@ export async function getDouyinStatus(req, env) {
 
     } catch (e) {
         console.error('[Douyin] Get Status Error:', e);
-        return errorResponse(e.message, 500);
+        return errorResponse(e.message, 500, req);
     }
 }

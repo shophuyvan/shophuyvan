@@ -217,7 +217,14 @@
         </div>
     </div>
 
-    <script type="module" src="../sidebar-layout.js"></script>
+    <!-- Load Sidebar Layout -->
+    <script src="../sidebar-layout.js"></script>
+    <script>
+        // Khởi tạo AdminLayout
+        AdminLayout.init('Douyin Upload & AI Localization');
+    </script>
+    
+    <!-- Load Page Script -->
     <script src="./douyin-upload.js"></script>
 </body>
 </html>

@@ -826,7 +826,17 @@ async function listAdminProducts(req, env) {
     // 1. Search - Dùng search_text đã normalize từ product-core
     if (search) {
       // Normalize search keyword như product-core
-      const normalizedSearch = normalizeVietnamese(search);
+      const normalizedSearch = search.toLowerCase()
+        .replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ấ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a")
+        .replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e")
+        .replace(/ì|í|ị|ỉ|ĩ/g, "i")
+        .replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o")
+        .replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u")
+        .replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y")
+        .replace(/đ/g, "d")
+        .replace(/[^a-z0-9 ]/g, " ")
+        .replace(/\s+/g, ' ')
+        .trim();
       
       conditions.push(`(
         search_text LIKE ? OR 
