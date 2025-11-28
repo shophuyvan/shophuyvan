@@ -2172,13 +2172,17 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
                 formData.append('videoFile', file);
 
                 // Dùng fetch trực tiếp vì Admin.req thường gửi JSON
-                // ✅ FIX: Ưu tiên lấy x-token chuẩn
-                let token = localStorage.getItem('x-token');
-                
-                // Fallback: Nếu không thấy trong localStorage thì thử lấy từ biến global Admin
-                if (!token && window.Admin && typeof window.Admin.token === 'function') {
+                // ✅ FIX V2: Ưu tiên lấy từ window.Admin (Vì Widget đang báo token Xanh)
+                let token = '';
+                if (window.Admin && typeof window.Admin.token === 'function') {
                     token = window.Admin.token();
                 }
+                
+                // Nếu window.Admin lỗi mới tìm về localStorage
+                if (!token) token = localStorage.getItem('x-token');
+                if (!token) token = localStorage.getItem('admin_token');
+
+                console.log('[Wizard] Upload Token Length:', token ? token.length : 0);
 
                 console.log('[Wizard] Upload Token:', token ? 'OK' : 'Missing');
 
