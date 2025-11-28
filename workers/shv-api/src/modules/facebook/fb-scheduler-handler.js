@@ -81,8 +81,8 @@ export async function scheduleBatchPosts(req, env) {
   }
 }
 
-// API: Lấy danh sách bài đã lên lịch (Filter Date)
-export async function getScheduledPosts(req, env) {
+// API: Lấy danh sách bài Group đã lên lịch
+export async function getScheduledGroupPosts(req, env) {
     try {
         const url = new URL(req.url);
         const fromDate = url.searchParams.get('from'); 
@@ -90,11 +90,36 @@ export async function getScheduledPosts(req, env) {
         const status = url.searchParams.get('status');
 
         let query = `
-            SELECT fa.*, j.product_name, j.product_image 
-            FROM fanpage_assignments fa
-            JOIN automation_jobs j ON fa.job_id = j.id
+            SELECT * FROM scheduled_group_posts
             WHERE 1=1
         `;
+        let params = [];
+
+        if (status) {
+            query += ` AND status = ?`;
+            params.push(status);
+        } else {
+            query += ` AND status IN ('scheduled', 'failed', 'published', 'pending')`;
+        }
+
+        if (fromDate) {
+            query += ` AND scheduled_time >= ?`;
+            params.push(parseInt(fromDate));
+        }
+        
+        if (toDate) {
+            query += ` AND scheduled_time <= ?`;
+            params.push(parseInt(toDate));
+        }
+
+        query += ` ORDER BY scheduled_time ASC LIMIT 50`;
+
+        const { results } = await env.DB.prepare(query).bind(...params).all();
+        return json({ ok: true, posts: results }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
         let params = [];
 
         if (status) {
@@ -139,6 +164,46 @@ export async function retryFailedPost(req, env) {
         `).bind(nextTry, Date.now(), id).run();
 
         return json({ ok: true, message: 'Đã đưa bài viết vào hàng đợi thử lại' }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
+
+// API: Lấy danh sách bài Group đã lên lịch
+export async function getScheduledGroupPosts(req, env) {
+    try {
+        const url = new URL(req.url);
+        const fromDate = url.searchParams.get('from'); 
+        const toDate = url.searchParams.get('to');
+        const status = url.searchParams.get('status');
+
+        let query = `
+            SELECT * FROM scheduled_group_posts
+            WHERE 1=1
+        `;
+        let params = [];
+
+        if (status) {
+            query += ` AND status = ?`;
+            params.push(status);
+        } else {
+            query += ` AND status IN ('scheduled', 'failed', 'published', 'pending')`;
+        }
+
+        if (fromDate) {
+            query += ` AND scheduled_time >= ?`;
+            params.push(parseInt(fromDate));
+        }
+        
+        if (toDate) {
+            query += ` AND scheduled_time <= ?`;
+            params.push(parseInt(toDate));
+        }
+
+        query += ` ORDER BY scheduled_time ASC LIMIT 50`;
+
+        const { results } = await env.DB.prepare(query).bind(...params).all();
+        return json({ ok: true, posts: results }, {}, req);
     } catch (e) {
         return errorResponse(e.message, 500, req);
     }

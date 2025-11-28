@@ -23,7 +23,7 @@ import * as FBAuth from './modules/facebook/fb-auth.js';
 import * as FBAds from './modules/facebook/fb-ads.js';
 import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
 import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
-import { publishScheduledGroupPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT HẸN GIỜ CHO GROUPS
+import { publishScheduledGroupPosts, getScheduledGroupPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT HẸN GIỜ CHO GROUPS
 import * as FBGroupManager from './modules/facebook/fb-group-manager.js'; // ✅ IMPORT GROUP MANAGER
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
@@ -579,6 +579,15 @@ export default {
       // SOCIAL VIDEO SYNC (TIKTOK REUP AUTO)
       // Hỗ trợ cả luồng cũ (/api/social-sync), luồng mới (/api/auto-sync) và Facebook API
       // ============================================
+     // API: Lấy danh sách bài Group đã lên lịch
+      if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        return getScheduledGroupPosts(req, env);
+      }
+
       if (path.startsWith('/api/social-sync') || path.startsWith('/api/auto-sync') || path.startsWith('/api/facebook/groups')) {
         // Yêu cầu quyền ads.create hoặc ads.edit để sử dụng tính năng này
         const permCheck = await requirePermission(req, env, 'ads.edit');
