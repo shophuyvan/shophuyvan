@@ -120,33 +120,6 @@ export async function getScheduledGroupPosts(req, env) {
         return errorResponse(e.message, 500, req);
     }
 }
-        let params = [];
-
-        if (status) {
-            query += ` AND fa.status = ?`;
-            params.push(status);
-        } else {
-            query += ` AND fa.status IN ('scheduled', 'failed', 'published', 'pending')`;
-        }
-
-        if (fromDate) {
-            query += ` AND fa.scheduled_time >= ?`;
-            params.push(parseInt(fromDate));
-        }
-        
-        if (toDate) {
-            query += ` AND fa.scheduled_time <= ?`;
-            params.push(parseInt(toDate));
-        }
-
-        query += ` ORDER BY fa.scheduled_time ASC LIMIT 50`;
-
-        const { results } = await env.DB.prepare(query).bind(...params).all();
-        return json({ ok: true, posts: results }, {}, req);
-    } catch (e) {
-        return errorResponse(e.message, 500, req);
-    }
-}
 
 // API: Retry bài đăng bị lỗi
 export async function retryFailedPost(req, env) {
