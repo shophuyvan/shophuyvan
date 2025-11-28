@@ -996,13 +996,20 @@
                 throw new Error('Admin.req không tồn tại. Kiểm tra admin_real.js đã load chưa.');
             }
             
-            const r = await Admin.req('/api/facebook/groups/scheduled', { method: 'GET' });
+            let r;
+            try {
+                r = await Admin.req('/api/facebook/groups/scheduled', { method: 'GET' });
+            } catch (fetchError) {
+                console.error('[loadScheduledGroupPosts] Fetch error:', fetchError);
+                throw new Error('Không thể kết nối tới API: ' + fetchError.message);
+            }
             
             // Debug: Log response để xem cấu trúc
             console.log('[loadScheduledGroupPosts] Response:', r);
             
             if (!r || !r.ok) {
-                throw new Error((r && r.error) || 'Không tải được danh sách');
+                const errorMsg = (r && r.error) || 'Không tải được danh sách';
+                throw new Error(errorMsg);
             }
             
             const posts = r.posts || [];
