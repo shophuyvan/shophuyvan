@@ -16,6 +16,16 @@
   // Common styles for sidebar layout
   const styles = `
     <style id="admin-sidebar-styles">
+      /* === FIX: Dời nút Security lên trên cùng chính giữa === */
+      #security-toggle-wrapper, .security-toggle-wrapper {
+        position: fixed !important;
+        top: 10px !important;
+        bottom: auto !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 999999 !important;
+      }
+
       /* Reset */
       body.admin-layout {
         margin: 0;
