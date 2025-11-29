@@ -130,13 +130,13 @@
       container.innerHTML = html;
     },
 
-    // Load danh sách Fanpage vào dropdown
+   // Load danh sách Fanpage vào dropdown
     async loadFanpages() {
       try {
         const r = await Admin.req('/admin/facebook/fanpages', { method: 'GET' });
         
-        if (r && r.ok && Array.isArray(r.fanpages)) {
-          this.fanpagesCache = r.fanpages;
+        if (r && r.ok && Array.isArray(r.items)) {
+          this.fanpagesCache = r.items;
           this.renderFanpageDropdown();
         }
       } catch (e) {
