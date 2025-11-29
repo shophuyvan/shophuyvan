@@ -44,8 +44,8 @@
       list.innerHTML = '<div style="padding:15px; color:#666; text-align:center;">⏳ Đang tìm kiếm...</div>';
 
       try {
-        // Gọi API tìm kiếm sản phẩm có sẵn
-        const r = await Admin.req(`/api/products?search=${keyword}&limit=5`, { method: 'GET' });
+        // ✅ FIX: Gọi đúng route API mới
+        const r = await Admin.req(`/api/auto-sync/search-products?search=${keyword}&limit=5`, { method: 'GET' });
         
         if (r && r.ok && r.data && r.data.length > 0) {
           list.innerHTML = r.data.map(p => `

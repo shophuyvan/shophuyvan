@@ -182,7 +182,8 @@ export async function handle(req, env, ctx) {
     return listAutomationJobs(req, env);
   }
 
-  if ((path === '/api/social/douyin/products' || path === '/api/products') && method === 'GET') {
+  // ✅ FIX: Đổi route sang namespace 'auto-sync' để tránh lỗi 404 từ router chính
+  if (path === '/api/auto-sync/search-products' && method === 'GET') {
     return searchProducts(req, env);
   }
 
