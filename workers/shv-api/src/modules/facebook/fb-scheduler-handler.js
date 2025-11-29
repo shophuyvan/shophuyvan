@@ -161,6 +161,70 @@ export async function getScheduledGroupPosts(req, env) {
         return errorResponse(e.message, 500, req);
     }
 }
+
+// API: Tạo lịch đăng bài vào Group
+export async function createScheduledGroupPost(req, env) {
+    try {
+        const body = await req.json();
+        const { fanpage_id, fanpage_name, group_ids, post_link, caption, scheduled_time } = body;
+
+        if (!fanpage_id || !post_link || !group_ids || group_ids.length === 0) {
+            return errorResponse('Missing required fields', 400, req);
+        }
+
+        const { saveScheduledGroupPost } = await import('./fb-group-manager.js');
+        const id = await saveScheduledGroupPost(env, {
+            fanpage_id,
+            fanpage_name,
+            group_ids,
+            post_link,
+            caption,
+            scheduled_time
+        });
+
+        return json({ ok: true, id, message: 'Đã lưu lịch đăng bài' }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
+
+// API: Xóa lịch đăng Group
+export async function deleteScheduledGroupPost(req, env) {
+    try {
+        const url = new URL(req.url);
+        const id = url.pathname.split('/').pop();
+
+        if (!id) return errorResponse('Missing ID', 400, req);
+
+        await env.DB.prepare(`
+            DELETE FROM scheduled_group_posts WHERE id = ?
+        `).bind(id).run();
+
+        return json({ ok: true, message: 'Đã xóa lịch đăng bài' }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
+
+// API: Retry bài Group bị lỗi
+export async function retryScheduledGroupPost(req, env) {
+    try {
+        const { id } = await req.json();
+        if (!id) return errorResponse('Missing ID', 400, req);
+
+        const nextTry = Date.now() + 2 * 60 * 1000; // +2 phút
+
+        await env.DB.prepare(`
+            UPDATE scheduled_group_posts 
+            SET status = 'pending', scheduled_time = ?, error_message = NULL
+            WHERE id = ?
+        `).bind(nextTry, id).run();
+
+        return json({ ok: true, message: 'Đã đưa bài viết vào hàng đợi thử lại' }, {}, req);
+    } catch (e) {
+        return errorResponse(e.message, 500, req);
+    }
+}
 // --- 3. CRON JOB HANDLERS (Giữ nguyên logic cũ của bạn) ---
 
 export async function publishScheduledPosts(env) {
