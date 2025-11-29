@@ -540,7 +540,8 @@ async function createFanpagePost(req, env) {
 
         console.log(`[FB Post] Posting to ${pageId}...`);
 
-        const result = await callFacebookAPI(endpoint, 'POST', apiBody, creds.access_token);
+        // Fix lỗi: Thay creds.access_token bằng pageRow.access_token
+        const result = await callFacebookAPI(endpoint, 'POST', apiBody, pageRow.access_token);
 
         if (result.error) {
           console.error(`[FB Ads] Post failed for page ${pageId}:`, JSON.stringify(result.error)); // ✅ Thêm dòng này để xem lỗi
