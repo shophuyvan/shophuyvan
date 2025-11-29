@@ -509,7 +509,8 @@ Yêu cầu:
 }
 
 // ===================================================================
-// THÊM MỚI: TÍNH NĂNG 1: AUTO POST TO FANPAGE
+// TÍNH NĂNG 1: AUTO POST TO FANPAGE (NÂNG CẤP: UNIFIED D1 DATABASE)
+// ===================================================================
 
 async function createFanpagePost(req, env) {
   if (!(await adminOK(req, env))) {
@@ -530,7 +531,7 @@ async function createFanpagePost(req, env) {
       scheduled_publish_time = null
     } = body;
 
-    // Validate
+    // 1. Validate cơ bản
     if (!fanpage_ids || fanpage_ids.length === 0) {
       return errorResponse('Vui lòng chọn ít nhất 1 fanpage', 400, req);
     }
@@ -540,43 +541,50 @@ async function createFanpagePost(req, env) {
       return errorResponse('Chưa cấu hình credentials', 400, req);
     }
 
-    // --- LOGIC XỬ LÝ DỮ LIỆU NGUỒN (CHUYỂN HẾT VỀ D1) ---
+    // 2. Xử lý dữ liệu nguồn (Unified D1 Strategy)
     let productUrl = 'https://shophuyvan.vn';
     let mediaUrl = custom_media_url;
-
-    // TRƯỜNG HỢP 1: Đăng từ Kho nội dung (Auto Sync Job - D1)
+    
+    // === CASE A: Nguồn từ Job (Auto Sync - Bảng automation_jobs) ===
     if (job_id) {
+        //
         const job = await env.DB.prepare("SELECT * FROM automation_jobs WHERE id = ?").bind(job_id).first();
         if (!job) return errorResponse('Không tìm thấy Job trong Database', 404, req);
 
         // Ghi đè thông tin từ Job
-        mediaUrl = job.video_r2_url;
+        mediaUrl = job.video_r2_url; //
         media_type = 'video'; 
         productUrl = job.product_url || productUrl;
         
-        // Nếu caption rỗng, lấy từ Variant 1
+        // Nếu caption rỗng, lấy từ Variant 1 trong D1
         if (!caption) {
+            //
             const variant = await env.DB.prepare("SELECT caption FROM content_variants WHERE job_id = ? LIMIT 1").bind(job_id).first();
             caption = variant?.caption || job.product_name;
         }
     } 
-    // TRƯỜNG HỢP 2: Đăng thủ công từ sản phẩm (Chuyển sang query D1 thay vì KV)
+    // === CASE B: Nguồn từ Product (Thủ công - Bảng products) ===
     else if (product_id) {
+        //
+        // Query D1 thay vì KV để đồng bộ dữ liệu
         const product = await env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(product_id).first();
         if (!product) return errorResponse('Không tìm thấy sản phẩm trong Database', 404, req);
 
+        // Parse JSON images
         let images = [];
-        try { images = JSON.parse(product.images || '[]'); } catch(e) {}
+        try { 
+            images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images; 
+        } catch(e) {}
 
-        productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
-        if (!mediaUrl) mediaUrl = images[0] || 'https://shophuyvan.vn/placeholder.jpg';
+        productUrl = `https://shophuyvan.vn/san-pham/${product.slug || product.id}`;
+        if (!mediaUrl) mediaUrl = (images && images.length > 0) ? images[0] : 'https://shophuyvan.vn/placeholder.jpg';
     } 
-    // TRƯỜNG HỢP 3: Chỉ có Caption/Media (Custom)
+    // === CASE C: Chỉ có Caption/Media (Custom Upload) ===
     else if (!caption && !custom_media_url) {
         return errorResponse('Thiếu thông tin nguồn (product_id hoặc job_id)', 400, req);
     }
 
-    // --- THỰC HIỆN ĐĂNG BÀI ---
+    // 3. Thực thi đăng bài sang Facebook
     const results = [];
     
     for (const pageId of fanpage_ids) {
@@ -594,23 +602,27 @@ async function createFanpagePost(req, env) {
 
         let endpoint = `${pageId}/feed`;
         
-        // Xử lý Video vs Image
+        // Xử lý Video (Ưu tiên) vs Ảnh
         if (media_type === 'video' || (mediaUrl && mediaUrl.includes('.mp4'))) {
             endpoint = `${pageId}/videos`;
             apiBody.file_url = mediaUrl;
-            apiBody.description = caption; 
+            apiBody.description = caption; // Video dùng 'description'
             delete apiBody.message;
         } else {
+            // Ảnh/Link
             apiBody.link = productUrl;
             if (mediaUrl) apiBody.image_url = mediaUrl;
         }
+
+        console.log(`[FB Post] Posting to ${pageId}...`);
 
         const result = await callFacebookAPI(endpoint, 'POST', apiBody, creds.access_token);
 
         if (result.error) {
           results.push({ page_id: pageId, success: false, error: result.error.message });
         } else {
-          // Lưu log vào D1 nếu là Job
+          // [Quan trọng] Lưu Log vào D1 (Bảng fanpage_assignments) để tracking tiến độ Job
+          //
           if (job_id) {
              const now = Date.now();
              await env.DB.prepare(`
