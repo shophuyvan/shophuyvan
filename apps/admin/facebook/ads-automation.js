@@ -21,6 +21,13 @@
     fanpagesCache: [],
     groupsCache: [],
 
+    // Khởi tạo module
+    init() {
+      console.log('[FanpageManager] Initializing...');
+      this.loadScheduledGroupPosts();
+      this.loadFanpages();
+    },
+
     // Load danh sách bài đã lên lịch cho Group
     async loadScheduledGroupPosts() {
       const container = document.getElementById('scheduled-group-posts-list');
@@ -377,6 +384,103 @@
         }
       } catch (e) {
         toast('❌ Lỗi: ' + e.message);
+      }
+    },
+
+    // Load scheduled posts với filter (cho dropdown filter)
+    async loadScheduledPosts() {
+      const statusFilter = document.getElementById('filter-post-status');
+      const status = statusFilter ? statusFilter.value : null;
+      
+      if (status) {
+        this.loadScheduledGroupPosts(); // Reload với filter nếu cần
+      } else {
+        this.loadScheduledGroupPosts();
+      }
+    },
+
+    // Tìm kiếm viral content
+    searchViral() {
+      const keyword = document.getElementById('viralKeyword')?.value?.trim();
+      
+      if (!keyword) {
+        toast('❌ Vui lòng nhập từ khóa tìm kiếm');
+        return;
+      }
+
+      const resultsContainer = document.getElementById('viralResults');
+      if (resultsContainer) {
+        resultsContainer.innerHTML = '<div class="loading">🔍 Đang tìm kiếm viral content...</div>';
+        
+        // TODO: Implement viral search API
+        setTimeout(() => {
+          resultsContainer.innerHTML = `
+            <div class="alert alert-info">
+              🚧 Tính năng đang phát triển<br/>
+              Sẽ tìm kiếm content viral theo từ khóa: <strong>${keyword}</strong>
+            </div>
+          `;
+        }, 1000);
+      }
+    },
+
+    // Mở modal scheduler (không cần params)
+    openScheduler(jobId = null, postLink = null) {
+      if (jobId) {
+        this.currentJobId = jobId;
+      }
+      
+      const modal = document.getElementById('modal-scheduler');
+      if (!modal) return;
+
+      // Load fanpages nếu chưa có
+      if (this.fanpagesCache.length === 0) {
+        this.loadFanpages();
+      }
+
+      // Set job ID và post link nếu có
+      const jobIdInput = document.getElementById('sched-job-id');
+      if (jobIdInput && jobId) {
+        jobIdInput.value = jobId;
+      }
+
+      if (postLink) {
+        modal.dataset.postLink = postLink;
+      }
+
+      modal.style.display = 'flex';
+    },
+
+    // Bắt đầu seeding
+    startSeeding() {
+      const seedingUrl = document.getElementById('seedingUrl')?.value?.trim();
+      
+      if (!seedingUrl) {
+        toast('❌ Vui lòng nhập link bài viết');
+        return;
+      }
+
+      const logContainer = document.getElementById('seedingLog');
+      const btnStart = document.getElementById('btnStartSeeding');
+
+      if (btnStart) {
+        btnStart.disabled = true;
+        btnStart.textContent = '⏳ Đang seeding...';
+      }
+
+      if (logContainer) {
+        logContainer.innerHTML = '> Starting seeding process...\n';
+        
+        // TODO: Implement seeding API
+        setTimeout(() => {
+          logContainer.innerHTML += '> 🚧 Tính năng đang phát triển\n';
+          logContainer.innerHTML += '> Sẽ seeding cho URL: ' + seedingUrl + '\n';
+          
+          if (btnStart) {
+            btnStart.disabled = false;
+            btnStart.textContent = '🚀 Bắt đầu Seeding';
+          }
+        }, 2000);
       }
     }
   };
