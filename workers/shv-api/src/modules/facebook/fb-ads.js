@@ -6,6 +6,7 @@ import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
 import { getSetting, setSetting } from '../settings.js';
 import { readBody } from '../../lib/utils.js';
+import { uploadToFacebookPage } from '../social-video-sync/facebook-uploader.js'; // ✅ Import hàm upload chuẩn
 
 /**
  * Main handler for Facebook Ads routes
@@ -526,22 +527,29 @@ async function createFanpagePost(req, env) {
 
         let endpoint = `${pageId}/feed`;
         
-        // Xử lý Video (Ưu tiên) vs Ảnh
+        console.log(`[FB Post] Posting to ${pageId}...`);
+        let result = {};
+
+        // ✅ TÁCH LOGIC: Video dùng hàm chuyên biệt (Form Data), Ảnh dùng API thường (JSON)
         if (media_type === 'video' || (mediaUrl && mediaUrl.includes('.mp4'))) {
-            endpoint = `${pageId}/videos`;
-            apiBody.file_url = mediaUrl;
-            apiBody.description = caption; // Video dùng 'description'
-            delete apiBody.message;
+             try {
+                 // Gọi hàm upload chuẩn từ facebook-uploader.js (xử lý tốt file_url từ R2)
+                 // Hàm này tự lấy Token từ DB bên trong nó, nên chỉ cần truyền env
+                 const uploadRes = await uploadToFacebookPage(pageId, mediaUrl, caption, env);
+                 result = { id: uploadRes.postId, ...uploadRes };
+                 console.log(`[FB Post] Video success: ${uploadRes.postId}`);
+             } catch (err) {
+                 console.error(`[FB Post] Video error: ${err.message}`);
+                 result = { error: { message: err.message } };
+             }
         } else {
-            // Ảnh/Link
+            // Logic đăng Ảnh/Link (Giữ nguyên JSON vì Facebook Feed API hỗ trợ tốt)
+            const endpoint = `${pageId}/feed`;
             apiBody.link = productUrl;
             if (mediaUrl) apiBody.image_url = mediaUrl;
+            
+            result = await callFacebookAPI(endpoint, 'POST', apiBody, pageRow.access_token);
         }
-
-        console.log(`[FB Post] Posting to ${pageId}...`);
-
-        // Fix lỗi: Thay creds.access_token bằng pageRow.access_token
-        const result = await callFacebookAPI(endpoint, 'POST', apiBody, pageRow.access_token);
 
         if (result.error) {
           console.error(`[FB Ads] Post failed for page ${pageId}:`, JSON.stringify(result.error)); // ✅ Thêm dòng này để xem lỗi
