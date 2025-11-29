@@ -24,7 +24,8 @@ import * as FBAds from './modules/facebook/fb-ads.js';
 import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
 import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
 import { 
-  publishScheduledGroupPosts, 
+  publishScheduledGroupPosts,
+  publishScheduledPosts,
   getScheduledGroupPosts,
   createScheduledGroupPost,
   deleteScheduledGroupPost,
