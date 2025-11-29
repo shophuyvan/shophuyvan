@@ -1260,17 +1260,18 @@ async function searchProducts(req, env) {
     const search = url.searchParams.get('search') || '';
     const limit = parseInt(url.searchParams.get('limit') || '20');
 
-    // Query lấy sản phẩm + giá từ bảng variants (Logic chuẩn từ hệ thống)
+    // ✅ FIX: Lấy SKU từ bảng variants (v.sku) vì bảng products (p) không có cột sku
     let query = `
-      SELECT p.id, p.title, p.images, p.sku, v.price, v.price_sale
+      SELECT p.id, p.title, p.images, v.sku, v.price, v.price_sale
       FROM products p
       LEFT JOIN variants v ON p.id = v.product_id
-      WHERE 1=1
+      WHERE v.status = 'active'
     `;
     let params = [];
 
     if (search) {
-      query += ` AND (p.title LIKE ? OR p.sku LIKE ?)`;
+      // ✅ FIX: Tìm kiếm theo v.sku
+      query += ` AND (p.title LIKE ? OR v.sku LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
 
