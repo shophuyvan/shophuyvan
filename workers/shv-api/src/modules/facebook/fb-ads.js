@@ -541,6 +541,7 @@ async function createFanpagePost(req, env) {
         const result = await callFacebookAPI(endpoint, 'POST', apiBody, creds.access_token);
 
         if (result.error) {
+          console.error(`[FB Ads] Post failed for page ${pageId}:`, JSON.stringify(result.error)); // ✅ Thêm dòng này để xem lỗi
           results.push({ page_id: pageId, success: false, error: result.error.message });
         } else {
           // [Quan trọng] Lưu Log vào D1 (Bảng fanpage_assignments) để tracking tiến độ Job

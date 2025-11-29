@@ -333,12 +333,16 @@
         return;
       }
 
-      // Xử lý thời gian
+      // Xử lý thời gian (Thêm Validate 15 phút)
       let timestamp = null;
       if (scheduledTime) {
         timestamp = new Date(scheduledTime).getTime();
-        if (timestamp < Date.now()) {
-           // Nếu thời gian quá khứ -> Đăng ngay (Facebook xử lý)
+        const now = Date.now();
+        
+        // Facebook yêu cầu lịch đăng phải > 10 phút. Ta set 15 phút cho chắc.
+        if (timestamp < now + 15 * 60 * 1000) {
+            toast('❌ Lỗi: Thời gian lên lịch phải cách hiện tại ít nhất 15 phút (Quy định Facebook).');
+            return;
         }
       }
 
