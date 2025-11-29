@@ -187,157 +187,134 @@
 
  <div id="tab-autopost" class="tab-content">
     <style>
-        /* --- WIZARD CSS (Mới thêm) --- */
-        .wizard-container { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-top: 15px; }
-        .wizard-steps { display: flex; justify-content: space-between; margin-bottom: 30px; position: relative; }
-        .wizard-steps::before { content: ''; position: absolute; top: 15px; left: 0; right: 0; height: 2px; background: #f3f4f6; z-index: 0; }
-        .wizard-step { position: relative; z-index: 1; background: white; width: 40px; text-align: center; }
-        .step-circle { width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6b7280; margin: 0 auto; transition: all 0.3s; }
-        .wizard-step.active .step-circle { border-color: #2563eb; background: #2563eb; color: white; box-shadow: 0 0 0 4px #dbeafe; }
-        .wizard-step.completed .step-circle { border-color: #10b981; background: #10b981; color: white; }
-        .step-label { font-size: 11px; margin-top: 5px; color: #6b7280; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
-        .wiz-content { display: none; animation: fadeIn 0.3s; }
-        .wiz-content.active { display: block; }
-        /* Product Card in Wizard */
-        .wiz-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; max-height: 400px; overflow-y: auto; padding: 5px; }
-        .wiz-card { border: 2px solid #eee; border-radius: 8px; padding: 10px; cursor: pointer; transition: 0.2s; }
-        .wiz-card:hover { border-color: #93c5fd; }
-        .wiz-card.selected { border-color: #2563eb; background: #eff6ff; }
-        .wiz-card img { width: 100%; height: 120px; object-fit: cover; border-radius: 4px; }
-        /* Tabs for AI Variants */
-        .ai-tabs { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; }
-        .ai-tab { padding: 6px 12px; border-radius: 20px; border: 1px solid #ddd; cursor: pointer; font-size: 12px; white-space: nowrap; }
-        .ai-tab.active { background: #2563eb; color: white; border-color: #2563eb; }
+        /* DASHBOARD & WIZARD STYLES */
+        .dashboard-widgets { display: flex; gap: 15px; margin-bottom: 20px; }
+        .widget-box { flex: 1; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; }
+        .widget-box h3 { margin: 0 0 10px; font-size: 13px; color: #6b7280; text-transform: uppercase; font-weight: 600; }
+        .widget-box .number { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+        .widget-pending .number { color: #f59e0b; }
+        .widget-success .number { color: #10b981; }
+        .widget-failed .number { color: #ef4444; }
+
+        .progress-track { width: 100%; height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.5s ease; }
+        .progress-text { font-size: 11px; color: #6b7280; display: flex; justify-content: space-between; font-weight: 500; }
+
+        .btn-auto { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(37,99,235,0.2); transition: transform 0.1s; }
+        .btn-auto:active { transform: scale(0.98); }
+
+        /* WIZARD INPUT */
+        .input-step { margin-bottom: 25px; }
+        .product-search-result { max-height: 220px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 8px; display: none; }
+        .product-option { display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; }
+        .product-option:hover { background: #f8fafc; }
+        .upload-box { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 30px; text-align: center; background: #f8fafc; cursor: pointer; }
     </style>
 
+    <div class="dashboard-widgets" id="dashboard-widgets-area">
+        <div class="widget-box widget-pending">
+            <h3>⏳ Hàng đợi</h3>
+            <div class="number">--</div>
+        </div>
+        <div class="widget-box widget-success">
+            <h3>✅ Đã đăng</h3>
+            <div class="number">--</div>
+        </div>
+        <div class="widget-box widget-failed">
+            <h3>❌ Cần xử lý</h3>
+            <div class="number">--</div>
+        </div>
+        <div class="widget-box widget-cleanup">
+            <h3>🗑️ Lưu trữ R2</h3>
+            <div class="number">--</div>
+        </div>
+    </div>
+
     <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="margin:0;">🎛️ Quản lý Phân phối Ads</h3>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="FanpageManager.loadRepository()">🔄 Làm mới</button>
+                <button class="btn green" onclick="InputWizard.open()">➕ Tạo Ads Mới</button>
+            </div>
+        </div>
 
-      <div id="view-post-wizard" style="display:block;">
-        <div class="wizard-container">
-            <div class="wizard-steps">
-                <div class="wizard-step active" id="wiz-step-1-ind"><div class="step-circle">1</div><div class="step-label">Sản phẩm</div></div>
-                <div class="wizard-step" id="wiz-step-2-ind"><div class="step-circle">2</div><div class="step-label">Video</div></div>
-                <div class="wizard-step" id="wiz-step-3-ind"><div class="step-circle">3</div><div class="step-label">AI Content</div></div>
-                <div class="wizard-step" id="wiz-step-4-ind"><div class="step-circle">4</div><div class="step-label">Chọn Page</div></div>
-                <div class="wizard-step" id="wiz-step-5-ind"><div class="step-circle">5</div><div class="step-label">Kết quả</div></div>
+        <table class="fanpage-table">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="width: 35%; padding:12px;">Sản phẩm & Video</th>
+                    <th style="width: 35%; padding:12px;">Tiến độ Phân phối</th>
+                    <th style="width: 15%; padding:12px;">Trạng thái</th>
+                    <th style="width: 15%; padding:12px; text-align:center;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="repo-table-body">
+                <tr><td colspan="4" style="text-align:center; padding:40px; color:#6b7280;">⏳ Đang tải dữ liệu kho...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="modal-input-wizard" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center;">
+        <div style="background:white; width:550px; max-width:95%; border-radius:16px; padding:30px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                <h3 style="margin:0;">📹 Tạo Ads Mới</h3>
+                <button onclick="InputWizard.close()" style="border:none; background:none; font-size:24px; cursor:pointer;">&times;</button>
             </div>
 
-            <div id="wiz-step-1" class="wiz-content active">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0;">📦 Bước 1: Chọn sản phẩm</h3>
-                    <button class="btn btn-sm" onclick="AutoSyncWizard.testAI()" style="background:#f3f4f6; border:1px solid #d1d5db; font-size:12px;">⚡ Check AI</button>
-                </div>
-                
-                <div style="display:flex; gap:5px; margin-bottom:15px;">
-    <input type="text" id="wiz-search-input" class="input" placeholder="🔍 Nhập tên, SKU (Ví dụ: k243)..." 
-           onkeyup="if(event.key === 'Enter') AutoSyncWizard.filterProducts(this.value)" style="flex:1;">
-    <button class="btn primary" onclick="AutoSyncWizard.filterProducts(document.getElementById('wiz-search-input').value)">Tìm kiếm</button>
-</div>
-                <div id="wiz-product-grid" class="wiz-product-grid">
-                    <div class="loading">Đang tải sản phẩm...</div>
-                </div>
-                <div style="text-align:right; margin-top:15px;">
-                    <button class="btn primary" id="wiz-btn-step1" disabled onclick="AutoSyncWizard.goToStep(2)">Tiếp theo →</button>
-                </div>
-            </div>
+            <div class="input-step">
+                <label>1. Chọn Sản phẩm (Để gắn Link Mua hàng)</label>
+                <input type="text" id="wiz-product-search" class="input" placeholder="🔍 Nhập tên hoặc SKU..." onkeyup="InputWizard.searchProduct(this.value)">
+                <div id="wiz-product-list" class="product-search-result"></div>
+                <input type="hidden" id="wiz-selected-product-id">
 
-            <div id="wiz-step-2" class="wiz-content">
-                <h3>🎬 Bước 2: Nhập Video TikTok</h3>
-                <div style="background:#f9fafb; padding:30px; border-radius:8px; text-align:center;">
-                    <input type="text" id="wiz-tiktokUrl" class="input" placeholder="Paste link TikTok vào đây..." style="width:80%;">
-                    <button class="btn primary" onclick="AutoSyncWizard.processVideo()" id="wiz-btn-download" style="margin-top:10px;">
-                        ⬇️ Tải & Phân tích
-                    </button>
-                </div>
-                <div id="wiz-video-preview" style="margin-top:20px; text-align:center; display:none;">
-                    <video id="wiz-player" controls style="height:250px; border-radius:8px;"></video>
-                    <p id="wiz-video-info" style="font-size:12px; color:#666;"></p>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-top:20px;">
-                    <button class="btn" onclick="AutoSyncWizard.goToStep(1)">← Quay lại</button>
-                    <button class="btn primary" id="wiz-btn-step2" disabled onclick="AutoSyncWizard.goToStep(3)">Tiếp theo →</button>
-                </div>
-            </div>
-
-            <div id="wiz-step-3" class="wiz-content">
-                <div style="display:flex; justify-content:space-between;">
-                    <h3>🤖 Bước 3: AI Sáng tạo nội dung</h3>
-                    <button class="btn btn-sm" onclick="AutoSyncWizard.generateVariants(true)">🔄 Tạo lại</button>
-                </div>
-                <div id="wiz-ai-loading" class="loading hidden">Gemini đang viết 5 phiên bản...</div>
-                <div id="wiz-ai-area" class="hidden">
-                    <div class="ai-tabs" id="wiz-ai-tabs"></div>
-                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px;">
-                        <textarea id="wiz-caption-edit" class="input" rows="10"></textarea>
-                        <div style="background:#f0f9ff; padding:10px; border-radius:8px; font-size:12px;">
-                            <strong>Hashtags:</strong>
-                            <div id="wiz-hashtags" style="color:#2563eb; margin-top:5px;"></div>
-                            <hr>
-                            <strong>Tone:</strong> <span id="wiz-tone-badge"></span>
-                        </div>
+                <div id="wiz-selected-preview" style="margin-top:12px; display:none; align-items:center; gap:12px; background:#f0fdf4; padding:12px; border-radius:8px;">
+                    <img id="wiz-sel-img" src="" style="width:50px; height:50px; object-fit:cover; border-radius:6px;">
+                    <div>
+                        <div id="wiz-sel-name" style="font-weight:700;"></div>
+                        <div id="wiz-sel-link" style="font-size:12px; color:#15803d;"></div>
                     </div>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-top:20px;">
-                    <button class="btn" onclick="AutoSyncWizard.goToStep(2)">← Quay lại</button>
-                    <button class="btn primary" id="wiz-btn-step3" onclick="AutoSyncWizard.goToStep(4)">Tiếp theo →</button>
+                    <button onclick="InputWizard.clearProduct()" style="margin-left:auto; border:none; background:none; cursor:pointer;">✕</button>
                 </div>
             </div>
 
-            <div id="wiz-step-4" class="wiz-content">
-                <h3>📢 Bước 4: Phân phối Fanpage</h3>
-                <table class="fanpage-table">
+            <div class="input-step">
+                <label>2. Upload Video</label>
+                <div class="upload-box" onclick="document.getElementById('wiz-video-file').click()">
+                    <div id="wiz-file-name">Click để chọn file MP4</div>
+                </div>
+                <input type="file" id="wiz-video-file" accept="video/mp4" style="display:none;" onchange="InputWizard.handleFileSelect(this)">
+            </div>
+
+            <div style="text-align:right; margin-top:20px;">
+                <button class="btn" onclick="InputWizard.close()">Hủy</button>
+                <button class="btn primary" id="wiz-btn-submit" onclick="InputWizard.submit()">🚀 Tải lên & AI Viết bài</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-monitoring" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;">
+        <div style="background:white; width:800px; border-radius:12px; overflow:hidden; max-height:85vh; display:flex; flex-direction:column;">
+            <div style="padding:20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
+                <h3 style="margin:0;" id="monitor-job-title">Chi tiết Phân phối</h3>
+                <button onclick="document.getElementById('modal-monitoring').style.display='none'" style="border:none; background:none; cursor:pointer; font-size:24px;">&times;</button>
+            </div>
+            <div style="padding:0; overflow-y:auto; flex:1;">
+                <table style="width:100%; border-collapse:collapse;">
                     <thead>
-                        <tr>
-                            <th>Fanpage</th>
-                            <th>Chọn Version</th>
-                            <th style="width: 80px;">Xem thử</th> <th>Chọn đăng</th>
+                        <tr style="background:#f9fafb;">
+                            <th style="padding:15px; text-align:left;">Fanpage</th>
+                            <th style="padding:15px; text-align:left;">Lịch đăng</th>
+                            <th style="padding:15px; text-align:left;">Trạng thái</th>
+                            <th style="padding:15px; text-align:left;">Kết quả</th>
                         </tr>
                     </thead>
-                    <tbody id="wiz-fanpage-list"></tbody>
+                    <tbody id="monitor-table-body"></tbody>
                 </table>
-
-                <div style="background:#d1fae5; padding:12px; border-radius:8px; margin-top:15px; border:1px solid #86efac;">
-                    💡 <strong>Lưu ý:</strong> Sau khi lưu, bạn có thể lên lịch đăng bài chi tiết tại tab <strong>"Quản lý Fanpage"</strong>.
-                </div>
-
-                <div style="display:flex; justify-content:space-between; margin-top:20px;">
-            <button class="btn" onclick="AutoSyncWizard.goToStep(3)">← Quay lại</button>
-            <button class="btn primary" id="wiz-btn-save" onclick="AutoSyncWizard.saveToRepository()">💾 Lưu vào Kho & Chờ lên lịch</button>
-        </div>
-            </div>
-
-            <div id="wiz-step-5" class="wiz-content">
-            <h3>🎉 Kết quả đăng bài</h3>
-            <div id="wiz-results" style="margin-bottom:20px;"></div>
-
-            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:15px; border-radius:8px; margin-bottom:15px;">
-                <h4>📢 Chia sẻ vào Nhóm (Seeding)</h4>
-                <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
-                     <select id="wiz-group-select" class="input" style="flex:1;">
-                        <option value="">-- Đang tải nhóm... --</option>
-                     </select>
-                     <input type="text" id="wiz-share-msg" class="input" placeholder="Viết caption khi share..." style="flex:1;">
-                     <button class="btn primary" onclick="AutoSyncWizard.shareToGroup()">Chia sẻ ngay</button>
-                </div>
-                <div style="margin-top:5px; font-size:12px; color:#666;">* Chọn bài đã đăng thành công ở trên để share.</div>
-            </div>
-
-            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:15px; border-radius:8px;">
-                <h4>⚡ Tạo Ads từ bài viết này?</h4>
-                    <div style="display:flex; gap:10px; margin-top:10px;">
-                        <input type="text" id="wiz-camp-name" class="input" placeholder="Tên Campaign Ads..." style="flex:1;">
-                        <input type="number" id="wiz-budget" class="input" value="50000" style="width:120px;">
-                        <button class="btn primary" onclick="AutoSyncWizard.createAds()">Tạo Ads</button>
-                    </div>
-                </div>
-                <div style="text-align:center; margin-top:30px;">
-                    <button class="btn" onclick="location.reload()">🔄 Làm Job mới</button>
-                </div>
             </div>
         </div>
-      </div>
     </div>
   </div>
+  
   <!-- Tab: Creative Library -->
   <div id="tab-creative" class="tab-content">
     <div class="row">

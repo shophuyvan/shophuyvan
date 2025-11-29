@@ -123,6 +123,12 @@ export async function handle(req, env, ctx) {
     return savePendingAssignments(req, env, jobId);
   }
 
+  // ✅ ROUTE MỚI: 1-Click Phân phối Tự động (Round Robin & Giờ Vàng)
+  if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/distribute$/) && method === 'POST') {
+    const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)\/distribute$/)[1]);
+    return distributeJobSmartly(req, env, jobId);
+  }
+
   if (path === '/api/cron/trigger-schedule' && method === 'POST') {
     const result = await publishScheduledPosts(env);
     return json({ ok: true, result }, {}, req);
@@ -1306,5 +1312,94 @@ async function searchProducts(req, env) {
     return errorResponse(error.message, 500, req);
   }
 }
+
+// ===================================================================
+// LOGIC PHÂN PHỐI THÔNG MINH (ANTI-SPAM & GIỜ VÀNG)
+// ===================================================================
+
+async function distributeJobSmartly(req, env, jobId) {
+  const now = new Date();
+  // 1. Cấu hình Giờ Vàng (09:00, 11:30, 19:00, 21:00)
+  const GOLDEN_HOURS = [9, 11.5, 19, 21]; 
+
+  // 2. Lấy dữ liệu Job & Variants
+  const job = await env.DB.prepare("SELECT * FROM automation_jobs WHERE id = ?").bind(jobId).first();
+  if (!job) return errorResponse("Job not found", 404, req);
+
+  // Lấy 5 variants
+  const variants = await env.DB.prepare("SELECT * FROM content_variants WHERE job_id = ?").bind(jobId).all();
+  if (!variants.results || variants.results.length === 0) return errorResponse("Chưa có Variant AI (Hãy đợi AI viết xong)", 400, req);
+
+  // Lấy danh sách Fanpage đang hoạt động
+  const fanpages = await env.DB.prepare("SELECT page_id, page_name FROM fanpages WHERE access_token IS NOT NULL AND is_active = 1").bind().all();
+  if (!fanpages.results || fanpages.results.length === 0) return errorResponse("Chưa có Fanpage nào hoạt động", 400, req);
+
+  // 3. ANTI-SPAM: Lọc bỏ các Page đã từng đăng Job này
+  const existing = await env.DB.prepare("SELECT fanpage_id FROM fanpage_assignments WHERE job_id = ?").bind(jobId).all();
+  const postedIds = new Set(existing.results.map(x => x.fanpage_id));
+
+  // Chỉ lấy những Page CHƯA đăng
+  const targets = fanpages.results.filter(p => !postedIds.has(p.page_id));
+
+  if (targets.length === 0) return errorResponse("Tất cả Fanpage đều đã được lên lịch cho bài này!", 400, req);
+
+  // 4. TÍNH TOÁN & CHIA BÀI (Round Robin)
+  let count = 0;
+  let hourIdx = 0;
+  let dayOffset = 0;
+
+  // Tìm khung giờ vàng tiếp theo ngay sau hiện tại
+  const curH = now.getHours() + now.getMinutes()/60;
+  while(hourIdx < GOLDEN_HOURS.length && GOLDEN_HOURS[hourIdx] <= curH) hourIdx++;
+
+  // Nếu hết giờ hôm nay, chuyển sang sáng mai
+  if(hourIdx >= GOLDEN_HOURS.length) { hourIdx=0; dayOffset=1; }
+
+  // Xóa các lịch pending cũ (nếu có) để tránh trùng lặp khi bấm lại
+  await env.DB.prepare("DELETE FROM fanpage_assignments WHERE job_id = ? AND status = 'pending'").bind(jobId).run();
+
+  for(let i=0; i<targets.length; i++) {
+     const page = targets[i];
+     // Chia variant xoay vòng: Page 1 -> Var 1, Page 2 -> Var 2...
+     const variant = variants.results[i % variants.results.length]; 
+
+     // Tính thời gian đăng (Unix Timestamp)
+     let t = new Date(now);
+     t.setDate(now.getDate() + dayOffset);
+     t.setHours(Math.floor(GOLDEN_HOURS[hourIdx]), (GOLDEN_HOURS[hourIdx]%1)*60, 0, 0);
+
+     // Lưu vào DB (Trạng thái Pending -> Chờ Cronjob đăng)
+     await env.DB.prepare(`
+        INSERT INTO fanpage_assignments 
+        (job_id, fanpage_id, fanpage_name, variant_id, status, scheduled_time, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
+     `).bind(
+         jobId, 
+         page.page_id, 
+         page.page_name, 
+         variant.id, 
+         t.getTime(), 
+         Date.now(), 
+         Date.now()
+     ).run();
+
+     count++;
+
+     // Nhảy sang khung giờ tiếp theo cho page kế tiếp
+     hourIdx++;
+     if(hourIdx >= GOLDEN_HOURS.length) { hourIdx=0; dayOffset++; }
+  }
+
+  // Cập nhật trạng thái Job
+  await env.DB.prepare(`
+      UPDATE automation_jobs 
+      SET status = 'assigned', total_fanpages_assigned = ?, updated_at = ? 
+      WHERE id = ?
+  `).bind(count, Date.now(), jobId).run();
+
+  return json({ ok: true, count, message: `Đã lên lịch cho ${count} Fanpage.` }, {}, req);
+}
+
+console.log('✅ social-video-sync/index.js loaded');
 
 console.log('✅ social-video-sync/index.js loaded');
