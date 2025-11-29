@@ -1146,30 +1146,30 @@ async function testAIConnection(req, env) {
      // ===================================================================
      
      // Cập nhật cả trạng thái Job và Nội dung 5 Variants
-    async function savePendingAssignments(req, env, jobId) {
-      try {
-        const body = await req.json();
-        const { scheduledTime, variants } = body;
-        const now = Date.now();
-    
-        // ✅ LOG ĐỂ DEBUG
-        console.log(`[savePending] JobID: ${jobId}, Received ${variants?.length || 0} variants`);
-    
-        // 1. Cập nhật nội dung các Variants (nếu có gửi lên)
-        if (variants && Array.isArray(variants) && variants.length > 0) {
-          for (const v of variants) {
-            // Chuẩn hóa hashtags thành chuỗi JSON
-            const tagsStr = Array.isArray(v.hashtags) ? JSON.stringify(v.hashtags) : v.hashtags;
-            
-            // Update từng variant theo ID và Job ID
-            await env.DB.prepare(`
-              UPDATE content_variants 
-              SET caption = ?, hashtags = ?, is_edited = 1
-              WHERE id = ? AND job_id = ?
-            `).bind(v.caption, tagsStr, v.id, jobId).run();
-            
-            console.log(`[savePending] Updated variant ID ${v.id}`);
-          }
+   async function savePendingAssignments(req, env, jobId) {
+  try {
+    const body = await req.json();
+    const { scheduledTime, variants } = body;
+    const now = Date.now();
+
+    // ✅ LOG ĐỂ DEBUG
+    console.log(`[savePending] JobID: ${jobId}, Received ${variants?.length || 0} variants`);
+
+    // 1. Cập nhật nội dung các Variants (nếu có gửi lên)
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      for (const v of variants) {
+        // Chuẩn hóa hashtags thành chuỗi JSON
+        const tagsStr = Array.isArray(v.hashtags) ? JSON.stringify(v.hashtags) : v.hashtags;
+        
+        // Update từng variant theo ID và Job ID
+        await env.DB.prepare(`
+          UPDATE content_variants 
+          SET caption = ?, hashtags = ?, is_edited = 1
+          WHERE id = ? AND job_id = ?
+        `).bind(v.caption, tagsStr, v.id, jobId).run();
+        
+        console.log(`[savePending] Updated variant ID ${v.id}`);
+      }
     }
 
     // 2. Update job status
@@ -1182,28 +1182,6 @@ async function testAIConnection(req, env) {
     return json({ 
       ok: true, 
       message: `Đã lưu thành công ${variants?.length || 0} phiên bản nội dung vào kho!` 
-    }, {}, req);
-
-  } catch (error) {
-    console.error('[savePendingAssignments] Error:', error);
-    return errorResponse(error.message, 500, req);
-  }
-}
-
-    await env.DB.prepare(`
-      UPDATE automation_jobs SET status = 'assigned', updated_at = ? WHERE id = ?
-    `).bind(now, jobId).run();
-
-    // 3. Update assignments status (nếu có các lệnh đăng chờ sẵn)
-    await env.DB.prepare(`
-      UPDATE fanpage_assignments 
-      SET status = 'pending', scheduled_time = ?, updated_at = ?
-      WHERE job_id = ? AND status = 'pending'
-    `).bind(scheduledTime || null, now, jobId).run();
-
-    return json({ 
-      ok: true, 
-      message: 'Đã lưu thành công 5 phiên bản nội dung vào kho!' 
     }, {}, req);
 
   } catch (error) {
