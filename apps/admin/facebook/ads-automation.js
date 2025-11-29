@@ -107,9 +107,12 @@
         formData.append('videoFile', file);
 
         // API này sẽ: Upload R2 -> Tạo Job -> Lưu Link SP
+        // ✅ FIX: Lấy token trực tiếp từ biến Admin hoặc LocalStorage để tránh lỗi getToken()
+        const token = (window.Admin && Admin.token) ? Admin.token : (localStorage.getItem('admin_token') || '');
+        
         const r = await fetch(API + '/api/auto-sync/jobs/create-upload', {
             method: 'POST',
-            headers: { 'X-Token': window.Admin ? Admin.getToken() : '' },
+            headers: { 'X-Token': token },
             body: formData
         });
         
