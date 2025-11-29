@@ -564,7 +564,16 @@ async function createFanpagePost(req, env) {
                 VALUES (?, ?, 'published', ?, ?, ?)
              `).bind(job_id, pageId, result.id, now, now).run();
           }
-          results.push({ page_id: pageId, success: true, post_id: result.id });
+
+          // ✅ FIX: Trả về đầy đủ post_url để giao diện Admin hiển thị
+          const finalPostUrl = result.postUrl || `https://www.facebook.com/${result.id}`;
+          
+          results.push({ 
+              page_id: pageId, 
+              success: true, 
+              post_id: result.id,
+              post_url: finalPostUrl
+          });
         }
         
       } catch (e) {
