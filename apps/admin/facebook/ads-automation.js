@@ -24,8 +24,79 @@
     // Khởi tạo module
     init() {
       console.log('[FanpageManager] Initializing...');
+      this.loadRepository(); // ✅ Load kho nội dung ngay khi vào tab
       this.loadScheduledGroupPosts();
       this.loadFanpages();
+    },
+
+    // ✅ HÀM MỚI: Tải dữ liệu từ Kho Nội dung (Jobs)
+    async loadRepository() {
+      const container = document.getElementById('repo-table-body');
+      if (!container) return;
+      container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu kho...</td></tr>';
+
+      try {
+        // Gọi API lấy danh sách Jobs (Mỗi Job chứa video và 5 variants)
+        const r = await Admin.req('/api/auto-sync/jobs?limit=20', { method: 'GET' });
+
+        if (r && r.ok && Array.isArray(r.jobs)) {
+          this.renderRepository(r.jobs);
+        } else {
+          container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Kho nội dung trống. Hãy tạo Job mới!</td></tr>';
+        }
+      } catch (e) {
+        console.error('[FanpageManager] Load repo error:', e);
+        container.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi: ${e.message}</td></tr>`;
+      }
+    },
+
+    // ✅ HÀM MỚI: Hiển thị dữ liệu lên bảng
+    renderRepository(jobs) {
+      const container = document.getElementById('repo-table-body');
+      if (!container) return;
+
+      if (!jobs || jobs.length === 0) {
+        container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có nội dung.</td></tr>';
+        return;
+      }
+
+      container.innerHTML = jobs.map(job => {
+        const date = new Date(job.created_at).toLocaleDateString('vi-VN');
+        // Status badge color logic
+        let statusColor = '#3b82f6'; // Blue
+        if (job.status === 'published') statusColor = '#10b981'; // Green
+        if (job.status === 'assigned') statusColor = '#f59e0b'; // Orange (Pending)
+
+        return `
+          <tr>
+            <td style="padding:10px; vertical-align:middle;">
+                <div style="font-weight:bold; color:#111827; font-size:13px;">${job.product_name || 'Job #' + job.id}</div>
+                <div style="font-size:11px; color:#6b7280; margin-top:2px;">ID: ${job.id} • ${date}</div>
+            </td>
+            <td style="padding:10px; vertical-align:middle;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <a href="${job.video_r2_url}" target="_blank" style="display:block; width:40px; height:40px; background:#000; border-radius:4px; overflow:hidden; flex-shrink:0;">
+                        <video src="${job.video_r2_url}" style="width:100%; height:100%; object-fit:cover;"></video>
+                    </a>
+                    <div>
+                        <div style="font-size:12px; font-weight:600;">Video gốc</div>
+                        <div style="font-size:11px; color:#059669;">${job.total_variants || 5} variants AI</div>
+                    </div>
+                </div>
+            </td>
+            <td style="padding:10px; vertical-align:middle;">
+                <span style="padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; background:${statusColor}20; color:${statusColor}; border:1px solid ${statusColor}40;">
+                    ${job.status.toUpperCase()}
+                </span>
+            </td>
+            <td style="padding:10px; text-align:center; vertical-align:middle;">
+                <button class="btn-icon" title="Lên lịch đăng bài" onclick="FanpageManager.openScheduler(${job.id})" style="cursor:pointer; padding:6px; border:1px solid #ddd; background:#fff; border-radius:4px;">
+                    📅 Lên lịch
+                </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     },
 
     // Load danh sách bài đã lên lịch cho Group
