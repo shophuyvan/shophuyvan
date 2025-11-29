@@ -1025,8 +1025,8 @@ async function createJobFromUpload(req, env) {
       httpMetadata: { contentType: file.type }
     });
 
-    // ✅ FIX: Sử dụng domain thật từ Cloudflare R2 (theo ảnh bạn gửi)
-    const publicDomain = env.PUBLIC_R2_URL || 'https://social-videos.shophuyvan.vn';
+    // ✅ FIX: Ép cứng domain chính xác theo cấu hình Cloudflare R2
+    const publicDomain = 'https://social-videos.shophuyvan.vn';
     const r2Url = `${publicDomain}/${r2Path}`;
 
     // 3. Tạo Job

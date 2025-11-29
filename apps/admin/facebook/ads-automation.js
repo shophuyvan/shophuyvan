@@ -90,7 +90,7 @@
                 </span>
             </td>
             <td style="padding:10px; text-align:center; vertical-align:middle;">
-                <button class="btn-icon" title="Lên lịch đăng bài" onclick="FanpageManager.openScheduler(${job.id})" style="cursor:pointer; padding:6px; border:1px solid #ddd; background:#fff; border-radius:4px;">
+                <button class="btn-icon" title="Lên lịch đăng bài" onclick="FanpageManager.openScheduler(${job.id}, '${job.video_r2_url}')" style="cursor:pointer; padding:6px; border:1px solid #ddd; background:#fff; border-radius:4px;">
                     📅 Lên lịch
                 </button>
             </td>
@@ -276,82 +276,127 @@
       select.innerHTML = html;
     },
 
-    // Mở modal scheduler
-    openScheduler(jobId, postLink) {
+    // Mở modal scheduler (Đã sửa: Phân loại Video URL và Post Link)
+    openScheduler(jobId = null, data = null) {
       this.currentJobId = jobId;
       
       const modal = document.getElementById('modal-scheduler');
       if (!modal) return;
 
-      // Load fanpages nếu chưa có
-      if (this.fanpagesCache.length === 0) {
-        this.loadFanpages();
-      }
+      if (this.fanpagesCache.length === 0) this.loadFanpages();
 
-      // Set job ID và post link
+      // Reset form
       const jobIdInput = document.getElementById('sched-job-id');
-      if (jobIdInput) jobIdInput.value = jobId;
+      if (jobIdInput) jobIdInput.value = jobId || '';
+      
+      // Xóa dữ liệu cũ
+      delete modal.dataset.postLink;
+      delete modal.dataset.videoUrl;
 
-      // Lưu post link để dùng khi submit
-      modal.dataset.postLink = postLink;
+      // Phân loại dữ liệu đầu vào
+      if (data) {
+        // Nếu là URL video (có đuôi mp4 hoặc chứa /videos/)
+        if (data.includes('.mp4') || data.includes('/videos/')) {
+            modal.dataset.videoUrl = data; // ✅ Đây là Video để đăng mới
+        } else {
+            modal.dataset.postLink = data; // Đây là Link bài viết để share
+        }
+      }
 
       modal.style.display = 'flex';
     },
 
-    // Submit lịch đăng bài
+    // Submit lịch đăng bài (Nâng cấp: Hỗ trợ Đăng Fanpage & Share Group)
     async submitSchedule() {
       const fanpageSelect = document.getElementById('sched-fanpage-select');
       const groupSelect = document.getElementById('sched-group-select');
       const timeInput = document.getElementById('sched-time');
       const captionInput = document.getElementById('sched-share-msg');
       const modal = document.getElementById('modal-scheduler');
+      const jobIdInput = document.getElementById('sched-job-id');
 
       const fanpageId = fanpageSelect?.value;
       const groupId = groupSelect?.value;
       const scheduledTime = timeInput?.value;
       const caption = captionInput?.value?.trim() || '';
-      const postLink = modal?.dataset?.postLink || '';
+      
+      // Lấy dữ liệu từ dataset (đã được set ở bước openScheduler)
+      const postLink = modal?.dataset?.postLink;
+      const videoUrl = modal?.dataset?.videoUrl;
+      const jobId = jobIdInput?.value;
 
       if (!fanpageId) {
         toast('❌ Vui lòng chọn fanpage');
         return;
       }
 
+      // Xử lý thời gian
+      let timestamp = null;
+      if (scheduledTime) {
+        timestamp = new Date(scheduledTime).getTime();
+        if (timestamp < Date.now()) {
+           // Nếu thời gian quá khứ -> Đăng ngay (Facebook xử lý)
+        }
+      }
+
+      // === TRƯỜNG HỢP 1: ĐĂNG BÀI MỚI TỪ KHO (Có Video URL) ===
+      // Đây là trường hợp bạn đang cần (không cần Group ID)
+      if (videoUrl) {
+          const btn = document.querySelector('#modal-scheduler .btn.green');
+          if(btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+          try {
+             // Gọi API tạo bài viết mới
+             const r = await Admin.req('/admin/facebook/posts', {
+                method: 'POST',
+                body: {
+                    fanpage_ids: [fanpageId],
+                    caption: caption || 'Video hay mỗi ngày! 🎬',
+                    media_type: 'video',
+                    custom_media_url: videoUrl,
+                    scheduled_publish_time: timestamp ? Math.floor(timestamp / 1000) : null
+                }
+             });
+
+             if (r && r.ok) {
+                 toast('✅ Đã lên lịch đăng bài thành công!');
+                 modal.style.display = 'none';
+                 // Reset form
+                 timeInput.value = '';
+                 captionInput.value = '';
+                 this.loadScheduledGroupPosts(); // Refresh list
+             } else {
+                 toast('❌ Lỗi: ' + (r.error?.message || r.error || 'Không thể đăng bài'));
+             }
+          } catch(e) {
+             toast('❌ Lỗi hệ thống: ' + e.message);
+          } finally {
+             if(btn) { btn.disabled = false; btn.textContent = '💾 Lưu & Kích hoạt'; }
+          }
+          return; // Kết thúc xử lý
+      }
+
+      // === TRƯỜNG HỢP 2: SHARE BÀI VÀO GROUP (Logic cũ) ===
       if (!groupId) {
-        toast('❌ Vui lòng chọn nhóm');
+        toast('❌ Vui lòng chọn nhóm (để share)');
         return;
       }
 
       if (!postLink) {
-        toast('❌ Không tìm thấy link bài đăng');
+        toast('❌ Không tìm thấy link bài đăng gốc');
         return;
       }
-
-      // Chuyển đổi datetime-local sang timestamp
-      let timestamp = Date.now();
-      if (scheduledTime) {
-        timestamp = new Date(scheduledTime).getTime();
-        
-        if (timestamp < Date.now()) {
-          toast('⚠️ Thời gian đã qua, sẽ đăng ngay lập tức');
-          timestamp = Date.now();
-        }
-      }
-
-      // Lấy tên fanpage
-      const selectedOption = fanpageSelect.options[fanpageSelect.selectedIndex];
-      const fanpageName = selectedOption?.dataset?.name || 'Unknown';
 
       try {
         const r = await Admin.req('/admin/facebook/scheduler/group-posts', {
           method: 'POST',
           body: {
             fanpage_id: fanpageId,
-            fanpage_name: fanpageName,
+            fanpage_name: fanpageSelect.options[fanpageSelect.selectedIndex]?.text,
             group_ids: [groupId],
             post_link: postLink,
             caption: caption,
-            scheduled_time: timestamp
+            scheduled_time: timestamp || Date.now()
           }
         });
 
@@ -360,7 +405,6 @@
           modal.style.display = 'none';
           
           // Reset form
-          fanpageSelect.selectedIndex = 0;
           groupSelect.selectedIndex = 0;
           timeInput.value = '';
           captionInput.value = '';
@@ -374,152 +418,6 @@
         console.error('[FanpageManager] Submit error:', e);
         toast('❌ Lỗi: ' + e.message);
       }
-    },
-
-    // AI tạo caption cho group seeding
-    async aiGroupCaption() {
-      const btn = document.getElementById('btn-ai-seed');
-      const input = document.getElementById('sched-share-msg');
-      
-      if (!input) return;
-
-      const modal = document.getElementById('modal-scheduler');
-      const postLink = modal?.dataset?.postLink || '';
-
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ Đang tạo...';
-      }
-
-      try {
-        const r = await Admin.req('/admin/facebook/ai-caption', {
-          method: 'POST',
-          body: {
-            type: 'group_seeding',
-            post_link: postLink
-          }
-        });
-
-        if (r && r.ok && r.caption) {
-          input.value = r.caption;
-          toast('✅ Đã tạo caption');
-        } else {
-          toast('❌ ' + (r.error || 'Tạo caption thất bại'));
-        }
-      } catch (e) {
-        console.error('[FanpageManager] AI caption error:', e);
-        toast('❌ Lỗi: ' + e.message);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = '✨ AI Viết';
-        }
-      }
-    },
-
-    // Retry scheduled post bị lỗi
-    async retryScheduledPost(id) {
-      if (!confirm('Thử lại đăng bài này?')) return;
-
-      try {
-        const r = await Admin.req('/admin/facebook/scheduler/retry-group', {
-          method: 'POST',
-          body: { id }
-        });
-
-        if (r && r.ok) {
-          toast('✅ Đã đưa vào hàng đợi thử lại');
-          this.loadScheduledGroupPosts();
-        } else {
-          toast('❌ ' + (r.error || 'Retry thất bại'));
-        }
-      } catch (e) {
-        toast('❌ Lỗi: ' + e.message);
-      }
-    },
-
-    // Xóa scheduled post
-    async deleteScheduledPost(id) {
-      if (!confirm('Xóa lịch đăng bài này?')) return;
-
-      try {
-        const r = await Admin.req(`/admin/facebook/scheduler/group-posts/${id}`, {
-          method: 'DELETE'
-        });
-
-        if (r && r.ok) {
-          toast('✅ Đã xóa');
-          this.loadScheduledGroupPosts();
-        } else {
-          toast('❌ ' + (r.error || 'Xóa thất bại'));
-        }
-      } catch (e) {
-        toast('❌ Lỗi: ' + e.message);
-      }
-    },
-
-    // Load scheduled posts với filter (cho dropdown filter)
-    async loadScheduledPosts() {
-      const statusFilter = document.getElementById('filter-post-status');
-      const status = statusFilter ? statusFilter.value : null;
-      
-      if (status) {
-        this.loadScheduledGroupPosts(); // Reload với filter nếu cần
-      } else {
-        this.loadScheduledGroupPosts();
-      }
-    },
-
-    // Tìm kiếm viral content
-    searchViral() {
-      const keyword = document.getElementById('viralKeyword')?.value?.trim();
-      
-      if (!keyword) {
-        toast('❌ Vui lòng nhập từ khóa tìm kiếm');
-        return;
-      }
-
-      const resultsContainer = document.getElementById('viralResults');
-      if (resultsContainer) {
-        resultsContainer.innerHTML = '<div class="loading">🔍 Đang tìm kiếm viral content...</div>';
-        
-        // TODO: Implement viral search API
-        setTimeout(() => {
-          resultsContainer.innerHTML = `
-            <div class="alert alert-info">
-              🚧 Tính năng đang phát triển<br/>
-              Sẽ tìm kiếm content viral theo từ khóa: <strong>${keyword}</strong>
-            </div>
-          `;
-        }, 1000);
-      }
-    },
-
-    // Mở modal scheduler (không cần params)
-    openScheduler(jobId = null, postLink = null) {
-      if (jobId) {
-        this.currentJobId = jobId;
-      }
-      
-      const modal = document.getElementById('modal-scheduler');
-      if (!modal) return;
-
-      // Load fanpages nếu chưa có
-      if (this.fanpagesCache.length === 0) {
-        this.loadFanpages();
-      }
-
-      // Set job ID và post link nếu có
-      const jobIdInput = document.getElementById('sched-job-id');
-      if (jobIdInput && jobId) {
-        jobIdInput.value = jobId;
-      }
-
-      if (postLink) {
-        modal.dataset.postLink = postLink;
-      }
-
-      modal.style.display = 'flex';
     },
 
     // Bắt đầu seeding
