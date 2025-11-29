@@ -49,11 +49,11 @@
         
         if (r && r.ok && r.data && r.data.length > 0) {
           list.innerHTML = r.data.map(p => `
-            <div class="product-option" onclick="InputWizard.selectProduct(${p.id}, '${p.title}', '${p.sku}', ${p.price}, '${p.image}')">
-                <img src="${p.image || '/placeholder.jpg'}">
+            <div class="product-option" onclick="InputWizard.selectProduct(${p.id}, '${p.title}', '${p.sku}', ${p.price}, '${p.image}')" style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #eee; cursor:pointer;">
+                <img src="${p.image || '/placeholder.jpg'}" style="width:50px; height:50px; object-fit:cover; border-radius:4px; flex-shrink:0;">
                 <div>
-                    <div style="font-weight:600; font-size:13px; color:#1f2937;">${p.title}</div>
-                    <div style="font-size:11px; color:#059669;">SKU: ${p.sku} • ${formatVND(p.price)}</div>
+                    <div style="font-weight:600; font-size:13px; color:#1f2937; line-height:1.2;">${p.title}</div>
+                    <div style="font-size:11px; color:#059669; margin-top:3px;">SKU: ${p.sku} • ${formatVND(p.price)}</div>
                 </div>
             </div>
           `).join('');
