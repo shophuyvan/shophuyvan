@@ -354,6 +354,7 @@
                     caption: caption || 'Video hay mỗi ngày! 🎬',
                     media_type: 'video',
                     custom_media_url: videoUrl,
+                    job_id: jobId, // ✅ Bổ sung job_id để Backend không báo lỗi 400
                     scheduled_publish_time: timestamp ? Math.floor(timestamp / 1000) : null
                 }
              });
