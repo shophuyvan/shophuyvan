@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="./ads-analytics-ui.css?v=1"/>
   <script src="../admin_real.js?v=25"></script>
   <script src="../sidebar-layout.js"></script>
-  <script src="./ads_real.js?v=1"></script>
+  <script src="./ads_real.js?v=2"></script>
+  <script src="./auto-sync-wizard.js?v=1"></script>  <!-- ✅ THÊM DÒNG NÀY -->
   <script src="./ads-dashboard.js?v=1"></script>
   <script src="./ads-automation.js?v=1"></script>
   <script src="./ads-creative-library.js?v=1"></script>
@@ -305,12 +306,8 @@
                     <tbody id="wiz-fanpage-list"></tbody>
                 </table>
 
-                <div style="background:#f0f9ff; padding:15px; border-radius:8px; margin-top:20px; border:1px solid #bae6fd;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span>🕒 <strong>Hẹn giờ đăng (Tùy chọn):</strong></span>
-                        <input type="datetime-local" id="wiz-schedule-time" class="input" style="width:200px;">
-                        <span style="font-size:12px; color:#666;">(Để trống = Đăng ngay)</span>
-                    </div>
+                <div style="background:#d1fae5; padding:12px; border-radius:8px; margin-top:15px; border:1px solid #86efac;">
+                    💡 <strong>Lưu ý:</strong> Sau khi lưu, bạn có thể lên lịch đăng bài chi tiết tại tab <strong>"Quản lý Fanpage"</strong>.
                 </div>
 
                 <div style="display:flex; justify-content:space-between; margin-top:20px;">
@@ -816,10 +813,15 @@
 // Logic đã được chuyển sang ads_real.js
 // File này chỉ còn phục vụ mục đích tham khảo cấu trúc HTML
 
-// ✅ INIT SIDEBAR LAYOUT
+// ✅ INIT SIDEBAR LAYOUT & WIZARD
 document.addEventListener('DOMContentLoaded', function() {
   if (window.AdminLayout) {
     AdminLayout.init('Quảng cáo Facebook');
+  }
+  
+  // ✅ Khởi tạo Wizard nếu có
+  if (window.AutoSyncWizard && typeof AutoSyncWizard.init === 'function') {
+    console.log('[Wizard] Module loaded, ready to init on tab switch');
   }
 });
 
