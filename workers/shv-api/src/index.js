@@ -568,7 +568,7 @@ export default {
           
           if (!tableCheck) {
             // Bảng chưa tồn tại, trả về mảng rỗng thay vì lỗi
-            return json({ ok: true, posts: [] }, req);
+            return json({ ok: true, posts: [] }, {}, req);
           }
           
           const url = new URL(req.url);
@@ -576,10 +576,10 @@ export default {
           const status = url.searchParams.get('status');
           
           const posts = await FBGroupManager.getScheduledGroupPosts(env, { fanpage_id, status });
-          return json({ ok: true, posts }, req);
+          return json({ ok: true, posts }, {}, req);
         } catch (error) {
           console.error('[Get Scheduled Posts Error]', error);
-          return json({ ok: false, error: error.message }, req);
+          return json({ ok: false, error: error.message }, { status: 500 }, req);
         }
       }
       
