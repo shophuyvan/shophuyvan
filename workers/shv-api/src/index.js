@@ -23,7 +23,16 @@ import * as FBAuth from './modules/facebook/fb-auth.js';
 import * as FBAds from './modules/facebook/fb-ads.js';
 import * as FBAdsAuto from './modules/facebook/fb-ads-automation.js';
 import * as FBAdsCreative from './modules/facebook/fb-ads-creative.js';
-import { publishScheduledGroupPosts, getScheduledGroupPosts } from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT HẸN GIỜ CHO GROUPS
+import { 
+  publishScheduledGroupPosts, 
+  getScheduledGroupPosts,
+  createScheduledGroupPost,
+  deleteScheduledGroupPost,
+  retryScheduledGroupPost,
+  scheduleBatchPosts,
+  getScheduledPosts,
+  retryFailedPost
+} from './modules/facebook/fb-scheduler-handler.js'; // ✅ IMPORT HẸN GIỜ CHO GROUPS
 import * as FBGroupManager from './modules/facebook/fb-group-manager.js'; // ✅ IMPORT GROUP MANAGER
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
@@ -521,6 +530,36 @@ export default {
       
       // API: Lấy danh sách scheduled posts
       if (path === '/api/facebook/groups/scheduled' && method === 'GET') {
+        try {
+          // Kiểm tra xem bảng có tồn tại không
+          const tableCheck = await env.DB.prepare(`
+            SELECT name FROM sqlite_master WHERE type='table' AND name='scheduled_group_posts'
+          `).first();
+          
+          if (!tableCheck) {
+            // Bảng chưa tồn tại, trả về mảng rỗng thay vì lỗi
+            return json({ ok: true, posts: [] }, req);
+          }
+          
+          const url = new URL(req.url);
+          const fanpage_id = url.searchParams.get('fanpage_id');
+          const status = url.searchParams.get('status');
+          
+          const posts = await FBGroupManager.getScheduledGroupPosts(env, { fanpage_id, status });
+          return json({ ok: true, posts }, req);
+        } catch (error) {
+          console.error('[Get Scheduled Posts Error]', error);
+          return json({ ok: false, error: error.message }, req);
+        }
+      }
+      
+      // ADMIN API: Lấy danh sách scheduled posts (với permission check)
+      if (path === '/admin/facebook/groups/scheduled' && method === 'GET') {
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) {
+          return json(permCheck, { status: permCheck.status }, req);
+        }
+        
         try {
           // Kiểm tra xem bảng có tồn tại không
           const tableCheck = await env.DB.prepare(`
