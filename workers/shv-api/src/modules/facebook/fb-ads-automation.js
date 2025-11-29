@@ -4,7 +4,7 @@
 
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
-import { getJSON, putJSON } from '../../lib/kv.js';
+import { getSetting, setSetting } from '../settings.js'; // ✅ Dùng Helper D1
 
 /**
  * Main handler for automation routes
@@ -64,7 +64,7 @@ async function getAutomationRules(req, env) {
   }
 
   try {
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     
     return json({
       ok: true,
@@ -111,10 +111,10 @@ async function createAutomationRule(req, env) {
       updated_at: new Date().toISOString()
     };
 
-    // Save to KV
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    // Save to D1
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     rules.push(rule);
-    await putJSON(env, 'facebook:automation:rules', rules);
+    await setSetting(env, 'facebook_automation_rules', rules, 'Facebook Automation Rules');
 
     return json({
       ok: true,
@@ -137,7 +137,7 @@ async function toggleAutomationRule(req, env, ruleId) {
     const body = await req.json();
     const { enabled } = body;
 
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     const ruleIndex = rules.findIndex(r => r.id === ruleId);
 
     if (ruleIndex === -1) {
@@ -147,7 +147,7 @@ async function toggleAutomationRule(req, env, ruleId) {
     rules[ruleIndex].enabled = enabled !== false;
     rules[ruleIndex].updated_at = new Date().toISOString();
 
-    await putJSON(env, 'facebook:automation:rules', rules);
+    await setSetting(env, 'facebook_automation_rules', rules);
 
     return json({
       ok: true,
@@ -166,14 +166,14 @@ async function deleteAutomationRule(req, env, ruleId) {
   }
 
   try {
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     const newRules = rules.filter(r => r.id !== ruleId);
 
     if (newRules.length === rules.length) {
       return json({ ok: false, error: 'Không tìm thấy rule' }, { status: 404 }, req);
     }
 
-    await putJSON(env, 'facebook:automation:rules', newRules);
+    await setSetting(env, 'facebook_automation_rules', newRules);
 
     return json({
       ok: true,
@@ -196,7 +196,7 @@ async function getCampaignSchedules(req, env) {
   }
 
   try {
-    const schedules = await getJSON(env, 'facebook:automation:schedules', []);
+    const schedules = await getSetting(env, 'facebook_automation_schedules', []);
     
     return json({
       ok: true,
@@ -246,10 +246,10 @@ async function createCampaignSchedule(req, env) {
       created_at: new Date().toISOString()
     };
 
-    // Save to KV
-    const schedules = await getJSON(env, 'facebook:automation:schedules', []);
+    // Save to D1 schedules
+    const schedules = await getSetting(env, 'facebook_automation_schedules', []);
     schedules.push(schedule);
-    await putJSON(env, 'facebook:automation:schedules', schedules);
+    await setSetting(env, 'facebook_automation_schedules', schedules, 'Facebook Schedules');
 
     return json({
       ok: true,
@@ -320,7 +320,7 @@ async function executeAutoPauseRules(env) {
   const results = [];
   
   try {
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     const autoPauseRules = rules.filter(r => r.type === 'auto_pause' && r.enabled);
 
     for (const rule of autoPauseRules) {
@@ -358,7 +358,7 @@ async function executeBudgetScaleRules(env) {
   const results = [];
   
   try {
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     const budgetScaleRules = rules.filter(r => r.type === 'budget_scale' && r.enabled);
 
     for (const rule of budgetScaleRules) {
@@ -449,7 +449,7 @@ async function executeABOptimization(env) {
   const results = [];
   
   try {
-    const rules = await getJSON(env, 'facebook:automation:rules', []);
+    const rules = await getSetting(env, 'facebook_automation_rules', []);
     const abOptimizeRules = rules.filter(r => r.type === 'ab_optimize' && r.enabled);
 
     for (const rule of abOptimizeRules) {

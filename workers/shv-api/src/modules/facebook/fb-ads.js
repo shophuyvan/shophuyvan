@@ -4,7 +4,7 @@
 
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
-import { getSetting } from '../settings.js'; // ✅ Dùng Helper D1
+import { getSetting, setSetting } from '../settings.js';
 import { readBody } from '../../lib/utils.js';
 
 /**
@@ -276,7 +276,7 @@ async function testFacebookConnection(req, env) {
 }
 
 // ===================================================================
-// LIST CAMPAIGNS
+// LIST CAMPAIGNS (D1)
 // ===================================================================
 
 async function listCampaigns(req, env) {
@@ -285,93 +285,15 @@ async function listCampaigns(req, env) {
   }
 
   try {
-    console.log('[FB Ads] listCampaigns called');
+    // Lấy danh sách campaign đã lưu trong D1
+    const campaigns = await getSetting(env, 'facebook_campaigns_list', []);
 
-    const creds = await getFBCredentials(env);
-
-    // LOG CHI TIẾT CREDENTIALS (không dùng try lồng, tránh lỗi cú pháp)
-    console.log('[FB Ads] Raw creds from KV / ENV (listCampaigns):', creds);
-
-    // Auto-fix Ad Account ID format (dùng optional chaining cho an toàn)
-    let adAccountId = creds?.ad_account_id || null;
-    if (adAccountId && !adAccountId.startsWith('act_')) {
-      adAccountId = `act_${adAccountId}`;
-      console.log('[FB Ads] Auto-fixed Ad Account ID:', adAccountId);
-    }
-    
-    console.log('[FB Ads] Credentials check:', { 
-      hasCreds: !!creds, 
-      hasToken: !!(creds && creds.access_token),
-      hasAdAccount: !!adAccountId,
-      adAccountId: adAccountId
-    });
-    
-    if (!creds || !creds.access_token) {
-      return json({ ok: false, error: 'Chưa cấu hình credentials (settings:facebook_ads)' }, { status: 400 }, req);
-    }
-
-    // --- SELF-HEALING: Tự động lấy Ad Account ID nếu thiếu ---
-    if (!adAccountId) {
-      console.log('[FB Ads] Missing Ad Account ID, fetching from /me/adaccounts...');
-      const meAccounts = await callFacebookAPI('me/adaccounts', 'GET', { 
-        fields: 'account_id,id,name', 
-        access_token: creds.access_token 
-      });
-      
-      if (meAccounts && meAccounts.data && meAccounts.data.length > 0) {
-        // Lấy tài khoản đầu tiên tìm thấy
-        adAccountId = meAccounts.data[0].id; // id có dạng 'act_...'
-        console.log('[FB Ads] Auto-detected Ad Account:', adAccountId);
-        
-        // (Tùy chọn) Lưu lại vào DB để lần sau không phải fetch nữa
-        // await saveSetting(env, 'facebook_ads_token', { ...creds, ad_account_id: adAccountId });
-      } else {
-        return json({ 
-          ok: false, 
-          error: 'Không tìm thấy Tài khoản Quảng cáo nào. Vui lòng tạo tài khoản trên Facebook Business Manager.',
-          need_config: true 
-        }, { status: 400 }, req);
-      }
-    }
-    // ---------------------------------------------------------
-
-    const result = await callFacebookAPI(
-      `${adAccountId}/campaigns`,
-      'GET',
-      {
-        fields: 'id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time,created_time,updated_time',
-        access_token: creds.access_token
-      },
-      creds.access_token
-    );
-
-    console.log('[FB Ads] Facebook API result:', JSON.stringify(result).substring(0, 500));
-
-    if (result.error) {
-      console.error('[FB Ads] Facebook API error:', result.error);
-      
-      let userMessage = result.error.message || 'Unknown error';
-      
-      // Friendly error messages
-      if (result.error.code === 100 && result.error.error_subcode === 33) {
-        userMessage = '❌ Ad Account ID không hợp lệ hoặc thiếu quyền truy cập. Vui lòng kiểm tra:\n' +
-          '1. Ad Account ID phải có dạng: act_XXXXXXXXXX\n' +
-          '2. Access Token phải có quyền truy cập Ad Account này\n' +
-          '3. Kiểm tra tại: https://business.facebook.com/settings/ad-accounts';
-      }
-      
-      return json({ 
-        ok: false, 
-        error: 'Facebook API Error',
-        details: result.error,
-        message: userMessage
-      }, { status: 400 }, req);
-    }
-
+    // Nếu muốn đồng bộ trạng thái thực tế từ FB, có thể gọi API ở đây để update lại D1
+    // Nhưng để nhanh, ta trả về data từ D1 trước
     return json({
       ok: true,
-      campaigns: result.data || [],
-      total: result.data?.length || 0
+      campaigns: campaigns,
+      total: campaigns.length
     }, {}, req);
 
   } catch (e) {
@@ -678,7 +600,8 @@ async function createABTest(req, env) {
     const creds = await getFBCredentials(env);
     if (!creds) return errorResponse('Chưa cấu hình credentials', 400, req);
     
-    const product = await getJSON(env, `product:${product_id}`, null);
+    // ✅ D1 Query: Lấy sản phẩm trực tiếp từ Database
+    const product = await env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(product_id).first();
     if (!product) return errorResponse('Không tìm thấy sản phẩm', 404, req);
 
     // 1. Tạo Campaign
@@ -1085,10 +1008,13 @@ async function createCampaign(req, env) {
 
     // 3. Create Ads for each product
     const adsCreated = [];
-    for (const productId of product_ids.slice(0, 10)) { // Limit 10 products per campaign
+    for (const productId of product_ids.slice(0, 10)) {
       try {
-        const product = await getJSON(env, `product:${productId}`, null);
+        // ✅ D1: Lấy product và variants
+        const product = await env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(productId).first();
         if (!product) continue;
+        const { results: variants } = await env.DB.prepare("SELECT * FROM variants WHERE product_id = ?").bind(productId).all();
+        product.variants = variants || [];
 
         const adResult = await createAdForProduct(
           env,
@@ -1105,7 +1031,7 @@ async function createCampaign(req, env) {
       }
     }
 
-    // 4. Save campaign info to KV
+    // 4. Save campaign info to D1 (Settings Table)
     const campaignData = {
       id: campaignId,
       name: name,
@@ -1117,12 +1043,12 @@ async function createCampaign(req, env) {
       created_at: new Date().toISOString()
     };
 
-    await putJSON(env, `facebook:campaign:${campaignId}`, campaignData);
-
-    // Update campaigns list
-    const listData = await getJSON(env, 'facebook:campaigns:list', []);
-    listData.unshift(campaignId);
-    await putJSON(env, 'facebook:campaigns:list', listData);
+    // Lấy danh sách cũ từ D1
+    const listData = await getSetting(env, 'facebook_campaigns_list', []);
+    // Thêm mới vào đầu
+    listData.unshift(campaignData);
+    // Lưu lại vào D1
+    await setSetting(env, 'facebook_campaigns_list', listData, 'Danh sách Facebook Campaigns');
 
     return json({
       ok: true,
@@ -1146,8 +1072,18 @@ async function createAdForProduct(env, creds, adSetId, product) {
     const image = (product.images && product.images[0]) || '';
     const productUrl = `https://shophuyvan.vn/product/${product.slug || product.id}`;
 
-    // Format price - LƯU Ý: Giá chỉ có trong variants, không có ở product
-    const price = (product.variants && product.variants[0] && product.variants[0].price) || 0;
+    // ✅ Lấy giá từ variants D1 (Ưu tiên giá Sale)
+    let price = 0;
+    if (product.variants && product.variants.length > 0) {
+        // Tìm giá thấp nhất đang active
+        const activeVars = product.variants.filter(v => v.status !== 'inactive');
+        const prices = (activeVars.length ? activeVars : product.variants).map(v => {
+             const s = Number(v.price_sale) || 0;
+             const r = Number(v.price) || 0;
+             return (s > 0 && s < r) ? s : r;
+        }).filter(p => p > 0);
+        price = prices.length > 0 ? Math.min(...prices) : 0;
+    }
     const priceStr = new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND'
@@ -1245,12 +1181,13 @@ async function toggleCampaign(req, env, campaignId, action) {
       return json({ ok: false, error: result.error }, { status: 400 }, req);
     }
 
-    // Update local cache
-    const campaignData = await getJSON(env, `facebook:campaign:${campaignId}`, null);
-    if (campaignData) {
-      campaignData.status = status;
-      campaignData.updated_at = new Date().toISOString();
-      await putJSON(env, `facebook:campaign:${campaignId}`, campaignData);
+    // ✅ Update local cache (D1 Settings)
+    const campaigns = await getSetting(env, 'facebook_campaigns_list', []);
+    const idx = campaigns.findIndex(c => c.id === campaignId);
+    if (idx !== -1) {
+      campaigns[idx].status = status;
+      campaigns[idx].updated_at = new Date().toISOString();
+      await setSetting(env, 'facebook_campaigns_list', campaigns);
     }
 
     return json({
@@ -1347,12 +1284,10 @@ async function deleteCampaign(req, env, campaignId) {
       return json({ ok: false, error: result.error }, { status: 400 }, req);
     }
 
-    // Delete from KV
-    await env.SHV.delete(`facebook:campaign:${campaignId}`);
-
-    const listData = await getJSON(env, 'facebook:campaigns:list', []);
-    const newList = listData.filter(id => id !== campaignId);
-    await putJSON(env, 'facebook:campaigns:list', newList);
+    // ✅ Delete from D1 Settings
+    const listData = await getSetting(env, 'facebook_campaigns_list', []);
+    const newList = listData.filter(c => c.id !== campaignId);
+    await setSetting(env, 'facebook_campaigns_list', newList);
 
     return json({
       ok: true,
@@ -1531,7 +1466,7 @@ async function listFanpages(req, env) {
   }
 
   try {
-    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+    const fanpages = await getSetting(env, 'facebook_fanpages_list', []);
     
     return json({
       ok: true,
@@ -1564,7 +1499,7 @@ async function addFanpage(req, env) {
     }
 
     // Get current list
-    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+    const fanpages = await getSetting(env, 'facebook_fanpages_list', []);
 
     // Check duplicate
     if (fanpages.find(fp => fp.page_id === page_id)) {
@@ -1612,7 +1547,7 @@ async function deleteFanpage(req, env, fanpageId) {
 
   try {
     // Get current list
-    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+    const fanpages = await getSetting(env, 'facebook_fanpages_list', []);
 
     // Find fanpage
     const fanpage = fanpages.find(fp => fp.id === fanpageId);
@@ -1663,7 +1598,7 @@ async function setDefaultFanpage(req, env, fanpageId) {
 
   try {
     // Get current list
-    const fanpages = await getJSON(env, 'facebook:fanpages:list', []);
+    const fanpages = await getSetting(env, 'facebook_fanpages_list', []);
 
     // Find fanpage
     const fanpage = fanpages.find(fp => fp.id === fanpageId);
@@ -1717,13 +1652,14 @@ async function createAd(req, env) {
       return json({ ok: false, error: 'Chưa cấu hình credentials' }, { status: 400 }, req);
     }
 
-    const product = await getJSON(env, `product:${product_id}`, null);
+    // ✅ D1 Query: Lấy sản phẩm và variants (để tính giá)
+    const product = await env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(product_id).first();
     if (!product) {
-      return json({
-        ok: false,
-        error: 'Không tìm thấy sản phẩm'
-      }, { status: 404 }, req);
+      return json({ ok: false, error: 'Không tìm thấy sản phẩm' }, { status: 404 }, req);
     }
+    // Lấy variants để hàm createAdForProduct có thể tính giá đúng
+    const { results: variants } = await env.DB.prepare("SELECT * FROM variants WHERE product_id = ?").bind(product_id).all();
+    product.variants = variants || [];
 
     const adResult = await createAdForProduct(env, creds, ad_set_id, product);
 

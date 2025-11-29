@@ -4,7 +4,7 @@
 
 import { json, errorResponse } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
-import { getJSON, putJSON } from '../../lib/kv.js';
+import { getSetting, setSetting } from '../settings.js'; // ✅ Dùng Helper D1
 
 /**
  * Main handler for creative routes
@@ -92,8 +92,8 @@ async function uploadCreative(req, env) {
       created_at: new Date().toISOString()
     };
 
-    // Get current list
-    const creatives = await getJSON(env, 'facebook:creatives:list', []);
+    // ✅ D1: Get current list from Settings
+    const creatives = await getSetting(env, 'facebook_creatives_list', []);
     creatives.unshift(creative);
     
     // Keep only last 100
@@ -101,7 +101,8 @@ async function uploadCreative(req, env) {
       creatives.splice(100);
     }
 
-    await putJSON(env, 'facebook:creatives:list', creatives);
+    // ✅ D1: Save back to Settings
+    await setSetting(env, 'facebook_creatives_list', creatives, 'Kho Creatives Facebook');
 
     return json({
       ok: true,
@@ -172,7 +173,7 @@ async function listCreatives(req, env) {
   }
 
   try {
-    const creatives = await getJSON(env, 'facebook:creatives:list', []);
+    const creatives = await getSetting(env, 'facebook_creatives_list', []);
 
     return json({
       ok: true,
@@ -196,14 +197,14 @@ async function deleteCreative(req, env, creativeId) {
   }
 
   try {
-    const creatives = await getJSON(env, 'facebook:creatives:list', []);
+    const creatives = await getSetting(env, 'facebook_creatives_list', []);
     const newCreatives = creatives.filter(c => c.id !== creativeId);
 
     if (newCreatives.length === creatives.length) {
       return json({ ok: false, error: 'Không tìm thấy creative' }, { status: 404 }, req);
     }
 
-    await putJSON(env, 'facebook:creatives:list', newCreatives);
+    await setSetting(env, 'facebook_creatives_list', newCreatives, 'Kho Creatives Facebook');
 
     return json({
       ok: true,
@@ -237,12 +238,15 @@ async function bulkCreateAds(req, env) {
       return json({ ok: false, error: 'Tối đa 20 sản phẩm' }, { status: 400 }, req);
     }
 
-    // Load products
+    // Load products from D1
     const products = [];
     for (const pid of product_ids) {
-      const product = await getJSON(env, `product:${pid}`, null);
+      const product = await env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(pid).first();
       if (product) {
-        products.push(product);
+         // Load variants để lấy giá nếu cần logic sâu hơn
+         const { results: variants } = await env.DB.prepare("SELECT * FROM variants WHERE product_id = ?").bind(pid).all();
+         product.variants = variants || [];
+         products.push(product);
       }
     }
 
