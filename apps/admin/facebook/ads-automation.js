@@ -285,10 +285,13 @@
 
       if (this.fanpagesCache.length === 0) this.loadFanpages();
 
-      // Reset form
+     // Reset form
       const jobIdInput = document.getElementById('sched-job-id');
       if (jobIdInput) jobIdInput.value = jobId || '';
-      
+
+      // ✅ Lưu Job ID vào dataset để dùng khi bấm Lưu
+      if (jobId) modal.dataset.jobId = jobId;
+
       // Xóa dữ liệu cũ
       delete modal.dataset.postLink;
       delete modal.dataset.videoUrl;
