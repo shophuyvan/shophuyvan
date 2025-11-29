@@ -87,56 +87,76 @@
         }
     },
 
-    // Upload & Tạo Job
+   // Upload 2 bước: Stream -> Finalize
     async submit() {
       const productId = document.getElementById('wiz-selected-product-id').value;
       const fileInput = document.getElementById('wiz-video-file');
       const file = fileInput.files[0];
 
-      if (!productId) { toast('❌ Chưa chọn sản phẩm!'); return; }
-      if (!file) { toast('❌ Chưa chọn file Video!'); return; }
+      if (!productId || !file) { toast('❌ Thiếu dữ liệu!'); return; }
 
       const btn = document.getElementById('wiz-btn-submit');
-      const oldText = btn.innerText;
+      const oldText = btn.innerHTML;
       btn.disabled = true;
-      btn.innerText = '⏳ Đang tải lên R2... (Đừng tắt)';
 
       try {
-        const formData = new FormData();
-        formData.append('productId', productId);
-        formData.append('videoFile', file);
-
-        // API này sẽ: Upload R2 -> Tạo Job -> Lưu Link SP
-        // ✅ FIX: Lấy token trực tiếp từ biến Admin hoặc LocalStorage để tránh lỗi getToken()
-        const token = (window.Admin && Admin.token) ? Admin.token : (localStorage.getItem('admin_token') || '');
-        
-        const r = await fetch(API + '/api/auto-sync/jobs/create-upload', {
+        // BƯỚC 1: Lấy URL upload
+        btn.innerHTML = '⏳ Đang khởi tạo...';
+        const r1 = await Admin.req('/api/auto-sync/jobs/get-upload-url', {
             method: 'POST',
-            headers: { 'X-Token': token },
-            body: formData
+            body: { fileName: file.name, fileType: file.type }
         });
-        
-        const data = await r.json();
 
-        if (r.ok && data.ok) {
-            btn.innerText = '🤖 Đang viết nội dung AI...';
-            // Trigger AI tạo variants ngay lập tức
-            await Admin.req(`/api/auto-sync/jobs/${data.jobId}/generate-variants`, { method: 'POST' });
-            
-            toast('✅ Tạo Job thành công! Video đã sẵn sàng.');
-            this.close();
-            FanpageManager.loadRepository();
-        } else {
-            toast('❌ Lỗi: ' + (data.error || 'Upload thất bại'));
-        }
+        if (!r1 || !r1.ok) throw new Error(r1.error || 'Không lấy được URL upload');
+
+        // BƯỚC 2: Upload Binary trực tiếp (Có thanh tiến trình)
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', API + r1.uploadEndpoint, true);
+        xhr.setRequestHeader('X-Token', (window.Admin && Admin.token) || localStorage.getItem('admin_token'));
+        xhr.setRequestHeader('Content-Type', file.type);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const p = Math.round((e.loaded / e.total) * 100);
+                btn.innerHTML = `🚀 Đang tải lên: ${p}%`;
+            }
+        };
+
+        xhr.onload = async () => {
+            if (xhr.status === 200) {
+                // BƯỚC 3: Xác nhận xong -> Tạo Job
+                btn.innerHTML = '🤖 Đang xử lý AI...';
+                const r2 = await Admin.req('/api/auto-sync/jobs/finalize-upload', {
+                    method: 'POST',
+                    body: { productId, fileKey: r1.fileKey, fileSize: file.size }
+                });
+
+                if (r2 && r2.ok) {
+                    // Trigger AI
+                    await Admin.req(`/api/auto-sync/jobs/${r2.jobId}/generate-variants`, { method: 'POST' });
+                    toast('✅ Thành công! Video đã lên.');
+                    InputWizard.close();
+                    FanpageManager.loadRepository();
+                } else {
+                    toast('❌ Lỗi tạo Job: ' + r2.error);
+                }
+            } else {
+                toast('❌ Lỗi Upload: ' + xhr.statusText);
+            }
+            btn.disabled = false;
+            btn.innerHTML = oldText;
+        };
+
+        xhr.onerror = () => { toast('❌ Lỗi mạng'); btn.disabled = false; btn.innerHTML = oldText; };
+        
+        xhr.send(file); // Gửi raw file (không qua FormData)
+
       } catch (e) {
-        toast('❌ Lỗi hệ thống: ' + e.message);
-      } finally {
+        toast('❌ Lỗi: ' + e.message);
         btn.disabled = false;
-        btn.innerText = oldText;
+        btn.innerHTML = oldText;
       }
     }
-  };
 
   // ============================================================
   // 2. MODULE DASHBOARD: QUẢN LÝ & 1-CLICK AUTO

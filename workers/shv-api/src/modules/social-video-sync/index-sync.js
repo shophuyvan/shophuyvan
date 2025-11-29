@@ -80,8 +80,14 @@ export async function handle(req, env, ctx) {
     return createAutomationJob(req, env);
   }
 
-  if (path === '/api/auto-sync/jobs/create-upload' && method === 'POST') {
-    return createJobFromUpload(req, env);
+  // Route 1: Lấy URL upload trực tiếp (Tránh nghẽn Worker)
+  if (path === '/api/auto-sync/jobs/get-upload-url' && method === 'POST') {
+    return getDirectUploadUrl(req, env);
+  }
+
+  // Route 2: Tạo Job sau khi trình duyệt đã upload xong
+  if (path === '/api/auto-sync/jobs/finalize-upload' && method === 'POST') {
+    return finalizeJobCreation(req, env);
   }
 
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/) && method === 'GET') {
@@ -1402,6 +1408,75 @@ async function distributeJobSmartly(req, env, jobId) {
   return json({ ok: true, count, message: `Đã lên lịch cho ${count} Fanpage.` }, {}, req);
 }
 
-console.log('✅ social-video-sync/index.js loaded');
+// ===================================================================
+// LOGIC UPLOAD TRỰC TIẾP (DIRECT UPLOAD - FILE LỚN)
+// ===================================================================
+
+async function getDirectUploadUrl(req, env) {
+  try {
+    const body = await req.json();
+    const { fileName, fileType } = body;
+    
+    if (!fileName) return errorResponse('Thiếu tên file', 400, req);
+
+    const bucket = env.SOCIAL_VIDEOS;
+    if (!bucket) return errorResponse('Chưa cấu hình R2 Bucket', 500, req);
+
+    // Tạo tên file duy nhất
+    const uniqueName = `videos/upload_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.]/g, '')}`;
+    
+    // Ở môi trường Worker chuẩn, ta dùng phương thức put() trực tiếp từ client là không bảo mật.
+    // Tuy nhiên, R2 hỗ trợ Presigned URL thông qua AWS SDK.
+    // NHƯNG để đơn giản hóa mà không cần cài thêm thư viện AWS SDK nặng nề vào Worker:
+    // Ta sẽ dùng phương thức PUT qua Worker nhưng Stream (Pipe) dữ liệu.
+    // (Nếu Worker vẫn timeout, ta buộc phải dùng AWS SDK để gen presigned url).
+    
+    // TẠM THỜI: Vẫn giữ logic cũ nhưng tối ưu Stream.
+    // Nếu bạn muốn thanh tiến trình %, việc đó nằm ở Frontend (XMLHttpRequest).
+    // Backend không cần thay đổi nhiều nếu file < 100MB.
+    
+    // Nhưng để giải quyết vụ "treo", ta trả về OK để frontend tự upload.
+    // Vì Worker R2 API chuẩn không hỗ trợ generatePresignedUrl native, ta sẽ dùng cách:
+    // Frontend gọi PUT lên Worker -> Worker stream thẳng vào R2 (bypass memory).
+    
+    return json({ 
+      ok: true, 
+      uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}`, // API nội bộ stream
+      fileKey: uniqueName
+    }, {}, req);
+
+  } catch(e) {
+    return errorResponse(e.message, 500, req);
+  }
+}
+
+// Hàm Tạo Job sau khi Upload thành công
+async function finalizeJobCreation(req, env) {
+  try {
+    const body = await req.json();
+    const { productId, fileKey, fileSize } = body;
+    const now = Date.now();
+
+    // 1. Lấy thông tin SP
+    const product = await env.DB.prepare("SELECT id, title, slug, images FROM products WHERE id = ?").bind(productId).first();
+    if (!product) return errorResponse('Sản phẩm không tồn tại', 404, req);
+
+    const productUrl = `https://shophuyvan.vn/san-pham/${product.slug || product.id}`;
+    
+    // 2. Tạo URL Public
+    const r2Url = `https://social-videos.shophuyvan.vn/${fileKey}`;
+
+    // 3. Insert DB
+    const res = await env.DB.prepare(`
+      INSERT INTO automation_jobs
+      (product_id, product_name, product_url, video_r2_path, video_r2_url, video_file_size, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'video_uploaded', ?, ?)
+    `).bind(product.id, product.title, productUrl, fileKey, r2Url, fileSize, now, now).run();
+
+    return json({ ok: true, jobId: res.meta.last_row_id }, {}, req);
+  } catch(e) {
+    return errorResponse(e.message, 500, req);
+  }
+}
 
 console.log('✅ social-video-sync/index.js loaded');
