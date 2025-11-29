@@ -458,11 +458,6 @@ async function createFanpagePost(req, env) {
       return errorResponse('Vui lòng chọn ít nhất 1 fanpage', 400, req);
     }
 
-    const creds = await getFBCredentials(env);
-    if (!creds) {
-      return errorResponse('Chưa cấu hình credentials', 400, req);
-    }
-
     // 2. Xử lý dữ liệu nguồn (Unified D1 Strategy)
     let productUrl = 'https://shophuyvan.vn';
     let mediaUrl = custom_media_url;
@@ -511,9 +506,16 @@ async function createFanpagePost(req, env) {
     
     for (const pageId of fanpage_ids) {
       try {
+        // ✅ Lấy Page Access Token từ D1
+        const pageRow = await env.DB.prepare("SELECT access_token FROM fanpages WHERE page_id = ?").bind(pageId).first();
+        
+        if (!pageRow || !pageRow.access_token) {
+             throw new Error(`Không tìm thấy Token cho Fanpage ${pageId}. Vui lòng kết nối lại Fanpage.`);
+        }
+
         let apiBody = {
           message: caption,
-          access_token: creds.access_token,
+          access_token: pageRow.access_token, // ✅ Dùng Page Token thay vì User Token
           published: !scheduled_publish_time // Nếu có lịch thì published=false
         };
 
