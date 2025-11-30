@@ -44,9 +44,19 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
-  // Auth check - Bảo mật: Chỉ admin mới được gọi
-  if (!(await adminOK(req, env))) {
-    return errorResponse('Unauthorized', 401, req);
+  // ✅ FIX AUTH: Xử lý riêng cho Stream Upload
+  // Route này ưu tiên check token trên URL (bỏ qua header x-token đang bị lỗi 48 chars)
+  if (path === '/api/auto-sync/jobs/stream-upload' && method === 'PUT') {
+      // Tạo request giả không có header để ép adminOK đọc token từ URL param
+      const mockReq = new Request(url.toString(), { method: 'GET' });
+      if (!(await adminOK(mockReq, env))) {
+          return errorResponse('Unauthorized Stream (Token Invalid)', 401, req);
+      }
+  } else {
+      // Các route khác check auth bình thường (ưu tiên header)
+      if (!(await adminOK(req, env))) {
+        return errorResponse('Unauthorized', 401, req);
+      }
   }
 
   // ============================================================

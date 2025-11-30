@@ -61,9 +61,21 @@ export const cart = {
   },
   add(p: any, qty = 1) {
 const st = read();
-const pricePair = p?.price ? p.price : pickLowestPrice(p);
-const price = numLike(pricePair?.base);
-const original = pricePair?.original ?? null;
+
+// [CORE SYNC] Xử lý giá: Ưu tiên giá số (từ Product Core) -> Fallback giá object (Cũ)
+let price = 0;
+let original = null;
+
+if (typeof p?.price === 'number') {
+  // Case 1: Dữ liệu chuẩn từ Product.tsx (đã tính toán final_price)
+  price = p.price;
+  original = p.original ?? null;
+} else {
+  // Case 2: Dữ liệu cũ (Price Object { base, original })
+  const pricePair = p?.price ? p.price : pickLowestPrice(p);
+  price = numLike(pricePair?.base);
+  original = pricePair?.original ?? null;
+}
 
 // Determine product id
 const baseId = p.id ?? p._id ?? p.code ?? p.productId ?? p.product_id ?? null;
