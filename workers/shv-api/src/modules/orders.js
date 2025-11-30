@@ -552,56 +552,6 @@ async function priceOrderPreview(req, env) {
   }
 }
 
-    // === AUTO FREESHIP + BEST-OF (server-side) ================================
-  let autoShippingDiscount = 0;
-  let autoVoucherCode = null;
-  try {
-    const now = Date.now();
-    const list = await getJSON(env, 'vouchers', []);
-    const activeAuto = (Array.isArray(list) ? list : [])
-      .filter(v => v && v.on === true && v.voucher_type === 'auto_freeship')
-      .filter(v => {
-        const s = Number(v.starts_at || 0);
-        const e = Number(v.expires_at || 0);
-        if (s && now < s) return false;
-        if (e && now > e) return false;
-        return true;
-      })
-      .sort((a, b) => (Number(b.min_purchase || 0) - Number(a.min_purchase || 0))); // ưu tiên ngưỡng cao hơn
-    const eligible = activeAuto.find(v => Number(subtotal) >= Number(v.min_purchase || 0));
-    if (eligible) {
-      autoShippingDiscount = Math.max(0, shipping_fee); // freeship 100%
-      autoVoucherCode = eligible.code || null;
-    }
-  } catch (e) {
-    // bỏ qua lỗi auto freeship, giữ kết quả mã tay
-  }
-
-  // BEST-OF ship discount
-  const best_shipping_discount = Math.max(0, Math.max(validated_ship_discount, autoShippingDiscount));
-  const final_shipping_fee = Math.max(0, shipping_fee - best_shipping_discount);
-  const total = Math.max(0, subtotal - validated_discount + final_shipping_fee);
-
-  const final_voucher_code =
-    (autoShippingDiscount >= validated_ship_discount && autoVoucherCode)
-      ? autoVoucherCode
-      : validated_voucher_code;
-
-  return json({
-    ok: true,
-    totals: {
-      subtotal,
-      shipping_fee,
-      discount: validated_discount,
-      shipping_discount: best_shipping_discount,
-      total,
-      voucher_code: final_voucher_code
-    },
-    items
-  }, req);
-}
-
-
 async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
 
   // Check idempotency
