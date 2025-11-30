@@ -321,8 +321,7 @@
         modal.style.display = 'flex';
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">⏳ Đang tải lịch trình và nội dung...</td></tr>';
 
-        try {
-            // THÊM NÚT "ĐĂNG NGAY" VÀO TIÊU ĐỀ
+        // THÊM NÚT "ĐĂNG NGAY" VÀO TIÊU ĐỀ
         document.getElementById('monitor-job-title').innerHTML = `
             Job #${jobId} - ${name} 
             <button onclick="FanpageManager.forcePublish(${jobId})" class="btn-sm" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer; margin-left:15px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
