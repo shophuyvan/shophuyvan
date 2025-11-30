@@ -89,6 +89,10 @@ export async function handle(req, env, ctx) {
   if (path === '/api/auto-sync/jobs/finalize-upload' && method === 'POST') {
     return finalizeJobCreation(req, env);
   }
+  // Route 3: Stream Upload (Để Worker pipe dữ liệu sang R2)
+  if (path === '/api/auto-sync/jobs/stream-upload' && method === 'PUT') {
+    return handleStreamUpload(req, env);
+  }
 
   if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/) && method === 'GET') {
     const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/)[1]);

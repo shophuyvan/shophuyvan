@@ -111,7 +111,13 @@
 
         // BƯỚC 2: Upload Binary trực tiếp (Có thanh tiến trình)
         const xhr = new XMLHttpRequest();
-        xhr.open('PUT', API + r1.uploadEndpoint, true);
+        // ✅ FIX: Dùng uploadUrl trả về từ Backend
+        xhr.open('PUT', API + r1.uploadUrl, true);
+	    
+        // ✅ FIX: Lấy Token chuẩn từ Admin object (ưu tiên)
+        const token = (window.Admin && Admin.token) ? Admin.token : localStorage.getItem('admin_token');
+        xhr.setRequestHeader('X-Token', token);
+        xhr.setRequestHeader('Content-Type', file.type);
         xhr.setRequestHeader('X-Token', (window.Admin && Admin.token) || localStorage.getItem('admin_token'));
         xhr.setRequestHeader('Content-Type', file.type);
 
@@ -125,8 +131,12 @@
         xhr.onload = async () => {
             if (xhr.status === 200) {
                 // BƯỚC 3: Xác nhận xong -> Tạo Job
-                btn.innerHTML = '🤖 Đang xử lý AI...';
-                const r2 = await Admin.req('/api/auto-sync/jobs/finalize-upload', {
+            btn.innerHTML = '🤖 Đang xử lý AI (Sẽ mất khoảng 30s)...';
+            // Gọi API finalize
+            const r2 = await Admin.req('/api/auto-sync/jobs/finalize-upload', {
+                method: 'POST',
+                body: { productId, fileKey: r1.fileKey, fileSize: file.size }
+            });
                     method: 'POST',
                     body: { productId, fileKey: r1.fileKey, fileSize: file.size }
                 });
