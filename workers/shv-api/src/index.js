@@ -492,6 +492,17 @@ export default {
       if (path.startsWith('/admin/facebook/oauth/')) {
         return FBAuth.handle(req, env, ctx);
       }
+	  
+	  // ✅ YOUTUBE OAUTH (MỚI)
+      if (path === '/auth/google/start') {
+        const { getAuthUrl } = await import('./modules/social-video-sync/youtube-uploader.js');
+        return Response.redirect(getAuthUrl(env), 302);
+      }
+
+      if (path === '/auth/google/callback') {
+        const { handleCallback } = await import('./modules/social-video-sync/youtube-uploader.js');
+        return handleCallback(req, env);
+      }
 
       // ============================================
       // FACEBOOK GROUPS ROUTES (MỚI THÊM)

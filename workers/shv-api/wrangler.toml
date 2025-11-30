@@ -28,6 +28,10 @@ TOKEN_KEY = "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5"
 FB_APP_ID = "786006640925553"
 FB_APP_SECRET = "8e44bb957d5eb1986f220bbd17c71542"
 
+# YOUTUBE API CONFIG
+GOOGLE_CLIENT_ID = "45281126981-ha225bojed9835odflri9ttretgb93so.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"
+
 # ============================================
 # D1 DATABASE
 # ============================================
