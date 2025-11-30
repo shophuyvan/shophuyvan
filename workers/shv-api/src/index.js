@@ -210,7 +210,16 @@ export default {
       // ============================================
       // EXISTING ROUTES
       // ============================================
+     // ✅ YOUTUBE OAUTH (MỚI)
+      if (path === '/auth/google/start') {
+        const { getAuthUrl } = await import('./modules/social-video-sync/youtube-uploader.js');
+        return Response.redirect(getAuthUrl(env), 302);
+      }
 
+      if (path === '/auth/google/callback') {
+        const { handleCallback } = await import('./modules/social-video-sync/youtube-uploader.js');
+        return handleCallback(req, env);
+      }
 
       // Auth module (login/password/otp/zalo + customer me) - BỎ /admin/me
       if (path.startsWith('/auth/') || path === '/api/customers/me') {
@@ -491,17 +500,6 @@ export default {
       // Facebook OAuth
       if (path.startsWith('/admin/facebook/oauth/')) {
         return FBAuth.handle(req, env, ctx);
-      }
-	  
-	  // ✅ YOUTUBE OAUTH (MỚI)
-      if (path === '/auth/google/start') {
-        const { getAuthUrl } = await import('./modules/social-video-sync/youtube-uploader.js');
-        return Response.redirect(getAuthUrl(env), 302);
-      }
-
-      if (path === '/auth/google/callback') {
-        const { handleCallback } = await import('./modules/social-video-sync/youtube-uploader.js');
-        return handleCallback(req, env);
       }
 
       // ============================================
