@@ -15,19 +15,7 @@ export async function ensureCloudinaryUrl(src: string, kind: Kind = 'auto'): Pro
   const cache = loadCache();
   if (cache[src]) return cache[src];
 
-  const endpoint = `${location.origin}/cld/upload-url`;
-  try {
-    const r = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ src, resource_type: kind })
-    });
-    const j = await r.json();
-    const url = j.secure_url || src;
-    cache[src] = url;
-    saveCache(cache);
-    return url;
-  } catch {
-    return src;
-  }
+   // [CORE SYNC] Không tự ý fetch ảnh ngoại lai từ Client (tránh lỗi 401 Unauthorized)
+  // Core đã xử lý link ảnh đầu vào.
+  return src; 
 }

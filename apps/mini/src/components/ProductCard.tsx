@@ -36,8 +36,18 @@ export default function ProductCard({ p }: { p: Product }) {
   let base = 0,
     original = 0;
 
-  // 1) ƯU TIÊN GIÁ DO SERVER TÍNH TỪ VARIANTS
-  const pd = numLike((p as any)?.price_display);
+  // [CORE SYNC] Ưu tiên dữ liệu đã chuẩn hóa từ Product Core (product-core.js)
+  // Core trả về: price_final, price_original, is_flash_sale
+  if ((p as any)?.price_final > 0) {
+    base = Number((p as any).price_final);
+    original = Number((p as any).price_original || 0);
+  }
+
+  // Nếu Core chưa tính (data cũ), mới dùng logic fallback bên dưới
+  if (base <= 0) {
+    // 1) Logic cũ: price_display...
+    const pd = numLike((p as any)?.price_display);
+    // ... (giữ nguyên phần code fallback cũ của bạn ở dưới để an toàn)
   const cad = numLike((p as any)?.compare_at_display);
   if (pd > 0) {
     base = pd;
@@ -141,7 +151,9 @@ export default function ProductCard({ p }: { p: Product }) {
         break;
       }
     }
-  }
+  } 
+  } // <--- [QUAN TRỌNG] Thêm dấu này để đóng cái "if (base <= 0)" ở dòng 48
+  
   const hasOriginal = original > base && original > 0;
   const discount = hasOriginal
     ? Math.max(1, Math.round((1 - base / original) * 100))
@@ -234,7 +246,7 @@ try {
         )}
       </div>
 
-      {/* Đã ẩn nút thêm giỏ hàng theo yêu cầu */}
+     {/* Đã ẩn nút thêm giỏ hàng theo yêu cầu */}
     </div>
   );
 }

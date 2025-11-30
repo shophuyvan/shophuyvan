@@ -1483,4 +1483,26 @@ async function finalizeJobCreation(req, env) {
   }
 }
 
+// Hàm xử lý Stream Upload (Quan trọng)
+async function handleStreamUpload(req, env) {
+    try {
+        const url = new URL(req.url);
+        const key = url.searchParams.get('key');
+        if(!key) return errorResponse('Missing key', 400, req);
+        
+        // Kiểm tra bucket
+        const bucket = env.SOCIAL_VIDEOS;
+        if (!bucket) return errorResponse('Chưa cấu hình SOCIAL_VIDEOS', 500, req);
+
+        // Upload stream lên R2
+        await bucket.put(key, req.body, {
+            httpMetadata: { contentType: req.headers.get('content-type') }
+        });
+        
+        return json({ ok: true }, {}, req);
+    } catch (e) {
+        return errorResponse('Stream Error: ' + e.message, 500, req);
+    }
+}
+
 console.log('✅ social-video-sync/index.js loaded');

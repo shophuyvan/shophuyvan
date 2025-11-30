@@ -481,7 +481,22 @@ export default function Product() {
     () => (Array.isArray(p?.variants) ? p.variants : []),
     [p]
   );
-    const [range, setRange] = useState({ minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 });
+
+  // [FIX] Đưa logic tính Flash Sale ra ngoài Render để gọi Hook an toàn
+  const mainFlashInfo = useMemo(() => {
+    if (!p) return null;
+    // Ưu tiên flash sale của variant đang active, nếu không thì lấy của product (fallback)
+    return variants.find((v: any) => v.flash_sale?.active)?.flash_sale || p?.flash_sale;
+  }, [p, variants]);
+
+  const mainHasFlashSale = useMemo(() => {
+    return (variants.some((v: any) => v.flash_sale?.active) || p?.flash_sale?.active) && !!mainFlashInfo;
+  }, [p, variants, mainFlashInfo]);
+
+  // [FIX] Gọi hook ở top-level (Không bao giờ được đặt trong return hoặc if)
+  const mainCountdown = useCountdown(mainFlashInfo?.ends_at);
+
+  const [range, setRange] = useState({ minBase: 0, maxBase: 0, minOrig: 0, maxOrig: 0 });
 
   useEffect(() => {
     const loadRange = async () => {
@@ -864,72 +879,45 @@ export default function Product() {
               </span>
             </div>
 
-            {/* Price Section (show range if variants) */}
-            {(() => {
-              // ⚡ Check Flash Sale
-              const mainHasFlashSale = variants.some((v: any) => v.flash_sale?.active) || p?.flash_sale?.active;
-              const mainFlashInfo = variants.find((v: any) => v.flash_sale?.active)?.flash_sale || p?.flash_sale;
-              const mainCountdown = useCountdown(mainFlashInfo?.ends_at);
-              
-              return variants.length > 0 ? (
-                <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-                  {mainHasFlashSale && mainFlashInfo && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-lg animate-pulse">
-                        ⚡ FLASH SALE -{mainFlashInfo.discount_percent}%
-                      </span>
-                      {mainCountdown && (
-                        <span className="text-sm font-bold text-red-600 border-2 border-red-500 px-3 py-1 rounded-lg">
-                          {mainCountdown}
-                        </span>
-                      )}
-                    </div>
+{/* Price Section [FIXED HOOK ERROR] */}
+            <div className="mt-3 bg-gray-50 p-3 rounded-lg">
+              {/* Badge Flash Sale chung */}
+              {mainHasFlashSale && mainFlashInfo && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-lg animate-pulse">
+                    ⚡ FLASH SALE -{mainFlashInfo.discount_percent}%
+                  </span>
+                  {mainCountdown && (
+                    <span className="text-sm font-bold text-red-600 border-2 border-red-500 px-3 py-1 rounded-lg">
+                      {mainCountdown}
+                    </span>
                   )}
-                  
+                </div>
+              )}
+
+              {/* Hiển thị khoảng giá (Range) từ Variants */}
+              {range.minBase > 0 ? (
+                <>
                   <div className="flex items-baseline gap-2">
-                    {range.minOrig && range.minOrig > range.minBase && (
+                    {/* Giá gốc gạch đi (nếu có giảm giá) */}
+                    {range.minOrig > range.minBase && (
                       <span className="text-gray-400 line-through text-sm">
                         {fmtVND(range.minOrig)}
-                        {range.maxOrig > range.minOrig
-                          ? ` - ${fmtVND(range.maxOrig)}`
-                          : ''}
+                        {range.maxOrig > range.minOrig ? ` - ${fmtVND(range.maxOrig)}` : ''}
                       </span>
                     )}
                   </div>
+                  {/* Giá bán hiện tại */}
                   <div className={`font-bold text-xl mt-1 ${mainHasFlashSale ? 'text-red-600' : 'text-rose-600'}`}>
-                    {range.minBase ? fmtVND(range.minBase) : 'Liên hệ'}
-                    {range.maxBase > range.minBase
-                      ? ` - ${fmtVND(range.maxBase)}`
-                      : ''}
+                    {fmtVND(range.minBase)}
+                    {range.maxBase > range.minBase ? ` - ${fmtVND(range.maxBase)}` : ''}
                   </div>
-                </div>
+                </>
               ) : (
-                <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-                  {p?.flash_sale?.active && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-lg animate-pulse">
-                        ⚡ FLASH SALE -{p.flash_sale.discount_percent}%
-                      </span>
-                      {mainCountdown && (
-                        <span className="text-sm font-bold text-red-600 border-2 border-red-500 px-3 py-1 rounded-lg">
-                          {mainCountdown}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {((p?.flash_sale?.original_price || p.price) && 
-                    (p?.flash_sale?.original_price || p.price) > (p?.flash_sale?.price || p.sale_price)) && (
-                    <div className="text-gray-400 line-through text-sm">
-                      {fmtVND(p?.flash_sale?.original_price || p.price)}
-                    </div>
-                  )}
-                  <div className={`font-bold text-xl ${p?.flash_sale?.active ? 'text-red-600' : 'text-rose-600'}`}>
-                    {fmtVND(p?.flash_sale?.price || p.sale_price || p.price || 0)}
-                  </div>
-                </div>
-              );
-            })()}
+                /* Fallback nếu không tính được range (hoặc hết hàng/chưa có variants) */
+                <div className="font-bold text-xl text-rose-600">Liên hệ</div>
+              )}
+            </div>
 
             {/* Stock tổng */}
             <div className="mt-3">

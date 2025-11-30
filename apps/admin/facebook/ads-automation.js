@@ -87,7 +87,7 @@
         }
     },
 
-   // Upload 2 bước: Stream -> Finalize
+   // Upload 2 bước: Stream -> Finalize (CODE CHUẨN ĐÃ FIX)
     async submit() {
       const productId = document.getElementById('wiz-selected-product-id').value;
       const fileInput = document.getElementById('wiz-video-file');
@@ -109,16 +109,14 @@
 
         if (!r1 || !r1.ok) throw new Error(r1.error || 'Không lấy được URL upload');
 
-        // BƯỚC 2: Upload Binary trực tiếp (Có thanh tiến trình)
+        // BƯỚC 2: Upload Binary trực tiếp
         const xhr = new XMLHttpRequest();
-        // ✅ FIX: Dùng uploadUrl trả về từ Backend
+        // Dùng URL trả về từ backend
         xhr.open('PUT', API + r1.uploadUrl, true);
-	    
-        // ✅ FIX: Lấy Token chuẩn từ Admin object (ưu tiên)
+        
+        // Lấy Token (Chỉ set 1 lần duy nhất)
         const token = (window.Admin && Admin.token) ? Admin.token : localStorage.getItem('admin_token');
         xhr.setRequestHeader('X-Token', token);
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.setRequestHeader('X-Token', (window.Admin && Admin.token) || localStorage.getItem('admin_token'));
         xhr.setRequestHeader('Content-Type', file.type);
 
         xhr.upload.onprogress = (e) => {
@@ -131,24 +129,27 @@
         xhr.onload = async () => {
             if (xhr.status === 200) {
                 // BƯỚC 3: Xác nhận xong -> Tạo Job
-            btn.innerHTML = '🤖 Đang xử lý AI (Sẽ mất khoảng 30s)...';
-            // Gọi API finalize
-            const r2 = await Admin.req('/api/auto-sync/jobs/finalize-upload', {
-                method: 'POST',
-                body: { productId, fileKey: r1.fileKey, fileSize: file.size }
-            });
-                    method: 'POST',
-                    body: { productId, fileKey: r1.fileKey, fileSize: file.size }
-                });
+                btn.innerHTML = '🤖 Đang xử lý AI (Sẽ mất khoảng 30s)...';
+                
+                try {
+                    // Gọi API finalize
+                    const r2 = await Admin.req('/api/auto-sync/jobs/finalize-upload', {
+                        method: 'POST',
+                        body: { productId, fileKey: r1.fileKey, fileSize: file.size }
+                    });
 
-                if (r2 && r2.ok) {
-                    // Trigger AI
-                    await Admin.req(`/api/auto-sync/jobs/${r2.jobId}/generate-variants`, { method: 'POST' });
-                    toast('✅ Thành công! Video đã lên.');
-                    InputWizard.close();
-                    FanpageManager.loadRepository();
-                } else {
-                    toast('❌ Lỗi tạo Job: ' + r2.error);
+                    if (r2 && r2.ok) {
+                        // Trigger AI
+                        await Admin.req(`/api/auto-sync/jobs/${r2.jobId}/generate-variants`, { method: 'POST' });
+                        toast('✅ Thành công! Video đã lên.');
+                        InputWizard.close();
+                        FanpageManager.loadRepository();
+                    } else {
+                        toast('❌ Lỗi tạo Job: ' + (r2.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    toast('❌ Lỗi xử lý cuối: ' + err.message);
                 }
             } else {
                 toast('❌ Lỗi Upload: ' + xhr.statusText);
@@ -159,9 +160,10 @@
 
         xhr.onerror = () => { toast('❌ Lỗi mạng'); btn.disabled = false; btn.innerHTML = oldText; };
         
-        xhr.send(file); // Gửi raw file (không qua FormData)
+        xhr.send(file); // Gửi raw file
 
       } catch (e) {
+        console.error(e);
         toast('❌ Lỗi: ' + e.message);
         btn.disabled = false;
         btn.innerHTML = oldText;
