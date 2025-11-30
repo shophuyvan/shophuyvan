@@ -426,6 +426,7 @@
             console.error(e);
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
         }
+    }, // ✅ Đã thêm dấu đóng hàm và dấu phẩy
 
     // ⚡ FORCE PUBLISH: Kích hoạt đăng ngay lập tức để kiểm tra hệ thống
     async forcePublish(jobId) {
