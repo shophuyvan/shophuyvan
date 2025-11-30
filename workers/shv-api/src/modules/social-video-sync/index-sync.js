@@ -1436,10 +1436,13 @@ async function getDirectUploadUrl(req, env) {
                          req.headers.get('token') || 
                          url.searchParams.get('token') || '';
 
-    // Trả về URL đã kèm token
+    // ✅ FIX: Mã hóa token để tránh lỗi ký tự đặc biệt (Base64) trên URL
+    const encodedToken = encodeURIComponent(currentToken);
+
+    // Trả về URL đã kèm token chuẩn
     return json({ 
-      ok: true,
-      uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}&token=${currentToken}`, 
+      ok: true, 
+      uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}&token=${encodedToken}`, 
       fileKey: uniqueName
     }, {}, req);
 
