@@ -1354,31 +1354,34 @@ async function distributeJobSmartly(req, env, jobId) {
   // Lấy 5 variants
   const variants = await env.DB.prepare("SELECT * FROM content_variants WHERE job_id = ?").bind(jobId).all();
   if (!variants.results || variants.results.length === 0) return errorResponse("Chưa có Variant AI (Hãy đợi AI viết xong)", 400, req);
-  
+     
+      // ============================================================
+  // ✅ NEW: TỰ ĐỘNG ĐĂNG YOUTUBE SHORTS & LƯU DB
   // ============================================================
-  // ✅ NEW: TỰ ĐỘNG ĐĂNG YOUTUBE SHORTS (Khi bấm 1-Click Auto)
-  // ============================================================
-  let youtubeResult = null;
+  let youtubeStatus = 'skipped';
+  let youtubeUrl = null;
+
   try {
       console.log(`[1-Click Auto] Đang thử upload lên YouTube cho Job ${jobId}...`);
       
-      // Lấy caption từ variant đầu tiên để làm mô tả
       const bestVariant = variants.results[0];
       const description = bestVariant ? bestVariant.caption : job.product_name;
       
-      // Gọi hàm upload (đã sửa ở bước trước)
-      youtubeResult = await uploadToYouTube(env, job.video_r2_url, job.product_name, description);
+      const youtubeResult = await uploadToYouTube(env, job.video_r2_url, job.product_name, description);
       
       if (youtubeResult.ok) {
           console.log('[1-Click Auto] YouTube Upload Success:', youtubeResult.videoId);
-          // (Tùy chọn) Bạn có thể lưu link YouTube vào DB nếu cần, ví dụ lưu vào automation_jobs
+          youtubeStatus = 'published';
+          youtubeUrl = youtubeResult.videoUrl;
       } else {
           console.error('[1-Click Auto] YouTube Upload Failed:', youtubeResult.error);
+          youtubeStatus = 'failed';
       }
   } catch (ytError) {
       console.error('[1-Click Auto] Lỗi ngoại lệ YouTube:', ytError);
-      // Không return lỗi để quy trình Facebook vẫn chạy tiếp
+      youtubeStatus = 'error';
   }
+
   // ============================================================
 
   // Lấy danh sách Fanpage đang hoạt động
@@ -1441,12 +1444,16 @@ async function distributeJobSmartly(req, env, jobId) {
      if(hourIdx >= GOLDEN_HOURS.length) { hourIdx=0; dayOffset++; }
   }
 
-  // Cập nhật trạng thái Job
+  // ✅ Cập nhật trạng thái Job (Gộp cả Fanpage Count + YouTube Status)
   await env.DB.prepare(`
       UPDATE automation_jobs 
-      SET status = 'assigned', total_fanpages_assigned = ?, updated_at = ? 
+      SET status = 'assigned', 
+          total_fanpages_assigned = ?, 
+          youtube_status = ?, 
+          youtube_url = ?,
+          updated_at = ? 
       WHERE id = ?
-  `).bind(count, Date.now(), jobId).run();
+  `).bind(count, youtubeStatus, youtubeUrl, Date.now(), jobId).run();
 
   // Cập nhật thông báo nếu có YouTube
   let msg = `Đã lên lịch cho ${count} Fanpage Facebook.`;

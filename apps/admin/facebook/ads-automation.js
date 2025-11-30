@@ -330,11 +330,53 @@
         `;
 
         try {
-            // Lấy danh sách Assignments kèm nội dung
+            // 1. Lấy thông tin Job để hiển thị YouTube Status
+            // Gọi API lấy chi tiết Job
+            const jobReq = await Admin.req(`/api/auto-sync/jobs/${jobId}`, { method: 'GET' });
+            let youtubeHTML = '';
+            
+            if (jobReq && jobReq.ok && jobReq.job) {
+                const j = jobReq.job;
+                const ytStatus = j.youtube_status || 'pending';
+                let statusBadge = '';
+                let linkHTML = '';
+
+                if (ytStatus === 'published') {
+                    statusBadge = '<span style="background:#d1fae5; color:#065f46; padding:4px 8px; border-radius:4px; font-weight:bold;">✅ Đã đăng</span>';
+                    if (j.youtube_url) {
+                        linkHTML = `<a href="${j.youtube_url}" target="_blank" style="color:#ef4444; font-weight:bold; text-decoration:none; margin-left:10px;">▶ Xem trên YouTube</a>`;
+                    }
+                } else if (ytStatus === 'failed') {
+                    statusBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:4px; font-weight:bold;">❌ Lỗi đăng</span>';
+                } else if (ytStatus === 'skipped') {
+                    statusBadge = '<span style="background:#f3f4f6; color:#6b7280; padding:4px 8px; border-radius:4px; font-weight:bold;">⏭️ Bỏ qua</span>';
+                } else {
+                    statusBadge = '<span style="background:#fff7ed; color:#c2410c; padding:4px 8px; border-radius:4px; font-weight:bold;">⏳ Đang xử lý</span>';
+                }
+
+                // Thêm hàng hiển thị YouTube vào đầu bảng
+                youtubeHTML = `
+                    <tr style="background:#fff1f2; border-bottom:2px solid #e5e7eb;">
+                        <td style="padding:15px; border-bottom:1px solid #f1f5f9;">
+                            <div style="font-weight:700; color:#b91c1c; display:flex; align-items:center; gap:8px;">
+                                <img src="https://www.youtube.com/s/desktop/10c8df63/img/favicon_144x144.png" width="24" height="24">
+                                YouTube Shorts
+                            </div>
+                        </td>
+                        <td style="padding:15px;">Ngay lập tức</td>
+                        <td style="padding:15px;">${statusBadge}</td>
+                        <td style="padding:15px;">
+                            ${linkHTML || '<span style="color:#6b7280; font-style:italic;">(Tự động đăng khi bấm 1-Click Auto)</span>'}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // 2. Lấy danh sách Assignments (Fanpage)
             const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/preview`, { method: 'GET' });
             
             if(r && r.ok && r.preview && r.preview.length > 0) {
-                tbody.innerHTML = r.preview.map(row => {
+                const fanpageRows = r.preview.map(row => {
                     // Xử lý hiển thị thời gian
                     const date = row.scheduledTime ? new Date(row.scheduledTime) : null;
                     const timeStr = date ? 
@@ -373,13 +415,17 @@
                         </tr>
                     `;
                 }).join('');
+
+                // Gộp YouTube row + Fanpage rows
+                tbody.innerHTML = youtubeHTML + fanpageRows;
+
             } else {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có dữ liệu phân phối.</td></tr>';
+                tbody.innerHTML = youtubeHTML || '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có dữ liệu phân phối.</td></tr>';
             }
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi: ${e.message}</td></tr>`;
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
         }
-    },
 
     // ⚡ FORCE PUBLISH: Kích hoạt đăng ngay lập tức để kiểm tra hệ thống
     async forcePublish(jobId) {
