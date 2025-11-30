@@ -1424,7 +1424,7 @@ async function getDirectUploadUrl(req, env) {
     if (!fileName) return errorResponse('Thiếu tên file', 400, req);
 
     const bucket = env.SOCIAL_VIDEOS;
-    [cite_start]if (!bucket) return errorResponse('Chưa cấu hình R2 Bucket [cite: 19, 42]', 500, req);
+    if (!bucket) return errorResponse('Chưa cấu hình R2 Bucket', 500, req);
 
     // Tạo tên file duy nhất
     const uniqueName = `videos/upload_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.]/g, '')}`;
@@ -1436,9 +1436,9 @@ async function getDirectUploadUrl(req, env) {
                          req.headers.get('token') || 
                          url.searchParams.get('token') || '';
 
-    [cite_start]// Trả về URL đã kèm token [cite: 35]
+    // Trả về URL đã kèm token
     return json({ 
-      ok: true, 
+      ok: true,
       uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}&token=${currentToken}`, 
       fileKey: uniqueName
     }, {}, req);

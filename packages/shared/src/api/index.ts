@@ -8,8 +8,9 @@ type FetchResult = { ok: boolean; status: number; data: any };
 async function _fetch(path: string, init?: RequestInit): Promise<FetchResult> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
   const headers = new Headers(init?.headers || {});
-  try { const token = localStorage.getItem('x-token') || ''; if (token && !headers.has('x-token')) headers.set('x-token', token); } catch {}
-  const res = await fetch(url, { method: init?.method || 'GET', headers });
+try { const token = localStorage.getItem('x-token') || ''; if (token && !headers.has('x-token')) headers.set('x-token', token); } catch {}
+  // [FIX] Thêm ...init để truyền body (payload) lên server
+  const res = await fetch(url, { ...init, method: init?.method || 'GET', headers });
   const ctype = res.headers.get('content-type') || '';
   const data = ctype.includes('application/json') ? await res.json().catch(()=>null) : await res.text().catch(()=>'');
   return { ok: res.ok, status: res.status, data };
