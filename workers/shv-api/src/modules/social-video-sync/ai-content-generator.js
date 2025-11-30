@@ -62,62 +62,44 @@ THÔNG TIN SẢN PHẨM:
       }
 
       const prompt = `
-Bạn là Content Marketing Expert chuyên về ngành Gia Dụng & Nhà cửa tại Việt Nam.
+Bạn là Chuyên gia Content Marketing cấp cao của Shop Huy Vân - Chuyên Gia Dụng & Nhà Cửa thông minh.
 
-NHIỆM VỤ: Tạo 5 bài đăng Facebook HOÀN TOÀN KHÁC NHAU về sản phẩm/video này.
+NHIỆM VỤ: Viết 5 bài quảng cáo Facebook Ads CHUYÊN NGHIỆP, TRÌNH BÀY ĐẸP cho sản phẩm dưới đây.
 
 ${productContext}
 
-VIDEO TIKTOK: ${analysis.url}
+YÊU CẦU BẮT BUỘC VỀ TRÌNH BÀY (FORMAT):
+1. **TIÊU ĐỀ**: Chỉ viết hoa dòng đầu tiên (Headline) để thu hút. KHÔNG viết hoa toàn bộ bài viết.
+2. **CẤU TRÚC**: Phải chia đoạn rõ ràng. Giữa các ý phải có dòng trống (\n\n).
+3. **LỢI ÍCH**: Sử dụng gạch đầu dòng (✅, 🔸, 🔹, ⭐) để liệt kê 3-4 tính năng nổi bật nhất. Mỗi tính năng 1 dòng.
+4. **GIÁ & ƯU ĐÃI**: Ghi rõ giá và ưu đãi ở riêng một khu vực nổi bật.
+5. **HASHTAG**: BẮT BUỘC PHẢI CÓ bộ hashtag thương hiệu: #ShopHuyVan #ShopHuyVanVN bên cạnh các hashtag về sản phẩm.
+6. **LINK**: Link mua hàng phải để riêng ở dòng cuối cùng (sau hashtag), có icon mũi tên (👉).
 
-YÊU CẦU QUAN TRỌNG:
-1. Mỗi version phải có TONE KHÁC BIỆT:
-   - Version 1 (casual): Gần gũi, thân thiện, emoji nhiều, nói chuyện như bạn bè
-   - Version 2 (sale-heavy): Sale mạnh, urgency, CAPS, giảm giá, số lượng có hạn
-   - Version 3 (storytelling): Kể chuyện khách hàng, review thực tế, cảm xúc
-   - Version 4 (professional): Chuyên gia tư vấn, formal, focus tính năng kỹ thuật
-   - Version 5 (tips): Mẹo vặt, hướng dẫn sử dụng, chia sẻ kinh nghiệm
+YÊU CẦU VỀ 5 TONE GIỌNG KHÁC BIỆT:
+1. Version 1 (Thân thiện): Giọng thủ thỉ, tâm tình, như người bạn khuyên dùng cho gia đình.
+2. Version 2 (Sale Sốc/Khan Hiếm): Nhấn mạnh giảm giá, chỉ còn ít hàng, giật tít mạnh (Flash Sale).
+3. Version 3 (Storytelling/Kể chuyện): "Hôm qua chị Lan hàng xóm sang chơi...", kể trải nghiệm thực tế.
+4. Version 4 (Chuyên gia/Review): Phân tích kỹ thuật, độ bền, chất liệu, so sánh sự vượt trội.
+5. Version 5 (Mẹo vặt/Góc Bếp): Chia sẻ mẹo hay cuộc sống liên quan đến sản phẩm này.
 
-2. KHÔNG TRÙNG LẶP:
-   - Từ ngữ khác nhau hoàn toàn
-   - Hashtags khác nhau 100%
-   - Độ dài khác nhau (ngắn/vừa/dài)
-   - CTA khác nhau
+LƯU Ý QUAN TRỌNG:
+- KHÔNG dùng quá nhiều icon gây rối mắt.
+- KHÔNG viết dính chùm một cục.
+- Link mua hàng lấy từ thông tin sản phẩm: ${productInfo.url || 'https://shophuyvan.vn'}
 
-3. ĐỐI TƯỢNG: Việt Nam, 25-45 tuổi, quan tâm nấu ăn & chăm sóc nhà cửa
-
-OUTPUT JSON THUẦN TÚY (không markdown, không code block):
+OUTPUT JSON FORMAT (Raw JSON, no markdown):
 {
   "version1": {
-    "tone": "casual",
-    "caption": "Caption ngắn gọn, emoji nhiều, dễ thương",
-    "hashtags": ["#GiaDung", "#NhaBep"],
-    "cta": "Xem ngay tại ShopHuyVan.vn"
+    "tone": "friendly",
+    "caption": "TIÊU ĐỀ HẤP DẪN\n\nLời dẫn dắt thân thiện...\n\n✅ Lợi ích 1\n✅ Lợi ích 2\n✅ Lợi ích 3\n\n💰 Giá siêu yêu: ...\n\n#ShopHuyVan #ShopHuyVanVN #GiaDung\n\n👉 Mua ngay tại đây: ${productInfo.url || '...'}",
+    "hashtags": ["#ShopHuyVan", "#ShopHuyVanVN", "#GiaDung"],
+    "cta": "Mua ngay"
   },
-  "version2": {
-    "tone": "sale-heavy",
-    "caption": "Caption kích thích mua ngay, urgency",
-    "hashtags": ["#FlashSale", "#GiamGia"],
-    "cta": "Đặt ngay kẻo hết!"
-  },
-  "version3": {
-    "tone": "storytelling",
-    "caption": "Kể chuyện khách hàng thực tế",
-    "hashtags": ["#Review", "#ChiaSeThucTe"],
-    "cta": "Xem thêm feedback"
-  },
-  "version4": {
-    "tone": "professional",
-    "caption": "Phân tích tính năng chuyên sâu",
-    "hashtags": ["#ChuyenGia", "#TuVan"],
-    "cta": "Tư vấn miễn phí"
-  },
-  "version5": {
-    "tone": "tips",
-    "caption": "Mẹo vặt, hướng dẫn sử dụng",
-    "hashtags": ["#MeoVat", "#HuongDan"],
-    "cta": "Học thêm tips"
-  }
+  "version2": { "tone": "sale", "caption": "...", "hashtags": [], "cta": "..." },
+  "version3": { "tone": "story", "caption": "...", "hashtags": [], "cta": "..." },
+  "version4": { "tone": "expert", "caption": "...", "hashtags": [], "cta": "..." },
+  "version5": { "tone": "tips", "caption": "...", "hashtags": [], "cta": "..." }
 }
 `;
 
