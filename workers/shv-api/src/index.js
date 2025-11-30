@@ -273,7 +273,8 @@ export default {
           path === '/admin/stats' ||
           path === '/orders/my' ||
           path === '/orders/cancel' ||
-          path === '/orders/update') {
+          path === '/orders/update' ||
+          path === '/orders/price') { // ✅ [CORE SYNC] Mở cổng tính giá cho Checkout
         
         // ✅ CHECK PERMISSION cho admin routes
         if (path.startsWith('/admin/orders') || path === '/admin/stats') {

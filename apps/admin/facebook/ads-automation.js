@@ -305,35 +305,115 @@
     // 👁️ XEM CHI TIẾT (MONITORING)
     async viewLog(jobId, name) {
         const modal = document.getElementById('modal-monitoring');
+        // Reset tiêu đề bảng để thêm cột Nội dung
+        const thead = document.querySelector('#modal-monitoring thead tr');
+        if(thead) {
+            thead.innerHTML = `
+                <th style="text-align:left; padding:10px;">Fanpage</th>
+                <th style="text-align:left; padding:10px;">Thời gian đăng</th>
+                <th style="text-align:left; padding:10px;">Phiên bản (Tone)</th>
+                <th style="text-align:left; padding:10px; width:40%;">Nội dung Preview</th>
+            `;
+        }
+
         const tbody = document.getElementById('monitor-table-body');
         document.getElementById('monitor-job-title').innerText = `Job #${jobId} - ${name}`;
         modal.style.display = 'flex';
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">⏳ Đang tải lịch trình chi tiết...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">⏳ Đang tải lịch trình và nội dung...</td></tr>';
 
         try {
-            // Lấy danh sách Assignments (Preview)
+            // THÊM NÚT "ĐĂNG NGAY" VÀO TIÊU ĐỀ
+        document.getElementById('monitor-job-title').innerHTML = `
+            Job #${jobId} - ${name} 
+            <button onclick="FanpageManager.forcePublish(${jobId})" class="btn-sm" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer; margin-left:15px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                ⚡ Đăng Ngay (Test Hệ Thống)
+            </button>
+        `;
+
+        try {
+            // Lấy danh sách Assignments kèm nội dung
             const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/preview`, { method: 'GET' });
             
             if(r && r.ok && r.preview && r.preview.length > 0) {
                 tbody.innerHTML = r.preview.map(row => {
-                    let statusBadge = '<span style="color:#d97706; background:#fef3c7; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">⏳ Đang chờ</span>';
-                    // Logic giả lập status (Thực tế nên lấy status thật từ DB)
-                    // Ở đây dùng endpoint preview nên data hơi thô, ta tạm hiển thị theo logic cơ bản
+                    // Xử lý hiển thị thời gian
+                    const date = row.scheduledTime ? new Date(row.scheduledTime) : null;
+                    const timeStr = date ? 
+                        `<div style="font-weight:700; color:#2563eb;">${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}</div>
+                         <div style="font-size:11px; color:#64748b;">${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}</div>` 
+                        : '<span style="color:gray">Chưa lên lịch</span>';
+
+                    // Xử lý hiển thị nội dung (Cắt ngắn nếu dài)
+                    const fullCaption = (row.caption || '').replace(/\n/g, '<br>');
+                    const shortCaption = (row.caption || '').substring(0, 100) + '...';
                     
                     return `
                         <tr>
-                            <td style="padding:12px; border-bottom:1px solid #f1f5f9; font-weight:600; color:#1e293b;">${row.fanpageName}</td>
-                            <td style="padding:12px; border-bottom:1px solid #f1f5f9;">${formatTime(row.scheduledTime)}</td>
-                            <td style="padding:12px; border-bottom:1px solid #f1f5f9;">${statusBadge}</td>
-                            <td style="padding:12px; border-bottom:1px solid #f1f5f9; font-size:12px;">--</td>
+                            <td style="padding:12px; border-bottom:1px solid #f1f5f9;">
+                                <div style="font-weight:600; color:#1e293b;">${row.fanpageName}</div>
+                                <div style="font-size:11px; color:#64748b;">ID: ${row.fanpageId}</div>
+                            </td>
+                            <td style="padding:12px; border-bottom:1px solid #f1f5f9;">${timeStr}</td>
+                            <td style="padding:12px; border-bottom:1px solid #f1f5f9;">
+                                <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; text-transform:uppercase;">
+                                    ${row.tone || 'Mặc định'}
+                                </span>
+                            </td>
+                            <td style="padding:12px; border-bottom:1px solid #f1f5f9; font-size:12px; line-height:1.4;">
+                                <div style="color:#334155; margin-bottom:5px;">${shortCaption}</div>
+                                <details style="cursor:pointer; color:#2563eb;">
+                                    <summary>Xem toàn bộ</summary>
+                                    <div style="margin-top:5px; padding:8px; background:#f8fafc; border-radius:4px; color:#0f172a; max-height:200px; overflow-y:auto;">
+                                        ${fullCaption}
+                                        <div style="margin-top:8px; color:#059669; font-weight:600;">
+                                            ${(row.hashtags || []).map(t => `#${t}`).join(' ')}
+                                        </div>
+                                    </div>
+                                </details>
+                            </td>
                         </tr>
                     `;
                 }).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có lịch trình phân phối.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Chưa có dữ liệu phân phối.</td></tr>';
             }
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi: ${e.message}</td></tr>`;
+        }
+    },
+
+    // ⚡ FORCE PUBLISH: Kích hoạt đăng ngay lập tức để kiểm tra hệ thống
+    async forcePublish(jobId) {
+        if(!confirm('⚠️ BẠN MUỐN ĐĂNG NGAY LẬP TỨC?\n\nHệ thống sẽ BỎ QUA lịch hẹn giờ và tiến hành đăng tất cả bài viết đang chờ của Job này lên Facebook ngay bây giờ.\n\nDùng tính năng này để kiểm tra xem Token/Video có hoạt động tốt không.\n\nNhấn OK để thực hiện.')) return;
+
+        const btn = document.querySelector(`button[onclick="FanpageManager.forcePublish(${jobId})"]`);
+        const oldText = btn ? btn.innerText : '';
+        if(btn) { btn.innerText = '⏳ Đang xử lý...'; btn.disabled = true; }
+
+        toast('🚀 Đang kích hoạt tiến trình đăng bài...');
+
+        try {
+            // Gọi API Bulk Publish (Backend đã có sẵn route này)
+            const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/publish`, { method: 'POST' });
+
+            if(r && r.ok) {
+                // Hiển thị kết quả chi tiết
+                if (r.failedCount > 0) {
+                     toast(`⚠️ Đã chạy xong: ${r.successCount} Thành công / ${r.failedCount} Thất bại. Kiểm tra bảng bên dưới để xem lỗi.`);
+                } else {
+                     toast(`✅ Tuyệt vời! Tất cả ${r.successCount} bài viết đã được đăng thành công.`);
+                }
+                
+                // Refresh lại bảng để thấy trạng thái mới (Published/Failed)
+                this.viewLog(jobId, '...'); 
+                this.loadRepository(); 
+            } else {
+                toast('❌ Lỗi hệ thống: ' + (r.error || 'Unknown error'));
+            }
+        } catch(e) {
+            toast('❌ Lỗi kết nối: ' + e.message);
+        } finally {
+            if(btn) { btn.innerText = oldText; btn.disabled = false; }
         }
     }
   };
