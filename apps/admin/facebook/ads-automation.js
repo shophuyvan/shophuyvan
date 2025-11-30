@@ -168,11 +168,11 @@
         btn.disabled = false;
         btn.innerHTML = oldText;
       }
-    }
+    },
+  };
 
   // ============================================================
   // 2. MODULE DASHBOARD: QUẢN LÝ & 1-CLICK AUTO
-  // ============================================================
   const FanpageManager = {
     init() {
       this.loadRepository();
