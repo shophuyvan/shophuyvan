@@ -1424,28 +1424,22 @@ async function getDirectUploadUrl(req, env) {
     if (!fileName) return errorResponse('Thiếu tên file', 400, req);
 
     const bucket = env.SOCIAL_VIDEOS;
-    if (!bucket) return errorResponse('Chưa cấu hình R2 Bucket', 500, req);
+    [cite_start]if (!bucket) return errorResponse('Chưa cấu hình R2 Bucket [cite: 19, 42]', 500, req);
 
     // Tạo tên file duy nhất
     const uniqueName = `videos/upload_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.]/g, '')}`;
     
-    // Ở môi trường Worker chuẩn, ta dùng phương thức put() trực tiếp từ client là không bảo mật.
-    // Tuy nhiên, R2 hỗ trợ Presigned URL thông qua AWS SDK.
-    // NHƯNG để đơn giản hóa mà không cần cài thêm thư viện AWS SDK nặng nề vào Worker:
-    // Ta sẽ dùng phương thức PUT qua Worker nhưng Stream (Pipe) dữ liệu.
-    // (Nếu Worker vẫn timeout, ta buộc phải dùng AWS SDK để gen presigned url).
-    
-    // TẠM THỜI: Vẫn giữ logic cũ nhưng tối ưu Stream.
-    // Nếu bạn muốn thanh tiến trình %, việc đó nằm ở Frontend (XMLHttpRequest).
-    // Backend không cần thay đổi nhiều nếu file < 100MB.
-    
-    // Nhưng để giải quyết vụ "treo", ta trả về OK để frontend tự upload.
-    // Vì Worker R2 API chuẩn không hỗ trợ generatePresignedUrl native, ta sẽ dùng cách:
-    // Frontend gọi PUT lên Worker -> Worker stream thẳng vào R2 (bypass memory).
-    
+    // ✅ LẤY TOKEN TỪ REQUEST HIỆN TẠI ĐỂ GẮN VÀO URL UPLOAD
+    // Điều này giúp request PUT sau đó tự động vượt qua auth check mà không lo mất header
+    const url = new URL(req.url);
+    const currentToken = req.headers.get('x-token') || 
+                         req.headers.get('token') || 
+                         url.searchParams.get('token') || '';
+
+    [cite_start]// Trả về URL đã kèm token [cite: 35]
     return json({ 
       ok: true, 
-      uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}`, // API nội bộ stream
+      uploadUrl: `/api/auto-sync/jobs/stream-upload?key=${uniqueName}&token=${currentToken}`, 
       fileKey: uniqueName
     }, {}, req);
 
@@ -1453,7 +1447,6 @@ async function getDirectUploadUrl(req, env) {
     return errorResponse(e.message, 500, req);
   }
 }
-
 // Hàm Tạo Job sau khi Upload thành công
 async function finalizeJobCreation(req, env) {
   try {

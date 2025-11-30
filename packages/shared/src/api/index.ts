@@ -226,10 +226,10 @@ return filtered;
       });
     },
     async metrics(productIds: (string | number)[]) {
-      // [CORE SYNC] Lọc bỏ ID rác (null, undefined, rỗng) trước khi gửi
+      // [CORE SYNC] Lọc bỏ ID rác
       const validIds = Array.from(new Set(productIds)).filter(id => id && String(id).trim() !== '');
 
-      if (validIds.length === 0) return []; // Không gọi API nếu không có ID hợp lệ
+      if (validIds.length === 0) return [];
 
       const r = await _fetch('/api/products/metrics', {
         method: 'POST',
@@ -238,8 +238,9 @@ return filtered;
       });
       if (!r.ok) return [];
       return r.data?.metrics || [];
-    },
-  }, // <--- THÊM DẤU NÀY ĐỂ ĐÓNG PRODUCTS
+    }
+  }, // Kết thúc object products
+
   categories: {
     async list() {
       const candidates = [

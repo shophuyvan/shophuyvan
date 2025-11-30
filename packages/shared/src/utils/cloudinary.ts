@@ -74,49 +74,26 @@ export function cldFetch(
   }
   
   try {
-    // Parse URL safely
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
-      // Relative URL, make absolute
-      parsedUrl = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'https://example.com');
-    }
-    
-    const hostname = parsedUrl.hostname.toLowerCase();
-    
-    // Already Cloudinary URL
-    if (hostname.includes('cloudinary.com')) {
-      // Has transforms already
-      if (/\/upload\/[^/]+\//.test(parsedUrl.pathname)) {
+    // 1. Nếu là link Cloudinary của shop -> Thêm transformations (resize, nén)
+    if (url.includes('cloudinary.com') && url.includes(CLOUD_NAME)) {
+      // Đã có transform -> trả về luôn
+      if (/\/upload\/[^/]+\//.test(url)) {
         urlCache.set(cacheKey, url);
         return url;
       }
       
-      // Add transforms
-      const newPath = parsedUrl.pathname.replace(
-        '/upload/',
-        `/upload/${transforms}/`
-      );
-      parsedUrl.pathname = newPath;
-      const result = parsedUrl.toString();
-      urlCache.set(cacheKey, result);
-      return result;
+      // Chưa có -> thêm transform vào sau /upload/
+      const newUrl = url.replace('/upload/', `/upload/${transforms}/`);
+      urlCache.set(cacheKey, newUrl);
+      return newUrl;
     }
-    
-    // External URL - use Cloudinary fetch delivery
-    // Remove protocol for fetch URL
-    const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
-    
-    const basePath = kind === 'video' ? 'video/fetch' : 'image/fetch';
-    const result = `https://res.cloudinary.com/${CLOUD_NAME}/${basePath}/${transforms}/${urlWithoutProtocol}`;
-    
-    urlCache.set(cacheKey, result);
-    return result;
-    
-  } catch (error) {
-    console.warn('[Cloudinary] Failed to process URL:', url, error);
+
+    // 2. [CORE SYNC] Nếu là link ngoại lai (Shopee/Lazada/Staging...)
+    // TRẢ VỀ LINK GỐC, KHÔNG DÙNG FETCH (tránh lỗi 401)
     urlCache.set(cacheKey, url);
+    return url;
+
+  } catch (error) {
     return url;
   }
 }
