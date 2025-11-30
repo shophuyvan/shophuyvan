@@ -62,19 +62,19 @@ export async function handleCallback(req, env) {
     // Lưu Refresh Token (Quan trọng nhất)
     if (tokens.refresh_token) {
       await env.DB.prepare(`
-        INSERT INTO settings (key_name, value_json, created_at, updated_at)
-        VALUES ('youtube_refresh_token', ?, ?, ?)
+        INSERT INTO settings (key_name, value_json, updated_at)
+        VALUES ('youtube_refresh_token', ?, ?)
         ON CONFLICT(key_name) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
-      `).bind(JSON.stringify({ token: tokens.refresh_token }), now, now).run();
+      `).bind(JSON.stringify({ token: tokens.refresh_token }), now).run();
     }
       
     // Lưu Access Token
     if (tokens.access_token) {
         await env.DB.prepare(`
-          INSERT INTO settings (key_name, value_json, created_at, updated_at)
-          VALUES ('youtube_access_token', ?, ?, ?)
+          INSERT INTO settings (key_name, value_json, updated_at)
+          VALUES ('youtube_access_token', ?, ?)
           ON CONFLICT(key_name) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
-        `).bind(JSON.stringify({ token: tokens.access_token }), now, now).run();
+        `).bind(JSON.stringify({ token: tokens.access_token }), now).run();
     }
 
     return new Response(`
