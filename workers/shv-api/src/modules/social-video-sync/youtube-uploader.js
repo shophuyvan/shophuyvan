@@ -129,10 +129,83 @@ async function getAccessToken(env) {
 }
 
 /**
- * 4. Upload Video lên YouTube Shorts
+ * 4. Upload Video lên YouTube Shorts (Resumable Upload + Scheduling)
  */
-export async function uploadToYouTube(env, videoUrl, title, description) {
-  // Sẽ hoàn thiện ở bước tiếp theo sau khi bạn kết nối thành công
-  const accessToken = await getAccessToken(env);
-  return { ok: true, message: 'Token is valid', token: accessToken.substring(0, 10) + '...' };
+export async function uploadToYouTube(env, videoUrl, title, description, scheduledTime = null) {
+  try {
+    const accessToken = await getAccessToken(env);
+
+    // 1. Lấy stream video
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) throw new Error('Không thể tải video từ nguồn: ' + videoUrl);
+    
+    const contentType = videoRes.headers.get('content-type') || 'video/mp4';
+    const contentLength = videoRes.headers.get('content-length');
+
+    // 2. Metadata (Có xử lý Hẹn giờ)
+    const metadata = {
+      snippet: {
+        title: (title || '').substring(0, 100),
+        description: (description || '') + '\n\n#Shorts #ShopHuyVan',
+        tags: ['shorts', 'shophuyvan', 'review']
+      },
+      status: {
+        // Nếu có hẹn giờ -> private + publishAt. Nếu không -> public ngay.
+        privacyStatus: scheduledTime ? 'private' : 'public',
+        publishAt: scheduledTime ? scheduledTime.toISOString() : undefined,
+        selfDeclaredMadeForKids: false
+      }
+    };
+
+    const initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': contentType,
+        ...(contentLength && { 'X-Upload-Content-Length': contentLength })
+      },
+      body: JSON.stringify(metadata)
+    });
+
+    if (!initRes.ok) {
+      const errText = await initRes.text();
+      throw new Error('Lỗi khởi tạo YouTube Upload: ' + errText);
+    }
+
+    const uploadUrl = initRes.headers.get('Location');
+    if (!uploadUrl) throw new Error('Không lấy được URL upload từ YouTube');
+
+    // 3. Upload file Binary
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        ...(contentLength && { 'Content-Length': contentLength })
+      },
+      body: videoRes.body 
+    });
+
+    if (!uploadRes.ok) {
+       const errText = await uploadRes.text();
+       throw new Error('Lỗi truyền file sang YouTube: ' + errText);
+    }
+
+    const data = await uploadRes.json();
+    console.log('[YouTube Upload] Success:', data.id);
+
+    return { 
+      ok: true, 
+      platform: 'youtube',
+      videoId: data.id, 
+      videoUrl: `https://www.youtube.com/shorts/${data.id}`,
+      // Trả về thông tin hẹn giờ để hiển thị
+      isScheduled: !!scheduledTime,
+      scheduledTime: scheduledTime
+    };
+
+  } catch (e) {
+    console.error('[YouTube Upload Error]', e);
+    return { ok: false, error: e.message };
+  }
 }

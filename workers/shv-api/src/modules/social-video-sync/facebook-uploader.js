@@ -1,8 +1,8 @@
 /**
- * Upload video lên Facebook Page
+ * Upload video lên Facebook Page (Hỗ trợ nút Call-To-Action)
  * Sử dụng phương thức file_url để server Facebook tự tải từ R2
  */
-export async function uploadToFacebookPage(pageId, videoUrl, caption, env) {
+export async function uploadToFacebookPage(pageId, videoUrl, caption, env, productUrl = null) {
   try {
     // 1. Lấy Page Access Token từ bảng fanpages
     const pageData = await env.DB.prepare(
@@ -16,7 +16,6 @@ export async function uploadToFacebookPage(pageId, videoUrl, caption, env) {
     const pageAccessToken = pageData.access_token;
 
     // 2. Gọi Facebook Graph API (POST /videos)
-    // Docs: https://developers.facebook.com/docs/video-api/guides/publishing
     const fbUrl = `https://graph-video.facebook.com/v19.0/${pageId}/videos`;
     
     const params = new URLSearchParams();
@@ -24,6 +23,18 @@ export async function uploadToFacebookPage(pageId, videoUrl, caption, env) {
     params.append('file_url', videoUrl); // Facebook sẽ tự download từ R2
     params.append('description', caption);
     params.append('published', 'true'); // Đăng ngay lập tức
+
+    // ✅ LOGIC MỚI: Thêm nút Call To Action (Mua ngay)
+    if (productUrl) {
+      const ctaData = {
+        type: 'SHOP_NOW', // Loại nút: Mua ngay
+        value: {
+          link: productUrl // Link trỏ về Web
+        }
+      };
+      // Facebook yêu cầu gửi object dưới dạng JSON String
+      params.append('call_to_action', JSON.stringify(ctaData));
+    }
 
     const response = await fetch(fbUrl, {
       method: 'POST',
@@ -39,7 +50,7 @@ export async function uploadToFacebookPage(pageId, videoUrl, caption, env) {
     return {
       success: true,
       postId: data.id,
-      postUrl: `https://www.facebook.com/${data.id}` // URL dự kiến
+      postUrl: `https://www.facebook.com/${data.id}`
     };
 
   } catch (error) {

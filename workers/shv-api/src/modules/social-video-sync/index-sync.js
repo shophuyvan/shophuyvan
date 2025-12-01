@@ -33,7 +33,9 @@ import {
   getUploadedVideos 
 } from './douyin/douyin-upload-handler.js';
 
-import { uploadToYouTube } from './youtube-uploader.js'; // ✅ Import module YouTube
+import { uploadToYouTube } from './youtube-uploader.js';
+import { uploadToThreads } from './threads-uploader.js'; // ✅ Import mới
+
 
 import { 
   batchAnalyzeVideos, 
@@ -153,8 +155,13 @@ export async function handle(req, env, ctx) {
   }
 
   if (path === '/api/cron/trigger-schedule' && method === 'POST') {
-    const result = await publishScheduledPosts(env);
-    return json({ ok: true, result }, {}, req);
+    // 1. Chạy Scheduler Facebook (Cũ)
+    const fbResult = await publishScheduledPosts(env);
+    
+    // 2. Chạy Scheduler Threads (Mới)
+    const thResult = await publishScheduledThreads(env);
+
+    return json({ ok: true, fb: fbResult, threads: thResult }, {}, req);
   }
 
   if (path === '/api/facebook/posts/schedule-batch' && method === 'POST') {
@@ -894,12 +901,13 @@ async function bulkPublishJob(req, env, jobId) {
           WHERE id = ?
         `).bind(now, assign.id).run();
 
-        // Upload to Facebook
+      // Upload to Facebook (Đã thêm nút Mua Ngay)
         const fbResult = await uploadToFacebookPage(
           assign.fanpage_id,
           job.video_r2_url,
           assign.caption,
-          env
+          env,
+          job.product_url // ✅ THÊM DÒNG NÀY: Truyền Link sản phẩm
         );
 
         // Update success
@@ -1339,135 +1347,160 @@ async function searchProducts(req, env) {
 }
 
 // ===================================================================
-// LOGIC PHÂN PHỐI THÔNG MINH (ANTI-SPAM & GIỜ VÀNG)
+// LOGIC PHÂN PHỐI ĐA KÊNH: YOUTUBE + THREADS + FANPAGE
+// (Có Link Sản Phẩm + Giờ Vàng)
 // ===================================================================
 
 async function distributeJobSmartly(req, env, jobId) {
   const now = new Date();
-  // 1. Cấu hình Giờ Vàng (09:00, 11:30, 19:00, 21:00)
-  const GOLDEN_HOURS = [9, 11.5, 19, 21]; 
+  const GOLDEN_HOURS = [9, 11.5, 19, 21];
 
-  // 2. Lấy dữ liệu Job & Variants
+  // Hàm helper: Tìm giờ vàng tiếp theo
+  function getNextGoldenTime(startFromDate) {
+      let t = new Date(startFromDate);
+      let curH = t.getHours() + t.getMinutes()/60;
+      let idx = 0;
+      // Tìm khung giờ kế tiếp trong ngày
+      while(idx < GOLDEN_HOURS.length && GOLDEN_HOURS[idx] <= curH) idx++;
+      
+      // Nếu hết giờ hôm nay -> lấy giờ đầu tiên ngày mai
+      if(idx >= GOLDEN_HOURS.length) {
+          t.setDate(t.getDate() + 1);
+          idx = 0;
+      }
+      
+      // Set giờ phút (cộng thêm vài phút random để tránh robot)
+      const randomMinutes = Math.floor(Math.random() * 10);
+      t.setHours(Math.floor(GOLDEN_HOURS[idx]), (GOLDEN_HOURS[idx]%1)*60 + randomMinutes, 0, 0);
+      return t;
+  }
+
+  // 1. Lấy dữ liệu
   const job = await env.DB.prepare("SELECT * FROM automation_jobs WHERE id = ?").bind(jobId).first();
   if (!job) return errorResponse("Job not found", 404, req);
 
-  // Lấy 5 variants
-  const variants = await env.DB.prepare("SELECT * FROM content_variants WHERE job_id = ?").bind(jobId).all();
-  if (!variants.results || variants.results.length === 0) return errorResponse("Chưa có Variant AI (Hãy đợi AI viết xong)", 400, req);
-     
-      // ============================================================
-  // ✅ NEW: TỰ ĐỘNG ĐĂNG YOUTUBE SHORTS & LƯU DB
+  const variants = await env.DB.prepare("SELECT * FROM content_variants WHERE job_id = ? ORDER BY version ASC").bind(jobId).all();
+  const allVars = variants.results || [];
+  if (allVars.length === 0) return errorResponse("Chưa có Variant AI", 400, req);
+
+  let logMsg = [];
+  // Con trỏ thời gian để rải bài
+  let schedulePointer = new Date(now);
+
+  // Link sản phẩm (nếu có)
+  const productLinkMsg = job.product_url ? `\n\n🔥 Link sản phẩm: ${job.product_url}` : '';
+  const threadsLinkMsg = job.product_url ? `\n\n👉 Mua ngay: ${job.product_url}` : '';
+
+  // ============================================================
+  // KÊNH 1: YOUTUBE SHORTS (Giờ vàng số 1)
   // ============================================================
   let youtubeStatus = 'skipped';
   let youtubeUrl = null;
 
   try {
-      console.log(`[1-Click Auto] Đang thử upload lên YouTube cho Job ${jobId}...`);
+      const ytTime = getNextGoldenTime(schedulePointer); // Lấy giờ vàng
+      schedulePointer = new Date(ytTime); // Cập nhật con trỏ
+
+      console.log(`[Auto] Scheduling YouTube at: ${ytTime.toLocaleString('vi-VN')}`);
       
-      const bestVariant = variants.results[0];
-      const description = bestVariant ? bestVariant.caption : job.product_name;
+      // Dùng Variant 5 (Tips/Chia sẻ)
+      const ytVariant = allVars[4] || allVars[allVars.length - 1]; 
       
-      const youtubeResult = await uploadToYouTube(env, job.video_r2_url, job.product_name, description);
+      // ✅ CHÈN LINK VÀO MÔ TẢ YOUTUBE
+      const ytDesc = `${ytVariant.caption}${productLinkMsg}`;
+      
+      // Upload kèm hẹn giờ
+      const youtubeResult = await uploadToYouTube(env, job.video_r2_url, job.product_name, ytDesc, ytTime);
       
       if (youtubeResult.ok) {
-          console.log('[1-Click Auto] YouTube Upload Success:', youtubeResult.videoId);
           youtubeStatus = 'published';
           youtubeUrl = youtubeResult.videoUrl;
+          logMsg.push(`✅ YouTube: Đã hẹn giờ đăng lúc ${ytTime.getHours()}:${String(ytTime.getMinutes()).padStart(2,'0')}`);
       } else {
-          console.error('[1-Click Auto] YouTube Upload Failed:', youtubeResult.error);
           youtubeStatus = 'failed';
+          logMsg.push(`❌ YouTube Error: ${youtubeResult.error}`);
       }
-  } catch (ytError) {
-      console.error('[1-Click Auto] Lỗi ngoại lệ YouTube:', ytError);
+  } catch (e) {
       youtubeStatus = 'error';
+      logMsg.push(`❌ YouTube Exception: ${e.message}`);
   }
 
   // ============================================================
+  // KÊNH 2: THREADS (Giờ vàng số 2, 3...)
+  // ============================================================
+  let threadsCount = 0;
+  try {
+      const threadsSetting = await env.DB.prepare("SELECT value_json FROM settings WHERE key_name = 'threads_accounts'").first();
+      if (threadsSetting && threadsSetting.value_json) {
+          const threadsAccs = JSON.parse(threadsSetting.value_json).slice(0, 2); 
+          
+          for (let i = 0; i < threadsAccs.length; i++) {
+              const tTime = getNextGoldenTime(schedulePointer);
+              schedulePointer = new Date(tTime);
 
-  // Lấy danh sách Fanpage đang hoạt động
+              const acc = threadsAccs[i];
+              // Dùng Variant 3 & 4
+              const tVariant = allVars[2 + i] || allVars[i % allVars.length]; 
+              
+              // ✅ CHÈN LINK VÀO CAPTION THREADS
+              const finalCaption = `${tVariant.caption}${threadsLinkMsg}`;
+
+              // Lưu vào hàng đợi DB
+              await env.DB.prepare(`
+                  INSERT INTO threads_assignments (job_id, account_id, caption, video_url, status, scheduled_time, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
+              `).bind(jobId, acc.id, finalCaption, job.video_r2_url, tTime.getTime(), Date.now(), Date.now()).run();
+
+              threadsCount++;
+              logMsg.push(`✅ Threads (${acc.id}): Đã lên lịch lúc ${tTime.getHours()}:${String(tTime.getMinutes()).padStart(2,'0')}`);
+          }
+      }
+  } catch (e) {
+      logMsg.push(`❌ Threads Error: ${e.message}`);
+  }
+
+  // ============================================================
+  // KÊNH 3: FACEBOOK (Giờ vàng số 4, 5...)
+  // ============================================================
   const fanpages = await env.DB.prepare("SELECT page_id, page_name FROM fanpages WHERE access_token IS NOT NULL AND is_active = 1").bind().all();
-  if (!fanpages.results || fanpages.results.length === 0) return errorResponse("Chưa có Fanpage nào hoạt động", 400, req);
-
-  // 3. ANTI-SPAM: Lọc bỏ các Page đã từng đăng Job này
   const existing = await env.DB.prepare("SELECT fanpage_id FROM fanpage_assignments WHERE job_id = ?").bind(jobId).all();
   const postedIds = new Set(existing.results.map(x => x.fanpage_id));
+  const targets = fanpages.results.filter(p => !postedIds.has(p.page_id)).slice(0, 2);
 
-  // Chỉ lấy những Page CHƯA đăng
-  const targets = fanpages.results.filter(p => !postedIds.has(p.page_id));
-
-  if (targets.length === 0) return errorResponse("Tất cả Fanpage đều đã được lên lịch cho bài này!", 400, req);
-
-  // 4. TÍNH TOÁN & CHIA BÀI (Round Robin)
-  let count = 0;
-  let hourIdx = 0;
-  let dayOffset = 0;
-
-  // Tìm khung giờ vàng tiếp theo ngay sau hiện tại
-  const curH = now.getHours() + now.getMinutes()/60;
-  while(hourIdx < GOLDEN_HOURS.length && GOLDEN_HOURS[hourIdx] <= curH) hourIdx++;
-
-  // Nếu hết giờ hôm nay, chuyển sang sáng mai
-  if(hourIdx >= GOLDEN_HOURS.length) { hourIdx=0; dayOffset=1; }
-
-  // Xóa các lịch pending cũ (nếu có) để tránh trùng lặp khi bấm lại
+  let fbCount = 0;
   await env.DB.prepare("DELETE FROM fanpage_assignments WHERE job_id = ? AND status = 'pending'").bind(jobId).run();
 
   for(let i=0; i<targets.length; i++) {
      const page = targets[i];
-     // Chia variant xoay vòng: Page 1 -> Var 1, Page 2 -> Var 2...
-     const variant = variants.results[i % variants.results.length]; 
+     const fbVariant = allVars[i] || allVars[0];
+     
+     const fbTime = getNextGoldenTime(schedulePointer);
+     schedulePointer = new Date(fbTime);
 
-     // Tính thời gian đăng (Unix Timestamp)
-     let t = new Date(now);
-     t.setDate(now.getDate() + dayOffset);
-     t.setHours(Math.floor(GOLDEN_HOURS[hourIdx]), (GOLDEN_HOURS[hourIdx]%1)*60, 0, 0);
-
-     // Lưu vào DB (Trạng thái Pending -> Chờ Cronjob đăng)
+     // Facebook đã có nút Mua Ngay riêng (xử lý ở bước upload), không cần chèn vào caption
      await env.DB.prepare(`
         INSERT INTO fanpage_assignments 
         (job_id, fanpage_id, fanpage_name, variant_id, status, scheduled_time, created_at, updated_at)
         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
-     `).bind(
-         jobId, 
-         page.page_id, 
-         page.page_name, 
-         variant.id, 
-         t.getTime(), 
-         Date.now(), 
-         Date.now()
-     ).run();
+     `).bind(jobId, page.page_id, page.page_name, fbVariant.id, fbTime.getTime(), Date.now(), Date.now()).run();
 
-     count++;
-
-     // Nhảy sang khung giờ tiếp theo cho page kế tiếp
-     hourIdx++;
-     if(hourIdx >= GOLDEN_HOURS.length) { hourIdx=0; dayOffset++; }
+     fbCount++;
   }
+  
+  if (fbCount > 0) logMsg.push(`✅ Facebook: Đã lên lịch cho ${fbCount} Fanpage`);
 
-  // ✅ Cập nhật trạng thái Job (Gộp cả Fanpage Count + YouTube Status)
+  // Update Job
   await env.DB.prepare(`
       UPDATE automation_jobs 
-      SET status = 'assigned', 
-          total_fanpages_assigned = ?, 
-          youtube_status = ?, 
-          youtube_url = ?,
-          updated_at = ? 
+      SET status = 'assigned', total_fanpages_assigned = ?, youtube_status = ?, youtube_url = ?, updated_at = ? 
       WHERE id = ?
-  `).bind(count, youtubeStatus, youtubeUrl, Date.now(), jobId).run();
-
-  // Cập nhật thông báo nếu có YouTube
-  let msg = `Đã lên lịch cho ${count} Fanpage Facebook.`;
-  if (youtubeResult && youtubeResult.ok) {
-      msg += ` Và đã đăng thành công lên YouTube Shorts!`;
-  } else if (youtubeResult && !youtubeResult.ok) {
-      msg += ` (Lỗi đăng YouTube: ${youtubeResult.error})`;
-  }
+  `).bind(fbCount, youtubeStatus, youtubeUrl, Date.now(), jobId).run();
 
   return json({ 
       ok: true, 
-      count, 
-      youtube: youtubeResult, // Trả về chi tiết để debug nếu cần
-      message: msg 
+      count: fbCount, 
+      threads_count: threadsCount,
+      message: logMsg.join('\n') 
   }, {}, req);
 }
 
@@ -1558,6 +1591,57 @@ async function handleStreamUpload(req, env) {
     } catch (e) {
         return errorResponse('Stream Error: ' + e.message, 500, req);
     }
+}
+
+// ===================================================================
+// CRON: THREADS PUBLISHER
+// ===================================================================
+async function publishScheduledThreads(env) {
+    const now = Date.now();
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+        // Lấy bài đến hạn
+        const { results } = await env.DB.prepare(`
+            SELECT * FROM threads_assignments 
+            WHERE status = 'pending' AND scheduled_time <= ? 
+            LIMIT 5
+        `).bind(now).all();
+
+        if (!results || results.length === 0) return { count: 0, msg: 'No threads to publish' };
+
+        console.log(`[Threads Cron] Found ${results.length} posts to publish`);
+
+        const setting = await env.DB.prepare("SELECT value_json FROM settings WHERE key_name = 'threads_accounts'").first();
+        if (!setting) return { count: 0, error: 'No threads accounts configured' };
+        
+        const accounts = JSON.parse(setting.value_json); 
+
+        for (const post of results) {
+            const acc = accounts.find(a => a.id === post.account_id);
+            if (!acc) {
+                await env.DB.prepare("UPDATE threads_assignments SET status = 'failed', error_message = 'Account config missing', updated_at = ? WHERE id = ?").bind(now, post.id).run();
+                failCount++;
+                continue;
+            }
+
+            // Gọi hàm Upload từ module Threads
+            const res = await uploadToThreads(post.account_id, post.video_url, post.caption, acc.token);
+
+            if (res.success) {
+                await env.DB.prepare("UPDATE threads_assignments SET status = 'published', post_id = ?, updated_at = ? WHERE id = ?").bind(res.postId, now, post.id).run();
+                successCount++;
+            } else {
+                await env.DB.prepare("UPDATE threads_assignments SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?").bind(res.error, now, post.id).run();
+                failCount++;
+            }
+        }
+    } catch (e) {
+        console.error('[Threads Cron Error]', e);
+        return { error: e.message };
+    }
+    return { success: successCount, failed: failCount };
 }
 
 console.log('✅ social-video-sync/index.js loaded');
