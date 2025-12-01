@@ -659,24 +659,29 @@ useEffect(() => {
         district: districts.find((d) => d.code === form.district)?.name || '',
         commune: wards.find((w) => w.code === form.ward)?.name || '',
       },
-      // [FIX-MINI-CHECKOUT] Map đúng trường dữ liệu để Admin nhận được sản phẩm
+     // [FIX-MINI-FINAL] Đồng bộ chính xác 100% với checkout.js (Web)
       items: (linesForOrder || []).map((item: any) => ({
-        product_id: item.id || item.product_id || item.productId, // QUAN TRỌNG: Phải có product_id
-        sku: item.sku || item.variant_sku || '',
+        // Web gửi key 'id' -> MiniApp cũng phải gửi key 'id' thì Admin mới nhận
+        id: item.id || item.product_id || item.productId || item.sku || '', 
+        
+        sku: item.sku || item.id || '',
         name: item.name || item.title,
-        // Ưu tiên giá sale giống FE
-        price: Number(item.sale_price || item.price || 0),
-        qty: Number(item.qty || item.quantity || 1),
-        weight_gram: Number(
-          item.weight_gram ??
-          item.weight_grams ??
-          item.weight ??
-          item.variant?.weight_gram ??
-          0
-        ),
-        // Đổi 'variant' thành 'properties' để Backend lưu đúng cột
-        properties: item.variantName || item.variant || '', 
+        
+        // Web gửi key 'variant' -> MiniApp cũng phải gửi key 'variant'
+        variant: item.variantName || item.variant || '', 
+        
+        // Web gửi cả 2 trường ảnh -> MiniApp copy y hệt
+        variantImage: item.variantImage || item.image || '',
         image: item.variantImage || item.image || '',
+        
+        qty: Number(item.qty || item.quantity || 1),
+        price: Number(item.sale_price || item.price || 0),
+        cost: Number(item.cost || 0),
+        
+        // Web gửi cả 3 key cân nặng -> MiniApp làm theo cho chắc
+        weight_gram: Number(item.weight_gram || item.weight_grams || item.weight || 0),
+        weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0),
+        weight: Number(item.weight_gram || item.weight_grams || item.weight || 0)
       })),
             totals: {
         subtotal: serverTotals?.subtotal ?? sub,
