@@ -33,7 +33,7 @@ import {
   getUploadedVideos 
 } from './douyin/douyin-upload-handler.js';
 
-import { uploadToYouTube } from './youtube-uploader.js';
+import { uploadToYouTube, getAuthUrl as getYouTubeAuthUrl, handleCallback as handleYouTubeCallback } from './youtube-uploader.js';
 import { uploadToThreads } from './threads-uploader.js'; // ✅ Import mới
 
 
@@ -49,9 +49,21 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
+ // ============================================================
+  // ✅ 1. PUBLIC ROUTES (THREADS & YOUTUBE LOGIN) - KHÔNG CẦN CHECK AUTH
   // ============================================================
-  // ✅ 1. PUBLIC ROUTES (THREADS LOGIN) - KHÔNG CẦN CHECK AUTH
-  // ============================================================
+  
+  // --- YOUTUBE AUTH ---
+  if (path === '/api/auto-sync/auth/youtube/start') {
+    return Response.redirect(getYouTubeAuthUrl(env), 302);
+  }
+  
+  // Lưu ý: Route này phải khớp với REDIRECT_URI trong youtube-uploader.js
+  if (path === '/auth/google/callback') { 
+    return handleYouTubeCallback(req, env);
+  }
+
+  // --- THREADS AUTH ---
   if (path === '/api/auto-sync/auth/threads/start') {
     const client_id = env.FB_APP_ID; 
     const redirect_uri = 'https://api.shophuyvan.vn/api/auto-sync/auth/threads/callback';
