@@ -659,30 +659,47 @@ useEffect(() => {
         district: districts.find((d) => d.code === form.district)?.name || '',
         commune: wards.find((w) => w.code === form.ward)?.name || '',
       },
-     // [FIX-MINI-FINAL] Đồng bộ chính xác 100% với checkout.js (Web)
-      items: (linesForOrder || []).map((item: any) => ({
-        // Web gửi key 'id' -> MiniApp cũng phải gửi key 'id' thì Admin mới nhận
-        id: item.id || item.product_id || item.productId || item.sku || '', 
+// [FIX-MINI-FINAL] Làm sạch ID để khớp với Product Core (Integer)
+      items: (linesForOrder || []).map((item: any) => {
+        // Hàm tách ID sạch: "2058::Tên SP" -> "2058"
+        const cleanId = (val: any) => {
+           if (!val) return '';
+           const str = String(val);
+           // Tách lấy phần số trước dấu ::
+           const part = str.includes('::') ? str.split('::')[0] : str;
+           // Đảm bảo chỉ lấy số (để khớp Integer trong DB)
+           return part.replace(/[^0-9]/g, ''); 
+        };
         
-        sku: item.sku || item.id || '',
-        name: item.name || item.title,
-        
-        // Web gửi key 'variant' -> MiniApp cũng phải gửi key 'variant'
-        variant: item.variantName || item.variant || '', 
-        
-        // Web gửi cả 2 trường ảnh -> MiniApp copy y hệt
-        variantImage: item.variantImage || item.image || '',
-        image: item.variantImage || item.image || '',
-        
-        qty: Number(item.qty || item.quantity || 1),
-        price: Number(item.sale_price || item.price || 0),
-        cost: Number(item.cost || 0),
-        
-        // Web gửi cả 3 key cân nặng -> MiniApp làm theo cho chắc
-        weight_gram: Number(item.weight_gram || item.weight_grams || item.weight || 0),
-        weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0),
-        weight: Number(item.weight_gram || item.weight_grams || item.weight || 0)
-      })),
+        // Ưu tiên lấy ID từ các trường có thể
+        const rawId = item.id || item.product_id || item.productId || '';
+        const realId = cleanId(rawId);
+
+        return {
+          // Gửi ID chuẩn số nguyên (String dạng số) sang Backend
+          id: realId,
+          product_id: realId, 
+          variant_id: realId, // Tạm dùng ID này cho variant nếu cấu trúc cart đang gộp chung
+          
+          sku: item.sku || item.variant_sku || realId || '',
+          name: item.name || item.title || 'Sản phẩm',
+          
+          // Các trường hiển thị
+          variant: item.variantName || item.variant || item.properties || '', 
+          variantImage: item.variantImage || item.image || '',
+          image: item.variantImage || item.image || '',
+          
+          // Giá & Số lượng
+          qty: Number(item.qty || item.quantity || 1),
+          price: Number(item.sale_price || item.price || 0),
+          cost: Number(item.cost || 0),
+          
+          // Cân nặng
+          weight_gram: Number(item.weight_gram || item.weight_grams || item.weight || 0),
+          weight_grams: Number(item.weight_gram || item.weight_grams || item.weight || 0),
+          weight: Number(item.weight_gram || item.weight_grams || item.weight || 0)
+        };
+      }),
             totals: {
         subtotal: serverTotals?.subtotal ?? sub,
         shipping_fee: serverTotals?.shipping_fee ?? originalShippingFee,
