@@ -632,8 +632,8 @@ export default {
       if (path.startsWith('/admin/marketing/auth/zalo') || 
           path.startsWith('/admin/marketing/zalo')) {
         
-        // Nếu là Login Callback -> Không cần check quyền Admin (để Zalo redirect về được)
-        if (path.includes('/auth/zalo/callback')) {
+        // ✅ CẬP NHẬT: Cho phép cả 'start' và 'callback' đi qua mà không cần Token
+        if (path.includes('/auth/zalo/callback') || path.includes('/auth/zalo/start')) {
            return ZaloAds.handle(req, env, ctx);
         }
 
