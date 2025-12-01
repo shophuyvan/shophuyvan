@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "zmp-ui"; // ✅ Hook điều hướng
+import { scanQRCode } from "zmp-sdk/apis"; // ✅ API Quét mã
 import { routes } from "../routes";
 import cart from "@shared/cart";
 
@@ -48,6 +50,19 @@ export default function Header({
 }: HeaderProps) {
   const [count, setCount] = useState(cart.count());
   const [shouldHide, setShouldHide] = useState(false);
+  const navigate = useNavigate();
+
+  const handleScan = async () => {
+    try {
+      const { content } = await scanQRCode({});
+      if (content) {
+        // Điều hướng sang trang danh mục để tìm kiếm sản phẩm theo mã vừa quét
+        navigate(`/category?q=${encodeURIComponent(content)}`);
+      }
+    } catch (error) {
+      console.error("Lỗi quét QR:", error);
+    }
+  };
 
   // Ẩn header ở trang product/cart/checkout (FE),
   // nhưng nếu forceShow = true (Mini) thì luôn hiển thị
@@ -169,11 +184,18 @@ export default function Header({
             </div>
           </div>
 
-          {count > 0 && (
-            <div className="text-xs text-rose-600 font-semibold">
-              {count} sản phẩm
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+             {/* ✅ Nút Quét QR */}
+            <button onClick={handleScan} className="p-1 text-gray-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h-.972a4 4 0 01-3.832-5.02l.465-2.09a1.996 1.996 0 00-.868-2.106l-1.487-.798A2 2 0 012.392 6.57l.617-2.775a2 2 0 012.42-1.52l1.98.44M13 12a1 1 0 11-2 0 1 1 0 012 0zm1.5-6.5l-2.023 5.56a1 1 0 01-1.883-.133l-1.096-4.93a1 1 0 011.64-1.076l3.362 1.58z" /></svg>
+            </button>
+            
+            {count > 0 && (
+              <div className="text-xs text-rose-600 font-semibold">
+                {count} sản phẩm
+              </div>
+            )}
+          </div>
         </div>
       </header>
     );
@@ -196,12 +218,8 @@ export default function Header({
           <span className="text-sm font-bold text-brand">Shop Huy Vân Ver 0.4</span>
         </a>
 
-        {/* Ô tìm kiếm kéo dài */}
-        <a
-          href={routes.category}
-          className="search-pill flex-1 flex items-center gap-2 min-h-[36px] ml-2"
-          aria-label="Tìm kiếm sản phẩm"
-        >
+        {/* Ô tìm kiếm + QR Code */}
+        <div className="search-pill flex-1 flex items-center gap-2 min-h-[36px] ml-2 bg-gray-100 rounded-full px-3">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
@@ -214,8 +232,24 @@ export default function Header({
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-gray-500 text-sm">Tìm kiếm sản phẩm</span>
-        </a>
+          <span 
+            className="text-gray-500 text-sm flex-1 truncate cursor-pointer"
+            onClick={() => navigate(routes.category)}
+          >
+            Tìm kiếm sản phẩm
+          </span>
+          
+          {/* ✅ Nút QR nhỏ trong thanh tìm kiếm */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleScan();
+            }}
+            className="p-1 -mr-1 text-gray-500 hover:text-gray-700"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h-.972a4 4 0 01-3.832-5.02l.465-2.09a1.996 1.996 0 00-.868-2.106l-1.487-.798A2 2 0 012.392 6.57l.617-2.775a2 2 0 012.42-1.52l1.98.44M13 12a1 1 0 11-2 0 1 1 0 012 0zm1.5-6.5l-2.023 5.56a1 1 0 01-1.883-.133l-1.096-4.93a1 1 0 011.64-1.076l3.362 1.58z" /></svg>
+          </button>
+        </div>
 
         {/* Nút giỏ hàng */}
         <a

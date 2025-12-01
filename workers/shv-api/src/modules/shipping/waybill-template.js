@@ -306,9 +306,6 @@ export function getWaybillHTML(data) {
         </div>
       </div>
     </div>
-
-    <div class="warning-text">
-      *** Người gửi cam kết hàng hóa có đầy đủ hóa đơn, chứng từ theo quy định.
     </div>
 
     <div class="body-section">
@@ -349,11 +346,6 @@ export function getWaybillHTML(data) {
         <div class="cod-value">${codDisplay}</div>
       </div>
     </div>
-    
-    <div class="bottom-line">
-      Tuyển NV Giao hàng/ NV Bưu cục thu nhập hấp dẫn. Hotline: 1900 6885
-    </div>
-
   </div>
   <script>
     window.onload = function() {

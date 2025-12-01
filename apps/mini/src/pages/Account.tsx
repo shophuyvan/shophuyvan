@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Page, Header, useNavigate } from 'zmp-ui';
+import { getPhoneNumber, getUserInfo } from 'zmp-sdk/apis'; // ✅ Import API xin quyền
 import { zmp } from '@/lib/zmp';
 import { storage } from '@/lib/storage';
 
@@ -51,6 +52,50 @@ export default function Account() {
   const [token, setToken] = useState<string>('');
   const [zaloInfo, setZaloInfo] = useState<any>(null);
   const [activating, setActivating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [linkingPhone, setLinkingPhone] = useState(false);
+
+  // ✅ Hàm đồng bộ thông tin Zalo (Tên & Avatar)
+  const handleSyncZalo = async () => {
+    try {
+      setSyncing(true);
+      const { userInfo } = await getUserInfo({ avatarType: "normal" });
+      
+      if (userInfo) {
+        setZaloInfo(userInfo);
+        toast('Đã đồng bộ thông tin Zalo!');
+        
+        // (Tuỳ chọn) Gọi API Backend để cập nhật Avatar/Tên nếu cần
+        // await api('/api/customers/profile', { method: 'PUT', body: JSON.stringify({ ... }) });
+      }
+    } catch (error) {
+      console.error('Lỗi đồng bộ Zalo:', error);
+      toast('Không lấy được thông tin Zalo');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // ✅ Hàm xin quyền Số điện thoại (nếu chưa có)
+  const handleLinkPhone = async () => {
+    try {
+      setLinkingPhone(true);
+      const { token } = await getPhoneNumber({});
+      
+      if (token) {
+         console.log("Phone Token:", token);
+         // Trong thực tế: Gửi token này về Backend để giải mã và update vào DB
+         // await api('/api/customers/update-phone', { body: JSON.stringify({ token }) });
+         
+         alert("Đã lấy được quyền SĐT thành công! (Cần Backend để cập nhật)");
+      }
+    } catch (error) {
+      console.error('Lỗi lấy SĐT:', error);
+      toast('Bạn đã từ chối cấp quyền SĐT');
+    } finally {
+      setLinkingPhone(false);
+    }
+  };
 
   // Load Zalo info khi vào app
   useEffect(() => {
@@ -384,9 +429,20 @@ export default function Account() {
             <p className="text-xs text-gray-400 mb-1 truncate">
               ID: {customer.id}
             </p>
-            <p className="font-semibold text-lg">
-              {customer.full_name || customer.zalo_name || 'Khách hàng'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-lg">
+                {customer.full_name || customer.zalo_name || 'Khách hàng'}
+              </p>
+              {/* ✅ Nút Sync nhỏ */}
+              <button 
+                onClick={handleSyncZalo}
+                disabled={syncing}
+                className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-blue-600"
+                title="Đồng bộ thông tin từ Zalo"
+              >
+                <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              </button>
+            </div>
             <p className="text-xs mt-1">
               {customer.zalo_id ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700">
@@ -401,13 +457,22 @@ export default function Account() {
           </div>
         </div>
 
-        {/* Thông tin liên lạc */}
+       {/* Thông tin liên lạc */}
         <div className="grid grid-cols-2 gap-4 pb-4 border-b">
           <div>
             <p className="text-sm text-gray-600">Số điện thoại</p>
-            <p className="font-medium text-sm">
-              {customer.phone || 'Chưa cập nhật'}
-            </p>
+            {customer.phone ? (
+              <p className="font-medium text-sm">{customer.phone}</p>
+            ) : (
+              // ✅ Nút Liên kết SĐT nếu chưa có
+              <button 
+                onClick={handleLinkPhone}
+                disabled={linkingPhone}
+                className="mt-0.5 text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1"
+              >
+                {linkingPhone ? 'Đang lấy...' : '➕ Liên kết SĐT'}
+              </button>
+            )}
           </div>
           <div>
             <p className="text-sm text-gray-600">Email</p>

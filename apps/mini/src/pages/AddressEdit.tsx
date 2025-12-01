@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "zmp-ui";
+import { getPhoneNumber, getLocation } from "zmp-sdk/apis";
 import { storage } from "../lib/storage";
 
 // Form địa chỉ đơn giản – có thể mở rộng thêm nếu cần
@@ -287,6 +288,72 @@ export default function AddressEdit() {
     addressEl.value = '';
   };
 
+  // ===== ZALO APIS & PERMISSIONS =====
+  const [gettingPhone, setGettingPhone] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+
+  const handleGetZaloPhone = async () => {
+    try {
+      setGettingPhone(true);
+      const data = await getPhoneNumber({});
+      const token = data.token;
+      
+      if (token) {
+        // Lưu ý: Token này cần gửi về Backend để giải mã thành số điện thoại thực.
+        // Tạm thời hiển thị thông báo thành công để xác nhận quyền đã hoạt động.
+        console.log("Zalo Phone Token:", token);
+        alert("Đã lấy được quyền SĐT! (Cần Backend để giải mã token này)");
+        
+        // Nếu có API giải mã, bạn sẽ gọi ở đây:
+        // const res = await fetch(API_BASE + '/auth/zalo-phone', { body: JSON.stringify({ token }) ... });
+      }
+    } catch (error) {
+      console.error("Lỗi lấy SĐT Zalo:", error);
+    } finally {
+      setGettingPhone(false);
+    }
+  };
+
+  const handleGetLocation = async () => {
+    try {
+      setGettingLocation(true);
+      const { latitude, longitude } = await getLocation({});
+      
+      if (latitude && longitude) {
+         // Sử dụng OpenStreetMap (Miễn phí) để chuyển tọa độ thành tên đường
+         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+         const data = await res.json();
+         
+         if (data && data.display_name) {
+           setForm(prev => ({
+             ...prev,
+             address: data.display_name
+           }));
+           
+           // Tự động đoán Tỉnh/Thành phố từ kết quả (nếu có)
+           const city = data.address?.city || data.address?.state;
+           if (city && areas.length > 0) {
+              const foundProvince = areas.find(p => 
+                city.toLowerCase().includes(p.name.toLowerCase()) || 
+                p.name.toLowerCase().includes(city.toLowerCase())
+              );
+              if (foundProvince) {
+                setSelectedProvince(foundProvince.code);
+                // Reset quận/huyện để người dùng chọn lại cho chính xác
+                setSelectedDistrict("");
+                setSelectedWard("");
+              }
+           }
+         }
+      }
+    } catch (error) {
+      console.error("Lỗi lấy vị trí:", error);
+      alert("Không lấy được vị trí. Vui lòng kiểm tra lại quyền GPS.");
+    } finally {
+      setGettingLocation(false);
+    }
+  };
+
   // ===== RENDER ================================================================
   return (
     <div className="p-4 space-y-4">
@@ -344,15 +411,25 @@ export default function AddressEdit() {
 
             <div>
               <label className="block text-sm mb-1">Số điện thoại</label>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                value={form.phone}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, phone: e.target.value }))
-                }
-                placeholder="Ví dụ: 09xxxxxxxx"
-                inputMode="tel"
-              />
+              <div className="flex gap-2">
+                <input
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={form.phone}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, phone: e.target.value }))
+                  }
+                  placeholder="Ví dụ: 09xxxxxxxx"
+                  inputMode="tel"
+                />
+                <button
+                  type="button"
+                  onClick={handleGetZaloPhone}
+                  disabled={gettingPhone}
+                  className="whitespace-nowrap px-3 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm font-medium hover:bg-green-100"
+                >
+                  {gettingPhone ? "Đang lấy..." : "Lấy SĐT Zalo"}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -404,15 +481,32 @@ export default function AddressEdit() {
 
             <div>
               <label className="block text-sm mb-1">Địa chỉ chi tiết</label>
-              <textarea
-                className="w-full border rounded-lg px-3 py-2"
-                value={form.address}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, address: e.target.value }))
-                }
-                placeholder="Số nhà, đường..."
-                rows={3}
-              />
+              <div className="relative">
+                <textarea
+                  className="w-full border rounded-lg px-3 py-2 pb-8"
+                  value={form.address}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, address: e.target.value }))
+                  }
+                  placeholder="Số nhà, đường..."
+                  rows={3}
+                />
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={gettingLocation}
+                  className="absolute right-2 bottom-2 px-2 py-1 rounded bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100 hover:bg-blue-100 flex items-center gap-1"
+                >
+                  {gettingLocation ? (
+                    <span>⏳ Đang định vị...</span>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <span>Lấy vị trí hiện tại</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
