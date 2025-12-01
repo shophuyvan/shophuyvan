@@ -343,3 +343,93 @@ export async function handleFacebookWebhook(req, env) {
 
   return errorResponse('Method Not Allowed', 405, req);
 }
+
+// ===================================================================
+// ZALO MINI APP WEBHOOK (DATA DELETION & SIGNATURE VERIFY)
+// ===================================================================
+
+/**
+ * Xử lý Webhook từ Zalo Mini App (Xóa dữ liệu / Rút quyền)
+ * Tài liệu: https://mini.zalo.me/documents/open-apis/open/webhook-user-revocation/
+ */
+export async function handleZaloWebhook(req, env) {
+  try {
+    // 1. Chỉ nhận POST
+    if (req.method !== 'POST') {
+      return errorResponse('Method not allowed', 405, req);
+    }
+
+    // 2. Lấy Signature và Body
+    const signature = req.headers.get('X-ZEvent-Signature');
+    const body = await readBody(req); // Dùng hàm readBody có sẵn
+
+    if (!signature) {
+      return errorResponse('Missing signature', 400, req);
+    }
+
+    // 3. Kiểm tra bảo mật (Verify Signature)
+    // Lấy API Key từ biến môi trường (Cần cấu hình trong wrangler.toml)
+    const apiKey = env.ZALO_MINI_APP_API_KEY; 
+    
+    if (!apiKey) {
+      console.warn('[Zalo Webhook] Missing ZALO_MINI_APP_API_KEY. Skipping verify (Test only).');
+      // Nếu chưa có key thì tạm bỏ qua verify để không lỗi luồng, nhưng nên log cảnh báo
+    } else {
+      const isValid = await verifySignature(body, signature, apiKey);
+      if (!isValid) {
+        console.error('[Zalo Webhook] Invalid signature!');
+        return errorResponse('Invalid signature', 401, req);
+      }
+    }
+
+    // 4. Xử lý sự kiện
+    const { event, userId, appId } = body;
+    console.log(`[Zalo Webhook] Event: ${event} | User: ${userId} | App: ${appId}`);
+
+    if (event === 'user.revoke.consent') {
+      // SỰ KIỆN QUAN TRỌNG: Người dùng rút lại quyền
+      console.log(`[Zalo Webhook] ⚠️ USER REVOKED CONSENT -> Cần xóa dữ liệu user ${userId}`);
+      
+      // TODO: Viết logic xóa dữ liệu trong DB của bạn tại đây
+      // Ví dụ: await env.DB.prepare('DELETE FROM customers WHERE zalo_id = ?').bind(userId).run();
+    }
+
+    // Luôn trả về 200 OK cho Zalo
+    return json({ message: 'ok' }, {}, req);
+
+  } catch (error) {
+    console.error('[Zalo Webhook] Error:', error);
+    return errorResponse(error.message, 500, req);
+  }
+}
+
+/**
+ * Hàm kiểm tra chữ ký SHA256 theo tài liệu Zalo
+ */
+async function verifySignature(data, receivedSignature, apiKey) {
+  try {
+    // B1: Lấy danh sách keys và sắp xếp A-Z
+    const keys = Object.keys(data).sort();
+    
+    // B2: Ghép các giá trị (values) thành 1 chuỗi content
+    const content = keys.map(key => String(data[key])).join('');
+    
+    // B3: Tính hash = sha256(content + apiKey)
+    const message = content + apiKey;
+    const mySignature = await sha256(message);
+
+    // B4: So sánh
+    return mySignature.toLowerCase() === receivedSignature.toLowerCase();
+  } catch (e) {
+    console.error('Verify signature error:', e);
+    return false;
+  }
+}
+
+// Helper: Tính SHA256
+async function sha256(text) {
+  const msgBuffer = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}

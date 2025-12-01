@@ -21,6 +21,7 @@ preview_id = "aa438d935c2544f1aba56f8922b71cd2"
 
 # Added by patch: shipping key
 [vars]
+ZALO_MINI_APP_API_KEY = "QFgJKj4eYdvg_enIrY6EUdFsZb7C9O1zS_6FKp0vY-Ot7T8latS"
 SHIPPING_API_KEY = "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5"
 SUPER_KEY = "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5"
 TOKEN_KEY = "FxXOoDz2qlTN5joDCsBGQFqKmm1UNvOw7YPwkzm5"

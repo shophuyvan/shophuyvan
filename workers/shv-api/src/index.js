@@ -820,6 +820,11 @@ export default {
       if (path === '/mini/webhook' && (req.method === 'GET' || req.method === 'POST')) {
         return WebhookHandler.handleMiniWebhook(req, env);
       }
+	  
+	  // [ZALO OFFICIAL] Webhook xóa dữ liệu & verify signature (Cấu hình trên trang Mini App)
+      if (path === '/api/webhook/zalo' && req.method === 'POST') {
+        return WebhookHandler.handleZaloWebhook(req, env);
+      }
 
       // Webhook SuperAI (vận chuyển)
       if (path === '/webhook/superai' && req.method === 'POST') {
