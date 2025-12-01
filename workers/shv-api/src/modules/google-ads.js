@@ -14,7 +14,7 @@ export async function handle(req, env, ctx) {
 
   // 1. AUTH ROUTES
   if (path.includes('/auth/google/start')) {
-    return getAuthUrl(env);
+    return getAuthUrl(req, env); // ✅ Code mới đã truyền req
   }
   
   if (path.includes('/auth/google/callback')) {
@@ -33,19 +33,27 @@ export async function handle(req, env, ctx) {
 // 1. AUTHENTICATION FLOW
 // ============================================================
 
-function getAuthUrl(env) {
-  // ✅ FIX: Dùng biến riêng cho ADS để tránh trùng YouTube
-  if (!env.GOOGLE_ADS_CLIENT_ID) return errorResponse('Thiếu cấu hình GOOGLE_ADS_CLIENT_ID', 500);
+// Cập nhật hàm getAuthUrl nhận thêm 'req'
+function getAuthUrl(req, env) {
+  // Kiểm tra biến môi trường an toàn hơn
+  if (!env || !env.GOOGLE_ADS_CLIENT_ID) {
+    // Truyền đủ tham số req để không bị lỗi 1101
+    return errorResponse('LỖI: Chưa cấu hình biến GOOGLE_ADS_CLIENT_ID trong Cloudflare Settings', 500, req);
+  }
 
-  const url = new URL(GOOGLE_AUTH_URL);
-  url.searchParams.set('client_id', env.GOOGLE_ADS_CLIENT_ID);
-  url.searchParams.set('redirect_uri', REDIRECT_URI);
-  url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', SCOPES);
-  url.searchParams.set('access_type', 'offline'); 
-  url.searchParams.set('prompt', 'consent');      
+  try {
+    const url = new URL(GOOGLE_AUTH_URL);
+    url.searchParams.set('client_id', env.GOOGLE_ADS_CLIENT_ID);
+    url.searchParams.set('redirect_uri', REDIRECT_URI);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', SCOPES);
+    url.searchParams.set('access_type', 'offline');
+    url.searchParams.set('prompt', 'consent');
 
-  return Response.redirect(url.toString(), 302);
+    return Response.redirect(url.toString(), 302);
+  } catch (e) {
+    return errorResponse('Lỗi tạo URL Google Auth: ' + e.message, 500, req);
+  }
 }
 
 async function handleCallback(req, env) {
