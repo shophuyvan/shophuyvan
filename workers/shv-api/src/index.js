@@ -639,9 +639,11 @@ export default {
       }
 
       if (path.startsWith('/api/social-sync') || path.startsWith('/api/auto-sync') || path.startsWith('/api/facebook/groups')) {
-        // ✅ FIX: Bỏ qua check permission cho route upload stream (để tránh lỗi 401 do body lớn)
-        // Auth sẽ được check lại kỹ (adminOK) bên trong module SocialSync.handle
-        if (path !== '/api/auto-sync/jobs/stream-upload') {
+        // ✅ FIX: Bỏ qua check permission cho route upload stream VÀ route login Threads
+        // Auth sẽ được check lại kỹ bên trong module SocialSync.handle
+        if (path !== '/api/auto-sync/jobs/stream-upload' && 
+            !path.startsWith('/api/auto-sync/auth/threads/')) { // 👈 Thêm dòng này để mở cửa cho Login
+            
             const permCheck = await requirePermission(req, env, 'ads.edit');
             if (!permCheck.ok) {
               return json(permCheck, { status: permCheck.status }, req);
