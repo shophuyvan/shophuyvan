@@ -226,13 +226,18 @@ class OrdersManager {
 
    // ✅ OPTIMIZED: Dùng trực tiếp item.image từ backend (Product Core đã chuẩn hóa)
     const itemsHTML = items.map(item => {
-      // Ưu tiên item.image chuẩn, fallback sang placeholder nếu null
-      let img = item.image || '';
+      // [FIX-ADMIN-DISPLAY] Bắt tất cả các nguồn ảnh có thể có
+      let img = item.image || item.img || item.variantImage || item.product_image || '';
+      
       // Xử lý ảnh Cloudinary để tối ưu tốc độ load
       img = img ? this.cloudify(img, 'w_100,h_100,q_auto,f_auto,c_pad') : this.getPlaceholderImage();
       
-      const itemTitle = String(item.name || item.title || item.sku || 'Sản phẩm');
-      const variantName = item.variant ? String(item.variant) : '';
+      const itemTitle = String(item.name || item.title || item.product_name || item.sku || 'Sản phẩm');
+      
+      // [FIX-ADMIN-DISPLAY] QUAN TRỌNG: Bắt hết các tên biến thể (Web/Mini/Shopee gửi khác nhau)
+      // MiniApp hay gửi 'properties', Web gửi 'variant', Shopee gửi 'variant_name'
+      const variantName = item.variant || item.variantName || item.variant_name || item.properties || '';
+      
       const itemQty = Number(item.qty || item.quantity || 1);
       const itemPrice = Number(item.price || 0);
       
