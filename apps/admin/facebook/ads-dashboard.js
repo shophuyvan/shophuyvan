@@ -51,11 +51,12 @@
       // 1. Gọi API Facebook
       const fbPromise = Admin.req('/admin/facebook/dashboard/analytics', { method: 'GET' });
       
-      // 2. Gọi API Zalo
+      // 2. Gọi API Zalo & Google
       const zaloPromise = Admin.req('/admin/marketing/zalo/campaigns', { method: 'GET' });
+      const googlePromise = Admin.req('/admin/marketing/google/campaigns', { method: 'GET' });
 
-      // Chạy song song cả 2 request
-      const [fbRes, zaloRes] = await Promise.all([fbPromise, zaloPromise]);
+      // Chạy song song cả 3 request
+      const [fbRes, zaloRes, googleRes] = await Promise.all([fbPromise, zaloPromise, googlePromise]);
 
       let allCampaigns = [];
       let combinedTotals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0 };
@@ -91,6 +92,18 @@
              combinedTotals.impressions += c.impressions || 0;
              combinedTotals.clicks += c.clicks || 0;
              // Zalo Ads API cơ bản chưa trả về conversion, có thể bổ sung sau
+         });
+      }
+	  
+	  // Xử lý dữ liệu Google (YouTube)
+      if (googleRes && googleRes.ok && googleRes.data) {
+         const googleCampaigns = googleRes.data.campaigns || [];
+         allCampaigns = allCampaigns.concat(googleCampaigns);
+
+         googleCampaigns.forEach(c => {
+             combinedTotals.spend += c.spend || 0;
+             combinedTotals.impressions += c.impressions || 0;
+             combinedTotals.clicks += c.clicks || 0;
          });
       }
 
@@ -231,10 +244,15 @@
       const isLoser = c.roi < 0;
       const rowClass = isWinner ? 'roi-winner' : (isLoser ? 'roi-loser' : '');
       
-      // Xác định Icon nền tảng
-      const platformIcon = c.platform === 'zalo' 
-          ? '<img src="https://zalo-ads-static.zadn.vn/ads-public/favicon.ico" width="20" title="Zalo Ads" style="vertical-align:middle">' 
-          : '<img src="https://static.xx.fbcdn.net/rsrc.php/yD/r/d4ZIVX-5C-b.ico" width="20" title="Facebook Ads" style="vertical-align:middle">';
+     // Xác định Icon nền tảng
+      let platformIcon = '';
+      if (c.platform === 'zalo') {
+         platformIcon = '<img src="https://zalo-ads-static.zadn.vn/ads-public/favicon.ico" width="20" title="Zalo Ads" style="vertical-align:middle">';
+      } else if (c.platform === 'google') {
+         platformIcon = '<img src="https://www.gstatic.com/youtube/img/branding/favicon/favicon_32x32.png" width="20" title="YouTube Ads" style="vertical-align:middle">';
+      } else {
+         platformIcon = '<img src="https://static.xx.fbcdn.net/rsrc.php/yD/r/d4ZIVX-5C-b.ico" width="20" title="Facebook Ads" style="vertical-align:middle">';
+      }
 
       return `
         <tr class="${rowClass}">

@@ -38,7 +38,8 @@ import * as FBGroupManager from './modules/facebook/fb-group-manager.js'; // ✅
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
 import * as FBPageAuto from './modules/facebook/fb-automation.js';
-import * as ZaloAds from './modules/zalo-ads.js'; // ✅ IMPORT ZALO ADS MODULE
+import * as ZaloAds from './modules/zalo-ads.js'; 
+import * as GoogleAds from './modules/google-ads.js'; // ✅ Import Google Ads
 import * as SocialSync from './modules/social-video-sync/index-sync.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
@@ -644,6 +645,23 @@ export default {
         return ZaloAds.handle(req, env, ctx);
       }
 	  
+	  // ============================================
+      // GOOGLE ADS MODULE (YOUTUBE)
+      // ============================================
+      if (path.startsWith('/admin/marketing/auth/google') || 
+          path.startsWith('/admin/marketing/google')) {
+        
+        // Login: Cho phép 'start' và 'callback' không cần quyền Admin
+        if (path.includes('/auth/google/callback') || path.includes('/auth/google/start')) {
+           return GoogleAds.handle(req, env, ctx);
+        }
+
+        // Data: Cần quyền Admin
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+        
+        return GoogleAds.handle(req, env, ctx);
+      }
 	  // ============================================
       // SOCIAL VIDEO SYNC (TIKTOK REUP AUTO)
       // Hỗ trợ cả luồng cũ (/api/social-sync), luồng mới (/api/auto-sync) và Facebook API
