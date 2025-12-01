@@ -38,6 +38,7 @@ import * as FBGroupManager from './modules/facebook/fb-group-manager.js'; // ✅
 // ✅ FANPAGE MODULES (Mới)
 import * as FBPageManager from './modules/facebook/fb-page-manager.js';
 import * as FBPageAuto from './modules/facebook/fb-automation.js';
+import * as ZaloAds from './modules/zalo-ads.js'; // ✅ IMPORT ZALO ADS MODULE
 import * as SocialSync from './modules/social-video-sync/index-sync.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
@@ -616,13 +617,31 @@ export default {
         return FBAdsCreative.handle(req, env, ctx);
       }
 
-      // Facebook Ads Main Routes
+     // Facebook Ads Main Routes
       if (path.startsWith('/admin/facebook')) {
         const permCheck = await requirePermission(req, env, method === 'GET' ? 'ads.view' : 'ads.edit');
         if (!permCheck.ok) {
           return json(permCheck, { status: permCheck.status }, req);
         }
         return FBAds.handle(req, env, ctx);
+      }
+
+      // ============================================
+      // ZALO ADS MODULE
+      // ============================================
+      if (path.startsWith('/admin/marketing/auth/zalo') || 
+          path.startsWith('/admin/marketing/zalo')) {
+        
+        // Nếu là Login Callback -> Không cần check quyền Admin (để Zalo redirect về được)
+        if (path.includes('/auth/zalo/callback')) {
+           return ZaloAds.handle(req, env, ctx);
+        }
+
+        // Các route lấy dữ liệu -> Cần quyền Admin
+        const permCheck = await requirePermission(req, env, 'ads.view');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+        
+        return ZaloAds.handle(req, env, ctx);
       }
 	  
 	  // ============================================
