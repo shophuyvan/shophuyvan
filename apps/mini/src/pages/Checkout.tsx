@@ -659,13 +659,14 @@ useEffect(() => {
         district: districts.find((d) => d.code === form.district)?.name || '',
         commune: wards.find((w) => w.code === form.ward)?.name || '',
       },
+      // [FIX-MINI-CHECKOUT] Map đúng trường dữ liệu để Admin nhận được sản phẩm
       items: (linesForOrder || []).map((item: any) => ({
-        id: item.id,
-        sku: item.sku || item.id,
-        name: item.name,
-        price: Number(item.price || 0),
-        cost: Number(item.cost || 0),
-        qty: Number(item.qty || 1),
+        product_id: item.id || item.product_id || item.productId, // QUAN TRỌNG: Phải có product_id
+        sku: item.sku || item.variant_sku || '',
+        name: item.name || item.title,
+        // Ưu tiên giá sale giống FE
+        price: Number(item.sale_price || item.price || 0),
+        qty: Number(item.qty || item.quantity || 1),
         weight_gram: Number(
           item.weight_gram ??
           item.weight_grams ??
@@ -673,7 +674,8 @@ useEffect(() => {
           item.variant?.weight_gram ??
           0
         ),
-        variant: item.variantName || '',
+        // Đổi 'variant' thành 'properties' để Backend lưu đúng cột
+        properties: item.variantName || item.variant || '', 
         image: item.variantImage || item.image || '',
       })),
             totals: {
