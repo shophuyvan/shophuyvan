@@ -4,6 +4,7 @@ import { json, errorResponse } from '../lib/response.js';
 // Cấu hình Google Ads
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+// Scope cần thiết để xem báo cáo Ads
 const SCOPES = 'https://www.googleapis.com/auth/adwords';
 const REDIRECT_URI = 'https://api.shophuyvan.vn/admin/marketing/auth/google/callback';
 
@@ -20,7 +21,7 @@ export async function handle(req, env, ctx) {
     return handleCallback(req, env);
   }
 
-  // 2. DATA ROUTES
+  // 2. DATA ROUTES (Lấy danh sách chiến dịch)
   if (path.endsWith('/google/campaigns') && req.method === 'GET') {
     return getCampaigns(req, env);
   }
@@ -33,15 +34,16 @@ export async function handle(req, env, ctx) {
 // ============================================================
 
 function getAuthUrl(env) {
-  if (!env.GOOGLE_CLIENT_ID) return errorResponse('Thiếu cấu hình GOOGLE_CLIENT_ID', 500);
+  // ✅ FIX: Dùng biến riêng cho ADS để tránh trùng YouTube
+  if (!env.GOOGLE_ADS_CLIENT_ID) return errorResponse('Thiếu cấu hình GOOGLE_ADS_CLIENT_ID', 500);
 
   const url = new URL(GOOGLE_AUTH_URL);
-  url.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
+  url.searchParams.set('client_id', env.GOOGLE_ADS_CLIENT_ID);
   url.searchParams.set('redirect_uri', REDIRECT_URI);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', SCOPES);
-  url.searchParams.set('access_type', 'offline'); // Để lấy Refresh Token
-  url.searchParams.set('prompt', 'consent');      // Bắt buộc để lấy Refresh Token
+  url.searchParams.set('access_type', 'offline'); 
+  url.searchParams.set('prompt', 'consent');      
 
   return Response.redirect(url.toString(), 302);
 }
@@ -58,8 +60,8 @@ async function handleCallback(req, env) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code: code,
-        client_id: env.GOOGLE_CLIENT_ID,
-        client_secret: env.GOOGLE_CLIENT_SECRET,
+        client_id: env.GOOGLE_ADS_CLIENT_ID,         // ✅ FIX: Dùng biến _ADS_
+        client_secret: env.GOOGLE_ADS_CLIENT_SECRET, // ✅ FIX: Dùng biến _ADS_
         redirect_uri: REDIRECT_URI,
         grant_type: 'authorization_code'
       })
@@ -70,14 +72,14 @@ async function handleCallback(req, env) {
 
     const now = Date.now();
     
-    // Lưu Token
+    // Lưu Token vào D1 (Tách riêng key google_ads_token)
     await env.DB.prepare(`
       INSERT INTO settings (key_name, value_json, updated_at)
       VALUES ('google_ads_token', ?, ?)
       ON CONFLICT(key_name) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
     `).bind(JSON.stringify({
       access_token: data.access_token,
-      refresh_token: data.refresh_token, // Rất quan trọng
+      refresh_token: data.refresh_token, 
       expires_in: data.expires_in
     }), now).run();
 
@@ -85,7 +87,7 @@ async function handleCallback(req, env) {
       <html>
         <body style="font-family:sans-serif; text-align:center; padding-top:50px;">
           <h1 style="color:#ef4444;">✅ Kết nối Google Ads Thành Công!</h1>
-          <p>Token đã được lưu.</p>
+          <p>Token đã được lưu. Bạn có thể đóng cửa sổ này.</p>
           <script>setTimeout(() => window.close(), 3000);</script>
         </body>
       </html>
@@ -103,14 +105,18 @@ async function handleCallback(req, env) {
 async function getCampaigns(req, env) {
   try {
     const accessToken = await getAccessToken(env);
-    const customerId = env.GOOGLE_ADS_CUSTOMER_ID; // ID tài khoản Ads (VD: 123-456-7890)
+    
+    // Kiểm tra cấu hình Customer ID & Developer Token
+    const customerId = env.GOOGLE_ADS_CUSTOMER_ID; 
     const developerToken = env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
     if (!customerId || !developerToken) {
-        throw new Error('Thiếu cấu hình Customer ID hoặc Developer Token');
+        // Trả về rỗng nếu chưa cấu hình xong (để dashboard không lỗi)
+        console.warn('Thiếu cấu hình Google Ads ID/Token');
+        return json({ ok: true, campaigns: [] }, {}, req);
     }
 
-    // Google Ads Query Language (GAQL)
+    // Câu lệnh GAQL lấy metrics
     const query = `
       SELECT 
         campaign.id, 
@@ -125,8 +131,6 @@ async function getCampaigns(req, env) {
       WHERE campaign.status != 'REMOVED'
     `;
 
-    // Gọi API Google Ads
-    // Lưu ý: customerId trong URL phải bỏ dấu gạch ngang (-)
     const cleanId = customerId.replace(/-/g, '');
     const apiUrl = `https://googleads.googleapis.com/v14/customers/${cleanId}/googleAds:search`;
 
@@ -141,27 +145,30 @@ async function getCampaigns(req, env) {
     });
 
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
+    
+    // Xử lý lỗi từ Google API (VD: Token chưa được duyệt)
+    if (data.error) {
+        console.error('[Google Ads API Error]', JSON.stringify(data.error));
+        // Trả về mảng rỗng thay vì ném lỗi 500 để Dashboard vẫn hiện FB/Zalo
+        return json({ ok: true, campaigns: [], error: data.error.message }, {}, req);
+    }
 
-    // Chuẩn hóa dữ liệu
     const campaigns = (data.results || []).map(row => ({
       id: row.campaign.id,
       name: row.campaign.name,
       status: row.campaign.status === 'ENABLED' ? 'ACTIVE' : 'PAUSED',
-      // Google trả về cost ở dạng micros (nhân với 1 triệu) -> chia lại
       spend: (row.metrics.costMicros || 0) / 1000000, 
       impressions: row.metrics.impressions || 0,
       clicks: row.metrics.clicks || 0,
       ctr: (row.metrics.ctr || 0) * 100,
       cpc: (row.metrics.averageCpc || 0) / 1000000,
-      platform: 'google'
+      platform: 'google' // Đánh dấu nguồn
     }));
 
     return json({ ok: true, campaigns }, {}, req);
 
   } catch (e) {
     console.error('[Google Ads] Fetch Error:', e);
-    // Trả về rỗng để không làm crash dashboard
     return json({ ok: false, campaigns: [], error: e.message }, {}, req);
   }
 }
@@ -172,25 +179,24 @@ async function getCampaigns(req, env) {
 
 async function getAccessToken(env) {
   const setting = await env.DB.prepare("SELECT value_json FROM settings WHERE key_name = 'google_ads_token'").first();
-  if (!setting) throw new Error('Chưa kết nối tài khoản Google Ads');
+  if (!setting) throw new Error('Chưa kết nối Google Ads');
 
   const tokenData = JSON.parse(setting.value_json);
 
-  // Cơ chế refresh token đơn giản (Google Token sống 1h)
-  // Trong thực tế nên check time, ở đây ta refresh luôn cho chắc nếu cần
+  // Refresh Token
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: env.GOOGLE_CLIENT_ID,
-      client_secret: env.GOOGLE_CLIENT_SECRET,
+      client_id: env.GOOGLE_ADS_CLIENT_ID,         // ✅ FIX: _ADS_
+      client_secret: env.GOOGLE_ADS_CLIENT_SECRET, // ✅ FIX: _ADS_
       refresh_token: tokenData.refresh_token,
       grant_type: 'refresh_token'
     })
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error('Refresh Token Failed: ' + JSON.stringify(data));
+  if (!res.ok) throw new Error('Refresh Token Failed');
 
   return data.access_token;
 }
