@@ -48,18 +48,69 @@
 
   async function loadDashboardData() {
     try {
-      const r = await Admin.req('/admin/facebook/dashboard/analytics', { method: 'GET' });
-      if (r && r.ok) {
-        dashboardData = r.data;
-        renderDashboard(dashboardData);
-        checkAlerts(dashboardData);
-        return true;
-      } else {
-        showError('dashboardContainer', r.error || 'Không thể tải dashboard');
-        return false;
+      // 1. Gọi API Facebook
+      const fbPromise = Admin.req('/admin/facebook/dashboard/analytics', { method: 'GET' });
+      
+      // 2. Gọi API Zalo
+      const zaloPromise = Admin.req('/admin/marketing/zalo/campaigns', { method: 'GET' });
+
+      // Chạy song song cả 2 request
+      const [fbRes, zaloRes] = await Promise.all([fbPromise, zaloPromise]);
+
+      let allCampaigns = [];
+      let combinedTotals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0 };
+
+      // Xử lý dữ liệu Facebook
+      if (fbRes && fbRes.ok && fbRes.data) {
+        const fbData = fbRes.data;
+        // Gán nhãn platform='facebook'
+        if (fbData.campaigns) {
+            allCampaigns = allCampaigns.concat(fbData.campaigns.map(c => ({...c, platform: 'facebook'})));
+        }
+        
+        // Cộng dồn totals từ Facebook
+        if (fbData.totals) {
+            combinedTotals.spend += fbData.totals.spend || 0;
+            combinedTotals.impressions += fbData.totals.impressions || 0;
+            combinedTotals.clicks += fbData.totals.clicks || 0;
+            combinedTotals.conversions += fbData.totals.conversions || 0;
+        }
       }
+
+      // Xử lý dữ liệu Zalo
+      if (zaloRes && zaloRes.ok && zaloRes.data) {
+         // API Zalo trả về danh sách campaigns, đã được module zalo-ads.js chuẩn hóa
+         const zaloCampaigns = zaloRes.data.campaigns || [];
+         
+         // Gán nhãn platform='zalo' (nếu backend chưa gán) và gộp vào list chung
+         allCampaigns = allCampaigns.concat(zaloCampaigns.map(c => ({...c, platform: c.platform || 'zalo'})));
+
+         // Cộng dồn totals từ các campaign Zalo (vì Zalo API chưa trả totals sẵn)
+         zaloCampaigns.forEach(c => {
+             combinedTotals.spend += c.spend || 0;
+             combinedTotals.impressions += c.impressions || 0;
+             combinedTotals.clicks += c.clicks || 0;
+             // Zalo Ads API cơ bản chưa trả về conversion, có thể bổ sung sau
+         });
+      }
+
+      // Tính toán lại các chỉ số phần trăm trung bình (CTR, CPC) cho toàn bộ hệ thống
+      if (combinedTotals.impressions > 0) {
+          combinedTotals.ctr = (combinedTotals.clicks / combinedTotals.impressions) * 100;
+      }
+      if (combinedTotals.clicks > 0) {
+          combinedTotals.cpc = combinedTotals.spend / combinedTotals.clicks;
+      }
+
+      // Cập nhật dữ liệu vào biến toàn cục và render
+      dashboardData = { campaigns: allCampaigns, totals: combinedTotals };
+      renderDashboard(dashboardData);
+      checkAlerts(dashboardData);
+      return true;
+
     } catch (e) {
-      showError('dashboardContainer', 'Lỗi: ' + e.message);
+      console.error(e);
+      showError('dashboardContainer', 'Lỗi tải dữ liệu đa kênh: ' + e.message);
       return false;
     }
   }
@@ -164,31 +215,38 @@
       return '<div class="alert">Không có campaign nào</div>';
     }
 
-    // Tính ROI cho mỗi campaign (giả định revenue từ conversions)
+    // Tính ROI và enrich dữ liệu
     const enriched = campaigns.map(c => {
-      const revenue = (c.conversions || 0) * 500000; // Giả định mỗi conversion = 500k
+      const revenue = (c.conversions || 0) * 500000; // Giả định
       const roi = c.spend > 0 ? ((revenue - c.spend) / c.spend * 100) : 0;
       const roas = c.spend > 0 ? (revenue / c.spend) : 0;
       return { ...c, revenue, roi, roas };
     });
 
-    // Sort by ROI desc
+    // Sắp xếp: Ưu tiên ROI cao nhất lên đầu
     enriched.sort((a, b) => b.roi - a.roi);
 
     const rows = enriched.map((c, idx) => {
       const isWinner = idx === 0 && c.roi > 0;
       const isLoser = c.roi < 0;
       const rowClass = isWinner ? 'roi-winner' : (isLoser ? 'roi-loser' : '');
+      
+      // Xác định Icon nền tảng
+      const platformIcon = c.platform === 'zalo' 
+          ? '<img src="https://zalo-ads-static.zadn.vn/ads-public/favicon.ico" width="20" title="Zalo Ads" style="vertical-align:middle">' 
+          : '<img src="https://static.xx.fbcdn.net/rsrc.php/yD/r/d4ZIVX-5C-b.ico" width="20" title="Facebook Ads" style="vertical-align:middle">';
 
       return `
         <tr class="${rowClass}">
+          <td class="text-center">${platformIcon}</td>
           <td>
-            ${isWinner ? '🏆 ' : ''}${c.name || c.id}
-            ${c.status === 'ACTIVE' ? '<span class="badge-active">ACTIVE</span>' : '<span class="badge-paused">PAUSED</span>'}
+            ${isWinner ? '🏆 ' : ''}<strong>${c.name || c.id}</strong>
+            <br/>
+            ${c.status === 'ACTIVE' ? '<span class="badge-active" style="font-size:0.8em">ACTIVE</span>' : '<span class="badge-paused" style="font-size:0.8em">PAUSED</span>'}
           </td>
           <td class="text-right">${formatVND(c.spend || 0)}</td>
           <td class="text-right">${formatVND(c.revenue || 0)}</td>
-          <td class="text-right"><strong>${c.roi.toFixed(1)}%</strong></td>
+          <td class="text-right" style="color:${c.roi >= 0 ? 'green' : 'red'}"><strong>${c.roi.toFixed(1)}%</strong></td>
           <td class="text-right">${c.roas.toFixed(2)}x</td>
           <td class="text-right">${formatNumber(c.conversions || 0)}</td>
           <td class="text-right">${formatPercent(c.ctr || 0)}</td>
@@ -202,6 +260,7 @@
         <table class="roi-table">
           <thead>
             <tr>
+              <th class="text-center" width="50">Nền tảng</th>
               <th>Campaign</th>
               <th class="text-right">Chi phí</th>
               <th class="text-right">Doanh thu (ước tính)</th>

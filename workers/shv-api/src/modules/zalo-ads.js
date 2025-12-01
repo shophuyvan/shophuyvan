@@ -69,7 +69,7 @@ async function handleCallback(req, env) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'secret_key': env.ZALO_SECRET_KEY
+        'secret_key': env.ZALO_APP_SECRET // ✅ Sửa thành ZALO_APP_SECRET cho khớp với Cloudflare
       },
       body: formData
     });
