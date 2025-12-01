@@ -46,30 +46,30 @@
   // API CALLS
   // ============================================================
 
-  async function loadDashboardData() {
+async function loadDashboardData() {
     try {
-      // 1. Gọi API Facebook
-      const fbPromise = Admin.req('/admin/facebook/dashboard/analytics', { method: 'GET' });
-      
-      // 2. Gọi API Zalo & Google
-      const zaloPromise = Admin.req('/admin/marketing/zalo/campaigns', { method: 'GET' });
-      const googlePromise = Admin.req('/admin/marketing/google/campaigns', { method: 'GET' });
+      // Hàm helper: Gọi API an toàn, nếu lỗi thì trả về null chứ không làm sập app
+      const safeReq = (url) => Admin.req(url, { method: 'GET' }).catch(err => {
+          console.warn(`API Error [${url}]:`, err);
+          return null; 
+      });
 
-      // Chạy song song cả 3 request
-      const [fbRes, zaloRes, googleRes] = await Promise.all([fbPromise, zaloPromise, googlePromise]);
+      // Gọi 3 API song song nhưng độc lập
+      const [fbRes, zaloRes, googleRes] = await Promise.all([
+          safeReq('/admin/facebook/dashboard/analytics'),
+          safeReq('/admin/marketing/zalo/campaigns'),
+          safeReq('/admin/marketing/google/campaigns')
+      ]);
 
       let allCampaigns = [];
       let combinedTotals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0 };
 
-      // Xử lý dữ liệu Facebook
+      // --- 1. XỬ LÝ FACEBOOK ---
       if (fbRes && fbRes.ok && fbRes.data) {
         const fbData = fbRes.data;
-        // Gán nhãn platform='facebook'
         if (fbData.campaigns) {
             allCampaigns = allCampaigns.concat(fbData.campaigns.map(c => ({...c, platform: 'facebook'})));
         }
-        
-        // Cộng dồn totals từ Facebook
         if (fbData.totals) {
             combinedTotals.spend += fbData.totals.spend || 0;
             combinedTotals.impressions += fbData.totals.impressions || 0;
@@ -78,24 +78,19 @@
         }
       }
 
-      // Xử lý dữ liệu Zalo
+      // --- 2. XỬ LÝ ZALO ---
       if (zaloRes && zaloRes.ok && zaloRes.data) {
-         // API Zalo trả về danh sách campaigns, đã được module zalo-ads.js chuẩn hóa
          const zaloCampaigns = zaloRes.data.campaigns || [];
-         
-         // Gán nhãn platform='zalo' (nếu backend chưa gán) và gộp vào list chung
          allCampaigns = allCampaigns.concat(zaloCampaigns.map(c => ({...c, platform: c.platform || 'zalo'})));
 
-         // Cộng dồn totals từ các campaign Zalo (vì Zalo API chưa trả totals sẵn)
          zaloCampaigns.forEach(c => {
              combinedTotals.spend += c.spend || 0;
              combinedTotals.impressions += c.impressions || 0;
              combinedTotals.clicks += c.clicks || 0;
-             // Zalo Ads API cơ bản chưa trả về conversion, có thể bổ sung sau
          });
       }
-	  
-	  // Xử lý dữ liệu Google (YouTube)
+
+      // --- 3. XỬ LÝ GOOGLE / YOUTUBE ---
       if (googleRes && googleRes.ok && googleRes.data) {
          const googleCampaigns = googleRes.data.campaigns || [];
          allCampaigns = allCampaigns.concat(googleCampaigns);
@@ -107,7 +102,7 @@
          });
       }
 
-      // Tính toán lại các chỉ số phần trăm trung bình (CTR, CPC) cho toàn bộ hệ thống
+      // Tính toán chỉ số trung bình
       if (combinedTotals.impressions > 0) {
           combinedTotals.ctr = (combinedTotals.clicks / combinedTotals.impressions) * 100;
       }
@@ -115,15 +110,21 @@
           combinedTotals.cpc = combinedTotals.spend / combinedTotals.clicks;
       }
 
-      // Cập nhật dữ liệu vào biến toàn cục và render
+      // Render
       dashboardData = { campaigns: allCampaigns, totals: combinedTotals };
       renderDashboard(dashboardData);
       checkAlerts(dashboardData);
+      
+      // Nếu không có dữ liệu nào thì báo lỗi nhẹ
+      if (allCampaigns.length === 0) {
+          console.log('Không tải được dữ liệu từ kênh nào, hoặc chưa có campaign.');
+      }
+      
       return true;
 
     } catch (e) {
       console.error(e);
-      showError('dashboardContainer', 'Lỗi tải dữ liệu đa kênh: ' + e.message);
+      showError('dashboardContainer', 'Lỗi hiển thị dashboard: ' + e.message);
       return false;
     }
   }
