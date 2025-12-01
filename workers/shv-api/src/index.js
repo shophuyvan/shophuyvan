@@ -642,7 +642,8 @@ export default {
         // ✅ FIX: Bỏ qua check permission cho route upload stream VÀ route login Threads
         // Auth sẽ được check lại kỹ bên trong module SocialSync.handle
         if (path !== '/api/auto-sync/jobs/stream-upload' && 
-            !path.startsWith('/api/auto-sync/auth/threads/')) { // 👈 Thêm dòng này để mở cửa cho Login
+            !path.startsWith('/api/auto-sync/auth/threads/') &&
+            !path.startsWith('/api/auto-sync/auth/youtube/')) { // ✅ Đã thêm ngoại lệ cho YouTube
             
             const permCheck = await requirePermission(req, env, 'ads.edit');
             if (!permCheck.ok) {
