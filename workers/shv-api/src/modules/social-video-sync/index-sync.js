@@ -49,6 +49,71 @@ export async function handle(req, env, ctx) {
   const path = url.pathname;
   const method = req.method;
 
+  // ============================================================
+  // ✅ 1. PUBLIC ROUTES (THREADS LOGIN) - KHÔNG CẦN CHECK AUTH
+  // ============================================================
+  if (path === '/api/auto-sync/auth/threads/start') {
+    const client_id = env.FB_APP_ID; 
+    const redirect_uri = 'https://api.shophuyvan.vn/api/auto-sync/auth/threads/callback';
+    const scope = 'threads_basic,threads_content_publish';
+    
+    // Redirect sang trang đăng nhập Threads
+    const authUrl = `https://threads.net/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&scope=${scope}&response_type=code`;
+    return Response.redirect(authUrl, 302);
+  }
+
+  if (path === '/api/auto-sync/auth/threads/callback') {
+    const code = url.searchParams.get('code');
+    const error = url.searchParams.get('error');
+    
+    if (error) return json({ ok: false, error }, { status: 400 }, req);
+    if (!code) return json({ ok: false, error: 'No code returned' }, { status: 400 }, req);
+
+    try {
+        // Đổi Code lấy Token
+        const formData = new FormData();
+        formData.append('client_id', env.FB_APP_ID);
+        formData.append('client_secret', env.FB_APP_SECRET);
+        formData.append('grant_type', 'authorization_code');
+        formData.append('redirect_uri', 'https://api.shophuyvan.vn/api/auto-sync/auth/threads/callback');
+        formData.append('code', code);
+
+        const tokenRes = await fetch('https://graph.threads.net/oauth/access_token', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await tokenRes.json();
+        if (!data.access_token) throw new Error(JSON.stringify(data));
+
+        // Lưu vào DB (Tự động cập nhật user_id và token)
+        const threadsAccount = [{
+            id: data.user_id.toString(), 
+            token: data.access_token
+        }];
+
+        // Sử dụng updated_at (tránh lỗi thiếu cột created_at)
+        await env.DB.prepare(`
+            INSERT INTO settings (key_name, value_json, updated_at)
+            VALUES ('threads_accounts', ?, ?)
+            ON CONFLICT(key_name) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
+        `).bind(JSON.stringify(threadsAccount), Date.now()).run();
+
+        return new Response(`
+            <html>
+                <body style="text-align:center; font-family:sans-serif; padding-top:50px;">
+                    <h1 style="color:#10b981;">✅ Kết nối Threads Thành Công!</h1>
+                    <p>Token đã được lưu. Bạn có thể đóng cửa sổ này.</p>
+                    <script>setTimeout(() => window.close(), 3000);</script>
+                </body>
+            </html>
+        `, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+
+    } catch(e) {
+        return json({ ok: false, error: e.message }, { status: 500 }, req);
+    }
+  }
+
   // ✅ FIX AUTH: Xử lý riêng cho Stream Upload
   // Route này ưu tiên check token trên URL (bỏ qua header x-token đang bị lỗi 48 chars)
   if (path === '/api/auto-sync/jobs/stream-upload' && method === 'PUT') {
