@@ -455,11 +455,12 @@ async function enrichItemsWeight(env, items) {
             weight,
             channel_item_id, channel_model_id
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
+        ``).bind(
           dbOrderId,
           item.product_id || null, 
-          item.variant_id || null,  // ✅ Chỉ dùng variant_id, không fallback item.id
-          String(item.sku || item.id || ''), 
+          // [FIX-CORE] Phải fallback về item.id vì normalizeOrderItems (orders.js) lưu ID vào field .id
+          item.variant_id || item.id || null,  
+          String(item.sku || item.id || ''),
           String(item.name || ''), 
           String(item.variant || item.variant_name || ''),
           Number(item.price || 0), 
