@@ -327,22 +327,27 @@ async function enrichItemsWithCostAndPrice(items, env) {
       );
 
       if (variant) {
-        // ✅ Chuẩn hóa Giá bán (Ưu tiên giá sale nếu có trong core)
-        // Logic: Frontend gửi lên chỉ để tham khảo, Backend chốt giá cuối từ DB
+        // [FIX-FK-ERROR] Cập nhật lại ID chuẩn từ Database để tránh lỗi Foreign Key
+        // MiniApp gửi ID dạng chuỗi '2064::Name', ta phải đổi về ID số (VD: 2064)
+        item.product_id = product.id; 
+        item.variant_id = variant.id;
+        item.id = variant.id; // Đồng bộ lại ID chính của item
+
+        // ✅ Chuẩn hóa Giá bán
         const dbPrice = Number(variant.price_sale || variant.price || 0);
         if (dbPrice > 0) item.price = dbPrice;
 
-        // ✅ Chuẩn hóa Giá vốn (Cost)
+        // ✅ Chuẩn hóa Giá vốn
         item.cost = Number(variant.price_wholesale || variant.cost || 0);
 
-        // ✅ Chuẩn hóa Ảnh (Image) - Lấy ảnh variant > ảnh product
+        // ✅ Chuẩn hóa Ảnh
         const variantImage = variant.image;
         const productImages = typeof product.images === 'string' ? JSON.parse(product.images) : (product.images || []);
         const productImage = productImages[0] || null;
         
         item.image = variantImage || productImage || item.image || null;
 
-        console.log(`[ENRICH] ✅ Updated Item ${item.sku}: Price=${item.price}, Cost=${item.cost}, Img=${!!item.image}`);
+        console.log(`[ENRICH] ✅ Fixed IDs & Updated Item ${item.sku}: PID=${item.product_id} VID=${item.variant_id}`);
       }
     } catch (e) {
       console.error(`[ENRICH] ❌ Failed for product ${item.product_id}:`, e);
