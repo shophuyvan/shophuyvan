@@ -526,10 +526,9 @@
         } finally {
             if(btn) { btn.innerText = oldText; btn.disabled = false; }
         }
-    }
-  };
+    }, // 👈 Thêm dấu phẩy ở đây để nối tiếp hàm dưới
 
-// ✅ TẠO CAMPAIGN ADS TỪ JOB
+    // ✅ TẠO CAMPAIGN ADS TỪ JOB
     async createAdFromJob(jobId) {
         if(!confirm('🚀 BẠN MUỐN TẠO QUẢNG CÁO CHO BÀI VIẾT NÀY?\n\nHệ thống sẽ:\n1. Lấy Post ID đã đăng thành công.\n2. Tạo Campaign & AdSet mới trên Facebook Ads Manager.\n3. Sử dụng bài viết này làm Creative.\n\nNhấn OK để bắt đầu.')) return;
 
@@ -580,6 +579,7 @@
         }
     }
   };
+  
   window.InputWizard = InputWizard;
   window.FanpageManager = FanpageManager;
   document.addEventListener('DOMContentLoaded', () => FanpageManager.init());
