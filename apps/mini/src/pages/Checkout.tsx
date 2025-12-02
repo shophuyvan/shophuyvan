@@ -14,6 +14,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Page, useNavigate } from 'zmp-ui';
+import { Payment } from 'zmp-sdk'; // [THÊM] Import Zalo Payment SDK
 import { routes } from '@/routes';
 import Header from '../components/Header';
 import cart from '@shared/cart';
@@ -741,7 +742,34 @@ useEffect(() => {
       });
 
       if (data.ok || data.id) {
-        setDone({ kind: 'server', data, endpoint: '/api/orders', orderId: data.id || data.order_id });
+        const createdOrderId = data.id || data.order_id;
+
+        // === [BẮT ĐẦU] TÍCH HỢP ZALO CHECKOUT SDK (BẮT BUỘC) ===
+        try {
+          // Gọi SDK để Zalo ghi nhận giao dịch (Compliance)
+          await Payment.createOrder({
+            desc: `Thanh toán đơn hàng #${createdOrderId}`,
+            item: payload.items.map((it: any) => ({
+              id: String(it.id),
+              amount: Number(it.price),
+              quantity: Number(it.qty)
+            })),
+            amount: Number(payload.totals.total),
+            extradata: JSON.stringify({
+              internal_order_id: createdOrderId,
+              source: 'mini_app'
+            }),
+            // Phương thức COD_MOBILE giúp ghi nhận đơn hàng mà không bắt buộc thanh toán online ngay
+            method: JSON.stringify({ id: 'COD_MOBILE', isCustom: false }) 
+          });
+        } catch (zaloErr) {
+          console.error('[Zalo Payment] Init failed:', zaloErr);
+          // Lưu ý: Vẫn cho phép hiện màn hình thành công dù Zalo SDK có warning
+          // để tránh mất đơn hàng của khách nếu mạng chập chờn.
+        }
+        // === [KẾT THÚC] TÍCH HỢP ZALO CHECKOUT SDK ===
+
+        setDone({ kind: 'server', data, endpoint: '/api/orders', orderId: createdOrderId });
         cart.clear();
         setSt(cart.get());
       } else {
