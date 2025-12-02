@@ -70,8 +70,12 @@ export async function createAdsFromJob(req, env, jobId) {
       return errorResponse('Chưa đăng nhập Facebook. Vui lòng login trước.', 400, req);
     }
 
-    const accessToken = fbSettings.access_token;
-    const adAccountId = fbSettings.ad_account_id;
+const accessToken = fbSettings.access_token;
+    // ✅ FIX: Chuẩn hóa ID (Bỏ 'act_' nếu có để tránh trùng lặp)
+    let adAccountId = fbSettings.ad_account_id;
+    if (adAccountId) {
+        adAccountId = adAccountId.replace(/^act_/, ''); 
+    }
 
     if (!adAccountId) {
       return errorResponse('Chưa cấu hình Ad Account ID', 400, req);
