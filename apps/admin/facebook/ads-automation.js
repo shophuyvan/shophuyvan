@@ -257,6 +257,12 @@
          let actionBtn = '';
          if (job.status === 'ai_generated' || job.status === 'video_uploaded') {
             actionBtn = `<button onclick="FanpageManager.oneClickAuto(${job.id})" class="btn-auto">⚡ 1-Click Auto</button>`;
+         } else if (job.status === 'published') {
+            // ✅ NÚT MỚI: Chuyển bài đã đăng thành Quảng cáo
+            actionBtn = `
+                <button onclick="FanpageManager.viewLog(${job.id}, '${job.product_name}')" class="btn-log">👁️ Chi tiết</button>
+                <button onclick="FanpageManager.createAdFromJob(${job.id})" class="btn-sm" style="background:#4f46e5; color:white; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; margin-left:5px; display:block; margin-top:4px;" title="Tạo Campaign Ads từ bài này">🚀 Chạy Ads</button>
+            `;
          } else {
             actionBtn = `<button onclick="FanpageManager.viewLog(${job.id}, '${job.product_name}')" class="btn-log">👁️ Chi tiết</button>`;
          }
@@ -523,6 +529,57 @@
     }
   };
 
+// ✅ TẠO CAMPAIGN ADS TỪ JOB
+    async createAdFromJob(jobId) {
+        if(!confirm('🚀 BẠN MUỐN TẠO QUẢNG CÁO CHO BÀI VIẾT NÀY?\n\nHệ thống sẽ:\n1. Lấy Post ID đã đăng thành công.\n2. Tạo Campaign & AdSet mới trên Facebook Ads Manager.\n3. Sử dụng bài viết này làm Creative.\n\nNhấn OK để bắt đầu.')) return;
+
+        toast('⏳ Đang kết nối Facebook Ads API...');
+        try {
+            const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/create-ads`, { method: 'POST' });
+            if (r && r.ok) {
+                alert(`✅ TẠO ADS THÀNH CÔNG!\n\n- Campaign: ${r.campaign_name}\n- Ad ID: ${r.ad_id}\n\nVui lòng vào Trình quản lý quảng cáo để xem và Bật.`);
+            } else {
+                toast('❌ Lỗi tạo Ads: ' + (r.error || 'Unknown'));
+            }
+        } catch(e) {
+            toast('❌ Lỗi kết nối: ' + e.message);
+        }
+    },
+
+    // ✅ CÔNG CỤ TEST: GIẢ LẬP WEBHOOK (Kiểm tra Auto Reply)
+    async testWebhookLogic() {
+        const testComment = prompt("💬 NHẬP NỘI DUNG COMMENT ĐỂ TEST:\n(Ví dụ: '0909123456' để test ẩn số, hoặc 'giá sao shop' để test reply)", "0901234567");
+        if(!testComment) return;
+
+        toast('📡 Đang gửi tín hiệu giả lập Webhook...');
+        try {
+            // Gọi API giả lập Webhook (Cần Backend hỗ trợ route này hoặc dùng route test riêng)
+            // Ở đây ta gọi route test-ai nhưng truyền tham số action=test-webhook để backend xử lý
+            // Hoặc gọi trực tiếp webhook handler nếu có endpoint public
+            const r = await Admin.req('/api/facebook/webhook/simulate', { 
+                method: 'POST',
+                body: { 
+                    object: 'page', 
+                    entry: [{ 
+                        messaging: [{ 
+                            message: { text: testComment },
+                            sender: { id: 'TEST_USER_ID' } // ID giả
+                        }] 
+                    }]
+                }
+            });
+
+            if(r && r.ok) {
+                alert(`✅ KẾT QUẢ TEST:\n\nInput: "${testComment}"\n\nSystem Response: ${r.response || 'Đã xử lý'}\n\n(Nếu bạn thấy phản hồi này tức là Logic Auto-Reply đang hoạt động!)`);
+            } else {
+                // Nếu chưa có API simulate, hướng dẫn test thủ công
+                alert('⚠️ API Test chưa được bật. Vui lòng test thủ công bằng cách:\n\n1. Dùng nick Facebook phụ (không phải nick admin).\n2. Vào bài viết mới nhất.\n3. Comment thử nội dung: "Tư vấn 0909..."\n4. Kiểm tra xem comment có bị ẩn không.');
+            }
+        } catch(e) {
+             alert('⚠️ Test thủ công: Hãy dùng nick phụ comment vào bài viết để kiểm tra thực tế.');
+        }
+    }
+  };
   window.InputWizard = InputWizard;
   window.FanpageManager = FanpageManager;
   document.addEventListener('DOMContentLoaded', () => FanpageManager.init());

@@ -305,7 +305,12 @@ export default {
           }
         }
         
-        return Orders.handle(req, env, ctx);
+       return Orders.handle(req, env, ctx);
+      }
+
+      // [MỚI] Route nhận thông báo thanh toán Zalo (Notify Url)
+      if (path === '/api/zalo/payment/notify' && req.method === 'POST') {
+        return Orders.notifyZaloPayment(req, env);
       }
 
      // THÊM: Route HỦY VẬN ĐƠN

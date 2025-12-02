@@ -743,29 +743,30 @@ useEffect(() => {
 
       if (data.ok || data.id) {
         const createdOrderId = data.id || data.order_id;
+        const orderMac = data.mac || data.zalo_mac; // Lấy MAC từ server trả về
 
-        // === [BẮT ĐẦU] TÍCH HỢP ZALO CHECKOUT SDK (BẮT BUỘC) ===
-        try {
-          // Gọi SDK để Zalo ghi nhận giao dịch (Compliance)
-          await Payment.createOrder({
-            desc: `Thanh toán đơn hàng #${createdOrderId}`,
-            item: payload.items.map((it: any) => ({
-              id: String(it.id),
-              amount: Number(it.price),
-              quantity: Number(it.qty)
-            })),
-            amount: Number(payload.totals.total),
-            extradata: JSON.stringify({
-              internal_order_id: createdOrderId,
-              source: 'mini_app'
-            }),
-            // Phương thức COD_MOBILE giúp ghi nhận đơn hàng mà không bắt buộc thanh toán online ngay
-            method: JSON.stringify({ id: 'COD_MOBILE', isCustom: false }) 
-          });
-        } catch (zaloErr) {
-          console.error('[Zalo Payment] Init failed:', zaloErr);
-          // Lưu ý: Vẫn cho phép hiện màn hình thành công dù Zalo SDK có warning
-          // để tránh mất đơn hàng của khách nếu mạng chập chờn.
+        // === [BẮT ĐẦU] TÍCH HỢP ZALO CHECKOUT SDK ===
+        // Chỉ gọi khi có MAC để tránh lỗi -1400 (Required mac)
+        if (orderMac) {
+          try {
+            await Payment.createOrder({
+              desc: `Thanh toán đơn hàng #${createdOrderId}`,
+              item: (payload.items || []).map((it: any) => ({
+                id: String(it.id),
+                amount: Number(it.price),
+                quantity: Number(it.qty)
+              })),
+              amount: Number(payload.totals.total),
+              extradata: JSON.stringify({
+                internal_order_id: createdOrderId,
+                source: 'mini_app'
+              }),
+              method: JSON.stringify({ id: 'COD_MOBILE', isCustom: false }),
+              mac: orderMac // ✅ THÊM TRƯỜNG NÀY ĐỂ FIX LỖI -1400
+            });
+          } catch (zaloErr) {
+            console.warn('[Zalo Payment] Skipped or Failed:', zaloErr);
+          }
         }
         // === [KẾT THÚC] TÍCH HỢP ZALO CHECKOUT SDK ===
 

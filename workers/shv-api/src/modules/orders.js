@@ -15,6 +15,23 @@ import { saveOrderToD1 } from '../core/order-core.js';
 import { getBaseProduct } from '../core/product-core.js'; // ✅ CORE: Dùng Product Core làm chuẩn
 import { lookupProvinceCode, lookupDistrictCode, chargeableWeightGrams } from './shipping/helpers.js';
 
+// [BẮT ĐẦU CHÈN] - Helper tạo chữ ký HMAC Zalo
+async function createZaloSignature(data, secretKey) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+// [KẾT THÚC CHÈN]
+
 // ===================================================================
 // Constants & Helpers
 // ===================================================================
@@ -748,7 +765,43 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
   // ✅ REMOVED: Không tự động tạo vận đơn, đợi admin xác nhận
   console.log('[ORDER] ⏳ Đơn hàng đang chờ admin xác nhận');
 
-  const response = json({ ok: true, id, status: order.status, tracking_code: order.tracking_code || null }, {}, req);
+  // [BẮT ĐẦU SỬA] Tính MAC trả về cho Frontend gọi Zalo SDK
+  let zalo_mac = null;
+  const ZALO_APP_ID = env.ZALO_MINI_APP_ID || '574448931033929374'; // ID từ ảnh cấu hình của bạn
+  const ZALO_PRIVATE_KEY = env.ZALO_PRIVATE_KEY; 
+
+  if (ZALO_APP_ID && ZALO_PRIVATE_KEY) {
+    try {
+      // Format data string theo đúng chuẩn Zalo: appId={...}&item={...}...
+      // Thứ tự tham số bắt buộc: appId -> item -> amount -> description -> extradata -> method
+      const zaloItems = items.map(it => ({
+        id: String(it.id),
+        amount: Number(it.price),
+        quantity: Number(it.qty)
+      }));
+      const descStr = `Thanh toán đơn hàng #${id}`;
+      const extraStr = JSON.stringify({ internal_order_id: id, source: 'mini_app' });
+      const methodStr = JSON.stringify({ id: 'COD_MOBILE', isCustom: false });
+      
+      const dataStr = `appId=${ZALO_APP_ID}&item=${JSON.stringify(zaloItems)}&amount=${Math.floor(revenue)}&description=${descStr}&extradata=${extraStr}&method=${methodStr}`;
+      
+      zalo_mac = await createZaloSignature(dataStr, ZALO_PRIVATE_KEY);
+      console.log('[ZALO] Generated MAC for order:', id);
+    } catch (e) {
+      console.error('[ZALO] MAC Generation failed:', e);
+    }
+  }
+
+  const response = json({ 
+    ok: true, 
+    id, 
+    status: order.status, 
+    tracking_code: order.tracking_code || null,
+    mac: zalo_mac, // ✅ Key quan trọng để fix lỗi -1400
+    zalo_mac: zalo_mac
+  }, {}, req);
+  // [KẾT THÚC SỬA]
+  
   await idemSet(idem.key, env, response);
   return response;
 }
@@ -1888,5 +1941,37 @@ ${order.items.map(i => `- ${i.name} (x${i.qty})`).join('\n')}
     ctx.waitUntil(Promise.all(promises));
   } else {
     Promise.all(promises);
+  }
+}
+
+// [MỚI] Hàm xử lý Callback từ Zalo (Notify Url)
+export async function notifyZaloPayment(req, env) {
+  try {
+    const body = await readBody(req) || {};
+    console.log('[ZALO-NOTIFY] Received:', JSON.stringify(body));
+
+    const { data, mac } = body;
+    const ZALO_PRIVATE_KEY = env.ZALO_PRIVATE_KEY;
+
+    // Validate input
+    if (!data || !mac || !ZALO_PRIVATE_KEY) {
+      return json({ returnCode: 0, returnMessage: 'Missing data or config' }, {}, req);
+    }
+
+    // Verify chữ ký: reqmac = HMAC(privateKey, data)
+    const calculatedMac = await createZaloSignature(data, ZALO_PRIVATE_KEY);
+
+    if (calculatedMac !== mac) {
+      console.warn('[ZALO-NOTIFY] Invalid MAC Signature');
+      return json({ returnCode: 0, returnMessage: 'Invalid signature' }, {}, req);
+    }
+
+    // Nếu chữ ký đúng -> Xác nhận thành công
+    // (Ở đây ta chỉ cần trả về thành công để Zalo hoàn tất UI cho khách)
+    return json({ returnCode: 1, returnMessage: 'Success' }, {}, req);
+
+  } catch (e) {
+    console.error('[ZALO-NOTIFY] Error:', e);
+    return json({ returnCode: 0, returnMessage: 'Internal Server Error' }, {}, req);
   }
 }
