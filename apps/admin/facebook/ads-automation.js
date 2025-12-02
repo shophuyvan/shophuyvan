@@ -2,6 +2,25 @@
 (function() {
   'use strict';
   
+  // ✅ GLOBAL HELPERS: Để HTML gọi được từ bên ngoài
+  window.switchJobTab = function(btn, status) {
+    document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    FanpageManager.loadRepository(status);
+  };
+
+  window.runStrictInputWizard = async function() {
+    try {
+        // Gọi hàm check AI từ ads_real.js (nếu có)
+        if (window.FacebookAds && typeof FacebookAds.checkSystemHealth === 'function') {
+            await FacebookAds.checkSystemHealth();
+        }
+        InputWizard.open();
+    } catch (e) {
+        console.error("Strict Check Failed:", e);
+    }
+  };
+
   const API = (window.Admin && Admin.getApiBase && Admin.getApiBase()) || 'https://api.shophuyvan.vn';
   const DOMAIN = 'https://shophuyvan.vn';
 
@@ -174,36 +193,53 @@
   // ============================================================
   // 2. MODULE DASHBOARD: QUẢN LÝ & 1-CLICK AUTO
   const FanpageManager = {
+    currentStatus: '', // Lưu trạng thái lọc hiện tại
+
     init() {
       this.loadRepository();
-      // Auto refresh mỗi 30s để cập nhật thanh tiến độ
+      // Auto refresh mỗi 30s
       setInterval(() => {
           if(document.getElementById('tab-autopost').style.display !== 'none') {
-             this.loadRepository(); 
+             this.loadRepository(this.currentStatus); 
           }
       }, 30000);
     },
 
-    async loadRepository() {
+    // ✅ FIX: Hỗ trợ lọc theo Status
+    async loadRepository(status = null) {
+      if (status !== null) this.currentStatus = status;
+
       const container = document.getElementById('repo-table-body');
       if (!container) return;
+      
+      // Hiển thị loading (chỉ khi click tab, không phải auto refresh)
+      if (status !== null) {
+         container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px;">⏳ Đang tải dữ liệu...</td></tr>';
+      }
 
       try {
-        const r = await Admin.req('/api/auto-sync/jobs?limit=20', { method: 'GET' });
+        let url = '/api/auto-sync/jobs?limit=20';
+        if (this.currentStatus) url += `&status=${this.currentStatus}`;
+
+        const r = await Admin.req(url, { method: 'GET' });
+        
         if (r && r.ok && r.jobs) {
-           this.renderRepository(r.jobs);
+           if (r.jobs.length === 0) {
+               container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px;">📭 Không có dữ liệu phù hợp.</td></tr>';
+           } else {
+               this.renderRepository(r.jobs);
+           }
         } else {
            container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px;">Chưa có Job nào. Hãy tạo mới!</td></tr>';
         }
       } catch(e) {
          console.error(e);
+         container.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Lỗi tải: ${e.message}</td></tr>`;
       }
     },
 
     renderRepository(jobs) {
       const container = document.getElementById('repo-table-body');
-      
-      // Biến thống kê cho Widget
       let stats = { pending: 0, published: 0, failed: 0, cleanup: 0 };
 
       container.innerHTML = jobs.map(job => {
@@ -211,38 +247,40 @@
          const published = job.total_posts_published || 0;
          const failed = job.total_posts_failed || 0;
          
-         // Tính % tiến độ
          let percent = 0;
          if (total > 0) percent = Math.round(((published + failed) / total) * 100);
 
-         // Xác định màu thanh tiến độ
-         let barColor = '#3b82f6'; // Xanh dương (Chuẩn)
-         if (failed > 0) barColor = '#ef4444'; // Đỏ (Có lỗi)
-         if (percent === 100 && failed === 0) barColor = '#10b981'; // Xanh lá (Hoàn tất đẹp)
+         let barColor = '#3b82f6';
+         if (failed > 0) barColor = '#ef4444';
+         if (percent === 100 && failed === 0) barColor = '#10b981';
 
-         // Xác định nút bấm
          let actionBtn = '';
          if (job.status === 'ai_generated' || job.status === 'video_uploaded') {
             actionBtn = `<button onclick="FanpageManager.oneClickAuto(${job.id})" class="btn-auto">⚡ 1-Click Auto</button>`;
          } else {
-            actionBtn = `<button onclick="FanpageManager.viewLog(${job.id}, '${job.product_name}')" class="btn-log">👁️ Xem Chi tiết</button>`;
+            actionBtn = `<button onclick="FanpageManager.viewLog(${job.id}, '${job.product_name}')" class="btn-log">👁️ Chi tiết</button>`;
          }
+         
+         // ✅ FIX: Thêm nút Xóa (Delete)
+         const deleteBtn = `<button onclick="FanpageManager.deleteJob(${job.id})" class="btn-sm" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; padding:6px 8px; border-radius:4px; cursor:pointer; margin-left:5px;" title="Xóa Job">🗑️</button>`;
 
-         // Cộng dồn Stats
+         // Stats
          if (job.status === 'assigned') stats.pending += (total - published - failed);
          stats.published += published;
          stats.failed += failed;
+         if (job.status === 'failed') stats.failed += 1;
 
          return `
            <tr>
              <td style="padding:15px; border-bottom:1px solid #f3f4f6;">
                 <div style="display:flex; align-items:center; gap:15px;">
                    <div style="width:70px; height:70px; border-radius:8px; background:#000; overflow:hidden; position:relative;">
-                        <video src="${job.video_r2_url}" style="width:100%; height:100%; object-fit:cover;"></video>
-                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:white; font-size:24px;">▶</div>
+                        ${job.video_r2_url 
+                            ? `<video src="${job.video_r2_url}" style="width:100%; height:100%; object-fit:cover;"></video>` 
+                            : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:white;font-size:24px;">🎬</div>`}
                    </div>
                    <div>
-                      <div style="font-weight:700; font-size:14px; color:#111827;">${job.product_name}</div>
+                      <div style="font-weight:700; font-size:14px; color:#111827; max-width:280px; overflow:hidden; text-overflow:ellipsis;">${job.product_name || 'Không tên'}</div>
                       <div style="font-size:12px; color:#059669; margin-top:3px;">Link: ${job.product_url ? 'Có' : 'Chưa có'}</div>
                       <div style="font-size:11px; color:#9ca3af; margin-top:2px;">ID: ${job.id} • ${formatTime(job.created_at)}</div>
                    </div>
@@ -257,23 +295,44 @@
                           <span>${published}/${total} Đã đăng (${failed} Lỗi)</span>
                        </div>
                    </div>
-                ` : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">Chờ phân phối...</span>`}
+                ` : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">Bước: ${job.current_step}/5</span>`}
              </td>
              <td style="padding:15px; border-bottom:1px solid #f3f4f6; vertical-align:middle;">
                 <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; 
-                   background:${job.status === 'published' ? '#d1fae5' : '#eff6ff'}; 
-                   color:${job.status === 'published' ? '#047857' : '#1d4ed8'};">
+                   background:${job.status === 'published' ? '#d1fae5' : (job.status === 'failed' ? '#fee2e2' : '#eff6ff')}; 
+                   color:${job.status === 'published' ? '#047857' : (job.status === 'failed' ? '#dc2626' : '#1d4ed8')};">
                    ${job.status}
                 </span>
+                ${job.error_message ? `<div style="font-size:10px; color:red; margin-top:4px; max-width:120px;">${job.error_message}</div>` : ''}
              </td>
              <td style="padding:15px; border-bottom:1px solid #f3f4f6; text-align:center; vertical-align:middle;">
-                ${actionBtn}
+                <div style="display:flex; justify-content:center; align-items:center;">
+                    ${actionBtn}
+                    ${deleteBtn}
+                </div>
              </td>
            </tr>
          `;
       }).join('');
       
       this.updateStats(stats);
+    },
+
+    // ✅ FIX: Hàm Xóa Job
+    async deleteJob(jobId) {
+        if(!confirm(`⚠️ BẠN CÓ CHẮC MUỐN XÓA JOB #${jobId}?\n\nHành động này sẽ xóa vĩnh viễn Job, Video và các bài viết liên quan.`)) return;
+        
+        try {
+            const r = await Admin.req(`/api/auto-sync/jobs/${jobId}`, { method: 'DELETE' });
+            if (r && r.ok) {
+                toast('✅ Đã xóa Job thành công');
+                this.loadRepository(this.currentStatus); // Refresh lại list
+            } else {
+                toast('❌ Lỗi xóa: ' + (r.error || 'Unknown'));
+            }
+        } catch(e) {
+            toast('❌ Lỗi kết nối: ' + e.message);
+        }
     },
 
     updateStats(stats) {
