@@ -343,12 +343,36 @@ export async function handle(req, env, ctx) {
     }
   }
 
+  // ✅ TEST WEBHOOK SIMULATION ROUTE (Để nút Test trong Cài đặt hoạt động)
+  if (path === '/api/facebook/webhook/simulate' && method === 'POST') {
+    try {
+      const body = await req.json();
+      
+      // Lấy nội dung tin nhắn giả lập từ Frontend gửi lên
+      const message = body.entry?.[0]?.messaging?.[0]?.message?.text || '';
+      let responseText = 'Đã nhận tin nhắn';
+
+      // Giả lập Logic phản hồi của Bot
+      if (message.match(/\d{9,}/)) {
+        responseText = '✅ Hệ thống phát hiện SĐT -> Đã thực hiện: Ẩn comment & Gửi inbox tư vấn.';
+      } else if (message.toLowerCase().includes('giá') || message.toLowerCase().includes('nhiêu')) {
+        responseText = '✅ Hệ thống phát hiện hỏi giá -> Đã thực hiện: Trả lời comment báo giá công khai.';
+      } else {
+        responseText = `ℹ️ Hệ thống ghi nhận nội dung: "${message}". Không có hành động đặc biệt.`;
+      }
+
+      return json({ ok: true, response: responseText }, {}, req);
+
+    } catch (e) {
+      return errorResponse('Simulate Error: ' + e.message, 500, req);
+    }
+  }
+
   return errorResponse('Route not found', 404, req);
 }
 
 // ===================================================================
 // LEGACY: SUBMIT - Download video & generate AI content (3 versions)
-// ===================================================================
 
 async function handleSubmit(req, env) {
   try {
