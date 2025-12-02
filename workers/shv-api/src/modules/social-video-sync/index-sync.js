@@ -568,7 +568,8 @@ async function createAutomationJob(req, env) {
     `).bind(productId).first();
 
     const productPrice = variant?.price_sale || variant?.price || 0;
-    const productUrl = `https://shophuyvan.vn/san-pham/${product.slug}`;
+    // 🔥 FIX LINK: Dùng định dạng product?id=ID thay vì slug
+    const productUrl = `https://shophuyvan.vn/product?id=${product.id}`;
     const productImage = product.images ? JSON.parse(product.images)[0] : null;
 
     // 2. Download TikTok video
@@ -678,11 +679,14 @@ async function generateJobVariants(req, env, jobId) {
     console.log("[Generate Variants] Analyzing video:", job.video_r2_url);
     const analysis = await generator.analyzeVideo(job.video_r2_url);
     
+    // 🔥 FIX LINK: Ép lại URL chuẩn theo ID ngay tại lúc tạo nội dung (phòng trường hợp Job cũ lưu sai link)
+    const fixedUrl = `https://shophuyvan.vn/product?id=${job.product_id}`;
+
     const productInfo = {
       name: job.product_name,
       description: job.product_slug,
       price: job.product_price,
-      url: job.product_url
+      url: fixedUrl
     };
 
     console.log("[Generate Variants] Calling Gemini API for content generation...");
@@ -1138,7 +1142,8 @@ async function createJobFromUpload(req, env) {
       ORDER BY id LIMIT 1
     `).bind(productId).first();
     const productPrice = variant?.price_sale || variant?.price || 0;
-    const productUrl = `https://shophuyvan.vn/san-pham/${product.slug}`;
+    // 🔥 FIX LINK: Dùng định dạng product?id=ID chuẩn
+    const productUrl = `https://shophuyvan.vn/product?id=${product.id}`;
     const productImage = product.images ? JSON.parse(product.images)[0] : null;
 
    // 2. Upload Video lên R2
