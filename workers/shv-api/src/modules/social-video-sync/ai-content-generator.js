@@ -116,45 +116,6 @@ OUTPUT JSON FORMAT (Raw JSON, no markdown):
 
     } catch (error) {
       console.error("[Gemini] Generate Error:", error);
-      console.error("[Gemini] Error details:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      
-      // Fallback khi AI lỗi - 5 versions mặc định
-      return {
-        version1: { 
-          tone: "casual",
-          caption: "Sản phẩm này xịn lắm luôn! 😍 Dùng rồi mê mệt, cả nhà nên thử nha ❤️", 
-          hashtags: ["#GiaDung", "#ShopHuyVan"],
-          cta: "Mua ngay tại ShopHuyVan.vn"
-        },
-        version2: { 
-          tone: "sale-heavy",
-          caption: "🔥 FLASH SALE 24H - GIẢM SỐC 30%! Chỉ còn 15 cái → Đặt ngay kẻo hết! ⚡", 
-          hashtags: ["#FlashSale", "#Deal"],
-          cta: "ORDER NGAY!"
-        },
-        version3: { 
-          tone: "storytelling",
-          caption: "Chị Hương (Q7) chia sẻ: 'Mua về dùng thấy tiện lắm, tiết kiệm được thời gian nấu ăn 🤗'", 
-          hashtags: ["#Review", "#KhachHangThucTe"],
-          cta: "Xem thêm review"
-        },
-        version4: { 
-          tone: "professional",
-          caption: "Công nghệ hiện đại, tiết kiệm điện năng lên đến 50%. Bảo hành 24 tháng chính hãng.", 
-          hashtags: ["#ChuyenGia", "#CongNghe"],
-          cta: "Tư vấn: 0909..."
-        },
-        version5: { 
-          tone: "tips",
-          caption: "Mẹo hay: Dùng sản phẩm này kết hợp với X sẽ cho hiệu quả gấp đôi đấy! 💡", 
-          hashtags: ["#MeoVat", "#TipHay"],
-          cta: "Học thêm tips"
-        }
-      };
+      // 🔥 CRITICAL CHANGE: Không dùng Fallback nữa. Throw error để Worker xử lý.
+      throw new Error(`Gemini API Error: ${error.message} (Vui lòng kiểm tra Quota hoặc API Key)`);
     }
-  }
-  }

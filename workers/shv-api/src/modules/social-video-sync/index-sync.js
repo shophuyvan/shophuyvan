@@ -191,6 +191,12 @@ export async function handle(req, env, ctx) {
     return getAutomationJob(req, env, jobId);
   }
 
+  // ✅ NEW: Route Xóa Job (Khi bị lỗi hoặc muốn hủy)
+  if (path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/) && method === 'DELETE') {
+    const jobId = parseInt(path.match(/^\/api\/auto-sync\/jobs\/(\d+)$/)[1]);
+    return deleteAutomationJob(req, env, jobId);
+  }
+
   if (path === '/api/auto-sync/test-ai' && method === 'GET') {
     return testAIConnection(req, env);
   }
@@ -680,7 +686,15 @@ async function generateJobVariants(req, env, jobId) {
     };
 
     console.log("[Generate Variants] Calling Gemini API for content generation...");
+    
+    // ✅ STRICT MODE: Gọi API, nếu lỗi sẽ nhảy xuống catch ngay lập tức
     const contents = await generator.generateFacebookContent(analysis, 'friendly', productInfo);
+    
+    // Kiểm tra dữ liệu trả về có rỗng không (phòng hờ)
+    if (!contents || Object.keys(contents).length === 0) {
+        throw new Error("Gemini trả về dữ liệu rỗng. Vui lòng thử lại.");
+    }
+
     console.log("[Generate Variants] AI generation completed successfully");
 
     // Save 5 variants to content_variants table (Logic An Toàn)
@@ -1179,6 +1193,35 @@ async function createJobFromUpload(req, env) {
   } catch (error) {
     console.error('[Auto Sync] Upload error:', error);
     return errorResponse(error.message, 500, req);
+  }
+}
+
+// ===================================================================
+// NEW WORKFLOW - Delete Job (Clean up)
+// ===================================================================
+
+async function deleteAutomationJob(req, env, jobId) {
+  try {
+    // 1. Kiểm tra Job tồn tại
+    const job = await env.DB.prepare("SELECT id, video_r2_path FROM automation_jobs WHERE id = ?").bind(jobId).first();
+    if (!job) return errorResponse("Job not found", 404, req);
+
+    // 2. Xóa dữ liệu liên quan trong DB
+    const batch = [
+      env.DB.prepare("DELETE FROM fanpage_assignments WHERE job_id = ?").bind(jobId),
+      env.DB.prepare("DELETE FROM content_variants WHERE job_id = ?").bind(jobId),
+      env.DB.prepare("DELETE FROM automation_jobs WHERE id = ?").bind(jobId)
+    ];
+    await env.DB.batch(batch);
+
+    // 3. (Optional) Xóa Video trên R2 nếu cần thiết để tiết kiệm dung lượng
+    // if (job.video_r2_path && env.SOCIAL_VIDEOS) {
+    //    await env.SOCIAL_VIDEOS.delete(job.video_r2_path);
+    // }
+
+    return json({ ok: true, message: `Đã xóa Job #${jobId} thành công` }, {}, req);
+  } catch (e) {
+    return errorResponse(e.message, 500, req);
   }
 }
 

@@ -611,6 +611,53 @@ async function deleteCampaign(campaignId) {
       }
     }
   }
+
+  // ============================================================
+  // STRICT AI CHECK & DELETE JOB
+  // ============================================================
+
+  async function checkSystemHealth() {
+    try {
+      toast('🤖 Đang kiểm tra kết nối AI...');
+      const r = await Admin.req('/api/auto-sync/test-ai', { method: 'GET' });
+      
+      if (!r || !r.ok) {
+        const errorMsg = r.error || 'AI không phản hồi';
+        alert(`⛔ KHÔNG THỂ TIẾP TỤC!\n\nHệ thống AI đang gặp sự cố: ${errorMsg}\n\nVui lòng kiểm tra API Key hoặc thử lại sau.`);
+        throw new Error(errorMsg);
+      }
+      
+      toast('✅ AI hoạt động tốt. Đang khởi tạo...');
+      return true;
+    } catch (e) {
+      console.error(e);
+      toast('❌ Lỗi AI: ' + e.message);
+      throw e; // Ném lỗi để chặn quy trình tiếp theo
+    }
+  }
+
+  async function deleteAutomationJob(jobId) {
+    if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc muốn xóa Job #${jobId}?\n\nHành động này sẽ xóa toàn bộ bài viết đã lên lịch, nội dung AI đã tạo và video liên quan.`)) {
+        return;
+    }
+
+    try {
+        // Gọi API DELETE (đã thêm ở backend)
+        const r = await Admin.req(`/api/auto-sync/jobs/${jobId}`, { method: 'DELETE' });
+        
+        if (r && r.ok) {
+            toast('✅ Đã xóa Job thành công!');
+            // Reload lại bảng nếu FanpageManager đang hoạt động
+            if (window.FanpageManager && typeof FanpageManager.loadRepository === 'function') {
+                FanpageManager.loadRepository();
+            }
+        } else {
+            toast('❌ Xóa thất bại: ' + (r.error || 'Lỗi không xác định'));
+        }
+    } catch (e) {
+        toast('❌ Lỗi: ' + e.message);
+    }
+  }
   
   // ============================================================
   // THÊM MỚI: API CALLS CHO TÍNH NĂNG MỚI
@@ -1551,6 +1598,8 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     setDefaultFanpage,
     loadTokenStatusWidget,
     dismissTokenWidget,
+    checkSystemHealth,   // ✅ New export
+    deleteAutomationJob, // ✅ New export
   };
 
   // Auto-init on DOM ready

@@ -231,12 +231,19 @@
     </div>
 
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <h3 style="margin:0;">🎛️ Quản lý Phân phối Ads</h3>
             <div style="display: flex; gap: 10px;">
-                <button class="btn" onclick="FanpageManager.loadRepository()">🔄 Làm mới</button>
-                <button class="btn green" onclick="InputWizard.open()">➕ Tạo Ads Mới</button>
+                <button class="btn green" onclick="runStrictInputWizard()">➕ Tạo Ads Mới (Strict AI)</button>
             </div>
+        </div>
+
+        <div class="sub-tabs" style="margin-bottom: 15px;">
+            <button class="sub-tab-btn active" onclick="switchJobTab(this, '')">📋 Tất cả</button>
+            <button class="sub-tab-btn" onclick="switchJobTab(this, 'video_uploaded')">⏳ Đang xử lý</button>
+            <button class="sub-tab-btn" onclick="switchJobTab(this, 'assigned')">📅 Đã lên lịch</button>
+            <button class="sub-tab-btn" onclick="switchJobTab(this, 'published')">✅ Đã đăng</button>
+            <button class="sub-tab-btn" onclick="switchJobTab(this, 'failed')" style="color:#ef4444;">❌ Bị Lỗi</button>
         </div>
 
         <table class="fanpage-table">
@@ -890,6 +897,84 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+<script>
+    // 1. Hàm Xử lý Chuyển Tab & Lọc
+    window.currentJobStatus = '';
+
+    function switchJobTab(btn, status) {
+        // Update UI
+        document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update State & Reload
+        window.currentJobStatus = status;
+        if (window.FanpageManager && FanpageManager.loadRepository) {
+            // Chúng ta cần sửa FanpageManager để nhận param status, 
+            // nhưng vì không sửa được file ẩn, ta sẽ dùng global variable
+            // Giả sử FanpageManager.loadRepository sẽ đọc biến này hoặc ta gọi hàm custom
+            FanpageManager.loadRepository(status); 
+        }
+    }
+
+    // 2. Hàm Wrapper "Strict Check" trước khi mở Wizard
+    async function runStrictInputWizard() {
+        try {
+            // Gọi hàm check AI từ ads_real.js
+            await FacebookAds.checkSystemHealth();
+            
+            // Nếu OK thì mới mở Wizard
+            if (window.InputWizard) {
+                InputWizard.open();
+            }
+        } catch (e) {
+            // Đã handle alert bên trong checkSystemHealth
+        }
+    }
+
+    // 3. Inject nút "Xóa" vào bảng (Vì ta không sửa được file render bảng JS)
+    // Ta sử dụng MutationObserver để lắng nghe khi bảng được render xong thì chèn nút Xóa vào
+    const observer = new MutationObserver((mutations) => {
+        const rows = document.querySelectorAll('#repo-table-body tr');
+        rows.forEach(row => {
+            if (row.dataset.processed) return; // Tránh xử lý lặp
+            
+            // Tìm cột hành động (cột cuối cùng)
+            const actionCell = row.cells[row.cells.length - 1];
+            if (actionCell) {
+                // Lấy Job ID (thường nằm ở cột đầu tiên hoặc dataset)
+                // Giả sử trong HTML render có để ID ở đâu đó, ví dụ text "ID: 123"
+                const firstCellText = row.cells[0].innerText;
+                const match = firstCellText.match(/ID:\s*(\d+)/);
+                
+                if (match) {
+                    const jobId = match[1];
+                    
+                    // Tạo nút xóa
+                    const btnDelete = document.createElement('button');
+                    btnDelete.className = 'btn-icon btn-danger';
+                    btnDelete.innerHTML = '🗑️';
+                    btnDelete.title = 'Xóa Job & Dữ liệu';
+                    btnDelete.style.marginLeft = '5px';
+                    btnDelete.onclick = (e) => {
+                        e.stopPropagation(); // Tránh kích hoạt click row
+                        FacebookAds.deleteAutomationJob(jobId);
+                    };
+                    
+                    // Chèn vào
+                    actionCell.appendChild(btnDelete);
+                    row.dataset.processed = "true";
+                }
+            }
+        });
+    });
+
+    // Bắt đầu lắng nghe thay đổi trong bảng
+    const tableBody = document.getElementById('repo-table-body');
+    if (tableBody) {
+        observer.observe(tableBody, { childList: true, subtree: true });
+    }
+</script>
 
 </body>
 </html>
