@@ -119,3 +119,5 @@ OUTPUT JSON FORMAT (Raw JSON, no markdown):
       // 🔥 CRITICAL CHANGE: Không dùng Fallback nữa. Throw error để Worker xử lý.
       throw new Error(`Gemini API Error: ${error.message} (Vui lòng kiểm tra Quota hoặc API Key)`);
     }
+  }
+}
