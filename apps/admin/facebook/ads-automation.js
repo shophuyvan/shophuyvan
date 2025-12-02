@@ -528,15 +528,32 @@
         }
     }, // 👈 Thêm dấu phẩy ở đây để nối tiếp hàm dưới
 
-    // ✅ TẠO CAMPAIGN ADS TỪ JOB
-    async createAdFromJob(jobId) {
-        if(!confirm('🚀 BẠN MUỐN TẠO QUẢNG CÁO CHO BÀI VIẾT NÀY?\n\nHệ thống sẽ:\n1. Lấy Post ID đã đăng thành công.\n2. Tạo Campaign & AdSet mới trên Facebook Ads Manager.\n3. Sử dụng bài viết này làm Creative.\n\nNhấn OK để bắt đầu.')) return;
+    // ✅ TẠO CAMPAIGN ADS TỪ JOB (Đã Fix: Gửi kèm Body)
+    async createAdFromJob(jobId, productName) {
+        // 1. Hỏi thông tin
+        const defaultName = `Ads - ${productName || 'Campaign'} - ${new Date().toLocaleDateString('vi-VN')}`;
+        const name = prompt('🎯 Đặt tên chiến dịch:', defaultName);
+        if (name === null) return; // Hủy
 
-        toast('⏳ Đang kết nối Facebook Ads API...');
+        const budgetStr = prompt('💰 Ngân sách hàng ngày (VNĐ):', '100000');
+        if (budgetStr === null) return;
+        
+        const budget = parseInt(budgetStr.replace(/\D/g, '')) || 50000;
+
+        toast('⏳ Đang khởi tạo Campaign & AdSet...');
+        
         try {
-            const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/create-ads`, { method: 'POST' });
+            // 2. Gọi API kèm Body dữ liệu (QUAN TRỌNG)
+            const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/create-ads`, { 
+                method: 'POST',
+                body: {
+                    campaignName: name,
+                    dailyBudget: budget
+                }
+            });
+
             if (r && r.ok) {
-                alert(`✅ TẠO ADS THÀNH CÔNG!\n\n- Campaign: ${r.campaign_name}\n- Ad ID: ${r.ad_id}\n\nVui lòng vào Trình quản lý quảng cáo để xem và Bật.`);
+                alert(`✅ TẠO ADS THÀNH CÔNG!\n\n- Campaign: ${r.campaign.name}\n- Ads đã tạo: ${r.totalAds}\n\nVui lòng vào Trình quản lý quảng cáo để xem và Bật.`);
             } else {
                 toast('❌ Lỗi tạo Ads: ' + (r.error || 'Unknown'));
             }
