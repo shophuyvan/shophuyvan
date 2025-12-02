@@ -14,7 +14,14 @@ import { getJSON } from '../../lib/kv.js';
 
 export async function createAdsFromJob(req, env, jobId) {
   try {
-    const body = await req.json();
+    // ✅ FIX: Đọc JSON an toàn (tránh lỗi 500 nếu body rỗng)
+    let body = {};
+    try {
+        body = await req.json();
+    } catch(e) {
+        console.warn('Empty request body');
+    }
+
     const { 
       campaignName, 
       dailyBudget = 50000, 
