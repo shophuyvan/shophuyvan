@@ -115,6 +115,20 @@
   </style>
 </head>
 <body>
+  <script>
+    (function() {
+      const originalLog = console.log;
+      console.log = function(...args) {
+        // Nếu log chứa [Admin.req] và là các URL polling định kỳ -> Bỏ qua không in
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('[Admin.req]')) {
+          if (args[0].includes('/search-products') || args[0].includes('/jobs?limit') || args[0].includes('OPTIONS')) {
+            return; 
+          }
+        }
+        originalLog.apply(console, args);
+      };
+    })();
+  </script>
 <!-- ✅ Sidebar sẽ tự động inject vào đây bởi AdminLayout.init() -->
 
   <!-- Tabs -->

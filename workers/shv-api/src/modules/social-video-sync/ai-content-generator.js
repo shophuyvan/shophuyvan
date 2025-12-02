@@ -109,23 +109,17 @@ OUTPUT JSON FORMAT:
       // 1. Clean Markdown blocks
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
       
-      // 2. Sanitize: Loại bỏ các ký tự điều khiển rác (Bad control characters)
-      // Giữ lại \n, \r, \t, còn lại (0x00-0x1F) xóa hết để tránh lỗi parse
+      // 2. 🔥 QUAN TRỌNG: Lọc bỏ ký tự điều khiển (Control Characters) gây lỗi JSON
+      // Giữ lại \n, \r, \t, còn lại xóa hết
       text = text.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, "");
 
       try {
         const parsed = JSON.parse(text);
-        
-        // Kiểm tra sơ bộ cấu trúc
-        if (!parsed.version1 || !parsed.version1.caption) {
-           throw new Error("JSON thiếu trường version1 hoặc caption");
-        }
-        
         return parsed;
-
       } catch (parseError) {
         console.error("[Gemini] JSON Parse Failed. Raw Text:", text);
-        throw new Error(`Lỗi đọc dữ liệu từ AI (Invalid JSON): ${parseError.message}`);
+        // Ném lỗi chi tiết để dễ debug
+        throw new Error(`AI trả về định dạng sai: ${parseError.message}`);
       }
 
     } catch (error) {
