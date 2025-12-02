@@ -729,8 +729,11 @@ async function generateJobVariants(req, env, jobId) {
           };
       }
 
-      const hashtagsStr = Array.isArray(versionData.hashtags) ? JSON.stringify(versionData.hashtags) : (versionData.hashtags || '[]');
-      const tone = versionData.tone || toneMap[key] || 'custom';
+const hashtagsStr = Array.isArray(versionData.hashtags) ? JSON.stringify(versionData.hashtags) : (versionData.hashtags || '[]');
+      
+      // 🔥 FIX LỖI DB: Ép buộc dùng toneMap chuẩn của Database
+      // Bỏ qua tone do AI trả về (vì AI hay trả về 'friendly', 'expert'... làm lỗi CHECK constraint)
+      const tone = toneMap[key]; 
       
       const result = await env.DB.prepare(`
         INSERT INTO content_variants
