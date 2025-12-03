@@ -112,8 +112,9 @@ export async function createWaybill(req, env) {
       district: receiverDistrict,
       commune: (body.receiver_commune || order.customer?.ward || body.to_commune || ''),
       
-      // Amount (REQUIRED)
-      amount: calculateOrderAmount(order, body),
+      // Amount (REQUIRED) - FIX: Phải là Giá trị hàng hóa (Subtotal - Discount)
+      // Lấy từ order.subtotal - order.discount
+      amount: Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
@@ -142,8 +143,8 @@ export async function createWaybill(req, env) {
       weight: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
       cod: Number(order.cod_amount || order.cod || body.cod_amount || body.cod || 0),
 	  // Aliases SuperAI
-  value: Number(order.value || body.value || order.cod || body.cod || calculateOrderAmount(order, body) || 0),
-  soc: body.soc || order.soc || '',
+      value: Math.round(Number((order.subtotal || 0) - (order.discount || 0))), // FIX: Phải là Giá trị hàng hóa (Subtotal - Discount)
+      soc: body.soc || order.soc || '',
       
       payer: '2', // Khách trả phí (theo logic mới)
       
@@ -451,8 +452,12 @@ export async function autoCreateWaybill(order, env) {
     const totalWeight = chargeableWeightGrams({}, order) || 500;
     const payer = '2';
     // ✅ FIX: COD phải bằng tổng tiền khách trả (bao gồm ship)
-    const totalCOD = Number(order.revenue || order.total || totalAmount || 0);
-    const totalValue = Number(order.revenue || order.total || totalAmount || 0);
+    const totalCOD = Math.round(Number(order.revenue || order.total || totalAmount || 0)); // 54.000₫
+    
+    // FIX: Giá trị hàng hóa (Value) phải là Subtotal TRỪ Discount.
+    // Lấy giá trị hàng hóa từ order.subtotal - order.discount (Backend đã tính)
+    const subtotalNoDiscount = Number(order.subtotal || 0) - Number(order.discount || 0); 
+    const totalValue = Math.round(Number(order.value || subtotalNoDiscount || totalCOD || 0)); // Subtotal - Discount (39.000₫)
 
     // ✅ BƯỚC 1: GỌI PRICING API ĐỂ LẤY DANH SÁCH CARRIERS
     console.log('[autoCreateWaybill] 📊 Calling pricing API to find cheapest carrier...');

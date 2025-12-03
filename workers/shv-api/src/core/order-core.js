@@ -91,10 +91,11 @@ export function parseShopeeOrder(raw) {
     shipping_province: raw.recipient_address?.state || '',
     shipping_zipcode: raw.recipient_address?.zipcode || '',
 
-    // Financial (Khớp với database.sql mới)
+   // Financial (Khớp với database.sql mới)
     subtotal: subtotal,
     shipping_fee: raw.actual_shipping_fee || raw.estimated_shipping_fee || 0,
-    total: raw.total_amount || 0,
+    // FIX: Đảm bảo total lấy từ buyer_total_amount (nếu có trong orderIncome)
+    total: orderIncome.buyer_total_amount || raw.total_amount || 0,
     
     // Shopee specific fields
     tracking_number: raw.tracking_number || '',
@@ -111,6 +112,7 @@ export function parseShopeeOrder(raw) {
     seller_transaction_fee: orderIncome.seller_transaction_fee || 0,
     
     escrow_amount: orderIncome.escrow_amount || 0,
+    // Giữ nguyên logic này để lưu vào cột buyer_paid_amount
     buyer_paid_amount: orderIncome.buyer_total_amount || raw.total_amount || 0,
     
     estimated_shipping_fee: raw.estimated_shipping_fee || 0,
@@ -361,12 +363,12 @@ async function enrichItemsWeight(env, items) {
   ),
   
   // ✅ Total weight
-  Number(order.total_weight_gram || order.totalWeightGram || 0),
-  
+    Number(order.total_weight_gram || order.totalWeightGram || 0),
     Number(order.subtotal || 0),
     Number(order.shipping_fee || 0), 
     Number(order.discount || 0), 
-    Number(order.revenue || order.total || 0), // revenue là thực thu, total là tổng
+    // Tối ưu hóa: Chỉ ưu tiên Buyer Paid Amount hoặc Total. Loại bỏ Revenue khỏi fallback nếu không rõ mục đích.
+    Number(order.buyer_paid_amount || order.total || 0), 
     Number(order.profit || 0), // ✅ Lưu lợi nhuận tính toán từ Product Core
     
     Number(order.seller_transaction_fee || 0),

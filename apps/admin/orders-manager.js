@@ -302,7 +302,9 @@ class OrdersManager {
             </div>
             <div class="detail-row">
               <span class="label">Tổng khách trả:</span>
-              <span class="value price-total">${this.formatPrice(total)}</span>
+              <span class="value price-total">
+                ${this.formatPrice(order.buyer_paid_amount || order.revenue || order.total || total)}
+              </span>
             </div>
             <div class="detail-row">
               <span class="label">Đơn vị VC:</span>
