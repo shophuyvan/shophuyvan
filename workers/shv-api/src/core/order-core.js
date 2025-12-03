@@ -1,32 +1,67 @@
-// ===============================================
-// SHOP HUY VÂN - ORDER CORE ENGINE
-// Chuẩn hóa đơn hàng từ đa kênh (Shopee, Lazada, TikTok)
-// về format database nội bộ.
-// ===============================================
-
-import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
-
-// 1. MAP TRẠNG THÁI ĐƠN HÀNG
-// Chuyển đổi trạng thái sàn -> trạng thái nội bộ
-export function mapOrderStatus(channel, status) {
-  const s = String(status || '').toUpperCase();
-
-  if (channel === 'shopee') {
-    // Shopee Statuses: UNPAID, READY_TO_SHIP, PROCESSED, SHIPPED, COMPLETED, IN_CANCEL, CANCELLED, TO_RETURN
-    const map = {
-      'UNPAID': 'pending',
-      'READY_TO_SHIP': 'processing',
-      'PROCESSED': 'processing', // Đã in vận đơn
-      'RETRY_SHIP': 'processing',
-      'SHIPPED': 'shipped',
-      'TO_CONFIRM_RECEIVE': 'shipped',
-      'COMPLETED': 'completed',
-      'IN_CANCEL': 'cancelled',
-      'CANCELLED': 'cancelled',
-      'TO_RETURN': 'returned'
-    };
-    return map[s] || 'pending';
-  }
+    // ===============================================
+    // SHOP HUY VÂN - ORDER CORE ENGINE
+    // Chuẩn hóa đơn hàng từ đa kênh (Shopee, Lazada, TikTok)
+    // về format database nội bộ.
+    // ===============================================
+    
+    import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
+    import { getJSON } from '../lib/kv.js'; // Cần import để đọc settings/vouchers
+    import { applyVoucher } from '../modules/vouchers.js'; // Cần import để áp dụng voucher nếu có
+    
+    // ===================================================================
+    // Helper: Auto Freeship Logic (Di chuyển từ orders.js)
+    // ===================================================================
+    /** * Checks for auto-freeship eligibility and returns best discount
+     */
+    async function getAutoFreeshipDiscount(env, subtotal, shipping_fee) {
+      let autoShippingDiscount = 0;
+      let autoVoucherCode = null;
+      try {
+        const now = Date.now();
+        const list = await getJSON(env, 'vouchers', []);
+        const activeAuto = (Array.isArray(list) ? list : [])
+          .filter(v => v && v.on === true && v.voucher_type === 'auto_freeship')
+          .filter(v => {
+            const s = Number(v.starts_at || 0);
+            const e = Number(v.expires_at || 0);
+            if (s && now < s) return false;
+            if (e && now > e) return false;
+            return true;
+          })
+          .sort((a, b) => (Number(b.min_purchase || 0) - Number(a.min_purchase || 0)));
+            
+        const eligible = activeAuto.find(v => Number(subtotal) >= Number(v.min_purchase || 0));
+        if (eligible) {
+          const maxDiscount = Number(eligible.max_discount || shipping_fee); 
+          autoShippingDiscount = Math.min(shipping_fee, maxDiscount); // Trừ tối đa bằng phí ship
+          autoVoucherCode = eligible.code || null;
+          console.log(`[CORE] ✅ Applied auto-freeship: ${autoVoucherCode} with discount: ${autoShippingDiscount}`);
+        }
+      } catch (e) { console.error('[CORE] Error in auto-freeship logic:', e); }
+      return { autoShippingDiscount, autoVoucherCode };
+    }
+    
+    // 1. MAP TRẠNG THÁI ĐƠN HÀNG
+    // Chuyển đổi trạng thái sàn -> trạng thái nội bộ
+    export function mapOrderStatus(channel, status) {
+          const s = String(status || '').toUpperCase();
+    
+      if (channel === 'shopee') {
+        // Shopee Statuses: UNPAID, READY_TO_SHIP, PROCESSED, SHIPPED, COMPLETED, IN_CANCEL, CANCELLED, TO_RETURN
+        const map = {
+          'UNPAID': 'pending',
+          'READY_TO_SHIP': 'processing',
+          'PROCESSED': 'processing', // Đã in vận đơn
+          'RETRY_SHIP': 'processing',
+          'SHIPPED': 'shipped',
+          'TO_CONFIRM_RECEIVE': 'shipped',
+          'COMPLETED': 'completed',
+          'IN_CANCEL': 'cancelled',
+          'CANCELLED': 'cancelled',
+          'TO_RETURN': 'returned'
+        };
+        return map[s] || 'pending';
+      }
 
   if (channel === 'lazada') {
     // Lazada Statuses: pending, packed, ready_to_ship, shipped, delivered, canceled, returned, failed
@@ -488,4 +523,95 @@ async function enrichItemsWeight(env, items) {
     console.error('[ORDER-CORE] ❌ Save failed:', e);
     return { ok: false, error: e.message };
   }
+}
+
+}
+
+// ===================================================================
+// 5. CALCULATE FINANCIALS (SINGLE SOURCE OF TRUTH)
+// ===================================================================
+
+/**
+ * Tính toán toàn bộ thông số tài chính cuối cùng của đơn hàng (Subtotal, Discount, Shipping, Revenue, Profit)
+ * @param {object} order - Đối tượng đơn hàng thô
+ * @param {object} env - Worker env
+ * @returns {object} order - Đối tượng order đã được bổ sung/cập nhật các trường tài chính
+ */
+export async function calculateOrderFinancials(order, env) {
+  // 1. Tính Subtotal và Cost từ Items
+  const items = order.items || [];
+  const subtotal = items.reduce((sum, item) =>
+    sum + Number(item.price || 0) * Number(item.qty || 1), 0
+  );
+  const cost = items.reduce((sum, item) =>
+    sum + Number(item.cost || 0) * Number(item.qty || 1), 0
+  );
+
+  // 2. Lấy Phí Ship và Voucher/Discount thô
+  const shipping_fee = Number(order.shipping_fee || 0);
+  const voucher_code_input = order.voucher_code || order.totals?.voucher_code || null;
+  
+  let final_discount = Number(order.discount || 0);
+  let final_ship_discount = Number(order.shipping_discount || 0);
+  let final_voucher_code = null;
+  
+  // 3. Re-validate Voucher Code (Nếu có)
+  if (voucher_code_input) {
+    try {
+      const fakeReq = {
+        url: 'fake/url',
+        method: 'POST',
+        headers: new Headers(),
+        json: async () => ({
+          code: voucher_code_input,
+          customer_id: order.customer?.id || null,
+          subtotal: subtotal
+        })
+      };
+      
+      const applyRes = await applyVoucher(fakeReq, env);
+      const applyData = await applyRes.json();
+      
+      if (applyRes.status === 200 && applyData.ok && applyData.valid) {
+        final_voucher_code = applyData.code;
+        final_discount = applyData.discount || 0;
+        final_ship_discount = applyData.ship_discount || 0;
+      }
+    } catch (e) { console.error('[CORE] Voucher re-validation failed:', e); }
+  }
+
+  // 4. Áp dụng Auto Freeship (Luôn chạy để đồng bộ)
+  const { autoShippingDiscount, autoVoucherCode } = await getAutoFreeshipDiscount(
+    env, 
+    subtotal, 
+    shipping_fee
+  );
+  
+  // 5. Tính toán TỔNG GIẢM SHIP TỐT NHẤT
+  const best_shipping_discount = Math.max(final_ship_discount, autoShippingDiscount);
+  
+  // Chọn mã voucher cuối cùng (ưu tiên mã được áp dụng/gửi lên, nếu mã tự động tốt hơn thì dùng mã tự động)
+  if (autoShippingDiscount > final_ship_discount && autoVoucherCode) {
+    final_voucher_code = autoVoucherCode;
+  } else if (final_voucher_code === null) {
+    final_voucher_code = voucher_code_input;
+  }
+  
+  // 6. Tính Revenue & Profit
+  const actualShippingFee = Math.max(0, shipping_fee - best_shipping_discount);
+  const revenue = Math.max(0, subtotal - final_discount + actualShippingFee); // Tổng khách trả
+  const profit = Math.max(0, subtotal - cost - final_discount - actualShippingFee); // Subtotal - Cost - Discount - Fee
+
+  // 7. Cập nhật Order Object
+  order.subtotal = subtotal;
+  order.total_cost = cost;
+  order.discount = final_discount;
+  order.shipping_discount = best_shipping_discount;
+  order.actual_shipping_fee = actualShippingFee;
+  order.revenue = revenue;
+  order.total = revenue; // Đồng bộ total = revenue
+  order.profit = profit;
+  order.voucher_code = final_voucher_code;
+  
+  return order;
 }

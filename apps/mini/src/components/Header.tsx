@@ -51,6 +51,14 @@ export default function Header({
   const [count, setCount] = useState(cart.count());
   const [shouldHide, setShouldHide] = useState(false);
   const navigate = useNavigate();
+  const [keyword, setKeyword] = useState(""); // ✅ Thêm state lưu từ khóa
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (keyword.trim()) {
+      navigate(`/category?q=${encodeURIComponent(keyword)}`);
+    }
+  };
 
   const handleScan = async () => {
     try {
@@ -135,67 +143,98 @@ export default function Header({
     return null;
   }
 
-  // Header đơn giản cho Zalo Mini App: không dùng link FE để tránh nhảy khỏi Mini
+// Header đơn giản cho Zalo Mini App: không dùng link FE để tránh nhảy khỏi Mini
   if (variant === 'mini') {
     return (
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
-        <div className="safe-x mx-auto flex items-center justify-between py-2 px-3">
-          <div className="flex items-center gap-2">
-            {showBack && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onBack) {
-                    onBack();
-                  } else if (typeof window !== 'undefined') {
-                    // Fallback cho web dev: lùi lại 1 trang
-                    window.history.back();
-                  }
-                }}
-                className="mr-1 p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 focus:outline-none"
-                aria-label="Quay lại"
+        <div className="safe-x mx-auto flex items-center gap-2 py-2 px-3">
+          {/* Nút Back */}
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else if (typeof window !== 'undefined') {
+                  window.history.back();
+                }
+              }}
+              className="shrink-0 p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 focus:outline-none"
+              aria-label="Quay lại"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="w-6 h-6 text-gray-600"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.707 4.293a1 1 0 010 1.414L9.414 9H16a1 1 0 110 2H9.414l3.293 3.293a1 1 0 01-1.414 1.414l-4.707-4.707a1 1 0 010-1.414l4.707-4.707a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            )}
+                <path
+                  fillRule="evenodd"
+                  d="M12.707 4.293a1 1 0 010 1.414L9.414 9H16a1 1 0 110 2H9.414l3.293 3.293a1 1 0 01-1.414 1.414l-4.707-4.707a1 1 0 010-1.414l4.707-4.707a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          )}
 
-            <img
-              src="/logo-hv.png"
-              alt="Shop Huy Vân"
-              className="w-8 h-8 object-contain rounded-md"
-              loading="eager"
-            />
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold text-brand">Shop Huy Vân</span>
-              <span className="text-[11px] text-gray-500">
-                Mua sắm trên Zalo Mini
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-             {/* ✅ Nút Quét QR */}
-            <button onClick={handleScan} className="p-1 text-gray-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h-.972a4 4 0 01-3.832-5.02l.465-2.09a1.996 1.996 0 00-.868-2.106l-1.487-.798A2 2 0 012.392 6.57l.617-2.775a2 2 0 012.42-1.52l1.98.44M13 12a1 1 0 11-2 0 1 1 0 012 0zm1.5-6.5l-2.023 5.56a1 1 0 01-1.883-.133l-1.096-4.93a1 1 0 011.64-1.076l3.362 1.58z" /></svg>
+          {/* ✅ Form Tìm kiếm + QR Code mới */}
+          <form 
+            onSubmit={handleSearch}
+            className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 h-10 border border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all"
+          >
+            {/* Icon Kính lúp */}
+            <button type="submit" className="shrink-0 text-gray-400">
+               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                <path fillRule="evenodd" d="M8 4a4 4 0 015.292 5.708l3 3a1 1 0 01-1.414 1.414l-3-3A4 4 0 118 4zm0 2a2 2 0 100 4 2 2 0 000-4z" clipRule="evenodd" />
+              </svg>
             </button>
             
+            {/* Input nhập liệu thật */}
+            <input
+              type="text"
+              className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 placeholder-gray-400 min-w-0"
+              placeholder="Tìm kiếm sản phẩm..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            
+            {/* ✅ Nút QR Scan (Icon đẹp hơn) */}
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleScan();
+              }}
+              className="p-1.5 -mr-1.5 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100"
+              title="Quét mã QR"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h-.972a4 4 0 01-3.832-5.02l.465-2.09a1.996 1.996 0 00-.868-2.106l-1.487-.798A2 2 0 012.392 6.57l.617-2.775a2 2 0 012.42-1.52l1.98.44M13 12a1 1 0 11-2 0 1 1 0 012 0zm1.5-6.5l-2.023 5.56a1 1 0 01-1.883-.133l-1.096-4.93a1 1 0 011.64-1.076l3.362 1.58z" />
+              </svg>
+            </button>
+          </form>
+
+          {/* Biểu tượng Giỏ hàng */}
+          <button
+            onClick={() => navigate('/cart')}
+            className="shrink-0 relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5} 
+              stroke="currentColor"
+              className="w-7 h-7"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
             {count > 0 && (
-              <div className="text-xs text-rose-600 font-semibold">
-                {count} sản phẩm
-              </div>
+              <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] h-4 min-w-[16px] flex items-center justify-center rounded-full px-1 border border-white font-bold shadow-sm">
+                {count > 99 ? '99+' : count}
+              </span>
             )}
-          </div>
+          </button>
         </div>
       </header>
     );

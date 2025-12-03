@@ -11,7 +11,7 @@ import { idemGet, idemSet } from '../lib/idempotency.js';
 import { calculateTier, getTierInfo, updateCustomerTier, addPoints } from './admin.js';
 import { autoCreateWaybill, printWaybill, cancelWaybill, printWaybillsBulk, cancelWaybillsBulk } from './shipping/waybill.js';
 import { applyVoucher, markVoucherUsed } from './vouchers.js';
-import { saveOrderToD1 } from '../core/order-core.js';
+import { saveOrderToD1, calculateOrderFinancials } from '../core/order-core.js'; // THÊM calculateOrderFinancials
 import { getBaseProduct } from '../core/product-core.js'; // ✅ CORE: Dùng Product Core làm chuẩn
 import { lookupProvinceCode, lookupDistrictCode, chargeableWeightGrams } from './shipping/helpers.js';
 
@@ -469,7 +469,6 @@ export async function handle(req, env, ctx) {
 // ===================================================================
 
 // ✅ TÍNH GIÁ SERVER-SIDE (voucher + freeship) KHÔNG TẠO ĐƠN
-// ✅ TÍNH GIÁ SERVER-SIDE (voucher + freeship) KHÔNG TẠO ĐƠN
 async function priceOrderPreview(req, env) {
   try { // <--- [CORE SYNC] Bắt đầu Try để bắt lỗi crash
     // (Optional) auth để lấy customerId nếu có
@@ -490,76 +489,32 @@ async function priceOrderPreview(req, env) {
     const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
     const voucher_code_input = body.voucher_code || body?.totals?.voucher_code || null;
 
-    let validated_voucher_code = null;
-    let validated_discount = 0;
-    let validated_ship_discount = 0;
+    // GỌI HÀM TÍNH TOÁN TỪ ORDER CORE
+    // Tạo đối tượng tạm để tính toán
+    let tempOrder = {
+      items,
+      subtotal,
+      shipping_fee,
+      voucher_code: voucher_code_input,
+      discount: 0,
+      shipping_discount: 0
+    };
+    
+    // TÍNH TOÁN TÀI CHÍNH TẬP TRUNG (sẽ bao gồm cả voucher và freeship)
+    tempOrder = await calculateOrderFinancials(tempOrder, env);
 
-    // Validate voucher
-    if (voucher_code_input) {
-      try {
-        const finalCustomer = {
-          id: auth?.customerId || body.customer?.id || null,
-          phone: body.customer?.phone || ''
-        };
-        const fakeReq = new Request(req.url, {
-          method: 'POST',
-          headers: req.headers,
-          body: JSON.stringify({
-            code: voucher_code_input,
-            customer_id: finalCustomer.id || null,
-            subtotal: subtotal
-          })
-        });
-        const applyRes = await applyVoucher(fakeReq, env);
-        const applyData = await applyRes.json();
-        if (applyRes.status === 200 && applyData.ok && applyData.valid) {
-          validated_voucher_code = applyData.code;
-          validated_discount = Number(applyData.discount || 0);
-          validated_ship_discount = Number(applyData.ship_discount || 0);
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    // Auto Freeship Logic
-    let autoShippingDiscount = 0;
-    let autoVoucherCode = null;
-    try {
-      const now = Date.now();
-      const list = await getJSON(env, 'vouchers', []);
-      const activeAuto = (Array.isArray(list) ? list : [])
-        .filter(v => v && v.on === true && v.voucher_type === 'auto_freeship')
-        .filter(v => {
-          const s = Number(v.starts_at || 0);
-          const e = Number(v.expires_at || 0);
-          if (s && now < s) return false;
-          if (e && now > e) return false;
-          return true;
-        })
-        .sort((a, b) => (Number(b.min_purchase || 0) - Number(a.min_purchase || 0)));
-        
-      const eligible = activeAuto.find(v => Number(subtotal) >= Number(v.min_purchase || 0));
-      if (eligible) {
-        autoShippingDiscount = Math.max(0, shipping_fee);
-        autoVoucherCode = eligible.code || null;
-      }
-    } catch (e) { /* ignore */ }
-
-    // Tính toán tổng cuối cùng
-    const best_shipping_discount = Math.max(0, Math.max(validated_ship_discount, autoShippingDiscount));
-    const final_shipping_fee = Math.max(0, shipping_fee - best_shipping_discount);
-    const total = Math.max(0, subtotal - validated_discount + final_shipping_fee);
-
-    const final_voucher_code =
-      (autoShippingDiscount >= validated_ship_discount && autoVoucherCode)
-        ? autoVoucherCode
-        : validated_voucher_code;
+    // Lấy kết quả từ hàm core
+    const final_discount = tempOrder.discount;
+    const best_shipping_discount = tempOrder.shipping_discount;
+    const total = tempOrder.revenue; // Revenue = Tổng khách trả (sau ship/giảm)
+    const final_voucher_code = tempOrder.voucher_code;
 
     return json({
       ok: true,
       totals: {
         subtotal,
         shipping_fee,
-        discount: validated_discount,
+        discount: final_discount, // FIX: Dùng final_discount đã tính từ Core
         shipping_discount: best_shipping_discount,
         total,
         voucher_code: final_voucher_code
@@ -598,7 +553,7 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
   const id = body.id || crypto.randomUUID().replace(/-/g, '');
   const createdAt = Date.now();
 
-  // Normalize & enrich items
+  // 1. Normalize & enrich items
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
   
@@ -609,75 +564,31 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
     variant_id: item.variant_id,
     name: item.name
   }))));
-
-  // Calculate subtotal
-  const subtotal = items.reduce((sum, item) =>
-    sum + Number(item.price || 0) * Number(item.qty || 1), 0
-  );
-
+  
   // ✅ FIX: Extract shipping info correctly
   const shipping = body.shipping || {};
   const shipping_fee = Number(body?.totals?.shipping_fee || body.shipping_fee || 0);
-
-  // ✅ FIX: Get voucher code from correct source
   const voucher_code_input = body.voucher_code || body.totals?.voucher_code || null;
 
-  let validated_voucher_code = null;
-  let validated_discount = 0;
-  let validated_ship_discount = 0;
+  // 2. TẠO OBJECT THÔ VÀ GỌI HÀM TÍNH TOÁN TẬP TRUNG TỪ CORE
+  let orderData = {
+    items,
+    shipping_fee,
+    voucher_code: voucher_code_input,
+    discount: Number(body.discount || 0), // Lấy discount thô từ body nếu có
+    shipping_discount: Number(body.shipping_discount || 0) // Lấy ship discount thô từ body nếu có
+  };
 
-  // Re-validate voucher if provided
-  if (voucher_code_input) {
-    console.log('[ORDER] Re-validating voucher:', voucher_code_input);
-    try {
-      // Merge customer info
-      const finalCustomer = {
-        ...(auth.customer || {}),
-        ...(body.customer || {})
-      };
-      if (auth.customerId) finalCustomer.id = auth.customerId;
+  // TÍNH TOÁN TÀI CHÍNH CUỐI CÙNG (ĐÃ BAO GỒM FREESHIP)
+  orderData = await calculateOrderFinancials(orderData, env);
 
-      const fakeReq = new Request(req.url, {
-        method: 'POST',
-        headers: req.headers,
-        body: JSON.stringify({
-          code: voucher_code_input,
-          customer_id: finalCustomer.id || null,
-          subtotal: subtotal
-        })
-      });
-
-      const applyResultResponse = await applyVoucher(fakeReq, env);
-      const applyData = await applyResultResponse.json();
-
-      if (applyResultResponse.status === 200 && applyData.ok && applyData.valid) {
-        validated_voucher_code = applyData.code;
-        validated_discount = applyData.discount || 0;
-        validated_ship_discount = applyData.ship_discount || 0;
-        console.log('[ORDER] Voucher validation SUCCESS:', {
-          code: validated_voucher_code,
-          discount: validated_discount,
-          ship_discount: validated_ship_discount
-        });
-      } else {
-        console.warn('[ORDER] Voucher validation FAILED:', applyData.message || applyData.error);
-      }
-    } catch (e) {
-      console.error('[ORDER] EXCEPTION calling applyVoucher:', e);
-    }
-  }
-
-  // Calculate final totals
-  const final_discount = validated_discount;
-  const final_ship_discount = validated_ship_discount;
-  
-  // ✅ FIX: Khi miễn ship (shipping_discount >= shipping_fee), revenue = subtotal - discount
-  const actualShippingFee = Math.max(0, shipping_fee - final_ship_discount);
-  const revenue = Math.max(0, subtotal - final_discount + actualShippingFee);
-  
-  const profit = items.reduce((sum, item) =>
-    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
-  ) - final_discount;
+  // Lấy các giá trị đã được tính toán/chuẩn hóa từ Core
+  const subtotal = orderData.subtotal;
+  const final_discount = orderData.discount;
+  const final_ship_discount = orderData.shipping_discount;
+  const revenue = orderData.revenue;
+  const profit = orderData.profit;
+  const validated_voucher_code = orderData.voucher_code;
 
   // ✅ FIX: Merge customer info correctly
   const finalCustomer = {
@@ -704,7 +615,7 @@ async function createOrder(req, env, ctx) { // ✅ Thêm ctx vào tham số
     shipping_discount: final_ship_discount,
     revenue,
     profit,
-    voucher_code: validated_voucher_code,
+    voucher_code: validated_voucher_code || orderData.voucher_code, // FIX: Ưu tiên giá trị đã tính từ Core
     note: body.note || '',
     source: body.source || 'website',
     // ✅ FIX LỖI 1: Ưu tiên body (từ FE/Mini) trước
@@ -833,18 +744,18 @@ async function createOrderPublic(req, env, ctx) { // ✅ Nhận ctx
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
-  const totals = body.totals || {};
-  const shipping_fee = Number(body.shipping_fee ?? totals.ship ?? totals.shipping_fee ?? 0);
-  const discount = Number(body.discount ?? totals.discount ?? 0);
-  const shipping_discount = Number(body.shipping_discount ?? totals.shipping_discount ?? 0);
+  // TẠO OBJECT THÔ
+  let orderData = {
+    items,
+    shipping_fee: Number(body.shipping_fee || body.totals?.shipping_fee || 0),
+    voucher_code: body.voucher_code || body.totals?.voucher_code || null,
+    discount: Number(body.discount || body.totals?.discount || 0),
+    shipping_discount: Number(body.shipping_discount || body.totals?.shipping_discount || 0),
+    customer: finalCustomer // Pass customer info for validation
+  };
 
-  const subtotal = items.reduce((sum, item) =>
-    sum + Number(item.price || 0) * Number(item.qty || 1), 0
-  );
-  const revenue = Math.max(0, subtotal + shipping_fee - (discount + shipping_discount));
-  const profit = items.reduce((sum, item) =>
-    sum + (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1), 0
-  ) - discount;
+  // ✅ GỌI HÀM TÍNH TOÁN TẬP TRUNG TỪ CORE
+  orderData = await calculateOrderFinancials(orderData, env);
 
   const order = {
     id,
@@ -852,12 +763,13 @@ async function createOrderPublic(req, env, ctx) { // ✅ Nhận ctx
     status,
     customer: finalCustomer,
     items,
-    shipping_fee,
-    discount,
-    shipping_discount,
-    subtotal,
-    revenue,
-    profit,
+    shipping_fee: orderData.shipping_fee,
+    discount: orderData.discount,
+    shipping_discount: orderData.shipping_discount,
+    subtotal: orderData.subtotal,
+    revenue: orderData.revenue,
+    profit: orderData.profit,
+    voucher_code: orderData.voucher_code,
     shipping_name: body.shipping_name || null,
     shipping_eta: body.shipping_eta || null,
     shipping_provider: body.shipping_provider || null,
@@ -921,17 +833,16 @@ async function createOrderLegacy(req, env) {
   let items = normalizeOrderItems(body.items || []);
   items = await enrichItemsWithCostAndPrice(items, env);
 
-  const shipping_fee = Number(body.shipping_fee || body.shippingFee || 0);
+  // TẠO OBJECT THÔ
+  let orderData = {
+    items,
+    shipping_fee: Number(body.shipping_fee || body.shippingFee || 0),
+    discount: 0, // Legacy không có discount
+    shipping_discount: 0
+  };
 
-  const subtotal = items.reduce((sum, item) =>
-    sum + Number(item.price || 0) * Number(item.qty || item.quantity || 1), 0
-  );
-  const cost = items.reduce((sum, item) =>
-    sum + Number(item.cost || 0) * Number(item.qty || item.quantity || 1), 0
-  );
-
-  const revenue = subtotal + shipping_fee;
-  const profit = revenue - cost;
+  // ✅ GỌI HÀM TÍNH TOÁN TẬP TRUNG TỪ CORE
+  orderData = await calculateOrderFinancials(orderData, env);
 
   const order = {
     id,
@@ -941,11 +852,11 @@ async function createOrderLegacy(req, env) {
     address: body.address,
     note: body.note || body.notes,
     items,
-    subtotal,
-    shipping_fee,
-    total: subtotal + shipping_fee,
-    revenue,
-    profit,
+    subtotal: orderData.subtotal,
+    shipping_fee: orderData.shipping_fee,
+    total: orderData.revenue, // Total = Revenue
+    revenue: orderData.revenue,
+    profit: orderData.profit,
     createdAt
   };
 
@@ -1250,14 +1161,14 @@ async function upsertOrder(req, env) {
     has_customer: !!order.customer
   }, null, 2));
 
-  // Recalculate totals
-  const items = order.items || [];
-  const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
-  const cost = items.reduce((sum, item) => sum + Number(item.cost || 0) * Number(item.qty || 1), 0);
+  // ✅ GỌI HÀM TÍNH TOÁN TẬP TRUNG TỪ CORE (Tự động cập nhật order object)
+  // Lưu ý: enrichItemsWithCostAndPrice chưa chạy ở đây, nếu Admin sửa items thì có thể sai cost.
+  // Tuy nhiên, việc tính toán lại revenue/profit sẽ ĐƯỢC CHUẨN HÓA tại Core.
+  order = await calculateOrderFinancials(order, env);
 
-  order.subtotal = subtotal;
-  order.revenue = subtotal + Number(order.shipping_fee || 0) - Number(order.discount || 0) - Number(order.shipping_discount || 0);
-  order.profit = order.revenue - cost;
+  // Lấy các giá trị đã được tính toán/chuẩn hóa từ Core
+  const subtotal = order.subtotal;
+  const cost = order.total_cost || 0; // total_cost được tính trong Core
 
   // Update list
   if (index >= 0) {
