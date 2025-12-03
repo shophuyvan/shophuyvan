@@ -100,10 +100,13 @@ class OrdersManager {
     const shipping = Number(order.shipping_fee || 0);
     const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
     
-    // Tổng khách phải trả
-    const total = Math.max(0, subtotal + shipping - discount);
+    // Tổng khách phải trả: Ưu tiên order.revenue (đã được tính chính xác từ Core/DB),
+    // nếu không có mới tính toán cục bộ.
+    const total_from_core = Number(order.revenue || 0); 
+    const total_calculated_fallback = Math.max(0, subtotal + shipping - discount);
 
-    return { subtotal, costTotal, profit, shipping, discount, total };
+    // Trả về total đã được Core tính toán (revenue)
+    return { subtotal, costTotal, profit, shipping, discount, total: total_from_core || total_calculated_fallback };
   }
 
       // ==================== RENDER ORDERS LIST ====================
@@ -303,7 +306,7 @@ class OrdersManager {
             <div class="detail-row">
               <span class="label">Tổng khách trả:</span>
               <span class="value price-total">
-                ${this.formatPrice(order.buyer_paid_amount || order.revenue || order.total || total)}
+                ${this.formatPrice(order.buyer_paid_amount || order.revenue || order.total)}
               </span>
             </div>
             <div class="detail-row">
