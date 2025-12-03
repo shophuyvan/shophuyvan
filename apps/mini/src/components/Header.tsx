@@ -146,91 +146,78 @@ export default function Header({
 // Header đơn giản cho Zalo Mini App: không dùng link FE để tránh nhảy khỏi Mini
   if (variant === 'mini') {
     return (
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
-        <div className="safe-x mx-auto flex items-center gap-2 py-2 px-3">
-          {/* Nút Back */}
+      <header className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-100">
+        <div className="safe-x mx-auto flex items-center gap-3 py-2 px-3 h-14">
+          {/* Nút Back (chỉ hiện khi cần) */}
           {showBack && (
             <button
               type="button"
               onClick={() => {
-                if (onBack) {
-                  onBack();
-                } else if (typeof window !== 'undefined') {
-                  window.history.back();
-                }
+                if (onBack) onBack();
+                else if (typeof window !== 'undefined') window.history.back();
               }}
-              className="shrink-0 p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 focus:outline-none"
-              aria-label="Quay lại"
+              className="shrink-0 -ml-1 p-1.5 rounded-full hover:bg-gray-50 text-gray-600"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-6 h-6 text-gray-600"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M12.707 4.293a1 1 0 010 1.414L9.414 9H16a1 1 0 110 2H9.414l3.293 3.293a1 1 0 01-1.414 1.414l-4.707-4.707a1 1 0 010-1.414l4.707-4.707a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" />
               </svg>
             </button>
           )}
 
-          {/* ✅ Form Tìm kiếm + QR Code mới */}
+          {/* Form Tìm kiếm + QR Code (Style hiện đại) */}
           <form 
             onSubmit={handleSearch}
-            className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 h-10 border border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all"
+            className="flex-1 relative group"
           >
-            {/* Icon Kính lúp */}
-            <button type="submit" className="shrink-0 text-gray-400">
-               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M8 4a4 4 0 015.292 5.708l3 3a1 1 0 01-1.414 1.414l-3-3A4 4 0 118 4zm0 2a2 2 0 100 4 2 2 0 000-4z" clipRule="evenodd" />
-              </svg>
-            </button>
-            
-            {/* Input nhập liệu thật */}
+            {/* Input nhập liệu */}
             <input
               type="text"
-              className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 placeholder-gray-400 min-w-0"
-              placeholder="Tìm kiếm sản phẩm..."
+              className="w-full bg-gray-100 text-sm text-gray-800 rounded-full pl-9 pr-10 py-2 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-400"
+              placeholder="Tìm sản phẩm..."
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
-            
-            {/* ✅ Nút QR Scan (Icon đẹp hơn) */}
+
+            {/* Icon Search (Kính lúp - nằm bên trái) */}
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
+            </div>
+
+            {/* Icon QR Scan (Khung ngắm - nằm bên phải) */}
             <button 
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handleScan();
               }}
-              className="p-1.5 -mr-1.5 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 transition-colors"
               title="Quét mã QR"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4h-4v-2h-.972a4 4 0 01-3.832-5.02l.465-2.09a1.996 1.996 0 00-.868-2.106l-1.487-.798A2 2 0 012.392 6.57l.617-2.775a2 2 0 012.42-1.52l1.98.44M13 12a1 1 0 11-2 0 1 1 0 012 0zm1.5-6.5l-2.023 5.56a1 1 0 01-1.883-.133l-1.096-4.93a1 1 0 011.64-1.076l3.362 1.58z" />
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="currentColor" 
+                className="w-6 h-6" // Tăng kích thước lên 6 cho rõ
+              >
+                <path d="M3 4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 1v2h2V5H5zm9-2a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V4zm2 1v2h2V5h-2zM3 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4zm2 1v2h2v-2H5zm13-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1zm-4 0a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1zm4 4a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1zm-4 0a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1z" />
               </svg>
             </button>
           </form>
 
-          {/* Biểu tượng Giỏ hàng */}
+          {/* Icon Giỏ hàng (Túi xách nét mảnh) */}
           <button
             onClick={() => navigate('/cart')}
-            className="shrink-0 relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
+            className="shrink-0 relative p-2 text-gray-700 hover:text-blue-600 active:scale-95 transition-transform"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5} 
-              stroke="currentColor"
-              className="w-7 h-7"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
             </svg>
+            
+            {/* Badge số lượng */}
             {count > 0 && (
-              <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] h-4 min-w-[16px] flex items-center justify-center rounded-full px-1 border border-white font-bold shadow-sm">
+              <span className="absolute top-1 right-0 bg-red-500 text-white text-[10px] h-4 min-w-[16px] flex items-center justify-center rounded-full px-1 border-2 border-white shadow-sm font-bold">
                 {count > 99 ? '99+' : count}
               </span>
             )}

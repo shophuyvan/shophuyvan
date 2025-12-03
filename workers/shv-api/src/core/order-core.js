@@ -523,9 +523,7 @@ async function enrichItemsWeight(env, items) {
     console.error('[ORDER-CORE] ❌ Save failed:', e);
     return { ok: false, error: e.message };
   }
-}
-
-}
+} // <--- Dòng này CHỈ NÊN XUẤT HIỆN 1 LẦN để đóng hàm saveOrderToD1
 
 // ===================================================================
 // 5. CALCULATE FINANCIALS (SINGLE SOURCE OF TRUTH)
