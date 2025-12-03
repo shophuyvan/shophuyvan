@@ -1139,8 +1139,8 @@ async function upsertOrder(req, env) {
   
   console.log(`[ORDER-UPSERT] Status change: ${oldStatus} -> ${newStatus}. isConfirming=${isConfirming}`);
 
-  // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
-  const order = {
+ // Create/update order (MERGE: Giữ dữ liệu cũ, ghi đè dữ liệu mới)
+  let order = { // FIX: Phải là 'let' để có thể gán lại giá trị từ Core
     ...(oldOrder || {}), 
     ...body,             
     id,
