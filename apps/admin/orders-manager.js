@@ -293,7 +293,7 @@ class OrdersManager {
             </div>
             <div class="detail-row">
               <span class="label">Giá vốn:</span>
-              <span class="value">${this.formatPrice(costTotal)}</span>
+              <span class="value">${this.formatPrice(costTotal || (subtotal - profit))}</span>
             </div>
             <div class="detail-row">
               <span class="label">Lợi nhuận:</span>
@@ -423,7 +423,7 @@ class OrdersManager {
           </div>
           <div class="order-info-row">
             <span class="label">Giá vốn:</span>
-            <span class="value">${this.formatPrice(costTotal)}</span>
+            <span class="value">${this.formatPrice(costTotal || (subtotal - profit))}</span>
           </div>
           <div class="order-info-row">
             <span class="label">Lợi nhuận:</span>
@@ -433,10 +433,12 @@ class OrdersManager {
             <span class="label">Phí ship:</span>
             <span class="value">${this.formatPrice(shipping)}</span>
           </div>
-          <div class="order-info-row">
-            <span class="label">Tổng khách trả:</span>
-            <span class="value price">${this.formatPrice(total)}</span>
-          </div>
+          <div class="detail-row">
+              <span class="label">Tổng khách trả:</span>
+              <span class="value price-total">
+                ${this.formatPrice(order.buyer_paid_amount || order.revenue || order.total)}
+              </span>
+            </div>
           ${provider ? `
             <div class="order-info-row">
               <span class="label">Đơn vị VC:</span>
