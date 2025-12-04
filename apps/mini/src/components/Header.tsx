@@ -27,21 +27,12 @@ function cloudify(u?: string, t: string = "w_800,q_auto,f_auto"): string | undef
  * màu chữ đồng bộ màu logo. Thanh tìm kiếm kéo dài chiếm phần còn lại.
  */
 type HeaderProps = {
-  // Mini App truyền forceShow = true để luôn hiển thị header
   forceShow?: boolean;
-  // variant = 'mini' dùng cho Zalo Mini (không dùng link FE)
   variant?: 'default' | 'mini';
-  // Hiển thị nút back (dùng ở Mini)
   showBack?: boolean;
-  // Handler khi bấm back (Mini truyền vào để dùng useNavigate)
   onBack?: () => void;
 };
 
-
-/**
- * Header với logo thật (ảnh) ở góc trái, chữ "Shop Huy Vân" nhỏ nằm dưới logo,
- * màu chữ đồng bộ màu logo. Thanh tìm kiếm kéo dài chiếm phần còn lại.
- */
 export default function Header({
   forceShow,
   variant = 'default',
@@ -56,7 +47,8 @@ export default function Header({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (keyword.trim()) {
-      navigate(`/category?q=${encodeURIComponent(keyword)}`);
+      // ✅ Use routes constant + trim keyword
+      navigate(`${routes.category}?q=${encodeURIComponent(keyword.trim())}`);
     }
   };
 
@@ -65,7 +57,7 @@ export default function Header({
       const { content } = await scanQRCode({});
       if (content) {
         // Điều hướng sang trang danh mục để tìm kiếm sản phẩm theo mã vừa quét
-        navigate(`/category?q=${encodeURIComponent(content)}`);
+        navigate(`${routes.category}?q=${encodeURIComponent(content)}`);
       }
     } catch (error) {
       console.error("Lỗi quét QR:", error);

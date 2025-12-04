@@ -179,14 +179,18 @@ export default function ProductCard({ p }: { p: Product }) {
     (p as any)?.raw?.sold_count ?? 
     0
   ) || 0;
-  
-  const ratingCount = Number(
-    (p as any)?.rating_count ??
-    (p as any)?.reviews_count ??
-    (p as any)?.raw?.rating_count ??
-    0
-  ) || 0;
 
+  // ✅ Lấy số lượng đánh giá
+  const ratingCount = Number(
+    (p as any)?.rating_count ?? 
+    (p as any)?.raw?.rating_count ?? 
+    0
+  );
+
+  // ✅ Check Flash Sale flag từ Product Core
+  const isFlashSale = (p as any)?.is_flash_sale === true || 
+                      (p as any)?.flash_sale?.active === true;
+  
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     cart.add(p, 1);
@@ -216,12 +220,22 @@ try {
           className="w-full aspect-square object-cover rounded-xl bg-gray-100"
           loading="lazy"
         />
-        {discount > 0 && (
-          <span className="badge-discount">-{discount}%</span>
-        )}
+        {/* Badge Giảm giá / Flash Sale */}
+        <div className="absolute top-0 left-0 p-1 flex flex-col gap-1">
+          {isFlashSale && (
+             <span className="bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow animate-pulse">
+               ⚡ FLASH
+             </span>
+          )}
+          {discount > 0 && (
+            <span className="bg-yellow-400 text-red-700 text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+              -{discount}%
+            </span>
+          )}
+        </div>
       </button>
 
-      <div className="mt-2 line-clamp-2 min-h-[40px]">{p.name}</div>
+      <div className="mt-2 line-clamp-2 min-h-[40px] text-sm text-gray-800">{p.name}</div>
 
       <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
         <div className="flex items-center gap-1">

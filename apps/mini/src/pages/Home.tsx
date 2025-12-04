@@ -50,7 +50,11 @@ type Banner = any;
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [items, setItems] = useState<Product[]>([]);
+  // State cho các nhóm sản phẩm
+  const [items, setItems] = useState<Product[]>([]); // Best Seller
+  const [flashSales, setFlashSales] = useState<Product[]>([]);
+  const [cheapProducts, setCheapProducts] = useState<Product[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -165,67 +169,72 @@ const Home: React.FC = () => {
   };
 
 
-  // Load sản phẩm
+  // Load dữ liệu trang chủ (FlashSale, <10k, Bán chạy)
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadData = async () => {
       try {
-        const list = await api.products.list({ limit: 12 });
-        const arr = Array.isArray(list) ? list : [];
-        setItems(arr);
+        setLoading(true);
+
+        // Gọi song song 3 luồng dữ liệu
+        const [flashRes, cheapRes, bestSellerRes] = await Promise.all([
+          // 1. Flash Sale (Lấy sp có cờ flash_sale hoặc đang giảm giá sâu)
+          api.products.list({ limit: 6, is_flash_sale: true }),
+          // 2. Dưới 10K (Hoặc giá rẻ bất ngờ)
+          api.products.list({ limit: 8, price_max: 15000 }), // Lấy du di 15k cho nhiều sp
+          // 3. Bán chạy (Sắp xếp theo sold_desc)
+          api.products.list({ limit: 10, sort: 'sold_desc' })
+        ]);
+
+        // Xử lý Flash Sale
+        const flashArr = Array.isArray(flashRes) ? flashRes : (flashRes as any)?.data || [];
+        setFlashSales(flashArr);
+
+        // Xử lý <10k (Lọc cứng phía Client để đảm bảo chỉ hiện sp <= 15000)
+        const rawCheap = Array.isArray(cheapRes) ? cheapRes : (cheapRes as any)?.data || [];
+        const filteredCheap = rawCheap.filter((p: any) => {
+           // Ưu tiên giá final từ Core, fallback về price thường
+           const price = Number(p.price_final || p.price || 0);
+           return price > 0 && price <= 15000;
+        });
+        setCheapProducts(filteredCheap);
+
+        // Xử lý Bán chạy
+        const bestArr = Array.isArray(bestSellerRes) ? bestSellerRes : (bestSellerRes as any)?.data || [];
+        setItems(bestArr);
+
         setLoading(false);
 
-        // ✅ Load metrics cho các sản phẩm
-        if (arr.length > 0) {
+        // ✅ Load metrics bổ sung (Sold/Rating) cho tất cả ID thu được
+        // [FIX] Sửa cheapArr thành filteredCheap
+        const allItems = [...flashArr, ...filteredCheap, ...bestArr];
+        if (allItems.length > 0) {
           try {
-            const ids = arr.map((p: any) => p.id).filter(Boolean);
+            const ids = [...new Set(allItems.map((p: any) => p.id).filter(Boolean))];
             const metrics = await api.products.metrics(ids);
             
             if (Array.isArray(metrics) && metrics.length > 0) {
-              // Merge metrics vào items
-              const updatedItems = arr.map((item: any) => {
+              const mergeMetrics = (list: any[]) => list.map(item => {
                 const m = metrics.find((x: any) => String(x.product_id) === String(item.id));
-                if (m) {
-                  return {
-                    ...item,
-                    sold: m.sold,
-                    rating: m.rating,
-                    rating_count: m.rating_count
-                  };
-                }
-                return item;
+                return m ? { ...item, sold: m.sold, rating: m.rating, rating_count: m.rating_count } : item;
               });
-              
-              setItems(updatedItems);
-              console.log('✅ Đã cập nhật metrics cho', metrics.length, 'sản phẩm');
+
+              setFlashSales(prev => mergeMetrics(prev));
+              setCheapProducts(prev => mergeMetrics(prev));
+              setItems(prev => mergeMetrics(prev));
             }
           } catch (e) {
-            console.warn('⚠️ Không thể load metrics:', e);
+            console.warn('⚠️ Metrics load warning:', e);
           }
         }
 
-        // Prefetch ảnh cho vài sản phẩm đầu
-        const firstFew = arr.slice(0, 4);
-        firstFew.forEach((item: any) => {
-          const img =
-            item.image || (Array.isArray(item.images) && item.images[0]);
-          if (img) {
-            const optimized = cldFetch(
-              img,
-              'w_400,dpr_auto,q_auto:eco,f_auto',
-            );
-            if (optimized) {
-              preloadImage(optimized).catch(() => {});
-            }
-          }
-        });
       } catch (e: any) {
-        console.error(e);
-        setError(e?.message || 'Lỗi tải sản phẩm');
+        console.error("Home Load Error:", e);
+        setError(e?.message || 'Lỗi tải dữ liệu');
         setLoading(false);
       }
     };
 
-    loadProducts();
+    loadData();
   }, []);
 
   // Load danh mục từ API
@@ -343,53 +352,48 @@ const Home: React.FC = () => {
         <CategoryMenu />
       </section>
 
-
-      {/* Danh mục từ API */}
-      <section className="safe-x mt-3">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-base font-semibold">Danh mục nổi bật</h2>
-          <button
-            type="button"
-            className="text-xs text-blue-600"
-            onClick={() => navigate('/category')}
-          >
-            Xem tất cả
-          </button>
-        </div>
-
-        {catsLoading ? (
-          <div className="grid grid-cols-4 gap-3 text-center">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl bg-gray-100 py-3 animate-pulse flex flex-col items-center"
-              >
-                <div className="w-10 h-10 rounded-full bg-gray-200 mb-2" />
-                <div className="w-14 h-3 rounded bg-gray-200" />
-              </div>
+      {/* 🔥 KHỐI 1: FLASH SALE */}
+      {flashSales.length > 0 && (
+        <section className="safe-x mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-lg font-bold text-red-600 animate-pulse">⚡ FLASH SALE</h2>
+            <div className="text-xs bg-black text-white px-2 py-0.5 rounded font-mono">
+              Đang diễn ra
+            </div>
+          </div>
+          {/* [FIX] Thêm snap-x snap-mandatory để vuốt mượt như app Native */}
+          <div className="flex overflow-x-auto gap-3 pb-4 scroll-smooth snap-x snap-mandatory no-scrollbar px-1">
+            {flashSales.map((p: any) => (
+               <div key={`fs-${p.id}`} className="w-[140px] flex-shrink-0 snap-start">
+                 <ProductCard p={p} />
+               </div>
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-4 gap-3 text-center">
-            {categories.map((c: any) => (
-              <button
-                key={c.slug || c.id}
-                type="button"
-                onClick={() => {
-                  const slug = c.slug || c.id;
-                  navigate(`/category?c=${encodeURIComponent(slug)}`);
-                }}
-                className="hover:opacity-80 transition-opacity text-center focus:outline-none"
-              >
-                <div className="text-3xl">{getIcon(c.slug || '')}</div>
-                <div className="whitespace-pre-line text-xs mt-1 line-clamp-2">
-                  {c.name}
+        </section>
+      )}
+
+      {/* 💰 KHỐI 2: ĐỒNG GIÁ / DƯỚI 10K */}
+      {cheapProducts.length > 0 && (
+        <section className="safe-x mt-4 bg-yellow-50 p-3 rounded-xl border border-yellow-200">
+           <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-amber-700">💰 Săn Deal Giá Rẻ</h2>
+            <button 
+              // [FIX] Chuyển link về đúng mốc 15k
+              onClick={() => navigate('/category?price_max=15000')}
+              className="text-xs text-amber-600 font-medium"
+            >
+              Xem thêm &gt;
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+             {cheapProducts.slice(0, 6).map((p: any) => (
+                <div key={`cp-${p.id}`} className="transform scale-95 origin-top">
+                  <ProductCard p={p} />
                 </div>
-              </button>
-            ))}
+             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Sản phẩm bán chạy */}
       <section className="safe-x mt-5 pb-4">
