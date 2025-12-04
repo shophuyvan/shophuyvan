@@ -1,7 +1,7 @@
 // packages/shared/src/api/index.ts
 import { pickLowestPrice, pickPrice, numLike } from '../utils/price';
 
-const API_BASE: string = (globalThis as any).API_BASE || 'https://shv-api.shophuyvan.workers.dev';
+const API_BASE: string = (globalThis as any).API_BASE || 'https://api.shophuyvan.vn';
 
 type FetchResult = { ok: boolean; status: number; data: any };
 
