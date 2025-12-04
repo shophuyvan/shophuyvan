@@ -58,7 +58,11 @@ function useQueryParams() {
         const [page, setPage] = useState(1);
         const LIMIT = 20; 
         
+        // allItems lưu toàn bộ 200 sản phẩm
+        const [allItems, setAllItems] = useState<any[]>([]); 
+        // items chỉ lưu 20 sản phẩm của trang hiện tại
         const [items, setItems] = useState<any[]>([]);
+        // [FIX] Thêm biến loading
         const [loading, setLoading] = useState(true);
         
         // [PAGING] Reset về trang 1 khi thay đổi bộ lọc (Category, Search, Price)
@@ -67,52 +71,31 @@ function useQueryParams() {
         }, [categorySlug, searchKeyword, price_max]);
          const [error, setError] = useState<string | null>(null);
        
-         // LOGIC SEARCH CORE: Gọi API với tham số chuẩn
-         useEffect(() => {
-           let isMounted = true;
-       
-           const fetchData = async () => {
-        setLoading(true);
-        setError(null);
-        // Không xóa items ngay để tránh nháy trang quá nhiều khi chuyển trang
-        if (page === 1) setItems([]); 
-  
-        try {
-          // [PAGING] Scroll lên đầu khi đổi trang
-          if (page > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
+// LOGIC: Load TẤT CẢ sản phẩm một lần, sau đó tự cắt trang
+  useEffect(() => {
+    let isMounted = true;
 
-          const params = { limit: LIMIT, page };
-          let res: any = [];
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // [QUAN TRỌNG] Xin server 1000 sản phẩm để lấy hết về luôn
+        // Vì server bạn đang giới hạn mặc định 20 nên ta phải xin số lớn hẳn
+        const params = { limit: 1000 }; 
+        let res: any = [];
 
-          // Ưu tiên 1: Search Core (nếu có từ khóa q)
-          if (searchKeyword) {
-            res = await api.products.list({ ...params, q: searchKeyword });
-          } 
-          // Ưu tiên 2: Filter theo Price Max
-          else if (price_max) {
-             res = await api.products.list({ 
-               ...params, 
-               price_max: Number(price_max) 
-             });
-          }
-          // Ưu tiên 3: Filter theo Category Slug
-          else if (categorySlug) {
-            res = await api.products.list({ 
-              ...params, 
-              category: categorySlug 
-            });
-          } 
-          // Mặc định: Lấy tất cả
-          else {
-            res = await api.products.list(params);
-          }
+        // [FIX SEARCH] Luôn lấy tất cả 1000 sản phẩm về để tự lọc trên App
+        // Không gửi q, price_max, category lên server nữa vì server xử lý lỗi
+        res = await api.products.list(params);
 
         if (isMounted) {
           const data = Array.isArray(res) ? res : (res?.data || res?.items || []);
-          setItems(data);
+          console.log(`📦 [DEBUG] Đã tải về ${data.length} sản phẩm`);
+          setAllItems(data); // Lưu vào kho tổng
         }
       } catch (e: any) {
-        console.error('Category/Search Error:', e);
+        console.error('Category Load Error:', e);
         if (isMounted) setError(e?.message || 'Không tải được sản phẩm');
       } finally {
         if (isMounted) setLoading(false);
@@ -120,9 +103,23 @@ function useQueryParams() {
     };
 
     fetchData();
-
     return () => { isMounted = false; };
-  }, [categorySlug, searchKeyword, price_max, page]);
+  }, [categorySlug, searchKeyword, price_max]); 
+
+  // [MỚI] Logic chia nhỏ trang: Cắt 20 sản phẩm từ kho tổng để hiển thị
+  useEffect(() => {
+    // Scroll lên đầu khi đổi trang
+    if (page > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const startIndex = (page - 1) * LIMIT;
+    const endIndex = startIndex + LIMIT;
+    
+    // Nếu có dữ liệu tổng, thì cắt ra
+    if (allItems.length > 0) {
+      const pageItems = allItems.slice(startIndex, endIndex);
+      setItems(pageItems);
+    }
+  }, [page, allItems]);
 
   // Xử lý tiêu đề trang
   let title = 'Tất cả sản phẩm';
@@ -202,10 +199,11 @@ function useQueryParams() {
               </span>
               
               <button
-                disabled={items.length < LIMIT}
+                // Logic mới: Nếu (Trang hiện tại * 20) lớn hơn Tổng số hàng => Hết trang
+                disabled={page * LIMIT >= allItems.length}
                 onClick={() => setPage((p) => p + 1)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  items.length < LIMIT
+                  page * LIMIT >= allItems.length
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-50 text-blue-600 active:scale-95 hover:bg-blue-100'
                 }`}

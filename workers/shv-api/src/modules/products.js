@@ -176,6 +176,11 @@ export async function handle(req, env, ctx) {
     return deleteProduct(req, env);
   }
 
+  // [MỚI] API Đồng bộ dữ liệu tìm kiếm (chạy 1 lần để fix data cũ)
+  if (path === '/admin/products/sync-search') { // Chấp nhận cả GET và POST cho dễ gọi
+    return syncSearchText(req, env);
+  }
+
   return errorResponse('Route not found', 404, req);
 }
 

@@ -134,11 +134,26 @@ export const api = {
     return r.data;
   },
   products: {
-    async list({ limit = 12, category }: { limit?: number; category?: string } = {}) {
-      const enc = category ? encodeURIComponent(String(category)) : '';
-      const qs = `?limit=${limit}` + (category ? `&category=${enc}&cate=${enc}&category_slug=${enc}&categoryId=${enc}` : '');
+    // [FIX] Nhận toàn bộ params (q, page, limit, price_max...) để gửi lên Server
+    async list(params: any = {}) {
+      // 1. Chuẩn bị Query String
+      // Copy params để không ảnh hưởng object gốc
+      const p = { ...params };
+      
+      // Đảm bảo limit mặc định
+      if (!p.limit) p.limit = 12;
+
+      // Map các tên biến cũ sang mới (nếu cần)
+      if (p.category) {
+        p.category_slug = p.category;
+      }
+
+      // Tạo chuỗi query tự động: ?q=...&page=...&limit=...
+      const qs = '?' + new URLSearchParams(p).toString();
+
+      // 2. Danh sách các endpoints (giữ nguyên để tương thích ngược)
       const candidates = [
-        `/public/products${qs}`,
+        `/public/products${qs}`, 
         `/products${qs}`,
         `/api/products${qs}`,
         `/v1/product/list${qs}`,
@@ -146,51 +161,11 @@ export const api = {
         `/items${qs}`,
         `/v1/items${qs}`,
       ];
+
+      // 3. Gọi API và trả về kết quả thô (Server đã lọc sẵn)
       return discover<any[]>(candidates, (data) => {
         const arr = toArr(data).map(normalizeProduct).filter(Boolean);
-        // If backend doesn't filter by category, filter client-side using common fields
-        const out = (arr.length ? (arr as any[]) : null);
-        if (!out) return null;
-        if (category) {
-          
-const key = String(category).toLowerCase();
-const slugKey = toSlug(category);
-const filtered = out.filter((p:any) => {
-  const raw:any = p?.raw || {};
-  const top:any = p || {};
-  const cands:any[] = [
-    top.category, top.category_name, top.category_slug, top.categoryId, top.cate,
-    raw.category, raw.category_name, raw.category_slug, raw.categoryId, raw.cate,
-    raw.group, raw.group_slug, raw.type,
-    top?.meta?.category, top?.meta?.category_name, top?.meta?.category_slug,
-    raw?.meta?.category, raw?.meta?.category_name, raw?.meta?.category_slug,
-  ];
-  if (Array.isArray(raw.categories)) cands.push(...raw.categories);
-  if (Array.isArray(top.categories)) cands.push(...top.categories);
-  if (Array.isArray(raw.tags)) cands.push(...raw.tags);
-  if (Array.isArray(top.tags)) cands.push(...top.tags);
-  function hit(val:any): boolean {
-    if (!val) return false;
-    if (Array.isArray(val)) return val.some(hit);
-    if (typeof val === 'object') return hit(val.slug || val.code || val.name || val.title || val.label || val.text);
-    const s = String(val);
-    const sv = s.toLowerCase();
-    const sl = toSlug(s);
-    return sv.includes(key) || sl === slugKey || (slugKey && sl.includes(slugKey));
-  }
-  const alias:any = {
-    'dien-nuoc': ['điện & nước','điện nước','dien nuoc','thiet bi dien nuoc'],
-    'nha-cua-doi-song': ['nhà cửa đời sống','nha cua doi song','do gia dung'],
-    'hoa-chat-gia-dung': ['hoá chất gia dụng','hoa chat gia dung','hoa chat'],
-    'dung-cu-thiet-bi-tien-ich': ['dụng cụ thiết bị tiện ích','dung cu thiet bi tien ich','dung cu tien ich']
-  };
-  const syns = alias[slugKey] || [];
-  cands.push(...syns);
-  return cands.some(hit);
-});
-return filtered;
-        }
-        return out;
+        return (arr.length ? (arr as any[]) : null);
       });
     },
     async listWithPrices({ limit = 12, category, concurrency = 4 }: { limit?: number; category?: string; concurrency?: number } = {}) {
