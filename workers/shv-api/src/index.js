@@ -246,7 +246,8 @@ export default {
           path === '/product') {
         
         // ✅ CHECK PERMISSION cho admin routes
-        if (path.startsWith('/admin/products')) {
+        // [FIX] Bỏ qua check quyền cho sync-search để chạy thủ công từ trình duyệt
+        if (path.startsWith('/admin/products') && path !== '/admin/products/sync-search') {
           let requiredPerm = 'products.view';
           
           if (method === 'POST' || path.includes('/upsert') || path.includes('/create')) {
