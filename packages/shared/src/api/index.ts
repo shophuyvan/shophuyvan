@@ -214,6 +214,35 @@ export const api = {
       });
       if (!r.ok) return [];
       return r.data?.metrics || [];
+    }, // <--- THÊM DẤU PHẨY Ở ĐÂY
+	
+    // [NEW] API Home Sections: Lấy trọn bộ Bestseller + 4 Danh mục (Điện/Nước/Hoá chất...)
+    // Giúp đồng bộ giao diện 100% với Web FE
+    async homeSections(refresh = false) {
+      const qs = refresh ? '?refresh=1' : '';
+      const candidates = [`/products/home-sections${qs}`, `/api/products/home-sections${qs}`];
+      
+      return discover<any>(candidates, (data) => {
+        // Backend trả về structure: { ok: true, data: { bestsellers: [...], ... } }
+        const sections = data?.data || data; 
+        // Kiểm tra xem có dữ liệu cần thiết không
+        if (sections && (sections.bestsellers || sections.cat_dien_nuoc)) {
+           return sections;
+        }
+        return null;
+      });
+    },
+
+    // [NEW] API Cheap Products: Lấy sản phẩm dưới 10k/15k
+    async cheap(limit = 15, max_price = 15000) {
+      const qs = `?limit=${limit}&max_price=${max_price}`;
+      const candidates = [`/products/cheap${qs}`, `/api/products/cheap${qs}`];
+      
+      return discover<any[]>(candidates, (data) => {
+         // Tận dụng hàm toArr và normalizeProduct có sẵn để chuẩn hóa dữ liệu
+         const arr = toArr(data).map(normalizeProduct).filter(Boolean);
+         return arr.length ? arr : null;
+      });
     }
   }, // Kết thúc object products
 
