@@ -188,8 +188,13 @@ const Home: React.FC = () => {
           api.products.homeSections()    // API mới: Lấy Bestseller + 4 Danh mục
         ]);
 
-        // 1. Xử lý Flash Sale
-        const flashArr = Array.isArray(flashRes) ? flashRes : (flashRes as any)?.data || [];
+        // 1. Xử lý Flash Sale (LỌC KỸ)
+        let flashArr = Array.isArray(flashRes) ? flashRes : (flashRes as any)?.data || [];
+        
+        // [FIX] Backend trả về sản phẩm thường nếu không có Flash Sale -> Cần lọc lại ở Client
+        // Chỉ hiển thị nếu sản phẩm có thông tin flash_sale.active = true
+        flashArr = flashArr.filter((p: any) => p.flash_sale && p.flash_sale.active);
+        
         setFlashSales(flashArr);
 
         // 2. Xử lý Cheap Products (Đã lọc sẵn từ server)

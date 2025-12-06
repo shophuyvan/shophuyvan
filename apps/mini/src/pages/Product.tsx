@@ -18,6 +18,12 @@ import { navigate as openLink } from '@/lib/navigation';
 import ProductCard from '@/components/ProductCard';
 import { computeFinalPriceByVariant, computeFlashPriceRangeByProduct } from '@/lib/flashPricing';
 
+// [FIX] Bảng map slug giống bên Category để tìm đúng sản phẩm liên quan
+const SLUG_MAP: Record<string, string> = {
+  'dien-nuoc': 'thiet-bi-dien-nuoc',
+  'dung-cu-thiet-bi-tien-ich': 'dung-cu-tien-ich',
+};
+
 // ==========================================
 // FLASH SALE COUNTDOWN HELPER
 // ==========================================
@@ -445,22 +451,34 @@ export default function Product() {
         const fullProduct = (d && (d as any).item) ? (d as any).item : d;
         if (isMounted) setP(fullProduct);
         
-        // ✅ FETCH RELATED PRODUCTS
-        if (fullProduct?.category) {
+        // ✅ FETCH RELATED PRODUCTS (Logic mới: Dùng category_slug + Mapping)
+        // Ưu tiên dùng category_slug (chuẩn DB) -> category (fallback)
+        let catSlug = fullProduct?.category_slug || fullProduct?.category;
+        
+        // [FIX] Map sang slug chuẩn database (nếu bị lệch tên)
+        if (catSlug && SLUG_MAP[catSlug]) {
+          catSlug = SLUG_MAP[catSlug];
+        }
+        
+        if (catSlug) {
           try {
-            const listRes = await api.get('/public/products');
-            const items = listRes?.items || listRes?.products || [];
-            
-            const related = items.filter((item: any) => {
-              const sameCategory = String(item.category || '').toLowerCase() === String(fullProduct.category || '').toLowerCase();
-              const differentId = String(item.id || item._id || '') !== String(fullProduct.id || fullProduct._id || '');
-              const isActive = item.is_active !== false;
-              return sameCategory && differentId && isActive;
+            console.log('[Related] Tìm sản phẩm cùng danh mục:', catSlug);
+            // Gọi API list lọc theo category ngay từ server
+            const listRes = await api.products.list({ 
+              limit: 12, 
+              category: catSlug 
             });
             
-            // Shuffle và lấy 8 sản phẩm
-            const shuffled = related.sort(() => Math.random() - 0.5);
-            if (isMounted) setRelatedProducts(shuffled.slice(0, 8));
+            let items = Array.isArray(listRes) ? listRes : [];
+            
+            // Lọc bỏ sản phẩm hiện tại đang xem
+            items = items.filter((item: any) => 
+              String(item.id) !== String(fullProduct.id)
+            );
+            
+            if (isMounted && items.length > 0) {
+               setRelatedProducts(items.slice(0, 8));
+            }
           } catch (err) {
             console.error('[Related] Fetch error:', err);
           }
@@ -982,7 +1000,8 @@ export default function Product() {
                 
                 <div className="grid grid-cols-2 gap-3">
                   {relatedProducts.map((item: any) => (
-                    <ProductCard key={item.id || item._id} product={item} />
+                    // [FIX] Sửa prop 'product' thành 'p' để khớp với component ProductCard
+                    <ProductCard key={item.id || item._id} p={item} />
                   ))}
                 </div>
               </div>

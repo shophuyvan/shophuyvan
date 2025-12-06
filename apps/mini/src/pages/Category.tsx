@@ -11,6 +11,12 @@ const LABELS: Record<string, string> = {
   'dung-cu-thiet-bi-tien-ich': 'Dụng Cụ & Thiết Bị Tiện Ích',
 };
 
+// [FIX] Bảng map từ Slug trên URL sang Slug đúng trong Database
+const SLUG_MAP: Record<string, string> = {
+  'dien-nuoc': 'thiet-bi-dien-nuoc', // App dùng ngắn gọn -> DB dùng đầy đủ
+  'dung-cu-thiet-bi-tien-ich': 'dung-cu-tien-ich', // App dùng dài -> DB dùng ngắn
+};
+
 export default function Category() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,11 +61,15 @@ export default function Category() {
         } 
         // 2. Nếu Tìm kiếm hoặc Danh mục -> Gọi API List
         else {
-           console.log('🔍 Mode: Tìm kiếm / Danh mục', { categorySlug, searchKeyword });
+           // [FIX] Chuyển đổi slug URL sang slug Database (nếu có trong bảng map)
+           const dbSlug = SLUG_MAP[categorySlug] || categorySlug;
+           
+           console.log('🔍 Mode: Tìm kiếm / Danh mục', { urlSlug: categorySlug, dbSlug, searchKeyword });
+           
            const params = { 
              limit: 100,
              q: searchKeyword, 
-             category: categorySlug
+             category: dbSlug // Gửi slug chuẩn database lên server
            };
            res = await api.products.list(params);
         }
