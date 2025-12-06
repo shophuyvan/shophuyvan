@@ -80,13 +80,16 @@ function useQueryParams() {
       setError(null);
       
       try {
-        // [QUAN TRỌNG] Xin server 1000 sản phẩm để lấy hết về luôn
-        // Vì server bạn đang giới hạn mặc định 20 nên ta phải xin số lớn hẳn
-        const params = { limit: 1000 }; 
+        // [SERVER SEARCH] Gửi tham số lên Server để lọc chính xác (Logic giống Web FE)
+        // Backend đã xử lý được tiếng Việt, từ khóa không dấu và tìm theo SKU
+        const params = { 
+          limit: 100, // Load tối đa 100 kết quả phù hợp nhất từ Server
+          q: searchKeyword, 
+          category: categorySlug,
+          price_max: price_max 
+        };
+        
         let res: any = [];
-
-        // [FIX SEARCH] Luôn lấy tất cả 1000 sản phẩm về để tự lọc trên App
-        // Không gửi q, price_max, category lên server nữa vì server xử lý lỗi
         res = await api.products.list(params);
 
         if (isMounted) {
