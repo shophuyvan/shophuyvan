@@ -468,38 +468,79 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         });
 
-        results.innerHTML = items.map(p => `
-          <div class="search-result-item" data-id="${p.id}">
-            <img src="${(p.images && JSON.parse(JSON.stringify(p.images))[0]) || p.image || '/assets/no-image.svg'}" class="search-result-img" alt="">
-            <div style="flex:1;">
-              <div style="font-weight:500;font-size:14px;">${p.title || p.name}</div>
-              <div style="font-size:12px;color:#666;">SKU: ${p.sku || p.variants?.[0]?.sku || 'N/A'} | Giá: ${(p.price || 0).toLocaleString()}đ</div>
+        results.innerHTML = items.map(p => {
+           // [FIX 1] Hiển thị giá chuẩn (nếu có variants thì hiện khoảng giá)
+           let priceDisplay = '0đ';
+           if (p.variants && p.variants.length > 0) {
+             const prices = p.variants.map(v => Number(v.price || 0));
+             const min = Math.min(...prices);
+             const max = Math.max(...prices);
+             priceDisplay = min === max ? `${min.toLocaleString()}đ` : `${min.toLocaleString()}đ - ${max.toLocaleString()}đ`;
+           } else {
+             priceDisplay = `${Number(p.price || 0).toLocaleString()}đ`;
+           }
+
+           return `
+            <div class="search-result-item" data-id="${p.id}">
+              <img src="${(Array.isArray(p.images) ? p.images[0] : (JSON.parse(p.images || '[]')[0])) || '/assets/no-image.svg'}" class="search-result-img" alt="">
+              <div style="flex:1;">
+                <div style="font-weight:500;font-size:14px;">${p.title || p.name}</div>
+                <div style="font-size:12px;color:#666;">SKU: ${p.sku || 'N/A'} | <b style="color:#d32f2f;">${priceDisplay}</b></div>
+              </div>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
 
         // Xử lý click chọn sản phẩm
         results.querySelectorAll('.search-result-item').forEach(item => {
           item.addEventListener('click', () => {
             const id = item.getAttribute('data-id');
-            // Tìm trong allProducts (vừa được cập nhật ở trên)
             const product = allProducts.find(p => String(p.id) === String(id));
             
-            if (product && !selectedProducts.find(p => p.product_id === id)) {
-              // Parse ảnh an toàn
+            if (product) {
+              // [FIX 2] Xử lý biến thể: Nếu có variants thì bung ra từng dòng
               let img = '/assets/no-image.svg';
-              if (product.images) {
-                 try { img = (typeof product.images === 'string' ? JSON.parse(product.images) : product.images)[0]; } catch {}
-              }
+              try { 
+                const rawImgs = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+                if (rawImgs && rawImgs.length) img = rawImgs[0];
+              } catch {}
+
+              const hasVariants = product.variants && product.variants.length > 0;
               
-              selectedProducts.push({
-                product_id: id,
-                product_name: product.title || product.name,
-                product_image: img,
-                discount_type: 'percent',
-                discount_value: 10,
-                stock_limit: 0
-              });
+              if (hasVariants) {
+                // Thêm từng biến thể
+                product.variants.forEach(v => {
+                  // Check trùng variant
+                  const exists = selectedProducts.find(sp => sp.product_id === id && String(sp.variant_id) === String(v.id));
+                  if (!exists) {
+                    selectedProducts.push({
+                      product_id: id,
+                      variant_id: v.id, // Lưu thêm variant_id
+                      product_name: `${product.title || product.name} [${v.name}]`, // Tên + Phân loại
+                      product_image: v.image || img,
+                      original_price: v.price,
+                      discount_type: 'percent',
+                      discount_value: 10,
+                      stock_limit: 0
+                    });
+                  }
+                });
+              } else {
+                // Sản phẩm đơn (không biến thể)
+                if (!selectedProducts.find(p => p.product_id === id && !p.variant_id)) {
+                  selectedProducts.push({
+                    product_id: id,
+                    variant_id: null,
+                    product_name: product.title || product.name,
+                    product_image: img,
+                    original_price: product.price,
+                    discount_type: 'percent',
+                    discount_value: 10,
+                    stock_limit: 0
+                  });
+                }
+              }
+
               renderSelectedProducts();
               $('#product-search').value = '';
               results.classList.remove('show');
@@ -604,8 +645,9 @@ document.addEventListener('DOMContentLoaded', function() {
       start_time: startISO,  // ✅ ISO-8601: "2025-11-08T07:26:00.000Z"
       end_time: endISO,      // ✅ ISO-8601
       status: $('#fs-status').value,
-      products: selectedProducts.map(p => ({
+     products: selectedProducts.map(p => ({
         product_id: p.product_id,
+        variant_id: p.variant_id || null, // [FIX] Gửi kèm variant_id
         discount_type: p.discount_type,
         discount_value: p.discount_value,
         stock_limit: p.stock_limit
@@ -630,9 +672,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Edit Flash Sale
+  // [FIX 3] Edit Flash Sale (Gọi API Batch để lấy tên/ảnh sản phẩm cũ)
   window.editFlashSale = async (id) => {
     try {
+      // 1. Lấy thông tin Flash Sale
       const res = await Admin.req(`/admin/flash-sales/get?id=${encodeURIComponent(id)}`);
       const fs = res.data;
 
@@ -644,23 +687,72 @@ document.addEventListener('DOMContentLoaded', function() {
       $('#fs-end').value = fs.end_time.slice(0, 16);
       $('#fs-status').value = fs.status;
 
-      // Load selected products
-      selectedProducts = fs.products.map(p => {
-        const product = allProducts.find(pr => pr.id === p.product_id);
-        return {
-          product_id: p.product_id,
-          product_name: product?.title || product?.name || p.product_id,
-          product_image: product?.images?.[0],
-          discount_type: p.discount_type,
-          discount_value: p.discount_value,
-          stock_limit: p.stock_limit
-        };
-      });
+      // 2. Lấy danh sách ID sản phẩm cần load thông tin
+      const productIds = [...new Set(fs.products.map(p => p.product_id))];
+
+      if (productIds.length > 0) {
+        // Gọi API lấy thông tin chi tiết (bao gồm cả variants)
+        const productsRes = await Admin.req('/admin/products/batch', {
+          method: 'POST',
+          body: { product_ids: productIds }
+        });
+        
+        // Merge vào allProducts để dùng chung
+        const fetchedProducts = productsRes.items || [];
+        fetchedProducts.forEach(fp => {
+           const exist = allProducts.findIndex(ap => String(ap.id) === String(fp.id));
+           if (exist >= 0) allProducts[exist] = fp;
+           else allProducts.push(fp);
+        });
+
+        // 3. Map dữ liệu để hiển thị
+        selectedProducts = fs.products.map(p => {
+          const product = fetchedProducts.find(pr => String(pr.id) === String(p.product_id));
+          
+          let name = 'Sản phẩm đã xóa';
+          let img = '/assets/no-image.svg';
+          let originalPrice = 0;
+
+          if (product) {
+            name = product.title || product.name;
+            try { 
+               const rawImgs = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+               if (rawImgs && rawImgs.length) img = rawImgs[0];
+            } catch {}
+
+            // Nếu có variant_id, tìm tên variant
+            if (p.variant_id) {
+               const variant = product.variants?.find(v => String(v.id) === String(p.variant_id));
+               if (variant) {
+                 name += ` [${variant.name}]`;
+                 if (variant.image) img = variant.image;
+                 originalPrice = variant.price;
+               }
+            } else {
+               originalPrice = product.price;
+            }
+          }
+
+          return {
+            product_id: p.product_id,
+            variant_id: p.variant_id,
+            product_name: name,
+            product_image: img,
+            original_price: originalPrice,
+            discount_type: p.discount_type,
+            discount_value: p.discount_value,
+            stock_limit: p.stock_limit
+          };
+        });
+      } else {
+        selectedProducts = [];
+      }
 
       renderSelectedProducts();
       $('#modal').classList.add('show');
     } catch (e) {
       alert('Lỗi tải dữ liệu: ' + e.message);
+      console.error(e);
     }
   };
 
