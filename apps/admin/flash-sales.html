@@ -230,6 +230,31 @@
   min-height: 100px;
 }
 
+/* [NEW] Style thanh thiết lập hàng loạt */
+.bulk-actions {
+  background: #e3f2fd;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #90caf9;
+}
+.bulk-actions label { margin: 0; font-size: 13px; color: #1565c0; }
+.bulk-actions input, .bulk-actions select {
+  padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+}
+.bulk-btn {
+  padding: 5px 10px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.bulk-btn:hover { background: #1565c0; }
+
+.price-preview { font-size: 12px; margin-top: 4px; }
+.price-original { text-decoration: line-through; color: #999; }
+.price-final { color: #d32f2f; font-weight: bold; margin-left: 5px; font-size: 13px; }
+
 .selected-product {
   background: #f9fafb;
   padding: 12px;
@@ -342,6 +367,23 @@
 
       <div class="form-group">
         <label>Sản phẩm đã chọn (<span id="selected-count">0</span>)</label>
+        
+        <div class="bulk-actions">
+          <label>⚡ Thiết lập nhanh:</label>
+          
+          <select id="bulk-type" style="width:90px;">
+            <option value="percent">Giảm %</option>
+            <option value="fixed">Giảm tiền</option>
+          </select>
+          <input type="number" id="bulk-value" placeholder="Giá trị" style="width:80px;">
+          <button type="button" class="bulk-btn" id="btn-apply-price">Áp dụng giá</button>
+          
+          <span style="color:#ccc">|</span>
+          
+          <input type="number" id="bulk-limit" placeholder="SL Ghim" style="width:70px;">
+          <button type="button" class="bulk-btn" id="btn-apply-limit">Áp dụng SL</button>
+        </div>
+
         <div id="selected-products" class="selected-products">
           <div style="text-align:center;color:#999;padding:20px;">Chưa có sản phẩm nào được chọn</div>
         </div>
@@ -565,23 +607,43 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    container.innerHTML = selectedProducts.map((p, idx) => `
+    container.innerHTML = selectedProducts.map((p, idx) => {
+      // [NEW] Tính toán giá hiển thị (Preview)
+      const original = Number(p.original_price || 0);
+      let final = original;
+      
+      if (p.discount_type === 'percent') {
+        final = original - (original * (p.discount_value || 0) / 100);
+      } else {
+        final = original - (p.discount_value || 0);
+      }
+      if (final < 0) final = 0; // Không để giá âm
+
+      return `
       <div class="selected-product">
         <img src="${p.product_image || '/assets/no-image.svg'}" class="selected-product-img" alt="">
         <div class="selected-product-info">
           <div style="font-weight:500;">${p.product_name}</div>
+          
+          <div class="price-preview">
+             <span class="price-original">${original.toLocaleString()}đ</span>
+             <span>➡️</span>
+             <span class="price-final">${final.toLocaleString()}đ</span>
+          </div>
+
           <div class="selected-product-controls">
             <select data-idx="${idx}" data-field="discount_type">
               <option value="percent" ${p.discount_type === 'percent' ? 'selected' : ''}>Giảm %</option>
-              <option value="fixed" ${p.discount_type === 'fixed' ? 'selected' : ''}>Giảm cố định</option>
+              <option value="fixed" ${p.discount_type === 'fixed' ? 'selected' : ''}>Giảm tiền (đ)</option>
             </select>
-            <input type="number" placeholder="Giá trị" value="${p.discount_value}" data-idx="${idx}" data-field="discount_value" min="0">
-            <input type="number" placeholder="Giới hạn SL (0=∞)" value="${p.stock_limit}" data-idx="${idx}" data-field="stock_limit" min="0">
+            <input type="number" placeholder="Giá trị giảm" value="${p.discount_value}" data-idx="${idx}" data-field="discount_value" min="0">
+            <input type="number" placeholder="SL Ghim (0=∞)" value="${p.stock_limit}" data-idx="${idx}" data-field="stock_limit" min="0">
           </div>
         </div>
         <button class="remove-product" data-idx="${idx}">✕</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Event listeners cho controls
     container.querySelectorAll('select, input').forEach(el => {
@@ -600,6 +662,38 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  // [NEW] Logic Áp dụng hàng loạt
+  $('#btn-apply-price')?.addEventListener('click', () => {
+    if (selectedProducts.length === 0) return alert('Chưa chọn sản phẩm nào');
+    const type = $('#bulk-type').value;
+    const val = Number($('#bulk-value').value);
+    
+    if (val < 0) return alert('Giá trị không hợp lệ');
+
+    // Cập nhật toàn bộ mảng
+    selectedProducts.forEach(p => {
+      p.discount_type = type;
+      p.discount_value = val;
+    });
+    
+    renderSelectedProducts(); // Vẽ lại để thấy giá mới
+    Admin.toast('✅ Đã áp dụng giá cho tất cả');
+  });
+
+  $('#btn-apply-limit')?.addEventListener('click', () => {
+    if (selectedProducts.length === 0) return alert('Chưa chọn sản phẩm nào');
+    const limit = Number($('#bulk-limit').value);
+    
+    if (limit < 0) return alert('Số lượng không hợp lệ');
+
+    selectedProducts.forEach(p => {
+      p.stock_limit = limit;
+    });
+
+    renderSelectedProducts();
+    Admin.toast('✅ Đã áp dụng số lượng cho tất cả');
+  });
 
   // Mở modal tạo mới
   $('#btn-create')?.addEventListener('click', () => {
