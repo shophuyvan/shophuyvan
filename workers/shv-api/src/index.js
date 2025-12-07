@@ -5,7 +5,7 @@
 import { json, corsHeaders } from './lib/response.js';
 import { requirePermission } from './lib/auth.js'; // ✅ THÊM IMPORT
 import * as categories from './modules/categories.js';
-import * as Orders from './modules/orders.js';
+import * as Orders from './modules/orders/order-index.js';
 import * as Products from './modules/products.js';
 import * as WebhookHandler from './modules/webhook-handler.js'; // THÊM DÒNG NÀY
 import * as shipping from './modules/shipping/index.js';
