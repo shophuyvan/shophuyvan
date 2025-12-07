@@ -183,7 +183,7 @@ const Home: React.FC = () => {
 
         // [UPDATE] Gọi 3 API song song: Flash Sale, Giá rẻ (API mới), Home Sections (API mới)
         const [flashRes, cheapRes, sectionsRes] = await Promise.all([
-          api.products.list({ limit: 6, is_flash_sale: true }), // Giữ flash sale cũ
+          api.products.list({ limit: 30, is_flash_sale: true }), // [FIX] Tăng limit để tìm thấy sp Flash Sale cũ
           api.products.cheap(18, 15000), // API mới: Lấy 18 sp dưới 15k
           api.products.homeSections()    // API mới: Lấy Bestseller + 4 Danh mục
         ]);

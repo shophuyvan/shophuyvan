@@ -104,8 +104,13 @@ function normalizeProduct(p:any) {
   const videos = videosOf(p);
   const rating = readRating(p);
   const sold = readSold(p);
+  
+  // [FIX] Lấy thông tin Flash Sale từ server
+  const flash_sale = p.flash_sale || null;
+
   if (!id) return null;
-  return { id, name, image, images, price, variants, description, videos, rating, sold, raw: p };
+  // [FIX] Trả về thêm trường flash_sale
+  return { id, name, image, images, price, variants, description, videos, rating, sold, flash_sale, raw: p };
 }
 
 

@@ -563,7 +563,7 @@ async function listPublicProducts(req, env) {
         SELECT * FROM variants WHERE product_id = ? ORDER BY id ASC
       `).bind(id).all();
 
-const product = {
+     const product = {
         ...productResult,
         images: productResult.images ? JSON.parse(productResult.images) : [],
         variants: (variantsResult.results || []).map(v => ({
@@ -576,6 +576,42 @@ const product = {
           weight: v.weight
         }))
       };
+
+      // [FIX] Gắn thông tin Flash Sale vào sản phẩm
+      const fsInfo = await getFlashSaleForProduct(env, product.id);
+      if (fsInfo) {
+        product.flash_sale = fsInfo;
+        
+        // Cập nhật giá variants theo Flash Sale (để hiển thị đúng giá giảm)
+        product.variants = product.variants.map(v => applyFlashSaleDiscount(v, fsInfo));
+      }
+
+      // ✅ Chỉ thêm sản phẩm còn hàng
+      const totalStock = product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      if (totalStock > 0) {
+        full.push(product);
+      }const product = {
+        ...productResult,
+        images: productResult.images ? JSON.parse(productResult.images) : [],
+        variants: (variantsResult.results || []).map(v => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          price_sale: v.price_sale,
+          stock: v.stock,
+          weight: v.weight
+        }))
+      };
+
+      // [FIX] Gắn thông tin Flash Sale vào sản phẩm
+      const fsInfo = await getFlashSaleForProduct(env, product.id);
+      if (fsInfo) {
+        product.flash_sale = fsInfo;
+        
+        // Cập nhật giá variants theo Flash Sale (để hiển thị đúng giá giảm)
+        product.variants = product.variants.map(v => applyFlashSaleDiscount(v, fsInfo));
+      }
 
       // ✅ Chỉ thêm sản phẩm còn hàng
       const totalStock = product.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
