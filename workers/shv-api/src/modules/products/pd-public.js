@@ -61,66 +61,62 @@ export async function listProducts(env) {
 }
 
 // ===================================================================
-// PUBLIC: Get Product by ID (CORE INTEGRATED) - FINAL FIX
+// PUBLIC: Get Product by ID (CORE INTEGRATED - CLEAN VERSION)
 // ===================================================================
 export async function getProductById(req, env, productId) {
   try {
-    console.log('[getProductById] 🔍 Loading:', productId);
-    
-    // 1. Load thông tin cơ bản từ Core
+    // 1. Load sản phẩm chuẩn hóa từ Core (đã bao gồm variants, images, SEO...)
+    // Không query DB thủ công ở đây nữa để tránh dư thừa.
     const product = await loadProductNormalized(env, productId);
 
     if (!product) {
       return json({ ok: false, error: 'Product not found' }, { status: 404 }, req);
     }
 
-    // 2. [FIX] Force reload Variants từ DB để đảm bảo dữ liệu mới nhất (tránh Cache cũ)
-    const variantsRes = await env.DB.prepare(`
-      SELECT id, product_id, sku, name, price, price_sale, stock, weight, image 
-      FROM variants WHERE product_id = ? ORDER BY id ASC
-    `).bind(product.id).all();
-    
-    if (variantsRes.results && variantsRes.results.length > 0) {
-       product.variants = variantsRes.results;
-    }
-
-    // 3. [FIX] Gắn thông tin Flash Sale
+    // 2. Kiểm tra & Gắn thông tin Flash Sale (Real-time check)
     const fsInfo = await getFlashSaleForProduct(env, product.id);
+    
     if (fsInfo) {
       product.flash_sale = fsInfo;
-      // Áp dụng giá Flash Sale vào từng variant
-      product.variants = product.variants.map(v => {
-          const vWithFS = applyFlashSaleDiscount(v, fsInfo);
-          // Ghi đè price_sale để Frontend nhận diện
-          if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
-              vWithFS.price_sale = vWithFS.flash_sale.price;
-          }
-          return vWithFS;
-      });
+      
+      // Cập nhật lại variants với giá Flash Sale
+      if (Array.isArray(product.variants)) {
+        product.variants = product.variants.map(v => {
+            const vWithFS = applyFlashSaleDiscount(v, fsInfo);
+            // Ghi đè price_sale để đảm bảo logic cũ cũng hiểu
+            if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
+                vWithFS.price_sale = vWithFS.flash_sale.price;
+            }
+            return vWithFS;
+        });
+      }
     }
 
-    // 4. Tính giá hiển thị (Display Price)
+    // 3. Tính toán lại giá hiển thị (Display Price) dựa trên dữ liệu mới nhất
     const tier = getCustomerTier(req);
-    const displayPriceInfo = computeDisplayPrice(product, tier);
-    const priced = { ...product, ...displayPriceInfo };
-    
-    // 5. [CRITICAL FIX] Ghi đè giá Root đúng logic để Frontend hiển thị gạch ngang
-    if (displayPriceInfo.price_display > 0) {
-       // Giá bán thực tế (Flash Sale)
-       priced.price_sale = displayPriceInfo.price_display; 
+    const displayInfo = computeDisplayPrice(product, tier);
+
+    // 4. [QUAN TRỌNG] Đồng bộ giá vào các biến chuẩn của CORE để Frontend hiển thị
+    // Frontend (ui-pdp.js) ưu tiên đọc: price_final, price_original
+    if (displayInfo.price_display > 0) {
+       // Cập nhật biến Core
+       product.price_final = displayInfo.price_display;
        
-       // Giá gốc (để gạch ngang)
-       if (displayPriceInfo.compare_at_display && displayPriceInfo.compare_at_display > displayPriceInfo.price_display) {
-          priced.price = displayPriceInfo.compare_at_display;
-          priced.original_price = displayPriceInfo.compare_at_display;
-          priced.price_original = displayPriceInfo.compare_at_display;
+       // Xử lý giá gốc (gạch ngang)
+       if (displayInfo.compare_at_display && displayInfo.compare_at_display > displayInfo.price_display) {
+          product.price_original = displayInfo.compare_at_display;
+          product.discount_percent = Math.round(((product.price_original - product.price_final) / product.price_original) * 100);
        } else {
-          // Nếu không có giá gốc cao hơn, thì giá bán = giá gốc
-          priced.price = displayPriceInfo.price_display;
+          product.price_original = null;
+          product.discount_percent = 0;
        }
+
+       // Đồng bộ sang biến Legacy (cho App/Web cũ nếu chưa update logic Core)
+       product.price = product.price_original || product.price_final; 
+       product.price_sale = product.price_final;
     }
     
-    return json({ ok: true, item: priced, data: priced }, {}, req);
+    return json({ ok: true, item: product, data: product }, {}, req);
   } catch (e) {
     console.error('[getProductById] ❌ Lỗi:', e);
     return errorResponse(e, 500, req);

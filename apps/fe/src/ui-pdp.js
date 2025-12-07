@@ -55,11 +55,14 @@ async function pricePair(o, customerType = null) {
   
   // ✅ HÀM PHỤ: Lấy giá base từ object (Cập nhật mapping trường từ Core)
   function getBasePrice(obj) {
-    // 1. Thử lấy từ Core fields trước (price_final & price_original)
-    if (obj?.price_final > 0) {
-       const final = num(obj.price_final);
-       const original = num(obj.price_original);
-       return { base: final, original: original > final ? original : null };
+    // [CRITICAL FIX] Ưu tiên tuyệt đối giá Flash Sale nếu có
+    // Kiểm tra obj.flash_sale active hoặc price_final < price gốc
+    const fsActive = obj?.flash_sale?.active;
+    const coreFinal = num(obj?.price_final);
+    const coreOriginal = num(obj?.price_original || obj?.price || obj?.regular_price);
+
+    if (coreFinal > 0 && (fsActive || coreFinal < coreOriginal)) {
+       return { base: coreFinal, original: coreOriginal > coreFinal ? coreOriginal : null };
     }
 
     // 2. Fallback Legacy fields (giữ logic cũ)
