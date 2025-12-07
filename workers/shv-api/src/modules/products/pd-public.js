@@ -127,7 +127,14 @@ export async function listPublicProducts(req, env) {
       const fsInfo = await getFlashSaleForProduct(env, product.id);
       if (fsInfo) {
         product.flash_sale = fsInfo;
-        product.variants = product.variants.map(v => applyFlashSaleDiscount(v, fsInfo));
+        product.variants = product.variants.map(v => {
+            const vWithFS = applyFlashSaleDiscount(v, fsInfo);
+            // [CRITICAL FIX] Ghi đè price_sale bằng giá Flash Sale
+            if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
+                vWithFS.price_sale = vWithFS.flash_sale.price;
+            }
+            return vWithFS;
+        });
       }
 
       // Chỉ thêm sản phẩm còn hàng
@@ -231,7 +238,14 @@ export async function listPublicProductsFiltered(req, env) {
       
       // 3. [FIX] Áp dụng giá Flash Sale vào variants nếu có
       if (fsInfo) {
-         pVariants = pVariants.map(v => applyFlashSaleDiscount(v, fsInfo));
+         pVariants = pVariants.map(v => {
+             const vWithFS = applyFlashSaleDiscount(v, fsInfo);
+             // [CRITICAL FIX] Ghi đè price_sale bằng giá Flash Sale để Mini App tự nhận diện đúng giá bán
+             if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
+                 vWithFS.price_sale = vWithFS.flash_sale.price;
+             }
+             return vWithFS;
+         });
       }
 
       let minPrice = 0;
