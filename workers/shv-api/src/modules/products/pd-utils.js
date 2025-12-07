@@ -78,10 +78,18 @@ export function computeDisplayPrice(product, tier) {
       let base = 0;
       let orig = 0;
 
-      if (sale > 0 && reg > 0 && sale < reg) {
+      // [FIX] Ưu tiên Flash Sale nếu có
+      if (v.flash_sale && v.flash_sale.active && v.flash_sale.price > 0) {
+        base = v.flash_sale.price;
+        orig = v.flash_sale.original_price || (sale > 0 ? sale : reg);
+      } 
+      // Nếu không có Flash Sale, kiểm tra giá Sale thường
+      else if (sale > 0 && reg > 0 && sale < reg) {
+        // Có giảm giá: base = sale, original = price
         base = sale;
         orig = reg;
       } else {
+        // Không giảm: base = price, không có compare_at
         base = reg;
         orig = 0;
       }
