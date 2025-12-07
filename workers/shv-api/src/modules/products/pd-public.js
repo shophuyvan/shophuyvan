@@ -95,6 +95,19 @@ export async function getProductById(req, env, productId) {
     const displayPriceInfo = computeDisplayPrice(product, tier);
     const priced = { ...product, ...displayPriceInfo };
     
+    // [CRITICAL FIX] Ghi đè giá Root (price, price_sale) để Web FE & App hiển thị đúng giá Flash Sale
+    // Vì giao diện cũ thường lấy trực tiếp p.price hoặc p.price_sale thay vì p.price_display
+    if (displayPriceInfo.price_display > 0) {
+       priced.price = displayPriceInfo.price_display;
+       priced.price_sale = displayPriceInfo.price_display;
+       
+       // Nếu có giá gốc (compare_at), ghi vào original_price để hiện gạch ngang
+       if (displayPriceInfo.compare_at_display) {
+          priced.original_price = displayPriceInfo.compare_at_display;
+          priced.price_original = displayPriceInfo.compare_at_display;
+       }
+    }
+    
     return json({ ok: true, item: priced, data: priced }, {}, req);
   } catch (e) {
     console.error('[getProductById] ❌ Lỗi:', e);
