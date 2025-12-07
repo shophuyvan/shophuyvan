@@ -223,7 +223,17 @@ export async function listPublicProductsFiltered(req, env) {
     const items = [];
 
     for (const p of products) {
-      const pVariants = allVariants.filter(v => v.product_id === p.id);
+      // 1. Lấy variants của sản phẩm
+      let pVariants = allVariants.filter(v => v.product_id === p.id);
+      
+      // 2. [FIX] Lấy thông tin Flash Sale (quan trọng)
+      const fsInfo = await getFlashSaleForProduct(env, p.id);
+      
+      // 3. [FIX] Áp dụng giá Flash Sale vào variants nếu có
+      if (fsInfo) {
+         pVariants = pVariants.map(v => applyFlashSaleDiscount(v, fsInfo));
+      }
+
       let minPrice = 0;
       let maxOriginal = 0;
       let totalStock = 0;
@@ -233,7 +243,14 @@ export async function listPublicProductsFiltered(req, env) {
           const reg = parseNum(v.price);
           const sale = parseNum(v.price_sale);
           const stock = parseNum(v.stock);
-          const realPrice = (sale > 0 && sale < reg) ? sale : reg;
+          
+          // Tính giá thực tế (ưu tiên Flash Sale -> Sale -> Gốc)
+          let realPrice = (sale > 0 && sale < reg) ? sale : reg;
+          
+          // [FIX] Nếu có Flash Sale active, dùng giá Flash Sale làm giá hiển thị
+          if (v.flash_sale && v.flash_sale.active) {
+             realPrice = v.flash_sale.price;
+          }
 
           if (realPrice > 0) {
             if (minPrice === 0 || realPrice < minPrice) minPrice = realPrice;
@@ -263,7 +280,8 @@ export async function listPublicProductsFiltered(req, env) {
         price_display: minPrice,
         compare_at_display: maxOriginal > minPrice ? maxOriginal : null,
         price_tier: 'retail',
-        price_sale: 0
+        price_sale: 0,
+        flash_sale: fsInfo // [FIX] Trả về thông tin Flash Sale để App nhận diện
       });
     }
 
