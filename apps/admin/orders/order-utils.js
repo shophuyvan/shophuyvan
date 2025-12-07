@@ -32,27 +32,48 @@ export function getPlaceholderImage() {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 
-// Hàm tính toán tài chính quan trọng
+// Hàm tính toán tài chính (ĐÃ FIX LOGIC TỔNG TIỀN)
 export function calculateOrderTotals(order) {
   const items = Array.isArray(order.items) ? order.items : [];
   
-  // Tính doanh thu (chưa có ship)
+  // 1. Tính Subtotal (Tổng tiền hàng thô)
   const subtotal = items.reduce((sum, item) => 
     sum + Number(item.price || 0) * Number(item.qty || 1), 0);
   
-  // Tính giá vốn
+  // 2. Tính Giá vốn (Cost)
   const costTotal = items.reduce((sum, item) => 
     sum + Number(item.cost || 0) * Number(item.qty || 1), 0);
   
-  // Tính lợi nhuận
-  const profit = subtotal - costTotal;
-  
+  // 3. Lấy các thông số giảm giá/ship
   const shipping = Number(order.shipping_fee || 0);
-  const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+  const orderDiscount = Number(order.discount || 0);          // Giảm giá đơn hàng
+  const shipDiscount = Number(order.shipping_discount || 0);  // Giảm giá vận chuyển
   
-  // [FIX] Tách biệt Revenue (Trị giá hàng) và Total (Tổng tiền)
-  const revenue = Number(order.revenue || (subtotal - discount)); 
-  const total = Number(order.total || (revenue + shipping));
+  // Tổng giảm giá hiển thị
+  const discountDisplay = orderDiscount + shipDiscount;
+  
+  // 4. Tính Revenue (Trị giá hàng - dùng để tính COD/Doanh thu)
+  // Revenue = Tiền hàng - Giảm giá hàng hóa (KHÔNG trừ giảm giá ship ở đây)
+  const revenue = Number(order.revenue || Math.max(0, subtotal - orderDiscount));
 
-  return { subtotal, costTotal, profit, shipping, discount, revenue, total };
+  // 5. Tính Total (Tổng khách phải trả) - QUAN TRỌNG
+  // Total = Revenue + (Ship - Giảm giá Ship)
+  const realShippingFee = Math.max(0, shipping - shipDiscount);
+  const calculatedTotal = revenue + realShippingFee;
+
+  // Ưu tiên lấy total từ backend nếu có, nếu không thì dùng số tính toán
+  const total = (order.total !== undefined && order.total !== null) ? Number(order.total) : calculatedTotal;
+
+  // Lợi nhuận = Doanh thu - Giá vốn - (Ship thực tế shop phải chịu nếu free ship cho khách - tuỳ logic, ở đây tính đơn giản)
+  const profit = revenue - costTotal;
+
+  return { 
+    subtotal, 
+    costTotal, 
+    profit, 
+    shipping, 
+    discount: discountDisplay, 
+    revenue, 
+    total 
+  };
 }

@@ -67,6 +67,7 @@ export async function deleteOrder(orderId, reloadCallback) {
   } catch (error) { alert('Lỗi xoá đơn: ' + error.message); }
 }
 
+// ✅ FIX LỖI POPUP IN VẬN ĐƠN
 export async function printOrder(orderId, orders) {
   const order = orders.find(o => String(o.id || '') === orderId);
   if (!order) return;
@@ -76,11 +77,24 @@ export async function printOrder(orderId, orders) {
   Admin.toast(`Đang lấy bản in mã: ${superaiCode}...`);
   try {
     const res = await Admin.req('/shipping/print', { method: 'POST', body: { superai_code: superaiCode, order: order } });
+    
     if (res.ok && res.print_html) {
-      const w = window.open('', '_blank'); w.document.write(res.print_html); w.document.close();
+      const w = window.open('', '_blank');
+      
+      // ✅ FIX: Kiểm tra xem cửa sổ có bị chặn không
+      if (!w || w.closed || typeof w.closed == 'undefined') {
+          alert('❌ Trình duyệt đã chặn cửa sổ in (Pop-up).\n\nVui lòng bấm vào biểu tượng trên thanh địa chỉ để cho phép mở cửa sổ bật lên từ trang này.');
+          return;
+      }
+      
+      w.document.write(res.print_html);
+      w.document.close();
     } else if (res.ok && res.print_url) {
-      window.open(res.print_url, '_blank');
-    } else { alert('Lỗi in: ' + res.message); }
+      const w = window.open(res.print_url, '_blank');
+      if (!w) alert('❌ Trình duyệt đã chặn cửa sổ in (Pop-up).');
+    } else { 
+      alert('Lỗi in: ' + res.message); 
+    }
   } catch (e) { alert('Lỗi hệ thống: ' + e.message); }
 }
 

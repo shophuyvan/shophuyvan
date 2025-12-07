@@ -139,7 +139,9 @@ export function renderOrderDetail(order) {
 // Render 1 Dòng Đơn Hàng (Desktop + Mobile)
 export function renderOrderRow(order) {
   const items = Array.isArray(order.items) ? order.items : [];
-  const { subtotal, costTotal, profit, shipping, revenue, total } = calculateOrderTotals(order);
+  
+  // ✅ REMOVED: costTotal, profit khỏi destructuring vì không dùng nữa
+  const { subtotal, shipping, revenue, total } = calculateOrderTotals(order);
 
   const customer = order.customer || {};
   const custName = customer.name || order.customer_name || order.name || 'Khách';
@@ -199,7 +201,7 @@ export function renderOrderRow(order) {
     `;
   }).join('');
 
-  // Desktop Card
+  // Desktop Card - ✅ ĐÃ XÓA DÒNG LỢI NHUẬN
   const desktopCard = `
     <div class="order-card-desktop">
       <div class="order-card-header-desktop">
@@ -223,8 +225,8 @@ export function renderOrderRow(order) {
           <div class="detail-row"><span class="label">Trị giá hàng:</span><span class="value" style="font-weight:600">${formatPrice(revenue)}</span></div>
           <div class="detail-row"><span class="label">Phí ship:</span><span class="value">${formatPrice(shipping)}</span></div>
           <div class="detail-row" style="border-top:1px dashed #ccc;margin-top:4px;padding-top:4px"><span class="label" style="font-weight:bold;color:#d32f2f">TỔNG TIỀN:</span><span class="value price-total" style="font-weight:bold;color:#d32f2f">${formatPrice(total)}</span></div>
-          <div class="detail-row" style="margin-top:8px;font-size:11px;color:#666;"><span class="label">Lợi nhuận:</span><span class="value">${formatPrice(profit)}</span></div>
-          <div class="detail-row"><span class="label">Đơn vị VC:</span><span class="value" style="font-size: 12px;">${order.carrier_name || order.shipping_carrier || 'Chưa có'}</span></div>
+          
+          <div class="detail-row" style="margin-top: 8px;"><span class="label">Đơn vị VC:</span><span class="value" style="font-size: 12px;">${order.carrier_name || order.shipping_carrier || 'Chưa có'}</span></div>
           <div class="detail-row"><span class="label">Mã vận đơn:</span><span class="value tracking-code">${order.superai_code || order.tracking_number || order.tracking_code || 'Chưa tạo'}</span></div>
           ${(order.escrow_amount > 0) ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:12px;"><div class="detail-row" style="color:#16a34a;font-weight:700;"><span class="label">THỰC NHẬN:</span><span class="value">${formatPrice(order.escrow_amount)}</span></div></div>` : ''}
           ${tracking ? `<div class="detail-row"><span class="label">Tracking:</span><span class="value tracking-code" style="font-weight:bold;font-size:13px;color:#000;">${tracking}</span></div>` : ''}
@@ -245,7 +247,7 @@ export function renderOrderRow(order) {
     </div>
   `;
 
-  // Mobile Card
+  // Mobile Card - ✅ ĐÃ XÓA DÒNG LỢI NHUẬN
   const mobileCard = `
     <div class="order-card-mobile" data-order-id="${orderId}">
       <div class="order-card-header">
