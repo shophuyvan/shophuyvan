@@ -112,8 +112,7 @@ export async function createWaybill(req, env) {
       district: receiverDistrict,
       commune: (body.receiver_commune || order.customer?.ward || body.to_commune || ''),
       
-      // Amount (REQUIRED) - FIX: Phải là Giá trị hàng hóa (Subtotal - Discount)
-      // Lấy từ order.subtotal - order.discount
+      // Amount (REQUIRED) - FIX: Chỉ lấy Giá trị hàng hóa (Subtotal - Discount), KHÔNG cộng ship
       amount: Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
       
       // Sender
@@ -141,9 +140,10 @@ export async function createWaybill(req, env) {
       // ✅ FIX LỖI 2: Ưu tiên cân nặng từ order trước, fallback mới dùng chargeableWeightGrams
       weight_gram: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
       weight: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
-      cod: Number(order.cod_amount || order.cod || body.cod_amount || body.cod || 0),
+      // FIX COD: Nếu chưa thanh toán, COD = Tiền hàng (Ship do SuperAI tự cộng). Nếu đã thanh toán, COD = 0.
+      cod: order.payment_status === 'paid' ? 0 : Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
 	  // Aliases SuperAI
-      value: Math.round(Number((order.subtotal || 0) - (order.discount || 0))), // FIX: Phải là Giá trị hàng hóa (Subtotal - Discount)
+      value: Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
       soc: body.soc || order.soc || '',
       
       payer: '2', // Khách trả phí (theo logic mới)
@@ -448,16 +448,17 @@ export async function autoCreateWaybill(order, env) {
     const receiverDistrictCode = await validateDistrictCode(env, receiverProvinceCode || '79', rawReceiverDistrictCode, receiverDistrict);
     const receiverCommuneCode = order.receiver_commune_code || order.customer?.commune_code || order.customer?.ward_code || '';
 
-    const totalAmount = calculateOrderAmount(order, {});
     const totalWeight = chargeableWeightGrams({}, order) || 500;
-    const payer = '2';
-    // ✅ FIX: COD phải bằng tổng tiền khách trả (bao gồm ship)
-    const totalCOD = Math.round(Number(order.revenue || order.total || totalAmount || 0)); // 54.000₫
+    const payer = '2'; // Người nhận trả phí
     
-    // FIX: Giá trị hàng hóa (Value) phải là Subtotal TRỪ Discount.
-    // Lấy giá trị hàng hóa từ order.subtotal - order.discount (Backend đã tính)
-    const subtotalNoDiscount = Number(order.subtotal || 0) - Number(order.discount || 0); 
-    const totalValue = Math.round(Number(order.value || subtotalNoDiscount || totalCOD || 0)); // Subtotal - Discount (39.000₫)
+    // ✅ FIX SUPERAI: Chỉ lấy giá trị hàng hoá (Subtotal - Discount). 
+    // KHÔNG lấy revenue/total vì đã bao gồm ship. SuperAI sẽ tự cộng ship.
+    const productValue = Math.round(Number((order.subtotal || 0) - (order.discount || 0)));
+    
+    const totalAmount = productValue;
+    // Nếu thanh toán COD thì thu = tiền hàng. Nếu đã thanh toán (CK) thì thu = 0.
+    const totalCOD = (order.payment_method === 'cod' || order.payment_method === 'COD') ? productValue : 0;
+    const totalValue = productValue;
 
     // ✅ BƯỚC 1: GỌI PRICING API ĐỂ LẤY DANH SÁCH CARRIERS
     console.log('[autoCreateWaybill] 📊 Calling pricing API to find cheapest carrier...');
