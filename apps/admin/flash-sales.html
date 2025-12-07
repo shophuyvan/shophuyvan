@@ -549,18 +549,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
               const hasVariants = product.variants && product.variants.length > 0;
               
-              if (hasVariants) {
+if (hasVariants) {
                 // Thêm từng biến thể
                 product.variants.forEach(v => {
-                  // Check trùng variant
                   const exists = selectedProducts.find(sp => sp.product_id === id && String(sp.variant_id) === String(v.id));
                   if (!exists) {
+                    // [FIX] Lấy giá bán thực tế (ưu tiên price_sale nếu có và > 0)
+                    const realPrice = (v.price_sale && v.price_sale > 0) ? v.price_sale : v.price;
+
                     selectedProducts.push({
                       product_id: id,
-                      variant_id: v.id, // Lưu thêm variant_id
-                      product_name: `${product.title || product.name} [${v.name}]`, // Tên + Phân loại
+                      variant_id: v.id,
+                      product_name: `${product.title || product.name} [${v.name}]`,
                       product_image: v.image || img,
-                      original_price: v.price,
+                      original_price: realPrice, // [FIX] Dùng giá bán thực tế
                       discount_type: 'percent',
                       discount_value: 10,
                       stock_limit: 0
@@ -570,12 +572,21 @@ document.addEventListener('DOMContentLoaded', function() {
               } else {
                 // Sản phẩm đơn (không biến thể)
                 if (!selectedProducts.find(p => p.product_id === id && !p.variant_id)) {
+                  // [FIX] Lấy giá bán thực tế (ưu tiên price_sale nếu có và > 0)
+                  // Lưu ý: data từ API search đôi khi trả về variant ở dạng gộp, cần check kỹ
+                  let realPrice = product.price;
+                  if (product.variants && product.variants.length > 0) {
+                     // Nếu search ra product nhưng chọn là đơn, lấy giá variant đầu tiên làm chuẩn
+                     const v = product.variants[0];
+                     realPrice = (v.price_sale && v.price_sale > 0) ? v.price_sale : v.price;
+                  }
+
                   selectedProducts.push({
                     product_id: id,
                     variant_id: null,
                     product_name: product.title || product.name,
                     product_image: img,
-                    original_price: product.price,
+                    original_price: realPrice, // [FIX] Dùng giá bán thực tế
                     discount_type: 'percent',
                     discount_value: 10,
                     stock_limit: 0
@@ -820,10 +831,17 @@ document.addEventListener('DOMContentLoaded', function() {
                if (variant) {
                  name += ` [${variant.name}]`;
                  if (variant.image) img = variant.image;
-                 originalPrice = variant.price;
+                 // [FIX] Lấy giá bán thực tế
+                 originalPrice = (variant.price_sale && variant.price_sale > 0) ? variant.price_sale : variant.price;
                }
             } else {
-               originalPrice = product.price;
+               // Sản phẩm đơn: Lấy giá từ biến thể đầu tiên (vì DB lưu giá ở variant)
+               if (product.variants && product.variants.length > 0) {
+                  const v = product.variants[0];
+                  originalPrice = (v.price_sale && v.price_sale > 0) ? v.price_sale : v.price;
+               } else {
+                  originalPrice = product.price;
+               }
             }
           }
 
