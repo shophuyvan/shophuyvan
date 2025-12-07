@@ -100,17 +100,13 @@ class OrdersManager {
     const shipping = Number(order.shipping_fee || 0);
     const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
     
-    // Tổng khách phải trả: Ưu tiên order.revenue (đã được tính chính xác từ Core/DB),
-    // nếu không có mới tính toán cục bộ.
-    const total_from_core = Number(order.revenue || 0); 
-    const total_calculated_fallback = Math.max(0, subtotal + shipping - discount);
+    // [FIX] Tách biệt Revenue (Trị giá hàng) và Total (Tổng tiền)
+    // Nếu order.total có giá trị (từ Core mới) thì dùng, nếu không thì fallback tính toán
+    const revenue = Number(order.revenue || (subtotal - discount)); 
+    const total = Number(order.total || (revenue + shipping));
 
-    // Trả về total đã được Core tính toán (revenue)
-    return { subtotal, costTotal, profit, shipping, discount, total: total_from_core || total_calculated_fallback };
+    return { subtotal, costTotal, profit, shipping, discount, revenue, total };
   }
-
-      // ==================== RENDER ORDERS LIST ====================
-      
     renderOrdersList() {
         const tbody = document.getElementById('list');
         if (!tbody) return;
@@ -165,12 +161,14 @@ class OrdersManager {
     // Ưu tiên lấy carrier_name (tên chính xác từ SuperAI trả về)
     const provider = String(order.carrier_name || order.shipping_provider || order.provider || order.shipping_name || '');
     
-    // Mã vận đơn (Tracking) - Chỉ lấy mã ngắn, bỏ qua UUID dài
-    let trackingRaw = String(order.tracking_code || order.carrier_code || order.shipping_tracking || '');
-    if (trackingRaw.length > 30) trackingRaw = ''; // Nếu là UUID thì ẩn đi
-    const tracking = trackingRaw;
+    // [FIX] Ưu tiên hiển thị Mã Vận Đơn Nhà Vận Chuyển (LMP..., SPX...)
+    // Thứ tự ưu tiên: tracking_number (chuẩn nhất) -> carrier_code -> tracking_code
+    let trackingRaw = String(order.tracking_number || order.carrier_code || order.tracking_code || order.shipping_tracking || '');
     
-    // Mã đơn hàng API (SuperAI Code)
+    // Nếu mã tracking lại là UUID dài (do dữ liệu cũ lưu sai), thì ẩn đi
+    if (trackingRaw.length > 30 || trackingRaw.includes('-')) trackingRaw = ''; 
+    
+    const tracking = trackingRaw;
     const superaiCode = String(order.superai_code || '');
 
     // Other info
@@ -288,26 +286,22 @@ class OrdersManager {
           </div>
           <div class="order-details-col">
             <div class="detail-row">
-              <span class="label">Doanh thu:</span>
-              <span class="value">${this.formatPrice(subtotal)}</span>
-            </div>
-            <div class="detail-row">
-              <span class="label">Giá vốn:</span>
-              <span class="value">${this.formatPrice(costTotal || (subtotal - profit))}</span>
-            </div>
-            <div class="detail-row">
-              <span class="label">Lợi nhuận:</span>
-              <span class="value" style="color: ${profit > 0 ? '#16a34a' : '#ef4444'}; font-weight: 600;">${this.formatPrice(profit)}</span>
+              <span class="label">Trị giá hàng:</span>
+              <span class="value" style="font-weight:600">${this.formatPrice(revenue)}</span>
             </div>
             <div class="detail-row">
               <span class="label">Phí ship:</span>
               <span class="value">${this.formatPrice(shipping)}</span>
             </div>
-            <div class="detail-row">
-              <span class="label">Tổng khách trả:</span>
-              <span class="value price-total">
-                ${this.formatPrice(order.buyer_paid_amount || order.revenue || order.total)}
+            <div class="detail-row" style="border-top: 1px dashed #ccc; margin-top: 4px; padding-top: 4px;">
+              <span class="label" style="font-weight:bold; color:#d32f2f">TỔNG TIỀN:</span>
+              <span class="value price-total" style="font-weight:bold; color:#d32f2f">
+                ${this.formatPrice(total)}
               </span>
+            </div>
+            <div class="detail-row" style="margin-top: 8px; font-size: 11px; color: #666;">
+               <span class="label">Lợi nhuận:</span>
+               <span class="value">${this.formatPrice(profit)}</span>
             </div>
             <div class="detail-row">
               <span class="label">Đơn vị VC:</span>

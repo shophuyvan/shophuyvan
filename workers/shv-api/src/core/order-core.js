@@ -595,10 +595,18 @@ export async function calculateOrderFinancials(order, env) {
     final_voucher_code = voucher_code_input;
   }
   
-  // 6. Tính Revenue & Profit
+  // 6. Tính Revenue & Profit & Total (FIXED: Tách Ship ra khỏi Revenue)
   const actualShippingFee = Math.max(0, shipping_fee - best_shipping_discount);
-  const revenue = Math.max(0, subtotal - final_discount + actualShippingFee); // Tổng khách trả
-  const profit = Math.max(0, subtotal - cost - final_discount - actualShippingFee); // Subtotal - Cost - Discount - Fee
+
+  // [FIX] REVENUE (Trị giá hàng/COD Base) = Tiền hàng - Giảm giá (KHÔNG CỘNG SHIP)
+  // Đây là số sẽ gửi sang SuperAI mục Amount/COD (để SuperAI tự cộng ship)
+  const revenue = Math.max(0, subtotal - final_discount); 
+
+  // [FIX] TOTAL (Tổng khách trả thực tế) = Trị giá hàng + Phí ship thực tế
+  const total = revenue + actualShippingFee; 
+
+  // PROFIT (Lợi nhuận) = Doanh thu - Giá vốn
+  const profit = Math.max(0, revenue - cost); 
 
   // 7. Cập nhật Order Object
   order.subtotal = subtotal;
@@ -606,8 +614,10 @@ export async function calculateOrderFinancials(order, env) {
   order.discount = final_discount;
   order.shipping_discount = best_shipping_discount;
   order.actual_shipping_fee = actualShippingFee;
-  order.revenue = revenue;
-  order.total = revenue; // Đồng bộ total = revenue
+  
+  order.revenue = revenue; // Trị giá hàng hóa
+  order.total = total;     // Tổng thanh toán
+  
   order.profit = profit;
   order.voucher_code = final_voucher_code;
   
