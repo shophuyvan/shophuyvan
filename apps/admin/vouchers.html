@@ -156,6 +156,10 @@ h3 {
       <label>Giảm (%) <span style="color: red;">*</span></label>
       <input id="off-discount" class="input" type="number" min="1" max="100" value="10"/>
     </div>
+    <div class="col" style="flex: 1; min-width: 150px;">
+      <label>Đơn tối thiểu (đ)</label>
+      <input id="min-purchase-discount" class="input" type="number" min="0" value="0" placeholder="0 = k giới hạn"/>
+    </div>
     <div class="col" style="flex: 0 0 100px; min-width: 100px;">
       <label>Trạng thái</label>
       <select id="on-discount" class="input">
@@ -303,6 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
   $('#save-discount').onclick = async () => {
     const code = $('#code-discount').value.trim();
     const off = Number($('#off-discount').value || 0);
+    const min_purchase = Number($('#min-purchase-discount').value || 0);
     const on = $('#on-discount').value === 'true';
     const usage_limit_per_user = parseInt($('#usage-per-user-discount').value || '1');
     const usage_limit_total = parseInt($('#usage-total-discount').value || '0');
@@ -331,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
       on,
       voucher_type: 'code',
       off,
-      min_purchase: 0,
+      min_purchase,
       usage_limit_per_user: usage_limit_per_user >= 0 ? usage_limit_per_user : 1,
       usage_limit_total: usage_limit_total >= 0 ? usage_limit_total : 0,
       starts_at,
@@ -349,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
         Admin.toast('✅ Đã lưu voucher giảm giá');
         $('#code-discount').value = '';
         $('#off-discount').value = '10';
+        $('#min-purchase-discount').value = '0';
         $('#starts-discount').value = '';
         $('#expires-discount').value = '';
         $('#usage-per-user-discount').value = '1';
@@ -448,6 +454,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let typeText = 'Giảm giá';
         let detailText = `<span style="color:#f59e0b;font-weight:600">${v.off || 0}%</span>`;
+
+        if (v.voucher_type === 'code' && v.min_purchase > 0) {
+          detailText += `<br><span style="font-size:12px;color:#666">Đơn >= ${formatPrice(v.min_purchase)}</span>`;
+        }
 
         if (v.voucher_type === 'auto_freeship') {
           typeText = 'Miễn ship';

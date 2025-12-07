@@ -96,11 +96,13 @@ const Footer: FC = () => {
 
   // Lấy activeTab từ location.pathname (thuần zmp-ui)
   const activeTab = useMemo(() => {
-    if (shouldHide) {
-      // Footer đang ẩn, trả về '/' để tránh lỗi
-      return '/';
-    }
-    const matched = tabs.find((t) => pathname.startsWith(t.path));
+    if (shouldHide) return '/';
+
+    // [FIX] Nếu đúng là trang chủ thì trả về '/'
+    if (pathname === '/') return '/';
+
+    // [FIX] Nếu không phải trang chủ, tìm các tab con trước (tránh bị khớp nhầm với '/')
+    const matched = tabs.find((t) => t.path !== '/' && pathname.startsWith(t.path));
     return matched ? matched.path : '/';
   }, [pathname, shouldHide]);
 
