@@ -431,9 +431,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Tìm kiếm sản phẩm
+  // [FIX] Tìm kiếm sản phẩm (Gọi Server Search thay vì lọc Local)
+  let searchTimeout;
+  
   $('#product-search')?.addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase().trim();
+    const q = e.target.value.trim();
     const results = $('#search-results');
     
     if (!q) {
@@ -441,50 +443,75 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    const filtered = allProducts.filter(p => {
-      const name = (p.title || p.name || '').toLowerCase();
-      const sku = (p.sku || '').toLowerCase();
-      return name.includes(q) || sku.includes(q);
-    }).slice(0, 10);
-
-    if (filtered.length === 0) {
-      results.innerHTML = '<div style="padding:10px;text-align:center;color:#999;">Không tìm thấy</div>';
+    // Debounce: Đợi user ngừng gõ 300ms mới gọi API
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+      
+      results.innerHTML = '<div style="padding:10px;text-align:center;color:#666;">⏳ Đang tìm...</div>';
       results.classList.add('show');
-      return;
-    }
 
-    results.innerHTML = filtered.map(p => `
-      <div class="search-result-item" data-id="${p.id}">
-        <img src="${p.images?.[0] || '/assets/no-image.svg'}" class="search-result-img" alt="">
-        <div style="flex:1;">
-          <div style="font-weight:500;font-size:14px;">${p.title || p.name}</div>
-          <div style="font-size:12px;color:#666;">SKU: ${p.sku || 'N/A'}</div>
-        </div>
-      </div>
-    `).join('');
+      try {
+        // Gọi API Search chuẩn của Admin (tìm theo tên, sku, search_text)
+        const res = await Admin.req(`/admin/products?search=${encodeURIComponent(q)}&limit=20`);
+        const items = res.items || [];
 
-    results.classList.add('show');
-
-    // Xử lý click chọn sản phẩm
-    results.querySelectorAll('.search-result-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const id = item.getAttribute('data-id');
-        const product = allProducts.find(p => p.id === id);
-        if (product && !selectedProducts.find(p => p.product_id === id)) {
-          selectedProducts.push({
-            product_id: id,
-            product_name: product.title || product.name,
-            product_image: product.images?.[0],
-            discount_type: 'percent',
-            discount_value: 10,
-            stock_limit: 0
-          });
-          renderSelectedProducts();
-          $('#product-search').value = '';
-          results.classList.remove('show');
+        if (items.length === 0) {
+          results.innerHTML = '<div style="padding:10px;text-align:center;color:#999;">Không tìm thấy</div>';
+          return;
         }
-      });
-    });
+
+        // Cập nhật lại allProducts cục bộ để dùng khi chọn
+        // (Merge mảng cũ và mới để không mất dữ liệu)
+        items.forEach(newItem => {
+          if (!allProducts.find(p => p.id === newItem.id)) {
+            allProducts.push(newItem);
+          }
+        });
+
+        results.innerHTML = items.map(p => `
+          <div class="search-result-item" data-id="${p.id}">
+            <img src="${(p.images && JSON.parse(JSON.stringify(p.images))[0]) || p.image || '/assets/no-image.svg'}" class="search-result-img" alt="">
+            <div style="flex:1;">
+              <div style="font-weight:500;font-size:14px;">${p.title || p.name}</div>
+              <div style="font-size:12px;color:#666;">SKU: ${p.sku || p.variants?.[0]?.sku || 'N/A'} | Giá: ${(p.price || 0).toLocaleString()}đ</div>
+            </div>
+          </div>
+        `).join('');
+
+        // Xử lý click chọn sản phẩm
+        results.querySelectorAll('.search-result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const id = item.getAttribute('data-id');
+            // Tìm trong allProducts (vừa được cập nhật ở trên)
+            const product = allProducts.find(p => String(p.id) === String(id));
+            
+            if (product && !selectedProducts.find(p => p.product_id === id)) {
+              // Parse ảnh an toàn
+              let img = '/assets/no-image.svg';
+              if (product.images) {
+                 try { img = (typeof product.images === 'string' ? JSON.parse(product.images) : product.images)[0]; } catch {}
+              }
+              
+              selectedProducts.push({
+                product_id: id,
+                product_name: product.title || product.name,
+                product_image: img,
+                discount_type: 'percent',
+                discount_value: 10,
+                stock_limit: 0
+              });
+              renderSelectedProducts();
+              $('#product-search').value = '';
+              results.classList.remove('show');
+            }
+          });
+        });
+
+      } catch (err) {
+        console.error(err);
+        results.innerHTML = '<div style="padding:10px;text-align:center;color:red;">Lỗi tìm kiếm</div>';
+      }
+    }, 300); // 300ms delay
   });
 
   // Render danh sách sản phẩm đã chọn
