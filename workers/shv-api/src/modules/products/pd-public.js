@@ -74,9 +74,26 @@ export async function getProductById(req, env, productId) {
       return json({ ok: false, error: 'Product not found' }, { status: 404 }, req);
     }
 
+    // [FIX] Gắn thông tin Flash Sale vào chi tiết sản phẩm
+    const fsInfo = await getFlashSaleForProduct(env, product.id);
+    if (fsInfo) {
+      product.flash_sale = fsInfo;
+      // Cập nhật giá variants và ghi đè price_sale để Frontend tự nhận
+      product.variants = product.variants.map(v => {
+          const vWithFS = applyFlashSaleDiscount(v, fsInfo);
+          if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
+              vWithFS.price_sale = vWithFS.flash_sale.price;
+          }
+          return vWithFS;
+      });
+    }
+
     // Tính giá hiển thị theo Tier khách hàng
     const tier = getCustomerTier(req);
-    const priced = { ...product, ...computeDisplayPrice(product, tier) };
+    
+    // [FIX] Tính lại giá hiển thị (priced) dựa trên product đã có Flash Sale
+    const displayPriceInfo = computeDisplayPrice(product, tier);
+    const priced = { ...product, ...displayPriceInfo };
     
     return json({ ok: true, item: priced, data: priced }, {}, req);
   } catch (e) {
