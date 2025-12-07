@@ -61,26 +61,37 @@ export async function listProducts(env) {
 }
 
 // ===================================================================
-// PUBLIC: Get Product by ID (CORE INTEGRATED)
+// PUBLIC: Get Product by ID (CORE INTEGRATED) - FINAL FIX
 // ===================================================================
 export async function getProductById(req, env, productId) {
   try {
-    console.log('[getProductById] 🔍 Loading from Core:', productId);
+    console.log('[getProductById] 🔍 Loading:', productId);
     
-    // Dùng Core Engine: Tự động Cache KV + Chuẩn hóa Data + Tính Flash Sale
+    // 1. Load thông tin cơ bản từ Core
     const product = await loadProductNormalized(env, productId);
 
     if (!product) {
       return json({ ok: false, error: 'Product not found' }, { status: 404 }, req);
     }
 
-    // [FIX] Gắn thông tin Flash Sale vào chi tiết sản phẩm
+    // 2. [FIX] Force reload Variants từ DB để đảm bảo dữ liệu mới nhất (tránh Cache cũ)
+    const variantsRes = await env.DB.prepare(`
+      SELECT id, product_id, sku, name, price, price_sale, stock, weight, image 
+      FROM variants WHERE product_id = ? ORDER BY id ASC
+    `).bind(product.id).all();
+    
+    if (variantsRes.results && variantsRes.results.length > 0) {
+       product.variants = variantsRes.results;
+    }
+
+    // 3. [FIX] Gắn thông tin Flash Sale
     const fsInfo = await getFlashSaleForProduct(env, product.id);
     if (fsInfo) {
       product.flash_sale = fsInfo;
-      // Cập nhật giá variants và ghi đè price_sale để Frontend tự nhận
+      // Áp dụng giá Flash Sale vào từng variant
       product.variants = product.variants.map(v => {
           const vWithFS = applyFlashSaleDiscount(v, fsInfo);
+          // Ghi đè price_sale để Frontend nhận diện
           if (vWithFS.flash_sale && vWithFS.flash_sale.active) {
               vWithFS.price_sale = vWithFS.flash_sale.price;
           }
@@ -88,23 +99,24 @@ export async function getProductById(req, env, productId) {
       });
     }
 
-    // Tính giá hiển thị theo Tier khách hàng
+    // 4. Tính giá hiển thị (Display Price)
     const tier = getCustomerTier(req);
-    
-    // [FIX] Tính lại giá hiển thị (priced) dựa trên product đã có Flash Sale
     const displayPriceInfo = computeDisplayPrice(product, tier);
     const priced = { ...product, ...displayPriceInfo };
     
-    // [CRITICAL FIX] Ghi đè giá Root (price, price_sale) để Web FE & App hiển thị đúng giá Flash Sale
-    // Vì giao diện cũ thường lấy trực tiếp p.price hoặc p.price_sale thay vì p.price_display
+    // 5. [CRITICAL FIX] Ghi đè giá Root đúng logic để Frontend hiển thị gạch ngang
     if (displayPriceInfo.price_display > 0) {
-       priced.price = displayPriceInfo.price_display;
-       priced.price_sale = displayPriceInfo.price_display;
+       // Giá bán thực tế (Flash Sale)
+       priced.price_sale = displayPriceInfo.price_display; 
        
-       // Nếu có giá gốc (compare_at), ghi vào original_price để hiện gạch ngang
-       if (displayPriceInfo.compare_at_display) {
+       // Giá gốc (để gạch ngang)
+       if (displayPriceInfo.compare_at_display && displayPriceInfo.compare_at_display > displayPriceInfo.price_display) {
+          priced.price = displayPriceInfo.compare_at_display;
           priced.original_price = displayPriceInfo.compare_at_display;
           priced.price_original = displayPriceInfo.compare_at_display;
+       } else {
+          // Nếu không có giá gốc cao hơn, thì giá bán = giá gốc
+          priced.price = displayPriceInfo.price_display;
        }
     }
     
