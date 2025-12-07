@@ -143,7 +143,8 @@ class OrdersManager {
     const items = Array.isArray(order.items) ? order.items : [];
     
     // Totals
-    const { subtotal, costTotal, profit, shipping, discount, total } = this.calculateOrderTotals(order);
+    // ✅ FIX: Thêm biến 'revenue' vào đây để sửa lỗi ReferenceError
+    const { subtotal, costTotal, profit, shipping, discount, revenue, total } = this.calculateOrderTotals(order);
 
     // Customer info
     const customer = order.customer || {};
@@ -412,8 +413,8 @@ class OrdersManager {
         
         <div class="order-card-footer">
           <div class="order-info-row">
-            <span class="label">Doanh thu:</span>
-            <span class="value">${this.formatPrice(subtotal)}</span>
+            <span class="label">Trị giá hàng:</span>
+            <span class="value" style="font-weight:600">${this.formatPrice(revenue)}</span>
           </div>
           <div class="order-info-row">
             <span class="label">Giá vốn:</span>
