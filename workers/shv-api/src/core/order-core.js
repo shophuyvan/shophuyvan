@@ -270,9 +270,9 @@ async function enrichItemsWeight(env, items) {
   return enriched;
 }
 
-  // 4. SAVE ORDER TO D1 (CORE FUNCTION)
-  // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
-  export async function saveOrderToD1(env, order) {
+     // 4. SAVE ORDER TO D1 (CORE FUNCTION)
+     // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
+    export async function saveOrderToD1(env, order) {
     
     // ✅ KÍCH HOẠT LOGIC: Tính toán lại Revenue/Total (Trừ ship nếu >150k)
     // Nếu thiếu dòng này, logic Freeship bạn viết ở dưới sẽ không bao giờ chạy.
@@ -475,21 +475,29 @@ async function enrichItemsWeight(env, items) {
 
     const dbOrderId = result.id; // ID tự tăng (INTEGER) trong DB
 
-    // 3. Xử lý Order Items
+    // 3. Xử lý Order Items - ✅ LOGIC MỚI: LUÔN XÓA VÀ INSERT LẠI
     const statements = [];
     
-    // ✅ FIX: Logic an toàn cho Items
-    if (items && items.length > 0) {
-      console.log(`[ORDER-CORE] Updating items for Order ID ${dbOrderId}. Count: ${items.length}`);
+    // ✅ Luôn xóa items cũ trước (để tránh dữ liệu zombie)
+    statements.push(
+      env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
+    );
+    
+    // ✅ Kiểm tra items hợp lệ
+    const validItems = Array.isArray(items) && items.length > 0;
+    
+    if (validItems) {
+      console.log(`[ORDER-CORE] Inserting ${items.length} items for Order ID ${dbOrderId}`);
       
-      // 1. Chỉ xóa items cũ khi chắc chắn có items mới để thay thế
-      statements.push(
-        env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
-      );
-
-      // 2. Tạo lệnh Insert cho từng item
+      // Insert từng item
       for (const item of items) {
-         statements.push(
+        // ✅ Validate item trước khi insert
+        if (!item || !item.name) {
+          console.warn(`[ORDER-CORE] ⚠️ Skipping invalid item:`, item);
+          continue;
+        }
+        
+        statements.push(
           env.DB.prepare(`
             INSERT INTO order_items (
               order_id, product_id, variant_id,
@@ -516,12 +524,13 @@ async function enrichItemsWeight(env, items) {
         );
       }
     } else {
-      console.warn(`[ORDER-CORE] ⚠️ No items provided for Order ${dbOrderId}. Skipping item update to preserve existing data.`);
+      console.error(`[ORDER-CORE] ❌ No valid items found for Order ${dbOrderId}! Items array:`, items);
     }
 
-    // Chạy batch insert items
+    // ✅ Chạy batch (luôn chạy vì có ít nhất DELETE statement)
     if (statements.length > 0) {
       await env.DB.batch(statements);
+      console.log(`[ORDER-CORE] ✅ Executed ${statements.length} SQL statements`);
     }
 
     console.log('[ORDER-CORE] ✅ Saved successfully. DB ID:', dbOrderId);
