@@ -722,8 +722,10 @@ export async function getOrders(env, limit = 500) {
         `).bind(...batchIds).all();
 
         for (const item of (itemsResult.results || [])) {
-          if (!itemsByOrderId.has(item.order_id)) itemsByOrderId.set(item.order_id, []);
-          itemsByOrderId.get(item.order_id).push({
+          // ✅ FIX: Ép kiểu String cho ID để đảm bảo map khớp key
+          const oid = String(item.order_id);
+          if (!itemsByOrderId.has(oid)) itemsByOrderId.set(oid, []);
+          itemsByOrderId.get(oid).push({
             id: item.variant_id || item.sku || 'unknown',
             product_id: item.product_id,
             sku: item.sku || '',
@@ -769,7 +771,8 @@ export async function getOrders(env, limit = 500) {
         superai_code: row.superai_code || '',
         shipping_carrier: row.shipping_carrier || '',
         carrier_id: row.carrier_id || '',
-        items: itemsByOrderId.get(row.id) || [],
+        // ✅ FIX: Ép kiểu String cho ID khi lấy từ Map
+        items: itemsByOrderId.get(String(row.id)) || [],
         subtotal: row.subtotal,
         shipping_fee: row.shipping_fee,
         discount: row.discount,
