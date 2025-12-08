@@ -475,27 +475,24 @@ async function enrichItemsWeight(env, items) {
 
     const dbOrderId = result.id; // ID tự tăng (INTEGER) trong DB
 
-    // 3. Xử lý Order Items - ✅ LOGIC MỚI: LUÔN XÓA VÀ INSERT LẠI
+    // 3. Xử lý Order Items - ✅ CHỐT AN TOÀN: Chỉ cập nhật nếu có items
     const statements = [];
     
-    // ✅ Luôn xóa items cũ trước (để tránh dữ liệu zombie)
-    statements.push(
-      env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
-    );
-    
-    // ✅ Kiểm tra items hợp lệ
+    // Kiểm tra items hợp lệ
     const validItems = Array.isArray(items) && items.length > 0;
     
     if (validItems) {
-      console.log(`[ORDER-CORE] Inserting ${items.length} items for Order ID ${dbOrderId}`);
+      // CHỈ KHI CÓ ITEMS MỚI THỰC HIỆN XÓA CŨ - THÊM MỚI
+      // Giúp bảo vệ dữ liệu cũ nếu frontend lỡ gửi lên mảng rỗng
+      console.log(`[ORDER-CORE] Updating ${items.length} items for Order ID ${dbOrderId}`);
+
+      statements.push(
+        env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
+      );
       
       // Insert từng item
       for (const item of items) {
-        // ✅ Validate item trước khi insert
-        if (!item || !item.name) {
-          console.warn(`[ORDER-CORE] ⚠️ Skipping invalid item:`, item);
-          continue;
-        }
+        if (!item || !item.name) continue;
         
         statements.push(
           env.DB.prepare(`
@@ -524,7 +521,7 @@ async function enrichItemsWeight(env, items) {
         );
       }
     } else {
-      console.error(`[ORDER-CORE] ❌ No valid items found for Order ${dbOrderId}! Items array:`, items);
+      console.warn(`[ORDER-CORE] ⚠️ Empty items list received for Order ${dbOrderId}. SKIPPING item update to preserve existing data.`);
     }
 
     // ✅ Chạy batch (luôn chạy vì có ít nhất DELETE statement)
