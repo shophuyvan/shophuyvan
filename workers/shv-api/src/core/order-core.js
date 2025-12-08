@@ -697,7 +697,8 @@ export async function getOrders(env, limit = 500) {
         subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
         seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
         shop_id, shop_name, payment_method, customer_note, admin_note, 
-        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at
+        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at,
+        receiver_province_code, receiver_district_code, receiver_ward_code -- Lấy thêm để debug nếu cần
       FROM orders 
       ORDER BY created_at DESC 
       LIMIT ?
@@ -714,18 +715,21 @@ export async function getOrders(env, limit = 500) {
     for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
       const batchIds = orderIds.slice(i, i + BATCH_SIZE);
       const placeholders = batchIds.map(() => '?').join(',');
+      
       try {
         const itemsResult = await env.DB.prepare(`
           SELECT order_id, product_id, variant_id, sku, name, variant_name, 
-            image, price, cost, quantity, subtotal, channel_item_id, channel_model_id
+            image, price, cost, quantity, subtotal, channel_item_id, channel_model_id, weight
           FROM order_items WHERE order_id IN (${placeholders}) ORDER BY order_id, id
         `).bind(...batchIds).all();
 
         for (const item of (itemsResult.results || [])) {
-          // ✅ FIX: Ép kiểu String cho ID để đảm bảo map khớp key
-          const oid = String(item.order_id);
-          if (!itemsByOrderId.has(oid)) itemsByOrderId.set(oid, []);
-          itemsByOrderId.get(oid).push({
+          // ⚠️ FIX CORE: Ép kiểu String cho Key để tránh lỗi Number vs String
+          const orderIdKey = String(item.order_id);
+          
+          if (!itemsByOrderId.has(orderIdKey)) itemsByOrderId.set(orderIdKey, []);
+          
+          itemsByOrderId.get(orderIdKey).push({
             id: item.variant_id || item.sku || 'unknown',
             product_id: item.product_id,
             sku: item.sku || '',
@@ -736,6 +740,7 @@ export async function getOrders(env, limit = 500) {
             qty: item.quantity || 1,
             subtotal: item.subtotal || 0,
             image: item.image || null,
+            weight: item.weight || 0,
             shopee_item_id: item.channel_item_id || '',
             shopee_model_id: item.channel_model_id || ''
           });
@@ -747,8 +752,10 @@ export async function getOrders(env, limit = 500) {
     return orders.map(row => {
       let shippingAddr = {};
       try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
+      
+      // Map data
       return {
-        id: row.id,
+        id: row.id, // Giữ nguyên ID gốc (có thể là số)
         order_number: row.order_number,
         status: row.status,
         payment_status: row.payment_status,
@@ -771,13 +778,17 @@ export async function getOrders(env, limit = 500) {
         superai_code: row.superai_code || '',
         shipping_carrier: row.shipping_carrier || '',
         carrier_id: row.carrier_id || '',
-        // ✅ FIX: Ép kiểu String cho ID khi lấy từ Map
+        
+        // ⚠️ FIX CORE: Ép kiểu String khi lấy từ Map
         items: itemsByOrderId.get(String(row.id)) || [],
+        
         subtotal: row.subtotal,
         shipping_fee: row.shipping_fee,
         discount: row.discount,
-        revenue: row.total,
+        revenue: row.total, // Dùng total làm doanh thu hiển thị
+        total: row.total,   // Dùng total làm tổng thanh toán
         profit: row.profit,
+        
         commission_fee: row.commission_fee || 0,
         service_fee: row.service_fee || 0,
         seller_transaction_fee: row.seller_transaction_fee || 0,
