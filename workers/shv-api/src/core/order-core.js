@@ -7,7 +7,6 @@
     import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
     import { getJSON } from '../lib/kv.js'; 
     import { applyVoucher } from '../modules/vouchers.js'; 
-    import { shouldAdjustStock } from './order-helpers.js'; // ✅ Import helper check kho
     
     // ===================================================================
     // Helper: Auto Freeship Logic (Di chuyển từ orders.js)
@@ -828,4 +827,14 @@ export async function deleteOrder(id, env) {
   const result = await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderResult.id).run();
   
   return { success: result.meta.changes > 0, superai_code: orderResult.superai_code };
+}
+
+// ===================================================================
+// 9. CORE HELPERS (Moved to Core to avoid dependency issues)
+// ===================================================================
+const CANCEL_STATUSES = ['cancel', 'cancelled', 'huy', 'huỷ', 'hủy', 'returned', 'return', 'pending'];
+
+function shouldAdjustStock(status) {
+  const s = String(status || '').toLowerCase();
+  return !CANCEL_STATUSES.includes(s);
 }
