@@ -15,35 +15,132 @@ export async function listOrdersFromD1(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
 
   try {
-    const result = await env.DB.prepare(`
-      SELECT o.id as order_id, o.order_number, o.channel, o.channel_order_id, o.status, o.payment_status, o.fulfillment_status,
-        o.customer_name, o.customer_phone, o.customer_email, o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_district, o.shipping_city, o.shipping_province, o.shipping_zipcode,
-        o.subtotal, o.shipping_fee, o.discount, o.total, o.profit, o.commission_fee, o.service_fee, o.seller_transaction_fee, o.escrow_amount, o.buyer_paid_amount, o.coin_used, o.voucher_seller, o.voucher_shopee,
-        o.shop_id, o.shop_name, o.payment_method, o.customer_note, o.admin_note, o.tracking_number, o.superai_code, o.shipping_carrier, o.carrier_id, o.created_at, o.updated_at,
-        oi.product_id, oi.variant_id, oi.sku, oi.name as item_name, oi.variant_name, oi.image, oi.price, oi.cost, oi.quantity, oi.subtotal as item_subtotal, oi.channel_item_id, oi.channel_model_id
-      FROM orders o LEFT JOIN order_items oi ON o.id = oi.order_id ORDER BY o.created_at DESC LIMIT 1000
+    // ✅ BƯỚC 1: LẤY 1000 ĐơN HÀNG TRƯỚC (không JOIN items)
+    const ordersResult = await env.DB.prepare(`
+      SELECT id, order_number, channel, channel_order_id, status, payment_status, fulfillment_status,
+        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
+        shipping_district, shipping_city, shipping_province, shipping_zipcode,
+        subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
+        seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
+        shop_id, shop_name, payment_method, customer_note, admin_note, 
+        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at
+      FROM orders 
+      ORDER BY created_at DESC 
+      LIMIT 1000
     `).all();
 
-    const ordersMap = new Map();
-    for (const row of (result.results || [])) {
-      const orderId = row.order_id;
-      if (!ordersMap.has(orderId)) {
-        let shippingAddr = {}; try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
-        ordersMap.set(orderId, {
-          id: orderId, order_number: row.order_number, status: row.status, payment_status: row.payment_status,
-          customer: { name: row.customer_name, phone: row.customer_phone, email: row.customer_email, address: shippingAddr.address || row.shipping_address || '', district: shippingAddr.district || row.shipping_district || '', city: shippingAddr.city || row.shipping_city || '', province: shippingAddr.province || row.shipping_province || '', ward: shippingAddr.ward || shippingAddr.commune || '' },
-          customer_name: row.customer_name, phone: row.customer_phone,
-          shipping_provider: row.channel === 'shopee' ? 'Shopee' : null, shipping_name: row.channel === 'shopee' ? 'Shopee' : null, tracking_code: row.channel_order_id || '',
-          tracking_number: row.tracking_number || '', superai_code: row.superai_code || '', shipping_carrier: row.shipping_carrier || '', carrier_id: row.carrier_id || '',
-          items: [], subtotal: row.subtotal, shipping_fee: row.shipping_fee, discount: row.discount, revenue: row.total, profit: row.profit,
-          commission_fee: row.commission_fee || 0, service_fee: row.service_fee || 0, seller_transaction_fee: row.seller_transaction_fee || 0, escrow_amount: row.escrow_amount || 0, buyer_paid_amount: row.buyer_paid_amount || 0, coin_used: row.coin_used || 0, voucher_seller: row.voucher_seller || 0, voucher_shopee: row.voucher_shopee || 0,
-          shop_id: row.shop_id, shop_name: row.shop_name, source: row.channel, channel: row.channel, payment_method: row.payment_method, note: row.customer_note || '', createdAt: row.created_at, created_at: row.created_at, updated_at: row.updated_at
-        });
-      }
-      if (row.variant_id || row.sku || row.product_id || row.item_name) {
-        ordersMap.get(orderId).items.push({ id: row.variant_id || row.sku || 'unknown', product_id: row.product_id, sku: row.sku || '', name: row.item_name || 'Sản phẩm', variant: row.variant_name || '', price: row.price || 0, cost: row.cost || 0, qty: row.quantity || 1, subtotal: row.item_subtotal || 0, image: row.image || null, shopee_item_id: row.channel_item_id, shopee_model_id: row.channel_model_id });
-      }
+    const orders = ordersResult.results || [];
+    if (orders.length === 0) {
+      return json({ ok: true, items: [] }, {}, req);
     }
+
+    // ✅ BƯỚC 2: LẤY TẤT CẢ ITEMS CỦA 1000 ĐƠN (1 query duy nhất)
+    const orderIds = orders.map(o => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+    
+    const itemsResult = await env.DB.prepare(`
+      SELECT order_id, product_id, variant_id, sku, name, variant_name, 
+        image, price, cost, quantity, subtotal, channel_item_id, channel_model_id
+      FROM order_items
+      WHERE order_id IN (${placeholders})
+      ORDER BY order_id, id
+    `).bind(...orderIds).all();
+
+    // ✅ BƯỚC 3: MAP ITEMS VÀO TỪNG ĐƠN HÀNG
+    const itemsByOrderId = new Map();
+    for (const item of (itemsResult.results || [])) {
+      if (!itemsByOrderId.has(item.order_id)) {
+        itemsByOrderId.set(item.order_id, []);
+      }
+      
+      // ✅ LUÔN THÊM ITEM (không check điều kiện nữa)
+      itemsByOrderId.get(item.order_id).push({
+        id: item.variant_id || item.sku || 'unknown',
+        product_id: item.product_id,
+        sku: item.sku || '',
+        name: item.name || 'Sản phẩm',
+        variant: item.variant_name || '',
+        price: item.price || 0,
+        cost: item.cost || 0,
+        qty: item.quantity || 1,
+        subtotal: item.subtotal || 0,
+        image: item.image || null,
+        shopee_item_id: item.channel_item_id || '',
+        shopee_model_id: item.channel_model_id || ''
+      });
+    }
+
+    // ✅ BƯỚC 4: TẠO RESPONSE
+    const result = orders.map(row => {
+      let shippingAddr = {};
+      try {
+        if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address);
+      } catch (e) {}
+
+      return {
+        id: row.id,
+        order_number: row.order_number,
+        status: row.status,
+        payment_status: row.payment_status,
+        customer: {
+          name: row.customer_name,
+          phone: row.customer_phone,
+          email: row.customer_email,
+          address: shippingAddr.address || row.shipping_address || '',
+          district: shippingAddr.district || row.shipping_district || '',
+          city: shippingAddr.city || row.shipping_city || '',
+          province: shippingAddr.province || row.shipping_province || '',
+          ward: shippingAddr.ward || shippingAddr.commune || ''
+        },
+        customer_name: row.customer_name,
+        phone: row.customer_phone,
+        shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
+        shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
+        tracking_code: row.channel_order_id || '',
+        tracking_number: row.tracking_number || '',
+        superai_code: row.superai_code || '',
+        shipping_carrier: row.shipping_carrier || '',
+        carrier_id: row.carrier_id || '',
+        
+        // ✅ ITEMS - Luôn có mảng (rỗng hoặc có dữ liệu)
+        items: itemsByOrderId.get(row.id) || [],
+        
+        subtotal: row.subtotal,
+        shipping_fee: row.shipping_fee,
+        discount: row.discount,
+        revenue: row.total,
+        profit: row.profit,
+        commission_fee: row.commission_fee || 0,
+        service_fee: row.service_fee || 0,
+        seller_transaction_fee: row.seller_transaction_fee || 0,
+        escrow_amount: row.escrow_amount || 0,
+        buyer_paid_amount: row.buyer_paid_amount || 0,
+        coin_used: row.coin_used || 0,
+        voucher_seller: row.voucher_seller || 0,
+        voucher_shopee: row.voucher_shopee || 0,
+        shop_id: row.shop_id,
+        shop_name: row.shop_name,
+        source: row.channel,
+        channel: row.channel,
+        payment_method: row.payment_method,
+        note: row.customer_note || '',
+        createdAt: row.created_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      };
+    });
+
+    return json({ ok: true, items: result }, {}, req);
+    
+  } catch (error) {
+    console.error('[ORDER-ADMIN] List orders error:', error);
+    return json({ 
+      ok: false, 
+      error: 'Failed to load orders from D1', 
+      message: error.message 
+    }, { status: 500 }, req);
+  }
+}
     return json({ ok: true, items: Array.from(ordersMap.values()) }, {}, req);
   } catch (error) { return json({ ok: false, error: 'Failed to load orders from D1', message: error.message }, { status: 500 }, req); }
 }
