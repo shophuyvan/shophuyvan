@@ -283,9 +283,15 @@ async function enrichItemsWeight(env, items) {
     const addressCodes = await normalizeOrderAddress(env, order);
     console.log('[ORDER-CORE] Address codes:', addressCodes);
     
+    // ✅ FIX: Parse items an toàn (xử lý trường hợp items là chuỗi JSON)
+    let rawItems = order.items;
+    if (typeof rawItems === 'string') {
+      try { rawItems = JSON.parse(rawItems); } catch (e) { rawItems = []; }
+    }
+    
     // ✅ Enrich items với weight từ variants
-    const items = await enrichItemsWeight(env, Array.isArray(order.items) ? order.items : []);
-    console.log('[ORDER-CORE] Items with weight:', items.length);
+    const items = await enrichItemsWeight(env, Array.isArray(rawItems) ? rawItems : []);
+    console.log(`[ORDER-CORE] Preparing to save ${items.length} items for Order ${order.order_number || order.id}`);
   
     // Map field từ Object sang SQL Column (Khớp 100% với database.sql)
     const sqlOrder = `
@@ -468,16 +474,56 @@ async function enrichItemsWeight(env, items) {
     // Xóa items cũ (để tránh duplicate khi update) và insert lại mới
     const statements = [];
     
-    // ✅ FIX: Chỉ xóa items cũ NẾU có items mới được gửi lên 
-    // (Ngăn chặn việc xóa mất sản phẩm khi chỉ update trạng thái hoặc phí ship)
+// 3. Xử lý Order Items
+    const statements = [];
+    
+    // ✅ FIX: Logic an toàn cho Items
     if (items && items.length > 0) {
+      console.log(`[ORDER-CORE] Updating items for Order ID ${dbOrderId}. Count: ${items.length}`);
+      
+      // 1. Chỉ xóa items cũ khi chắc chắn có items mới để thay thế
       statements.push(
         env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
       );
+
+      // 2. Tạo lệnh Insert cho từng item
+      for (const item of items) {
+         // Log kiểm tra từng item (có thể tắt sau khi fix xong)
+         // console.log('[ORDER-CORE] Queuing item:', item.sku); 
+
+         statements.push(
+          env.DB.prepare(`
+            INSERT INTO order_items (
+              order_id, product_id, variant_id,
+              sku, name, variant_name,
+              price, quantity, subtotal, image,
+              weight,
+              channel_item_id, channel_model_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            dbOrderId,
+            item.product_id || null, 
+            item.variant_id || item.id || null,  
+            String(item.sku || item.id || ''),
+            String(item.name || item.title || 'Sản phẩm'), // Fallback tên sản phẩm
+            String(item.variant || item.variant_name || ''),
+            Number(item.price || 0), 
+            Number(item.qty || item.quantity || 1), 
+            Number(item.price || 0) * Number(item.qty || item.quantity || 1), 
+            String(item.image || item.img || ''),
+            Number(item.weight || 0),
+            String(item.channel_item_id || ''), 
+            String(item.channel_model_id || '')
+          )
+        );
+      }
+    } else {
+      console.warn(`[ORDER-CORE] ⚠️ No items provided for Order ${dbOrderId}. Skipping item update to preserve existing data.`);
     }
 
-    // ✅ Sử dụng items đã enrich weight
-    for (const item of items) {
+    // Chạy batch insert items
+    if (statements.length > 0) {
+       // ... giữ nguyên code cũ ...
       // ✅ DEBUG: Log item trước khi INSERT
       console.log('[ORDER-CORE] Item to insert:', {
         id: item.id,
