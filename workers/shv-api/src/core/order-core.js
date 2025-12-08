@@ -595,15 +595,32 @@ export async function calculateOrderFinancials(order, env) {
     final_voucher_code = voucher_code_input;
   }
   
-  // 6. Tính Revenue & Profit & Total (FIXED: Tách Ship ra khỏi Revenue)
+  // 6. Tính Revenue & Profit & Total (FIXED: Net Revenue cho Freeship)
   const actualShippingFee = Math.max(0, shipping_fee - best_shipping_discount);
 
-  // [FIX] REVENUE (Trị giá hàng/COD Base) = Tiền hàng - Giảm giá (KHÔNG CỘNG SHIP)
-  // Đây là số sẽ gửi sang SuperAI mục Amount/COD (để SuperAI tự cộng ship)
-  const revenue = Math.max(0, subtotal - final_discount); 
+  // Kiểm tra điều kiện Freeship: Có mã Auto Freeship HOẶC Đơn hàng >= 150k
+  const isFreeShip = best_shipping_discount > 0 || (subtotal >= 150000);
+  
+  let revenue = 0;
+  
+  if (isFreeShip) {
+      // ✅ CASE FREESHIP: Trừ phí ship vào tiền hàng để bù ship (Shop chịu phí)
+      // Revenue = (Tiền hàng - Giảm giá) - Phí ship
+      // VD: Hàng 157.5k, Ship 20k -> Revenue lưu 137.5k. 
+      // Khi SuperAI cộng 20k ship vào -> Khách trả đủ 157.5k.
+      revenue = Math.max(0, subtotal - final_discount - shipping_fee);
+      
+      // Log để debug
+      console.log(`[CORE] 🔥 NET REVENUE (Freeship): Subtotal ${subtotal} - Ship ${shipping_fee} = Revenue ${revenue}`);
+  } else {
+      // ✅ CASE THƯỜNG: Khách chịu ship
+      // Revenue = Tiền hàng - Giảm giá
+      revenue = Math.max(0, subtotal - final_discount);
+  }
 
-  // [FIX] TOTAL (Tổng khách trả thực tế) = Trị giá hàng + Phí ship thực tế
-  const total = revenue + actualShippingFee; 
+  // [FIX] TOTAL (Tổng khách trả thực tế trên hệ thống)
+  // Luôn bằng Revenue + Phí Ship (để hiển thị đúng số tiền khách phải móc ví trả cho Shipper)
+  const total = revenue + shipping_fee; 
 
   // PROFIT (Lợi nhuận) = Doanh thu - Giá vốn
   const profit = Math.max(0, revenue - cost); 
