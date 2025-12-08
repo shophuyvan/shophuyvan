@@ -2,13 +2,15 @@ import { json, errorResponse, corsHeaders } from '../../lib/response.js';
 import { readBody } from '../../lib/utils.js';
 import { validate, SCH } from '../../lib/validator.js';
 import { idemGet, idemSet } from '../../lib/idempotency.js';
-import { calculateOrderFinancials, saveOrderToD1 } from '../../core/order-core.js';
+// Xóa dòng import cũ ở đây
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { 
   authenticateCustomer, normalizePhone, normalizeOrderItems, 
-  enrichItemsWithCostAndPrice, adjustInventory, addPointsToCustomer, 
+  enrichItemsWithCostAndPrice, addPointsToCustomer, 
   ORDER_STATUS, shouldAdjustStock 
 } from './order-helpers.js';
+// Giữ lại dòng đầy đủ nhất ở dưới
+import { calculateOrderFinancials, saveOrderToD1, adjustInventory } from '../../core/order-core.js';
 import { sendToFacebookCAPI, sendOrderNotification, createZaloSignature } from './order-notify.js';
 import { cancelWaybill } from '../shipping/waybill.js';
 

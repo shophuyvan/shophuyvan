@@ -2,143 +2,22 @@ import { json, errorResponse, corsHeaders } from '../../lib/response.js';
 import { adminOK } from '../../lib/auth.js';
 import { getJSON, putJSON } from '../../lib/kv.js';
 import { readBody } from '../../lib/utils.js';
-import { calculateOrderFinancials, saveOrderToD1 } from '../../core/order-core.js';
+import { calculateOrderFinancials, saveOrderToD1, getOrders, deleteOrder as coreDeleteOrder, adjustInventory } from '../../core/order-core.js';
 import { autoCreateWaybill, cancelWaybill } from '../shipping/waybill.js';
 import { markVoucherUsed } from '../vouchers.js';
 import { lookupProvinceCode, lookupDistrictCode, chargeableWeightGrams } from '../shipping/helpers.js';
 import { 
-  addPointsToCustomer, adjustInventory, formatPrice, shouldAdjustStock, ORDER_STATUS 
+  addPointsToCustomer, formatPrice, shouldAdjustStock, ORDER_STATUS 
 } from './order-helpers.js';
 
-// List Orders D1 (Optimized)
+// List Orders D1 (Refactored to Core)
 export async function listOrdersFromD1(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
-
   try {
-    // ✅ BƯỚC 1: LẤY 1000 ĐơN HÀNG TRƯỚC (không JOIN items)
-    const ordersResult = await env.DB.prepare(`
-      SELECT id, order_number, channel, channel_order_id, status, payment_status, fulfillment_status,
-        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
-        shipping_district, shipping_city, shipping_province, shipping_zipcode,
-        subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
-        seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
-        shop_id, shop_name, payment_method, customer_note, admin_note, 
-        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at
-      FROM orders 
-      ORDER BY created_at DESC 
-      LIMIT 1000
-    `).all();
-
-    const orders = ordersResult.results || [];
-    if (orders.length === 0) {
-      return json({ ok: true, items: [] }, {}, req);
-    }
-
-    // ✅ BƯỚC 2: LẤY TẤT CẢ ITEMS CỦA 1000 ĐƠN (1 query duy nhất)
-    const orderIds = orders.map(o => o.id);
-    const placeholders = orderIds.map(() => '?').join(',');
-    
-    const itemsResult = await env.DB.prepare(`
-      SELECT order_id, product_id, variant_id, sku, name, variant_name, 
-        image, price, cost, quantity, subtotal, channel_item_id, channel_model_id
-      FROM order_items
-      WHERE order_id IN (${placeholders})
-      ORDER BY order_id, id
-    `).bind(...orderIds).all();
-
-    // ✅ BƯỚC 3: MAP ITEMS VÀO TỪNG ĐƠN HÀNG
-    const itemsByOrderId = new Map();
-    for (const item of (itemsResult.results || [])) {
-      if (!itemsByOrderId.has(item.order_id)) {
-        itemsByOrderId.set(item.order_id, []);
-      }
-      
-      // ✅ LUÔN THÊM ITEM (không check điều kiện nữa)
-      itemsByOrderId.get(item.order_id).push({
-        id: item.variant_id || item.sku || 'unknown',
-        product_id: item.product_id,
-        sku: item.sku || '',
-        name: item.name || 'Sản phẩm',
-        variant: item.variant_name || '',
-        price: item.price || 0,
-        cost: item.cost || 0,
-        qty: item.quantity || 1,
-        subtotal: item.subtotal || 0,
-        image: item.image || null,
-        shopee_item_id: item.channel_item_id || '',
-        shopee_model_id: item.channel_model_id || ''
-      });
-    }
-
-    // ✅ BƯỚC 4: TẠO RESPONSE
-    const result = orders.map(row => {
-      let shippingAddr = {};
-      try {
-        if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address);
-      } catch (e) {}
-
-      return {
-        id: row.id,
-        order_number: row.order_number,
-        status: row.status,
-        payment_status: row.payment_status,
-        customer: {
-          name: row.customer_name,
-          phone: row.customer_phone,
-          email: row.customer_email,
-          address: shippingAddr.address || row.shipping_address || '',
-          district: shippingAddr.district || row.shipping_district || '',
-          city: shippingAddr.city || row.shipping_city || '',
-          province: shippingAddr.province || row.shipping_province || '',
-          ward: shippingAddr.ward || shippingAddr.commune || ''
-        },
-        customer_name: row.customer_name,
-        phone: row.customer_phone,
-        shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
-        shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
-        tracking_code: row.channel_order_id || '',
-        tracking_number: row.tracking_number || '',
-        superai_code: row.superai_code || '',
-        shipping_carrier: row.shipping_carrier || '',
-        carrier_id: row.carrier_id || '',
-        
-        // ✅ ITEMS - Luôn có mảng (rỗng hoặc có dữ liệu)
-        items: itemsByOrderId.get(row.id) || [],
-        
-        subtotal: row.subtotal,
-        shipping_fee: row.shipping_fee,
-        discount: row.discount,
-        revenue: row.total,
-        profit: row.profit,
-        commission_fee: row.commission_fee || 0,
-        service_fee: row.service_fee || 0,
-        seller_transaction_fee: row.seller_transaction_fee || 0,
-        escrow_amount: row.escrow_amount || 0,
-        buyer_paid_amount: row.buyer_paid_amount || 0,
-        coin_used: row.coin_used || 0,
-        voucher_seller: row.voucher_seller || 0,
-        voucher_shopee: row.voucher_shopee || 0,
-        shop_id: row.shop_id,
-        shop_name: row.shop_name,
-        source: row.channel,
-        channel: row.channel,
-        payment_method: row.payment_method,
-        note: row.customer_note || '',
-        createdAt: row.created_at,
-        created_at: row.created_at,
-        updated_at: row.updated_at
-      };
-    });
-
-    return json({ ok: true, items: result }, {}, req);
-    
+    const items = await getOrders(env, 500); // Call Core
+    return json({ ok: true, items }, {}, req);
   } catch (error) {
-    console.error('[ORDER-ADMIN] List orders error:', error);
-    return json({ 
-      ok: false, 
-      error: 'Failed to load orders from D1', 
-      message: error.message 
-    }, { status: 500 }, req);
+    return json({ ok: false, error: 'Failed to load orders', message: error.message }, { status: 500 }, req);
   }   
 }
 
@@ -228,7 +107,7 @@ export async function upsertOrder(req, env) {
   return json({ ok: true, id: order.id, data: order }, {}, req);
 }
 
-// Delete Order
+// Delete Order (Refactored to Core)
 export async function deleteOrder(req, env) {
   if (!(await adminOK(req, env))) return errorResponse('Unauthorized', 401, req);
   const body = await readBody(req) || {};
@@ -236,28 +115,17 @@ export async function deleteOrder(req, env) {
   if (!id) return errorResponse('ID is required', 400, req);
 
   try {
-    const orderResult = await env.DB.prepare('SELECT * FROM orders WHERE id = ? OR order_number = ?').bind(id, id).first();
-    if (!orderResult) return errorResponse('Order not found', 404, req);
-
-    if (shouldAdjustStock(orderResult.status)) {
-      try {
-        const itemsResult = await env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?').bind(orderResult.id).all();
-        if (itemsResult.results && itemsResult.results.length > 0) {
-          const items = itemsResult.results.map(item => ({ id: item.variant_id, product_id: item.product_id, sku: item.sku, name: item.name, variant: item.variant_name || '', qty: item.quantity, price: item.price, cost: item.cost || 0 }));
-          await adjustInventory(items, env, +1);
-        }
-      } catch (e) {}
+    // Gọi Core để xóa DB và hoàn kho
+    const result = await coreDeleteOrder(id, env);
+    
+    // Xử lý phụ: Hủy vận đơn bên ngoài (Admin Service Only)
+    if (result.superai_code) {
+      try { 
+        await cancelWaybill({ body: JSON.stringify({ superai_code: result.superai_code }), headers: req.headers }, env); 
+      } catch (e) { console.warn('Failed to cancel waybill external:', e); }
     }
 
-    if (orderResult.superai_code) {
-      try { await cancelWaybill({ body: JSON.stringify({ superai_code: orderResult.superai_code }), headers: req.headers }, env); } catch (e) {}
-    }
-
-    await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderResult.id).run();
-    const result = await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderResult.id).run();
-
-    if (result.meta.changes > 0) return json({ ok: true, deleted: id, message: 'Đã xóa đơn hàng' }, {}, req);
-    else return errorResponse('Không thể xóa đơn hàng', 500, req);
+    return json({ ok: true, deleted: id, message: 'Đã xóa đơn hàng' }, {}, req);
   } catch (e) { return errorResponse(e.message, 500, req); }
 }
 

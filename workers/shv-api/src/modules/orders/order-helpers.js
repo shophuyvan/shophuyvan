@@ -119,29 +119,7 @@ export function normalizeOrderItems(items) {
   });
 }
 
-// Adjust Inventory (D1)
-export async function adjustInventory(items, env, direction = -1) {
-  console.log('[INV] Adjusting inventory D1', { itemCount: items?.length, direction });
-  for (const it of (items || [])) {
-    const variantId = it.id || it.variant_id;
-    const sku = it.sku;
-    if (!variantId && !sku) continue;
-
-    try {
-      let variant = null;
-      if (variantId) variant = await env.DB.prepare('SELECT * FROM variants WHERE id = ?').bind(variantId).first();
-      if (!variant && sku) variant = await env.DB.prepare('SELECT * FROM variants WHERE sku = ?').bind(sku).first();
-
-      if (!variant) continue;
-      const delta = Number(it.qty || 1) * direction;
-      const oldStock = Number(variant.stock || 0);
-      const newStock = Math.max(0, oldStock + delta);
-
-      await env.DB.prepare('UPDATE variants SET stock = ?, updated_at = ? WHERE id = ?').bind(newStock, Date.now(), variant.id).run();
-      await env.DB.prepare('INSERT INTO stock_logs (variant_id, old_stock, new_stock, change, reason, channel, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(variant.id, oldStock, newStock, delta, direction === -1 ? 'order' : 'return', it.channel || 'website', Date.now()).run();
-    } catch (err) { console.error('[INV] Error:', err); }
-  }
-}
+// Adjust Inventory (D1) -> MOVED TO order-core.js
 
 // Enrich Items from Product Core
 export async function enrichItemsWithCostAndPrice(items, env) {

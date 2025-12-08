@@ -5,8 +5,9 @@
     // ===============================================
     
     import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
-    import { getJSON } from '../lib/kv.js'; // Cần import để đọc settings/vouchers
-    import { applyVoucher } from '../modules/vouchers.js'; // Cần import để áp dụng voucher nếu có
+    import { getJSON } from '../lib/kv.js'; 
+    import { applyVoucher } from '../modules/vouchers.js'; 
+    import { shouldAdjustStock } from './order-helpers.js'; // ✅ Import helper check kho
     
     // ===================================================================
     // Helper: Auto Freeship Logic (Di chuyển từ orders.js)
@@ -656,4 +657,175 @@ export async function calculateOrderFinancials(order, env) {
   order.voucher_code = final_voucher_code;
   
   return order;
+}
+
+// ===================================================================
+// 6. INVENTORY MANAGEMENT (Moved from Helpers)
+// ===================================================================
+export async function adjustInventory(items, env, direction = -1) {
+  console.log('[CORE-INV] Adjusting inventory D1', { itemCount: items?.length, direction });
+  for (const it of (items || [])) {
+    const variantId = it.id || it.variant_id;
+    const sku = it.sku;
+    if (!variantId && !sku) continue;
+
+    try {
+      let variant = null;
+      if (variantId) variant = await env.DB.prepare('SELECT * FROM variants WHERE id = ?').bind(variantId).first();
+      if (!variant && sku) variant = await env.DB.prepare('SELECT * FROM variants WHERE sku = ?').bind(sku).first();
+
+      if (!variant) continue;
+      const delta = Number(it.qty || 1) * direction;
+      const oldStock = Number(variant.stock || 0);
+      const newStock = Math.max(0, oldStock + delta);
+
+      await env.DB.prepare('UPDATE variants SET stock = ?, updated_at = ? WHERE id = ?').bind(newStock, Date.now(), variant.id).run();
+      await env.DB.prepare('INSERT INTO stock_logs (variant_id, old_stock, new_stock, change, reason, channel, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(variant.id, oldStock, newStock, delta, direction === -1 ? 'order' : 'return', it.channel || 'website', Date.now()).run();
+    } catch (err) { console.error('[CORE-INV] Error:', err); }
+  }
+}
+
+// ===================================================================
+// 7. GET ORDERS (Moved from Admin)
+// ===================================================================
+export async function getOrders(env, limit = 500) {
+  try {
+    // 1. Lấy danh sách Orders
+    const ordersResult = await env.DB.prepare(`
+      SELECT id, order_number, channel, channel_order_id, status, payment_status, fulfillment_status,
+        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
+        shipping_district, shipping_city, shipping_province, shipping_zipcode,
+        subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
+        seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
+        shop_id, shop_name, payment_method, customer_note, admin_note, 
+        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at
+      FROM orders 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).bind(limit).all();
+
+    const orders = ordersResult.results || [];
+    if (orders.length === 0) return [];
+
+    // 2. Batch Query Items
+    const orderIds = orders.map(o => o.id);
+    const BATCH_SIZE = 500;
+    const itemsByOrderId = new Map();
+
+    for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+      const batchIds = orderIds.slice(i, i + BATCH_SIZE);
+      const placeholders = batchIds.map(() => '?').join(',');
+      try {
+        const itemsResult = await env.DB.prepare(`
+          SELECT order_id, product_id, variant_id, sku, name, variant_name, 
+            image, price, cost, quantity, subtotal, channel_item_id, channel_model_id
+          FROM order_items WHERE order_id IN (${placeholders}) ORDER BY order_id, id
+        `).bind(...batchIds).all();
+
+        for (const item of (itemsResult.results || [])) {
+          if (!itemsByOrderId.has(item.order_id)) itemsByOrderId.set(item.order_id, []);
+          itemsByOrderId.get(item.order_id).push({
+            id: item.variant_id || item.sku || 'unknown',
+            product_id: item.product_id,
+            sku: item.sku || '',
+            name: item.name || 'Sản phẩm',
+            variant: item.variant_name || '',
+            price: item.price || 0,
+            cost: item.cost || 0,
+            qty: item.quantity || 1,
+            subtotal: item.subtotal || 0,
+            image: item.image || null,
+            shopee_item_id: item.channel_item_id || '',
+            shopee_model_id: item.channel_model_id || ''
+          });
+        }
+      } catch (e) { console.error('[CORE] Batch items error:', e); }
+    }
+
+    // 3. Map kết quả
+    return orders.map(row => {
+      let shippingAddr = {};
+      try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
+      return {
+        id: row.id,
+        order_number: row.order_number,
+        status: row.status,
+        payment_status: row.payment_status,
+        customer: {
+          name: row.customer_name,
+          phone: row.customer_phone,
+          email: row.customer_email,
+          address: shippingAddr.address || row.shipping_address || '',
+          district: shippingAddr.district || row.shipping_district || '',
+          city: shippingAddr.city || row.shipping_city || '',
+          province: shippingAddr.province || row.shipping_province || '',
+          ward: shippingAddr.ward || shippingAddr.commune || ''
+        },
+        customer_name: row.customer_name,
+        phone: row.customer_phone,
+        shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
+        shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
+        tracking_code: row.channel_order_id || '',
+        tracking_number: row.tracking_number || '',
+        superai_code: row.superai_code || '',
+        shipping_carrier: row.shipping_carrier || '',
+        carrier_id: row.carrier_id || '',
+        items: itemsByOrderId.get(row.id) || [],
+        subtotal: row.subtotal,
+        shipping_fee: row.shipping_fee,
+        discount: row.discount,
+        revenue: row.total,
+        profit: row.profit,
+        commission_fee: row.commission_fee || 0,
+        service_fee: row.service_fee || 0,
+        seller_transaction_fee: row.seller_transaction_fee || 0,
+        escrow_amount: row.escrow_amount || 0,
+        buyer_paid_amount: row.buyer_paid_amount || 0,
+        coin_used: row.coin_used || 0,
+        voucher_seller: row.voucher_seller || 0,
+        voucher_shopee: row.voucher_shopee || 0,
+        shop_id: row.shop_id,
+        shop_name: row.shop_name,
+        source: row.channel,
+        channel: row.channel,
+        payment_method: row.payment_method,
+        note: row.customer_note || '',
+        createdAt: row.created_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      };
+    });
+  } catch (e) {
+    console.error('[CORE] Get Orders Failed:', e);
+    throw e;
+  }
+}
+
+// ===================================================================
+// 8. DELETE ORDER (Moved from Admin)
+// ===================================================================
+export async function deleteOrder(id, env) {
+  console.log('[CORE] Deleting order:', id);
+  const orderResult = await env.DB.prepare('SELECT * FROM orders WHERE id = ? OR order_number = ?').bind(id, id).first();
+  if (!orderResult) throw new Error('Order not found');
+
+  // Hoàn kho nếu cần
+  if (shouldAdjustStock(orderResult.status)) {
+    const itemsResult = await env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?').bind(orderResult.id).all();
+    if (itemsResult.results?.length > 0) {
+      const items = itemsResult.results.map(item => ({ 
+        id: item.variant_id, 
+        sku: item.sku, 
+        qty: item.quantity,
+        channel: orderResult.channel 
+      }));
+      await adjustInventory(items, env, +1); // +1 là trả lại kho
+    }
+  }
+
+  // Xóa Items và Order
+  await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderResult.id).run();
+  const result = await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderResult.id).run();
+  
+  return { success: result.meta.changes > 0, superai_code: orderResult.superai_code };
 }
