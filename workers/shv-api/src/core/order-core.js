@@ -468,9 +468,13 @@ async function enrichItemsWeight(env, items) {
     // Xóa items cũ (để tránh duplicate khi update) và insert lại mới
     const statements = [];
     
-    statements.push(
-      env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
-    );
+    // ✅ FIX: Chỉ xóa items cũ NẾU có items mới được gửi lên 
+    // (Ngăn chặn việc xóa mất sản phẩm khi chỉ update trạng thái hoặc phí ship)
+    if (items && items.length > 0) {
+      statements.push(
+        env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
+      );
+    }
 
     // ✅ Sử dụng items đã enrich weight
     for (const item of items) {
