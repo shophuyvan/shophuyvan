@@ -273,6 +273,11 @@ async function enrichItemsWeight(env, items) {
   // 4. SAVE ORDER TO D1 (CORE FUNCTION)
   // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
   export async function saveOrderToD1(env, order) {
+    
+    // ✅ KÍCH HOẠT LOGIC: Tính toán lại Revenue/Total (Trừ ship nếu >150k)
+    // Nếu thiếu dòng này, logic Freeship bạn viết ở dưới sẽ không bao giờ chạy.
+    order = await calculateOrderFinancials(order, env);
+
     console.log('[ORDER-CORE] Saving order to D1:', order.order_number || order.id);
   
     // 1. Chuẩn bị dữ liệu Order
