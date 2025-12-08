@@ -139,10 +139,7 @@ export async function listOrdersFromD1(req, env) {
       error: 'Failed to load orders from D1', 
       message: error.message 
     }, { status: 500 }, req);
-  }
-}
-    return json({ ok: true, items: Array.from(ordersMap.values()) }, {}, req);
-  } catch (error) { return json({ ok: false, error: 'Failed to load orders from D1', message: error.message }, { status: 500 }, req); }
+  }   
 }
 
 // Alias for compatibility
