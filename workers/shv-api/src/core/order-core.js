@@ -649,8 +649,11 @@ export async function adjustInventory(items, env, direction = -1) {
             subtotal: row.subtotal,
             shipping_fee: row.shipping_fee,
             discount: row.discount,
-            revenue: row.total,
-            total: row.total,
+            
+            // ✅ LOGIC MỚI: Nếu đơn >= 150k thì trừ ship, ngược lại giữ nguyên
+            revenue: (row.subtotal >= 150000) ? (row.subtotal - row.shipping_fee) : row.subtotal,
+            
+            total: row.total, // Tổng tiền khách trả
             profit: row.profit,
             
             commission_fee: row.commission_fee || 0,
