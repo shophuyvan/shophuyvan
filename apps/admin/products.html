@@ -772,13 +772,8 @@ async function load(forceRefresh = false) {
     
     // ✅ Filter theo search + tab
     let filtered = allProducts.filter(p => {
-      // Search filter
-      const t = (p.title || p.name || '').toLowerCase();
-      const slug = String(p.slug || '').toLowerCase();
-      const sku = String(p.sku || '').toLowerCase();
-      const matchSearch = !q || t.includes(q) || slug.includes(q) || sku.includes(q);
-      
-      if (!matchSearch) return false;
+      // FIX: Bỏ filter search ở client vì server đã trả về kết quả tìm kiếm đúng.
+      // Filter ở đây sẽ làm sai lệch kết quả (ví dụ tìm không dấu nhưng tên có dấu).
       
       // Tab filter
       const stock = Number(p.stockTotal || p.stock || 0);
