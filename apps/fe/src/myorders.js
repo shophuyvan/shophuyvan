@@ -90,9 +90,28 @@ function renderOrder(order) {
   const items = order.items || [];
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
   
-  // ✅ Lấy tổng tiền trực tiếp từ Core (Đã bao gồm logic giảm giá/sửa giá Admin)
-  // Tuyệt đối không tự tính toán lại ở Client
-  const totalAmount = Number(order.total || order.totalAmount || order.grand_total || 0);
+  // 🔍 DEBUG: In dữ liệu đơn hàng ra Console để kiểm tra tên biến chứa giá tiền
+  console.log('Order Debug ID:', order.id, order);
+
+  // ✅ Thử tìm tổng tiền ở nhiều biến khác nhau (Core mapping)
+  let totalAmount = Number(
+    order.total || 
+    order.totalAmount || 
+    order.grand_total || 
+    order.total_price || 
+    order.final_price || 
+    order.amount || 
+    (order.payment && order.payment.amount) || 
+    0
+  );
+
+  // ⚠️ FALLBACK: Nếu Core vẫn trả về 0, tạm thời tính tay để không hiện "0đ" (tránh lỗi UI)
+  if (totalAmount === 0) {
+    const sub = Number(order.subtotal || 0);
+    const ship = Number(order.shipping_fee || 0);
+    const disc = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+    totalAmount = Math.max(0, sub + ship - disc);
+  }
   
   // ✅ Thông tin khách hàng
   const customer = order.customer || {};
