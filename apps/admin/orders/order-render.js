@@ -88,118 +88,125 @@ export function renderSourceFilter(currentSourceFilter, onChange) {
   else toolbar.appendChild(filterContainer);
 }
 
-// Render Chi Tiết Đơn Hàng (Modal)
-export function renderOrderDetail(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
+  // Render Chi Tiết Đơn Hàng (Modal)
+  export function renderOrderDetail(order) {
+  // ✅ FIX: Parse items nếu là string JSON (cơ chế Snapshot)
+  let items = order.items;
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e){} }
+  if (!Array.isArray(items)) items = [];
+
   const { subtotal, shipping, discount, total } = calculateOrderTotals(order);
-
-  const customer = order.customer || {};
-  const custName = customer.name || order.customer_name || order.name || 'Khách';
-  const custPhone = customer.phone || order.phone || '';
-  const address = order.address || customer.address || '';
-  const shipName = order.shipping_name || order.ship_name || order.shipping_provider || order.provider || '';
-  const tracking = order.tracking_code || order.shipping_tracking || '';
-  const eta = order.shipping_eta || '';
-  const created = formatDate(order.createdAt || order.created_at);
-
-  const itemRows = items.map(item => `
-    <tr>
-      <td>${item.sku || item.id || ''}</td>
-      <td>${item.name || ''}${item.variant ? (' - ' + item.variant) : ''}</td>
-      <td style="text-align:right">${item.qty || 1}</td>
-      <td style="text-align:right">${formatPrice(item.price || 0)}</td>
-      <td style="text-align:right">${formatPrice(item.cost || 0)}</td>
-      <td style="text-align:right">${formatPrice((item.price || 0) * (item.qty || 1))}</td>
-    </tr>
-  `).join('');
-
-  return `
-    <div style="margin-bottom:8px">
-      <div><b>Khách:</b> ${custName}${custPhone ? ' • ' + custPhone : ''}</div>
-      ${address ? `<div><b>Địa chỉ:</b> ${address}</div>` : ''}
-      ${shipName ? `<div><b>Vận chuyển:</b> ${shipName}${tracking ? ' • Mã: ' + tracking : ''}${eta ? ' • ' + eta : ''}</div>` : ''}
-      ${created ? `<div><b>Ngày tạo:</b> ${created}</div>` : ''}
-      <div><b>Trạng thái:</b> ${order.status || 'pending'}</div>
-    </div>
-    <div class="card">
-      <table class="table md-table">
-        <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
-        <tbody>${itemRows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
-      </table>
-      <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
-        <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${formatPrice(subtotal)}</b></div>
-        <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${formatPrice(shipping)}</b></div>
-        ${discount ? `<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-${formatPrice(discount)}</b></div>` : ''}
-        <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${formatPrice(total)}</b></div>
-      </div>
-    </div>
-  `;
-}
-
-// Render 1 Dòng Đơn Hàng (Desktop + Mobile)
-export function renderOrderRow(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
   
-  // ✅ REMOVED: costTotal, profit khỏi destructuring vì không dùng nữa
-  const { subtotal, shipping, revenue, total } = calculateOrderTotals(order);
-
-  const customer = order.customer || {};
-  const custName = customer.name || order.customer_name || order.name || 'Khách';
-  const custPhone = customer.phone || order.phone || '';
-  const fullAddress = [customer.address || order.address, customer.ward || order.ward, customer.district || order.district, customer.province || order.province].filter(Boolean).join(', ');
-
-  const provider = String(order.carrier_name || order.shipping_provider || order.provider || order.shipping_name || '');
+    const customer = order.customer || {};
+    const custName = customer.name || order.customer_name || order.name || 'Khách';
+    const custPhone = customer.phone || order.phone || '';
+    const address = order.address || customer.address || '';
+    const shipName = order.shipping_name || order.ship_name || order.shipping_provider || order.provider || '';
+    const tracking = order.tracking_code || order.shipping_tracking || '';
+    const eta = order.shipping_eta || '';
+    const created = formatDate(order.createdAt || order.created_at);
   
-  let trackingRaw = String(order.tracking_number || order.carrier_code || order.tracking_code || order.shipping_tracking || '');
-  if (trackingRaw.length > 30 || trackingRaw.includes('-')) trackingRaw = ''; 
-  const tracking = trackingRaw;
+    const itemRows = items.map(item => `
+      <tr>
+        <td>${item.sku || item.id || ''}</td>
+        <td>${item.name || ''}${item.variant ? (' - ' + item.variant) : ''}</td>
+        <td style="text-align:right">${item.qty || 1}</td>
+        <td style="text-align:right">${formatPrice(item.price || 0)}</td>
+        <td style="text-align:right">${formatPrice(item.cost || 0)}</td>
+        <td style="text-align:right">${formatPrice((item.price || 0) * (item.qty || 1))}</td>
+      </tr>
+    `).join('');
   
-  const superaiCode = String(order.superai_code || '');
-  const created = formatDate(order.created_at || order.createdAt || order.createdAtMs);
-  const source = String(order.source || order.channel || order.platform || 'Web'); 
-  const rawSource = source.toLowerCase();
-  const orderId = String(order.id || '');
-  const orderStatus = String(order.status || 'pending').toLowerCase();
-
-  // Badges
-  let sourceBadge = `<span style="background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #d1d5db;font-weight:600">WEB</span>`;
-  if (rawSource.includes('shopee')) sourceBadge = `<span style="background:#fff0e6;color:#ee4d2d;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #ffcbb8;font-weight:600">SHOPEE</span>`;
-  else if (rawSource.includes('lazada')) sourceBadge = `<span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #c7d2fe;font-weight:600">LAZADA</span>`;
-  else if (rawSource.includes('tiktok')) sourceBadge = `<span style="background:#18181b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">TIKTOK</span>`;
-  else if (rawSource.includes('zalo') || rawSource.includes('mini')) sourceBadge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #93c5fd;font-weight:600">ZALO</span>`;
-  else if (rawSource.includes('pos')) sourceBadge = `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #fde68a;font-weight:600">POS</span>`;
-
-  const statusMap = {
-    'pending': { text: 'Chờ xác nhận', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
-    'unpaid':  { text: 'Chờ thanh toán', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
-    'processing': { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
-    'confirmed': { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
-    'shipping': { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
-    'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-    'completed': { text: 'Hoàn thành', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-    'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-    'returned': { text: 'Đã hoàn tiền', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' }
-  };
-  const stInfo = statusMap[orderStatus] || { text: orderStatus, color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
-  const statusHTML = `<span style="background:${stInfo.bg};color:${stInfo.color};padding:4px 8px;border-radius:12px;font-weight:600;font-size:12px;border:1px solid ${stInfo.border};display:inline-block;white-space:nowrap">${stInfo.text}</span>`;
-
-  // Items
-  const itemsHTML = items.map(item => {
-    let img = item.image || item.img || item.variantImage || item.product_image || '';
-    img = img ? cloudify(img, 'w_100,h_100,q_auto,f_auto,c_pad') : getPlaceholderImage();
-    const itemTitle = String(item.name || item.title || 'Sản phẩm');
-    const variantName = item.variant || item.variantName || item.variant_name || item.properties || '';
     return `
-      <div class="order-item">
-        <img src="${img}" alt="${itemTitle}" class="item-img"/>
-        <div class="item-info">
-          <div class="item-name">${itemTitle}</div>
-          ${variantName ? `<div class="item-variant">${variantName}</div>` : ''}
-          <div class="item-price-qty"><span class="item-price">${formatPrice(item.price)}</span><span class="item-qty">x${item.qty||1}</span></div>
+      <div style="margin-bottom:8px">
+        <div><b>Khách:</b> ${custName}${custPhone ? ' • ' + custPhone : ''}</div>
+        ${address ? `<div><b>Địa chỉ:</b> ${address}</div>` : ''}
+        ${shipName ? `<div><b>Vận chuyển:</b> ${shipName}${tracking ? ' • Mã: ' + tracking : ''}${eta ? ' • ' + eta : ''}</div>` : ''}
+        ${created ? `<div><b>Ngày tạo:</b> ${created}</div>` : ''}
+        <div><b>Trạng thái:</b> ${order.status || 'pending'}</div>
+      </div>
+      <div class="card">
+        <table class="table md-table">
+          <thead><tr><th>Mã SP</th><th>Tên/Phân loại</th><th>SL</th><th>Giá bán</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
+          <tbody>${itemRows || '<tr><td colspan="6" style="color:#6b7280">Không có dòng hàng</td></tr>'}</tbody>
+        </table>
+        <div style="border-top:1px dashed #e5e7eb;margin-top:8px;padding-top:8px">
+          <div style="display:flex;justify-content:space-between"><span>Tổng hàng</span><b>${formatPrice(subtotal)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>Phí vận chuyển</span><b>${formatPrice(shipping)}</b></div>
+          ${discount ? `<div style="display:flex;justify-content:space-between;color:#059669"><span>Giảm</span><b>-${formatPrice(discount)}</b></div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:16px"><span>Tổng thanh toán</span><b>${formatPrice(total)}</b></div>
         </div>
       </div>
     `;
-  }).join('');
+  }
+  
+  // Render 1 Dòng Đơn Hàng (Desktop + Mobile)
+    export function renderOrderRow(order) {
+      // ✅ FIX: Parse items nếu là string JSON (cơ chế Snapshot)
+      let items = order.items;
+      if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e){} }
+      if (!Array.isArray(items)) items = [];
+      
+      // ✅ REMOVED: costTotal, profit khỏi destructuring vì không dùng nữa
+    const { subtotal, shipping, revenue, total } = calculateOrderTotals(order);
+  
+    const customer = order.customer || {};
+    const custName = customer.name || order.customer_name || order.name || 'Khách';
+    const custPhone = customer.phone || order.phone || '';
+    const fullAddress = [customer.address || order.address, customer.ward || order.ward, customer.district || order.district, customer.province || order.province].filter(Boolean).join(', ');
+  
+    const provider = String(order.carrier_name || order.shipping_provider || order.provider || order.shipping_name || '');
+    
+    let trackingRaw = String(order.tracking_number || order.carrier_code || order.tracking_code || order.shipping_tracking || '');
+    if (trackingRaw.length > 30 || trackingRaw.includes('-')) trackingRaw = ''; 
+    const tracking = trackingRaw;
+    
+    const superaiCode = String(order.superai_code || '');
+    const created = formatDate(order.created_at || order.createdAt || order.createdAtMs);
+    const source = String(order.source || order.channel || order.platform || 'Web'); 
+    const rawSource = source.toLowerCase();
+    const orderId = String(order.id || '');
+    const orderStatus = String(order.status || 'pending').toLowerCase();
+  
+    // Badges
+    let sourceBadge = `<span style="background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #d1d5db;font-weight:600">WEB</span>`;
+    if (rawSource.includes('shopee')) sourceBadge = `<span style="background:#fff0e6;color:#ee4d2d;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #ffcbb8;font-weight:600">SHOPEE</span>`;
+    else if (rawSource.includes('lazada')) sourceBadge = `<span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #c7d2fe;font-weight:600">LAZADA</span>`;
+    else if (rawSource.includes('tiktok')) sourceBadge = `<span style="background:#18181b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">TIKTOK</span>`;
+    else if (rawSource.includes('zalo') || rawSource.includes('mini')) sourceBadge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #93c5fd;font-weight:600">ZALO</span>`;
+    else if (rawSource.includes('pos')) sourceBadge = `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:11px;border:1px solid #fde68a;font-weight:600">POS</span>`;
+  
+    const statusMap = {
+      'pending': { text: 'Chờ xác nhận', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+      'unpaid':  { text: 'Chờ thanh toán', color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+      'processing': { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
+      'confirmed': { text: 'Chờ lấy hàng', color: '#b45309', bg: '#fff7ed', border: '#fed7aa' },
+      'shipping': { text: 'Đang giao', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+      'delivered': { text: 'Đã giao', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+      'completed': { text: 'Hoàn thành', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+      'cancelled': { text: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+      'returned': { text: 'Đã hoàn tiền', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' }
+    };
+    const stInfo = statusMap[orderStatus] || { text: orderStatus, color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
+    const statusHTML = `<span style="background:${stInfo.bg};color:${stInfo.color};padding:4px 8px;border-radius:12px;font-weight:600;font-size:12px;border:1px solid ${stInfo.border};display:inline-block;white-space:nowrap">${stInfo.text}</span>`;
+  
+    // Items
+    const itemsHTML = items.map(item => {
+      let img = item.image || item.img || item.variantImage || item.product_image || '';
+      img = img ? cloudify(img, 'w_100,h_100,q_auto,f_auto,c_pad') : getPlaceholderImage();
+      const itemTitle = String(item.name || item.title || 'Sản phẩm');
+      const variantName = item.variant || item.variantName || item.variant_name || item.properties || '';
+      return `
+        <div class="order-item">
+          <img src="${img}" alt="${itemTitle}" class="item-img"/>
+          <div class="item-info">
+            <div class="item-name">${itemTitle}</div>
+            ${variantName ? `<div class="item-variant">${variantName}</div>` : ''}
+            <div class="item-price-qty"><span class="item-price">${formatPrice(item.price)}</span><span class="item-qty">x${item.qty||1}</span></div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
   // Desktop Card - ✅ ĐÃ XÓA DÒNG LỢI NHUẬN
   const desktopCard = `

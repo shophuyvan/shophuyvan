@@ -298,10 +298,11 @@ async function enrichItemsWeight(env, items) {
     const items = await enrichItemsWeight(env, Array.isArray(rawItems) ? rawItems : []);
     console.log(`[ORDER-CORE] Preparing to save ${items.length} items for Order ${order.order_number || order.id}`);
   
-    // Map field từ Object sang SQL Column (Khớp 100% với database.sql)
+    // Map field từ Object sang SQL Column
     const sqlOrder = `
     INSERT INTO orders (
       order_number, channel, channel_order_id,
+      items_json, -- ✅ [NEW] Snapshot toàn bộ items
       customer_name, customer_phone, customer_email,
       shipping_name, shipping_phone, shipping_address,
       shipping_district, shipping_city, shipping_province, shipping_zipcode,
@@ -317,8 +318,9 @@ async function enrichItemsWeight(env, items) {
       commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
       created_at, updated_at
-  ) VALUES (
+    ) VALUES (
       ?, ?, ?,
+      ?, -- ✅ [NEW] Placeholder cho items_json
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
@@ -340,7 +342,8 @@ async function enrichItemsWeight(env, items) {
       updated_at = excluded.updated_at,
       tracking_number = excluded.tracking_number,
       shipping_carrier = excluded.shipping_carrier,
-      superai_code = excluded.superai_code
+      superai_code = excluded.superai_code,
+      items_json = excluded.items_json -- ✅ [NEW] Cập nhật snapshot nếu đơn hàng thay đổi
     RETURNING id;
   `;
 
@@ -349,8 +352,10 @@ async function enrichItemsWeight(env, items) {
     String(order.order_number || order.id), 
     String(order.channel || order.source || 'website'), 
     String(order.channel_order_id || order.id || ''),
+
+    JSON.stringify(items), -- ✅ [NEW] Lưu Snapshot Items (Dạng JSON String)
     
-    String(order.customer?.name || order.customer_name || ''), 
+    String(order.customer?.name || order.customer_name || ''),
     String(order.customer?.phone || order.customer_phone || ''), 
     String(order.customer?.email || order.customer_email || ''),
     
@@ -688,8 +693,8 @@ export async function getOrders(env, limit = 500) {
   try {
     // 1. Lấy danh sách Orders
     const ordersResult = await env.DB.prepare(`
-      SELECT id, order_number, channel, channel_order_id, status, payment_status, fulfillment_status,
-        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
+      SELECT id, order_number, channel, channel_order_id, items_json, status, payment_status, fulfillment_status, -- ✅ [NEW] Select items_json
+        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address,
         shipping_district, shipping_city, shipping_province, shipping_zipcode,
         subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
         seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
@@ -745,11 +750,21 @@ export async function getOrders(env, limit = 500) {
       } catch (e) { console.error('[CORE] Batch items error:', e); }
     }
 
-    // 3. Map kết quả
+// 3. Map kết quả
     return orders.map(row => {
       let shippingAddr = {};
       try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
-      
+
+      // ✅ [NEW] Logic lấy items: Ưu tiên Snapshot -> Nếu null thì lấy từ bảng order_items (Fallback)
+      let finalItems = [];
+      if (row.items_json) {
+        try { finalItems = JSON.parse(row.items_json); } catch(e) {}
+      }
+      // Nếu snapshot rỗng (đơn cũ), dùng dữ liệu từ bảng order_items
+      if (!finalItems || finalItems.length === 0) {
+         finalItems = itemsByOrderId.get(String(row.id)) || [];
+      }
+
       // Map data
       return {
         id: row.id, // Giữ nguyên ID gốc (có thể là số)
@@ -776,8 +791,8 @@ export async function getOrders(env, limit = 500) {
         shipping_carrier: row.shipping_carrier || '',
         carrier_id: row.carrier_id || '',
         
-        // ⚠️ FIX CORE: Ép kiểu String khi lấy từ Map
-        items: itemsByOrderId.get(String(row.id)) || [],
+        // ✅ [NEW] Dùng biến finalItems đã xử lý ở trên
+        items: finalItems,
         
         subtotal: row.subtotal,
         shipping_fee: row.shipping_fee,
