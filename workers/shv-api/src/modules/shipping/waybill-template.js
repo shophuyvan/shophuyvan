@@ -11,10 +11,14 @@ export function getWaybillHTML(data) {
   const receiver = safeData.receiver || {};
   const customer = safeData.customer || {};
   const store = safeData.store || {};
-  // ✅ FIX: Tìm sản phẩm ở mọi nơi (trong root hoặc trong order) để không bị sót
+  
+  // ✅ FIX DATA: Ưu tiên lấy items truyền trực tiếp từ waybill.js
   let items = [];
-  if (Array.isArray(safeData.items) && safeData.items.length > 0) items = safeData.items;
-  else if (Array.isArray(order.items) && order.items.length > 0) items = order.items;
+  if (Array.isArray(safeData.items) && safeData.items.length > 0) {
+      items = safeData.items;
+  } else if (Array.isArray(order.items) && order.items.length > 0) {
+      items = order.items;
+  }
 
   // 2. XỬ LÝ TEXT
   const trackingCode = order.tracking_code || order.carrier_code || safeData.superaiCode || 'N/A';
@@ -78,17 +82,19 @@ export function getWaybillHTML(data) {
     body { 
       font-family: Arial, Helvetica, sans-serif;
       background: #fff;
-      width: 148mm;
-      height: 210mm; /* Full khổ A5 */
-      margin: 0;     /* Xóa margin body */
+      margin: 0;
       padding: 0;
+      /* FIX LỖI THỪA LỀ: Không set width/height cứng ở body để tránh trình duyệt scale */
+      width: 100%; 
     }
     
     .page {
-      width: 100%;   /* Full chiều ngang */
-      height: 100%;  /* Full chiều dọc */
-      border: 2px solid #000;
-      box-sizing: border-box; /* Viền nằm TRONG kích thước -> Không bị đẩy size */
+      width: 100%;
+      max-width: 148mm; /* Giới hạn ngang chuẩn A5 */
+      min-height: 190mm; /* Đủ dài nhưng không ép cứng 210mm để tránh tràn trang */
+      margin: 0 auto;
+      border: 2px solid #000; /* Viền khung */
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       position: relative;
@@ -276,9 +282,22 @@ export function getWaybillHTML(data) {
       font-weight: bold;
     }
 
-    @media print {
-      body { width: 148mm; height: 209mm; }
-      .page { border: 3px solid #000 !important; margin: 0; }
+@media print {
+      @page {
+        size: A5 portrait;
+        margin: 0; /* Bắt buộc để xóa lề máy in */
+      }
+      body { 
+        width: 148mm; 
+        /* Bỏ height cứng để nội dung tự flow */
+      }
+      .page {
+        width: 100%;
+        border: 2px solid #000 !important; 
+        margin: 0;
+        /* Ngắt trang sạch sẽ */
+        page-break-after: always;
+      }
     }
   </style>
 </head>

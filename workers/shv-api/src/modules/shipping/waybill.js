@@ -589,14 +589,25 @@ export async function printWaybill(req, env) {
     
         if (dbOrder) {
           // Lấy items từ D1
-          const dbItems = await env.DB.prepare(`
-            SELECT * FROM order_items WHERE order_id = ?
-          `).bind(dbOrder.id).all();
+          // ✅ FIX DATA: Ưu tiên lấy từ items_json (Snapshot chuẩn của Core)
+          let dbItemsList = [];
+          if (dbOrder.items_json) {
+            try {
+              dbItemsList = JSON.parse(dbOrder.items_json);
+            } catch (e) {
+              console.warn('[printWaybill] Failed to parse items_json:', e);
+            }
+          }
 
-          // [DEBUG] Kiem tra du lieu truoc khi in
-          console.log('[Print-Debug] Order ID:', dbOrder.id);
-          console.log('[Print-Debug] items_json raw:', dbOrder.items_json ? 'FOUND' : 'NULL');
-          console.log('[Print-Debug] order_items count:', dbItems.results ? dbItems.results.length : 0);
+          // Fallback: Nếu items_json rỗng mới query bảng phụ
+          if (!dbItemsList || dbItemsList.length === 0) {
+            const dbItemsQuery = await env.DB.prepare(`
+              SELECT * FROM order_items WHERE order_id = ?
+            `).bind(dbOrder.id).all();
+            dbItemsList = dbItemsQuery.results || [];
+          }
+
+          console.log('[printWaybill] ✅ Items found:', dbItemsList.length);
     
       // Parse shipping_address JSON an toàn
       let shippingAddr = {};
@@ -623,13 +634,13 @@ export async function printWaybill(req, env) {
           ward: dbOrder.receiver_ward_code || '' 
         },
         
-        // Items chuẩn hóa
-        items: (dbItems.results || []).map(i => ({
-          name: i.name || i.item_name,
-          variant: i.variant_name,
-          qty: i.quantity,
-          price: i.price,
-          sku: i.sku
+        // Items chuẩn hóa (Map chung cho cả 2 nguồn dữ liệu)
+        items: dbItemsList.map(i => ({
+          name: i.name || i.item_name || i.title || 'Sản phẩm',
+          variant: i.variant || i.variant_name || '',
+          qty: Number(i.qty || i.quantity || 1),
+          price: Number(i.price || 0),
+          sku: i.sku || ''
         })),
         
        // Thông tin vận đơn
