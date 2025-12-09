@@ -282,20 +282,22 @@ export function getWaybillHTML(data) {
       font-weight: bold;
     }
 
-@media print {
+    @media print {
       @page {
         size: A5 portrait;
-        margin: 0; /* Bắt buộc để xóa lề máy in */
+        /* Vẫn giữ margin 0 cho @page để kiểm soát hoàn toàn bằng body padding */
+        margin: 0; 
       }
       body { 
-        width: 148mm; 
-        /* Bỏ height cứng để nội dung tự flow */
+        width: 148mm;
+        /* ✅ FIX QUAN TRỌNG: Thêm padding an toàn để nội dung không bị driver máy in tự thu nhỏ */
+        padding: 5mm !important; 
       }
       .page {
         width: 100%;
+        /* Viền sẽ nằm bên trong padding 5mm của body -> An toàn */
         border: 2px solid #000 !important; 
-        margin: 0;
-        /* Ngắt trang sạch sẽ */
+        margin: 0 auto; /* Căn giữa */
         page-break-after: always;
       }
     }
