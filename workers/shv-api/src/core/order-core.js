@@ -444,15 +444,8 @@ export async function saveOrderToD1(env, order) {
 // ===================================================================
 // 5. CALCULATE FINANCIALS (SINGLE SOURCE OF TRUTH)
 // ===================================================================
-
-/**
- * Tính toán toàn bộ thông số tài chính cuối cùng của đơn hàng (Subtotal, Discount, Shipping, Revenue, Profit)
- * @param {object} order - Đối tượng đơn hàng thô
- * @param {object} env - Worker env
- * @returns {object} order - Đối tượng order đã được bổ sung/cập nhật các trường tài chính
- */
 export async function calculateOrderFinancials(order, env) {
-  // 1. Tính Subtotal và Cost từ Items
+  // 1. Tính Subtotal từ Items
   const items = order.items || [];
   const subtotal = items.reduce((sum, item) =>
     sum + Number(item.price || 0) * Number(item.qty || 1), 0
@@ -461,102 +454,50 @@ export async function calculateOrderFinancials(order, env) {
     sum + Number(item.cost || 0) * Number(item.qty || 1), 0
   );
 
-  // 2. Lấy Phí Ship và Voucher/Discount thô
+  // 2. Lấy Phí Ship
   const shipping_fee = Number(order.shipping_fee || 0);
-  const voucher_code_input = order.voucher_code || order.totals?.voucher_code || null;
-  
-  let final_discount = Number(order.discount || 0);
-  let final_ship_discount = Number(order.shipping_discount || 0);
-  let final_voucher_code = null;
-  
-  // 3. Re-validate Voucher Code (Nếu có)
-  if (voucher_code_input) {
-    try {
-      const fakeReq = {
-        url: 'fake/url',
-        method: 'POST',
-        headers: new Headers(),
-        json: async () => ({
-          code: voucher_code_input,
-          customer_id: order.customer?.id || null,
-          subtotal: subtotal
-        })
-      };
-      
-      const applyRes = await applyVoucher(fakeReq, env);
-      const applyData = await applyRes.json();
-      
-      if (applyRes.status === 200 && applyData.ok && applyData.valid) {
-        final_voucher_code = applyData.code;
-        final_discount = applyData.discount || 0;
-        final_ship_discount = applyData.ship_discount || 0;
-      }
-    } catch (e) { console.error('[CORE] Voucher re-validation failed:', e); }
-  }
+  const discount = Number(order.discount || 0);
 
-  // 4. Áp dụng Auto Freeship (Luôn chạy để đồng bộ)
-  const { autoShippingDiscount, autoVoucherCode } = await getAutoFreeshipDiscount(
-    env, 
-    subtotal, 
-    shipping_fee
-  );
-  
-  // 5. Tính toán TỔNG GIẢM SHIP TỐT NHẤT
-  const best_shipping_discount = Math.max(final_ship_discount, autoShippingDiscount);
-  
-  // Chọn mã voucher cuối cùng (ưu tiên mã được áp dụng/gửi lên, nếu mã tự động tốt hơn thì dùng mã tự động)
-  if (autoShippingDiscount > final_ship_discount && autoVoucherCode) {
-    final_voucher_code = autoVoucherCode;
-  } else if (final_voucher_code === null) {
-    final_voucher_code = voucher_code_input;
-  }
-  
-  // 6. Tính Revenue & Profit & Total (FIXED: Net Revenue cho Freeship)
-  const actualShippingFee = Math.max(0, shipping_fee - best_shipping_discount);
-
-  // Kiểm tra điều kiện Freeship: Có mã Auto Freeship HOẶC Đơn hàng >= 150k
-  const isFreeShip = best_shipping_discount > 0 || (subtotal >= 150000);
+  // 3. LOGIC QUAN TRỌNG: Xử lý Freeship 150k
+  // Nếu đơn hàng >= 150.000đ -> Trị giá hàng (Revenue) sẽ bị trừ đi phí ship
+  // Để khi cộng lại (Revenue + Ship) thì Tổng tiền khách trả vẫn bằng Subtotal ban đầu.
   
   let revenue = 0;
   
-  if (isFreeShip) {
-      // ✅ CASE FREESHIP: Trừ phí ship vào tiền hàng để bù ship (Shop chịu phí)
-      // Revenue = (Tiền hàng - Giảm giá) - Phí ship
-      // VD: Hàng 157.5k, Ship 20k -> Revenue lưu 137.5k. 
-      // Khi SuperAI cộng 20k ship vào -> Khách trả đủ 157.5k.
-      revenue = Math.max(0, subtotal - final_discount - shipping_fee);
-      
-      // Log để debug
-      console.log(`[CORE] 🔥 NET REVENUE (Freeship): Subtotal ${subtotal} - Ship ${shipping_fee} = Revenue ${revenue}`);
+  if (subtotal >= 150000) {
+     // ✅ Khách được Freeship: Shop chịu phí
+     // Ví dụ: Hàng 195k, Ship 15k.
+     // Revenue = 195 - 15 = 180k.
+     // Total = 180 + 15 = 195k (Khách trả đúng giá hàng).
+     revenue = Math.max(0, subtotal - discount - shipping_fee);
+     console.log(`[CORE] 🔥 FREESHIP APPLIED: Subtotal ${subtotal} >= 150k. Revenue adjusted to ${revenue}`);
   } else {
-      // ✅ CASE THƯỜNG: Khách chịu ship
-      // Revenue = Tiền hàng - Giảm giá
-      revenue = Math.max(0, subtotal - final_discount);
+     // ❌ Khách trả ship
+     // Ví dụ: Hàng 120k, Ship 18k.
+     // Revenue = 120k.
+     // Total = 120 + 18 = 138k.
+     revenue = Math.max(0, subtotal - discount);
   }
 
-  // [FIX] TOTAL (Tổng khách trả thực tế trên hệ thống)
-  // Luôn bằng Revenue + Phí Ship (để hiển thị đúng số tiền khách phải móc ví trả cho Shipper)
+  // 4. Tổng tiền (Total) = Revenue + Ship
+  // Đây là con số cuối cùng gửi sang SuperAI (COD)
   const total = revenue + shipping_fee; 
 
-  // PROFIT (Lợi nhuận) = Doanh thu - Giá vốn
+  // Profit
   const profit = Math.max(0, revenue - cost); 
 
-  // 7. Cập nhật Order Object
+  // 5. Cập nhật Order Object
   order.subtotal = subtotal;
   order.total_cost = cost;
-  order.discount = final_discount;
-  order.shipping_discount = best_shipping_discount;
-  order.actual_shipping_fee = actualShippingFee;
+  order.shipping_fee = shipping_fee;
+  order.discount = discount;
   
-  order.revenue = revenue; // Trị giá hàng hóa
-  order.total = total;     // Tổng thanh toán
-  
+  order.revenue = revenue; // Trị giá hàng thực nhận
+  order.total = total;     // Tổng thanh toán (COD)
   order.profit = profit;
-  order.voucher_code = final_voucher_code;
   
   return order;
 }
-
 // ===================================================================
 // 6. INVENTORY MANAGEMENT (Moved from Helpers)
 // ===================================================================
