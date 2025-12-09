@@ -272,278 +272,116 @@ async function enrichItemsWeight(env, items) {
 
      // 4. SAVE ORDER TO D1 (CORE FUNCTION)
      // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
-    export async function saveOrderToD1(env, order) {
-    
-    // ✅ KÍCH HOẠT LOGIC: Tính toán lại Revenue/Total (Trừ ship nếu >150k)
-    // Nếu thiếu dòng này, logic Freeship bạn viết ở dưới sẽ không bao giờ chạy.
-    order = await calculateOrderFinancials(order, env);
+    async function saveOrderToD1(env, order, items) {
+  const itemsSnapshot = JSON.stringify(items || []);
 
-    console.log('[ORDER-CORE] Saving order to D1:', order.order_number || order.id);
-  
-    // 1. Chuẩn bị dữ liệu Order
-    const orderId = order.id || order.order_number; // ID dạng string/UUID
-    const now = Date.now();
-    
-    // ✅ Normalize địa chỉ (thêm province_code, district_code)
-    const addressCodes = await normalizeOrderAddress(env, order);
-    console.log('[ORDER-CORE] Address codes:', addressCodes);
-    
-    // ✅ FIX: Parse items an toàn (xử lý trường hợp items là chuỗi JSON)
-    let rawItems = order.items;
-    if (typeof rawItems === 'string') {
-      try { rawItems = JSON.parse(rawItems); } catch (e) { rawItems = []; }
-    }
-    
-    // ✅ Enrich items với weight từ variants
-    const items = await enrichItemsWeight(env, Array.isArray(rawItems) ? rawItems : []);
-    console.log(`[ORDER-CORE] Preparing to save ${items.length} items for Order ${order.order_number || order.id}`);
-  
-    // Map field từ Object sang SQL Column
-    const sqlOrder = `
+  const sqlOrder = `
     INSERT INTO orders (
       order_number, channel, channel_order_id,
-      items_json, -- ✅ [NEW] Snapshot toàn bộ items
+      items_json,
       customer_name, customer_phone, customer_email,
       shipping_name, shipping_phone, shipping_address,
-      shipping_district, shipping_city, shipping_province, shipping_zipcode,
-      receiver_province_code, receiver_district_code, receiver_ward_code,
-      total_weight_gram,
-      subtotal, shipping_fee, discount, total, profit,
-      seller_transaction_fee, shop_id, shop_name,
-      status, payment_status, fulfillment_status, payment_method,
-      customer_note, admin_note,
-      tracking_number, shipping_carrier,
-      superai_code, carrier_id, shipping_service_code, shipping_option_id, -- ✅ Thêm superai_code
-      coin_used, voucher_code, voucher_seller, voucher_shopee,
-      commission_fee, service_fee, escrow_amount, buyer_paid_amount,
+      note, tags,
+      currency, exchange_rate,
+      subtotal, discount, shipping_fee, shipping_discount, total,
+      payment_method, payment_status, fulfillment_status, status,
+      estimated_delivery_date,
+      shipping_carrier, carrier_id,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
       created_at, updated_at
-    ) VALUES (
-      ?, ?, ?,
-      ?, -- ✅ [NEW] Placeholder cho items_json
-      ?, ?, ?,
-      ?, ?, ?,
-      ?, ?, ?, ?,
+  ) VALUES (
       ?, ?, ?,
       ?,
-      ?, ?, ?, ?, ?,
       ?, ?, ?,
-      ?, ?, ?, ?,
+      ?, ?, ?,
       ?, ?,
       ?, ?,
-      ?, ?, ?, ?, -- ✅ Thêm 4 dấu hỏi cho 4 cột mới (superai_code + 3 cột cũ)
+      ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
-      ?, ?, ?, ?,
+      ?,
+      ?, ?,
       ?, ?,
       ?, ?
-    )
+  )
     ON CONFLICT(order_number) DO UPDATE SET
       status = excluded.status,
       updated_at = excluded.updated_at,
       tracking_number = excluded.tracking_number,
       shipping_carrier = excluded.shipping_carrier,
       superai_code = excluded.superai_code,
-      items_json = excluded.items_json -- ✅ [NEW] Cập nhật snapshot nếu đơn hàng thay đổi
+      items_json = excluded.items_json
     RETURNING id;
   `;
 
-  // Chuẩn bị tham số cho câu lệnh INSERT Order
+  const now = Date.now();
   const paramsOrder = [
-    String(order.order_number || order.id), 
-    String(order.channel || order.source || 'website'), 
+    String(order.order_number || order.id),
+    String(order.channel || order.source || 'website'),
     String(order.channel_order_id || order.id || ''),
-
-    JSON.stringify(items), -- ✅ [NEW] Lưu Snapshot Items (Dạng JSON String)
-    
+    itemsSnapshot,
     String(order.customer?.name || order.customer_name || ''),
-    String(order.customer?.phone || order.customer_phone || ''), 
+    String(order.customer?.phone || order.customer_phone || ''),
     String(order.customer?.email || order.customer_email || ''),
-    
-    String(order.shipping_name || order.customer?.name || ''), 
-      String(order.shipping_phone || order.customer?.phone || ''), 
-      String(
-    order.shipping_address 
-    || order.address 
-    || order.customer?.address 
-    || order.shipping?.address 
-    || ''
-  ),
-  String(
-    order.shipping_district 
-    || order.district 
-    || order.customer?.district 
-    || order.shipping?.district 
-    || ''
-  ),
-  String(
-    order.shipping_city 
-    || order.city 
-    || order.customer?.city 
-    || order.shipping?.city 
-    || ''
-  ),
-  String(
-    order.shipping_province 
-    || order.province 
-    || order.customer?.province 
-    || order.shipping?.province 
-    || ''
-  ),
-  String(
-    order.shipping_zipcode 
-    || order.customer?.zipcode 
-    || ''
-  ),
-  
-  // ✅ Địa chỉ codes - Ưu tiên từ customer nếu có
-  String(
-    order.customer?.province_code 
-    || order.receiver_province_code 
-    || addressCodes.province_code
-  ),
-  String(
-    order.customer?.district_code 
-    || order.receiver_district_code 
-    || addressCodes.district_code
-  ),
-  String(
-    order.customer?.commune_code 
-    || order.customer?.ward_code
-    || order.receiver_ward_code 
-    || addressCodes.ward_code
-  ),
-  
-  // ✅ Total weight
-    Number(order.total_weight_gram || order.totalWeightGram || 0),
+    String(order.shipping_address?.name || order.shipping_name || ''),
+    String(order.shipping_address?.phone || order.shipping_phone || ''),
+    JSON.stringify(order.shipping_address || {}),
+    String(order.note || ''),
+    String(order.tags || ''),
+    String(order.currency || 'VND'),
+    Number(order.exchange_rate || 1),
     Number(order.subtotal || 0),
-    Number(order.shipping_fee || 0), 
-    Number(order.discount || 0), 
-    // Tối ưu hóa: Chỉ ưu tiên Buyer Paid Amount hoặc Total. Loại bỏ Revenue khỏi fallback nếu không rõ mục đích.
-    Number(order.buyer_paid_amount || order.total || 0), 
-    Number(order.profit || 0), // ✅ Lưu lợi nhuận tính toán từ Product Core
-    
-    Number(order.seller_transaction_fee || 0),
-    String(order.shop_id || ''),
-    String(order.shop_name || ''),
-
-    String(order.status || 'pending').toLowerCase(), 
-    String(order.payment_status || 'pending'), 
-    String(order.fulfillment_status || 'unfulfilled'), 
+    Number(order.discount || 0),
+    Number(order.shipping_fee || 0),
+    Number(order.shipping_discount || 0),
+    Number(order.total || 0),
     String(order.payment_method || 'cod'),
-
-    String(order.note || order.customer_note || ''), 
-    String(order.admin_note || ''),
-
-    String(order.tracking_code || order.tracking_number || ''), 
-    String(order.shipping_provider || order.shipping_carrier || ''),
-    
-    // ✅ Map dữ liệu vào 4 cột mới
-    String(order.superai_code || ''),
+    String(order.payment_status || 'pending'),
+    String(order.fulfillment_status || 'unfulfilled'),
+    String(order.status || 'pending'),
+    order.estimated_delivery_date ? Number(order.estimated_delivery_date) : null,
+    String(order.shipping_carrier || ''),
     String(order.carrier_id || ''),
-    String(order.shipping_service || order.shipping_service_code || ''),
-    String(order.shipping_option_id || '1'),
-
-    Number(order.coin_used || 0),
-    String(order.voucher_code || ''), 
-    Number(order.voucher_seller || 0), 
-    Number(order.voucher_shopee || 0),
-
-    Number(order.commission_fee || 0), 
-    Number(order.service_fee || 0), 
-    Number(order.escrow_amount || 0), 
-    Number(order.buyer_paid_amount || 0),
-
-    Number(order.estimated_shipping_fee || 0), 
+    Number(order.estimated_shipping_fee || 0),
     Number(order.actual_shipping_fee_confirmed || 0),
-
-    Number(order.createdAt || order.created_at || now), 
+    Number(order.created_at || now),
     now
   ];
 
-  try {
-    // 2. Thực hiện Transaction (Batch)
-    // D1 hiện chưa hỗ trợ transaction đầy đủ như SQL truyền thống, 
-    // nhưng hỗ trợ batch() để chạy nhiều lệnh cùng lúc.
-    // Tuy nhiên, vì cần lấy ID của Order vừa tạo để insert Items, 
-    // ta nên chạy lệnh Insert Order trước.
+  const resOrder = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
+  if (!resOrder) throw new Error('Failed to save order');
+  
+  const orderId = String(resOrder.id); 
 
-    let result = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
-    
-    if (!result || !result.id) {
-        // Trường hợp update (ON CONFLICT DO UPDATE) có thể không trả về ID nếu không có thay đổi,
-        // hoặc trả về ID của row đã update.
-        // Ta cần select lại ID nếu insert fail (do đã tồn tại)
-        const existing = await env.DB.prepare("SELECT id FROM orders WHERE order_number = ?").bind(String(order.order_number || order.id)).first();
-        if (!existing) throw new Error("Failed to insert/get order ID");
-        result = existing;
-    }
+  if (items && items.length > 0) {
+    try {
+      await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderId).run();
 
-    const dbOrderId = result.id; // ID tự tăng (INTEGER) trong DB
+      const stmtItem = env.DB.prepare(`
+        INSERT INTO order_items (id, order_id, product_id, variant_id, sku, name, image, price, quantity, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    // 3. Xử lý Order Items - ✅ CHỐT AN TOÀN: Chỉ cập nhật nếu có items
-    const statements = [];
-    
-    // Kiểm tra items hợp lệ
-    const validItems = Array.isArray(items) && items.length > 0;
-    
-    if (validItems) {
-      // CHỈ KHI CÓ ITEMS MỚI THỰC HIỆN XÓA CŨ - THÊM MỚI
-      // Giúp bảo vệ dữ liệu cũ nếu frontend lỡ gửi lên mảng rỗng
-      console.log(`[ORDER-CORE] Updating ${items.length} items for Order ID ${dbOrderId}`);
-
-      statements.push(
-        env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId)
-      );
+      const batchItems = items.map(item => stmtItem.bind(
+        crypto.randomUUID(),
+        orderId, 
+        String(item.product_id || ''),
+        String(item.variant_id || ''),
+        String(item.sku || ''),
+        String(item.title || item.name || ''),
+        String(item.image || ''),
+        Number(item.price || 0),
+        Number(item.quantity || 1),
+        now
+      ));
       
-      // Insert từng item
-      for (const item of items) {
-        if (!item || !item.name) continue;
-        
-        statements.push(
-          env.DB.prepare(`
-            INSERT INTO order_items (
-              order_id, product_id, variant_id,
-              sku, name, variant_name,
-              price, quantity, subtotal, image,
-              weight,
-              channel_item_id, channel_model_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            dbOrderId,
-            item.product_id || null, 
-            item.variant_id || item.id || null,  
-            String(item.sku || item.id || ''),
-            String(item.name || item.title || 'Sản phẩm'), 
-            String(item.variant || item.variant_name || ''),
-            Number(item.price || 0), 
-            Number(item.qty || item.quantity || 1), 
-            Number(item.price || 0) * Number(item.qty || item.quantity || 1), 
-            String(item.image || item.img || ''),
-            Number(item.weight || 0),
-            String(item.channel_item_id || ''), 
-            String(item.channel_model_id || '')
-          )
-        );
-      }
-    } else {
-      console.warn(`[ORDER-CORE] ⚠️ Empty items list received for Order ${dbOrderId}. SKIPPING item update to preserve existing data.`);
+      await env.DB.batch(batchItems);
+    } catch (errItems) {
+      console.error('[ORDER-CORE] Warning: Failed to save order_items stats:', errItems.message);
     }
-
-    // ✅ Chạy batch (luôn chạy vì có ít nhất DELETE statement)
-    if (statements.length > 0) {
-      await env.DB.batch(statements);
-      console.log(`[ORDER-CORE] ✅ Executed ${statements.length} SQL statements`);
-    }
-
-    console.log('[ORDER-CORE] ✅ Saved successfully. DB ID:', dbOrderId);
-    return { ok: true, id: dbOrderId, order_number: orderId };
-
-  } catch (e) {
-    console.error('[ORDER-CORE] ❌ Save failed:', e);
-    return { ok: false, error: e.message };
   }
-} // <--- Dòng này CHỈ NÊN XUẤT HIỆN 1 LẦN để đóng hàm saveOrderToD1
 
+  return orderId;
+}
 // ===================================================================
 // 5. CALCULATE FINANCIALS (SINGLE SOURCE OF TRUTH)
 // ===================================================================
@@ -689,141 +527,92 @@ export async function adjustInventory(items, env, direction = -1) {
 // ===================================================================
 // 7. GET ORDERS (Moved from Admin)
 // ===================================================================
-export async function getOrders(env, limit = 500) {
-  try {
-    // 1. Lấy danh sách Orders
-    const ordersResult = await env.DB.prepare(`
-      SELECT id, order_number, channel, channel_order_id, items_json, status, payment_status, fulfillment_status, -- ✅ [NEW] Select items_json
-        customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address,
-        shipping_district, shipping_city, shipping_province, shipping_zipcode,
-        subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
-        seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
-        shop_id, shop_name, payment_method, customer_note, admin_note, 
-        tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at,
-        receiver_province_code, receiver_district_code, receiver_ward_code -- Lấy thêm để debug nếu cần
-      FROM orders 
-      ORDER BY created_at DESC 
-      LIMIT ?
-    `).bind(limit).all();
+async function getOrders(env, query = {}) {
+  const { page = 1, limit = 50, status, search } = query;
+  const offset = (page - 1) * limit;
 
-    const orders = ordersResult.results || [];
-    if (orders.length === 0) return [];
+  let where = 'WHERE 1=1';
+  const params = [];
 
-    // 2. Batch Query Items
-    const orderIds = orders.map(o => o.id);
-    const BATCH_SIZE = 500;
-    const itemsByOrderId = new Map();
-
-    for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
-      const batchIds = orderIds.slice(i, i + BATCH_SIZE);
-      const placeholders = batchIds.map(() => '?').join(',');
-      
-      try {
-        const itemsResult = await env.DB.prepare(`
-          SELECT order_id, product_id, variant_id, sku, name, variant_name, 
-            image, price, cost, quantity, subtotal, channel_item_id, channel_model_id, weight
-          FROM order_items WHERE order_id IN (${placeholders}) ORDER BY order_id, id
-        `).bind(...batchIds).all();
-
-        for (const item of (itemsResult.results || [])) {
-          // ⚠️ FIX CORE: Ép kiểu String cho Key để tránh lỗi Number vs String
-          const orderIdKey = String(item.order_id);
-          
-          if (!itemsByOrderId.has(orderIdKey)) itemsByOrderId.set(orderIdKey, []);
-          
-          itemsByOrderId.get(orderIdKey).push({
-            id: item.variant_id || item.sku || 'unknown',
-            product_id: item.product_id,
-            sku: item.sku || '',
-            name: item.name || 'Sản phẩm',
-            variant: item.variant_name || '',
-            price: item.price || 0,
-            cost: item.cost || 0,
-            qty: item.quantity || 1,
-            subtotal: item.subtotal || 0,
-            image: item.image || null,
-            weight: item.weight || 0,
-            shopee_item_id: item.channel_item_id || '',
-            shopee_model_id: item.channel_model_id || ''
-          });
-        }
-      } catch (e) { console.error('[CORE] Batch items error:', e); }
-    }
-
-// 3. Map kết quả
-    return orders.map(row => {
-      let shippingAddr = {};
-      try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
-
-      // ✅ [NEW] Logic lấy items: Ưu tiên Snapshot -> Nếu null thì lấy từ bảng order_items (Fallback)
-      let finalItems = [];
-      if (row.items_json) {
-        try { finalItems = JSON.parse(row.items_json); } catch(e) {}
-      }
-      // Nếu snapshot rỗng (đơn cũ), dùng dữ liệu từ bảng order_items
-      if (!finalItems || finalItems.length === 0) {
-         finalItems = itemsByOrderId.get(String(row.id)) || [];
-      }
-
-      // Map data
-      return {
-        id: row.id, // Giữ nguyên ID gốc (có thể là số)
-        order_number: row.order_number,
-        status: row.status,
-        payment_status: row.payment_status,
-        customer: {
-          name: row.customer_name,
-          phone: row.customer_phone,
-          email: row.customer_email,
-          address: shippingAddr.address || row.shipping_address || '',
-          district: shippingAddr.district || row.shipping_district || '',
-          city: shippingAddr.city || row.shipping_city || '',
-          province: shippingAddr.province || row.shipping_province || '',
-          ward: shippingAddr.ward || shippingAddr.commune || ''
-        },
-        customer_name: row.customer_name,
-        phone: row.customer_phone,
-        shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
-        shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
-        tracking_code: row.channel_order_id || '',
-        tracking_number: row.tracking_number || '',
-        superai_code: row.superai_code || '',
-        shipping_carrier: row.shipping_carrier || '',
-        carrier_id: row.carrier_id || '',
-        
-        // ✅ [NEW] Dùng biến finalItems đã xử lý ở trên
-        items: finalItems,
-        
-        subtotal: row.subtotal,
-        shipping_fee: row.shipping_fee,
-        discount: row.discount,
-        revenue: row.total, // Dùng total làm doanh thu hiển thị
-        total: row.total,   // Dùng total làm tổng thanh toán
-        profit: row.profit,
-        
-        commission_fee: row.commission_fee || 0,
-        service_fee: row.service_fee || 0,
-        seller_transaction_fee: row.seller_transaction_fee || 0,
-        escrow_amount: row.escrow_amount || 0,
-        buyer_paid_amount: row.buyer_paid_amount || 0,
-        coin_used: row.coin_used || 0,
-        voucher_seller: row.voucher_seller || 0,
-        voucher_shopee: row.voucher_shopee || 0,
-        shop_id: row.shop_id,
-        shop_name: row.shop_name,
-        source: row.channel,
-        channel: row.channel,
-        payment_method: row.payment_method,
-        note: row.customer_note || '',
-        createdAt: row.created_at,
-        created_at: row.created_at,
-        updated_at: row.updated_at
-      };
-    });
-  } catch (e) {
-    console.error('[CORE] Get Orders Failed:', e);
-    throw e;
+  if (status && status !== 'all') {
+    where += ' AND status = ?';
+    params.push(status);
   }
+
+  if (search) {
+    where += ' AND (order_number LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s, s);
+  }
+
+  const ordersResult = await env.DB.prepare(`
+    SELECT id, order_number, channel, channel_order_id, 
+      items_json,
+      status, payment_status, fulfillment_status,
+      customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
+      note, tags, subtotal, discount, shipping_fee, total, 
+      tracking_number, shipping_carrier, superai_code,
+      created_at
+    FROM orders
+    ${where}
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(...params, limit, offset).all();
+
+  const orders = ordersResult.results || [];
+
+  const finalOrders = orders.map(row => {
+    let shippingAddr = {};
+    try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
+    
+    let items = [];
+    if (row.items_json) {
+      try { items = JSON.parse(row.items_json); } catch(e) {}
+    } 
+    if (!Array.isArray(items)) items = [];
+
+    return {
+      id: row.id,
+      order_number: row.order_number,
+      channel: row.channel,
+      status: row.status,
+      created_at: row.created_at,
+      
+      customer: {
+        name: row.customer_name,
+        phone: row.customer_phone,
+        email: row.customer_email
+      },
+      
+      items: items,
+      
+      shipping_address: shippingAddr,
+      financial: {
+        subtotal: row.subtotal,
+        discount: row.discount,
+        shipping: row.shipping_fee,
+        total: row.total
+      },
+      
+      tracking: {
+        carrier: row.shipping_carrier,
+        code: row.tracking_number,
+        superai: row.superai_code
+      }
+    };
+  });
+
+  const countResult = await env.DB.prepare(`SELECT COUNT(*) as total FROM orders ${where}`).bind(...params).first();
+  
+  return {
+    items: finalOrders,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total: countResult.total,
+      totalPages: Math.ceil(countResult.total / limit)
+    }
+  };
 }
 
 // ===================================================================
