@@ -271,117 +271,176 @@ async function enrichItemsWeight(env, items) {
 }
 
      // 4. SAVE ORDER TO D1 (CORE FUNCTION)
-     // Lưu đơn hàng chuẩn hóa vào D1 Database (Transactional)
-    async function saveOrderToD1(env, order, items) {
-  const itemsSnapshot = JSON.stringify(items || []);
+    // 4. SAVE ORDER TO D1 (CORE FUNCTION - UPDATED SNAPSHOT)
+export async function saveOrderToD1(env, order) {
+  // 1. Tính toán tài chính
+  order = await calculateOrderFinancials(order, env);
+  console.log('[ORDER-CORE] Saving order:', order.order_number || order.id);
 
+  // 2. Chuẩn bị dữ liệu
+  const now = Date.now();
+  const addressCodes = await normalizeOrderAddress(env, order);
+  
+  // FIX: Parse items an toàn & Tạo Snapshot JSON
+  let rawItems = order.items;
+  if (typeof rawItems === 'string') { try { rawItems = JSON.parse(rawItems); } catch(e){ rawItems = []; } }
+  
+  const items = await enrichItemsWeight(env, Array.isArray(rawItems) ? rawItems : []);
+  const itemsSnapshot = JSON.stringify(items); // ✅ SNAPSHOT QUAN TRỌNG
+
+  // 3. Insert Order (Đã thêm items_json)
   const sqlOrder = `
     INSERT INTO orders (
       order_number, channel, channel_order_id,
-      items_json,
+      items_json, -- ✅ Cột mới
       customer_name, customer_phone, customer_email,
       shipping_name, shipping_phone, shipping_address,
-      note, tags,
-      currency, exchange_rate,
-      subtotal, discount, shipping_fee, shipping_discount, total,
-      payment_method, payment_status, fulfillment_status, status,
-      estimated_delivery_date,
-      shipping_carrier, carrier_id,
+      shipping_district, shipping_city, shipping_province, shipping_zipcode,
+      receiver_province_code, receiver_district_code, receiver_ward_code,
+      total_weight_gram,
+      subtotal, shipping_fee, discount, total, profit,
+      seller_transaction_fee, shop_id, shop_name,
+      status, payment_status, fulfillment_status, payment_method,
+      customer_note, admin_note,
+      tracking_number, shipping_carrier,
+      superai_code, carrier_id, shipping_service_code, shipping_option_id,
+      coin_used, voucher_code, voucher_seller, voucher_shopee,
+      commission_fee, service_fee, escrow_amount, buyer_paid_amount,
       estimated_shipping_fee, actual_shipping_fee_confirmed,
       created_at, updated_at
-  ) VALUES (
+    ) VALUES (
       ?, ?, ?,
-      ?,
+      ?, 
       ?, ?, ?,
       ?, ?, ?,
-      ?, ?,
-      ?, ?,
-      ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
+      ?, ?, ?,
       ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?,
       ?, ?,
+      ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
       ?, ?,
       ?, ?
-  )
+    )
     ON CONFLICT(order_number) DO UPDATE SET
       status = excluded.status,
       updated_at = excluded.updated_at,
       tracking_number = excluded.tracking_number,
       shipping_carrier = excluded.shipping_carrier,
       superai_code = excluded.superai_code,
-      items_json = excluded.items_json
+      items_json = excluded.items_json -- ✅ Update snapshot
     RETURNING id;
   `;
 
-  const now = Date.now();
   const paramsOrder = [
-    String(order.order_number || order.id),
-    String(order.channel || order.source || 'website'),
+    String(order.order_number || order.id), 
+    String(order.channel || order.source || 'website'), 
     String(order.channel_order_id || order.id || ''),
-    itemsSnapshot,
+    itemsSnapshot, // ✅ Giá trị items_json
     String(order.customer?.name || order.customer_name || ''),
-    String(order.customer?.phone || order.customer_phone || ''),
+    String(order.customer?.phone || order.customer_phone || ''), 
     String(order.customer?.email || order.customer_email || ''),
-    String(order.shipping_address?.name || order.shipping_name || ''),
-    String(order.shipping_address?.phone || order.shipping_phone || ''),
-    JSON.stringify(order.shipping_address || {}),
-    String(order.note || ''),
-    String(order.tags || ''),
-    String(order.currency || 'VND'),
-    Number(order.exchange_rate || 1),
+    String(order.shipping_name || order.customer?.name || ''), 
+    String(order.shipping_phone || order.customer?.phone || ''), 
+    String(order.shipping_address || order.address || order.customer?.address || ''),
+    String(order.shipping_district || order.district || order.customer?.district || ''),
+    String(order.shipping_city || order.city || order.customer?.city || ''),
+    String(order.shipping_province || order.province || order.customer?.province || ''),
+    String(order.shipping_zipcode || order.customer?.zipcode || ''),
+    String(order.customer?.province_code || order.receiver_province_code || addressCodes.province_code),
+    String(order.customer?.district_code || order.receiver_district_code || addressCodes.district_code),
+    String(order.customer?.commune_code || order.customer?.ward_code || order.receiver_ward_code || addressCodes.ward_code),
+    Number(order.total_weight_gram || order.totalWeightGram || 0),
     Number(order.subtotal || 0),
-    Number(order.discount || 0),
-    Number(order.shipping_fee || 0),
-    Number(order.shipping_discount || 0),
-    Number(order.total || 0),
+    Number(order.shipping_fee || 0), 
+    Number(order.discount || 0), 
+    Number(order.buyer_paid_amount || order.total || 0), 
+    Number(order.profit || 0), 
+    Number(order.seller_transaction_fee || 0),
+    String(order.shop_id || ''),
+    String(order.shop_name || ''),
+    String(order.status || 'pending').toLowerCase(), 
+    String(order.payment_status || 'pending'), 
+    String(order.fulfillment_status || 'unfulfilled'), 
     String(order.payment_method || 'cod'),
-    String(order.payment_status || 'pending'),
-    String(order.fulfillment_status || 'unfulfilled'),
-    String(order.status || 'pending'),
-    order.estimated_delivery_date ? Number(order.estimated_delivery_date) : null,
-    String(order.shipping_carrier || ''),
+    String(order.note || order.customer_note || ''), 
+    String(order.admin_note || ''),
+    String(order.tracking_code || order.tracking_number || ''), 
+    String(order.shipping_provider || order.shipping_carrier || ''),
+    String(order.superai_code || ''),
     String(order.carrier_id || ''),
-    Number(order.estimated_shipping_fee || 0),
+    String(order.shipping_service || order.shipping_service_code || ''),
+    String(order.shipping_option_id || '1'),
+    Number(order.coin_used || 0),
+    String(order.voucher_code || ''), 
+    Number(order.voucher_seller || 0), 
+    Number(order.voucher_shopee || 0),
+    Number(order.commission_fee || 0), 
+    Number(order.service_fee || 0), 
+    Number(order.escrow_amount || 0), 
+    Number(order.buyer_paid_amount || 0),
+    Number(order.estimated_shipping_fee || 0), 
     Number(order.actual_shipping_fee_confirmed || 0),
-    Number(order.created_at || now),
+    Number(order.createdAt || order.created_at || now), 
     now
   ];
 
-  const resOrder = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
-  if (!resOrder) throw new Error('Failed to save order');
-  
-  const orderId = String(resOrder.id); 
+  // Thực thi
+  let result = await env.DB.prepare(sqlOrder).bind(...paramsOrder).first();
+  if (!result || !result.id) {
+     // Fallback nếu update không trả về id
+     const existing = await env.DB.prepare("SELECT id FROM orders WHERE order_number = ?").bind(String(order.order_number || order.id)).first();
+     if (!existing) throw new Error("Failed to insert/get order ID");
+     result = existing;
+  }
+  const dbOrderId = result.id;
 
+  // 4. Update Order Items (Bọc Try-Catch an toàn)
   if (items && items.length > 0) {
     try {
-      await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderId).run();
-
+      console.log(`[ORDER-CORE] Updating items for Order ID ${dbOrderId}`);
+      
+      // Xóa cũ
+      await env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(dbOrderId).run();
+      
+      // Thêm mới (Batch)
       const stmtItem = env.DB.prepare(`
-        INSERT INTO order_items (id, order_id, product_id, variant_id, sku, name, image, price, quantity, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO order_items (
+          id, order_id, product_id, variant_id, sku, name, variant_name,
+          price, quantity, subtotal, image, weight, channel_item_id, channel_model_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-
+      
       const batchItems = items.map(item => stmtItem.bind(
         crypto.randomUUID(),
-        orderId, 
-        String(item.product_id || ''),
-        String(item.variant_id || ''),
-        String(item.sku || ''),
-        String(item.title || item.name || ''),
-        String(item.image || ''),
-        Number(item.price || 0),
-        Number(item.quantity || 1),
+        dbOrderId,
+        item.product_id || null, 
+        item.variant_id || item.id || null,  
+        String(item.sku || item.id || ''),
+        String(item.name || item.title || 'Sản phẩm'), 
+        String(item.variant || item.variant_name || ''),
+        Number(item.price || 0), 
+        Number(item.qty || item.quantity || 1), 
+        Number(item.price || 0) * Number(item.qty || item.quantity || 1), 
+        String(item.image || item.img || ''),
+        Number(item.weight || 0),
+        String(item.channel_item_id || ''), 
+        String(item.channel_model_id || ''),
         now
       ));
       
       await env.DB.batch(batchItems);
-    } catch (errItems) {
-      console.error('[ORDER-CORE] Warning: Failed to save order_items stats:', errItems.message);
-    }
+    } catch (e) { console.warn('[ORDER-CORE] Failed to save order_items (Stats only):', e.message); }
   }
 
-  return orderId;
+  return { ok: true, id: dbOrderId, order_number: orderId };
 }
+
 // ===================================================================
 // 5. CALCULATE FINANCIALS (SINGLE SOURCE OF TRUTH)
 // ===================================================================
@@ -524,96 +583,100 @@ export async function adjustInventory(items, env, direction = -1) {
   }
 }
 
-// ===================================================================
-// 7. GET ORDERS (Moved from Admin)
-// ===================================================================
-async function getOrders(env, query = {}) {
-  const { page = 1, limit = 50, status, search } = query;
-  const offset = (page - 1) * limit;
+    // ===================================================================
+    // 7. GET ORDERS (Moved from Admin)
+    // ===================================================================
 
-  let where = 'WHERE 1=1';
-  const params = [];
-
-  if (status && status !== 'all') {
-    where += ' AND status = ?';
-    params.push(status);
-  }
-
-  if (search) {
-    where += ' AND (order_number LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ?)';
-    const s = `%${search}%`;
-    params.push(s, s, s);
-  }
-
-  const ordersResult = await env.DB.prepare(`
-    SELECT id, order_number, channel, channel_order_id, 
-      items_json,
-      status, payment_status, fulfillment_status,
-      customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address, 
-      note, tags, subtotal, discount, shipping_fee, total, 
-      tracking_number, shipping_carrier, superai_code,
-      created_at
-    FROM orders
-    ${where}
-    ORDER BY created_at DESC
-    LIMIT ? OFFSET ?
-  `).bind(...params, limit, offset).all();
-
-  const orders = ordersResult.results || [];
-
-  const finalOrders = orders.map(row => {
-    let shippingAddr = {};
-    try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
+    export async function getOrders(env, limit = 500) {
+      try {
+        // 1. Lấy danh sách Orders (Kèm items_json)
+        const ordersResult = await env.DB.prepare(`
+          SELECT id, order_number, channel, channel_order_id, items_json, status, payment_status, fulfillment_status,
+            customer_name, customer_phone, customer_email, shipping_name, shipping_phone, shipping_address,
+            shipping_district, shipping_city, shipping_province, shipping_zipcode,
+            subtotal, shipping_fee, discount, total, profit, commission_fee, service_fee, 
+            seller_transaction_fee, escrow_amount, buyer_paid_amount, coin_used, voucher_seller, voucher_shopee,
+            shop_id, shop_name, payment_method, customer_note, admin_note, 
+            tracking_number, superai_code, shipping_carrier, carrier_id, created_at, updated_at,
+            receiver_province_code, receiver_district_code, receiver_ward_code
+          FROM orders 
+          ORDER BY created_at DESC 
+          LIMIT ?
+        `).bind(limit).all();
     
-    let items = [];
-    if (row.items_json) {
-      try { items = JSON.parse(row.items_json); } catch(e) {}
-    } 
-    if (!Array.isArray(items)) items = [];
-
-    return {
-      id: row.id,
-      order_number: row.order_number,
-      channel: row.channel,
-      status: row.status,
-      created_at: row.created_at,
-      
-      customer: {
-        name: row.customer_name,
-        phone: row.customer_phone,
-        email: row.customer_email
-      },
-      
-      items: items,
-      
-      shipping_address: shippingAddr,
-      financial: {
-        subtotal: row.subtotal,
-        discount: row.discount,
-        shipping: row.shipping_fee,
-        total: row.total
-      },
-      
-      tracking: {
-        carrier: row.shipping_carrier,
-        code: row.tracking_number,
-        superai: row.superai_code
+        const orders = ordersResult.results || [];
+        if (orders.length === 0) return [];
+    
+        // 2. Map kết quả (Parse từ items_json)
+        return orders.map(row => {
+          let shippingAddr = {};
+          try { if (row.shipping_address) shippingAddr = JSON.parse(row.shipping_address); } catch (e) {}
+    
+          // ✅ LOGIC CHÍNH: Đọc items từ cột items_json
+          let items = [];
+          if (row.items_json) {
+            try { items = JSON.parse(row.items_json); } catch(e) {}
+          }
+          if (!Array.isArray(items)) items = [];
+    
+          return {
+            id: row.id,
+            order_number: row.order_number,
+            status: row.status,
+            payment_status: row.payment_status,
+            customer: {
+              name: row.customer_name,
+              phone: row.customer_phone,
+              email: row.customer_email,
+              address: shippingAddr.address || row.shipping_address || '',
+              district: shippingAddr.district || row.shipping_district || '',
+              city: shippingAddr.city || row.shipping_city || '',
+              province: shippingAddr.province || row.shipping_province || '',
+              ward: shippingAddr.ward || shippingAddr.commune || ''
+            },
+            customer_name: row.customer_name,
+            phone: row.customer_phone,
+            shipping_provider: row.channel === 'shopee' ? 'Shopee' : null,
+            shipping_name: row.channel === 'shopee' ? 'Shopee' : null,
+            tracking_code: row.channel_order_id || '',
+            tracking_number: row.tracking_number || '',
+            superai_code: row.superai_code || '',
+            shipping_carrier: row.shipping_carrier || '',
+            carrier_id: row.carrier_id || '',
+            
+            items: items, // ✅ ITEMS SẴN SÀNG
+            
+            subtotal: row.subtotal,
+            shipping_fee: row.shipping_fee,
+            discount: row.discount,
+            revenue: row.total,
+            total: row.total,
+            profit: row.profit,
+            
+            commission_fee: row.commission_fee || 0,
+            service_fee: row.service_fee || 0,
+            seller_transaction_fee: row.seller_transaction_fee || 0,
+            escrow_amount: row.escrow_amount || 0,
+            buyer_paid_amount: row.buyer_paid_amount || 0,
+            coin_used: row.coin_used || 0,
+            voucher_seller: row.voucher_seller || 0,
+            voucher_shopee: row.voucher_shopee || 0,
+            shop_id: row.shop_id,
+            shop_name: row.shop_name,
+            source: row.channel,
+            channel: row.channel,
+            payment_method: row.payment_method,
+            note: row.customer_note || '',
+            createdAt: row.created_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at
+          };
+        });
+      } catch (e) {
+        console.error('[CORE] Get Orders Failed:', e);
+        throw e;
       }
-    };
-  });
-
-  const countResult = await env.DB.prepare(`SELECT COUNT(*) as total FROM orders ${where}`).bind(...params).first();
-  
-  return {
-    items: finalOrders,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total: countResult.total,
-      totalPages: Math.ceil(countResult.total / limit)
     }
-  };
-}
 
 // ===================================================================
 // 8. DELETE ORDER (Moved from Admin)
