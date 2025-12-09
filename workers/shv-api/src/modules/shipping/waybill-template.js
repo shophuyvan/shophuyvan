@@ -18,10 +18,13 @@ export function getWaybillHTML(data) {
   
   // COD
   const isPaid = order.payment_status === 'paid';
-  const subtotal = Number(order.subtotal || 0);
-  const shipFee = Number(order.shipping_fee || 0);
-  const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
-  const codAmount = isPaid ? 0 : Math.max(0, subtotal + shipFee - discount);
+  // ✅ LOGIC CHUẨN: Lấy Revenue từ Core (180k) + Ship nếu khách trả (nhưng Revenue đã xử lý trừ ship rồi)
+  // Đơn giản nhất: Lấy TOTAL (Tổng khách phải trả) làm COD.
+  // Vì ở Core: Total = Revenue + Ship.
+  // - Đơn nhỏ: Revenue(120) + Ship(18) = Total(138).
+  // - Đơn to: Revenue(180) + Ship(15) = Total(195).
+  // => Lấy Total là chuẩn nhất cho COD.
+  const codAmount = (order.payment_status === 'paid' || order.payment_method !== 'cod') ? 0 : Number(order.total || 0);
   const codDisplay = codAmount > 0 ? codAmount.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ';
 
   const senderName = sender.name || store.name || 'SHOP HUY VÂN';
@@ -65,15 +68,17 @@ export function getWaybillHTML(data) {
     
     /* CẤU HÌNH TRANG IN */
     @page {
-      size: A5;     
-      margin: 0;    
+      size: A5 portrait; /* Cố định khổ A5 dọc */
+      margin: 0;
     }
 
     body { 
       font-family: Arial, Helvetica, sans-serif;
       background: #fff;
       width: 148mm; 
-      height: 209mm; 
+      height: 208mm; /* Giảm 1mm để tránh nhảy trang */
+      overflow: hidden; /* Cắt bỏ phần dư thừa */
+      margin: 0 auto; /* Canh giữa nếu in trên A4 */
     }
     
     .page {
