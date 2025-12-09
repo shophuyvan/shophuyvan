@@ -71,28 +71,28 @@ export function getWaybillHTML(data) {
     
     /* CẤU HÌNH TRANG IN */
     @page {
-      size: A5 portrait; /* Cố định khổ A5 dọc */
-      margin: 0;
+      size: A5 portrait;
+      margin: 0; /* Xóa lề máy in */
     }
 
     body { 
       font-family: Arial, Helvetica, sans-serif;
       background: #fff;
-      width: 148mm; 
-      height: 208mm; /* Giảm 1mm để tránh nhảy trang */
-      overflow: hidden; /* Cắt bỏ phần dư thừa */
-      margin: 0 auto; /* Canh giữa nếu in trên A4 */
+      width: 148mm;
+      height: 210mm; /* Full khổ A5 */
+      margin: 0;     /* Xóa margin body */
+      padding: 0;
     }
     
     .page {
-      width: 146mm;      /* Nhỏ hơn khổ giấy 2mm để an toàn */
-      height: 206mm;     /* Nhỏ hơn khổ giấy 2mm */
-      border: 2px solid #000; /* Viền mỏng hơn chút cho thanh thoát */
-      margin: 1mm auto;  /* Canh giữa tờ giấy, chừa lề an toàn */
+      width: 100%;   /* Full chiều ngang */
+      height: 100%;  /* Full chiều dọc */
+      border: 2px solid #000;
+      box-sizing: border-box; /* Viền nằm TRONG kích thước -> Không bị đẩy size */
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow: hidden;  /* Cắt nội dung thừa nếu có */
+      overflow: hidden;
     }
     
     .bold { font-weight: bold; }
@@ -322,13 +322,13 @@ export function getWaybillHTML(data) {
         <div class="section-title">Nội dung hàng (Tổng SL: ${items.reduce((s,i)=>s+(Number(i.qty)||1),0)})</div>
         ${items.length > 0 ? items.map((item, idx) => `
           <div class="item-row">
-            <div class="item-name">${idx + 1}. ${item.name || 'Sản phẩm'}</div>
+            <div class="item-name">${idx + 1}. ${item.name || item.title || 'Sản phẩm'}</div>
             <div style="font-size: 12px; color: #333; margin-top: 2px;">
-               ${item.variant ? `PL: ${item.variant} | ` : ''} 
-               <strong>SL: ${item.qty || 1}</strong>
+               ${(item.variant || item.variant_name) ? `PL: ${item.variant || item.variant_name} | ` : ''} 
+               <strong>SL: ${item.qty || item.quantity || 1}</strong>
             </div>
           </div>
-        `).join('') : '<div style="font-style:italic">Không có thông tin sản phẩm</div>'}
+        `).join('') : '<div style="font-style:italic; padding: 10px;">Không có thông tin sản phẩm</div>'}
       </div>
       <div class="instructions">
         <div class="section-title">Chỉ dẫn:</div>
