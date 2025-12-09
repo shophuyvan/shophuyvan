@@ -592,6 +592,11 @@ export async function printWaybill(req, env) {
           const dbItems = await env.DB.prepare(`
             SELECT * FROM order_items WHERE order_id = ?
           `).bind(dbOrder.id).all();
+
+          // [DEBUG] Kiem tra du lieu truoc khi in
+          console.log('[Print-Debug] Order ID:', dbOrder.id);
+          console.log('[Print-Debug] items_json raw:', dbOrder.items_json ? 'FOUND' : 'NULL');
+          console.log('[Print-Debug] order_items count:', dbItems.results ? dbItems.results.length : 0);
     
       // Parse shipping_address JSON an toàn
       let shippingAddr = {};
