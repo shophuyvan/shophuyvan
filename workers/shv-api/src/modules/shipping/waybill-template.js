@@ -311,8 +311,7 @@ export function getWaybillHTML(data) {
         </div>
       </div>
     </div>
-    </div>
-
+	
     <div class="body-section">
       <div class="items-list">
         <div class="section-title">Nội dung hàng (Tổng SL: ${items.reduce((s,i)=>s+(Number(i.qty)||1),0)})</div>
