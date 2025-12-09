@@ -243,3 +243,78 @@ export async function cancelOrderCustomer(req, env) {
     return json({ ok: true, message: 'Đã hủy đơn hàng' }, {}, req);
   } catch (e) { return json({ ok: false, error: e.message }, { status: 500 }, req); }
 }
+
+// ✅ [NEW] Update Order Customer Info (Name/Phone/Address)
+export async function updateOrderCustomer(req, env) {
+  try {
+    const auth = await authenticateCustomer(req, env);
+    if (!auth.customerId) return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+
+    const body = await readBody(req) || {};
+    const { order_id, customer } = body;
+
+    if (!order_id) return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
+    if (!customer || !customer.phone || !customer.address) {
+      return json({ ok: false, error: 'Missing customer info' }, { status: 400 }, req);
+    }
+
+    // 1. Get Order
+    const order = await getJSON(env, 'order:' + order_id, null);
+    if (!order) return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
+
+    // 2. Security Check (Verify Owner)
+    const normalize = (p) => String(p || '').replace(/\D/g, '');
+    const currentPhone = normalize(order.customer?.phone || order.phone);
+    const authPhone = normalize(auth.customer?.phone);
+    
+    // Allow update if: Logged in user matches Order Phone OR Order Customer ID
+    const isOwner = (authPhone && currentPhone === authPhone) || 
+                    (auth.customerId && order.customer?.id === auth.customerId);
+
+    if (!isOwner) {
+      return json({ ok: false, error: 'Permission denied' }, { status: 403 }, req);
+    }
+
+    // 3. Status Check (Only allow update on Pending/Confirmed)
+    const s = String(order.status || '').toLowerCase();
+    const canEdit = s.includes('pending') || s.includes('confirmed') || s.includes('cho') || s.includes('new');
+    
+    if (!canEdit) {
+      return json({ ok: false, error: 'Không thể chỉnh sửa đơn hàng ở trạng thái này' }, { status: 400 }, req);
+    }
+
+    // 4. Update Info
+    // Update nested customer object
+    order.customer = {
+      ...order.customer,
+      name: customer.name,
+      phone: normalizePhone(customer.phone),
+      address: customer.address
+    };
+    
+    // Update legacy root fields (important for display compatibility)
+    order.name = customer.name;
+    order.phone = normalizePhone(customer.phone);
+    order.address = customer.address;
+
+    // 5. Save Data (KV + D1)
+    await putJSON(env, 'order:' + order_id, order);
+
+    // Update List Cache (Optional but recommended for consistency)
+    const list = await getJSON(env, 'orders:list', []);
+    const idx = list.findIndex(o => o.id === order_id);
+    if (idx > -1) {
+      list[idx] = order;
+      await putJSON(env, 'orders:list', list);
+    }
+
+    // Save to SQL (D1)
+    await saveOrderToD1(env, order);
+
+    return json({ ok: true, message: 'Cập nhật thành công' }, {}, req);
+
+  } catch (e) {
+    console.error('[ORDER-UPDATE] Error:', e);
+    return json({ ok: false, error: e.message || 'Update failed' }, { status: 500 }, req);
+  }
+}

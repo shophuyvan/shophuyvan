@@ -6,6 +6,7 @@ import { json, corsHeaders } from './lib/response.js';
 import { requirePermission } from './lib/auth.js'; // ✅ THÊM IMPORT
 import * as categories from './modules/categories.js';
 import * as Orders from './modules/orders/order-index.js';
+import { updateOrderCustomer } from './modules/orders/order-public.js'; // ✅ IMPORT UPDATE
 import * as Products from './modules/products.js';
 import * as WebhookHandler from './modules/webhook-handler.js'; // THÊM DÒNG NÀY
 import * as shipping from './modules/shipping/index.js';
@@ -277,6 +278,11 @@ export default {
         console.log('[INV-TRACE] router → orders', { path, method: req.method });
       }
       
+      // ✅ [HOTFIX] Handle Order Update Explicitly (Bypassing Order Index)
+      if (path === '/orders/update' && req.method === 'POST') {
+        return updateOrderCustomer(req, env);
+      }
+
       // Orders module
       if (path.startsWith('/api/orders') ||
           path.startsWith('/admin/orders') ||
