@@ -244,19 +244,120 @@
        } catch (e) { return json({ ok: false, error: e.message }, { status: 500 }, req); }
      }
      
-          // BƯỚC 2: Lưu KV List (Danh sách Admin) -> ĐÂY LÀ BƯỚC FIX LỖI ADMIN KHÔNG ĐỔI
-    const list = await getJSON(env, 'orders:list', []);
+           // ✅ [FINAL] Update Customer - Sử dụng logic của Order Core để bảo toàn dữ liệu
+// Import hàm saveOrderToD1 ở đầu file nếu chưa có:
+// import { saveOrderToD1 } from '../../core/order-core.js';
+
+export async function updateOrderCustomer(req, env) {
+  try {
+    const auth = await authenticateCustomer(req, env);
+    if (!auth.customerId) return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+
+    const body = await readBody(req) || {};
+    const { order_id, customer } = body;
+
+    // Validation
+    if (!order_id) return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
+    if (!customer || !customer.phone || !customer.address) {
+      return json({ ok: false, error: 'Missing customer info' }, { status: 400 }, req);
+    }
+
+    // 1. Get Full Order Detail (Lấy bản ghi gốc từ KV Detail)
+    // Đây là nguồn dữ liệu đầy đủ nhất (chứa items, tracking, v.v.)
+    let order = await getJSON(env, 'order:' + order_id, null);
+    if (!order) return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
+
+    // 2. Security Check
+    const normalize = (p) => String(p || '').replace(/\D/g, '');
+    const currentPhone = normalize(order.customer?.phone || order.phone);
+    const authPhone = normalize(auth.customer?.phone);
     
-    // Tìm index chính xác bằng String để tránh lỗi so sánh số/chữ
+    const isOwner = (authPhone && currentPhone === authPhone) || 
+                    (auth.customerId && order.customer?.id === auth.customerId);
+
+    if (!isOwner) return json({ ok: false, error: 'Permission denied' }, { status: 403 }, req);
+
+    // 3. Status Check
+    const s = String(order.status || '').toLowerCase();
+    const canEdit = s.includes('pending') || s.includes('confirmed') || s.includes('cho') || s.includes('new');
+    if (!canEdit) return json({ ok: false, error: 'Không thể chỉnh sửa đơn hàng này' }, { status: 400 }, req);
+
+    // 4. CHUẨN BỊ DỮ LIỆU MỚI
+    const newName = customer.name.trim();
+    const newPhone = normalizePhone(customer.phone);
+    const newAddress = customer.address.trim();
+
+    // Cập nhật vào object order hiện tại (Mutate existing object)
+    // Việc này giữ nguyên các trường khác như items, tracking_code, logs...
+    order.customer = { ...order.customer, name: newName, phone: newPhone, address: newAddress };
+    
+    order.name = newName;
+    order.phone = newPhone;
+    order.address = newAddress;
+    
+    // Đồng bộ sang thông tin Shipping (Cho Admin hiển thị)
+    order.shipping_name = newName;
+    order.shipping_phone = newPhone;
+    order.shipping_address = newAddress;
+    
+    if (order.shipping) {
+        order.shipping.name = newName;
+        order.shipping.phone = newPhone;
+        order.shipping.address = newAddress;
+    }
+    
+    order.updated_at = Date.now();
+
+    // 5. LƯU DỮ LIỆU (THEO QUY TRÌNH CORE)
+
+    // BƯỚC A: Lưu vào SQL thông qua hàm Core (Quan trọng nhất)
+    // Hàm này sẽ tự động map các trường vào cột SQL chuẩn, bảo vệ tracking_number
+    try {
+        await saveOrderToD1(env, order); 
+    } catch (errD1) {
+        console.warn('[ORDER-UPDATE] D1 Save Warning:', errD1);
+    }
+
+    // BƯỚC B: Lưu lại KV Detail
+    await putJSON(env, 'order:' + order_id, order);
+
+    // BƯỚC C: Cập nhật KV List (Admin List View) - AN TOÀN TUYỆT ĐỐI
+    const list = await getJSON(env, 'orders:list', []);
     const idx = list.findIndex(o => String(o.id) === String(order_id));
     
     if (idx > -1) {
-      // Ghi đè toàn bộ object mới vào vị trí cũ trong danh sách
-      list[idx] = order;
+      // 🔥 KHÔNG GHI ĐÈ TOÀN BỘ OBJECT
+      // Chỉ cập nhật các trường địa chỉ, giữ nguyên tracking_code và các thông tin vận chuyển khác của item trong list
+      const oldListItem = list[idx];
+      
+      list[idx] = {
+        ...oldListItem, // Giữ lại toàn bộ thông tin cũ (tracking_code, superai_code, status...)
+        
+        // Chỉ ghi đè thông tin khách hàng
+        customer_name: newName,
+        customer_phone: newPhone,
+        shipping_name: newName,
+        shipping_phone: newPhone,
+        shipping_address: newAddress,
+        
+        // Cập nhật object con
+        customer: {
+            ...(oldListItem.customer || {}),
+            name: newName,
+            phone: newPhone,
+            address: newAddress
+        },
+        
+        updated_at: Date.now()
+      };
+      
       await putJSON(env, 'orders:list', list);
-    } else {
-        // Fallback: Nếu không tìm thấy trong list (hy hữu), push vào đầu
-        console.warn('[ORDER-UPDATE] Warning: Order not found in list, re-adding...');
-        list.unshift(order);
-        await putJSON(env, 'orders:list', list);
     }
+
+    return json({ ok: true, message: 'Cập nhật thành công' }, {}, req);
+
+  } catch (e) {
+    console.error('[ORDER-UPDATE] Error:', e);
+    return json({ ok: false, error: e.message || 'Update failed' }, { status: 500 }, req);
+  }
+}
