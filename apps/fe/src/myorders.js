@@ -90,11 +90,9 @@ function renderOrder(order) {
   const items = order.items || [];
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
   
-  // ✅ Tính tổng tiền chính xác
-  const subtotal = Number(order.subtotal || 0);
-  const shippingFee = Number(order.shipping_fee || 0);
-  const discount = Number(order.discount || 0) + Number(order.shipping_discount || 0);
-  const totalAmount = Math.max(0, subtotal + shippingFee - discount);
+  // ✅ Lấy tổng tiền trực tiếp từ Core (Đã bao gồm logic giảm giá/sửa giá Admin)
+  // Tuyệt đối không tự tính toán lại ở Client
+  const totalAmount = Number(order.total || order.totalAmount || order.grand_total || 0);
   
   // ✅ Thông tin khách hàng
   const customer = order.customer || {};
