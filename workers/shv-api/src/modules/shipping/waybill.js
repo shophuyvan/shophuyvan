@@ -112,8 +112,8 @@ export async function createWaybill(req, env) {
       district: receiverDistrict,
       commune: (body.receiver_commune || order.customer?.ward || body.to_commune || ''),
       
-      // Amount (REQUIRED) - FIX: Chỉ lấy Giá trị hàng hóa (Subtotal - Discount), KHÔNG cộng ship
-      amount: Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
+      // ✅ TỐI ƯU: Lấy Revenue từ Core (đã xử lý logic Freeship/Trừ ship)
+      amount: Math.round(Number(order.revenue || 0)),
       
       // Sender
       sender_name: body.sender_name || shipping.sender_name || store.name || 'Shop',
@@ -140,10 +140,9 @@ export async function createWaybill(req, env) {
       // ✅ FIX LỖI 2: Ưu tiên cân nặng từ order trước, fallback mới dùng chargeableWeightGrams
       weight_gram: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
       weight: Number(order.total_weight_gram || order.weight_gram || body.total_weight_gram || body.totalWeightGram || 0) || chargeableWeightGrams(body, order) || 500,
-      // FIX COD: Nếu chưa thanh toán, COD = Tiền hàng (Ship do SuperAI tự cộng). Nếu đã thanh toán, COD = 0.
-      cod: order.payment_status === 'paid' ? 0 : Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
-	  // Aliases SuperAI
-      value: Math.round(Number((order.subtotal || 0) - (order.discount || 0))),
+      // Nếu revenue có thì dùng revenue, không thì dùng (subtotal - discount)
+      cod: (order.payment_status === 'paid' || order.payment_status === 'cocon') ? 0 : Math.round(Number(order.revenue || (order.subtotal - order.discount))),
+      value: Math.round(Number(order.revenue || 0)),
       soc: body.soc || order.soc || '',
       
       payer: '2', // Khách trả phí (theo logic mới)
@@ -383,45 +382,6 @@ function sanitizePhone(phone) {
   return String(phone || '').replace(/\D+/g, '');
 }
 
-function calculateOrderAmount(order, body) {
-  // Priority: explicit amount > order total > calculated from items
-  
-  // 1. Check explicit amount
-  if (body.amount && Number(body.amount) > 0) {
-    return Number(body.amount);
-  }
-  
-  if (order.amount && Number(order.amount) > 0) {
-    return Number(order.amount);
-  }
-  
-  // 2. Check order total
-  if (order.total && Number(order.total) > 0) {
-    return Number(order.total);
-  }
-  
-  // 3. Calculate from items
-  const items = Array.isArray(order.items) ? order.items : 
-               (Array.isArray(body.items) ? body.items : []);
-  
-  if (items.length > 0) {
-    const itemsTotal = items.reduce((sum, item) => {
-      const price = Number(item.price || 0);
-      const qty = Number(item.qty || item.quantity || 1);
-      return sum + (price * qty);
-    }, 0);
-    
-    if (itemsTotal > 0) return itemsTotal;
-  }
-  
-  // 4. Fallback to COD
-  const cod = Number(order.cod || body.cod || 0);
-  if (cod > 0) return cod;
-  
-  // 5. Default minimum
-  return 10000; // 10k VND minimum
-}
-
 /**
  * HÀM NỘI BỘ: Tự động tạo vận đơn khi khách đặt hàng
  * Được gọi từ /modules/orders.js
@@ -451,12 +411,13 @@ export async function autoCreateWaybill(order, env) {
     const totalWeight = chargeableWeightGrams({}, order) || 500;
     const payer = '2'; // Người nhận trả phí
     
-    // ✅ FIX SUPERAI: Chỉ lấy giá trị hàng hoá (Subtotal - Discount). 
-    // KHÔNG lấy revenue/total vì đã bao gồm ship. SuperAI sẽ tự cộng ship.
-    const productValue = Math.round(Number((order.subtotal || 0) - (order.discount || 0)));
+    // ✅ TỐI ƯU HÓA: Dùng thẳng Revenue từ Order Core
+    // Revenue này đã được Core tính toán:
+    // - Nếu đơn nhỏ: Revenue = Tiền hàng
+    // - Nếu đơn to (Freeship): Revenue = Tiền hàng - Ship
+    const productValue = Math.round(Number(order.revenue || 0));
     
     const totalAmount = productValue;
-    // Nếu thanh toán COD thì thu = tiền hàng. Nếu đã thanh toán (CK) thì thu = 0.
     const totalCOD = (order.payment_method === 'cod' || order.payment_method === 'COD') ? productValue : 0;
     const totalValue = productValue;
 
