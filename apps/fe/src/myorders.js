@@ -90,27 +90,26 @@ function renderOrder(order) {
   const items = order.items || [];
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
   
-  // 🔍 DEBUG: In dữ liệu đơn hàng ra Console để kiểm tra tên biến chứa giá tiền
-  console.log('Order Debug ID:', order.id, order);
+  // ✅ LOGIC TÍNH TIỀN ĐỒNG BỘ VỚI CORE/ADMIN
+  // Ưu tiên 1: Lấy field tổng nếu API có trả về
+  let totalAmount = Number(order.total || order.totalAmount || order.grand_total || 0);
 
-  // ✅ Thử tìm tổng tiền ở nhiều biến khác nhau (Core mapping)
-  let totalAmount = Number(
-    order.total || 
-    order.totalAmount || 
-    order.grand_total || 
-    order.total_price || 
-    order.final_price || 
-    order.amount || 
-    (order.payment && order.payment.amount) || 
-    0
-  );
-
-  // ⚠️ FALLBACK: Nếu Core vẫn trả về 0, tạm thời tính tay để không hiện "0đ" (tránh lỗi UI)
+  // Ưu tiên 2: Nếu API không trả field tổng, tự tính dựa trên Revenue (Trị giá thực tế)
   if (totalAmount === 0) {
-    const sub = Number(order.subtotal || 0);
+    // Lưu ý: Core dùng 'revenue' hoặc 'cod_amount' để lưu "Trị giá hàng" sau khi Admin chỉnh sửa/giảm giá
+    // subtotal thường chỉ là giá niêm yết ban đầu (chưa chuẩn)
+    const goodsValue = Number(order.revenue || order.cod_amount || order.subtotal || 0);
     const ship = Number(order.shipping_fee || 0);
-    const disc = Number(order.discount || 0) + Number(order.shipping_discount || 0);
-    totalAmount = Math.max(0, sub + ship - disc);
+    
+    // Nếu có revenue (tức là giá đã chốt từ Core), ta cộng thẳng với ship
+    if (order.revenue !== undefined || order.cod_amount !== undefined) {
+       totalAmount = goodsValue + ship;
+    } else {
+       // Fallback: Nếu không có revenue, mới dùng công thức cũ (sub + ship - discount)
+       const sub = Number(order.subtotal || 0);
+       const disc = Number(order.discount || 0) + Number(order.shipping_discount || 0);
+       totalAmount = Math.max(0, sub + ship - disc);
+    }
   }
   
   // ✅ Thông tin khách hàng
