@@ -244,100 +244,109 @@
        } catch (e) { return json({ ok: false, error: e.message }, { status: 500 }, req); }
      }
      
-           // ✅ [NEW V2] Update Order Customer Info (Name/Phone/Address) - SYNC ALL FIELDS
-     export async function updateOrderCustomer(req, env) {
-       try {
-         const auth = await authenticateCustomer(req, env);
-         if (!auth.customerId) return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
-     
-         const body = await readBody(req) || {};
-         const { order_id, customer } = body;
-     
-         // Validation
-         if (!order_id) return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
-         if (!customer || !customer.phone || !customer.address) {
-           return json({ ok: false, error: 'Missing customer info' }, { status: 400 }, req);
-         }
-     
-         // 1. Get Order
-         const order = await getJSON(env, 'order:' + order_id, null);
-         if (!order) return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
-     
-         // 2. Security Check (Verify Owner)
-         const normalize = (p) => String(p || '').replace(/\D/g, '');
-         const currentPhone = normalize(order.customer?.phone || order.phone);
-         const authPhone = normalize(auth.customer?.phone);
-         
-         const isOwner = (authPhone && currentPhone === authPhone) || 
-                         (auth.customerId && order.customer?.id === auth.customerId);
-     
-         if (!isOwner) {
-           return json({ ok: false, error: 'Permission denied' }, { status: 403 }, req);
-         }
-     
-         // 3. Status Check
-         const s = String(order.status || '').toLowerCase();
-         const canEdit = s.includes('pending') || s.includes('confirmed') || s.includes('cho') || s.includes('new');
-         
-         if (!canEdit) {
-           return json({ ok: false, error: 'Không thể chỉnh sửa đơn hàng ở trạng thái này' }, { status: 400 }, req);
-         }
-     
-         // 4. Update Info - AGGRESSIVE UPDATE (Cập nhật mọi nơi)
-         const newName = customer.name;
-         const newPhone = normalizePhone(customer.phone);
-         const newAddress = customer.address;
-     
-         // 4.1. Update Root Fields (Cho danh sách đơn hàng cũ)
-         order.name = newName;
-         order.phone = newPhone;
-         order.address = newAddress;
-         order.updated_at = Date.now(); // Đánh dấu thời gian cập nhật
-     
-         // 4.2. Update Customer Object (Cho MyOrder hiển thị)
-         order.customer = {
-           ...order.customer,
-           name: newName,
-           phone: newPhone,
-           address: newAddress
-         };
-     
-         // 4.3. Update Shipping Info (QUAN TRỌNG: Cho Admin & Vận đơn hiển thị)
-         // Admin thường ưu tiên lấy shipping_... để hiển thị
-         order.shipping_name = newName;
-         order.shipping_phone = newPhone;
-         order.shipping_address = newAddress;
-         
-         // Fallback cho các cấu trúc dữ liệu cũ/khác
-         if (order.shipping) {
-             order.shipping.name = newName;
-             order.shipping.phone = newPhone;
-             order.shipping.address = newAddress;
-         }
-     
-         // 5. Save Data (KV + D1)
-         // Lưu vào KV Detail
-         await putJSON(env, 'order:' + order_id, order);
-     
-         // Cập nhật vào danh sách tổng (Orders List)
-         const list = await getJSON(env, 'orders:list', []);
-         const idx = list.findIndex(o => o.id === order_id);
-         if (idx > -1) {
-           list[idx] = order; // Ghi đè object mới vào list để Admin thấy ngay
-           await putJSON(env, 'orders:list', list);
-         }
-     
-         // Lưu vào SQL (D1 Database)
-         try {
-             await saveOrderToD1(env, order);
-         } catch (errD1) {
-             console.warn('[ORDER-UPDATE] D1 Save Warning:', errD1);
-         }
-     
-         return json({ ok: true, message: 'Cập nhật thành công' }, {}, req);
-     
-       } catch (e) {
-         console.error('[ORDER-UPDATE] Error:', e);
-         return json({ ok: false, error: e.message || 'Update failed' }, { status: 500 }, req);
-       }
-     }
+           // ✅ [NEW V3] Update Order Customer Info - ĐỒNG BỘ TUYỆT ĐỐI ADMIN & MYORDER
+export async function updateOrderCustomer(req, env) {
+  try {
+    const auth = await authenticateCustomer(req, env);
+    if (!auth.customerId) return json({ ok: false, error: 'Unauthorized' }, { status: 401 }, req);
+
+    const body = await readBody(req) || {};
+    const { order_id, customer } = body;
+
+    // Validation
+    if (!order_id) return json({ ok: false, error: 'Missing order_id' }, { status: 400 }, req);
+    if (!customer || !customer.phone || !customer.address) {
+      return json({ ok: false, error: 'Missing customer info' }, { status: 400 }, req);
+    }
+
+    // 1. Get Order Detail (Lấy bản ghi chi tiết)
+    let order = await getJSON(env, 'order:' + order_id, null);
+    if (!order) return json({ ok: false, error: 'Order not found' }, { status: 404 }, req);
+
+    // 2. Security Check (Chỉ chủ sở hữu được sửa)
+    const normalize = (p) => String(p || '').replace(/\D/g, '');
+    const currentPhone = normalize(order.customer?.phone || order.phone);
+    const authPhone = normalize(auth.customer?.phone);
+    
+    // Logic check quyền: Khớp SĐT hoặc Khớp ID Customer
+    const isOwner = (authPhone && currentPhone === authPhone) || 
+                    (auth.customerId && order.customer?.id === auth.customerId);
+
+    if (!isOwner) {
+      return json({ ok: false, error: 'Permission denied' }, { status: 403 }, req);
+    }
+
+    // 3. Status Check (Chỉ cho sửa khi đơn chưa xử lý xong)
+    const s = String(order.status || '').toLowerCase();
+    const canEdit = s.includes('pending') || s.includes('confirmed') || s.includes('cho') || s.includes('new');
+    
+    if (!canEdit) {
+      return json({ ok: false, error: 'Không thể chỉnh sửa đơn hàng ở trạng thái này' }, { status: 400 }, req);
+    }
+
+    // 4. PREPARE DATA - Chuẩn hóa dữ liệu mới
+    const newName = customer.name.trim();
+    const newPhone = normalizePhone(customer.phone);
+    const newAddress = customer.address.trim();
+
+    // -------------------------------------------------------
+    // 🔥 QUAN TRỌNG: CẬP NHẬT MỌI TRƯỜNG MÀ ADMIN CÓ THỂ ĐỌC
+    // -------------------------------------------------------
+    
+    // 4.1. Update Customer Object (Cho MyOrder)
+    order.customer = { ...order.customer, name: newName, phone: newPhone, address: newAddress };
+
+    // 4.2. Update Root Fields (Cho Admin List cũ)
+    order.name = newName;
+    order.phone = newPhone;
+    order.address = newAddress;
+
+    // 4.3. Update Shipping Info (Cho Admin Vận Đơn & Hiển thị)
+    // Đây là phần Admin ưu tiên đọc nhất
+    order.shipping_name = newName;
+    order.shipping_phone = newPhone;
+    order.shipping_address = newAddress;
+    
+    if (!order.shipping) order.shipping = {};
+    order.shipping.name = newName;
+    order.shipping.phone = newPhone;
+    order.shipping.address = newAddress;
+
+    order.updated_at = Date.now();
+
+    // 5. SAVE DATA - Ghi đè vào mọi nơi lưu trữ
+    
+    // BƯỚC 1: Lưu KV Detail (Chi tiết đơn)
+    await putJSON(env, 'order:' + order_id, order);
+
+    // BƯỚC 2: Lưu KV List (Danh sách Admin) -> ĐÂY LÀ BƯỚC FIX LỖI ADMIN KHÔNG ĐỔI
+    const list = await getJSON(env, 'orders:list', []);
+    
+    // Tìm index chính xác bằng String để tránh lỗi so sánh số/chữ
+    const idx = list.findIndex(o => String(o.id) === String(order_id));
+    
+    if (idx > -1) {
+      // Ghi đè toàn bộ object mới vào vị trí cũ trong danh sách
+      list[idx] = order;
+      await putJSON(env, 'orders:list', list);
+    } else {
+        // Fallback: Nếu không tìm thấy trong list (hy hữu), push vào đầu
+        console.warn('[ORDER-UPDATE] Warning: Order not found in list, re-adding...');
+        list.unshift(order);
+        await putJSON(env, 'orders:list', list);
+    }
+
+    // BƯỚC 3: Lưu SQL D1 (Để báo cáo chuẩn xác)
+    try {
+        await saveOrderToD1(env, order);
+    } catch (errD1) {
+        console.warn('[ORDER-UPDATE] D1 Save Warning:', errD1);
+    }
+
+    return json({ ok: true, message: 'Cập nhật thành công' }, {}, req);
+
+  } catch (e) {
+    console.error('[ORDER-UPDATE] Error:', e);
+    return json({ ok: false, error: e.message || 'Update failed' }, { status: 500 }, req);
+  }
+}
