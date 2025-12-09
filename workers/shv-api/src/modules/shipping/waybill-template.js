@@ -11,7 +11,10 @@ export function getWaybillHTML(data) {
   const receiver = safeData.receiver || {};
   const customer = safeData.customer || {};
   const store = safeData.store || {};
-  const items = Array.isArray(safeData.items) ? safeData.items : [];
+  // ✅ FIX: Tìm sản phẩm ở mọi nơi (trong root hoặc trong order) để không bị sót
+  let items = [];
+  if (Array.isArray(safeData.items) && safeData.items.length > 0) items = safeData.items;
+  else if (Array.isArray(order.items) && order.items.length > 0) items = order.items;
 
   // 2. XỬ LÝ TEXT
   const trackingCode = order.tracking_code || order.carrier_code || safeData.superaiCode || 'N/A';
@@ -82,12 +85,14 @@ export function getWaybillHTML(data) {
     }
     
     .page {
-      width: 100%;
-      height: 100%;
-      border: 3px solid #000; 
+      width: 146mm;      /* Nhỏ hơn khổ giấy 2mm để an toàn */
+      height: 206mm;     /* Nhỏ hơn khổ giấy 2mm */
+      border: 2px solid #000; /* Viền mỏng hơn chút cho thanh thoát */
+      margin: 1mm auto;  /* Canh giữa tờ giấy, chừa lề an toàn */
       display: flex;
       flex-direction: column;
       position: relative;
+      overflow: hidden;  /* Cắt nội dung thừa nếu có */
     }
     
     .bold { font-weight: bold; }
