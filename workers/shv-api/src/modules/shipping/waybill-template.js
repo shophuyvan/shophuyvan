@@ -90,10 +90,11 @@ export function getWaybillHTML(data) {
     
     .page {
       width: 100%;
-      max-width: 148mm; /* Giới hạn ngang chuẩn A5 */
-      min-height: 190mm; /* Đủ dài nhưng không ép cứng 210mm để tránh tràn trang */
+      max-width: 148mm;
+      /* FIX LỖI NHẢY TRANG: Set chiều cao cố định vừa khít vùng in (210mm - 10mm padding = 200mm) */
+      height: 198mm; 
       margin: 0 auto;
-      border: 2px solid #000; /* Viền khung */
+      border: 2px solid #000;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -107,7 +108,7 @@ export function getWaybillHTML(data) {
     .header {
       display: flex;
       border-bottom: 3px solid #000;
-      height: 55mm;
+      height: 50mm; /* Giảm từ 55mm xuống 50mm */
     }
     .header-qr {
       width: 55mm;
@@ -122,7 +123,7 @@ export function getWaybillHTML(data) {
       width: 100%; 
       height: auto; 
       display: block; 
-      max-height: 53mm;
+      max-height: 48mm; /* Giảm theo Header */
     }
     
     .header-info {
@@ -244,10 +245,10 @@ export function getWaybillHTML(data) {
       font-size: 12px;
     }
 
-    /* FOOTER */
+   /* FOOTER */
     .footer-section {
       display: flex;
-      height: 45mm;
+      height: 38mm; /* Giảm từ 45mm xuống 38mm để dành đất cho nội dung */
       border-bottom: 2px solid #000;
     }
     .footer-left {
