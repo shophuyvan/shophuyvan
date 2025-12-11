@@ -33,6 +33,10 @@ FB_APP_SECRET = "8e44bb957d5eb1986f220bbd17c71542"
 GOOGLE_CLIENT_ID = "45281126981-ha225bojed9835odflri9ttretgb93so.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 
+# --- SOCIAL VIDEO CONFIG (FPT.AI & CLOUDINARY) ---
+# 1. Key FPT.AI để tạo giọng đọc (Đăng ký tại console.fpt.ai)
+FPT_AI_API_KEY = "AI6RgW53p4J6wTaSqMEDUQkgRd3vArKl"
+
 # ============================================
 # D1 DATABASE
 # ============================================
