@@ -27,9 +27,9 @@ export async function batchAnalyzeVideos(req, env) {
       return json({ ok: false, error: 'Thiếu product_id' }, { status: 400 });
     }
 
-    // Get product info
+    // Get product info (Lưu ý: Bảng products không có cột price, phải lấy từ variants)
     const product = await env.DB.prepare(`
-      SELECT id, title, shortDesc, price, category_slug, brand
+      SELECT id, title, shortDesc, category_slug, brand
       FROM products
       WHERE id = ?
     `).bind(product_id).first();
@@ -37,6 +37,14 @@ export async function batchAnalyzeVideos(req, env) {
     if (!product) {
       return json({ ok: false, error: 'Sản phẩm không tồn tại' }, { status: 404 });
     }
+
+    // [CORE FIX] Lấy giá từ bảng variants (Lấy giá thấp nhất làm đại diện)
+    const variant = await env.DB.prepare(`
+        SELECT price FROM variants WHERE product_id = ? ORDER BY price ASC LIMIT 1
+    `).bind(product_id).first();
+
+    // Gán giá vào object product để dùng cho AI
+    product.price = variant ? variant.price : 0;
 
     // Update all videos to "analyzing" status
     const now = Date.now();
