@@ -222,7 +222,7 @@ export async function getDouyinStatus(req, env) {
 
 // Import các function xử lý
 import { batchAnalyzeVideos, getBatchStatus } from './douyin/douyin-batch-analyzer.js';
-import { renderVideo } from './douyin/douyin-render-service.js';
+import { renderVideo, previewVoice } from './douyin/douyin-render-service.js';
 
 /**
  * MAIN HANDLER: Router trung tâm cho module Douyin
@@ -244,6 +244,11 @@ export async function handle(req, env) {
     }
     if (path.includes('/batch-status') && method === 'GET') {
         return getBatchStatus(req, env);
+    }
+
+    // [NEW] Preview Voice (Nghe thử)
+    if (path.includes('/preview-voice') && method === 'POST') {
+        return previewVoice(req, env);
     }
 
     // 3. Render Video (TTS & Overlay)

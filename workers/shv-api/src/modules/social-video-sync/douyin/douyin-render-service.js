@@ -32,126 +32,86 @@ export async function renderVideo(req, env) {
       output_options = { save_to_library: true, download: true }
     } = body;
 
+    // Fix CORS: Thêm req vào json response
     if (!video_id || !script_text) {
-      return json({ 
-        ok: false, 
-        error: 'Thiếu video_id hoặc script_text' 
-      }, { status: 400 });
+      return json({ ok: false, error: 'Thiếu video_id hoặc script_text' }, { status: 400 }, req);
     }
 
-    // Get video info
-    const video = await env.DB.prepare(`
-      SELECT * FROM douyin_videos WHERE id = ?
-    `).bind(video_id).first();
-
+    const video = await env.DB.prepare(`SELECT * FROM douyin_videos WHERE id = ?`).bind(video_id).first();
     if (!video) {
-      return json({ ok: false, error: 'Video không tồn tại' }, { status: 404 });
+      return json({ ok: false, error: 'Video không tồn tại' }, { status: 404 }, req);
     }
 
     const now = Date.now();
-
-    // Update status to rendering
-    await env.DB.prepare(`
-      UPDATE douyin_videos
-      SET status = 'rendering', updated_at = ?
-      WHERE id = ?
-    `).bind(now, video_id).run();
+    await env.DB.prepare(`UPDATE douyin_videos SET status = 'rendering', updated_at = ? WHERE id = ?`)
+      .bind(now, video_id).run();
 
     try {
-      // Step 1: Generate Vietnamese voiceover
+      // 1. Generate Voice
       console.log('[Render] Generating voiceover...');
-      const voiceover = await generateVietnameseVoiceover(
-        script_text,
-        voice_id,
-        voice_speed,
-        env
-      );
+      const voiceover = await generateVietnameseVoiceover(script_text, voice_id, voice_speed, env);
 
-      console.log('[Render] Voiceover generated:', voiceover.r2Key);
+      // 2. Overlay Audio
+      console.log('[Render] Overlaying audio...');
+      const finalVideo = await overlayAudioOnVideo(video.original_video_url, voiceover.r2Url, video_id, env);
 
-      // Step 2: Overlay voiceover on video
-      console.log('[Render] Overlaying audio on video...');
-      const finalVideo = await overlayAudioOnVideo(
-        video.original_video_url, // Original video URL
-        voiceover.r2Url,           // Voiceover URL
-        video_id,
-        env
-      );
-
-      console.log('[Render] Final video created:', finalVideo.r2Key);
-
-      // Step 3: Delete original video to save storage
-      if (video.r2_original_key && output_options.save_to_library) {
-        console.log('[Render] Deleting original video to save storage...');
-        await env.SOCIAL_VIDEOS.delete(video.r2_original_key);
-      }
-
-      // Step 4: Update database
+      // 3. Update DB
       await env.DB.prepare(`
         UPDATE douyin_videos
-        SET 
-          r2_final_key = ?,
-          final_video_url = ?,
-          vietnamese_audio_url = ?,
-          final_script_text = ?,
-          voice_model = ?,
-          voice_speed = ?,
-          status = 'completed',
-          original_deleted = ?,
-          updated_at = ?
+        SET r2_final_key = ?, final_video_url = ?, vietnamese_audio_url = ?,
+            final_script_text = ?, voice_model = ?, voice_speed = ?,
+            status = 'completed', updated_at = ?
         WHERE id = ?
       `).bind(
-        finalVideo.r2Key,
-        finalVideo.r2Url,
-        voiceover.r2Url,
-        script_text,
-        voice_id,
-        voice_speed,
-        output_options.save_to_library ? 1 : 0,
-        now,
-        video_id
+        finalVideo.r2Key, finalVideo.r2Url, voiceover.r2Url,
+        script_text, voice_id, voice_speed, now, video_id
       ).run();
 
-      // Step 5: Save to Content Library (if requested)
-      let contentId = null;
-      if (output_options.save_to_library) {
-        contentId = await saveToContentLibrary(video, finalVideo, script_text, env);
-      }
-
-      // Step 6: Return result
+      // Fix CORS: Thêm req vào json response
       return json({
         ok: true,
         data: {
           video_id,
           final_video_url: finalVideo.r2Url,
-          download_url: output_options.download ? finalVideo.r2Url : null,
-          content_id: contentId,
-          original_deleted: output_options.save_to_library,
-          voiceover_url: voiceover.r2Url,
-          voice_used: voice_id,
-          duration: finalVideo.duration
+          voiceover_url: voiceover.r2Url
         },
         message: 'Video đã render thành công!'
-      });
+      }, {}, req);
 
     } catch (renderError) {
-      // Update status to error
-      await env.DB.prepare(`
-        UPDATE douyin_videos
-        SET status = 'error', error_message = ?, updated_at = ?
-        WHERE id = ?
-      `).bind(renderError.message, now, video_id).run();
-
+      await env.DB.prepare(`UPDATE douyin_videos SET status = 'error', error_message = ?, updated_at = ? WHERE id = ?`)
+        .bind(renderError.message, now, video_id).run();
       throw renderError;
     }
 
   } catch (error) {
     console.error('[Render] Error:', error);
-    return json({ 
-      ok: false, 
-      error: error.message 
-    }, { status: 500 });
+    return json({ ok: false, error: error.message }, { status: 500 }, req);
   }
+}
+
+/**
+ * [NEW] API: Nghe thử giọng đọc (Preview Voice)
+ */
+export async function previewVoice(req, env) {
+    try {
+        const body = await req.json();
+        const { text, voice_id, speed } = body;
+
+        if (!text) return json({ ok: false, error: 'Thiếu text' }, { status: 400 }, req);
+
+        // Gọi TTS service nhưng không lưu vào DB video
+        const voiceover = await generateVietnameseVoiceover(text, voice_id, speed, env);
+
+        return json({
+            ok: true,
+            audio_url: voiceover.r2Url,
+            duration: voiceover.duration
+        }, {}, req);
+
+    } catch (error) {
+        return json({ ok: false, error: error.message }, { status: 500 }, req);
+    }
 }
 
 /**

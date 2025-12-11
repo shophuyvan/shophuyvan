@@ -627,6 +627,14 @@ window.renderScriptSelection = function() {
                 </div>
               </div>
 
+              <div class="mt-4 mb-4 pt-4 border-t border-dashed">
+                <button onclick="playVoicePreview(${vIdx})" id="btn-preview-${vIdx}" 
+                        class="w-full border border-blue-500 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 flex items-center justify-center gap-2 transition font-medium">
+                  <span>🔊</span> Nghe thử giọng đọc này
+                </button>
+                <div id="audio-container-${vIdx}" class="mt-2 hidden"></div>
+              </div>
+
               <div class="p-3 bg-blue-50 rounded text-sm text-blue-800">
                 💡 <strong>Review kịch bản đã chọn:</strong><br>
                 <p class="mt-1 italic text-gray-700" id="preview-text-${vIdx}">
@@ -727,3 +735,45 @@ function updateRenderStatus(videoId, percent, text, colorClass = 'bg-blue-600') 
     }
     if (status) status.innerText = text;
 }
+
+// ==========================================
+// FEATURE: VOICE PREVIEW
+// ==========================================
+
+window.playVoicePreview = async function(videoIdx) {
+  const video = state.analyzedVideos[videoIdx];
+  const script = video.ai_analysis.scripts[video.selectedScriptIndex || 0];
+  const btn = document.getElementById(`btn-preview-${videoIdx}`);
+  const container = document.getElementById(`audio-container-${videoIdx}`);
+
+  if (!script) return alert('Vui lòng chọn kịch bản trước');
+
+  try {
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Đang tạo audio...';
+    btn.disabled = true;
+
+    // Gọi API Preview mới
+    const res = await callApi('/api/social/douyin/preview-voice', 'POST', {
+      text: script.text.substring(0, 150), // Lấy 150 ký tự đầu để test nhanh
+      voice_id: video.selectedVoice || 'banmai',
+      speed: video.selectedSpeed || 0
+    });
+
+    // Tạo Audio Player
+    container.innerHTML = `
+      <audio controls autoplay class="w-full mt-2" src="${res.audio_url}"></audio>
+      <p class="text-xs text-gray-500 mt-1 text-center">Bản nghe thử (Demo 150 ký tự)</p>
+    `;
+    container.classList.remove('hidden');
+    
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+
+  } catch (e) {
+    console.error(e);
+    alert('Lỗi: ' + e.message);
+    btn.innerHTML = '🔊 Nghe thử lại';
+    btn.disabled = false;
+  }
+};
