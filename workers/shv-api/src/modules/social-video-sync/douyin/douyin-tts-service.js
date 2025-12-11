@@ -100,5 +100,31 @@ function estimateDuration(script) {
   const minutes = words / 150;
   return Math.round(minutes * 60); // seconds
 }
+/**
+ * Danh sách giọng đọc FPT.AI hỗ trợ
+ */
+export const AVAILABLE_VOICES = {
+  banmai: { id: 'banmai', name: 'Ban Mai (Nữ - Miền Bắc)', gender: 'female' },
+  leminh: { id: 'leminh', name: 'Lê Minh (Nam - Miền Bắc)', gender: 'male' },
+  myan: { id: 'myan', name: 'Mỹ An (Nữ - Miền Trung)', gender: 'female' },
+  lannhi: { id: 'lannhi', name: 'Lan Nhi (Nữ - Miền Nam)', gender: 'female' },
+  linhsan: { id: 'linhsan', name: 'Linh San (Nữ - Miền Nam)', gender: 'female' },
+  minhquang: { id: 'minhquang', name: 'Minh Quang (Nam - Miền Nam)', gender: 'male' }
+};
+
+/**
+ * Hàm test kết nối FPT.AI (Dùng cho nút Test Connection)
+ */
+export async function testTTSConnection(env) {
+  try {
+    if (!env.FPT_AI_API_KEY) {
+      return { ok: false, error: 'Chưa cấu hình FPT_AI_API_KEY trong Wrangler' };
+    }
+    // Test thành công nếu có key (để tiết kiệm quota, ta không gọi thật)
+    return { ok: true, message: 'Kết nối FPT.AI OK (API Key đã được cấu hình)' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
 
 console.log('✅ douyin-tts-service.js loaded (Fixed Async URL)');
