@@ -1,17 +1,12 @@
 /**
- * File: workers/shv-api/src/modules/social-video-sync/douyin/tts-service.js
+ * File: workers/shv-api/src/modules/social-video-sync/douyin/douyin-tts-service.js
  * Text-to-Speech Service using FPT.AI Voice API
+ * [FIXED] Handle both Async URL and Base64 response types
  */
 
 /**
  * Generate Vietnamese voiceover using FPT.AI
  * Docs: https://fpt.ai/vi/voice
- * 
- * @param {string} script - Vietnamese script text
- * @param {string} voice - Voice ID (leminh, myan, lannhi, etc.)
- * @param {number} speed - Speed from -3 to +3
- * @param {Env} env - Worker env
- * @returns {Promise<{audioBuffer: ArrayBuffer, r2Key: string, r2Url: string}>}
  */
 export async function generateVietnameseVoiceover(script, voice = 'leminh', speed = 0, env) {
   try {
@@ -42,14 +37,24 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     }
 
     const data = await response.json();
+    let audioBuffer;
 
-    if (!data.async && !data.audio) {
-      throw new Error('FPT.AI không trả về audio data');
+    // [FIX LOGIC] Xử lý cả 2 trường hợp trả về của FPT.AI
+    if (data.async) {
+        // Trường hợp 1: Trả về URL (Thường gặp) -> Tải file về
+        console.log('[TTS] FPT.AI returned URL:', data.async);
+        const audioRes = await fetch(data.async);
+        if (!audioRes.ok) throw new Error('Không thể tải file audio từ FPT.AI URL');
+        audioBuffer = await audioRes.arrayBuffer();
+    } else if (data.audio) {
+        // Trường hợp 2: Trả về Base64 -> Decode
+        console.log('[TTS] FPT.AI returned Base64');
+        const audioBase64 = data.audio;
+        audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+    } else {
+        console.error('[TTS] Invalid Response:', data);
+        throw new Error('FPT.AI không trả về dữ liệu âm thanh hợp lệ (missing async/audio)');
     }
-
-    // Decode base64 audio
-    const audioBase64 = data.audio;
-    const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
 
     // Upload to R2
     const audioId = `vo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -72,7 +77,7 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     const r2Url = `https://social-videos.shophuyvan.vn/${r2Key}`;
 
     return {
-      audioBuffer,
+      audioBuffer, // Trả về buffer nếu cần xử lý tiếp
       r2Key,
       r2Url,
       duration: estimateDuration(script),
@@ -96,77 +101,4 @@ function estimateDuration(script) {
   return Math.round(minutes * 60); // seconds
 }
 
-/**
- * Get available voices
- */
-export const AVAILABLE_VOICES = {
-  // Nam miền Bắc
-  leminh: {
-    id: 'leminh',
-    name: 'Lê Minh',
-    gender: 'male',
-    region: 'north',
-    description: 'Giọng nam trẻ, năng động'
-  },
-  thuminh: {
-    id: 'thuminh',
-    name: 'Thu Minh',
-    gender: 'male',
-    region: 'south',
-    description: 'Giọng nam miền Nam, trầm ấm'
-  },
-  
-  // Nữ miền Bắc
-  myan: {
-    id: 'myan',
-    name: 'My An',
-    gender: 'female',
-    region: 'north',
-    description: 'Giọng nữ dễ thương, trẻ trung'
-  },
-  
-  // Nữ miền Nam
-  lannhi: {
-    id: 'lannhi',
-    name: 'Lan Nhi',
-    gender: 'female',
-    region: 'south',
-    description: 'Giọng nữ nhẹ nhàng, dịu dàng'
-  },
-  
-  // Nữ miền Trung
-  banmai: {
-    id: 'banmai',
-    name: 'Ban Mai',
-    gender: 'female',
-    region: 'central',
-    description: 'Giọng nữ chuyên nghiệp'
-  }
-};
-
-/**
- * Test TTS API connection
- */
-export async function testTTSConnection(env) {
-  try {
-    const result = await generateVietnameseVoiceover(
-      'Xin chào, đây là test.',
-      'myan',
-      0,
-      env
-    );
-    return {
-      success: true,
-      message: 'FPT.AI TTS hoạt động bình thường',
-      testAudioUrl: result.r2Url
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: 'FPT.AI TTS gặp lỗi',
-      error: error.message
-    };
-  }
-}
-
-console.log('✅ douyin-tts-service.js loaded');
+console.log('✅ douyin-tts-service.js loaded (Fixed Async URL)');
