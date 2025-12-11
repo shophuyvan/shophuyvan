@@ -219,3 +219,9 @@ export async function getDouyinStatus(req, env) {
         return errorResponse(e.message, 500, req);
     }
 }
+
+// --- GATEWAY EXPORTS ---
+// Export các function từ module con để Router có thể gọi được
+// Fix lỗi 404 cho API /batch-analyze và /render
+export { batchAnalyzeVideos, getBatchStatus } from './douyin/douyin-batch-analyzer.js';
+export { renderVideo } from './douyin/douyin-render-service.js';
