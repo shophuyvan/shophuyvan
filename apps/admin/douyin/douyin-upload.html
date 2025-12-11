@@ -205,13 +205,37 @@
             </div>
 
             <!-- STEP 5: Select Scripts (will implement next) -->
-            <div id="step-5" class="wizard-step hidden">
-                <p>Step 5: Script selection UI will be here</p>
+            <div id="step-5" class="wizard-step hidden max-w-6xl mx-auto">
+                <div class="bg-white p-6 rounded shadow">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">🎬 Bước 5: Chọn Kịch bản & Giọng đọc</h2>
+                        <div class="text-sm text-gray-500">
+                            Vui lòng chọn kịch bản phù hợp nhất cho từng video bên dưới
+                        </div>
+                    </div>
+                    
+                    <div id="script-selection-container"></div>
+
+                    <div class="mt-8 border-t pt-6 flex justify-end">
+                        <button onclick="confirmRender()" class="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg transform transition hover:-translate-y-1">
+                            <span>🚀</span> Bắt đầu Render Video
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- STEP 6: Render (will implement next) -->
-            <div id="step-6" class="wizard-step hidden">
-                <p>Step 6: Render UI will be here</p>
+            <div id="step-6" class="wizard-step hidden max-w-4xl mx-auto">
+                <div class="bg-white p-8 rounded shadow-lg text-center">
+                    <h2 class="text-2xl font-bold mb-2">⚙️ Đang xử lý Video...</h2>
+                    <p class="text-gray-600 mb-6">Hệ thống đang lồng tiếng và ghép video. Vui lòng không tắt trình duyệt.</p>
+                    
+                    <div id="render-progress-container" class="text-left bg-gray-50 p-4 rounded border">
+                        </div>
+                    
+                    <button onclick="location.reload()" class="mt-8 text-blue-600 hover:underline">
+                        🔄 Làm mới trang / Quay lại từ đầu
+                    </button>
+                </div>
             </div>
 
         </div>

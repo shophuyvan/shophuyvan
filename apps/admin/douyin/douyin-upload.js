@@ -521,10 +521,13 @@ async function pollAnalyzeStatus(videoIds) {
       });
       
       if (allDone) {
+        // [UPDATE] Lưu dữ liệu mới nhất vào state để dùng cho bước sau
+        state.analyzedVideos = data.data;
+        
         setTimeout(() => {
-          alert('Phân tích hoàn tất! Bước tiếp theo: chọn kịch bản.');
-          // TODO: Go to step 5 (script selection)
-        }, 1000);
+          showStep(5);
+          renderScriptSelection(); // Gọi hàm vẽ giao diện chọn kịch bản
+        }, 500);
         return;
       }
       
@@ -549,40 +552,178 @@ async function pollAnalyzeStatus(videoIds) {
 }
 
 // ==========================================
-// LINK MODE (Step 2 alternative)
+// STEP 5: SCRIPT SELECTION & VOICE CONFIG
 // ==========================================
 
-window.addLinkInput = function() {
-  const container = document.getElementById('link-inputs');
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'link-input w-full border p-2 rounded';
-  input.placeholder = 'https://v.douyin.com/...';
-  container.appendChild(input);
-};
-
-window.submitLinks = async function() {
-  const inputs = document.querySelectorAll('.link-input');
-  const urls = Array.from(inputs)
-    .map(input => input.value.trim())
-    .filter(url => url.length > 0);
+window.renderScriptSelection = function() {
+  const container = document.getElementById('script-selection-container');
   
-  if (urls.length === 0) {
-    alert('Vui lòng nhập ít nhất 1 link!');
+  if (!state.analyzedVideos || state.analyzedVideos.length === 0) {
+    container.innerHTML = '<p class="text-red-500">Không có dữ liệu video.</p>';
     return;
   }
-  
-  alert('Link mode chưa implement. Sẽ có trong Phase 2.');
-  // TODO: Implement link download logic
+
+  container.innerHTML = state.analyzedVideos.map((video, vIdx) => {
+    // Mặc định chọn script đầu tiên nếu chưa chọn
+    if (!video.selectedScriptIndex) video.selectedScriptIndex = 0;
+    if (!video.selectedVoice) video.selectedVoice = 'banmai'; // Giọng nữ miền Trung chuẩn
+    if (!video.selectedSpeed) video.selectedSpeed = 0;
+
+    const scripts = video.ai_analysis?.scripts || [];
+
+    return `
+      <div class="border rounded-lg p-6 bg-gray-50 mb-8">
+        <div class="flex gap-4 mb-6 border-b pb-4">
+          <img src="${video.thumbnail_url}" class="w-24 h-32 object-cover rounded shadow">
+          <div class="flex-1">
+            <h3 class="font-bold text-lg text-blue-800 mb-1">${video.filename}</h3>
+            <p class="text-sm text-gray-600 mb-2">Duration: ${video.duration}s</p>
+            <div class="flex gap-2">
+               <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✅ AI Đã phân tích</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h4 class="font-bold mb-3 flex items-center gap-2">📝 Chọn Kịch Bản (Content)</h4>
+            <div class="space-y-3 max-h-96 overflow-y-auto pr-2">
+              ${scripts.map((script, sIdx) => `
+                <div class="script-card cursor-pointer border rounded p-3 bg-white hover:shadow-md transition-all ${video.selectedScriptIndex === sIdx ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'}"
+                     onclick="selectScript(${vIdx}, ${sIdx})">
+                  <div class="flex justify-between mb-1">
+                    <span class="font-bold text-sm text-gray-700">${script.style}</span>
+                    ${video.selectedScriptIndex === sIdx ? '<span class="text-blue-600 text-xs font-bold">● Đang chọn</span>' : ''}
+                  </div>
+                  <p class="text-sm text-gray-600 line-clamp-3 italic">"${script.text}"</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-bold mb-3 flex items-center gap-2">🎙️ Cấu hình Giọng đọc (Voice)</h4>
+            <div class="bg-white p-4 rounded border border-gray-200">
+              
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Giọng đọc mẫu</label>
+                <select class="w-full border p-2 rounded bg-gray-50" onchange="updateVoice(${vIdx}, this.value)">
+                  <option value="banmai" ${video.selectedVoice === 'banmai' ? 'selected' : ''}>👩 Ban Mai (Nữ Miền Trung - Chuẩn)</option>
+                  <option value="leminh" ${video.selectedVoice === 'leminh' ? 'selected' : ''}>👨 Lê Minh (Nam Miền Bắc)</option>
+                  <option value="myan" ${video.selectedVoice === 'myan' ? 'selected' : ''}>👩 My An (Nữ Miền Bắc - Trẻ)</option>
+                  <option value="lannhi" ${video.selectedVoice === 'lannhi' ? 'selected' : ''}>👩 Lan Nhi (Nữ Miền Nam)</option>
+                </select>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Tốc độ đọc: <span id="speed-label-${vIdx}">${video.selectedSpeed}</span></label>
+                <input type="range" min="-3" max="3" step="1" value="${video.selectedSpeed}" 
+                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                       oninput="updateSpeed(${vIdx}, this.value)">
+                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Chậm</span>
+                  <span>Chuẩn</span>
+                  <span>Nhanh</span>
+                </div>
+              </div>
+
+              <div class="p-3 bg-blue-50 rounded text-sm text-blue-800">
+                💡 <strong>Review kịch bản đã chọn:</strong><br>
+                <p class="mt-1 italic text-gray-700" id="preview-text-${vIdx}">
+                  ${scripts[video.selectedScriptIndex || 0]?.text || ''}
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+// Hàm chọn script
+window.selectScript = function(videoIdx, scriptIdx) {
+  state.analyzedVideos[videoIdx].selectedScriptIndex = scriptIdx;
+  renderScriptSelection(); // Re-render để update UI
+};
+
+// Hàm update giọng
+window.updateVoice = function(videoIdx, voiceId) {
+  state.analyzedVideos[videoIdx].selectedVoice = voiceId;
+};
+
+// Hàm update tốc độ
+window.updateSpeed = function(videoIdx, speed) {
+  state.analyzedVideos[videoIdx].selectedSpeed = parseInt(speed);
+  document.getElementById(`speed-label-${videoIdx}`).innerText = speed;
 };
 
 // ==========================================
-// INIT
+// STEP 6: RENDER EXECUTION
 // ==========================================
 
-// Load initial products on page load
-window.addEventListener('DOMContentLoaded', () => {
-  searchProducts();
-});
+window.confirmRender = async function() {
+  if (!confirm('Bạn có chắc chắn muốn Render tất cả video với cấu hình đã chọn?')) return;
 
-console.log('✅ douyin-upload.js loaded');
+  try {
+    showStep(6);
+    const container = document.getElementById('render-progress-container');
+    container.innerHTML = ''; // Clear cũ
+
+    // 1. Tạo UI Progress cho từng video
+    state.analyzedVideos.forEach(video => {
+        container.innerHTML += `
+            <div class="border rounded p-4 mb-3 bg-white shadow-sm">
+                <div class="flex justify-between mb-2">
+                    <span class="font-bold">${video.filename}</span>
+                    <span id="render-status-${video.video_id}" class="text-sm text-blue-600">Đang chờ...</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="render-bar-${video.video_id}" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    // 2. Gửi lệnh Render từng video (Tuần tự để tránh quá tải)
+    for (const video of state.analyzedVideos) {
+        const script = video.ai_analysis.scripts[video.selectedScriptIndex || 0];
+        
+        updateRenderStatus(video.video_id, 30, '⏳ Đang tạo giọng đọc (TTS)...');
+        
+        // Gọi API Render
+        const res = await callApi('/api/social/douyin/render', 'POST', {
+            video_id: video.video_id,
+            script_text: script.text,
+            voice_id: video.selectedVoice || 'banmai',
+            voice_speed: video.selectedSpeed || 0,
+            output_options: { save_to_library: true, download: true }
+        });
+
+        if (res.ok) {
+            updateRenderStatus(video.video_id, 100, '✅ Render thành công!', 'bg-green-600');
+            // Hiện nút download hoặc link
+        } else {
+            updateRenderStatus(video.video_id, 100, '❌ Lỗi: ' + res.error, 'bg-red-600');
+        }
+    }
+    
+    alert('🎉 Quá trình Render hoàn tất!');
+
+  } catch (e) {
+    console.error(e);
+    alert('Lỗi Render: ' + e.message);
+  }
+};
+
+function updateRenderStatus(videoId, percent, text, colorClass = 'bg-blue-600') {
+    const bar = document.getElementById(`render-bar-${videoId}`);
+    const status = document.getElementById(`render-status-${videoId}`);
+    
+    if (bar) {
+        bar.style.width = `${percent}%`;
+        bar.className = `h-2.5 rounded-full ${colorClass}`;
+    }
+    if (status) status.innerText = text;
+}
