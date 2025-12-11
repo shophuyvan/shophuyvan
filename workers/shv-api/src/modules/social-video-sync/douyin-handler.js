@@ -220,8 +220,42 @@ export async function getDouyinStatus(req, env) {
     }
 }
 
-// --- GATEWAY EXPORTS ---
-// Export các function từ module con để Router có thể gọi được
-// Fix lỗi 404 cho API /batch-analyze và /render
-export { batchAnalyzeVideos, getBatchStatus } from './douyin/douyin-batch-analyzer.js';
-export { renderVideo } from './douyin/douyin-render-service.js';
+// Import các function xử lý
+import { batchAnalyzeVideos, getBatchStatus } from './douyin/douyin-batch-analyzer.js';
+import { renderVideo } from './douyin/douyin-render-service.js';
+
+/**
+ * MAIN HANDLER: Router trung tâm cho module Douyin
+ * Nhận tất cả request bắt đầu bằng /api/social/douyin
+ */
+export async function handle(req, env) {
+    const url = new URL(req.url);
+    const path = url.pathname;
+    const method = req.method;
+
+    // 1. Upload Video
+    if (path.includes('/upload') && method === 'POST') {
+        return uploadDouyinVideos(req, env);
+    }
+
+    // 2. Batch Analysis (AI)
+    if (path.includes('/batch-analyze') && method === 'POST') {
+        return batchAnalyzeVideos(req, env);
+    }
+    if (path.includes('/batch-status') && method === 'GET') {
+        return getBatchStatus(req, env);
+    }
+
+    // 3. Render Video (TTS & Overlay)
+    if (path.includes('/render') && method === 'POST') {
+        return renderVideo(req, env);
+    }
+
+    // 4. Analyze Single Link (Cũ)
+    if (path.includes('/analyze') && method === 'POST') {
+        return analyzeDouyinVideo(req, env);
+    }
+
+    // 5. Default: Get Status / Detail by ID
+    return getDouyinStatus(req, env);
+}

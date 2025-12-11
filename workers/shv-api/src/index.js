@@ -42,6 +42,7 @@ import * as FBPageAuto from './modules/facebook/fb-automation.js';
 import * as ZaloAds from './modules/zalo-ads.js'; 
 import * as GoogleAds from './modules/google-ads.js'; // ✅ Import Google Ads
 import * as SocialSync from './modules/social-video-sync/index-sync.js';
+import * as DouyinHandler from './modules/social-video-sync/douyin-handler.js';
 import * as channels from './modules/channels-handler.js'; // Kênh TMDT (TikTok/Lazada/Shopee)
 import * as shopee from './modules/shopee.js'; // ✅ Shopee API Module
 import { handleCartSync } from './modules/cart-sync-handler.js';
@@ -144,10 +145,14 @@ export default {
           path.startsWith('/admin/auth') ||
           path.startsWith('/admin/users') ||
           path.startsWith('/admin/roles') ||
-          path.startsWith('/admin/cache') ||
-          path.startsWith('/api/douyin') ||
-          path.startsWith('/api/social/douyin')) {  // ✅ THÊM DÒNG NÀY
+          path.startsWith('/admin/cache')) {
         return admin.handle(req, env, ctx);
+      }
+
+      // ✅ DOUYIN / TIKTOK MODULE
+      // Chuyển toàn bộ request /api/social/douyin/* sang cho handler riêng xử lý
+      if (path.startsWith('/api/social/douyin') || path.startsWith('/api/douyin')) {
+         return DouyinHandler.handle(req, env);
       }
 	  
 	  	  // ✅ THÊM ĐOẠN NÀY - BẮT ĐẦU
