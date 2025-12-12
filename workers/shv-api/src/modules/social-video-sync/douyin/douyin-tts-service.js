@@ -66,16 +66,16 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     console.log('[TTS] Audio URL received:', audioUrl);
 
     // 3. Cơ chế Polling (Chờ file sẵn sàng)
-    // Tài liệu: "Thời gian chờ đợi từ 5 giây đến 2 phút"
-    // Ta sẽ thử tải tối đa 15 lần, mỗi lần cách nhau 2 giây (Tổng 30s)
+    // Tài liệu FPT: "Thời gian chờ đợi từ 5 giây đến 2 phút"
+    // [FIX] Tăng lên 60 lần thử (Tổng ~120s) để chờ kịch bản dài
     let audioBuffer = null;
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 60; 
 
     while (attempts < maxAttempts) {
       try {
         attempts++;
-        // Đợi một chút trước khi tải (Lần đầu chờ lâu hơn chút)
+        // Đợi một chút trước khi tải
         const waitTime = attempts === 1 ? 3000 : 2000; 
         await new Promise(r => setTimeout(r, waitTime));
 
@@ -88,9 +88,12 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
           audioBuffer = await audioRes.arrayBuffer();
           console.log('[TTS] Download success!');
           break; 
+        } else {
+          // [FIX QUAN TRỌNG] Phải đọc body để giải phóng kết nối, tránh lỗi "Stalled HTTP Response"
+          await audioRes.text(); 
         }
         
-        // Nếu file chưa sẵn sàng, FPT thường trả về 404 hoặc file rỗng, ta tiếp tục vòng lặp
+        // Nếu file chưa sẵn sàng, vòng lặp sẽ tiếp tục chạy
       } catch (e) {
         console.warn(`[TTS] Retry fetch... (${e.message})`);
       }
