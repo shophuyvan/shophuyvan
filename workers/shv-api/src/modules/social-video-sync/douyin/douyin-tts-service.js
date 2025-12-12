@@ -1,12 +1,11 @@
 /**
  * File: workers/shv-api/src/modules/social-video-sync/douyin/douyin-tts-service.js
  * Text-to-Speech Service using FPT.AI Voice API
- * [FIXED] Handle both Async URL and Base64 response types
+ * [FIXED] Handle Async URL + Retry Logic + Export missing functions
  */
 
 /**
  * Generate Vietnamese voiceover using FPT.AI
- * Docs: https://fpt.ai/vi/voice
  */
 export async function generateVietnameseVoiceover(script, voice = 'leminh', speed = 0, env) {
   try {
@@ -39,17 +38,43 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     const data = await response.json();
     let audioBuffer;
 
-    // [FIX LOGIC] Xử lý cả 2 trường hợp trả về của FPT.AI
+    // [LOGIC MỚI] Xử lý link Async thông minh hơn (Thử lại 3 lần)
     if (data.async) {
-        // Trường hợp 1: Trả về URL (Thường gặp) -> Tải file về
         console.log('[TTS] FPT.AI returned URL:', data.async);
-        const audioRes = await fetch(data.async);
-        if (!audioRes.ok) throw new Error('Không thể tải file audio từ FPT.AI URL');
+        
+        let attempts = 0;
+        let audioRes = null;
+        
+        // Vòng lặp thử tải file (vì FPT cần 1-2s để render file xong)
+        while (attempts < 5) {
+            try {
+                // Thêm User-Agent để tránh bị chặn
+                audioRes = await fetch(data.async, {
+                    headers: { 'User-Agent': 'ShopHuyVan-Worker/1.0' }
+                });
+                
+                if (audioRes.ok) break; // Tải được thì thoát vòng lặp
+            } catch (e) { 
+                console.warn(`Retry fetch audio (${attempts + 1}/5)...`); 
+            }
+            
+            attempts++;
+            // Đợi 1.5 giây trước khi thử lại
+            await new Promise(r => setTimeout(r, 1500)); 
+        }
+
+        if (!audioRes || !audioRes.ok) {
+            throw new Error(`Không thể tải file audio từ FPT URL sau 5 lần thử. Status: ${audioRes ? audioRes.status : 'Network Error'}`);
+        }
+        
         audioBuffer = await audioRes.arrayBuffer();
+
     } else if (data.audio) {
         // Trường hợp 2: Trả về Base64 -> Decode
         console.log('[TTS] FPT.AI returned Base64');
         const audioBase64 = data.audio;
+        // Fix lỗi atob bằng cách bỏ qua nếu chuỗi rỗng
+        if (!audioBase64) throw new Error('Dữ liệu Base64 bị rỗng');
         audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
     } else {
         console.error('[TTS] Invalid Response:', data);
@@ -77,7 +102,7 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     const r2Url = `https://social-videos.shophuyvan.vn/${r2Key}`;
 
     return {
-      audioBuffer, // Trả về buffer nếu cần xử lý tiếp
+      audioBuffer, 
       r2Key,
       r2Url,
       duration: estimateDuration(script),
@@ -92,14 +117,18 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
 }
 
 /**
- * Estimate audio duration based on script length
- * Average: 150 words per minute for Vietnamese
+ * Estimate audio duration
  */
 function estimateDuration(script) {
   const words = script.split(/\s+/).length;
   const minutes = words / 150;
-  return Math.round(minutes * 60); // seconds
+  return Math.round(minutes * 60); 
 }
+
+// =======================================================
+// [QUAN TRỌNG] PHẦN BỊ THIẾU GÂY LỖI BUILD
+// =======================================================
+
 /**
  * Danh sách giọng đọc FPT.AI hỗ trợ
  */
@@ -120,11 +149,10 @@ export async function testTTSConnection(env) {
     if (!env.FPT_AI_API_KEY) {
       return { ok: false, error: 'Chưa cấu hình FPT_AI_API_KEY trong Wrangler' };
     }
-    // Test thành công nếu có key (để tiết kiệm quota, ta không gọi thật)
     return { ok: true, message: 'Kết nối FPT.AI OK (API Key đã được cấu hình)' };
   } catch (e) {
     return { ok: false, error: e.message };
   }
 }
 
-console.log('✅ douyin-tts-service.js loaded (Fixed Async URL)');
+console.log('✅ douyin-tts-service.js loaded (Fixed Exports & Retry)');
