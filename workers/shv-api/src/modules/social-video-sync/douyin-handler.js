@@ -228,7 +228,7 @@ import { renderVideo, previewVoice } from './douyin/douyin-render-service.js';
  * MAIN HANDLER: Router trung tâm cho module Douyin
  * Nhận tất cả request bắt đầu bằng /api/social/douyin
  */
-export async function handle(req, env) {
+export async function handle(req, env, ctx) { // <--- Thêm ctx
     const url = new URL(req.url);
     const path = url.pathname;
     const method = req.method;
@@ -251,9 +251,9 @@ export async function handle(req, env) {
         return previewVoice(req, env);
     }
 
-    // 3. Render Video (TTS & Overlay)
+    // 3. Render Video (TTS & Overlay) -> Chạy ngầm
     if (path.includes('/render') && method === 'POST') {
-        return renderVideo(req, env);
+        return renderVideo(req, env, ctx); // <--- Truyền ctx
     }
 
     // 4. Analyze Single Link (Cũ)

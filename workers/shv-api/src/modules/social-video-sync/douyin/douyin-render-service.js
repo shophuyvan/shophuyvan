@@ -21,71 +21,82 @@ import { generateVietnameseVoiceover } from './douyin-tts-service.js';
  *   }
  * }
  */
-export async function renderVideo(req, env) {
+/**
+ * API: Render Video (Async Background Mode)
+ * [UPDATED] Fix Timeout & Add Progress Status
+ */
+export async function renderVideo(req, env, ctx) { // Thêm ctx
   try {
     const body = await req.json();
-    const { 
-      video_id, 
-      script_text, 
-      voice_id = 'leminh',
-      voice_speed = 0,
-      output_options = { save_to_library: true, download: true }
-    } = body;
+    const { video_id, script_text, voice_id = 'leminh', voice_speed = 0 } = body;
 
-    // Fix CORS: Thêm req vào json response
+    // Fix CORS
     if (!video_id || !script_text) {
       return json({ ok: false, error: 'Thiếu video_id hoặc script_text' }, { status: 400 }, req);
     }
 
-    const video = await env.DB.prepare(`SELECT * FROM douyin_videos WHERE id = ?`).bind(video_id).first();
-    if (!video) {
-      return json({ ok: false, error: 'Video không tồn tại' }, { status: 404 }, req);
-    }
-
+    // 1. Cập nhật trạng thái ban đầu
     const now = Date.now();
-    await env.DB.prepare(`UPDATE douyin_videos SET status = 'rendering', updated_at = ? WHERE id = ?`)
+    await env.DB.prepare(`UPDATE douyin_videos SET status = 'rendering_tts', updated_at = ? WHERE id = ?`)
       .bind(now, video_id).run();
 
-    try {
-      // 1. Generate Voice
-      console.log('[Render] Generating voiceover...');
-      const voiceover = await generateVietnameseVoiceover(script_text, voice_id, voice_speed, env);
+    // 2. Định nghĩa tác vụ chạy ngầm
+    const backgroundTask = async () => {
+      try {
+        console.log(`[Render Bg] Start: ${video_id}`);
 
-      // 2. Overlay Audio
-      console.log('[Render] Overlaying audio...');
-      const finalVideo = await overlayAudioOnVideo(video.original_video_url, voiceover.r2Url, video_id, env);
+        // Step A: Tạo giọng đọc (TTS)
+        const voiceover = await generateVietnameseVoiceover(script_text, voice_id, voice_speed, env);
 
-      // 3. Update DB
-      await env.DB.prepare(`
-        UPDATE douyin_videos
-        SET r2_final_key = ?, final_video_url = ?, vietnamese_audio_url = ?,
-            final_script_text = ?, voice_model = ?, voice_speed = ?,
-            status = 'completed', updated_at = ?
-        WHERE id = ?
-      `).bind(
-        finalVideo.r2Key, finalVideo.r2Url, voiceover.r2Url,
-        script_text, voice_id, voice_speed, now, video_id
-      ).run();
+        // Cập nhật trạng thái: Đã xong TTS, đang ghép video
+        await env.DB.prepare(`
+            UPDATE douyin_videos 
+            SET status = 'rendering_overlay', vietnamese_audio_url = ?, updated_at = ? 
+            WHERE id = ?
+        `).bind(voiceover.r2Url, Date.now(), video_id).run();
 
-      // Fix CORS: Thêm req vào json response
-      return json({
-        ok: true,
-        data: {
-          video_id,
-          final_video_url: finalVideo.r2Url,
-          voiceover_url: voiceover.r2Url
-        },
-        message: 'Video đã render thành công!'
-      }, {}, req);
+        // Step B: Lấy thông tin video gốc
+        const video = await env.DB.prepare(`SELECT original_video_url, original_cover_url, product_id, id FROM douyin_videos WHERE id = ?`).bind(video_id).first();
 
-    } catch (renderError) {
-      await env.DB.prepare(`UPDATE douyin_videos SET status = 'error', error_message = ?, updated_at = ? WHERE id = ?`)
-        .bind(renderError.message, now, video_id).run();
-      throw renderError;
+        // Step C: Ghép Audio vào Video
+        const finalVideo = await overlayAudioOnVideo(video.original_video_url, voiceover.r2Url, video_id, env);
+
+        // Step D: Hoàn tất
+        await env.DB.prepare(`
+          UPDATE douyin_videos
+          SET r2_final_key = ?, final_video_url = ?, 
+              final_script_text = ?, voice_model = ?, voice_speed = ?,
+              status = 'completed', updated_at = ?
+          WHERE id = ?
+        `).bind(
+          finalVideo.r2Key, finalVideo.r2Url,
+          script_text, voice_id, voice_speed, Date.now(), video_id
+        ).run();
+
+        console.log(`[Render Bg] Success: ${video_id}`);
+
+      } catch (err) {
+        console.error(`[Render Bg] Failed: ${video_id}`, err);
+        await env.DB.prepare(`UPDATE douyin_videos SET status = 'error', error_message = ?, updated_at = ? WHERE id = ?`)
+          .bind('Lỗi xử lý: ' + err.message, Date.now(), video_id).run();
+      }
+    };
+
+    // 3. Kích hoạt chạy ngầm (Quan trọng)
+    if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(backgroundTask());
+    } else {
+        backgroundTask(); // Fallback cho dev environment
     }
 
+    // 4. Trả về ngay lập tức
+    return json({
+      ok: true,
+      message: 'Đang xử lý ngầm...',
+      video_id
+    }, {}, req);
+
   } catch (error) {
-    console.error('[Render] Error:', error);
     return json({ ok: false, error: error.message }, { status: 500 }, req);
   }
 }

@@ -203,21 +203,29 @@ export async function getBatchStatus(req, env) {
         if (video.ai_analysis_json) aiAnalysis = JSON.parse(video.ai_analysis_json);
       } catch (e) {}
 
+      // Calculate progress & status text
       let progress = 0;
-      if (video.status === 'uploaded') progress = 20;
-      else if (video.status === 'analyzing') progress = 50;
-      else if (video.status === 'waiting_approval') progress = 100;
-      else if (video.status === 'error') progress = 0;
+      let statusText = 'Đang chờ';
+
+      if (video.status === 'uploaded') { progress = 20; statusText = 'Đã upload'; }
+      else if (video.status === 'analyzing') { progress = 50; statusText = 'Đang phân tích AI...'; }
+      else if (video.status === 'waiting_approval') { progress = 60; statusText = 'Chờ duyệt nội dung'; }
+      else if (video.status === 'rendering_tts') { progress = 75; statusText = '🎙️ Đang tạo giọng đọc...'; }
+      else if (video.status === 'rendering_overlay') { progress = 85; statusText = '🎬 Đang ghép video...'; }
+      else if (video.status === 'completed') { progress = 100; statusText = '✅ Hoàn thành'; }
+      else if (video.status === 'error') { progress = 100; statusText = '❌ Lỗi'; }
 
       return {
         video_id: video.video_id,
         status: video.status,
+        status_text: statusText, // Thêm text hiển thị
         progress,
         filename: video.original_filename,
         thumbnail_url: video.original_cover_url,
         duration: video.duration,
         ai_analysis: aiAnalysis,
         error_message: video.error_message,
+        final_video_url: video.final_video_url, // Thêm link video cuối
         created_at: video.created_at,
         updated_at: video.updated_at
       };

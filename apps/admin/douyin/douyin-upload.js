@@ -668,74 +668,110 @@ window.updateSpeed = function(videoIdx, speed) {
 };
 
 // ==========================================
-// STEP 6: RENDER EXECUTION
+// STEP 6: RENDER EXECUTION (POLLING MODE)
 // ==========================================
 
 window.confirmRender = async function() {
-  if (!confirm('Bạn có chắc chắn muốn Render tất cả video với cấu hình đã chọn?')) return;
+  if (!confirm('Bạn có chắc chắn muốn Render tất cả video?')) return;
 
   try {
     showStep(6);
     const container = document.getElementById('render-progress-container');
-    container.innerHTML = ''; // Clear cũ
+    container.innerHTML = ''; 
 
-    // 1. Tạo UI Progress cho từng video
+    // 1. Tạo UI Progress
     state.analyzedVideos.forEach(video => {
         container.innerHTML += `
-            <div class="border rounded p-4 mb-3 bg-white shadow-sm">
+            <div class="border rounded p-4 mb-3 bg-white shadow-sm" id="card-${video.video_id}">
                 <div class="flex justify-between mb-2">
-                    <span class="font-bold">${video.filename}</span>
-                    <span id="render-status-${video.video_id}" class="text-sm text-blue-600">Đang chờ...</span>
+                    <span class="font-bold">${video.filename || 'Video ' + video.video_id}</span>
+                    <span id="render-status-${video.video_id}" class="text-sm text-blue-600">Đang khởi tạo...</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div id="render-bar-${video.video_id}" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                    <div id="render-bar-${video.video_id}" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
+                <div id="result-link-${video.video_id}" class="hidden text-right text-sm"></div>
             </div>
         `;
     });
 
-    // 2. Gửi lệnh Render từng video (Tuần tự để tránh quá tải)
+    // 2. Gửi lệnh Render (Async - Trả về ngay)
+    const renderIds = [];
     for (const video of state.analyzedVideos) {
         const script = video.ai_analysis.scripts[video.selectedScriptIndex || 0];
-        
-        updateRenderStatus(video.video_id, 30, '⏳ Đang tạo giọng đọc (TTS)...');
-        
-        // Gọi API Render
-        const res = await callApi('/api/social/douyin/render', 'POST', {
+
+        await callApi('/api/social/douyin/render', 'POST', {
             video_id: video.video_id,
             script_text: script.text,
             voice_id: video.selectedVoice || 'banmai',
-            voice_speed: video.selectedSpeed || 0,
-            output_options: { save_to_library: true, download: true }
+            voice_speed: video.selectedSpeed || 0
         });
 
-        if (res.ok) {
-            updateRenderStatus(video.video_id, 100, '✅ Render thành công!', 'bg-green-600');
-            // Hiện nút download hoặc link
-        } else {
-            updateRenderStatus(video.video_id, 100, '❌ Lỗi: ' + res.error, 'bg-red-600');
-        }
+        renderIds.push(video.video_id);
     }
-    
-    alert('🎉 Quá trình Render hoàn tất!');
+
+    // 3. Bắt đầu theo dõi tiến độ (Polling)
+    pollRenderProgress(renderIds);
 
   } catch (e) {
     console.error(e);
-    alert('Lỗi Render: ' + e.message);
+    alert('Lỗi khởi tạo Render: ' + e.message);
   }
 };
 
-function updateRenderStatus(videoId, percent, text, colorClass = 'bg-blue-600') {
-    const bar = document.getElementById(`render-bar-${videoId}`);
-    const status = document.getElementById(`render-status-${videoId}`);
-    
-    if (bar) {
-        bar.style.width = `${percent}%`;
-        bar.className = `h-2.5 rounded-full ${colorClass}`;
-    }
-    if (status) status.innerText = text;
-}
+async function pollRenderProgress(videoIds) {
+    const maxRetries = 90; // Chờ tối đa 3 phút
+    let retryCount = 0;
 
+    const checkLoop = async () => {
+        try {
+            // Gọi API lấy trạng thái hàng loạt
+            const data = await callApi(`/api/social/douyin/batch-status?ids=${videoIds.join(',')}`);
+            let allCompleted = true;
+
+            data.data.forEach(video => {
+                const bar = document.getElementById(`render-bar-${video.video_id}`);
+                const status = document.getElementById(`render-status-${video.video_id}`);
+                const resultLink = document.getElementById(`result-link-${video.video_id}`);
+
+                // Cập nhật UI
+                if (bar) bar.style.width = `${video.progress}%`;
+                if (status) status.innerText = video.status_text || 'Đang xử lý...';
+
+                // Xử lý khi hoàn thành
+                if (video.status === 'completed') {
+                    status.className = 'text-sm text-green-600 font-bold';
+                    if (resultLink && video.final_video_url) {
+                        resultLink.innerHTML = `<a href="${video.final_video_url}" target="_blank" class="text-blue-500 hover:underline font-bold">⬇️ Tải Video Thành Phẩm</a>`;
+                        resultLink.classList.remove('hidden');
+                    }
+                } else if (video.status === 'error') {
+                    status.className = 'text-sm text-red-600 font-bold';
+                    if (video.error_message) status.innerText = `Lỗi: ${video.error_message}`;
+                } else {
+                    allCompleted = false; // Vẫn còn video đang chạy
+                }
+            });
+
+            if (allCompleted) {
+                return; // Xong hết thì dừng
+            }
+
+            retryCount++;
+            if (retryCount < maxRetries) {
+                setTimeout(checkLoop, 2000); // Hỏi lại sau 2 giây
+            } else {
+                alert('Hết thời gian chờ phản hồi. Vui lòng tải lại trang để kiểm tra.');
+            }
+
+        } catch (e) {
+            console.warn('Polling error:', e);
+            setTimeout(checkLoop, 3000);
+        }
+    };
+
+    checkLoop();
+}
 // ==========================================
 // FEATURE: VOICE PREVIEW
 // ==========================================

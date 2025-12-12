@@ -66,17 +66,17 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     console.log('[TTS] Audio URL received:', audioUrl);
 
     // 3. Cơ chế Polling (Chờ file sẵn sàng)
-    // Tài liệu FPT: "Thời gian chờ đợi từ 5 giây đến 2 phút"
-    // [FIX] Tăng lên 60 lần thử (Tổng ~120s) để chờ kịch bản dài
+    // [QUAN TRỌNG] Tối ưu cho Cloudflare Worker (Tránh lỗi Too many subrequests)
+    // Giới hạn max 30 lần thử, mỗi lần đợi 5 giây => Tổng chờ 150s (2.5 phút)
     let audioBuffer = null;
     let attempts = 0;
-    const maxAttempts = 60; 
+    const maxAttempts = 30; // Giảm số lần gọi để không vượt quá giới hạn 50 req của Cloudflare
 
     while (attempts < maxAttempts) {
       try {
         attempts++;
-        // Đợi một chút trước khi tải
-        const waitTime = attempts === 1 ? 3000 : 2000; 
+        // Đợi 5 giây mỗi lần (Tăng thời gian chờ để FPT kịp xử lý)
+        const waitTime = 5000; 
         await new Promise(r => setTimeout(r, waitTime));
 
         console.log(`[TTS] Downloading audio (Attempt ${attempts}/${maxAttempts})...`);
