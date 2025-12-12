@@ -1,7 +1,7 @@
 /**
  * File: workers/shv-api/src/modules/social-video-sync/douyin/douyin-tts-service.js
  * Text-to-Speech Service using FPT.AI Voice API
- * [FIXED] Handle Async URL + Retry Logic + Export missing functions
+ * [FIXED] Handle Async URL + Retry Logic + Fix Missing Exports
  */
 
 /**
@@ -38,7 +38,7 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
     const data = await response.json();
     let audioBuffer;
 
-    // [LOGIC MỚI] Xử lý link Async thông minh hơn (Thử lại 3 lần)
+    // [FIX LOGIC] Xử lý link Async thông minh hơn (Thử lại 5 lần)
     if (data.async) {
         console.log('[TTS] FPT.AI returned URL:', data.async);
         
@@ -73,7 +73,6 @@ export async function generateVietnameseVoiceover(script, voice = 'leminh', spee
         // Trường hợp 2: Trả về Base64 -> Decode
         console.log('[TTS] FPT.AI returned Base64');
         const audioBase64 = data.audio;
-        // Fix lỗi atob bằng cách bỏ qua nếu chuỗi rỗng
         if (!audioBase64) throw new Error('Dữ liệu Base64 bị rỗng');
         audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
     } else {
@@ -126,7 +125,7 @@ function estimateDuration(script) {
 }
 
 // =======================================================
-// [QUAN TRỌNG] PHẦN BỊ THIẾU GÂY LỖI BUILD
+// [QUAN TRỌNG] PHẦN BỊ THIẾU ĐÃ ĐƯỢC BỔ SUNG
 // =======================================================
 
 /**
