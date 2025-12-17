@@ -7,10 +7,32 @@
     import { lookupProvinceCode, lookupDistrictCode } from '../modules/shipping/helpers.js';
     import { getJSON } from '../lib/kv.js'; 
     import { applyVoucher } from '../modules/vouchers.js'; 
+
+    // ===================================================================
+    // TELEGRAM NOTIFICATION HELPER
+    // ===================================================================
+    async function sendTelegramOrderNotify(env, order) {
+      // Kiểm tra biến môi trường
+      if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
+      
+      try {
+        const msg = `🔔 *ĐƠN HÀNG MỚI ${String(order.channel || 'WEB').toUpperCase()}* \n` +
+                    `📦 Mã: \`${order.order_number || order.id}\`\n` +
+                    `👤 Khách: ${order.customer_name || 'Khách lẻ'}\n` +
+                    `💰 Tổng: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.total || 0)}\n` +
+                    `📅 Lúc: ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`;
+        
+        const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' })
+        });
+      } catch (e) { console.warn('[TELEGRAM] Send failed:', e); }
+    }
     
     // ===================================================================
     // Helper: Auto Freeship Logic (Di chuyển từ orders.js)
-    // ===================================================================
     /** * Checks for auto-freeship eligibility and returns best discount
      */
     async function getAutoFreeshipDiscount(env, subtotal, shipping_fee) {
@@ -438,7 +460,11 @@ export async function saveOrderToD1(env, order) {
     } catch (e) { console.warn('[ORDER-CORE] Failed to save order_items (Stats only):', e.message); }
   }
 
-  return { ok: true, id: dbOrderId, order_number: orderId };
+  // ✅ KHÔI PHỤC: Gửi thông báo Telegram
+  await sendTelegramOrderNotify(env, order);
+
+  // Fix: Biến 'orderId' không tồn tại -> dùng 'order.order_number'
+  return { ok: true, id: dbOrderId, order_number: order.order_number || order.id };
 }
 
 // ===================================================================
