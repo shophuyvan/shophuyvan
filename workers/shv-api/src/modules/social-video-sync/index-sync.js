@@ -1644,7 +1644,7 @@ async function distributeJobSmartly(req, env, jobId) {
      fbCount++;
   }
   
-  if (fbCount > 0) logMsg.push(`✅ Facebook & Instagram: Đã lên lịch cho ${fbCount} nền tảng`); [cite: 43]
+  if (fbCount > 0) logMsg.push(`✅ Facebook & Instagram: Đã lên lịch cho ${fbCount} nền tảng`);
 
   // Tự động kích hoạt đăng Reels Instagram nếu Page đã liên kết 
   for (const page of targets) {
