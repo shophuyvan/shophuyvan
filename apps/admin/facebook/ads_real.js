@@ -1598,8 +1598,23 @@ ${desc ? '✨ ' + desc + '...\n\n' : ''}💥 GIÁ CHỈ: ${price}
     setDefaultFanpage,
     loadTokenStatusWidget,
     dismissTokenWidget,
-    checkSystemHealth,   // ✅ New export
+checkSystemHealth,   // ✅ New export
     deleteAutomationJob, // ✅ New export
+    // Hàm kích hoạt phân phối tự động đa kênh (FB, IG, Threads, YT) theo giờ VN 
+    distributeJobSmartly: async function(jobId) {
+      if (!confirm('Hệ thống sẽ tự động rải bài lên Facebook, Instagram, Threads và YouTube theo khung giờ vàng Việt Nam. Xác nhận?')) return;
+      try {
+        const r = await Admin.req(`/api/auto-sync/jobs/${jobId}/distribute`, { method: 'POST' }); [cite: 44]
+        if (r && r.ok) {
+          toast('🚀 ' + (r.message || 'Đã kích hoạt phân phối tự động!'));
+          if (window.FanpageManager) FanpageManager.loadRepository();
+        } else {
+          toast('❌ Lỗi: ' + r.error);
+        }
+      } catch (e) {
+        toast('❌ Lỗi kết nối: ' + e.message);
+      }
+    }
   };
 
   // Auto-init on DOM ready

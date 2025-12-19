@@ -1507,24 +1507,29 @@ async function distributeJobSmartly(req, env, jobId) {
   const now = new Date();
   const GOLDEN_HOURS = [9, 11.5, 19, 21];
 
-  // Hàm helper: Tìm giờ vàng tiếp theo
+// Hàm helper: Tìm giờ vàng tiếp theo (Đã fix múi giờ Việt Nam UTC+7) 
   function getNextGoldenTime(startFromDate) {
-      let t = new Date(startFromDate);
-      let curH = t.getHours() + t.getMinutes()/60;
+      // Cloudflare Worker dùng UTC, chuyển sang giờ VN để tính toán 
+      const vnTime = new Date(startFromDate.getTime() + (7 * 60 * 60 * 1000));
+      let curH = vnTime.getUTCHours() + vnTime.getUTCMinutes()/60;
+      
       let idx = 0;
-      // Tìm khung giờ kế tiếp trong ngày
       while(idx < GOLDEN_HOURS.length && GOLDEN_HOURS[idx] <= curH) idx++;
       
-      // Nếu hết giờ hôm nay -> lấy giờ đầu tiên ngày mai
+      const targetDate = new Date(vnTime);
       if(idx >= GOLDEN_HOURS.length) {
-          t.setDate(t.getDate() + 1);
+          targetDate.setUTCDate(targetDate.getUTCDate() + 1);
           idx = 0;
       }
       
-      // Set giờ phút (cộng thêm vài phút random để tránh robot)
       const randomMinutes = Math.floor(Math.random() * 10);
-      t.setHours(Math.floor(GOLDEN_HOURS[idx]), (GOLDEN_HOURS[idx]%1)*60 + randomMinutes, 0, 0);
-      return t;
+      const targetHour = Math.floor(GOLDEN_HOURS[idx]);
+      const targetMin = (GOLDEN_HOURS[idx] % 1) * 60 + randomMinutes;
+      
+      targetDate.setUTCHours(targetHour, targetMin, 0, 0);
+      
+      // Chuyển ngược lại về UTC để hệ thống lưu trữ/hẹn giờ chuẩn 
+      return new Date(targetDate.getTime() - (7 * 60 * 60 * 1000));
   }
 
   // 1. Lấy dữ liệu
@@ -1639,9 +1644,25 @@ async function distributeJobSmartly(req, env, jobId) {
      fbCount++;
   }
   
-  if (fbCount > 0) logMsg.push(`✅ Facebook: Đã lên lịch cho ${fbCount} Fanpage`);
+  if (fbCount > 0) logMsg.push(`✅ Facebook & Instagram: Đã lên lịch cho ${fbCount} nền tảng`); [cite: 43]
 
-  // Update Job
+  // Tự động kích hoạt đăng Reels Instagram nếu Page đã liên kết 
+  for (const page of targets) {
+      try {
+          const igRes = await fetch(`https://graph.facebook.com/v19.0/${page.page_id}?fields=instagram_business_account&access_token=${job.access_token || ''}`);
+          const igData = await igRes.json();
+          if (igData.instagram_business_account) {
+              const igTime = getNextGoldenTime(new Date());
+              await env.DB.prepare(`
+                  INSERT INTO instagram_assignments (job_id, ig_id, status, scheduled_time, created_at)
+                  VALUES (?, ?, 'pending', ?, ?)
+              `).bind(jobId, igData.instagram_business_account.id, igTime.getTime(), Date.now()).run();
+              logMsg.push(`📸 Instagram Reels: Đã tự động lên lịch cho ID ${igData.instagram_business_account.id}`);
+          }
+      } catch (e) { console.error("IG Auto-schedule error", e); }
+  }
+
+  // Update Job status 
   await env.DB.prepare(`
       UPDATE automation_jobs 
       SET status = 'assigned', total_fanpages_assigned = ?, youtube_status = ?, youtube_url = ?, updated_at = ? 
