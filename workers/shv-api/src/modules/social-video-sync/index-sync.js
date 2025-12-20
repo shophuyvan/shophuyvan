@@ -1507,9 +1507,8 @@ async function distributeJobSmartly(req, env, jobId) {
   const now = new Date();
   const GOLDEN_HOURS = [9, 11.5, 19, 21];
 
-// Hàm helper: Tìm giờ vàng tiếp theo (Đã fix múi giờ Việt Nam UTC+7) 
+// Hàm helper: Tìm giờ vàng tiếp theo (Sửa lỗi setHours để khớp chuẩn UTC+7)
   function getNextGoldenTime(startFromDate) {
-      // Cloudflare Worker dùng UTC, chuyển sang giờ VN để tính toán 
       const vnTime = new Date(startFromDate.getTime() + (7 * 60 * 60 * 1000));
       let curH = vnTime.getUTCHours() + vnTime.getUTCMinutes()/60;
       
@@ -1523,12 +1522,11 @@ async function distributeJobSmartly(req, env, jobId) {
       }
       
       const randomMinutes = Math.floor(Math.random() * 10);
-      const targetHour = Math.floor(GOLDEN_HOURS[idx]);
-      const targetMin = (GOLDEN_HOURS[idx] % 1) * 60 + randomMinutes;
+      const h = Math.floor(GOLDEN_HOURS[idx]);
+      const m = (GOLDEN_HOURS[idx] % 1) * 60 + randomMinutes;
       
-      targetDate.setUTCHours(targetHour, targetMin, 0, 0);
+      targetDate.setUTCHours(h, m, 0, 0);
       
-      // Chuyển ngược lại về UTC để hệ thống lưu trữ/hẹn giờ chuẩn 
       return new Date(targetDate.getTime() - (7 * 60 * 60 * 1000));
   }
 
@@ -1649,9 +1647,33 @@ async function distributeJobSmartly(req, env, jobId) {
   // Tự động kích hoạt đăng Reels Instagram nếu Page đã liên kết 
   for (const page of targets) {
       try {
-          const igRes = await fetch(`https://graph.facebook.com/v19.0/${page.page_id}?fields=instagram_business_account&access_token=${job.access_token || ''}`);
+          // Lấy token của fanpage từ DB để gọi API chính xác
+          const pageTokenRow = await env.DB.prepare("SELECT access_token FROM fanpages WHERE page_id = ?").bind(page.page_id).first();
+          const pToken = pageTokenRow?.access_token;
+          
+          if (!pToken) {
+              console.error(`[IG Sync] Thiếu token cho page ${page.page_id}`);
+              continue;
+          }
+
+          const igRes = await fetch(`https://graph.facebook.com/v19.0/${page.page_id}?fields=instagram_business_account&access_token=${pToken}`);
           const igData = await igRes.json();
-          if (igData.instagram_business_account) {
+          
+          if (igData && igData.instagram_business_account) {
+              const igTime = getNextGoldenTime(new Date());
+              // Lưu vào bảng instagram_assignments (Cần đảm bảo bảng này đã tồn tại trong database.sql)
+              await env.DB.prepare(`
+                  INSERT INTO instagram_assignments (job_id, ig_id, status, scheduled_time, created_at)
+                  VALUES (?, ?, 'pending', ?, ?)
+              `).bind(jobId, igData.instagram_business_account.id, igTime.getTime(), Date.now()).run();
+              logMsg.push(`📸 Instagram: Đã lên lịch cho ${page.page_name}`);
+          } else {
+              console.warn(`[IG Sync] Page ${page.page_name} không có tài khoản Instagram Business liên kết.`);
+          }
+      } catch (e) { 
+          console.error("[IG Auto-schedule error]", e); 
+      }
+  }
               const igTime = getNextGoldenTime(new Date());
               await env.DB.prepare(`
                   INSERT INTO instagram_assignments (job_id, ig_id, status, scheduled_time, created_at)
@@ -1659,7 +1681,21 @@ async function distributeJobSmartly(req, env, jobId) {
               `).bind(jobId, igData.instagram_business_account.id, igTime.getTime(), Date.now()).run();
               logMsg.push(`📸 Instagram Reels: Đã tự động lên lịch cho ID ${igData.instagram_business_account.id}`);
           }
-      } catch (e) { console.error("IG Auto-schedule error", e); }
+      } catch (e) { 
+          console.error("IG Auto-schedule error:", e); 
+      }
+  }
+
+  // Tự động lên lịch cho Threads
+  try {
+      const threadsTime = getNextGoldenTime(new Date());
+      await env.DB.prepare(`
+          INSERT INTO threads_assignments (job_id, status, scheduled_time, created_at, updated_at)
+          VALUES (?, 'pending', ?, ?, ?)
+      `).bind(jobId, threadsTime.getTime(), Date.now(), Date.now()).run();
+      logMsg.push(`🧵 Threads: Đã tự động lên lịch rải bài`);
+  } catch (e) {
+      console.error("Threads Auto-schedule error:", e);
   }
 
   // Update Job status 

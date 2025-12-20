@@ -61,3 +61,55 @@ export async function uploadToThreads(userId, videoUrl, caption, accessToken) {
     return { success: false, error: e.message };
   }
 }
+
+// ============================================================
+// SCHEDULER: TỰ ĐỘNG QUÉT VÀ ĐĂNG BÀI (Chạy bởi Cron)
+// ============================================================
+export async function publishScheduledThreads(env) {
+  const now = Date.now();
+  console.log('[Threads] ⏳ Checking scheduled posts...');
+
+  try {
+    // 1. Lấy Token Threads từ Settings
+    const tokenRow = await env.DB.prepare("SELECT value FROM settings WHERE path = 'threads_access_token'").first();
+    if (!tokenRow || !tokenRow.value) return;
+    
+    let threadsToken = tokenRow.value;
+    try {
+        const parsed = JSON.parse(tokenRow.value);
+        if(parsed.access_token) threadsToken = parsed.access_token;
+    } catch(e) {}
+
+    // 2. Quét bài đến hạn từ bảng threads_assignments + JOIN bảng automation_jobs để lấy nội dung
+    const { results } = await env.DB.prepare(`
+      SELECT t.id as assign_id, j.ai_caption, j.r2_url, j.id as job_id
+      FROM threads_assignments t
+      JOIN automation_jobs j ON t.job_id = j.id
+      WHERE t.status = 'pending' AND t.scheduled_time <= ?
+    `).bind(now).all();
+
+    if (!results || !results.length) return;
+
+    // 3. Duyệt và đăng
+    for (const post of results) {
+      try {
+        // Gọi hàm uploadToThreads (đã có ở phần trên của file này)
+        const res = await uploadToThreads(threadsToken, 'me', post.r2_url, post.ai_caption, 'video');
+
+        // Update thành công
+        await env.DB.prepare("UPDATE threads_assignments SET status = 'published', post_id = ?, updated_at = ? WHERE id = ?")
+          .bind(res.id || 'published', Date.now(), post.assign_id).run();
+          
+        console.log(`[Threads] ✅ Đăng thành công Job ${post.job_id}`);
+
+      } catch (err) {
+        console.error(`[Threads] ❌ Lỗi Job ${post.job_id}:`, err);
+        // Update thất bại
+        await env.DB.prepare("UPDATE threads_assignments SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?")
+          .bind(err.message, Date.now(), post.assign_id).run();
+      }
+    }
+  } catch (e) {
+    console.error('[Threads] Scheduler error:', e);
+  }
+}
