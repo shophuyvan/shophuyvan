@@ -1674,17 +1674,7 @@ async function distributeJobSmartly(req, env, jobId) {
           console.error("[IG Auto-schedule error]", e); 
       }
   }
-              const igTime = getNextGoldenTime(new Date());
-              await env.DB.prepare(`
-                  INSERT INTO instagram_assignments (job_id, ig_id, status, scheduled_time, created_at)
-                  VALUES (?, ?, 'pending', ?, ?)
-              `).bind(jobId, igData.instagram_business_account.id, igTime.getTime(), Date.now()).run();
-              logMsg.push(`📸 Instagram Reels: Đã tự động lên lịch cho ID ${igData.instagram_business_account.id}`);
-          }
-      } catch (e) { 
-          console.error("IG Auto-schedule error:", e); 
-      }
-  }
+             
 
   // Tự động lên lịch cho Threads
   try {
