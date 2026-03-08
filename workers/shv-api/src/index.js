@@ -15,7 +15,8 @@ import * as banners from './modules/banners.js';
 import * as vouchers from './modules/vouchers.js';
 import * as auth from './modules/auth.js';
 import * as admin from './modules/admin.js'; // NEW
-import * as costs from './modules/costs.js'; // THÊM MODULE CHI PHÍ
+import * as costs from './modules/costs.js'; 
+import * as profit from './modules/profit.js'; // Sẽ tạo module này để xử lý lưu DB
 import * as flashSales from './modules/flash-sales.js'; // THÊM MODULE FLASH SALE
 import * as TopNew from './modules/products-top-new.js'; // ✅ API Bestsellers/Newest (FE + Mini)
 import * as FlashPricing from './modules/flash-pricing.js'; // ✅ API tính giá Flash Sale (FE + Mini)
@@ -432,8 +433,17 @@ export default {
         return vouchers.handle(req, env, ctx);
       }
 
-      // Routes cho Quản lý Chi Phí
-      if (path.startsWith('/admin/costs')) {
+      // ✅ QUẢN LÝ BÁO CÁO LỢI NHUẬN (D1)
+      if (path.startsWith('/admin/profit')) {
+        const permCheck = await requirePermission(req, env, 'stats.view');
+        if (!permCheck.ok) return json(permCheck, { status: permCheck.status }, req);
+
+        if (path === '/admin/profit/save') return profit.saveReports(req, env);
+        if (path === '/admin/profit/report') return profit.getReports(req, env);
+      }
+
+      // Routes cho Quản lý Chi Phí
+      if (path.startsWith('/admin/costs')) {
         const permCheck = await requirePermission(req, env, method === 'GET' ? 'costs.view' : 'costs.edit');
         if (!permCheck.ok) {
           return json(permCheck, { status: permCheck.status }, req);

@@ -349,5 +349,17 @@ api.getProductDetail = async (id) => {
     return await res.json();
   };
 
+  // ✅ APIs cho báo cáo lợi nhuận
+  api.saveProfitReport = async (data) => {
+    return await window.Admin.req('/admin/profit/save', {
+      method: 'POST',
+      body: JSON.stringify({ reports: data })
+    });
+  };
+
+  api.getProfitReport = async (startDate, endDate) => {
+    return await window.Admin.req(`/admin/profit/report?start=${startDate}&end=${endDate}`);
+  };
+
   window.SHARED.api = api;
 })();
