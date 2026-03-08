@@ -131,7 +131,8 @@
                     if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
                     name = row['Tên sản phẩm']; variant = row['Tên phân loại hàng'] || 'Gốc';
                     qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giaá']) || 0)) * qty;
+                    // Sửa lỗi chính tả "trợ giá" ở dòng dưới
+                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
                     orderId = row['Mã đơn hàng'];
                     orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
                 } else if (platform === 'lazada') {
@@ -166,9 +167,16 @@
                 }
             });
 
-            // Chuyển từ Map sang mảng allOrders và cập nhật giao diện
-            const groupedList = Object.values(tempMap);
-            allOrders = [...allOrders, ...groupedList];
+            // Chuyển từ Map sang mảng và gộp vào allOrders hiện tại
+            Object.values(tempMap).forEach(newItem => {
+                let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
+                if (existing) {
+                    existing.qty += newItem.qty;
+                    existing.rev += newItem.rev;
+                } else {
+                    allOrders.push(newItem);
+                }
+            });
             renderTable();
         };
         reader.readAsArrayBuffer(file);
