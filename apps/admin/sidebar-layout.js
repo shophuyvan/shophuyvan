@@ -588,13 +588,13 @@
         // }
       });
 
-      // Ẩn cả section nếu tất cả items bị ẩn
-      document.querySelectorAll('.admin-menu-section').forEach(section => {
-        const visibleItems = section.querySelectorAll('.admin-menu-item:not([style*="display: none"])');
-        if (visibleItems.length === 0) {
-          section.style.display = 'none';
-        }
-      });
+      // TẠM THỜI VÔ HIỆU HÓA ĐỂ HIỆN MENU
+      // document.querySelectorAll('.admin-menu-section').forEach(section => {
+      //   const visibleItems = section.querySelectorAll('.admin-menu-item:not([style*="display: none"])');
+      //   if (visibleItems.length === 0) {
+      //     section.style.display = 'none';
+      //   }
+      // });
     }
   };
 

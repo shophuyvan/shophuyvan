@@ -45,9 +45,68 @@
             </div>
         </div>
 
+        <div id="mappingArea">
+            <h3 style="margin-top:0; color:#856404; font-size:15px;">⚠️ Phát hiện tên sản phẩm chưa khớp - Hãy gán xác nhận:</h3>
+            <div id="mappingList"></div>
         </div>
 
+        <div class="section" style="display: flex; gap: 10px; align-items: center;">
+            <strong>Lọc Sàn:</strong>
+            <select id="platformFilter" onchange="renderTable()" style="padding:5px;">
+                <option value="all">TẤT CẢ CÁC SÀN</option>
+                <option value="shopee">SHOPEE</option>
+                <option value="lazada">LAZADA</option>
+                <option value="tiktok">TIKTOK</option>
+            </select>
+            <button class="btn" style="background:#007bff" onclick="exportFullReport()">📊 Xuất Báo Cáo Tổng Quát</button>
+            <button class="btn" style="background:#6c757d" onclick="exportMasterCosts()">💾 Xuất Dự Phòng Giá Vốn</button>
+        </div>
+
+        <div id="resultArea" style="display:none;">
+            <div class="summary-wrapper">
+                <div class="summary-group">
+                    <h3>THEO HÓA ĐƠN & COMBO</h3>
+                    <div class="summary-cards">
+                        <div class="card"><span>Doanh Thu</span><b id="totalRevHĐ">0đ</b></div>
+                        <div class="card"><span>Tổng Vốn HĐ</span><b id="totalCostHĐ">0đ</b></div>
+                        <div class="card profit"><span>Lợi Nhuận Thực</span><b id="totalProfitHĐ">0đ</b></div>
+                    </div>
+                </div>
+                <div class="summary-group">
+                    <h3>THEO GIÁ CHUẨN</h3>
+                    <div class="summary-cards">
+                        <div class="card"><span>Doanh Thu</span><b>---</b></div>
+                        <div class="card"><span>Tổng Vốn Chuẩn</span><b id="totalCostStd">0đ</b></div>
+                        <div class="card profit"><span>Lợi Nhuận Chuẩn</span><b id="totalProfitStd">0đ</b></div>
+                    </div>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sàn</th>
+                        <th>Tên Sản Phẩm | Phân Loại</th>
+                        <th style="text-align:center">Số Lượng</th>
+                        <th>Doanh thu</th>
+                        <th style="background:#fff5f2">Vốn HĐ</th>
+                        <th style="background:#fff5f2">Vốn Combo</th>
+                        <th style="text-align:center">Combo?</th>
+                        <th style="background:#f2fff5">Vốn Chuẩn</th>
+                        <th>Lợi Nhuận HĐ</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
     <script src="/sidebar-layout.js"></script>
+    <script>
+        document.addEventListener('adminLayoutReady', function() {
+            AdminLayout.init('Phân Tích Lợi Nhuận');
+        });
+    </script>
     <script>
     let allOrders = []; 
     const STORAGE_KEY = 'HUYVAN_V11_FINAL';
