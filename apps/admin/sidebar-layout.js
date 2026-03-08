@@ -578,14 +578,14 @@
         return false;
       };
 
-      // Ẩn các menu item không có quyền
+      // Tạm thời bỏ ẩn menu để kiểm tra hiển thị
       document.querySelectorAll('.admin-menu-item').forEach(item => {
         const page = item.getAttribute('data-page');
         const requiredPerm = menuPermissions[page];
         
-        if (requiredPerm && !hasPermission(requiredPerm)) {
-          item.style.display = 'none';
-        }
+        // if (requiredPerm && !hasPermission(requiredPerm)) {
+        //   item.style.display = 'none';
+        // }
       });
 
       // Ẩn cả section nếu tất cả items bị ẩn
