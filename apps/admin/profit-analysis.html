@@ -175,7 +175,7 @@
         try {
             const res = await window.AdminAPI.saveProfitReport(dataToSave);
             if (res.ok) {
-                alert("Đã lưu dữ liệu thành công!");
+                alert("✅ Dữ liệu đã được cập nhật (Ghi đè nếu trùng đơn)!");
                 allOrders = []; // Reset sau khi lưu
                 renderTable();
             } else {

@@ -9,23 +9,28 @@ export async function saveReports(req, env) {
     const now = Math.floor(Date.now() / 1000);
 
     for (const item of reports) {
-      // 1. Lưu hoặc cập nhật đơn hàng chi tiết vào bảng orders
-      // Sử dụng INSERT OR REPLACE dựa trên order_number để tránh trùng đơn
+      // 1. Kiểm tra đơn hàng cũ để trừ đi doanh thu cũ trong bảng tổng hợp (nếu ghi đè)
+      const oldOrder = await env.DB.prepare(`SELECT total, profit, order_date FROM orders WHERE order_number = ?`).bind(item.order_id).first();
+      
+      if (oldOrder) {
+        // Nếu có đơn cũ, tạo lệnh trừ doanh thu cũ khỏi ngày cũ
+        queries.push(env.DB.prepare(`
+          UPDATE daily_profit_stats SET 
+            total_orders = total_orders - 1,
+            total_revenue = total_revenue - ?,
+            total_profit = total_profit - ?
+          WHERE date = ?
+        `).bind(oldOrder.total, oldOrder.profit, oldOrder.order_date));
+      }
+
+      // 2. Ghi đè đơn hàng chi tiết vào bảng orders
       queries.push(env.DB.prepare(`
         INSERT OR REPLACE INTO orders (
           order_number, channel, order_date, total, profit, created_at, updated_at, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed')
-      `).bind(
-        item.order_id || `AUTO-${now}-${Math.random().toString(36).substr(2, 5)}`, 
-        item.platform,
-        item.date, // Định dạng YYYY-MM-DD
-        item.rev,
-        item.profit,
-        now,
-        now
-      ));
+      `).bind(item.order_id, item.platform, item.date, item.rev, item.profit, now, now));
 
-      // 2. Cập nhật bảng thống kê tổng hợp daily_profit_stats
+      // 3. Cộng doanh thu mới vào bảng daily_profit_stats
       queries.push(env.DB.prepare(`
         INSERT INTO daily_profit_stats (date, total_orders, total_revenue, total_profit, updated_at)
         VALUES (?, 1, ?, ?, ?)
@@ -37,10 +42,8 @@ export async function saveReports(req, env) {
       `).bind(item.date, item.rev, item.profit, now, now));
     }
 
-    // Chạy tất cả lệnh SQL trong 1 phiên (Batch) để tối ưu tốc độ
     await env.DB.batch(queries);
-
-    return new Response(JSON.stringify({ ok: true, message: `Đã lưu ${reports.length} bản ghi` }));
+    return new Response(JSON.stringify({ ok: true, message: `Đã xử lý (ghi đè) ${reports.length} bản ghi` }));
   } catch (err) {
     return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
   }
