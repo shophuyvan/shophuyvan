@@ -316,6 +316,13 @@
             Thống Kê
           </a>
 
+          <a href="/profit-analysis.html" class="admin-menu-item" data-page="profit-analysis">
+            <svg class="admin-menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2-1.343-2-3-2zM17 16v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2h2m3-4H9a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1M9 16h.01"/>
+            </svg>
+            Phân Tích Lợi Nhuận
+          </a>
+
           <div class="admin-menu-section-title" style="margin-top: 12px;">Facebook Marketing</div>
 
           <a href="/facebook/ads.html" class="admin-menu-item" data-page="fb-ads">
@@ -549,6 +556,7 @@
         'flash-sales': 'flash-sales.view',
         'banners': 'banners.view',
         'stats': 'stats.view',
+        'profit-analysis': 'stats.view',
         'ads': 'ads.view',
         'douyin-upload': 'ads.view',       // ✅ Cấp quyền cho menu Upload
         'shipping': 'shipping.view',
