@@ -120,6 +120,64 @@
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            
+            // Đối tượng tạm để gán và gộp dữ liệu
+            const tempMap = {};
+
+            jsonData.forEach(row => {
+                let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
+                
+                if (platform === 'shopee') {
+                    if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
+                    name = row['Tên sản phẩm']; variant = row['Tên phân loại hàng'] || 'Gốc';
+                    qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
+                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giaá']) || 0)) * qty;
+                    orderId = row['Mã đơn hàng'];
+                    orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
+                } else if (platform === 'lazada') {
+                    if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
+                    name = row['itemName']; variant = row['variation'] || 'Gốc';
+                    qty = 1; rev = parseFloat(row['unitPrice']) || 0;
+                    orderId = row['orderId'];
+                    orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
+                } else if (platform === 'tiktok') {
+                    if (row['Cancelation/Return Type']) isExcluded = true;
+                    name = row['Product Name']; variant = row['Variation'] || 'Gốc';
+                    qty = parseInt(row['Quantity']) || 0;
+                    rev = parseFloat(String(row['SKU Subtotal After Discount']).replace(/,/g, '')) || 0;
+                    orderId = row['Order ID'];
+                    orderDate = row['Order Creation Time'] ? row['Order Creation Time'].split(' ')[0] : '';
+                }
+
+                if (name && !isExcluded && qty > 0) {
+                    const key = `${name} | ${variant}`;
+                    // Khóa gộp: Sản phẩm + Ngày + Sàn
+                    const groupKey = `${key}_${orderDate}_${platform}`;
+
+                    if (!tempMap[groupKey]) {
+                        tempMap[groupKey] = { 
+                            key, name, variant, qty: 0, rev: 0, platform, 
+                            orderId: `GROUP-${orderDate}-${platform}`, // Dùng ID nhóm để lưu DB
+                            date: orderDate 
+                        };
+                    }
+                    tempMap[groupKey].qty += qty;
+                    tempMap[groupKey].rev += rev;
+                }
+            });
+
+            // Chuyển từ Map sang mảng allOrders và cập nhật giao diện
+            const groupedList = Object.values(tempMap);
+            allOrders = [...allOrders, ...groupedList];
+            renderTable();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
             jsonData.forEach(row => {
                 let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
                 if (platform === 'shopee') {
@@ -156,7 +214,7 @@
     // ✅ Hàm lưu dữ liệu vào Database D1
     async function saveToDatabase() {
         if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
-        if (!confirm("Hệ thống sẽ lưu dữ liệu lợi nhuận vào Database. Tiếp tục?")) return;
+        if (!confirm("Hệ thống sẽ lưu dữ liệu ĐÃ GỘP vào Database. Tiếp tục?")) return;
 
         const dataToSave = allOrders.map(item => {
             const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
@@ -175,14 +233,14 @@
         try {
             const res = await window.AdminAPI.saveProfitReport(dataToSave);
             if (res.ok) {
-                alert("✅ Dữ liệu đã được cập nhật (Ghi đè nếu trùng đơn)!");
-                allOrders = []; // Reset sau khi lưu
+                alert("✅ Thành công: " + res.message);
+                allOrders = [];
                 renderTable();
             } else {
-                alert("Lỗi: " + res.error);
+                alert("❌ Lỗi: " + res.error);
             }
         } catch (e) {
-            alert("Không thể kết nối Server: " + e.message);
+            alert("❌ Lỗi kết nối: " + e.message);
         }
     }
 
