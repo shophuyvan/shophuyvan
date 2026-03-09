@@ -131,8 +131,7 @@
                     name = row['Tên sản phẩm']; 
                     variant = row['Tên phân loại hàng'] || 'Gốc';
                     qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    // Đã sửa lỗi chính tả "trợ giá" đảm bảo tính toán đúng
-                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
+                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
                     orderId = row['Mã đơn hàng'];
                     orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
                 } else if (platform === 'lazada') {
@@ -169,7 +168,6 @@
                 }
             });
 
-            // Gộp vào danh sách hiển thị chính allOrders
             Object.values(tempMap).forEach(newItem => {
                 let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
                 if (existing) {
@@ -183,43 +181,7 @@
         };
         reader.readAsArrayBuffer(file);
     }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            jsonData.forEach(row => {
-                let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
-                if (platform === 'shopee') {
-                    if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
-                    name = row['Tên sản phẩm']; variant = row['Tên phân loại hàng'] || 'Gốc';
-                    qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
-                    orderId = row['Mã đơn hàng'];
-                    orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
-                } else if (platform === 'lazada') {
-                    if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
-                    name = row['itemName']; variant = row['variation'] || 'Gốc';
-                    qty = 1; rev = parseFloat(row['unitPrice']) || 0;
-                    orderId = row['orderId'];
-                    orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
-                } else if (platform === 'tiktok') {
-                    if (row['Cancelation/Return Type']) isExcluded = true;
-                    name = row['Product Name']; variant = row['Variation'] || 'Gốc';
-                    qty = parseInt(row['Quantity']) || 0;
-                    rev = parseFloat(String(row['SKU Subtotal After Discount']).replace(/,/g, '')) || 0;
-                    orderId = row['Order ID'];
-                    orderDate = row['Order Creation Time'] ? row['Order Creation Time'].split(' ')[0] : '';
-                }
-                if (name && !isExcluded && qty > 0) {
-                    const key = `${name} | ${variant}`;
-                    allOrders.push({ key, name, variant, qty, rev, platform, orderId, date: orderDate });
-                }
-            });
-            renderTable();
-        };
-        reader.readAsArrayBuffer(file);
-    }
+        
 
     // ✅ Hàm lưu dữ liệu vào Database D1
     async function saveToDatabase() {
@@ -367,10 +329,17 @@
     }
 
     function exportMasterCosts() {
-        let data = Object.keys(savedCosts).map(k => ({ "Tên Sản Phẩm | Phân Loại": k, "Giá Hóa Đơn": savedCosts[k].hoadon, "Giá Combo": savedCosts[k].combo, "Giá Chuẩn": savedCosts[k].chuan, "Là Combo": savedCosts[k].isCombo }));
-        XLSX.writeFile(XLSX.utils.book_new(), "Gia_Von_HuyVan.xlsx"); // Simplified for brevity
+        const data = Object.keys(savedCosts).map(k => ({
+            "Tên Sản Phẩm | Phân Loại": k,
+            "Giá Hóa Đơn": savedCosts[k].hoadon,
+            "Giá Combo": savedCosts[k].combo,
+            "Dùng Combo": savedCosts[k].isCombo ? "Có" : "Không"
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "GiaVon");
+        XLSX.writeFile(wb, "Gia_Von_HuyVan.xlsx");
     }
-
     function exportFullReport() {
         let data = allOrders.map(o => {
             const d = savedCosts[o.key] || { hoadon:0, combo:0, chuan:0, isCombo:false };
