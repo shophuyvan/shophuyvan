@@ -5,7 +5,6 @@
     <title>Phân Tích Lợi Nhuận - Shop Huy Vân</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* Giữ nguyên CSS gốc bạn gửi và điều chỉnh nhẹ để khớp với Layout */
         .profit-container { background: #f4f7f6; color: #333; border-radius: 12px; padding: 10px; }
         .section { background: #fffaf9; border: 1px solid #ffe5e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
         h2 { font-size: 16px; color: #ee4d2d; margin-top: 0; border-left: 4px solid #ee4d2d; padding-left: 10px; margin-bottom: 15px; }
@@ -107,262 +106,263 @@
         document.addEventListener('adminLayoutReady', function() {
             AdminLayout.init('Phân Tích Lợi Nhuận');
         });
-    </script>
-    <script>
-    let allOrders = []; 
-    let masterCosts = {}; // ✅ Khai báo biến bị thiếu
-    const STORAGE_KEY = 'HUYVAN_V11_FINAL';
-    let savedCosts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-    // Hàm load giá vốn chuẩn từ server (nếu có)
-    async function loadMasterCosts() {
-        try {
-            if (window.AdminAPI && window.AdminAPI.getMasterCosts) {
-                const res = await window.AdminAPI.getMasterCosts();
-                if (res.ok) masterCosts = res.costs || {};
-            }
-        } catch (e) { console.warn('Chưa có API masterCosts:', e); }
-    }
-    loadMasterCosts();
+        // ============================================
+        // LOGIC XỬ LÝ DỮ LIỆU
+        // ============================================
+        let allOrders = []; 
+        let masterCosts = {}; 
+        const STORAGE_KEY = 'HUYVAN_V11_FINAL';
+        let savedCosts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-    function readOrders(input, platform) {
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            
-            const tempMap = {}; 
-
-            jsonData.forEach(row => {
-                let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
-                
-                if (platform === 'shopee') {
-                    if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
-                    name = row['Tên sản phẩm']; 
-                    variant = row['Tên phân loại hàng'] || 'Gốc';
-                    qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
-                    orderId = row['Mã đơn hàng'];
-                    orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
-                } else if (platform === 'lazada') {
-                    if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
-                    name = row['itemName']; 
-                    variant = row['variation'] || 'Gốc';
-                    qty = 1; 
-                    rev = parseFloat(row['unitPrice']) || 0;
-                    orderId = row['orderId'];
-                    orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
-                } else if (platform === 'tiktok') {
-                    if (row['Cancelation/Return Type']) isExcluded = true;
-                    name = row['Product Name']; 
-                    variant = row['Variation'] || 'Gốc';
-                    qty = parseInt(row['Quantity']) || 0;
-                    rev = parseFloat(String(row['SKU Subtotal After Discount']).replace(/,/g, '')) || 0;
-                    orderId = row['Order ID'];
-                    orderDate = row['Order Creation Time'] ? row['Order Creation Time'].split(' ')[0] : '';
+        // Tự động load giá vốn từ server
+        async function loadMasterCosts() {
+            try {
+                if (window.AdminAPI && window.AdminAPI.getMasterCosts) {
+                    const res = await window.AdminAPI.getMasterCosts();
+                    if (res.ok) masterCosts = res.costs || {};
                 }
-
-                if (name && !isExcluded && qty > 0) {
-                    const key = `${name} | ${variant}`;
-                    const groupKey = `${key}_${orderDate}_${platform}`;
-
-                    if (!tempMap[groupKey]) {
-                        tempMap[groupKey] = { 
-                            key, name, variant, qty: 0, rev: 0, platform, 
-                            orderId: `GROUP-${orderDate}-${platform}`,
-                            date: orderDate 
-                        };
-                    }
-                    tempMap[groupKey].qty += Number(qty);
-                    tempMap[groupKey].rev += Number(rev);
-                }
-            });
-
-            Object.values(tempMap).forEach(newItem => {
-                let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
-                if (existing) {
-                    existing.qty += newItem.qty;
-                    existing.rev += newItem.rev;
-                } else {
-                    allOrders.push(newItem);
-                }
-            });
-            renderTable();
-        };
-        reader.readAsArrayBuffer(file);
-    }
-        
-
-    // ✅ Hàm lưu dữ liệu vào Database D1
-    async function saveToDatabase() {
-        if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
-        if (!confirm("Hệ thống sẽ lưu dữ liệu ĐÃ GỘP vào Database. Tiếp tục?")) return;
-
-        const dataToSave = allOrders.map(item => {
-            const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
-            const activePrice = d.isCombo ? d.combo : d.hoadon;
-            return {
-                order_id: item.orderId,
-                date: item.date,
-                platform: item.platform,
-                product_name: item.key,
-                qty: item.qty,
-                rev: item.rev,
-                profit: item.rev - (activePrice * item.qty)
-            };
-        });
-
-        try {
-            const res = await window.AdminAPI.saveProfitReport(dataToSave);
-            if (res.ok) {
-                alert("✅ Thành công: " + res.message);
-                allOrders = [];
-                renderTable();
-            } else {
-                alert("❌ Lỗi từ Server: " + res.error);
-            }
-        } catch (e) {
-            alert("❌ Không thể kết nối Worker: " + e.message);
+            } catch (e) { console.warn('Chưa có API masterCosts:', e); }
         }
-    }
+        loadMasterCosts();
 
-    function importPrice(input, type) {
-        if (allOrders.length === 0) return alert("Vui lòng tải file đơn hàng lên trước!");
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            const mappingList = document.getElementById('mappingList');
-            mappingList.innerHTML = '';
-            let hasUnmapped = false;
+        function readOrders(input, platform) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                
+                const tempMap = {}; 
 
-            jsonData.forEach(row => {
-                const nameInFile = String(Object.values(row)[0] || "");
-                const priceValue = parseFloat(String(Object.values(row)[1]).replace(/[^\d]/g, '')) || 0;
+                jsonData.forEach(row => {
+                    let name, variant, qty = 0, rev = 0, orderId, orderDate, isExcluded = false;
+                    
+                    if (platform === 'shopee') {
+                        if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
+                        name = row['Tên sản phẩm']; 
+                        variant = row['Tên phân loại hàng'] || 'Gốc';
+                        qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
+                        // Hỗ trợ cả hai kiểu ký tự của Shopee
+                        rev = ((parseFloat(row['Giá ưu đãi']) || parseFloat(row['Giá ưu đãi']) || 0) + 
+                               (parseFloat(row['Được Shopee trợ giá']) || parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
+                        orderId = row['Mã đơn hàng'];
+                        orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
+                    } else if (platform === 'lazada') {
+                        if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
+                        name = row['itemName']; 
+                        variant = row['variation'] || 'Gốc';
+                        qty = 1; 
+                        rev = parseFloat(row['unitPrice']) || 0;
+                        orderId = row['orderId'];
+                        orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
+                    } else if (platform === 'tiktok') {
+                        if (row['Cancelation/Return Type']) isExcluded = true;
+                        name = row['Product Name']; 
+                        variant = row['Variation'] || 'Gốc';
+                        qty = parseInt(row['Quantity']) || 0;
+                        rev = parseFloat(String(row['SKU Subtotal After Discount'] || row['SKU Subtotal']).replace(/,/g, '')) || 0;
+                        orderId = row['Order ID'];
+                        orderDate = row['Order Creation Time'] ? row['Order Creation Time'].split(' ')[0] : '';
+                    }
 
-                // Tìm khớp chính xác 100%
-                const exactMatch = allOrders.find(o => o.key === nameInFile);
-                if (exactMatch) {
-                    saveOne(exactMatch.key, type, priceValue);
-                } else {
-                    // Nếu không khớp chính xác, hiện ra để gán
-                    hasUnmapped = true;
-                    const div = document.createElement('div');
-                    div.className = 'mapping-item';
-                    let options = `<option value="">-- Chọn sản phẩm đúng trên sàn --</option>`;
-                    allOrders.forEach(o => {
-                        const isSuggested = nameInFile.split(' ').some(w => w.length > 3 && o.key.includes(w));
-                        options += `<option value="${o.key}" ${isSuggested ? 'selected' : ''}>${o.key}</option>`;
-                    });
-                    div.innerHTML = `
-                        <div style="flex:1; font-size:11px;">Tên file: <b>${nameInFile.substring(0,80)}...</b> | Giá: <b>${priceValue.toLocaleString()}đ</b></div>
-                        <div style="display:flex;">
-                            <select style="width:250px; margin-right:5px;">${options}</select>
-                            <button class="btn btn-confirm" onclick="saveOne(this.previousElementSibling.value, '${type}', ${priceValue}); this.closest('.mapping-item').remove(); checkMapEmpty();">✅ Gán</button>
-                            <button class="btn btn-skip" onclick="this.closest('.mapping-item').remove(); checkMapEmpty();">❌ Bỏ</button>
-                        </div>
-                    `;
-                    mappingList.appendChild(div);
-                }
+                    if (name && !isExcluded && qty > 0) {
+                        const key = `${name} | ${variant}`;
+                        const groupKey = `${key}_${orderDate}_${platform}`;
+
+                        if (!tempMap[groupKey]) {
+                            tempMap[groupKey] = { 
+                                key, name, variant, qty: 0, rev: 0, platform, 
+                                orderId: `GROUP-${orderDate}-${platform}`,
+                                date: orderDate 
+                            };
+                        }
+                        tempMap[groupKey].qty += Number(qty);
+                        tempMap[groupKey].rev += Number(rev);
+                    }
+                });
+
+                // Cộng dồn vào danh sách chính
+                Object.values(tempMap).forEach(newItem => {
+                    let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
+                    if (existing) {
+                        existing.qty += newItem.qty;
+                        existing.rev += newItem.rev;
+                    } else {
+                        allOrders.push(newItem);
+                    }
+                });
+                renderTable();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderTable() {
+            const filter = document.getElementById('platformFilter').value;
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            document.getElementById('resultArea').style.display = 'block';
+
+            let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
+
+            allOrders.forEach((item) => {
+                if (filter !== 'all' && item.platform !== filter) return;
+
+                const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
+                const activePrice = d.isCombo ? d.combo : d.hoadon;
+                
+                const unitCostStd = (masterCosts && masterCosts[item.key]) ? masterCosts[item.key] : 0;
+                const costStd = unitCostStd * item.qty;
+                const costHĐ = activePrice * item.qty;
+                const profitHĐ = item.rev - costHĐ;
+
+                tRevHĐ += item.rev;
+                tCostHĐ += costHĐ;
+                tCostStd += costStd;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><span class="badge ${item.platform}">${item.platform}</span></td>
+                        <td>
+                            <div style="font-weight:600">${item.key}</div>
+                            <div style="font-size:11px; color:#667eea">📅 ${item.date || 'N/A'}</div>
+                        </td>
+                        <td style="text-align:center; font-weight:bold">${item.qty}</td>
+                        <td>${Math.round(item.rev).toLocaleString()}đ</td>
+                        <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
+                        <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
+                        <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
+                        <td style="background:#f2fff5">${Math.round(costStd).toLocaleString()}đ</td>
+                        <td style="font-weight:bold; color:${profitHĐ >= 0 ? 'green' : 'red'}">${Math.round(profitHĐ).toLocaleString()}đ</td>
+                    </tr>
+                `;
             });
-            if (hasUnmapped) document.getElementById('mappingArea').style.display = 'block';
+
+            document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
+            document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
+            document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
+            document.getElementById('totalCostStd').textContent = Math.round(tCostStd).toLocaleString() + 'đ';
+            document.getElementById('totalProfitStd').textContent = Math.round(tRevHĐ - tCostStd).toLocaleString() + 'đ';
+        }
+
+        async function saveToDatabase() {
+            if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
+            if (!confirm("Hệ thống sẽ lưu dữ liệu ĐÃ GỘP vào Database. Tiếp tục?")) return;
+
+            const dataToSave = allOrders.map(item => {
+                const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
+                const activePrice = d.isCombo ? d.combo : d.hoadon;
+                return {
+                    order_id: item.orderId,
+                    date: item.date,
+                    platform: item.platform,
+                    product_name: item.key,
+                    qty: item.qty,
+                    rev: item.rev,
+                    profit: item.rev - (activePrice * item.qty)
+                };
+            });
+
+            try {
+                if (!window.AdminAPI || !window.AdminAPI.saveProfitReport) {
+                    throw new Error("API saveProfitReport chưa được khai báo trong api-admin.js");
+                }
+                const res = await window.AdminAPI.saveProfitReport(dataToSave);
+                if (res.ok) {
+                    alert("✅ Thành công: " + res.message);
+                    allOrders = [];
+                    renderTable();
+                } else {
+                    alert("❌ Lỗi từ Server: " + res.error);
+                }
+            } catch (e) {
+                alert("❌ Lỗi hệ thống: " + e.message);
+            }
+        }
+
+        function importPrice(input, type) {
+            if (allOrders.length === 0) return alert("Vui lòng tải file đơn hàng lên trước!");
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                const mappingList = document.getElementById('mappingList');
+                mappingList.innerHTML = '';
+                let hasUnmapped = false;
+
+                jsonData.forEach(row => {
+                    const nameInFile = String(Object.values(row)[0] || "");
+                    const priceValue = parseFloat(String(Object.values(row)[1]).replace(/[^\d]/g, '')) || 0;
+                    const exactMatch = allOrders.find(o => o.key === nameInFile);
+                    
+                    if (exactMatch) {
+                        saveOne(exactMatch.key, type, priceValue);
+                    } else {
+                        hasUnmapped = true;
+                        const div = document.createElement('div');
+                        div.className = 'mapping-item';
+                        let options = `<option value="">-- Chọn sản phẩm đúng trên sàn --</option>`;
+                        allOrders.forEach(o => {
+                            const isSuggested = nameInFile.split(' ').some(w => w.length > 3 && o.key.includes(w));
+                            options += `<option value="${o.key}" ${isSuggested ? 'selected' : ''}>${o.key}</option>`;
+                        });
+                        div.innerHTML = `
+                            <div style="flex:1; font-size:11px;">Tên file: <b>${nameInFile.substring(0,80)}...</b> | Giá: <b>${priceValue.toLocaleString()}đ</b></div>
+                            <div style="display:flex;">
+                                <select style="width:250px; margin-right:5px;">${options}</select>
+                                <button class="btn btn-confirm" onclick="saveOne(this.previousElementSibling.value, '${type}', ${priceValue}); this.closest('.mapping-item').remove(); checkMapEmpty();">✅ Gán</button>
+                                <button class="btn btn-skip" onclick="this.closest('.mapping-item').remove(); checkMapEmpty();">❌ Bỏ</button>
+                            </div>
+                        `;
+                        mappingList.appendChild(div);
+                    }
+                });
+                if (hasUnmapped) document.getElementById('mappingArea').style.display = 'block';
+                renderTable();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveOne(key, type, price) {
+            if (!key) return;
+            if (!savedCosts[key]) savedCosts[key] = { hoadon:0, combo:0, isCombo:false };
+            savedCosts[key][type] = price;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCosts));
             renderTable();
-        };
-        reader.readAsArrayBuffer(file);
-    }
+        }
 
-    function checkMapEmpty() {
-        const list = document.getElementById('mappingList');
-        if (list.innerHTML.trim() === "") document.getElementById('mappingArea').style.display = 'none';
-    }
+        function checkMapEmpty() {
+            const list = document.getElementById('mappingList');
+            if (list.innerHTML.trim() === "") document.getElementById('mappingArea').style.display = 'none';
+        }
 
-    function saveOne(key, type, price) {
-        if (!key) return;
-        if (!savedCosts[key]) savedCosts[key] = { hoadon:0, combo:0, chuan:0, isCombo:false };
-        savedCosts[key][type] = price;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCosts));
-        renderTable();
-    }
+        function exportMasterCosts() {
+            const data = Object.keys(savedCosts).map(k => ({
+                "Tên Sản Phẩm | Phân Loại": k,
+                "Giá Hóa Đơn": savedCosts[k].hoadon,
+                "Giá Combo": savedCosts[k].combo,
+                "Dùng Combo": savedCosts[k].isCombo ? "Có" : "Không"
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "GiaVon");
+            XLSX.writeFile(wb, "Gia_Von_HuyVan.xlsx");
+        }
 
-    function updateManual(key, field, val) {
-        if (!savedCosts[key]) savedCosts[key] = { hoadon:0, combo:0, chuan:0, isCombo:false };
-        savedCosts[key][field] = (field === 'isCombo') ? val : parseFloat(val) || 0;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCosts));
-        renderTable();
-    }
-
-    function renderTable() {
-        const filter = document.getElementById('platformFilter').value;
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-        document.getElementById('resultArea').style.display = 'block';
-
-        let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
-
-        allOrders.forEach((item, index) => {
-            if (filter !== 'all' && item.platform !== filter) return;
-
-            const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
-            const activePrice = d.isCombo ? d.combo : d.hoadon;
-            const costStd = (masterCosts[item.key] || 0) * item.qty;
-            const costHĐ = activePrice * item.qty;
-            const profitHĐ = item.rev - costHĐ;
-
-            tRevHĐ += item.rev;
-            tCostHĐ += costHĐ;
-            tCostStd += costStd;
-
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.platform.toUpperCase()}</td>
-                    <td>
-                        <div style="font-weight:600">${item.key}</div>
-                        <div style="font-size:11px; color:#667eea">📅 ${item.date || 'N/A'}</div>
-                    </td>
-                    <td style="text-align:center; font-weight:bold">${item.qty}</td>
-                    <td>${Math.round(item.rev).toLocaleString()}đ</td>
-                    <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
-                    <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
-                    <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
-                    <td style="background:#f2fff5">${Math.round(costStd).toLocaleString()}đ</td>
-                    <td style="font-weight:bold; color:${profitHĐ >= 0 ? 'green' : 'red'}">${Math.round(profitHĐ).toLocaleString()}đ</td>
-                </tr>
-            `;
-        });
-
-        document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
-        document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
-        document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
-        document.getElementById('totalCostStd').textContent = Math.round(tCostStd).toLocaleString() + 'đ';
-        document.getElementById('totalProfitStd').textContent = Math.round(tRevHĐ - tCostStd).toLocaleString() + 'đ';
-    }
-
-    function exportMasterCosts() {
-        const data = Object.keys(savedCosts).map(k => ({
-            "Tên Sản Phẩm | Phân Loại": k,
-            "Giá Hóa Đơn": savedCosts[k].hoadon,
-            "Giá Combo": savedCosts[k].combo,
-            "Dùng Combo": savedCosts[k].isCombo ? "Có" : "Không"
-        }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "GiaVon");
-        XLSX.writeFile(wb, "Gia_Von_HuyVan.xlsx");
-    }
-    function exportFullReport() {
-        let data = allOrders.map(o => {
-            const d = savedCosts[o.key] || { hoadon:0, combo:0, chuan:0, isCombo:false };
-            const p = d.isCombo ? d.combo : d.hoadon;
-            return { "Sàn": o.platform, "Sản Phẩm": o.key, "SL": o.qty, "Doanh Thu": o.rev, "Lợi Nhuận": o.rev - (p*o.qty) };
-        });
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "BaoCao");
-        XLSX.writeFile(wb, "Bao_Cao_HuyVan.xlsx");
-    }
-</script>
+        function exportFullReport() {
+            let data = allOrders.map(o => {
+                const d = savedCosts[o.key] || { hoadon:0, combo:0, isCombo:false };
+                const p = d.isCombo ? d.combo : d.hoadon;
+                return { "Sàn": o.platform, "Ngày": o.date, "Sản Phẩm": o.key, "SL": o.qty, "Doanh Thu": o.rev, "Lợi Nhuận": o.rev - (p*o.qty) };
+            });
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "BaoCao");
+            XLSX.writeFile(wb, "Bao_Cao_Loi_Nhuan.xlsx");
+        }
+    </script>
 </body>
 </html>
