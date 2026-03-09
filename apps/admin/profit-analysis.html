@@ -121,7 +121,7 @@
             const workbook = XLSX.read(data, {type: 'array'});
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
             
-            const tempMap = {}; // Dùng để gộp dữ liệu ngay khi đọc
+            const tempMap = {}; 
 
             jsonData.forEach(row => {
                 let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
@@ -131,7 +131,7 @@
                     name = row['Tên sản phẩm']; 
                     variant = row['Tên phân loại hàng'] || 'Gốc';
                     qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    // Đã sửa lỗi "trợ giaá" thành "trợ giá"
+                    // Đã sửa lỗi chính tả "trợ giá" đảm bảo tính toán đúng
                     rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
                     orderId = row['Mã đơn hàng'];
                     orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
@@ -169,7 +169,7 @@
                 }
             });
 
-            // Gộp vào danh sách hiển thị chính
+            // Gộp vào danh sách hiển thị chính allOrders
             Object.values(tempMap).forEach(newItem => {
                 let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
                 if (existing) {
@@ -247,10 +247,10 @@
                 allOrders = [];
                 renderTable();
             } else {
-                alert("❌ Lỗi: " + res.error);
+                alert("❌ Lỗi từ Server: " + res.error);
             }
         } catch (e) {
-            alert("❌ Lỗi kết nối: " + e.message);
+            alert("❌ Không thể kết nối Worker: " + e.message);
         }
     }
 
@@ -344,8 +344,11 @@
             tbody.innerHTML += `
                 <tr>
                     <td>${item.platform.toUpperCase()}</td>
-                    <td>${item.key} <br><small style="color:#666">${item.date || ''}</small></td>
-                    <td style="text-align:center">${item.qty}</td>
+                    <td>
+                        <div style="font-weight:600">${item.key}</div>
+                        <div style="font-size:11px; color:#667eea">📅 ${item.date || 'N/A'}</div>
+                    </td>
+                    <td style="text-align:center; font-weight:bold">${item.qty}</td>
                     <td>${Math.round(item.rev).toLocaleString()}đ</td>
                     <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
                     <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
