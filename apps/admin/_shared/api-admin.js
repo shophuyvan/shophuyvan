@@ -349,7 +349,7 @@ api.getProductDetail = async (id) => {
     return await res.json();
   };
 
-  // ✅ APIs cho báo cáo lợi nhuận (Đã sửa lỗi cấu trúc Admin.req)
+  // ✅ APIs cho báo cáo lợi nhuận (Đã sửa cấu trúc chuẩn)
   api.saveProfitReport = async (data) => {
     return await window.Admin.req('/admin/profit/save', 'POST', { reports: data });
   };
@@ -359,4 +359,5 @@ api.getProductDetail = async (id) => {
   };
 
   window.SHARED.api = api;
+  window.AdminAPI = api; // ✅ Gán thêm vào AdminAPI để dự phòng lỗi undefined
 })();
