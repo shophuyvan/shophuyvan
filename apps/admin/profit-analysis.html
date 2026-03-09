@@ -49,7 +49,9 @@
             <div id="mappingList"></div>
         </div>
 
-        <div class="section" style="display: flex; gap: 10px; align-items: center;">
+        <div class="section" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <strong>Từ ngày:</strong> <input type="date" id="dateStart" onchange="renderTable()" style="padding:5px;">
+            <strong>Đến ngày:</strong> <input type="date" id="dateEnd" onchange="renderTable()" style="padding:5px;">
             <strong>Lọc Sàn:</strong>
             <select id="platformFilter" onchange="renderTable()" style="padding:5px;">
                 <option value="all">TẤT CẢ CÁC SÀN</option>
@@ -199,53 +201,80 @@
         }
 
         function renderTable() {
-            const filter = document.getElementById('platformFilter').value;
-            const tbody = document.getElementById('tableBody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            document.getElementById('resultArea').style.display = 'block';
+        const filter = document.getElementById('platformFilter').value;
+        const start = document.getElementById('dateStart').value;
+        const end = document.getElementById('dateEnd').value;
+        const tbody = document.getElementById('tableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        document.getElementById('resultArea').style.display = 'block';
 
-            let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
+        // 1. Lọc dữ liệu theo thời gian và sàn trước khi gộp
+        let filteredOrders = allOrders.filter(item => {
+            const matchPlatform = (filter === 'all' || item.platform === filter);
+            const matchDate = (!start || item.date >= start) && (!end || item.date <= end);
+            return matchPlatform && matchDate;
+        });
 
-            allOrders.forEach((item) => {
-                if (filter !== 'all' && item.platform !== filter) return;
+        // 2. SIÊU TỔNG HỢP: Gộp tất cả các ngày lại thành 1 dòng theo Sản phẩm + Sàn
+        const grandTotalMap = {};
+        filteredOrders.forEach(item => {
+            const gKey = `${item.key}_${item.platform}`;
+            if (!grandTotalMap[gKey]) {
+                grandTotalMap[gKey] = { ...item, qty: 0, rev: 0, dateList: [] };
+            }
+            grandTotalMap[gKey].qty += item.qty;
+            grandTotalMap[gKey].rev += item.rev;
+            if (!grandTotalMap[gKey].dateList.includes(item.date)) {
+                grandTotalMap[gKey].dateList.push(item.date);
+            }
+        });
 
-                const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
-                const activePrice = d.isCombo ? d.combo : d.hoadon;
-                
-                const unitCostStd = (masterCosts && masterCosts[item.key]) ? masterCosts[item.key] : 0;
-                const costStd = unitCostStd * item.qty;
-                const costHĐ = activePrice * item.qty;
-                const profitHĐ = item.rev - costHĐ;
+        let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
+        const finalDisplayList = Object.values(grandTotalMap);
 
-                tRevHĐ += item.rev;
-                tCostHĐ += costHĐ;
-                tCostStd += costStd;
+        finalDisplayList.forEach((item) => {
+            const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
+            const activePrice = d.isCombo ? d.combo : d.hoadon;
+            
+            const unitCostStd = (masterCosts && masterCosts[item.key]) ? masterCosts[item.key] : 0;
+            const costStd = unitCostStd * item.qty;
+            const costHĐ = activePrice * item.qty;
+            const profitHĐ = item.rev - costHĐ;
 
-                tbody.innerHTML += `
-                    <tr>
-                        <td><span class="badge ${item.platform}">${item.platform}</span></td>
-                        <td>
-                            <div style="font-weight:600">${item.key}</div>
-                            <div style="font-size:11px; color:#667eea">📅 ${item.date || 'N/A'}</div>
-                        </td>
-                        <td style="text-align:center; font-weight:bold">${item.qty}</td>
-                        <td>${Math.round(item.rev).toLocaleString()}đ</td>
-                        <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
-                        <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
-                        <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
-                        <td style="background:#f2fff5">${Math.round(costStd).toLocaleString()}đ</td>
-                        <td style="font-weight:bold; color:${profitHĐ >= 0 ? 'green' : 'red'}">${Math.round(profitHĐ).toLocaleString()}đ</td>
-                    </tr>
-                `;
-            });
+            tRevHĐ += item.rev;
+            tCostHĐ += costHĐ;
+            tCostStd += costStd;
 
-            document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
-            document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
-            document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
-            document.getElementById('totalCostStd').textContent = Math.round(tCostStd).toLocaleString() + 'đ';
-            document.getElementById('totalProfitStd').textContent = Math.round(tRevHĐ - tCostStd).toLocaleString() + 'đ';
-        }
+            // Hiển thị dải ngày nếu gộp nhiều ngày
+            const dateDisplay = item.dateList.length > 1 
+                ? `${item.dateList.sort()[0]} ➔ ${item.dateList.sort().pop()}` 
+                : item.date;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge ${item.platform}">${item.platform}</span></td>
+                    <td>
+                        <div style="font-weight:600">${item.key}</div>
+                        <div style="font-size:11px; color:#667eea">📅 ${dateDisplay}</div>
+                    </td>
+                    <td style="text-align:center; font-weight:bold; color:#d63031; font-size:14px;">${item.qty}</td>
+                    <td>${Math.round(item.rev).toLocaleString()}đ</td>
+                    <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
+                    <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
+                    <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
+                    <td style="background:#f2fff5">${Math.round(costStd).toLocaleString()}đ</td>
+                    <td style="font-weight:bold; color:${profitHĐ >= 0 ? 'green' : 'red'}">${Math.round(profitHĐ).toLocaleString()}đ</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalCostStd').textContent = Math.round(tCostStd).textContent = Math.round(tCostStd).toLocaleString() + 'đ';
+        document.getElementById('totalProfitStd').textContent = Math.round(tRevHĐ - tCostStd).toLocaleString() + 'đ';
+    }
 
         async function saveToDatabase() {
             if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
