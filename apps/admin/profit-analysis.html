@@ -121,29 +121,32 @@
             const workbook = XLSX.read(data, {type: 'array'});
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
             
-            // Đối tượng tạm để gán và gộp dữ liệu
-            const tempMap = {};
+            const tempMap = {}; // Dùng để gộp dữ liệu ngay khi đọc
 
             jsonData.forEach(row => {
                 let name, variant, qty, rev, orderId, orderDate, isExcluded = false;
                 
                 if (platform === 'shopee') {
                     if (row['Trạng thái Trả hàng/Hoàn tiền']) isExcluded = true;
-                    name = row['Tên sản phẩm']; variant = row['Tên phân loại hàng'] || 'Gốc';
+                    name = row['Tên sản phẩm']; 
+                    variant = row['Tên phân loại hàng'] || 'Gốc';
                     qty = (parseInt(row['Số lượng']) || 0) - (parseInt(row['Số lượng sản phẩm được hoàn trả']) || 0);
-                    // Sửa lỗi chính tả "trợ giá" ở dòng dưới
+                    // Đã sửa lỗi "trợ giaá" thành "trợ giá"
                     rev = ((parseFloat(row['Giá ưu đãi']) || 0) + (parseFloat(row['Được Shopee trợ giá']) || 0)) * qty;
                     orderId = row['Mã đơn hàng'];
                     orderDate = row['Ngày đặt hàng'] ? row['Ngày đặt hàng'].split(' ')[0] : '';
                 } else if (platform === 'lazada') {
                     if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
-                    name = row['itemName']; variant = row['variation'] || 'Gốc';
-                    qty = 1; rev = parseFloat(row['unitPrice']) || 0;
+                    name = row['itemName']; 
+                    variant = row['variation'] || 'Gốc';
+                    qty = 1; 
+                    rev = parseFloat(row['unitPrice']) || 0;
                     orderId = row['orderId'];
                     orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
                 } else if (platform === 'tiktok') {
                     if (row['Cancelation/Return Type']) isExcluded = true;
-                    name = row['Product Name']; variant = row['Variation'] || 'Gốc';
+                    name = row['Product Name']; 
+                    variant = row['Variation'] || 'Gốc';
                     qty = parseInt(row['Quantity']) || 0;
                     rev = parseFloat(String(row['SKU Subtotal After Discount']).replace(/,/g, '')) || 0;
                     orderId = row['Order ID'];
@@ -161,13 +164,12 @@
                             date: orderDate 
                         };
                     }
-                    // Đảm bảo qty và rev là số hợp lệ trước khi cộng
-                    tempMap[groupKey].qty += (Number(qty) || 0);
-                    tempMap[groupKey].rev += (Number(rev) || 0);
+                    tempMap[groupKey].qty += Number(qty);
+                    tempMap[groupKey].rev += Number(rev);
                 }
             });
 
-            // Chuyển từ Map sang mảng và gộp vào allOrders hiện tại
+            // Gộp vào danh sách hiển thị chính
             Object.values(tempMap).forEach(newItem => {
                 let existing = allOrders.find(o => o.key === newItem.key && o.date === newItem.date && o.platform === newItem.platform);
                 if (existing) {
@@ -320,35 +322,45 @@
 
     function renderTable() {
         const filter = document.getElementById('platformFilter').value;
-        let tRev = 0, tCHĐ = 0, tCStd = 0;
-        let html = '';
-        const sorted = [...allOrders].sort((a, b) => b.qty - a.qty).filter(o => filter === 'all' || o.platform === filter);
-
-        sorted.forEach(item => {
-            const d = savedCosts[item.key] || { hoadon:0, combo:0, chuan:0, isCombo:false };
-            const activePrice = d.isCombo ? d.combo : d.hoadon;
-            tRev += item.rev; tCHĐ += (activePrice * item.qty); tCStd += (d.chuan * item.qty);
-            const profit = item.rev - (activePrice * item.qty);
-
-            html += `<tr>
-                <td><span class="badge ${item.platform}">${item.platform}</span></td>
-                <td><b>${item.key}</b></td>
-                <td style="text-align:center; font-weight:bold;">${item.qty}</td>
-                <td>${item.rev.toLocaleString()}</td>
-                <td><input type="number" class="cost-input" value="${d.hoadon}" onchange="updateManual('${item.key}', 'hoadon', this.value)"></td>
-                <td><input type="number" class="cost-input" value="${d.combo}" onchange="updateManual('${item.key}', 'combo', this.value)"></td>
-                <td style="text-align:center"><input type="checkbox" ${d.isCombo ? 'checked' : ''} onchange="updateManual('${item.key}', 'isCombo', this.checked)"></td>
-                <td><input type="number" class="cost-input" value="${d.chuan}" onchange="updateManual('${item.key}', 'chuan', this.value)"></td>
-                <td style="font-weight:bold; color:${profit < 0 ? 'red' : 'green'}">${profit.toLocaleString()}đ</td>
-            </tr>`;
-        });
-        document.getElementById('tableBody').innerHTML = html;
-        document.getElementById('totalRevHĐ').innerText = tRev.toLocaleString() + 'đ';
-        document.getElementById('totalCostHĐ').innerText = tCHĐ.toLocaleString() + 'đ';
-        document.getElementById('totalProfitHĐ').innerText = (tRev - tCHĐ).toLocaleString() + 'đ';
-        document.getElementById('totalCostStd').innerText = tCStd.toLocaleString() + 'đ';
-        document.getElementById('totalProfitStd').innerText = (tRev - tCStd).toLocaleString() + 'đ';
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
         document.getElementById('resultArea').style.display = 'block';
+
+        let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
+
+        allOrders.forEach((item, index) => {
+            if (filter !== 'all' && item.platform !== filter) return;
+
+            const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
+            const activePrice = d.isCombo ? d.combo : d.hoadon;
+            const costStd = (masterCosts[item.key] || 0) * item.qty;
+            const costHĐ = activePrice * item.qty;
+            const profitHĐ = item.rev - costHĐ;
+
+            tRevHĐ += item.rev;
+            tCostHĐ += costHĐ;
+            tCostStd += costStd;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.platform.toUpperCase()}</td>
+                    <td>${item.key} <br><small style="color:#666">${item.date || ''}</small></td>
+                    <td style="text-align:center">${item.qty}</td>
+                    <td>${Math.round(item.rev).toLocaleString()}đ</td>
+                    <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
+                    <td style="background:#fff5f2">${Math.round(d.combo * item.qty).toLocaleString()}đ</td>
+                    <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
+                    <td style="background:#f2fff5">${Math.round(costStd).toLocaleString()}đ</td>
+                    <td style="font-weight:bold; color:${profitHĐ >= 0 ? 'green' : 'red'}">${Math.round(profitHĐ).toLocaleString()}đ</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalCostStd').textContent = Math.round(tCostStd).toLocaleString() + 'đ';
+        document.getElementById('totalProfitStd').textContent = Math.round(tRevHĐ - tCostStd).toLocaleString() + 'đ';
     }
 
     function exportMasterCosts() {
