@@ -3,6 +3,12 @@
  * File: apps/admin/sku-manager.js
  */
 
+// Parser helpers
+function normalizeSku(sku){
+  if(!sku) return '';
+  return sku.toString().trim().toUpperCase();
+}
+
 class SkuManager {
   constructor() {
     this.currentTab = 'unmapped';
@@ -270,7 +276,10 @@ class SkuManager {
   openMapModal(channel, channelSku) {
     console.log('[SkuManager] Opening map modal:', { channel, channelSku });
     
-    this.currentMappingData = { channel, channel_sku: channelSku };
+    this.currentMappingData = { 
+  channel, 
+  channel_sku: normalizeSku(channelSku) 
+  };
     this.selectedInternalSku = null;
     
     document.getElementById('modal-channel').value = channel;
@@ -330,7 +339,7 @@ class SkuManager {
 
   selectInternalSku(sku) {
     console.log('[SkuManager] Selected SKU:', sku);
-    this.selectedInternalSku = sku;
+    this.selectedInternalSku = normalizeSku(sku);
     
     // Check the radio button
     document.querySelectorAll('input[name="internal-sku"]').forEach(radio => {
@@ -465,3 +474,14 @@ window.skuManager = new SkuManager();
 
 // Expose closeMapModal globally for onclick
 window.closeMapModal = () => window.skuManager.closeMapModal();
+// ==================== AUTO SKU SUGGEST ====================
+
+function suggestSimilarSKU(input, skuList) {
+
+  input = input.toLowerCase();
+
+  return skuList.filter(sku => 
+      sku.toLowerCase().includes(input)
+  ).slice(0,5);
+
+}

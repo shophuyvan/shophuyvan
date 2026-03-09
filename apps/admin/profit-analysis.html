@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Phân Tích Lợi Nhuận - Shop Huy Vân</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="parser.js"></script>
     <style>
         .profit-container { background: #f4f7f6; color: #333; border-radius: 12px; padding: 10px; }
         .section { background: #fffaf9; border: 1px solid #ffe5e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
@@ -105,6 +106,7 @@
     </div>
 
     <script src="/sidebar-layout.js"></script>
+    <script src="/apps/admin/_shared/api-admin.js"></script>
     <script>
         document.addEventListener('adminLayoutReady', function() {
             AdminLayout.init('Phân Tích Lợi Nhuận');
@@ -135,8 +137,18 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            const workbook = parseExcelFile(data);
+            const jsonData = parseSheetToJson(workbook);
+            
+            const headers = Object.keys(jsonData[0] || {});
+            const detectedPlatform = detectPlatform(headers);
+            
+            if(detectedPlatform !== platform){
+            
+                console.warn("Platform mismatch", detectedPlatform);
+            
+            }
+			const sku = normalizeSku(row['SKU'] || row['sku'] || '');
             const tempMap = {}; 
 
             jsonData.forEach(row => {
@@ -152,8 +164,8 @@
                 } else if (platform === 'lazada') {
                     if (row['buyerFailedDeliveryReturnInitiator']) isExcluded = true;
                     name = row['itemName']; variant = row['variation'] || 'Gốc';
-                    qty = 1; rev = parseFloat(row['unitPrice']) || 0;
-                    orderDate = row['createTime'] ? new Date(row['createTime']).toISOString().split('T')[0] : '';
+                    qty = 1; rev = toNumber(row['unitPrice']) || 0;
+                    orderDate = row['createTime'] ? parseDate(row['createTime']).toISOString().split('T')[0] : '';
                 } else if (platform === 'tiktok') {
                     if (row['Cancelation/Return Type']) isExcluded = true;
                     name = row['Product Name']; variant = row['Variation'] || 'Gốc';
@@ -262,25 +274,6 @@
         document.getElementById('totalProfitStd').textContent = Math.round(tRev - tCostCombo).toLocaleString() + 'đ';
     }
 
-    async function loadHistoryFromD1() {
-        const start = document.getElementById('dateStart').value;
-        const end = document.getElementById('dateEnd').value;
-        if (!start || !end) return alert("Vui lòng chọn Từ ngày và Đến ngày!");
-
-        try {
-            const api = window.AdminAPI || (window.SHARED && window.SHARED.api);
-            const res = await api.getProfitReport(start, end);
-            if (res.ok && res.data) {
-                allOrders = res.data.map(item => ({
-                    key: item.product_name, platform: item.channel,
-                    qty: item.total_orders || 0, rev: item.total_revenue || 0, date: item.date
-                }));
-                alert(`✅ Đã tải ${allOrders.length} dòng dữ liệu!`);
-                renderTable();
-            } else { alert("❌ Không có dữ liệu trong khoảng này!"); }
-        } catch (e) { alert("❌ Lỗi kết nối: " + e.message); }
-    }
-
     async function saveToDatabase() {
         if (allOrders.length === 0) return alert("Không có dữ liệu!");
         try {
@@ -288,7 +281,16 @@
             const dataToSave = allOrders.map(item => {
                 const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
                 const activePrice = d.isCombo ? d.combo : d.hoadon;
-                return { order_id: `GROUP-${item.date}-${item.platform}`, date: item.date, platform: item.platform, product_name: item.key, qty: item.qty, rev: item.rev, profit: item.rev - (activePrice * item.qty) };
+                return { 
+        order_id: `GROUP-${item.date}-${item.platform}`, 
+        date: item.date, 
+        platform: item.platform,
+        shop: "default",
+        product_name: item.key, 
+        qty: item.qty, 
+        rev: item.rev, 
+        profit: item.rev - (activePrice * item.qty) 
+        };
             });
             const res = await api.saveProfitReport(dataToSave);
             if (res.ok) { alert("✅ Thành công!"); allOrders = []; renderTable(); }
@@ -388,7 +390,7 @@
                 // Chuyển đổi dữ liệu từ D1 về định dạng bảng
                 allOrders = res.data.map(item => ({
                     key: item.product_name,
-                    platform: item.channel,
+                    platform: item.channel.split("_")[0],
                     qty: item.total_orders, // Số lượng trong thống kê tổng hợp
                     rev: item.total_revenue,
                     date: item.date
