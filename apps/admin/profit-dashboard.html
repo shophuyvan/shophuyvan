@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Profit Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="parser.js"></script>
+<script src="profit-engine.js"></script>
+<script src="api-profit.js"></script>
+</head>
+<body>
+<h2>PROFIT DASHBOARD</h2>
+
+<input type="file" id="fileInput">
+
+<canvas id="profitChart"></canvas>
+
+<script>
+
+let chart
+
+document.getElementById('fileInput').addEventListener('change', async e=>{
+
+const file = e.target.files[0]
+const text = await file.text()
+
+const orders = Parser.parse(text)
+
+const report = ProfitEngine.calculate(orders)
+
+renderChart(report.daily)
+
+})
+
+function renderChart(data){
+
+const labels = data.map(d=>d.date)
+const profits = data.map(d=>d.profit)
+
+if(chart) chart.destroy()
+
+chart = new Chart(document.getElementById('profitChart'),{
+
+type:'line',
+data:{
+labels,
+datasets:[{
+label:'Profit',
+data:profits
+}]
+}
+
+})
+
+}
+
+</script>
+
+</body>
+</html>
