@@ -110,8 +110,20 @@
     </script>
     <script>
     let allOrders = []; 
+    let masterCosts = {}; // ✅ Khai báo biến bị thiếu
     const STORAGE_KEY = 'HUYVAN_V11_FINAL';
-    let savedCosts = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    let savedCosts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+    // Hàm load giá vốn chuẩn từ server (nếu có)
+    async function loadMasterCosts() {
+        try {
+            if (window.AdminAPI && window.AdminAPI.getMasterCosts) {
+                const res = await window.AdminAPI.getMasterCosts();
+                if (res.ok) masterCosts = res.costs || {};
+            }
+        } catch (e) { console.warn('Chưa có API masterCosts:', e); }
+    }
+    loadMasterCosts();
 
     function readOrders(input, platform) {
         const file = input.files[0];
