@@ -192,45 +192,74 @@
         tbody.innerHTML = '';
         document.getElementById('resultArea').style.display = 'block';
 
+        // 1. Lọc dữ liệu
         let filtered = allOrders.filter(item => {
             const matchPlatform = (filter === 'all' || item.platform === filter);
             const matchDate = (!start || item.date >= start) && (!end || item.date <= end);
             return matchPlatform && matchDate;
         });
 
-        // ✅ TỔNG HỢP & SẮP XẾP THEO SỐ LƯỢNG (CAO -> THẤP)
+        // 2. Siêu tổng hợp theo tên sản phẩm
         const grandTotalMap = {};
         filtered.forEach(item => {
-            const gKey = `${item.key}_${item.platform}`;
-            if (!grandTotalMap[gKey]) {
-                grandTotalMap[gKey] = { ...item, qty: 0, rev: 0, dateList: [] };
+            if (!grandTotalMap[item.key]) {
+                grandTotalMap[item.key] = { ...item, qty: 0, rev: 0, platforms: new Set() };
             }
-            grandTotalMap[gKey].qty += item.qty;
-            grandTotalMap[gKey].rev += item.rev;
-            if (!grandTotalMap[gKey].dateList.includes(item.date)) grandTotalMap[gKey].dateList.push(item.date);
+            grandTotalMap[item.key].qty += Number(item.qty || 0);
+            grandTotalMap[item.key].rev += Number(item.rev || 0);
+            grandTotalMap[item.key].platforms.add(item.platform);
         });
 
+        // 3. Sắp xếp số lượng giảm dần
         const finalDisplayList = Object.values(grandTotalMap).sort((a, b) => b.qty - a.qty);
 
-        let tRevHĐ = 0, tCostHĐ = 0;
+        let tRev = 0, tCostHĐ = 0, tCostCombo = 0;
+
         finalDisplayList.forEach((item) => {
+            // Lấy giá vốn từ bộ nhớ local (savedCosts)
             const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
-            const activePrice = d.isCombo ? d.combo : d.hoadon;
-            const costHĐ = activePrice * item.qty;
-            tRevHĐ += item.rev; tCostHĐ += costHĐ;
+            
+            // Tính toán doanh thu và vốn
+            const rowRev = item.rev;
+            const rowCostHĐ = d.hoadon * item.qty;
+            const rowCostCombo = d.combo * item.qty; // Vốn Combo
+            const rowProfitHĐ = rowRev - rowCostHĐ;
+            const rowProfitCombo = rowRev - rowCostCombo; // Lợi nhuận theo giá Combo
+
+            tRev += rowRev;
+            tCostHĐ += rowCostHĐ;
+            tCostCombo += rowCostCombo;
+
+            const platformBadges = Array.from(item.platforms).map(p => `<span class="badge ${p}">${p}</span>`).join(' ');
 
             tbody.innerHTML += `
                 <tr>
-                    <td><span class="badge ${item.platform}">${item.platform}</span></td>
+                    <td>${platformBadges}</td>
                     <td><div style="font-weight:600">${item.key}</div></td>
                     <td style="text-align:center; font-weight:bold; color:#d63031">${item.qty}</td>
-                    <td>${Math.round(item.rev).toLocaleString()}đ</td>
-                    <td style="background:#fff5f2">${Math.round(costHĐ).toLocaleString()}đ</td>
-                    <td style="font-weight:bold; color:${item.rev - costHĐ >= 0 ? 'green' : 'red'}">${Math.round(item.rev - costHĐ).toLocaleString()}đ</td>
-                </tr>`;
+                    <td>${Math.round(rowRev).toLocaleString()}đ</td>
+                    
+                    <td style="background:#fff5f2">${Math.round(rowCostHĐ).toLocaleString()}đ</td>
+                    
+                    <td style="background:#fff5f2">${Math.round(rowCostCombo).toLocaleString()}đ</td>
+                    
+                    <td style="text-align:center">${d.isCombo ? '✅' : '-'}</td>
+                    
+                    <td style="background:#f2fff5">${Math.round(rowCostCombo).toLocaleString()}đ</td>
+                    
+                    <td style="font-weight:bold; color:${rowProfitHĐ >= 0 ? 'green' : 'red'}">${Math.round(rowProfitHĐ).toLocaleString()}đ</td>
+                </tr>
+            `;
         });
-        document.getElementById('totalRevHĐ').textContent = Math.round(tRevHĐ).toLocaleString() + 'đ';
-        document.getElementById('totalProfitHĐ').textContent = Math.round(tRevHĐ - tCostHĐ).toLocaleString() + 'đ';
+
+        // Cập nhật các ô tổng quát phía trên
+        document.getElementById('totalRevHĐ').textContent = Math.round(tRev).toLocaleString() + 'đ';
+        document.getElementById('totalCostHĐ').textContent = Math.round(tCostHĐ).toLocaleString() + 'đ';
+        document.getElementById('totalProfitHĐ').textContent = Math.round(tRev - tCostHĐ).toLocaleString() + 'đ';
+        
+        // Gán tổng vốn combo và lợi nhuận chuẩn
+        document.getElementById('totalCostStd').textContent = Math.round(tCostCombo).toLocaleString() + 'đ';
+        document.getElementById('totalProfitStd').textContent = Math.round(tRev - tCostCombo).toLocaleString() + 'đ';
     }
 
     async function loadHistoryFromD1() {
