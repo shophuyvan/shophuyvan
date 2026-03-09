@@ -349,12 +349,9 @@ api.getProductDetail = async (id) => {
     return await res.json();
   };
 
-  // ✅ APIs cho báo cáo lợi nhuận
+  // ✅ APIs cho báo cáo lợi nhuận (Đã sửa lỗi cấu trúc Admin.req)
   api.saveProfitReport = async (data) => {
-    return await window.Admin.req('/admin/profit/save', {
-      method: 'POST',
-      body: JSON.stringify({ reports: data })
-    });
+    return await window.Admin.req('/admin/profit/save', 'POST', { reports: data });
   };
 
   api.getProfitReport = async (startDate, endDate) => {

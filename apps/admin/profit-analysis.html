@@ -59,6 +59,7 @@
                 <option value="lazada">LAZADA</option>
                 <option value="tiktok">TIKTOK</option>
             </select>
+			<button class="btn" style="background:#fd7e14" onclick="loadHistoryFromD1()">📂 LẤY DỮ LIỆU CŨ (D1)</button>
             <button class="btn" style="background:#007bff" onclick="exportFullReport()">📊 Xuất Báo Cáo Tổng Quát</button>
             <button class="btn" style="background:#6c757d" onclick="exportMasterCosts()">💾 Xuất Dự Phòng Giá Vốn</button>
             <button class="btn" style="background:#28a745" onclick="saveToDatabase()">🚀 LƯU VÀO DATABASE D1</button>
@@ -231,7 +232,11 @@
         });
 
         let tRevHĐ = 0, tCostHĐ = 0, tCostStd = 0;
+        // Chuyển Map thành mảng
         const finalDisplayList = Object.values(grandTotalMap);
+
+        // ✅ SẮP XẾP: Số lượng từ cao nhất đến thấp nhất
+        finalDisplayList.sort((a, b) => b.qty - a.qty);
 
         finalDisplayList.forEach((item) => {
             const d = savedCosts[item.key] || { hoadon: 0, combo: 0, isCombo: false };
@@ -392,6 +397,31 @@
             XLSX.utils.book_append_sheet(wb, ws, "BaoCao");
             XLSX.writeFile(wb, "Bao_Cao_Loi_Nhuan.xlsx");
         }
+		async function loadHistoryFromD1() {
+        const start = document.getElementById('dateStart').value;
+        const end = document.getElementById('dateEnd').value;
+        if (!start || !end) return alert("Vui lòng chọn Từ ngày và Đến ngày để lấy dữ liệu!");
+
+        try {
+            const res = await window.SHARED.api.getProfitReport(start, end);
+            if (res.ok && res.data) {
+                // Chuyển đổi dữ liệu từ D1 về định dạng bảng
+                allOrders = res.data.map(item => ({
+                    key: item.product_name,
+                    platform: item.channel,
+                    qty: item.total_orders, // Số lượng trong thống kê tổng hợp
+                    rev: item.total_revenue,
+                    date: item.date
+                }));
+                alert(`✅ Đã tải ${allOrders.length} dòng dữ liệu từ Database!`);
+                renderTable();
+            } else {
+                alert("❌ Không có dữ liệu trong khoảng thời gian này!");
+            }
+        } catch (e) {
+            alert("❌ Lỗi kết nối: " + e.message);
+        }
+    }
     </script>
 </body>
 </html>
