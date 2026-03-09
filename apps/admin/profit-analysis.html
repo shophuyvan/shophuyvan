@@ -152,18 +152,18 @@
 
                 if (name && !isExcluded && qty > 0) {
                     const key = `${name} | ${variant}`;
-                    // Khóa gộp: Sản phẩm + Ngày + Sàn
                     const groupKey = `${key}_${orderDate}_${platform}`;
 
                     if (!tempMap[groupKey]) {
                         tempMap[groupKey] = { 
                             key, name, variant, qty: 0, rev: 0, platform, 
-                            orderId: `GROUP-${orderDate}-${platform}`, // Dùng ID nhóm để lưu DB
+                            orderId: `GROUP-${orderDate}-${platform}`,
                             date: orderDate 
                         };
                     }
-                    tempMap[groupKey].qty += qty;
-                    tempMap[groupKey].rev += rev;
+                    // Đảm bảo qty và rev là số hợp lệ trước khi cộng
+                    tempMap[groupKey].qty += (Number(qty) || 0);
+                    tempMap[groupKey].rev += (Number(rev) || 0);
                 }
             });
 
