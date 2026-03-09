@@ -1,60 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Profit Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="parser.js"></script>
-<script src="profit-engine.js"></script>
-<script src="api-profit.js"></script>
+  <meta charset="UTF-8">
+  <title>Profit Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="api-profit.js"></script>
+  <script src="profit-engine.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Dark mode toggle support */
+    body.dark { background: #1a1a1a; color: #fff; }
+    .dark .card { background: #2d2d2d; border: 1px solid #444; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; padding: 20px; }
+    .card { background: white; padding: 20px; border-radius: 12px; shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  </style>
 </head>
 <body>
-<h2>PROFIT DASHBOARD</h2>
+  <div class="flex justify-between p-4">
+    <h2>Thống kê lợi nhuận nâng cao</h2>
+    <button onclick="document.body.classList.toggle('dark')" class="btn">🌓 Dark Mode</button>
+  </div>
 
-<input type="file" id="fileInput">
+  <div class="grid">
+    <div class="card">
+      <h3>Doanh thu & Lợi nhuận theo Tháng</h3>
+      <canvas id="chartMonthly"></canvas>
+    </div>
+    <div class="card">
+      <h3>Top 10 SKU Lợi nhuận cao nhất</h3>
+      <canvas id="chartTopSKU"></canvas>
+    </div>
+  </div>
 
-<canvas id="profitChart"></canvas>
+  <script>
+    let charts = {};
 
-<script>
+    async function initDashboard() {
+      const res = await fetch('/admin/profit/stats'); // Giả định endpoint API của bạn
+      const data = await res.json();
+      
+      renderMonthlyChart(ProfitEngine.byMonth(data.items));
+      renderTopSKUChart(ProfitEngine.bySKU(data.items));
+    }
 
-let chart
+    function renderMonthlyChart(data) {
+      const ctx = document.getElementById('chartMonthly').getContext('2d');
+      charts.monthly = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(d => d.label),
+          datasets: [
+            { label: 'Doanh thu', data: data.map(d => d.revenue), borderColor: '#3b82f6', fill: false },
+            { label: 'Lợi nhuận', data: data.map(d => d.profit), borderColor: '#10b981', fill: false }
+          ]
+        }
+      });
+    }
 
-document.getElementById('fileInput').addEventListener('change', async e=>{
+    function renderTopSKUChart(data) {
+      const ctx = document.getElementById('chartTopSKU').getContext('2d');
+      charts.topSKU = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => d.sku),
+          datasets: [{ label: 'Lợi nhuận', data: data.map(d => d.profit), backgroundColor: '#f59e0b' }]
+        },
+        options: { indexAxis: 'y' }
+      });
+    }
 
-const file = e.target.files[0]
-const text = await file.text()
-
-const orders = Parser.parse(text)
-
-const report = ProfitEngine.calculate(orders)
-
-renderChart(report.daily)
-
-})
-
-function renderChart(data){
-
-const labels = data.map(d=>d.date)
-const profits = data.map(d=>d.profit)
-
-if(chart) chart.destroy()
-
-chart = new Chart(document.getElementById('profitChart'),{
-
-type:'line',
-data:{
-labels,
-datasets:[{
-label:'Profit',
-data:profits
-}]
-}
-
-})
-
-}
-
-</script>
-
+    initDashboard();
+  </script>
 </body>
 </html>
