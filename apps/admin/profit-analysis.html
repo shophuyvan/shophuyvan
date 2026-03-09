@@ -282,39 +282,42 @@
     }
 
         async function saveToDatabase() {
-            if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
-            if (!confirm("Hệ thống sẽ lưu dữ liệu ĐÃ GỘP vào Database. Tiếp tục?")) return;
+    if (allOrders.length === 0) return alert("Không có dữ liệu để lưu!");
+    if (!confirm("Hệ thống sẽ lưu dữ liệu ĐÃ GỘP vào Database. Tiếp tục?")) return;
 
-            const dataToSave = allOrders.map(item => {
-                const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
-                const activePrice = d.isCombo ? d.combo : d.hoadon;
-                return {
-                    order_id: item.orderId,
-                    date: item.date,
-                    platform: item.platform,
-                    product_name: item.key,
-                    qty: item.qty,
-                    rev: item.rev,
-                    profit: item.rev - (activePrice * item.qty)
-                };
-            });
+    const dataToSave = allOrders.map(item => {
+        const d = savedCosts[item.key] || { hoadon:0, combo:0, isCombo:false };
+        const activePrice = d.isCombo ? d.combo : d.hoadon;
+        return {
+            order_id: item.orderId,
+            date: item.date,
+            platform: item.platform,
+            product_name: item.key,
+            qty: item.qty,
+            rev: item.rev,
+            profit: item.rev - (activePrice * item.qty)
+        };
+    });
 
-            try {
-                if (!window.AdminAPI || !window.AdminAPI.saveProfitReport) {
-                    throw new Error("API saveProfitReport chưa được khai báo trong api-admin.js");
-                }
-                const res = await window.AdminAPI.saveProfitReport(dataToSave);
-                if (res.ok) {
-                    alert("✅ Thành công: " + res.message);
-                    allOrders = [];
-                    renderTable();
-                } else {
-                    alert("❌ Lỗi từ Server: " + res.error);
-                }
-            } catch (e) {
-                alert("❌ Lỗi hệ thống: " + e.message);
-            }
+    try {
+        // ✅ Sửa từ window.AdminAPI thành window.SHARED.api để khớp với file api-admin.js
+        const api = window.SHARED.api;
+        if (!api || !api.saveProfitReport) {
+            throw new Error("API saveProfitReport chưa được nạp. Hãy kiểm tra file api-admin.js");
         }
+        
+        const res = await api.saveProfitReport(dataToSave);
+        if (res.ok) {
+            alert("✅ Thành công: " + (res.message || "Đã lưu dữ liệu"));
+            allOrders = [];
+            renderTable();
+        } else {
+            alert("❌ Lỗi từ Server: " + res.error);
+        }
+    } catch (e) {
+        alert("❌ Lỗi hệ thống: " + e.message);
+    }
+}
 
         function importPrice(input, type) {
             if (allOrders.length === 0) return alert("Vui lòng tải file đơn hàng lên trước!");
