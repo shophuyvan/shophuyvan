@@ -420,7 +420,10 @@
       </div>
     </div>
     
-    <a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
+    <button id="btn-export-products" class="btn" style="background:#059669;color:white;border-color:#059669;margin-right:8px;">
+  📥 Tải dữ liệu (JSON)
+</button>
+<a href="./product_edit.html" class="btn primary">+ Thêm sản phẩm</a>
   </div>
 </div>
 
@@ -1175,6 +1178,44 @@ const nextPageBtn = $('#next-page');
 
   // Expose deleteProduct globally
   window.deleteProduct = deleteProduct;
+
+  // ✅ Logic Tải toàn bộ thông tin sản phẩm
+  const btnExport = $('#btn-export-products');
+  if (btnExport) {
+    btnExport.addEventListener('click', async () => {
+      if (allProducts.length === 0) {
+        alert('⚠️ Không có dữ liệu để tải.');
+        return;
+      }
+
+      try {
+        btnExport.disabled = true;
+        btnExport.textContent = '⏳ Đang xử lý...';
+
+        // Tạo nội dung file JSON từ danh sách sản phẩm hiện tại
+        const dataStr = JSON.stringify(allProducts, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        // Tạo link ẩn để trigger download
+        const link = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0];
+        link.href = url;
+        link.download = `shv_products_export_${date}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        Admin.toast('✅ Đã tải file thành công');
+      } catch (e) {
+        alert('❌ Lỗi khi xuất file: ' + e.message);
+      } finally {
+        btnExport.disabled = false;
+        btnExport.textContent = '📥 Tải dữ liệu (JSON)';
+      }
+    });
+  }
 
   // Initial load
   console.log('[Products] Starting initial load...');
