@@ -9,6 +9,20 @@
 
 Cập nhật: 2026-07-29
 
+## Thay giao diện quản trị nội dung theo Admin_dashboard.html (đang triển khai)
+
+- Mẫu giao diện chuẩn là `E:\WEB\website shop huy van\shophuyvan.vn\Admin_dashboard.html`; chỉ dùng ngôn ngữ thiết kế mới (sidebar xanh navy, nội dung nền sáng và nút thao tác cam), không đưa các màn hình minh họa giả của mẫu vào production.
+- Mã giao diện hoạt động là `admin/assets/content-admin/dashboard.css`, `admin/assets/content-admin/main.js` và `admin/assets/content-admin/render.js`.
+- Các asset admin có phiên bản URL `20260729.8` để tên miền chính nhận đúng giao diện mới ngay sau deploy, không bám cache JavaScript/CSS cũ.
+- Theo review thực tế qua Claude: trang sửa sản phẩm luôn hiển thị rõ khối dữ liệu gốc chỉ đọc (tên, mã, danh mục, giá và tồn kho) trước phần ghi đè website-only. Giá/tồn kho sàn không có thao tác chỉnh sửa trong admin nội dung.
+- Deploy mới: `https://94654248.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`; tên miền chính đã trả các asset `content-admin` phiên bản `20260729.8`.
+- Kiểm tra Chrome thật: desktop `1366×900`, tablet `820×1180`, mobile `390×844` đều không tràn ngang. Menu mobile mở đúng. Trang chỉnh sản phẩm đã kiểm với Public Catalog Core thực tế: tên, mã, danh mục, giá và tồn hiển thị sẵn trong khối chỉ đọc; phần dưới chỉ ghi đè nội dung website.
+- Kiểm tra đăng nhập trên Chrome profile `E:\codex-chrome-profiles\shophuyvan-test`: trình duyệt có tự điền thông tin cũ nhưng API trả `401`; giao diện mới hiện rõ lỗi thay vì im lặng. Không reset mật khẩu hoặc bỏ qua xác thực. Cần chủ shop nhập mật khẩu hiện hành để kiểm thử luồng lưu/readback thật.
+- Claude được mở qua visible runtime `account_16`, route `http://127.0.0.1:7096/api/open-provider-runtime`, CDP `9516`; đã nhận review sau khi đính kèm `Admin_dashboard.html` và ảnh mẫu. Khuyến nghị đã áp dụng: giữ thiết kế navy–cam, bỏ toàn bộ menu sàn, responsive và tách Core read-only / website-only.
+- Admin chỉ quản trị nội dung hiển thị cho khách: Banner, Sản phẩm website, Menu & thông tin, Thư viện ảnh/video và mật khẩu. Không có route, menu hoặc thao tác quản lý đơn hàng, sản phẩm sàn, giá/tồn kho Warehouse, voucher, quảng cáo, người dùng hay đánh giá.
+- Sản phẩm website đọc dữ liệu hiện có từ Public Catalog Core trước khi cho phép lưu ghi đè website-only; các thao tác này không ghi ngược sang sàn hoặc Warehouse Core.
+- Cần hoàn tất deploy và kiểm thử trình duyệt thực tế desktop/tablet/mobile sau khi thay giao diện.
+
 ## Mã nguồn và deploy chuẩn
 
 - Storefront khách hàng: `site/` → Cloudflare Pages `shophuyvan` → `https://shophuyvan.vn`.

@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [site, admin, adminWorker, worker, adminScript, siteConfig, siteScript, redirects, baseCss, mobileCss] = await Promise.all([
+const [site, admin, adminWorker, worker, adminScript, adminRender, adminDashboardCss, siteConfig, siteScript, redirects, baseCss, mobileCss] = await Promise.all([
   readFile(new URL('../site/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/_worker.js', import.meta.url), 'utf8'),
   readFile(new URL('../services/content-api/src/index.js', import.meta.url), 'utf8'),
-  readFile(new URL('../admin/assets/admin.js', import.meta.url), 'utf8'),
+  readFile(new URL('../admin/assets/content-admin/main.js', import.meta.url), 'utf8'),
+  readFile(new URL('../admin/assets/content-admin/render.js', import.meta.url), 'utf8'),
+  readFile(new URL('../admin/assets/content-admin/dashboard.css', import.meta.url), 'utf8'),
   readFile(new URL('../site/assets/config.js', import.meta.url), 'utf8'),
   readFile(new URL('../site/assets/app.js', import.meta.url), 'utf8'),
   readFile(new URL('../site/_redirects', import.meta.url), 'utf8'),
@@ -17,11 +19,18 @@ const [site, admin, adminWorker, worker, adminScript, siteConfig, siteScript, re
 assert.match(site, /assets\/desktop\.css/);
 assert.match(site, /assets\/mobile\.css/);
 assert.match(site, /assets\/app\.js/);
-assert.match(admin, /assets\/admin-20260729\.css/);
-assert.match(admin, /assets\/admin\.js/);
+assert.match(admin, /assets\/content-admin\/dashboard\.css/);
+assert.match(admin, /assets\/content-admin\/main\.js/);
 assert.match(adminWorker, /\/api\/content/);
 assert.match(adminWorker, /env\.ASSETS\.fetch/);
 assert.match(adminScript, /const API = '\/api\/content'/);
+assert.match(adminScript, /render as renderPage/);
+assert.match(adminRender, /Sản phẩm website/);
+assert.match(adminRender, /Banner/);
+assert.match(adminRender, /Dữ liệu gốc từ hệ thống/);
+assert.doesNotMatch(adminRender, /Đơn hàng|Voucher|Quảng cáo|Tồn kho sàn/);
+assert.match(adminDashboardCss, /\.ca-admin-shell/);
+assert.match(adminDashboardCss, /@media \(max-width: 680px\)/);
 assert.match(siteConfig, /api\/core\/products\/public-catalog/);
 assert.match(adminScript, /api\/core\/products\/public-catalog/);
 assert.match(siteScript, /payload\.products/);
