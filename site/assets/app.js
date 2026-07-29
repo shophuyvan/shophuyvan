@@ -1,74 +1,40 @@
-import { CATALOG_ENDPOINT, SHOP } from './config.js';
+import { CATALOG_ENDPOINT, SHOP, catalogProductUrl, catalogReviewsUrl, catalogSearchUrl } from './config.js';
 import { loadWebsiteContent, mergeWebsiteOverride } from './content.js';
+import { normalizeProduct, normalizeReview, toNumber, toOptionalNumber, toText } from './catalog-data.js';
 
 const root = document.querySelector('#site-root');
-const state = { products: [], content: { settings: {}, banners: [], product_overrides: {} }, loading: true, error: '', cart: loadCart(), gallery: 0 };
+const state = { products: [], content: { settings: {}, banners: [], product_overrides: {} }, loading: true, error: '', cart: loadCart(), gallery: 0, selectedVariantId: '', detailTab: 'description', reviews: {}, detailLoadingId: '', detailErrorId: '', searchResults: { query: '', status: 'idle', items: [] } };
 const icons = ['⚡', '⌂', '◈', '✦', '◌', '⚙'];
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 }
 
-function toText(value) {
-  if (value === null || value === undefined) return '';
-  return String(value).trim();
-}
-
-function parseJson(value, fallback = []) {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== 'string' || !value.trim()) return fallback;
-  try { return JSON.parse(value); } catch { return fallback; }
-}
-
-function toNumber(value) {
-  const numeric = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function normalizeProduct(item) {
-  const images = parseJson(item.images).filter(Boolean);
-  const variants = Array.isArray(item.variants) ? item.variants : parseJson(item.variants);
-  const explicitPrice = item.price_display ?? item.price_sale ?? item.price ?? item.sale_price ?? null;
-  const explicitCategory = item.category_name ?? item.category ?? item.category_slug ?? '';
-  return {
-    id: toText(item.id ?? item.product_id ?? item.sku),
-    sku: toText(item.sku),
-    name: toText(item.name ?? item.title ?? item.product_name) || 'Sản phẩm chưa có tên',
-    description: toText(item.description ?? item.shortDesc ?? item.short_desc),
-    category: toText(explicitCategory),
-    image: toText(item.image ?? item.image_url ?? images[0]),
-    images: [...new Set([toText(item.image ?? item.image_url), ...images].filter(Boolean))],
-    video: toText(item.video_url ?? item.video),
-    price: explicitPrice === null || explicitPrice === '' ? null : toNumber(explicitPrice),
-    compareAt: toNumber(item.compare_at_display ?? item.price_original ?? item.compare_at),
-    stock: item.stock === undefined || item.stock === null ? null : toNumber(item.stock),
-    sold: toNumber(item.sold ?? item.sold_count),
-    rating: toNumber(item.rating),
-    ratingCount: toNumber(item.rating_count ?? item.review_count),
-    variants: variants.map((variant) => ({
-      id: toText(variant.id ?? variant.sku ?? variant.name),
-      name: toText(variant.name ?? variant.title ?? variant.sku),
-      sku: toText(variant.sku),
-      price: variant.price_sale ?? variant.price ?? null,
-      stock: variant.stock ?? null
-    })),
-    reviewMedia: Array.isArray(item.review_media) ? item.review_media : parseJson(item.review_media)
-  };
-}
-
 async function loadProducts() {
   state.loading = true;
   render();
   try {
-    const [response, content] = await Promise.all([
+    const routeSearch = currentPath() === '/tim-kiem' ? new URLSearchParams(location.search).get('q')?.trim() || '' : '';
+    const searchRequest = routeSearch ? fetch(catalogSearchUrl(routeSearch), { headers: { accept: 'application/json' } }) : Promise.resolve(null);
+    const [response, content, searchResponse] = await Promise.all([
       fetch(CATALOG_ENDPOINT, { headers: { accept: 'application/json' } }),
-      loadWebsiteContent()
+      loadWebsiteContent(),
+      searchRequest
     ]);
     if (!response.ok) throw new Error(`catalog_http_${response.status}`);
     const payload = await response.json();
-    const rows = Array.isArray(payload) ? payload : (payload.items ?? payload.data ?? []);
+    const rows = Array.isArray(payload) ? payload : (payload.products ?? payload.items ?? payload.data ?? []);
     state.content = content;
     state.products = rows.map(normalizeProduct).filter((item) => item.id).map((item) => mergeWebsiteOverride(item, content.product_overrides[item.id]));
+    if (searchResponse?.ok) {
+      const searchPayload = await searchResponse.json();
+      const searchRows = Array.isArray(searchPayload) ? searchPayload : (searchPayload.products ?? searchPayload.items ?? searchPayload.data ?? []);
+      state.searchResults = {
+        query: routeSearch,
+        status: 'ready',
+        items: searchRows.map(normalizeProduct).filter((item) => item.id).map((item) => mergeWebsiteOverride(item, content.product_overrides[item.id]))
+      };
+    }
     state.error = '';
   } catch (error) {
     state.products = [];
@@ -76,6 +42,8 @@ async function loadProducts() {
   } finally {
     state.loading = false;
     render();
+    if (currentRoute() === 'product') void loadProductForRoute();
+    if (currentPath() === '/tim-kiem') void loadSearchResultsForRoute();
   }
 }
 
@@ -88,8 +56,8 @@ function saveCart() {
 }
 
 function cartTotal() { return state.cart.reduce((sum, item) => sum + item.quantity, 0); }
-function formatMoney(value) { return value && value > 0 ? `${new Intl.NumberFormat('vi-VN').format(value)}đ` : 'Liên hệ để báo giá'; }
-function titleCase(value) { return toText(value).replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function formatMoney(value) { return value === null || value === undefined || value === '' ? 'Liên hệ để báo giá' : `${new Intl.NumberFormat('vi-VN').format(value)}đ`; }
+function titleCase(value) { return toText(value).replace(/[-_]/g, ' '); }
 
 function currentPath() { return location.pathname.replace(/\/+$/, '') || '/'; }
 function currentRoute() {
@@ -170,24 +138,122 @@ function catalogPage() {
   const search = new URLSearchParams(location.search).get('q')?.trim() || '';
   const category = new URLSearchParams(location.search).get('category')?.trim() || '';
   const lowered = search.toLocaleLowerCase('vi');
-  const products = state.products.filter((product) => (!category || product.category === category) && (!search || `${product.name} ${product.sku} ${product.description}`.toLocaleLowerCase('vi').includes(lowered)));
+  const remoteSearch = currentPath() === '/tim-kiem' && Boolean(search);
+  const source = remoteSearch && state.searchResults.query === search ? state.searchResults.items : state.products;
+  const products = source.filter((product) => (!category || product.category === category) && (!remoteSearch || `${product.id} ${product.name} ${product.sku} ${product.description}`.toLocaleLowerCase('vi').includes(lowered)));
   const heading = search ? `Kết quả cho “${escapeHtml(search)}”` : category ? titleCase(category) : 'Tất cả sản phẩm';
   return `<main class="page"><div class="wrap"><div class="page-head"><div><p class="crumb">Trang chủ / Sản phẩm</p><h1>${heading}</h1></div><span style="color:#61708a;font-size:13px;">${products.length} sản phẩm</span></div><div class="page-list-grid"><aside class="catalog-sidebar"><div class="section-card"><h2>Danh mục</h2><ul class="category-list"><li><a href="/san-pham">Tất cả sản phẩm <span>${state.products.length}</span></a></li>${categories().map(([name,count])=>`<li><a href="/san-pham?category=${encodeURIComponent(name)}">${escapeHtml(titleCase(name))}<span>${count}</span></a></li>`).join('')}</ul></div></aside><section><form class="section-card filter-bar" data-search><input name="q" value="${escapeHtml(search)}" placeholder="Tìm theo tên hoặc mã sản phẩm"><button class="button button-outline" type="submit">Tìm kiếm</button></form><div style="height:14px"></div>${productGrid(products, search || category ? 'Không tìm thấy sản phẩm phù hợp.' : 'Kho sản phẩm chưa trả dữ liệu.')}</section></div></div></main>`;
 }
 
 function findProduct() {
-  const rawId = decodeURIComponent(currentPath().replace('/san-pham/', ''));
+  const rawId = productRouteId();
   return state.products.find((product) => product.id === rawId || product.sku === rawId);
+}
+
+function productRouteId() {
+  return decodeURIComponent(currentPath().replace('/san-pham/', ''));
+}
+
+async function loadSearchResultsForRoute() {
+  if (currentPath() !== '/tim-kiem') return;
+  const query = new URLSearchParams(location.search).get('q')?.trim() || '';
+  if (!query || (state.searchResults.query === query && ['loading', 'ready'].includes(state.searchResults.status))) return;
+  state.searchResults = { query, status: 'loading', items: [] };
+  render();
+  try {
+    const response = await fetch(catalogSearchUrl(query), { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`catalog_search_${response.status}`);
+    const payload = await response.json();
+    const rows = Array.isArray(payload) ? payload : (payload.products ?? payload.items ?? payload.data ?? []);
+    const items = rows.map(normalizeProduct).filter((item) => item.id).map((item) => mergeWebsiteOverride(item, state.content.product_overrides[item.id] || state.content.product_overrides[item.sku]));
+    state.searchResults = { query, status: 'ready', items };
+  } catch {
+    state.searchResults = { query, status: 'error', items: [] };
+  }
+  render();
+}
+
+async function loadProductForRoute() {
+  const id = productRouteId();
+  if (!id || id === '/san-pham' || findProduct()) {
+    if (findProduct()) void loadProductReviews(findProduct().id);
+    return;
+  }
+  if (state.detailLoadingId === id) return;
+  state.detailLoadingId = id;
+  state.detailErrorId = '';
+  render();
+  try {
+    const response = await fetch(catalogProductUrl(id), { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`catalog_product_${response.status}`);
+    const payload = await response.json();
+    const source = payload.product ?? payload.item ?? payload.data ?? payload;
+    const product = normalizeProduct(source);
+    if (!product.id) throw new Error('catalog_product_empty');
+    const override = state.content.product_overrides[product.id] || state.content.product_overrides[product.sku];
+    state.products = [mergeWebsiteOverride(product, override), ...state.products.filter((item) => item.id !== product.id && item.sku !== product.sku)];
+  } catch {
+    state.detailErrorId = id;
+  } finally {
+    state.detailLoadingId = '';
+    render();
+    const product = findProduct();
+    if (product) void loadProductReviews(product.id);
+  }
+}
+
+function selectedVariant(product) {
+  return product.variants.find((variant) => variant.id === state.selectedVariantId) || product.variants[0] || null;
+}
+
+function stockMessage(stock) {
+  if (stock === null || stock === undefined) return '<p class="stock-state">Kho đang cập nhật tình trạng còn hàng.</p>';
+  return stock > 0 ? '<p class="stock-state in-stock">Còn hàng</p>' : '<p class="stock-state out-stock">Tạm hết hàng</p>';
+}
+
+function reviewPanel(product) {
+  const entry = state.reviews[product.id];
+  if (!entry || entry.status === 'loading') return '<div class="notice">Đang tải đánh giá và media từ các sàn…</div>';
+  if (entry.status === 'error') return '<div class="notice"><strong>Chưa tải được đánh giá</strong><p>Bạn có thể thử lại sau ít phút.</p><button class="button button-outline" data-reload-reviews>Tải lại đánh giá</button></div>';
+  if (!entry.items.length) return '<div class="notice">Sản phẩm này chưa có đánh giá đồng bộ từ các sàn.</div>';
+  const summary = `<div class="review-summary"><strong>${entry.rating ? `★ ${entry.rating.toFixed(1)} / 5` : 'Đánh giá từ khách đã mua'}</strong><span>${entry.total.toLocaleString('vi-VN')} đánh giá · ${entry.withMedia.toLocaleString('vi-VN')} có hình/video</span></div>`;
+  const cards = entry.items.map((review) => {
+    const media = `${review.images.map((url) => `<img loading="lazy" src="${escapeHtml(url)}" alt="Hình ảnh đánh giá từ khách">`).join('')}${review.videos.map((url) => `<video controls preload="metadata" src="${escapeHtml(url)}">Trình duyệt không hỗ trợ video.</video>`).join('')}`;
+    return `<article class="review-card"><div class="review-head"><strong>Khách đã mua</strong>${review.rating === null ? '' : `<span>★ ${review.rating.toFixed(1)}</span>`}</div><p>${escapeHtml(review.text || 'Khách đã để lại đánh giá cho sản phẩm này.')}</p>${media ? `<div class="review-media">${media}</div>` : ''}</article>`;
+  }).join('');
+  return `${summary}<div class="review-list">${cards}</div>`;
+}
+
+async function loadProductReviews(id) {
+  if (!id || state.reviews[id]?.status === 'loading' || state.reviews[id]?.status === 'ready') return;
+  state.reviews[id] = { status: 'loading', items: [], total: 0, withMedia: 0, rating: null };
+  if (currentRoute() === 'product' && findProduct()?.id === id) render();
+  try {
+    const response = await fetch(catalogReviewsUrl(id), { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error('reviews_unavailable');
+    const payload = await response.json();
+    const rows = Array.isArray(payload.reviews) ? payload.reviews : (payload.items ?? payload.data ?? []);
+    state.reviews[id] = { status: 'ready', items: rows.map(normalizeReview), total: toNumber(payload.total), withMedia: toNumber(payload.with_media), rating: toOptionalNumber(payload.rating_avg) };
+  } catch {
+    state.reviews[id] = { status: 'error', items: [], total: 0, withMedia: 0, rating: null };
+  }
+  if (currentRoute() === 'product' && findProduct()?.id === id) render();
 }
 
 function detailPage() {
   const product = findProduct();
-  if (!product) return `<main class="page"><div class="wrap"><div class="notice"><strong>Không tìm thấy sản phẩm</strong><p>Sản phẩm có thể đã được cập nhật hoặc chưa đồng bộ từ kho.</p><p><a class="button button-outline" href="/san-pham">Quay về danh sách</a></p></div></div></main>`;
-  const selectedImage = product.images[state.gallery] || product.image;
-  const variantMarkup = product.variants.length ? `<div class="variant-block"><span class="variant-label">Phân loại / lựa chọn</span><div class="variants">${product.variants.map((variant, index) => `<button class="variant ${index === 0 ? 'selected' : ''}" data-variant="${escapeHtml(variant.id)}">${escapeHtml(variant.name || 'Phân loại')}</button>`).join('')}</div></div>` : '<div class="notice">Sản phẩm hiện chưa có dữ liệu phân loại từ kho.</div>';
-  const reviewMedia = product.reviewMedia.filter(Boolean);
-  const mediaMarkup = `${product.video ? `<video controls preload="metadata" src="${escapeHtml(product.video)}">Trình duyệt không hỗ trợ video.</video>` : ''}${reviewMedia.map((media) => `<img src="${escapeHtml(media.url ?? media)}" alt="Media đánh giá">`).join('')}`;
-  return `<main class="page"><div class="wrap"><p class="crumb">Trang chủ / ${escapeHtml(titleCase(product.category || 'Sản phẩm'))} / ${escapeHtml(product.name)}</p><section class="section-card detail-grid"><div class="gallery"><div class="thumbs">${product.images.map((image, index) => `<button class="thumb ${index === state.gallery ? 'active' : ''}" data-image="${index}"><img src="${escapeHtml(image)}" alt="Ảnh ${index + 1} của ${escapeHtml(product.name)}"></button>`).join('')}</div><div class="main-picture">${selectedImage ? `<img src="${escapeHtml(selectedImage)}" alt="${escapeHtml(product.name)}">` : '<div class="no-image">Sản phẩm chưa có ảnh</div>'}</div></div><div class="detail-info"><h1>${escapeHtml(product.name)}</h1><div class="rating-row"><span class="rating">${product.rating ? `★ ${product.rating.toFixed(1)} / 5` : 'Chưa có đánh giá đồng bộ'}</span>${product.ratingCount ? `<span>${product.ratingCount.toLocaleString('vi-VN')} lượt đánh giá</span>` : ''}${product.sold ? `<span>Đã bán: ${product.sold.toLocaleString('vi-VN')}</span>` : ''}</div><div class="price-box">${formatMoney(product.price)}</div>${product.stock === null ? '<p>Kho đang cập nhật tình trạng còn hàng.</p>' : product.stock > 0 ? '<p style="color:#09844a">Còn hàng</p>' : '<p style="color:#d92d20">Tạm hết hàng</p>'}${variantMarkup}<div class="buy-box"><div><span class="variant-label">Số lượng</span><div class="quantity"><button data-quantity="-1">−</button><output id="quantity">1</output><button data-quantity="1">+</button></div></div><div class="buy-buttons"><button class="button button-cart" data-add="${escapeHtml(product.id)}">🛒 Thêm vào giỏ hàng</button><button class="button button-buy" data-buy="${escapeHtml(product.id)}">Mua ngay</button></div></div></div></section><section class="section-card detail-tabs"><div class="tab-list"><button class="active" data-tab="description">Mô tả sản phẩm</button><button data-tab="media">Đánh giá &amp; media</button></div><div class="tab-panel" data-panel="description">${escapeHtml(product.description || 'Mô tả sản phẩm đang được đồng bộ từ kho.').replace(/\n/g, '<br>')}</div><div class="tab-panel" data-panel="media" hidden>${mediaMarkup ? `<div class="media-grid">${mediaMarkup}</div>` : '<div class="notice">Chưa có review/media được API sàn đồng bộ cho sản phẩm này.</div>'}</div></section></div></main>`;
+  if (!product) {
+    const loading = state.detailLoadingId === productRouteId();
+    const message = loading ? '<strong>Đang tải thông tin sản phẩm</strong><p>Website đang lấy dữ liệu mới nhất từ Nhà Kho.</p>' : '<strong>Không tìm thấy sản phẩm</strong><p>Sản phẩm có thể đã được cập nhật hoặc chưa đồng bộ từ kho.</p>';
+    return `<main class="page"><div class="wrap"><div class="notice">${message}<p><a class="button button-outline" href="/san-pham">Quay về danh sách</a></p></div></div></main>`;
+  }
+  const activeVariant = selectedVariant(product);
+  const selectedImage = state.selectedVariantId && activeVariant?.image ? activeVariant.image : product.images[state.gallery] || product.image;
+  const currentPrice = activeVariant?.price ?? product.price;
+  const currentStock = activeVariant?.stock ?? product.stock;
+  const variantMarkup = product.variants.length ? `<div class="variant-block"><span class="variant-label">Phân loại / lựa chọn</span><div class="variants">${product.variants.map((variant) => `<button class="variant ${activeVariant?.id === variant.id ? 'selected' : ''}" data-variant="${escapeHtml(variant.id)}">${escapeHtml(variant.name || 'Phân loại')}</button>`).join('')}</div></div>` : '<div class="notice">Sản phẩm hiện chưa có dữ liệu phân loại từ kho.</div>';
+  const originalPrice = product.compareAt && product.compareAt > currentPrice ? `<del class="price-original">${formatMoney(product.compareAt)}</del>` : '';
+  return `<main class="page"><div class="wrap"><p class="crumb">Trang chủ / ${escapeHtml(titleCase(product.category || 'Sản phẩm'))} / ${escapeHtml(product.name)}</p><section class="section-card detail-grid"><div class="gallery"><div class="thumbs">${product.images.map((image, index) => `<button class="thumb ${!state.selectedVariantId && index === state.gallery ? 'active' : ''}" data-image="${index}"><img src="${escapeHtml(image)}" alt="Ảnh ${index + 1} của ${escapeHtml(product.name)}"></button>`).join('')}</div><div class="main-picture">${selectedImage ? `<img src="${escapeHtml(selectedImage)}" alt="${escapeHtml(product.name)}">` : '<div class="no-image">Sản phẩm chưa có ảnh</div>'}</div></div><div class="detail-info"><h1>${escapeHtml(product.name)}</h1><div class="rating-row"><span class="rating">${product.rating ? `★ ${product.rating.toFixed(1)} / 5` : 'Chưa có đánh giá đồng bộ'}</span>${product.ratingCount ? `<span>${product.ratingCount.toLocaleString('vi-VN')} lượt đánh giá</span>` : ''}${product.sold ? `<span>Đã bán: ${product.sold.toLocaleString('vi-VN')}</span>` : ''}</div><div class="price-box">${formatMoney(currentPrice)}${originalPrice}</div>${stockMessage(currentStock)}${variantMarkup}<div class="buy-box"><div><span class="variant-label">Số lượng</span><div class="quantity"><button data-quantity="-1">−</button><output id="quantity">1</output><button data-quantity="1">+</button></div></div><div class="buy-buttons"><button class="button button-cart" data-add="${escapeHtml(product.id)}">🛒 Thêm vào giỏ hàng</button><button class="button button-buy" data-buy="${escapeHtml(product.id)}">Mua ngay</button></div></div></div></section><section class="section-card detail-tabs"><div class="tab-list"><button class="${state.detailTab === 'description' ? 'active' : ''}" data-tab="description">Mô tả sản phẩm</button><button class="${state.detailTab === 'media' ? 'active' : ''}" data-tab="media">Đánh giá &amp; media</button></div><div class="tab-panel" data-panel="description" ${state.detailTab === 'description' ? '' : 'hidden'}>${escapeHtml(product.description || 'Mô tả sản phẩm đang được đồng bộ từ kho.').replace(/\n/g, '<br>')}</div><div class="tab-panel" data-panel="media" ${state.detailTab === 'media' ? '' : 'hidden'}>${reviewPanel(product)}</div></section></div></main>`;
 }
 
 function simplePage(type) {
@@ -201,7 +267,7 @@ function simplePage(type) {
 }
 
 function cartPage() {
-  const lines = state.cart.map((line) => { const product = state.products.find((item) => item.id === line.id); return product ? `<div class="summary-card" style="display:flex;gap:12px;align-items:center;padding:12px;margin-bottom:10px"><div style="width:70px;height:70px">${productPicture(product)}</div><div style="flex:1"><strong>${escapeHtml(product.name)}</strong><p>${formatMoney(product.price)} × ${line.quantity}</p></div><button class="button button-outline" data-remove="${escapeHtml(product.id)}">Bỏ</button></div>` : ''; }).join('');
+  const lines = state.cart.map((line) => { const product = state.products.find((item) => item.id === line.id); const variant = product?.variants.find((item) => item.id === line.variantId); const price = variant?.price ?? product?.price; return product ? `<div class="summary-card" style="display:flex;gap:12px;align-items:center;padding:12px;margin-bottom:10px"><div style="width:70px;height:70px">${productPicture(product)}</div><div style="flex:1"><strong>${escapeHtml(product.name)}</strong>${line.variantName ? `<p class="small">${escapeHtml(line.variantName)}</p>` : ''}<p>${formatMoney(price)} × ${line.quantity}</p></div><button class="button button-outline" data-remove="${escapeHtml(line.key || product.id)}">Bỏ</button></div>` : ''; }).join('');
   return `<main class="page"><div class="wrap"><div class="page-head"><div><p class="crumb">Trang chủ / Giỏ hàng</p><h1>Giỏ hàng</h1></div></div>${lines || '<div class="empty">Giỏ hàng đang trống.</div>'}</div></main>`;
 }
 
@@ -225,12 +291,16 @@ function render() {
   bindEvents();
 }
 
-function navigate(url) { history.pushState({}, '', url); state.gallery = 0; render(); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function resetDetailState() { state.gallery = 0; state.selectedVariantId = ''; state.detailTab = 'description'; }
+function navigate(url) { history.pushState({}, '', url); resetDetailState(); render(); if (currentRoute() === 'product') void loadProductForRoute(); if (currentPath() === '/tim-kiem') void loadSearchResultsForRoute(); window.scrollTo({ top: 0, behavior: 'instant' }); }
 
 function addToCart(id, buyNow = false) {
-  const existing = state.cart.find((item) => item.id === id);
+  const product = state.products.find((item) => item.id === id);
+  const variant = product ? selectedVariant(product) : null;
+  const key = `${id}:${variant?.id || ''}`;
+  const existing = state.cart.find((item) => (item.key || item.id) === key);
   if (existing) existing.quantity += 1;
-  else state.cart.push({ id, quantity: 1 });
+  else state.cart.push({ key, id, variantId: variant?.id || '', variantName: variant?.name || '', quantity: 1 });
   saveCart();
   if (buyNow) navigate('/gio-hang'); else { render(); showToast('Đã thêm sản phẩm vào giỏ hàng.'); }
 }
@@ -242,13 +312,14 @@ function bindEvents() {
   root.querySelectorAll('[data-search]').forEach((form) => form.addEventListener('submit', (event) => { event.preventDefault(); const query = new FormData(form).get('q')?.toString().trim() || ''; navigate(query ? `/tim-kiem?q=${encodeURIComponent(query)}` : '/san-pham'); }));
   root.querySelectorAll('[data-add]').forEach((button) => button.addEventListener('click', () => addToCart(button.dataset.add)));
   root.querySelectorAll('[data-buy]').forEach((button) => button.addEventListener('click', () => addToCart(button.dataset.buy, true)));
-  root.querySelectorAll('[data-remove]').forEach((button) => button.addEventListener('click', () => { state.cart = state.cart.filter((item) => item.id !== button.dataset.remove); saveCart(); render(); }));
-  root.querySelectorAll('[data-image]').forEach((button) => button.addEventListener('click', () => { state.gallery = Number(button.dataset.image); render(); }));
-  root.querySelectorAll('[data-variant]').forEach((button) => button.addEventListener('click', () => { root.querySelectorAll('[data-variant]').forEach((item) => item.classList.toggle('selected', item === button)); }));
-  root.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => { root.querySelectorAll('[data-tab]').forEach((item) => item.classList.toggle('active', item === button)); root.querySelectorAll('[data-panel]').forEach((panel) => panel.hidden = panel.dataset.panel !== button.dataset.tab); }));
+  root.querySelectorAll('[data-remove]').forEach((button) => button.addEventListener('click', () => { state.cart = state.cart.filter((item) => (item.key || item.id) !== button.dataset.remove); saveCart(); render(); }));
+  root.querySelectorAll('[data-image]').forEach((button) => button.addEventListener('click', () => { state.gallery = Number(button.dataset.image); state.selectedVariantId = ''; render(); }));
+  root.querySelectorAll('[data-variant]').forEach((button) => button.addEventListener('click', () => { state.selectedVariantId = button.dataset.variant; state.gallery = 0; render(); }));
+  root.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => { state.detailTab = button.dataset.tab; render(); }));
   root.querySelectorAll('[data-quantity]').forEach((button) => button.addEventListener('click', () => { const output = root.querySelector('#quantity'); output.value = Math.max(1, Number(output.value) + Number(button.dataset.quantity)); output.textContent = output.value; }));
   root.querySelector('[data-reload]')?.addEventListener('click', loadProducts);
+  root.querySelector('[data-reload-reviews]')?.addEventListener('click', () => { const product = findProduct(); if (product) { delete state.reviews[product.id]; void loadProductReviews(product.id); } });
 }
 
-window.addEventListener('popstate', () => { state.gallery = 0; render(); });
+window.addEventListener('popstate', () => { resetDetailState(); render(); if (currentRoute() === 'product') void loadProductForRoute(); if (currentPath() === '/tim-kiem') void loadSearchResultsForRoute(); });
 loadProducts();

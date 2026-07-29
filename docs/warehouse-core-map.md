@@ -4,25 +4,36 @@
 
 ```text
 Sàn / API / import
-  → Product/Warehouse Core
-  → https://huyvan-worker-api.nghiemchihuy.workers.dev/api/products
+  → Product / Warehouse Core
+  → Public Catalog Core
   → shophuyvan.vn
 ```
 
-Website khách chỉ đọc dữ liệu nguồn. Không tự tạo tồn kho, SKU, giá sàn hoặc trạng thái đơn.
+Website khách chỉ đọc:
 
-## Ghi đè riêng cho website
+```text
+GET /api/core/products/public-catalog?limit=110
+GET /api/core/products/public-catalog?q=<từ-khóa>&limit=110
+GET /api/core/products/public-catalog/:id
+GET /api/core/products/public-catalog/:id/reviews?limit=8&media=1
+```
+
+Các endpoint này là nguồn cho tên, SKU, danh mục, giá, tồn, số đã bán, ảnh, video, biến thể, review và media. Storefront không tự tính nghiệp vụ, không tạo nguồn dữ liệu thứ hai và không ghi ngược vào Core.
+
+## Nội dung riêng của website
 
 ```text
 admin.shophuyvan.vn
   → shophuyvan-content-api
   → D1 shophuyvan-website-content-clean
-  → website-only override
+  → explicit website-only override
   → shophuyvan.vn
 ```
 
-Override chỉ chứa nội dung hiển thị: tiêu đề website, danh mục website, giá hiển thị, mô tả, ảnh/video, phân loại, trạng thái xuất bản. Nếu không có override thì website dùng nguyên dữ liệu Warehouse.
+Override chỉ có hiệu lực khi người quản trị chủ động lưu. Nếu không có override, website hiển thị đúng dữ liệu Public Catalog Core. Override không được thay đổi giá/tồn/SKU/listing trên sàn.
 
-## Không có dữ liệu nguồn
+## Quy ước dữ liệu
 
-`null` hoặc thiếu trường phải được hiển thị là chưa có dữ liệu/đang liên hệ, không ép thành `0` và không thay bằng thương hiệu hay danh mục tự đặt.
+- `0`: số liệu thực từ Core.
+- `null` hoặc thiếu trường: chưa có dữ liệu; UI phải nói rõ, không tự thay bằng `0`.
+- D1 cũ `shophuyvan-website-content-db` không nằm trong luồng mới và chỉ được xóa theo xác nhận riêng của chủ shop.

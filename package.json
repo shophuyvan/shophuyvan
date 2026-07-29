@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "check": "node --check site/assets/config.js && node --check site/assets/content.js && node --check site/assets/app.js && node --check admin/_worker.js && node --check admin/assets/admin.js && node --check services/content-api/src/index.js",
+    "check": "node --check site/assets/config.js && node --check site/assets/content.js && node --check site/assets/catalog-data.js && node --check site/assets/app.js && node --check admin/_worker.js && node --check admin/assets/admin.js && node --check services/content-api/src/index.js",
     "test": "node tests/route-contract.mjs",
+    "test:core-read": "node tests/core-catalog-contract.mjs",
     "deploy:site": "npx wrangler pages deploy site --project-name shophuyvan",
     "deploy:admin": "npx wrangler pages deploy admin --project-name adminshophuyvan",
     "deploy:content": "npx wrangler deploy --config services/content-api/wrangler.toml"

@@ -2,49 +2,41 @@
 
 Cập nhật: 2026-07-29
 
-## Mã nguồn chuẩn
+## Mã nguồn và deploy chuẩn
 
-- Website khách: `site/` → Pages `shophuyvan` → `https://shophuyvan.vn`.
-- Quản trị nội dung: `admin/` → Pages `adminshophuyvan` → `https://admin.shophuyvan.vn`.
-- API nội dung: `services/content-api/` → Worker `shophuyvan-content-api`.
+- Storefront khách hàng: `site/` → Cloudflare Pages `shophuyvan` → `https://shophuyvan.vn`.
+- Quản trị nội dung: `admin/` → Cloudflare Pages `adminshophuyvan` → `https://admin.shophuyvan.vn`.
+- API nội dung website: `services/content-api/` → Worker `shophuyvan-content-api`.
 - D1 nội dung sạch: `shophuyvan-website-content-clean` (`096624b7-6dd4-434f-a426-73e7858da891`).
-- Media dùng bucket R2 hiện có `social-videos`, giới hạn trong prefix `website-content/`.
+- Media do quản trị tải lên dùng R2 `social-videos` trong prefix `website-content/`.
 
-## Đã hoàn tất
+## Luồng dữ liệu đang chạy
 
-- Thay toàn bộ storefront/admin legacy bằng nguồn mới, không còn route hoặc build nào dùng `apps/`, `workers/`, `packages/` hay `shared/` cũ.
-- URL công khai chuẩn: `/`, `/san-pham`, `/tim-kiem`, `/san-pham/:id`, `/khuyen-mai`, `/huong-dan`, `/lien-he`, `/gio-hang`; không còn `desktop`, `mobile` hoặc `new-ui`.
-- Website tự đổi bố cục theo thiết bị, không đổi URL.
-- Website đọc sản phẩm từ Product/Warehouse API: `https://huyvan-worker-api.nghiemchihuy.workers.dev/api/products`.
-- Admin chỉ quản trị nội dung website: thương hiệu/liên hệ/slogan, banner, media tải từ PC và phần ghi đè nội dung hiển thị cho sản phẩm.
-- Admin dùng same-origin proxy Pages cho `/api/content/*`, nên đăng nhập không còn phụ thuộc CORS của trình duyệt. Không có token Cloudflare/GitHub trong source hoặc Git.
-- Mật khẩu admin băm PBKDF2; phiên đăng nhập ký HMAC và chỉ lưu theo phiên trình duyệt.
+- Danh sách sản phẩm: `GET /api/core/products/public-catalog?limit=110`.
+- Tìm kiếm: `GET /api/core/products/public-catalog?q=<từ-khóa>&limit=110`.
+- Chi tiết sản phẩm: `GET /api/core/products/public-catalog/:id`.
+- Đánh giá và media sàn: `GET /api/core/products/public-catalog/:id/reviews?limit=8&media=1`.
+- Storefront chỉ đọc dữ liệu Core qua `site/assets/catalog-data.js`; không có danh mục, giá, biến thể, review hay SKU giả trong mã nguồn.
+- Website chỉ lưu ghi đè rõ ràng trong D1 cho phần trình bày riêng; trường chưa ghi đè tiếp tục lấy từ Core. `null` là thiếu dữ liệu, `0` là dữ liệu thật.
 
-## Dữ liệu nguồn và giới hạn đang hiển thị đúng
+## Đã hoàn tất trong lượt 2026-07-29
 
-Product/Warehouse API hiện có SKU, tên, mô tả, ảnh, video và tồn kho. API chưa trả giá website, danh mục chuẩn, phân loại/biến thể hoặc review/media từ sàn.
+- Đổi storefront và admin sang nguồn Public Catalog Core có giá, tồn, bán, ảnh, video, danh mục, biến thể, review và media.
+- PDP đọc trực tiếp theo mã sản phẩm, nên sản phẩm không nằm trong trang danh sách đầu vẫn mở đúng.
+- Chọn biến thể đổi đúng giá, tồn và ảnh; thumbnail đổi ảnh chính; review có ảnh/video hiển thị từ Core.
+- Tìm kiếm theo tên, SKU hoặc mã sản phẩm, gồm mã như `K154`; yêu cầu tìm kiếm chạy song song khi người dùng mở trực tiếp URL tìm kiếm.
+- Admin chỉ quản trị nội dung website; không ghi ngược giá/tồn/SKU/listing về sàn hoặc Warehouse Core.
 
-Website không tự bịa thương hiệu, Panasonic, danh mục, giá hoặc đánh giá. Khi Core bổ sung endpoint dữ liệu chuẩn, frontend chỉ đọc thêm từ Nhà Kho, không tạo nguồn dữ liệu thứ hai.
+## Deploy và kiểm tra gần nhất
 
-## D1 và legacy
-
-- D1 cũ `shophuyvan-website-content-db` không được API mới sử dụng.
-- D1 cũ chưa xóa để tránh mất dữ liệu ngoài phạm vi website; chỉ được xóa khi chủ shop xác nhận riêng.
-- D1 mới chỉ có: admin users, settings, banners, product overrides và media.
-- Toàn bộ source legacy đã bị loại khỏi Git và deploy; cache cục bộ bị `.gitignore` loại trừ.
-
-## Bản deploy đã kiểm thật
-
-- Website: `https://5b22f480.shophuyvan1.pages.dev` và domain `https://shophuyvan.vn`.
-- Admin: `https://149b01e0.adminshophuyvan.pages.dev` và domain `https://admin.shophuyvan.vn`.
-- Content API: Worker `shophuyvan-content-api` đã kiểm `/health`, public content, login và đọc settings có quyền.
+- Storefront deploy: `https://1e09bc03.shophuyvan1.pages.dev` và tên miền chính `https://shophuyvan.vn`.
+- Admin deploy: `https://3ad3f740.adminshophuyvan.pages.dev` và tên miền chính `https://admin.shophuyvan.vn`.
 - `npm run check`: pass.
-- `npm test`: pass (`clean website route contract passed`).
-- Tất cả JS source mới dưới 30 KB; kiểm UTF-8 và không có mojibake trong source.
-- Browser production đã kiểm: tìm kiếm, menu, trang sản phẩm, gallery thumbnail, khuyến mãi, hướng dẫn, liên hệ, đăng nhập admin, product editor, đổi mật khẩu (mở form), desktop 1366px, tablet 820px và mobile 390px.
+- `npm test`: pass.
+- `npm run test:core-read`: pass với Public Catalog và review/media thực.
+- Đã kiểm trình duyệt PDP `K154`: giá, biến thể, thumbnail, review/media; desktop 1366×900, tablet 820×1180, mobile 390×844 không tràn ngang.
 
-## Việc cần làm khi Product Core mở rộng dữ liệu
+## Lưu ý vận hành
 
-1. Bổ sung endpoint chuẩn cho giá, danh mục, phân loại/biến thể và review/media từ sàn.
-2. Nối endpoint đó vào `site/assets/content.js`.
-3. Kiểm lại trang danh sách/PDP và admin editor bằng dữ liệu nguồn; không vá UI bằng dữ liệu giả.
+- D1 cũ `shophuyvan-website-content-db` không được API mới dùng và chưa được xóa. Chỉ xóa khi chủ shop xác nhận riêng vì đây là tài nguyên production cũ.
+- Phiên Chrome kiểm thử hiện không có phiên đăng nhập admin của chủ shop; cần kiểm lại phần điền sẵn/sửa/lưu trong admin bằng phiên đã đăng nhập, nhưng không được thay đổi mật khẩu hoặc giả lập phiên của người dùng.

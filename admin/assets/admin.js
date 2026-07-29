@@ -1,12 +1,26 @@
 const API = '/api/content';
-const CATALOG = 'https://huyvan-worker-api.nghiemchihuy.workers.dev/api/products';
+const CATALOG = 'https://huyvan-worker-api.nghiemchihuy.workers.dev/api/core/products/public-catalog?limit=110';
 const root = document.querySelector('#admin-root');
 const state = { session: sessionStorage.getItem('shv-content-token') || '', user: null, products: [], selected: null, overrides: {}, banners: [], settings: {}, media: [], tab: 'basic', page: 'overview' };
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
-const text = (value) => value === null || value === undefined ? '' : String(value);
+const mojibakePattern = new RegExp('[\\u00c3\\u00c4]|\\u00e1[\\u00ba\\u00bb]');
+const text = (value) => {
+  let result = value === null || value === undefined ? '' : String(value).trim();
+  if (!mojibakePattern.test(result)) return result;
+  for (let index = 0; index < 2; index += 1) {
+    try {
+      const bytes = Uint8Array.from(Array.from(result), (char) => char.codePointAt(0) & 255);
+      const next = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      if (!next || next.includes('�') || next === result) break;
+      result = next;
+      if (!mojibakePattern.test(result)) break;
+    } catch { break; }
+  }
+  return result;
+};
 const parse = (value, fallback = []) => { try { return Array.isArray(value) ? value : JSON.parse(value || '[]'); } catch { return fallback; } };
-const money = (value) => Number(value) > 0 ? `${new Intl.NumberFormat('vi-VN').format(value)}đ` : 'Giá lấy từ kho';
+const money = (value) => value === null || value === undefined || value === '' ? 'Giá lấy từ kho' : `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
 
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -20,14 +34,16 @@ async function request(path, options = {}) {
 
 function normalize(item) {
   const images = parse(item.images).filter(Boolean);
-  return { id:text(item.id ?? item.sku), sku:text(item.sku), name:text(item.name ?? item.title ?? item.product_name) || 'Sản phẩm chưa có tên', description:text(item.description), category:text(item.category ?? item.category_slug), image:text(item.image_url ?? images[0]), images:[...new Set([text(item.image_url), ...images].filter(Boolean))], video:text(item.video_url), stock:item.stock ?? null, price:item.price ?? null, variants:Array.isArray(item.variants) ? item.variants : parse(item.variants) };
+  const detailImages = [...parse(item.product_images), ...parse(item.detail_images)].filter(Boolean);
+  const variants = Array.isArray(item.variants) ? item.variants : parse(item.variants);
+  return { id:text(item.id ?? item.sku), sku:text(item.sku), name:text(item.name ?? item.title ?? item.product_name) || 'Sản phẩm chưa có tên', description:text(item.description), category:text(item.category_name ?? item.category ?? item.category_slug), image:text(item.image ?? item.image_url ?? images[0]), images:[...new Set([text(item.image ?? item.image_url), ...images, ...detailImages].filter(Boolean))], video:text(item.video_url), stock:item.stock ?? null, price:item.price_display ?? item.price_final ?? item.price ?? null, variants };
 }
 
 async function loadCatalog() {
   const response = await fetch(CATALOG, { headers:{accept:'application/json'} });
   if (!response.ok) throw new Error(`catalog_${response.status}`);
   const body = await response.json();
-  state.products = (Array.isArray(body) ? body : body.items || body.data || []).map(normalize);
+  state.products = (Array.isArray(body) ? body : body.products || body.items || body.data || []).map(normalize);
   if (!state.selected && state.products[0]) selectProduct(state.products[0].id, false);
 }
 

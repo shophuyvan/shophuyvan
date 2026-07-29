@@ -4,33 +4,28 @@ Ngày: 2026-07-29
 
 ## Điểm dừng đã xác nhận
 
-Đã hoàn tất thay thế source cũ bằng kiến trúc website nội dung độc lập:
+Storefront mới đã nối đúng Public Catalog Core thay vì endpoint cũ:
 
-- `site/` là storefront khách hàng.
-- `admin/` là quản trị nội dung website.
-- `services/content-api/` là API nội dung với D1 sạch.
+- List: `/api/core/products/public-catalog?limit=110`.
+- Search: `/api/core/products/public-catalog?q=<từ-khóa>&limit=110`.
+- PDP: `/api/core/products/public-catalog/:id`.
+- Review/media: `/api/core/products/public-catalog/:id/reviews?limit=8&media=1`.
 
-Domain đang chạy:
+Mã nguồn liên quan:
 
-- `https://shophuyvan.vn`
-- `https://admin.shophuyvan.vn`
+- `site/assets/catalog-data.js`: chuẩn hóa dữ liệu đọc từ Core.
+- `site/assets/app.js`: list, tìm kiếm, PDP, biến thể, gallery và review/media.
+- `admin/assets/admin.js`: catalog dùng cho quản trị nội dung website.
 
-Admin đã đăng nhập được qua same-origin Pages proxy. Product editor tải 262 sản phẩm từ Product/Warehouse API, rồi nạp sẵn dữ liệu nguồn trước khi cho phép chỉnh phần hiển thị riêng trên website.
+## Deploy và kiểm tra
 
-## Kiểm tra browser đã chạy
+- Storefront: `https://1e09bc03.shophuyvan1.pages.dev` → `https://shophuyvan.vn`.
+- Admin: `https://3ad3f740.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`.
+- `npm run check`, `npm test`, `npm run test:core-read`: pass.
+- Kiểm browser thực với `K154`: thay biến thể đổi giá/ảnh, click thumbnail đổi ảnh chính, review/media hiện; responsive pass ở desktop 1366×900, tablet 820×1180 và mobile 390×844.
 
-- Desktop 1366px: storefront, search, menu, PDP và gallery ảnh đều hoạt động.
-- Tablet 820px: không tràn ngang, header responsive đúng.
-- Mobile 390px: header mobile hiện, desktop header ẩn, không tràn ngang.
-- Admin: login, danh sách sản phẩm, form ảnh/video, form đổi mật khẩu và responsive đã mở/kiểm trực tiếp.
+## Còn mở
 
-## Không được quay lại
-
-- Không dùng source legacy trong `apps/`, `workers/`, `packages/`, `shared/`.
-- Không dùng D1 `shophuyvan-website-content-db` cho API mới.
-- Không tự tạo brand/danh mục/giá/review khi Warehouse chưa có dữ liệu.
-- Không để credential trong source hoặc Git; dùng `profiles.local.json` chỉ ở máy local.
-
-## Hướng tiếp theo duy nhất còn phụ thuộc Product Core
-
-Khi Nhà Kho mở endpoint chuẩn cho review/media từ sàn, giá website, danh mục và phân loại/biến thể, nối chúng vào `site/assets/content.js`, kiểm browser đủ ba kích thước và cập nhật file này.
+- Chrome kiểm thử hiện không có phiên admin đã đăng nhập, nên chưa bấm thử lưu thay đổi bằng phiên của chủ shop. Không được tự đặt lại mật khẩu hay giả lập phiên. Khi có phiên đã đăng nhập trong Chrome kiểm thử, mở admin và kiểm tra một sản phẩm có nội dung Core điền sẵn, sửa website-only override, lưu, rồi readback ở storefront.
+- Đã mở Claude bằng visible runtime `account_16` để review UI theo yêu cầu trước đó, nhưng cổng điều khiển của runtime (`9516`) không phản hồi nên chưa gửi prompt hoặc upload dữ liệu. Không được báo đã có nhận xét Claude cho đến khi runtime phản hồi được.
+- D1 cũ `shophuyvan-website-content-db` chưa xóa và không nằm trong luồng mới; chỉ xử lý theo xác nhận riêng của chủ shop.

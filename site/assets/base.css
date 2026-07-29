@@ -127,6 +127,10 @@ img { display: block; max-width: 100%; }
 .rating-row { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0; color: var(--muted); font-size: 13px; }
 .rating-row .rating { color: #e58900; font-weight: 700; }
 .price-box { margin: 16px 0; padding: 16px; border-left: 4px solid var(--danger); border-radius: 8px; background: #fff7f5; color: var(--danger); font-size: 30px; font-weight: 800; }
+.price-original { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.stock-state { margin: 0 0 16px; font-size: 13px; font-weight: 700; }
+.stock-state.in-stock { color: var(--success); }
+.stock-state.out-stock { color: var(--danger); }
 .variant-block { margin: 16px 0; }
 .variant-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 800; }
 .variants { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -144,7 +148,16 @@ img { display: block; max-width: 100%; }
 .tab-list button.active { border-color: var(--orange); color: var(--orange-700); }
 .tab-panel { padding: 22px; white-space: pre-line; line-height: 1.7; }
 .media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.media-grid img, .media-grid video { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: #eef2f7; }
+.media-grid img, .media-grid video, .review-media img, .review-media video { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: #eef2f7; }
+.review-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding: 13px; border-radius: 9px; background: #fff7ed; color: var(--orange-700); }
+.review-summary span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.review-list { display: grid; gap: 12px; }
+.review-card { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.review-card p { margin: 10px 0 0; color: var(--ink); }
+.review-head { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+.review-head strong { color: var(--ink); }
+.review-head span { color: #e58900; font-weight: 800; }
+.review-media { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 
 .footer { margin-top: 34px; background: var(--blue-950); color: #dbeafe; }
 .footer .wrap { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 28px; padding: 32px 0; }

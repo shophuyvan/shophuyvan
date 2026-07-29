@@ -49,5 +49,7 @@
   .tab-list button { padding: 12px 14px; font-size: 12px; }
   .tab-panel { padding: 15px; font-size: 13px; }
   .media-grid { grid-template-columns: repeat(2, 1fr); }
+  .review-summary { align-items: flex-start; flex-direction: column; }
+  .review-media { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer .wrap { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
 }
