@@ -19,7 +19,6 @@ export async function loadWebsiteContent() {
 
 export function mergeWebsiteOverride(product, override) {
   if (!override || override.published === false) return product;
-  const variantNames = String(override.variants || '').split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
   const priceText = String(override.display_price || '').replace(/[^0-9]/g, '');
   return {
     ...product,
@@ -30,7 +29,6 @@ export function mergeWebsiteOverride(product, override) {
     images: override.primary_image ? [override.primary_image, ...product.images.filter((image) => image !== override.primary_image)] : product.images,
     video: override.video_url || product.video,
     description: override.description || product.description,
-    shortDescription: override.short_description || '',
-    variants: variantNames.length ? variantNames.map((name, index) => ({ id: `website-${index}`, name, sku: '', price: null, stock: null })) : product.variants
+    shortDescription: override.short_description || ''
   };
 }

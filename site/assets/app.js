@@ -1,5 +1,5 @@
-import { CATALOG_ENDPOINT, SHOP, catalogProductUrl, catalogReviewsUrl, catalogSearchUrl } from './config.js';
-import { loadWebsiteContent, mergeWebsiteOverride } from './content.js';
+import { CATALOG_ENDPOINT, SHOP, catalogProductUrl, catalogReviewsUrl, catalogSearchUrl } from './config.js?v=20260729.5';
+import { loadWebsiteContent, mergeWebsiteOverride } from './content.js?v=20260729.5';
 import { normalizeProduct, normalizeReview, toNumber, toOptionalNumber, toText } from './catalog-data.js';
 
 const root = document.querySelector('#site-root');
@@ -206,10 +206,7 @@ function selectedVariant(product) {
   return product.variants.find((variant) => variant.id === state.selectedVariantId) || product.variants[0] || null;
 }
 
-function stockMessage(stock) {
-  if (stock === null || stock === undefined) return '<p class="stock-state">Kho đang cập nhật tình trạng còn hàng.</p>';
-  return stock > 0 ? '<p class="stock-state in-stock">Còn hàng</p>' : '<p class="stock-state out-stock">Tạm hết hàng</p>';
-}
+function stockMessage(stock) { return stock == null ? '<p class="stock-state">Kho đang cập nhật.</p>' : `<p class="stock-state ${stock > 0 ? 'in-stock' : 'out-stock'}">${stock > 0 ? `Còn ${stock.toLocaleString('vi-VN')} sản phẩm` : 'Tạm hết hàng'}</p>`; }
 
 function reviewPanel(product) {
   const entry = state.reviews[product.id];
@@ -322,4 +319,5 @@ function bindEvents() {
 }
 
 window.addEventListener('popstate', () => { resetDetailState(); render(); if (currentRoute() === 'product') void loadProductForRoute(); if (currentPath() === '/tim-kiem') void loadSearchResultsForRoute(); });
+if (['/product', '/product.html'].includes(currentPath())) { const id = new URLSearchParams(location.search).get('id'); if (id) history.replaceState({}, '', `/san-pham/${encodeURIComponent(id)}`); }
 loadProducts();

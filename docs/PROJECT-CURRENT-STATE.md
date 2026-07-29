@@ -1,5 +1,12 @@
 # Trạng thái hiện tại — website Shop Huy Vân
 
+## Theo dõi đường dẫn sản phẩm cũ (2026-07-29)
+
+- `GET /api/core/products/public-catalog/K145` trả đúng dữ liệu gốc: giá, tồn kho và bốn phân loại.
+- PDP mới tại `/san-pham/K145` hiển thị đầy đủ các giá trị này. Đường dẫn cũ `/product?id=K145` được chuyển 302 sang `/product.html?id=K145`, sau đó chuẩn hóa về `/san-pham/K145` để luôn dùng cùng PDP mới.
+- `site/assets/content.js` giữ nguyên phân loại từ nguồn chuẩn khi có ghi đè nội dung riêng của website. `site/assets/app.js` chuẩn hóa URL sản phẩm cũ sang `/san-pham/:id` và hiển thị tồn kho theo số lượng của phân loại đang chọn.
+- `site/_headers` tắt bộ nhớ đệm cho hai đường dẫn sản phẩm cũ. `site/_redirects` áp dụng redirect trước khi trang cũ được tải. Đã kiểm HTTP 302 và kiểm bằng trình duyệt trên tên miền chính; không cần xoá cache toàn bộ hay chỉnh Worker route.
+
 Cập nhật: 2026-07-29
 
 ## Mã nguồn và deploy chuẩn
@@ -29,7 +36,7 @@ Cập nhật: 2026-07-29
 
 ## Deploy và kiểm tra gần nhất
 
-- Storefront deploy: `https://1e09bc03.shophuyvan1.pages.dev` và tên miền chính `https://shophuyvan.vn`.
+- Storefront deploy: `https://3ceb0461.shophuyvan1.pages.dev` và tên miền chính `https://shophuyvan.vn`.
 - Admin deploy: `https://3ad3f740.adminshophuyvan.pages.dev` và tên miền chính `https://admin.shophuyvan.vn`.
 - `npm run check`: pass.
 - `npm test`: pass.
