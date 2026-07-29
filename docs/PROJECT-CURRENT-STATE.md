@@ -55,3 +55,11 @@ Cập nhật: 2026-07-29
 - Storefront deploy: `https://23ed4197.shophuyvan1.pages.dev` và đã kiểm lại trên `https://shophuyvan.vn` với CSS phiên bản `20260729.6`.
 - Kiểm trình duyệt thật: desktop 1534×889 — banner `1004×430`, ảnh chính PDP `504×504`; tablet 820×1180 — banner `760×370`, ảnh chính `671×671`; mobile 390×844 — banner `366×370`, ảnh chính `277×277`. Cả ba không tràn ngang.
 - `npm run check`, `npm test`, `npm run test:core-read` đều pass. Public Catalog và endpoint review/media thực vẫn đọc được; không đổi dữ liệu giá, tồn kho hoặc phân loại trong Warehouse Core.
+
+## Dọn dẹp mã nguồn legacy (2026-07-29)
+
+- Đã audit caller bằng `rg` và `git grep`: mã/deploy đang chạy chỉ dùng `site/`, `admin/`, `services/content-api/` và `tests/`.
+- Xóa toàn bộ `apps/`, `workers/`, `packages/`, `shared/`, `scripts/`, `.vscode/`, cache `.wrangler/`, file sơ đồ cũ `cau_truc_thu_muc.txt` và cache cài đặt cũ `node_modules/`.
+- Xóa workflow GitHub cũ trỏ đến `workers/website-content-api`, cùng hai handoff mô tả giao diện legacy `apps/fe`. Không còn caller runtime, test, route, binding hay deploy path tới các phần này.
+- Giữ lại `profiles.local.json` vì đây là cấu hình đăng nhập Cloudflare/GitHub cục bộ của chủ shop; file bị Git bỏ qua và không nằm trong deploy.
+- Không đụng D1, R2, dữ liệu khách hàng hoặc dữ liệu Core trong đợt cleanup này.

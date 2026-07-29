@@ -11,4 +11,4 @@
 
 Website chỉ đọc catalogue công khai từ hệ thống Product/Warehouse hiện có. Quản trị website chỉ lưu phần nội dung hiển thị riêng như banner, mô tả, ảnh/video và cài đặt hiển thị; không ghi giá, tồn kho hay SKU sang hệ thống sàn.
 
-Các thư mục legacy còn lại trên ổ đĩa chỉ là cache/ảnh nhị phân do môi trường khóa xóa thư mục. Chúng đã bị loại khỏi Git, `.gitignore`, route và quy trình deploy mới.
+Đợt dọn dẹp ngày 2026-07-29 đã xóa toàn bộ mã legacy, build cũ và cache cũ. Thư mục gốc chỉ giữ phần source/deploy đang chạy; `node_modules/`, `.wrangler/` và `profiles.local.json` là dữ liệu máy cục bộ, không đưa vào Git.

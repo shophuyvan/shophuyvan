@@ -2,16 +2,6 @@ node_modules/
 .wrangler/
 profiles.local.json
 
-# Legacy code removed in the clean rebuild. These folders are deliberately not
-# part of the new build or deployment surface.
-apps/
-workers/
-packages/
-shared/
-scripts/
-.vscode/
-cau_truc_thu_muc.txt
-
 # Local operating-system and test output
 Thumbs.db
 *.log
