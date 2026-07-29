@@ -21,7 +21,7 @@ Mã nguồn liên quan:
 ## Deploy và kiểm tra
 
 - Storefront: `https://23ed4197.shophuyvan1.pages.dev` → `https://shophuyvan.vn`.
-- Admin: `https://94654248.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`, dùng giao diện content-admin mới theo `Admin_dashboard.html` với asset phiên bản `20260729.8`.
+- Admin: `https://1840096e.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`, dùng giao diện content-admin mới theo `Admin_dashboard.html` với asset phiên bản `20260729.8`. Hai asset admin legacy được chặn và tab cũ tự chuyển sang trang đăng nhập bản mới, không cần xóa cache thủ công.
 - `npm run check`, `npm test`, `npm run test:core-read`: pass.
 - Kiểm browser thực với `K154`: thay biến thể đổi giá/ảnh, click thumbnail đổi ảnh chính, review/media hiện; responsive pass ở desktop 1366×900, tablet 820×1180 và mobile 390×844.
 - Cấu trúc repo đã được dọn: chỉ còn `site/`, `admin/`, `services/content-api/`, `tests/` và tài liệu vận hành. Legacy `apps/`, `workers/`, cache/build cũ và handoff legacy đã bị xóa sau audit caller.
