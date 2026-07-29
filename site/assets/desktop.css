@@ -1,0 +1,9 @@
+@media (min-width: 1025px) {
+  .mobile-header { display: none; }
+  .desktop-header { display: block; }
+  .page-list-grid { display: grid; grid-template-columns: 244px 1fr; gap: 18px; }
+  .catalog-sidebar { align-self: start; }
+  .catalog-sidebar .section-card { overflow: hidden; }
+  .catalog-sidebar h2 { margin: 0; padding: 13px 15px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .catalog-sidebar .category-list a { padding: 10px 14px; }
+}

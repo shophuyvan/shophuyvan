@@ -1,18 +1,14 @@
-# shophuyvan mono-repo
+# Shop Huy Vân website
 
-This repo bundles:
-- **FE** static site → Cloudflare Pages project: `shophuyvan1` (in `apps/fe`)
-- **Admin** static site → Cloudflare Pages project: `adminshophuyvan` (in `apps/admin`)
-- **API Worker** → Cloudflare Workers project in `workers/shv-api` (wrangler)
+Đây là mã nguồn mới, tách hoàn toàn khỏi storefront, mini-app, OMS và worker cũ.
 
-## Deploy
+## Cấu trúc đang chạy
 
-Create two repository secrets:
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN` (token with: Pages:Edit, Workers Scripts:Edit, KV:Edit, R2:Edit if used)
+- `site/`: website khách hàng tại `shophuyvan.vn`.
+- `admin/`: quản trị nội dung website tại `admin.shophuyvan.vn`.
+- `services/content-api/`: API riêng cho đăng nhập, nội dung website và media.
+- `docs/`: tài liệu vận hành của mã nguồn mới.
 
-Then push, or run workflows manually in **Actions**:
-- "Deploy FE to Cloudflare Pages"
-- "Deploy Admin to Cloudflare Pages"
-- "Deploy Worker (shv-api)"
+Website chỉ đọc catalogue công khai từ hệ thống Product/Warehouse hiện có. Quản trị website chỉ lưu phần nội dung hiển thị riêng như banner, mô tả, ảnh/video và cài đặt hiển thị; không ghi giá, tồn kho hay SKU sang hệ thống sàn.
 
+Các thư mục legacy còn lại trên ổ đĩa chỉ là cache/ảnh nhị phân do môi trường khóa xóa thư mục. Chúng đã bị loại khỏi Git, `.gitignore`, route và quy trình deploy mới.

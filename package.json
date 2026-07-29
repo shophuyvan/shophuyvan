@@ -1,17 +1,16 @@
 {
-  "name": "shv-monorepo-zmp",
+  "name": "shophuyvan-clean",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "dependencies": {
-    "@tsndr/cloudflare-worker-jwt": "^3.2.0",
-    "bcryptjs": "^3.0.2",
-    "cloudinary": "^2.7.0"
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check site/assets/config.js && node --check site/assets/content.js && node --check site/assets/app.js && node --check admin/_worker.js && node --check admin/assets/admin.js && node --check services/content-api/src/index.js",
+    "test": "node tests/route-contract.mjs",
+    "deploy:site": "npx wrangler pages deploy site --project-name shophuyvan",
+    "deploy:admin": "npx wrangler pages deploy admin --project-name adminshophuyvan",
+    "deploy:content": "npx wrangler deploy --config services/content-api/wrangler.toml"
   },
   "devDependencies": {
-    "wrangler": "^4.45.2"
+    "wrangler": "^4.28.1"
   }
-  
 }

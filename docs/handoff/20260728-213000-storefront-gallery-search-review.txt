@@ -1,0 +1,77 @@
+Shop Huy Van storefront interaction review — 2026-07-28
+
+Purpose
+- Confirm the smallest safe correction for the customer-facing search, product-image gallery and variant-selection flow.
+- This is display-only: no action writes to a marketplace, stock system or product master.
+
+User evidence
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-cbd699e4-c53b-44ec-9988-301979ec3eed.png
+  Header search with a Vietnamese product phrase did not return a usable result.
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-36fef4b2-b6ac-4cee-b583-3b2718b1ae00.png
+  PDP thumbnail clicks did not visibly change the selected product image.
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-ea5a1110-2926-4458-9479-717032ac9550.png
+  A product has variants in catalog data, but the buyer could not choose one before adding to cart.
+
+Current production facts reproduced before the final CSS adjustment
+- Public catalog search for “nep day dien” resolves to K110 and K145 at /search?q=nep%20day%20dien.
+- Product K145 returns 13 images and 4 variants from the public product catalog.
+- Desktop thumbnail and variant selection work after client hydration.
+- Mobile and tablet thumbnail strips use overflow-x:auto but center the complete strip. With many images, the first visible targets can be physically shifted off the left edge, so a tap can land on the wrong thumbnail.
+
+Relevant source files
+- apps/fe/src/new-ui/storefront-pdp-interactions-live.js
+- apps/fe/src/new-ui/storefront-runtime-live.js
+- apps/fe/new-ui/product-detail.mobile.css
+- apps/fe/new-ui/product-detail.tablet.css
+- apps/fe/src/new-ui/storefront-entry-live.js
+
+Relevant current code excerpt: gallery selection
+```js
+function renderCarouselGallery(images, name) {
+  const carousel = document.querySelector('.carousel-inner')
+  const slides = [...document.querySelectorAll('.carousel-slide')]
+  const thumbs = [...document.querySelectorAll('.thumb-item')]
+  let current = 0
+  const select = index => {
+    current = (index + images.length) % images.length
+    carousel.style.transform = `translateX(-${current * 100}%)`
+    thumbs.forEach((thumb, thumbIndex) => thumb.classList.toggle('active', thumbIndex === current))
+  }
+  thumbs.forEach((thumb, index) => {
+    makeInteractive(thumb, `Xem ảnh ${index + 1} của ${name}`, () => select(index))
+  })
+  select(0)
+}
+```
+
+Relevant current code excerpt: variants
+```js
+export function renderStorefrontVariantChoices({ product, normalize, numberOrNull, formatVnd, onSelect }) {
+  const variants = Array.isArray(product?.variants) ? product.variants : []
+  if (variants.length < 2) return null
+  // A button is rendered for each catalog variant. Stock 0 is disabled.
+  // Selecting a variant changes the visible price and stock summary.
+}
+```
+
+Problematic CSS in both mobile and tablet templates
+```css
+.thumb-strip {
+  display: flex;
+  justify-content: center;
+  gap: 6px; /* tablet uses 8px */
+  padding: 6px 12px 10px; /* tablet uses 8px 14px 14px */
+  overflow-x: auto;
+}
+```
+
+Requested review
+1. Confirm replacing the centered overflowing thumbnail strip with start-aligned horizontal scrolling is the appropriate minimal correction.
+2. Confirm the buyer flow should remain: choose image -> choose catalog variant -> see selected price/stock -> add to cart.
+3. Flag any interaction or accessibility risk in the current gallery event handling before the change.
+
+Acceptance checks after deployment
+- Search “nep day dien” at the header lands directly at /search?q=... and shows K110/K145 without an intermediate URL.
+- At 1366x900, 820x1180 and 390x844, thumbnail 2 changes the selected image/slide to image 2.
+- At all three sizes, K145 shows four variant choices; selecting “20 Nẹp Trong Đục NEW” updates price to 27.000đ. The 0-stock option is disabled.
+- No horizontal page overflow at the three target viewports.

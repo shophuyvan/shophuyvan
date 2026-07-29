@@ -1,0 +1,15 @@
+name = "shophuyvan-content-api"
+main = "src/index.js"
+compatibility_date = "2026-07-29"
+workers_dev = true
+account_id = "7f99645b54f99e54fbdc5189dc6309d1"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shophuyvan-website-content-clean"
+database_id = "096624b7-6dd4-434f-a426-73e7858da891"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "social-videos"
