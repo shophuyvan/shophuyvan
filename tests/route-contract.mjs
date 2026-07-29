@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [site, admin, adminWorker, worker, adminScript, siteConfig, siteScript, redirects] = await Promise.all([
+const [site, admin, adminWorker, worker, adminScript, siteConfig, siteScript, redirects, baseCss, mobileCss] = await Promise.all([
   readFile(new URL('../site/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/_worker.js', import.meta.url), 'utf8'),
@@ -9,7 +9,9 @@ const [site, admin, adminWorker, worker, adminScript, siteConfig, siteScript, re
   readFile(new URL('../admin/assets/admin.js', import.meta.url), 'utf8'),
   readFile(new URL('../site/assets/config.js', import.meta.url), 'utf8'),
   readFile(new URL('../site/assets/app.js', import.meta.url), 'utf8'),
-  readFile(new URL('../site/_redirects', import.meta.url), 'utf8')
+  readFile(new URL('../site/_redirects', import.meta.url), 'utf8'),
+  readFile(new URL('../site/assets/base.css', import.meta.url), 'utf8'),
+  readFile(new URL('../site/assets/mobile.css', import.meta.url), 'utf8')
 ]);
 
 assert.match(site, /assets\/desktop\.css/);
@@ -36,3 +38,10 @@ assert.match(redirects, /^\/product \/product\.html 302$/m);
 assert.doesNotMatch(await readFile(new URL('../site/assets/content.js', import.meta.url), 'utf8'), /website-\$\{index\}/);
 assert.match(worker, /\/v1\/session/);
 assert.match(worker, /website_product_overrides/);
+assert.match(baseCss, /\.home-grid\s*\{[^}]*align-items:\s*start;/);
+assert.match(baseCss, /\.hero\s*\{[^}]*height:\s*clamp\(390px,\s*35vw,\s*430px\);/);
+assert.match(baseCss, /\.gallery\s*\{[^}]*align-items:\s*start;/);
+assert.match(baseCss, /\.thumbs\s*\{[^}]*max-height:\s*560px;[^}]*overflow-y:\s*auto;/);
+assert.match(baseCss, /\.main-picture\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1;/);
+assert.match(mobileCss, /\.hero\s*\{[^}]*height:\s*370px;/);
+assert.match(mobileCss, /\.main-picture\s*\{[^}]*min-height:\s*0;/);

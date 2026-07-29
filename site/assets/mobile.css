@@ -14,10 +14,10 @@
   .page { padding-top: 12px; }
   .home-grid { display: block; }
   .category-panel { display: none; }
-  .hero { min-height: 370px; }
+  .hero { height: 370px; min-height: 0; }
   .hero-image { inset: auto 0 0; width: 100%; height: 54%; opacity: .55; }
   .hero::after { background: linear-gradient(180deg, rgb(4 29 80 / 96%) 0%, rgb(5 39 104 / 82%) 61%, rgb(4 29 80 / 42%) 100%); }
-  .hero-content { min-height: 370px; width: 100%; padding: 28px 23px; justify-content: flex-start; }
+  .hero-content { width: 100%; height: 100%; min-height: 0; padding: 28px 23px; justify-content: flex-start; }
   .hero h1 { font-size: 30px; }
   .hero p { margin: 10px 0 0; font-size: 13px; }
   .hero-meta { font-size: 11px; }
@@ -40,8 +40,9 @@
   .catalog-sidebar { display: none; }
   .detail-grid { display: block; padding: 13px; }
   .gallery { grid-template-columns: 52px minmax(0, 1fr); gap: 9px; }
+  .thumbs { max-height: min(560px, calc(100vw - 84px)); }
   .thumb { width: 50px; }
-  .main-picture { min-height: 340px; }
+  .main-picture { min-height: 0; }
   .detail-info { margin-top: 17px; }
   .detail-info h1 { font-size: 19px; }
   .price-box { font-size: 25px; }

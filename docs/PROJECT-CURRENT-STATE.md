@@ -47,3 +47,11 @@ Cập nhật: 2026-07-29
 
 - D1 cũ `shophuyvan-website-content-db` không được API mới dùng và chưa được xóa. Chỉ xóa khi chủ shop xác nhận riêng vì đây là tài nguyên production cũ.
 - Phiên Chrome kiểm thử hiện không có phiên đăng nhập admin của chủ shop; cần kiểm lại phần điền sẵn/sửa/lưu trong admin bằng phiên đã đăng nhập, nhưng không được thay đổi mật khẩu hoặc giả lập phiên của người dùng.
+
+## Cập nhật tỷ lệ hiển thị storefront (2026-07-29)
+
+- Nguyên nhân banner trang chủ bị kéo rất dài là `home-grid` mặc định kéo banner theo chiều cao của cột danh mục. Đã đặt các phần tử trong lưới tự canh đầu và khóa chiều cao banner desktop trong khoảng `390–430px`; tablet và mobile giữ `370px`.
+- Khung ảnh chính PDP dùng tỷ lệ vuông `1:1`, ảnh dùng `object-fit: contain` để không cắt nội dung ảnh sàn. Danh sách ảnh thu nhỏ có chiều cao tối đa và cuộn dọc riêng, không còn kéo giãn khung ảnh chính.
+- Storefront deploy: `https://23ed4197.shophuyvan1.pages.dev` và đã kiểm lại trên `https://shophuyvan.vn` với CSS phiên bản `20260729.6`.
+- Kiểm trình duyệt thật: desktop 1534×889 — banner `1004×430`, ảnh chính PDP `504×504`; tablet 820×1180 — banner `760×370`, ảnh chính `671×671`; mobile 390×844 — banner `366×370`, ảnh chính `277×277`. Cả ba không tràn ngang.
+- `npm run check`, `npm test`, `npm run test:core-read` đều pass. Public Catalog và endpoint review/media thực vẫn đọc được; không đổi dữ liệu giá, tồn kho hoặc phân loại trong Warehouse Core.
