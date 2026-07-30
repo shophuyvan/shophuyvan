@@ -1,9 +1,10 @@
 import { CATALOG_ENDPOINT, SHOP, catalogProductUrl, catalogReviewsUrl, catalogSearchUrl } from './config.js?v=20260729.5';
 import { loadWebsiteContent, mergeWebsiteOverride } from './content.js?v=20260729.5';
 import { normalizeProduct, normalizeReview, toNumber, toOptionalNumber, toText } from './catalog-data.js';
+import { createStorefrontListing } from './storefront-listing.js?v=20260730.2';
 
 const root = document.querySelector('#site-root');
-const state = { products: [], content: { settings: {}, banners: [], product_overrides: {} }, loading: true, error: '', cart: loadCart(), gallery: 0, selectedVariantId: '', detailTab: 'description', reviews: {}, detailLoadingId: '', detailErrorId: '', searchResults: { query: '', status: 'idle', items: [] } };
+const state = { products: [], content: { settings: {}, banners: [], product_overrides: {} }, loading: true, error: '', cart: loadCart(), gallery: 0, selectedVariantId: '', detailTab: 'description', reviews: {}, detailLoadingId: '', detailErrorId: '', searchResults: { query: '', status: 'idle', items: [] }, bannerSlide: 0 };
 const icons = ['⚡', '⌂', '◈', '✦', '◌', '⚙'];
 
 function escapeHtml(value = '') {
@@ -94,56 +95,7 @@ function mobileHeader() {
 function header() { return `<div class="shell">${desktopHeader()}${mobileHeader()}`; }
 function footer() { return `<footer class="footer"><div class="wrap"><div><strong>SHOP HUY VÂN</strong><p>${SHOP.slogan}. Chọn sản phẩm phù hợp và được tư vấn rõ ràng trước khi mua.</p></div><div><strong>Liên hệ</strong><p>${SHOP.address}</p><p>Hotline/Zalo: ${SHOP.hotline}</p></div><div><strong>Thông tin</strong><p><a href="/huong-dan">Hướng dẫn mua hàng</a></p><p><a href="/lien-he">Liên hệ &amp; hỗ trợ</a></p></div></div></footer></div>`; }
 
-function categories() {
-  const grouped = new Map();
-  state.products.forEach((product) => {
-    if (!product.category) return;
-    grouped.set(product.category, (grouped.get(product.category) || 0) + 1);
-  });
-  return [...grouped].sort((a, b) => b[1] - a[1]);
-}
-
-function categoryPanel() {
-  const items = categories();
-  return `<aside class="category-panel"><h2 class="panel-title">☰ Danh mục sản phẩm</h2><ul class="category-list"><li><a href="/san-pham">Tất cả sản phẩm <span>${state.products.length}</span></a></li>${items.length ? items.map(([name, count]) => `<li><a href="/san-pham?category=${encodeURIComponent(name)}">${escapeHtml(titleCase(name))}<span>${count}</span></a></li>`).join('') : '<li><span style="display:block;padding:11px 14px;color:#61708a;font-size:12px;">Danh mục sẽ hiện khi kho đồng bộ dữ liệu.</span></li>'}</ul></aside>`;
-}
-
-function productPicture(product) {
-  return product.image ? `<img loading="lazy" src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : '<div class="no-image">Sản phẩm chưa có ảnh từ kho</div>';
-}
-
-function productCard(product) {
-  return `<article class="product-card"><a class="product-picture" href="/san-pham/${encodeURIComponent(product.id)}">${productPicture(product)}</a><div class="product-body"><span class="product-category">${escapeHtml(titleCase(product.category || 'Sản phẩm'))}</span><a class="product-name" href="/san-pham/${encodeURIComponent(product.id)}">${escapeHtml(product.name)}</a><strong class="product-price">${formatMoney(product.price)}</strong><span class="product-meta">${product.rating ? `★ ${product.rating.toFixed(1)}${product.ratingCount ? ` (${product.ratingCount})` : ''}` : product.stock === null ? 'Đang cập nhật kho' : product.stock > 0 ? 'Còn hàng' : 'Tạm hết hàng'}</span><div class="product-actions"><button class="button button-cart" data-add="${escapeHtml(product.id)}">Thêm giỏ</button><a class="button button-buy" href="/san-pham/${encodeURIComponent(product.id)}">Mua ngay</a></div></div></article>`;
-}
-
-function productGrid(products, emptyText = 'Chưa có sản phẩm phù hợp.') {
-  return products.length ? `<div class="product-grid">${products.map(productCard).join('')}</div>` : `<div class="empty">${emptyText}</div>`;
-}
-
-function homePage() {
-  const bestsellers = [...state.products].sort((a, b) => b.sold - a.sold).slice(0, 10);
-  const hero = bestsellers[0] || state.products[0];
-  const banner = state.content.banners.find((item) => item.enabled !== false);
-  const heroImageUrl = banner?.desktop_image || hero?.image;
-  const heroImage = heroImageUrl ? `<img class="hero-image" src="${escapeHtml(heroImageUrl)}" alt="${escapeHtml(banner?.title || hero?.name || SHOP.name)}">` : '';
-  const feature = categories().slice(0, 6);
-  const heroTitle = banner?.title || 'Đồ gia dụng tiện ích';
-  const heroAccent = banner?.accent || 'giá tốt mỗi ngày';
-  const heroText = banner?.description || (hero ? `Đang được khách quan tâm: ${hero.name}` : 'Sản phẩm được đồng bộ trực tiếp từ kho Shop Huy Vân.');
-  const target = banner?.source_id ? `/san-pham/${encodeURIComponent(banner.source_id)}` : '/san-pham';
-  return `<main class="page"><div class="wrap"><div class="home-grid">${categoryPanel()}<section class="hero">${heroImage}<div class="hero-content"><p class="eyebrow">Shop Huy Vân</p><h1>${escapeHtml(heroTitle)}<br><strong>${escapeHtml(heroAccent)}</strong></h1><p>${escapeHtml(heroText)}</p><div class="hero-meta"><span>${SHOP.address}</span><span>Hotline / Zalo: ${SHOP.hotline} · ${SHOP.zalo}</span></div><div class="hero-actions"><a class="button button-primary" href="${target}">Khám phá sản phẩm</a><a class="button button-secondary" href="/lien-he">Nhắn Zalo</a></div></div></section></div><section class="benefits"><div class="benefit"><i class="benefit-icon">◉</i><span><strong>Sản phẩm</strong><span>Thông tin rõ ràng</span></span></div><div class="benefit"><i class="benefit-icon">₫</i><span><strong>Giá cả</strong><span>Minh bạch theo kho</span></span></div><div class="benefit"><i class="benefit-icon">▣</i><span><strong>Giao hàng</strong><span>Tư vấn trước khi chốt</span></span></div><div class="benefit"><i class="benefit-icon">☏</i><span><strong>Tư vấn</strong><span>Tận tình 24/7</span></span></div><div class="benefit"><i class="benefit-icon">↔</i><span><strong>Đổi trả</strong><span>Hỗ trợ rõ ràng</span></span></div></section><section class="section"><h2 class="section-heading">Danh mục nổi bật <a href="/san-pham">Xem tất cả ›</a></h2>${feature.length ? `<div class="featured-categories">${feature.map(([name], index) => `<a class="featured-category" href="/san-pham?category=${encodeURIComponent(name)}"><span class="category-icon">${icons[index % icons.length]}</span><strong>${escapeHtml(titleCase(name))}</strong></a>`).join('')}</div>` : '<div class="notice">Danh mục chỉ hiển thị sau khi dữ liệu kho có trường danh mục; website không tự gán danh mục sai cho sản phẩm.</div>'}</section><section class="section"><h2 class="section-heading">Sản phẩm được quan tâm <a href="/san-pham">Xem tất cả ›</a></h2>${productGrid(bestsellers)}</section></div></main>`;
-}
-
-function catalogPage() {
-  const search = new URLSearchParams(location.search).get('q')?.trim() || '';
-  const category = new URLSearchParams(location.search).get('category')?.trim() || '';
-  const lowered = search.toLocaleLowerCase('vi');
-  const remoteSearch = currentPath() === '/tim-kiem' && Boolean(search);
-  const source = remoteSearch && state.searchResults.query === search ? state.searchResults.items : state.products;
-  const products = source.filter((product) => (!category || product.category === category) && (!remoteSearch || `${product.id} ${product.name} ${product.sku} ${product.description}`.toLocaleLowerCase('vi').includes(lowered)));
-  const heading = search ? `Kết quả cho “${escapeHtml(search)}”` : category ? titleCase(category) : 'Tất cả sản phẩm';
-  return `<main class="page"><div class="wrap"><div class="page-head"><div><p class="crumb">Trang chủ / Sản phẩm</p><h1>${heading}</h1></div><span style="color:#61708a;font-size:13px;">${products.length} sản phẩm</span></div><div class="page-list-grid"><aside class="catalog-sidebar"><div class="section-card"><h2>Danh mục</h2><ul class="category-list"><li><a href="/san-pham">Tất cả sản phẩm <span>${state.products.length}</span></a></li>${categories().map(([name,count])=>`<li><a href="/san-pham?category=${encodeURIComponent(name)}">${escapeHtml(titleCase(name))}<span>${count}</span></a></li>`).join('')}</ul></div></aside><section><form class="section-card filter-bar" data-search><input name="q" value="${escapeHtml(search)}" placeholder="Tìm theo tên hoặc mã sản phẩm"><button class="button button-outline" type="submit">Tìm kiếm</button></form><div style="height:14px"></div>${productGrid(products, search || category ? 'Không tìm thấy sản phẩm phù hợp.' : 'Kho sản phẩm chưa trả dữ liệu.')}</section></div></div></main>`;
-}
+const { homePage, catalogPage, productPicture, rotateHeroBanner } = createStorefrontListing({ state, shop: SHOP, icons, escapeHtml, titleCase, formatMoney, currentPath });
 
 function findProduct() {
   const rawId = productRouteId();
@@ -313,6 +265,7 @@ function bindEvents() {
   root.querySelectorAll('[data-image]').forEach((button) => button.addEventListener('click', () => { state.gallery = Number(button.dataset.image); state.selectedVariantId = ''; render(); }));
   root.querySelectorAll('[data-variant]').forEach((button) => button.addEventListener('click', () => { state.selectedVariantId = button.dataset.variant; state.gallery = 0; render(); }));
   root.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => { state.detailTab = button.dataset.tab; render(); }));
+  root.querySelectorAll('[data-hero-slide]').forEach((button) => button.addEventListener('click', () => { state.bannerSlide = Number(button.dataset.heroSlide) || 0; render(); }));
   root.querySelectorAll('[data-quantity]').forEach((button) => button.addEventListener('click', () => { const output = root.querySelector('#quantity'); output.value = Math.max(1, Number(output.value) + Number(button.dataset.quantity)); output.textContent = output.value; }));
   root.querySelector('[data-reload]')?.addEventListener('click', loadProducts);
   root.querySelector('[data-reload-reviews]')?.addEventListener('click', () => { const product = findProduct(); if (product) { delete state.reviews[product.id]; void loadProductReviews(product.id); } });
@@ -321,3 +274,4 @@ function bindEvents() {
 window.addEventListener('popstate', () => { resetDetailState(); render(); if (currentRoute() === 'product') void loadProductForRoute(); if (currentPath() === '/tim-kiem') void loadSearchResultsForRoute(); });
 if (['/product', '/product.html'].includes(currentPath())) { const id = new URLSearchParams(location.search).get('id'); if (id) history.replaceState({}, '', `/san-pham/${encodeURIComponent(id)}`); }
 loadProducts();
+setInterval(() => { if (currentRoute() === 'home' && rotateHeroBanner()) render(); }, 5500);

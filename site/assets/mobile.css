@@ -15,12 +15,17 @@
   .home-grid { display: block; }
   .category-panel { display: none; }
   .hero { height: 370px; min-height: 0; }
-  .hero-image { inset: auto 0 0; width: 100%; height: 54%; opacity: .55; }
-  .hero::after { background: linear-gradient(180deg, rgb(4 29 80 / 96%) 0%, rgb(5 39 104 / 82%) 61%, rgb(4 29 80 / 42%) 100%); }
+  .hero-visual { inset: auto 0 0; width: 100%; height: 42%; padding: 11px; }
+  .hero-image { opacity: .7; }
+  .hero-products { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .hero-product { border-radius: 8px; }
+  .hero-product img { padding: 4px; }
+  .hero::after { background: linear-gradient(180deg, rgb(4 29 80 / 98%) 0%, rgb(5 39 104 / 92%) 58%, rgb(4 29 80 / 24%) 100%); }
   .hero-content { width: 100%; height: 100%; min-height: 0; padding: 28px 23px; justify-content: flex-start; }
   .hero h1 { font-size: 30px; }
   .hero p { margin: 10px 0 0; font-size: 13px; }
   .hero-meta { font-size: 11px; }
+  .hero-pagination { bottom: 15px; left: 23px; }
   .benefits { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .benefit { min-height: 61px; padding: 9px; }
   .benefit:last-child { grid-column: span 2; }
