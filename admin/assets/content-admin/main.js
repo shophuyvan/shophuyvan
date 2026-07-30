@@ -1,4 +1,4 @@
-import { render as renderPage } from './render.js?v=20260729.8';
+import { render as renderPage } from './render.js?v=20260730.2';
 
 const API = '/api/content';
 const CATALOG = 'https://huyvan-worker-api.nghiemchihuy.workers.dev/api/core/products/public-catalog?limit=110';
@@ -26,7 +26,7 @@ const state = {
 };
 
 const pages = {
-  overview: { title: 'Tổng quan nội dung', description: 'Kiểm tra nhanh nội dung đang hiển thị trên website.' },
+  overview: { title: 'Dashboard', description: 'Quản trị nội dung hiển thị trên website.' },
   banners: { title: 'Banner website', description: 'Ảnh bán hàng, slogan và thông điệp xuất hiện trên trang chủ.' },
   products: { title: 'Sản phẩm website', description: 'Chọn sản phẩm đang có để điều chỉnh phần hiển thị riêng trên website.' },
   settings: { title: 'Menu & thông tin', description: 'Thông tin thương hiệu, địa chỉ và số liên hệ dành cho khách xem website.' },
@@ -361,6 +361,13 @@ root.addEventListener('submit', async (event) => {
     return;
   }
   if (form.matches('[data-ca-product-search]')) { state.productQuery = text(new FormData(form).get('query')); render(); return; }
+  if (form.matches('[data-ca-global-search]')) {
+    state.productQuery = text(new FormData(form).get('query'));
+    state.page = 'products';
+    state.menuOpen = false;
+    render();
+    return;
+  }
   if (form.matches('[data-ca-product-form]')) {
     try { await saveProduct(form, submitter); } catch { showNotice('Chưa lưu được nội dung sản phẩm. Hãy thử lại.', 'error'); }
     return;

@@ -24,6 +24,15 @@ Cập nhật: 2026-07-29
 - Sản phẩm website đọc dữ liệu hiện có từ Public Catalog Core trước khi cho phép lưu ghi đè website-only; các thao tác này không ghi ngược sang sàn hoặc Warehouse Core.
 - Cần hoàn tất deploy và kiểm thử trình duyệt thực tế desktop/tablet/mobile sau khi thay giao diện.
 
+## Đồng bộ khung quản trị đúng theo `Admin_dashboard.html` (2026-07-30)
+
+- Đã lấy `E:\WEB\website shop huy van\shophuyvan.vn\Admin_dashboard.html` làm chuẩn trực quan cho production: sidebar 240px, biểu tượng cam, khối tài khoản, menu phân nhóm, topbar nền sáng có ô tìm kiếm, nút làm mới và `Xem website`, cùng dashboard bốn thẻ thống kê.
+- Chỉ giữ phạm vi quản trị nội dung website: Dashboard, Banner, Sản phẩm website, Menu & thông tin, Thư viện ảnh/video và đổi mật khẩu. Không đưa các menu minh họa Đơn hàng, kho, voucher, khách hàng, quảng cáo hoặc dữ liệu giả của file mẫu vào production.
+- Ô tìm kiếm trên topbar đã hoạt động: gửi từ khóa sẽ chuyển đến `Sản phẩm website` và lọc danh sách sản phẩm hiện có; không tạo dữ liệu hoặc ghi ngược vào Warehouse/sàn.
+- Deploy admin mới: `https://96f61788.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`, asset phiên bản `20260730.2`; kiểm tra readback trên tên miền chính xác nhận CSS/JS mới đã có sidebar 240px, dashboard 4 thẻ và luồng tìm kiếm.
+- `npm run check`, `npm test`, `npm run test:core-read` đều pass; kiểm tra giới hạn kích thước file không có JavaScript/Python/Worker nào vượt 30KB.
+- Đã kiểm trực tiếp trên phiên admin đã đăng nhập ở production: desktop 1366×900, tablet 820×1180 và mobile 390×844 đều không tràn ngang; sidebar desktop đúng 240px, tablet đúng 196px và menu mobile mở/đóng bình thường. Đã cập nhật CSP cho Font Awesome CDN, nên các biểu tượng menu, đổi mật khẩu và làm mới hiển thị đúng trên mobile.
+
 ## Mã nguồn và deploy chuẩn
 
 - Storefront khách hàng: `site/` → Cloudflare Pages `shophuyvan` → `https://shophuyvan.vn`.

@@ -32,6 +32,14 @@ Mã nguồn liên quan:
 - Đã mở Claude bằng visible runtime `account_16` để review UI theo yêu cầu trước đó, nhưng cổng điều khiển của runtime (`9516`) không phản hồi nên chưa gửi prompt hoặc upload dữ liệu. Không được báo đã có nhận xét Claude cho đến khi runtime phản hồi được.
 - D1 cũ `shophuyvan-website-content-db` chưa xóa và không nằm trong luồng mới; chỉ xử lý theo xác nhận riêng của chủ shop.
 
+### Cập nhật — giao diện admin theo file mẫu (2026-07-30)
+
+- Đã áp dụng trực tiếp ngôn ngữ giao diện của `E:\WEB\website shop huy van\shophuyvan.vn\Admin_dashboard.html` cho admin production: sidebar 240px, icon cam, menu nhóm, topbar có ô tìm kiếm/làm mới/xem website và dashboard 4 thẻ.
+- Mã chuẩn: `admin/assets/content-admin/render.js`, `admin/assets/content-admin/main.js`, `admin/assets/content-admin/dashboard.css`; cache-busting `20260730.2` ở `admin/index.html` và redirect recovery trong `admin/_worker.js`.
+- Deploy: `https://96f61788.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`. Readback production xác nhận index/CSS/JS đang dùng đúng phiên bản mới và có topbar search, sidebar 240px, dashboard 4 thẻ.
+- Đã test mã: `npm run check`, `npm test`, `npm run test:core-read` pass. Ô tìm kiếm topbar chuyển đúng sang `Sản phẩm website` và lọc danh sách cục bộ theo dữ liệu đã tải.
+- Đã kiểm signed-in trực quan: desktop 1366×900, tablet 820×1180 và mobile 390×844 đều không tràn ngang. Tìm kiếm `K145` đưa đúng sang `Sản phẩm website` và hiện sản phẩm khớp. Menu mobile mở/đóng bình thường; CSP đã cho phép Font Awesome CDN để icon menu, đổi mật khẩu và làm mới hiển thị đúng.
+
 ## Đã hoàn thành — banner và danh mục trang chủ (2026-07-30)
 
 Mục tiêu: banner phải giữ đúng tỷ lệ ảnh, không lấy một ảnh vuông của sản phẩm để phóng kín khung. Khi quản trị chưa chọn banner thật, trang chủ dùng cụm ảnh các sản phẩm được quan tâm; khi có banner thật, ưu tiên ảnh desktop/mobile do quản trị chọn và giữ nguyên tỷ lệ.

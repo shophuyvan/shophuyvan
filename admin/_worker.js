@@ -1,5 +1,7 @@
 const CONTENT_ORIGIN = 'https://shophuyvan-content-api.shophuyvan.workers.dev';
 const API_PREFIX = '/api/content';
+const ADMIN_UI_REVISION = '20260730.2';
+const ADMIN_ENTRY_ROUTES = new Set(['/', '/index.html', '/login_admin', '/login']);
 const LEGACY_ADMIN_ASSETS = new Set([
   '/assets/admin.js',
   '/assets/admin-20260729.css'
@@ -31,7 +33,7 @@ async function proxyContent(request) {
 
 function legacyAssetRecovery() {
   return new Response(
-    "window.location.replace('/login_admin?refresh=20260729.8');",
+    "window.location.replace('/login_admin?refresh=20260730.2');",
     {
       headers: {
         'Cache-Control': 'no-store, max-age=0',
@@ -42,11 +44,32 @@ function legacyAssetRecovery() {
   );
 }
 
+function freshAdminEntry(request) {
+  const target = new URL(request.url);
+  target.searchParams.set('refresh', ADMIN_UI_REVISION);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target.toString(),
+      'Cache-Control': 'no-store, max-age=0, must-revalidate'
+    }
+  });
+}
+
+function preventEntryCache(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request, env) {
-    const pathname = new URL(request.url).pathname;
+    const source = new URL(request.url);
+    const pathname = source.pathname;
     if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) return proxyContent(request);
     if (LEGACY_ADMIN_ASSETS.has(pathname)) return legacyAssetRecovery();
-    return env.ASSETS.fetch(request);
+    if (ADMIN_ENTRY_ROUTES.has(pathname) && !source.searchParams.has('refresh')) return freshAdminEntry(request);
+    const response = await env.ASSETS.fetch(request);
+    return ADMIN_ENTRY_ROUTES.has(pathname) ? preventEntryCache(response) : response;
   }
 };

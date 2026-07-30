@@ -32,42 +32,45 @@ function userInitials() {
 }
 
 function navView() {
-  const items = [
-    ['overview', 'fa-chart-pie', 'Tổng quan'],
+  const contentItems = [
     ['banners', 'fa-images', 'Banner'],
     ['products', 'fa-box-open', 'Sản phẩm website'],
     ['settings', 'fa-store', 'Menu & thông tin'],
     ['media', 'fa-photo-film', 'Thư viện ảnh']
   ];
   return `<aside class="ca-sidebar">
-    <div class="ca-sidebar-brand"><strong>SHOP<span>HUYVÂN</span>.VN</strong><small>Quản trị nội dung website</small></div>
+    <div class="ca-sidebar-brand"><div class="ca-brand-lockup"><span class="ca-brand-icon"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i></span><div><strong>SHOP<span>HUYVAN</span>.vn</strong><small>Quản trị nội dung website</small></div></div></div>
     <div class="ca-sidebar-user"><b class="ca-sidebar-avatar">${escapeHtml(userInitials())}</b><div><span>${escapeHtml(state.user?.email || '')}</span><small>Quản trị nội dung</small></div></div>
-    <nav class="ca-sidebar-nav" aria-label="Quản trị nội dung"><div class="ca-nav-label">Nội dung website</div>${items.map(([id, icon, label]) => `<button class="ca-nav-button ${state.page === id ? 'is-active' : ''}" type="button" data-ca-nav="${id}"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</button>`).join('')}</nav>
+    <nav class="ca-sidebar-nav" aria-label="Quản trị nội dung">
+      <div class="ca-nav-group"><div class="ca-nav-label">Tổng quan</div><button class="ca-nav-button ${state.page === 'overview' ? 'is-active' : ''}" type="button" data-ca-nav="overview"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i>Dashboard</button></div>
+      <div class="ca-nav-group"><div class="ca-nav-label">Nội dung website</div>${contentItems.map(([id, icon, label]) => `<button class="ca-nav-button ${state.page === id ? 'is-active' : ''}" type="button" data-ca-nav="${id}"><i class="fa-solid ${icon}" aria-hidden="true"></i>${label}</button>`).join('')}</div>
+      <div class="ca-nav-group"><div class="ca-nav-label">Tài khoản</div><button class="ca-nav-button ${state.page === 'password' ? 'is-active' : ''}" type="button" data-ca-nav="password"><i class="fa-solid fa-key" aria-hidden="true"></i>Đổi mật khẩu</button></div>
+    </nav>
     <div class="ca-sidebar-foot"><button type="button" data-ca-logout><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Đăng xuất</button></div>
   </aside>`;
 }
 
 function headerView() {
   const page = pages[state.page] || pages.overview;
+  const searchValue = state.page === 'products' ? state.productQuery : '';
   return `<header class="ca-topbar">
     <button class="ca-mobile-menu" type="button" data-ca-menu aria-label="Mở menu"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-    <div class="ca-topbar-title"><h1>${escapeHtml(page.title)}</h1><p>${escapeHtml(page.description)}</p></div>
-    <div class="ca-topbar-actions"><a class="ca-button ca-button-outline" href="https://shophuyvan.vn" target="_blank" rel="noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Xem website</a><button class="ca-button ca-button-outline" type="button" data-ca-password>Đổi mật khẩu</button><button class="ca-button ca-button-navy" type="button" data-ca-reload><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Làm mới</button></div>
+    <div class="ca-topbar-left"><div class="ca-page-title"><strong>${escapeHtml(page.title)}</strong><small>${escapeHtml(page.description)}</small></div><form class="ca-topbar-search" data-ca-global-search><input name="query" value="${escapeHtml(searchValue)}" placeholder="Tìm tên hoặc mã sản phẩm..." aria-label="Tìm sản phẩm"><button type="submit" aria-label="Tìm sản phẩm"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button></form></div>
+    <div class="ca-topbar-actions"><button class="ca-topbar-icon" type="button" data-ca-password title="Đổi mật khẩu" aria-label="Đổi mật khẩu"><i class="fa-solid fa-key" aria-hidden="true"></i></button><button class="ca-topbar-icon" type="button" data-ca-reload title="Làm mới" aria-label="Làm mới"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button><a class="ca-topbar-view" href="https://shophuyvan.vn" target="_blank" rel="noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Xem website</a></div>
   </header>`;
 }
 
 function overviewView() {
-  return `<section><div class="ca-section-heading"><div><p class="ca-kicker">Quản trị nội dung website</p><h2>Chào ${escapeHtml(state.user?.email || '')}</h2><p>Thay đổi tại đây chỉ áp dụng phần trình bày của shophuyvan.vn.</p></div></div>
+  const infoKeys = ['brand_name', 'slogan', 'address', 'hotline', 'zalo'];
+  const completedInfo = infoKeys.filter((key) => text(state.settings[key]).trim()).length;
+  return `<section class="ca-dashboard"><div class="ca-dashboard-heading"><div><p class="ca-kicker">Quản trị nội dung website</p><h2>Chào ${escapeHtml(state.user?.email || '')}</h2><p>Chọn khu vực cần cập nhật. Các thay đổi chỉ áp dụng cách website hiển thị cho khách.</p></div></div>
     <div class="ca-stat-grid">
       <article class="ca-card ca-stat-card"><i class="ca-stat-icon fa-solid fa-box-open" aria-hidden="true"></i><div class="ca-stat-body"><span>Sản phẩm có thể chỉnh</span><b>${state.products.length}</b><small>Dữ liệu hiện có trên website</small></div></article>
-      <article class="ca-card ca-stat-card"><i class="ca-stat-icon is-orange fa-solid fa-images" aria-hidden="true"></i><div class="ca-stat-body"><span>Banner website</span><b>${state.banners.length}</b><small>Ảnh và thông điệp trang chủ</small></div></article>
+      <article class="ca-card ca-stat-card"><i class="ca-stat-icon is-orange fa-solid fa-images" aria-hidden="true"></i><div class="ca-stat-body"><span>Banner / slider</span><b>${state.banners.length}</b><small>Ảnh và thông điệp trang chủ</small></div></article>
       <article class="ca-card ca-stat-card"><i class="ca-stat-icon is-green fa-solid fa-photo-film" aria-hidden="true"></i><div class="ca-stat-body"><span>Ảnh & video nội dung</span><b>${state.media.length}</b><small>Đã tải từ máy tính</small></div></article>
+      <article class="ca-card ca-stat-card"><i class="ca-stat-icon is-purple fa-solid fa-store" aria-hidden="true"></i><div class="ca-stat-body"><span>Thông tin cửa hàng</span><b>${completedInfo}/5</b><small>Slogan, địa chỉ và số tư vấn</small></div></article>
     </div>
-    <article class="ca-card ca-intro"><h3>Nơi quản trị này dành riêng cho nội dung website</h3><p>Chọn đúng khu vực để thay ảnh banner, phần giới thiệu cửa hàng hoặc cách sản phẩm xuất hiện với khách. Dữ liệu bán hàng vẫn giữ nguyên theo dữ liệu hiện có.</p><div class="ca-quick-grid">
-      <button class="ca-quick-button" type="button" data-ca-nav="banners"><i class="fa-solid fa-images" aria-hidden="true"></i><span><strong>Chỉnh banner</strong><small>Ảnh desktop, ảnh mobile và thông điệp bán hàng</small></span></button>
-      <button class="ca-quick-button" type="button" data-ca-nav="products"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span><strong>Chỉnh sản phẩm</strong><small>Tên, ảnh, video, mô tả và lựa chọn hiển thị</small></span></button>
-      <button class="ca-quick-button" type="button" data-ca-nav="settings"><i class="fa-solid fa-store" aria-hidden="true"></i><span><strong>Thông tin website</strong><small>Slogan, địa chỉ và số tư vấn cho khách</small></span></button>
-    </div></article></section>`;
+    <div class="ca-dashboard-grid"><article class="ca-card ca-dashboard-panel"><div class="ca-panel-header"><h3>Nội dung cần cập nhật</h3><button class="ca-button ca-button-outline ca-button-compact" type="button" data-ca-nav="banners">Xem banner</button></div><div class="ca-dashboard-list"><button type="button" data-ca-nav="banners"><i class="fa-solid fa-images" aria-hidden="true"></i><span><strong>${state.banners.length ? 'Kiểm tra banner đang hiển thị' : 'Thêm banner đầu tiên'}</strong><small>${state.banners.length ? `${state.banners.length} banner đang được quản lý` : 'Trang chủ đang dùng cụm sản phẩm bán chạy'}</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button><button type="button" data-ca-nav="products"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span><strong>Chỉnh nội dung sản phẩm</strong><small>Tên, ảnh, video, mô tả và lựa chọn hiển thị</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button><button type="button" data-ca-nav="settings"><i class="fa-solid fa-store" aria-hidden="true"></i><span><strong>Hoàn thiện thông tin cửa hàng</strong><small>Đã điền ${completedInfo}/5 thông tin cần thiết</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></article><article class="ca-card ca-dashboard-panel"><div class="ca-panel-header"><h3>Thao tác nhanh</h3></div><div class="ca-quick-grid"><button class="ca-quick-button" type="button" data-ca-nav="banners"><i class="fa-solid fa-images" aria-hidden="true"></i><span><strong>Chỉnh banner</strong><small>Ảnh desktop, mobile và thông điệp</small></span></button><button class="ca-quick-button" type="button" data-ca-nav="products"><i class="fa-solid fa-box-open" aria-hidden="true"></i><span><strong>Chỉnh sản phẩm</strong><small>Nội dung hiển thị cho khách</small></span></button><button class="ca-quick-button" type="button" data-ca-nav="media"><i class="fa-solid fa-photo-film" aria-hidden="true"></i><span><strong>Thư viện ảnh</strong><small>Tải ảnh và video từ máy tính</small></span></button></div></article></div></section>`;
 }
 
 function productListView() {
