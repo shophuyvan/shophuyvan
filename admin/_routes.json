@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "include": [
+    "/api/content",
+    "/api/content/*",
+    "/assets/admin.js",
+    "/assets/admin-20260729.css"
+  ],
+  "exclude": []
+}

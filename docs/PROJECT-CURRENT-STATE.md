@@ -1,5 +1,15 @@
 # Trạng thái hiện tại — website Shop Huy Vân
 
+## Giảm lượt gọi Pages Function của trang quản trị (2026-08-07)
+
+- Nguyên nhân cảnh báo 90% Workers Free là Pages project `adminshophuyvan` dùng `admin/_worker.js` ở chế độ bắt toàn bộ request, khiến HTML, CSS, JavaScript, ảnh và đường dẫn quét tự động đều được tính là Pages Function invocation.
+- Đã thêm `admin/_routes.json` để Function chỉ chạy cho `/api/content`, `/api/content/*` và hai asset legacy dùng để cứu tab cũ. Các asset `content-admin`, trang tĩnh và đường dẫn fallback được Cloudflare Pages phục vụ trực tiếp.
+- Deploy production thành công: `https://3cd9501e.adminshophuyvan.pages.dev` → `https://admin.shophuyvan.vn`, deployment ID `3cd9501e-5b53-4bca-8853-ac20e7f1d839`.
+- Kiểm chứng production: trang `/`, `/login_admin` và `assets/content-admin/main.js` trả `200`; `/api/content/v1/session` trả `401` đúng khi chưa đăng nhập; asset legacy vẫn trả recovery script đúng.
+- Đo bằng Pages Functions Analytics trước/sau 53 request an toàn: 50 request tĩnh không làm tăng invocation; ba request API làm chỉ số tăng đúng từ `50` lên `53`. Routing mới đã loại request tĩnh khỏi hạn mức Workers.
+- `npm run check`, `npm test`, `npm run test:core-read`, `git diff --check` và file-size guard đều pass. Không thay đổi D1, Product/Warehouse Core hoặc Content API.
+- Còn theo dõi: đo lại theo cửa sổ UTC kế tiếp; nếu bot tiếp tục đánh trực tiếp vào `/api/content/*` thì bổ sung Cloudflare Access/rate limit sau khi xác định IP và đường dẫn bằng Zone Analytics.
+
 ## Theo dõi đường dẫn sản phẩm cũ (2026-07-29)
 
 - `GET /api/core/products/public-catalog/K145` trả đúng dữ liệu gốc: giá, tồn kho và bốn phân loại.

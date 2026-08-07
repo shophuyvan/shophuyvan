@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createStorefrontListing } from '../site/assets/storefront-listing.js';
 
-const [site, admin, adminWorker, worker, adminScript, adminRender, adminDashboardCss, siteConfig, siteScript, storefrontListing, redirects, baseCss, mobileCss] = await Promise.all([
+const [site, admin, adminWorker, adminRoutesSource, worker, adminScript, adminRender, adminDashboardCss, siteConfig, siteScript, storefrontListing, redirects, baseCss, mobileCss] = await Promise.all([
   readFile(new URL('../site/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/index.html', import.meta.url), 'utf8'),
   readFile(new URL('../admin/_worker.js', import.meta.url), 'utf8'),
+  readFile(new URL('../admin/_routes.json', import.meta.url), 'utf8'),
   readFile(new URL('../services/content-api/src/index.js', import.meta.url), 'utf8'),
   readFile(new URL('../admin/assets/content-admin/main.js', import.meta.url), 'utf8'),
   readFile(new URL('../admin/assets/content-admin/render.js', import.meta.url), 'utf8'),
@@ -17,6 +18,8 @@ const [site, admin, adminWorker, worker, adminScript, adminRender, adminDashboar
   readFile(new URL('../site/assets/base.css', import.meta.url), 'utf8'),
   readFile(new URL('../site/assets/mobile.css', import.meta.url), 'utf8')
 ]);
+
+const adminRoutes = JSON.parse(adminRoutesSource);
 
 assert.match(site, /assets\/desktop\.css/);
 assert.match(site, /assets\/mobile\.css/);
@@ -30,6 +33,17 @@ assert.match(adminWorker, /ADMIN_UI_REVISION/);
 assert.match(adminWorker, /freshAdminEntry/);
 assert.match(adminWorker, /window\.location\.replace/);
 assert.match(adminWorker, /Cache-Control': 'no-store, max-age=0/);
+assert.deepEqual(adminRoutes, {
+  version: 1,
+  include: [
+    '/api/content',
+    '/api/content/*',
+    '/assets/admin.js',
+    '/assets/admin-20260729.css'
+  ],
+  exclude: []
+});
+assert.doesNotMatch(adminRoutesSource, /\/assets\/content-admin\/|"\/\*"/);
 assert.match(adminScript, /const API = '\/api\/content'/);
 assert.match(adminScript, /render as renderPage/);
 assert.match(adminScript, /data-ca-global-search/);
